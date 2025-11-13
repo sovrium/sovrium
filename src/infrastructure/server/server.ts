@@ -306,6 +306,15 @@ function setupLanguageRoutes(honoApp: Readonly<Hono>, config: HonoAppConfig): Re
   return honoApp
     .get('/:lang/', (c) => {
       try {
+        // Check if a page exists at this exact path first (e.g., /fr/ as a page path)
+        // Strip trailing slash to match page paths without it
+        const pathWithoutTrailingSlash = c.req.path.replace(/\/$/, '')
+        const exactPageHtml = renderPage(app, pathWithoutTrailingSlash)
+        if (exactPageHtml) {
+          return c.html(exactPageHtml)
+        }
+
+        // No exact page match - treat as language subdirectory
         const urlLanguage = validateLanguageSubdirectory(app, c.req.path)
         if (!urlLanguage) {
           return c.html(renderNotFoundPage(), 404)
