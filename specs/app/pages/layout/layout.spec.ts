@@ -216,7 +216,7 @@ test.describe('Page Layout', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LAYOUT-006: should allow pages without global layout (blank page)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -242,7 +242,7 @@ test.describe('Page Layout', () => {
       await expect(page.locator('[data-testid="navigation"]')).toBeHidden()
       await expect(page.locator('[data-testid="footer"]')).toBeHidden()
       await expect(page.locator('[data-testid="sidebar"]')).toBeHidden()
-      await expect(page.locator('[data-testid="page-content"]')).toContainText('Content Only')
+      await expect(page.locator('[data-testid="page-test"]')).toContainText('Content Only')
     }
   )
 
