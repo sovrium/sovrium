@@ -10,6 +10,26 @@ import type { Navigation as NavigationProps } from '@/domain/models/app/page/lay
 import type { ReactElement } from 'react'
 
 /**
+ * Build navigation inline styles from props
+ */
+function buildNavigationStyle(
+  backgroundColor: string | undefined,
+  textColor: string | undefined
+): React.CSSProperties | undefined {
+  const hasBackgroundColor = backgroundColor !== undefined
+  const hasTextColor = textColor !== undefined
+
+  if (!hasBackgroundColor && !hasTextColor) {
+    return undefined
+  }
+
+  return {
+    ...(hasBackgroundColor && { backgroundColor }),
+    ...(hasTextColor && { color: textColor }),
+  }
+}
+
+/**
  * Navigation Component
  *
  * Renders the main navigation header with logo, links, and optional CTA button.
@@ -21,9 +41,16 @@ export function Navigation({
   logo,
   links,
   cta,
+  backgroundColor,
+  textColor,
 }: Readonly<NavigationProps>): Readonly<ReactElement> {
+  const navStyle = buildNavigationStyle(backgroundColor, textColor)
+
   return (
-    <nav data-testid="navigation">
+    <nav
+      data-testid="navigation"
+      style={navStyle}
+    >
       <a
         href="/"
         data-testid="nav-logo-link"

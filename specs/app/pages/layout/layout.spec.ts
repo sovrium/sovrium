@@ -246,7 +246,7 @@ test.describe('Page Layout', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LAYOUT-007: should enable cohesive visual design across layout',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

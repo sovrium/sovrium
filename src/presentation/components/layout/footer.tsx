@@ -17,6 +17,22 @@ import type { Footer as FooterProps } from '@/domain/models/app/page/layout/foot
 import type { ReactElement } from 'react'
 
 /**
+ * Build footer inline styles from props
+ */
+function buildFooterStyle(
+  backgroundColor: string | undefined,
+  textColor: string | undefined
+): React.CSSProperties {
+  const baseStyle: React.CSSProperties = { display: 'block', minHeight: '1px' }
+
+  return {
+    ...baseStyle,
+    ...(backgroundColor && { backgroundColor }),
+    ...(textColor && { color: textColor }),
+  }
+}
+
+/**
  * Footer Component
  *
  * Renders the page footer with logo, copyright, optional legal links, and contact email.
@@ -28,6 +44,8 @@ export function Footer({
   enabled = true,
   logo,
   description,
+  backgroundColor,
+  textColor,
   columns,
   social,
   newsletter,
@@ -39,10 +57,12 @@ export function Footer({
     return undefined
   }
 
+  const footerStyle = buildFooterStyle(backgroundColor, textColor)
+
   return (
     <footer
       data-testid="footer"
-      style={{ display: 'block', minHeight: '1px' }}
+      style={footerStyle}
     >
       <FooterLogo logo={logo} />
       <FooterDescription description={description} />
