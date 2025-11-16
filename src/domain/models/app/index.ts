@@ -109,9 +109,13 @@ export const AppSchema = Schema.Struct({
   /**
    * Default layout configuration for all pages (optional).
    *
-   * Defines the default layout that applies to all pages unless overridden at page level.
-   * Pages can override with layout: null (no layout), provide partial layouts (extends default),
-   * or completely replace the default layout.
+   * Defines the default layout components (banner, navigation, footer, sidebar) that
+   * apply to all pages. Individual pages can:
+   * - Override: Provide their own layout configuration
+   * - Extend: Add components (e.g., sidebar) to the default layout
+   * - Disable: Set layout to null to render without any layout components
+   *
+   * This enables consistent layout across pages with per-page customization flexibility.
    */
   defaultLayout: Schema.optional(LayoutSchema),
 

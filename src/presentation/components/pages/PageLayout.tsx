@@ -30,10 +30,10 @@ type PageLayoutProps = {
  * Components are hidden when not configured to support .toBeHidden() test assertions.
  * Uses <template> element for hidden placeholders to avoid DOM pollution.
  *
- * Merges page layout with default layout:
- * - page.layout = undefined: Use defaultLayout
- * - page.layout = null: No layout (all components hidden)
- * - page.layout = object: Merge with defaultLayout (extends/overrides)
+ * Supports defaultLayout at application level with per-page override/extension:
+ * - page.layout = null: Disable all layout (blank page)
+ * - page.layout = undefined: Use defaultLayout from app
+ * - page.layout = object: Use ONLY what's defined in page layout (complete override)
  *
  * @param props - Component props
  * @returns Layout wrapper with conditional components
@@ -43,28 +43,28 @@ export function PageLayout({
   defaultLayout,
   children,
 }: PageLayoutProps): Readonly<ReactElement> {
-  const layout = mergeLayouts(defaultLayout, page.layout)
+  const effectiveLayout = mergeLayouts(defaultLayout, page.layout)
 
   return (
     <>
-      {layout?.banner ? (
-        <Banner {...layout.banner} />
+      {effectiveLayout?.banner ? (
+        <Banner {...effectiveLayout.banner} />
       ) : (
         <span
           data-testid="banner"
           hidden
         />
       )}
-      {layout?.navigation ? (
-        <Navigation {...layout.navigation} />
+      {effectiveLayout?.navigation ? (
+        <Navigation {...effectiveLayout.navigation} />
       ) : (
         <span
           data-testid="navigation"
           hidden
         />
       )}
-      {layout?.sidebar ? (
-        <Sidebar {...layout.sidebar} />
+      {effectiveLayout?.sidebar ? (
+        <Sidebar {...effectiveLayout.sidebar} />
       ) : (
         <span
           data-testid="sidebar"
@@ -72,8 +72,8 @@ export function PageLayout({
         />
       )}
       {children}
-      {layout?.footer ? (
-        <Footer {...layout.footer} />
+      {effectiveLayout?.footer ? (
+        <Footer {...effectiveLayout.footer} />
       ) : (
         <span
           data-testid="footer"

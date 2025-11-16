@@ -25,8 +25,20 @@ type DynamicPageProps = {
   readonly blocks?: Blocks
   readonly theme?: Theme
   readonly languages?: Languages
-  readonly detectedLanguage?: string
   readonly defaultLayout?: Layout
+  readonly detectedLanguage?: string
+}
+
+type DynamicPageHeadProps = {
+  readonly mergedPage: Page
+  readonly theme?: Theme
+  readonly directionStyles: string
+  readonly title: string
+  readonly description: string
+  readonly keywords?: string
+  readonly lang: string
+  readonly languages?: Languages
+  readonly scripts: ReturnType<typeof groupScriptsByPosition>
 }
 
 /**
@@ -53,34 +65,81 @@ function mergeBlockMetaIntoPage(page: Page, blocks?: Blocks): Page {
   }
 }
 
-type PageBodyProps = {
+/**
+ * Renders the <head> section of DynamicPage
+ * Extracted to satisfy max-lines-per-function ESLint rule
+ */
+function DynamicPageHead({
+  mergedPage,
+  theme,
+  directionStyles,
+  title,
+  description,
+  keywords,
+  lang,
+  languages,
+  scripts,
+}: DynamicPageHeadProps): Readonly<ReactElement> {
+  return (
+    <head>
+      <PageHead
+        page={mergedPage}
+        theme={theme}
+        directionStyles={directionStyles}
+        title={title}
+        description={description}
+        keywords={keywords}
+        lang={lang}
+        languages={languages}
+        scripts={scripts}
+      />
+    </head>
+  )
+}
+
+type DynamicPageBodyProps = {
   readonly page: Page
   readonly blocks?: Blocks
   readonly theme?: Theme
   readonly languages?: Languages
-  readonly metadata: ReturnType<typeof extractPageMetadata>
-  readonly langConfig: ReturnType<typeof resolvePageLanguage>
-  readonly scripts: ReturnType<typeof groupScriptsByPosition>
   readonly defaultLayout?: Layout
+  readonly direction: 'ltr' | 'rtl'
+  readonly scripts: ReturnType<typeof groupScriptsByPosition>
+  readonly lang: string
+  readonly bodyStyle:
+    | {
+        readonly fontFamily?: string
+        readonly fontSize?: string
+        readonly lineHeight?: string
+        readonly fontStyle?: 'normal' | 'italic' | 'oblique'
+        readonly letterSpacing?: string
+        readonly textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize'
+      }
+    | undefined
 }
 
-function PageBody({
+/**
+ * Renders the <body> section of DynamicPage
+ * Extracted to satisfy max-lines-per-function ESLint rule
+ */
+function DynamicPageBody({
   page,
   blocks,
   theme,
   languages,
-  metadata,
-  langConfig,
-  scripts,
   defaultLayout,
-}: PageBodyProps): Readonly<ReactElement> {
+  direction,
+  scripts,
+  lang,
+  bodyStyle,
+}: DynamicPageBodyProps): Readonly<ReactElement> {
   return (
-    <body {...(metadata.bodyStyle && { style: metadata.bodyStyle })}>
+    <body {...(bodyStyle && { style: bodyStyle })}>
       <PageBodyScripts
         page={page}
         theme={theme}
         languages={languages}
-        direction={langConfig.direction}
+        direction={direction}
         scripts={scripts}
         position="start"
       />
@@ -94,14 +153,14 @@ function PageBody({
           theme={theme}
           blocks={blocks}
           languages={languages}
-          currentLang={langConfig.lang}
+          currentLang={lang}
         />
       </PageLayout>
       <PageBodyScripts
         page={page}
         theme={theme}
         languages={languages}
-        direction={langConfig.direction}
+        direction={direction}
         scripts={scripts}
         position="end"
       />
@@ -119,8 +178,8 @@ export function DynamicPage({
   blocks,
   theme,
   languages,
-  detectedLanguage,
   defaultLayout,
+  detectedLanguage,
 }: DynamicPageProps): Readonly<ReactElement> {
   const metadata = extractPageMetadata(page, theme, languages, detectedLanguage)
   const langConfig = resolvePageLanguage(page, languages, detectedLanguage)
@@ -132,28 +191,27 @@ export function DynamicPage({
       lang={langConfig.lang}
       dir={langConfig.direction}
     >
-      <head>
-        <PageHead
-          page={pageWithMeta}
-          theme={theme}
-          directionStyles={langConfig.directionStyles}
-          title={metadata.title}
-          description={metadata.description}
-          keywords={metadata.keywords}
-          lang={langConfig.lang}
-          languages={languages}
-          scripts={scripts}
-        />
-      </head>
-      <PageBody
+      <DynamicPageHead
+        mergedPage={pageWithMeta}
+        theme={theme}
+        directionStyles={langConfig.directionStyles}
+        title={metadata.title}
+        description={metadata.description}
+        keywords={metadata.keywords}
+        lang={langConfig.lang}
+        languages={languages}
+        scripts={scripts}
+      />
+      <DynamicPageBody
         page={page}
         blocks={blocks}
         theme={theme}
         languages={languages}
-        metadata={metadata}
-        langConfig={langConfig}
-        scripts={scripts}
         defaultLayout={defaultLayout}
+        direction={langConfig.direction}
+        scripts={scripts}
+        lang={langConfig.lang}
+        bodyStyle={metadata.bodyStyle}
       />
     </html>
   )
