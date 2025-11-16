@@ -14,7 +14,6 @@ import { FaviconSetSchema } from './favicon-set'
 import { FaviconsConfigSchema } from './favicons-config'
 import { OpenGraphSchema } from './open-graph'
 import { PreloadSchema } from './preload'
-import { StructuredDataSchema } from './structured-data'
 import { TwitterCardSchema } from './twitter-card'
 
 /**
@@ -189,7 +188,12 @@ export const MetaSchema = Schema.Struct({
   ),
   openGraph: Schema.optional(OpenGraphSchema),
   twitter: Schema.optional(TwitterCardSchema),
-  schema: Schema.optional(StructuredDataSchema),
+  schema: Schema.optional(
+    Schema.Unknown.annotations({
+      description:
+        'Schema.org structured data - accepts orchestrator format (organization, faqPage, etc.) or direct Schema.org object (@context, @type, ...)',
+    })
+  ),
   preload: Schema.optional(PreloadSchema),
   dnsPrefetch: Schema.optional(DnsPrefetchSchema),
   analytics: Schema.optional(

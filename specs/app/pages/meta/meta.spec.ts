@@ -305,7 +305,7 @@ test.describe('Page Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-009: should provide search engine understanding',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
