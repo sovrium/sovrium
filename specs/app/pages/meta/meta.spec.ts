@@ -433,7 +433,7 @@ test.describe('Page Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-012: should provide comprehensive page metadata management',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
