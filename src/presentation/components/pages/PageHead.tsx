@@ -11,6 +11,7 @@ import {
   AnalyticsHead,
   CustomElementsHead,
   DnsPrefetchLinks,
+  FaviconLink,
   FaviconSetLinks,
   OpenGraphMeta,
   PreloadLinks,
@@ -355,12 +356,7 @@ export function PageHead({
       />
       <AnalyticsHead analytics={page.meta?.analytics} />
       <CustomElementsHead customElements={page.meta?.customElements} />
-      {page.meta?.favicon && (
-        <link
-          rel="icon"
-          href={page.meta.favicon}
-        />
-      )}
+      <FaviconLink favicon={page.meta?.favicon} />
       <FaviconSetLinks favicons={normalizedFavicons} />
       <CustomStylesheet stylesheet={page.meta?.stylesheet} />
       <GoogleFonts googleFonts={page.meta?.googleFonts} />
