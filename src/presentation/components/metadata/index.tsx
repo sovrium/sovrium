@@ -116,8 +116,12 @@ export function TwitterCardMeta({
  * Generates Schema.org structured data for rich search results
  * Supports both 'schema' (canonical) and 'structuredData' (test alias)
  *
- * Each structured data type (organization, breadcrumb, article, etc.) is rendered
- * as a separate <script type="application/ld+json"> tag for proper Schema.org validation
+ * Handles two formats:
+ * 1. Direct Schema.org object: { "@context": "...", "@type": "...", ... }
+ * 2. Orchestrator schema: { organization: {...}, faqPage: {...}, ... }
+ *
+ * Each structured data type is rendered as a separate <script type="application/ld+json">
+ * tag for proper Schema.org validation
  *
  * SECURITY: Safe use of dangerouslySetInnerHTML
  * - Content: Schema.org structured data (JSON.stringify)
@@ -142,7 +146,28 @@ export function StructuredDataScript({
     return undefined
   }
 
-  // Extract all structured data types from the orchestrator schema
+  // Type guard: ensure structuredData is an object
+  if (typeof structuredData !== 'object' || structuredData === null) {
+    return undefined
+  }
+
+  // Check if this is a direct Schema.org object (has @context and @type)
+  const isDirectSchemaObject =
+    '@context' in structuredData && '@type' in structuredData
+
+  // Handle direct Schema.org object format
+  if (isDirectSchemaObject) {
+    return (
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(structuredData),
+        }}
+      />
+    )
+  }
+
+  // Handle orchestrator schema format (organization, faqPage, etc.)
   const structuredDataTypes = Object.entries(structuredData).filter(
     ([, value]) => value !== undefined && value !== null
   )
