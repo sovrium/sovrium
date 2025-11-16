@@ -296,7 +296,7 @@ test.describe('Local Business Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LOCALBUSINESS-008: should provide precise map location',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
