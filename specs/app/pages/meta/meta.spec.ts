@@ -115,7 +115,7 @@ test.describe('Page Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-004: should accept keyword string',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
