@@ -215,7 +215,7 @@ test.describe('Local Business Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LOCALBUSINESS-006: should indicate business price level',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
