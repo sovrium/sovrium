@@ -565,7 +565,7 @@ test.describe('Local Business Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LOCALBUSINESS-014: should enable map pin and directions in search results',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
