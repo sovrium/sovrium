@@ -379,7 +379,7 @@ test.describe('Local Business Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LOCALBUSINESS-010: should provide business hours for each day',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
