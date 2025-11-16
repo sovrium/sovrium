@@ -96,7 +96,7 @@ test.describe('Local Business Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LOCALBUSINESS-003: should provide business branding',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
