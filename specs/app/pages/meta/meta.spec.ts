@@ -148,7 +148,7 @@ test.describe('Page Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-005: should define canonical URL',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

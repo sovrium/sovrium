@@ -36,6 +36,7 @@ type DynamicPageHeadProps = {
   readonly title: string
   readonly description: string
   readonly keywords?: string
+  readonly canonical?: string
   readonly lang: string
   readonly languages?: Languages
   readonly scripts: ReturnType<typeof groupScriptsByPosition>
@@ -76,6 +77,7 @@ function DynamicPageHead({
   title,
   description,
   keywords,
+  canonical,
   lang,
   languages,
   scripts,
@@ -89,6 +91,7 @@ function DynamicPageHead({
         title={title}
         description={description}
         keywords={keywords}
+        canonical={canonical}
         lang={lang}
         languages={languages}
         scripts={scripts}
@@ -198,6 +201,7 @@ export function DynamicPage({
         title={metadata.title}
         description={metadata.description}
         keywords={metadata.keywords}
+        canonical={metadata.canonical}
         lang={langConfig.lang}
         languages={languages}
         scripts={scripts}
