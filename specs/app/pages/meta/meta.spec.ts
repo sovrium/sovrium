@@ -257,7 +257,7 @@ test.describe('Page Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-008: should enable rich social sharing',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
