@@ -136,7 +136,7 @@ test.describe('Local Business Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LOCALBUSINESS-004: should support single or multiple business images',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
