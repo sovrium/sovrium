@@ -343,7 +343,7 @@ test.describe('Page Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-010: should optimize page load performance',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -380,7 +380,7 @@ test.describe('Page Metadata', () => {
       await expect(page.locator('link[rel="preload"][as="font"]')).toBeAttached()
       await expect(
         page.locator('link[rel="dns-prefetch"][href="https://fonts.googleapis.com"]')
-      ).toBeVisible()
+      ).toBeAttached()
     }
   )
 

@@ -13,6 +13,7 @@ import {
   DnsPrefetchLinks,
   FaviconSetLinks,
   OpenGraphMeta,
+  PreloadLinks,
   StructuredDataScript,
   TwitterCardMeta,
 } from '@/presentation/components/metadata'
@@ -299,6 +300,7 @@ function HreflangLinks({
  * - Basic meta tags (charset, viewport, title, description)
  * - OpenGraph and Twitter Card metadata
  * - Structured data (JSON-LD)
+ * - Preload hints for critical resources
  * - DNS prefetch hints
  * - Analytics scripts
  * - Custom elements
@@ -345,6 +347,7 @@ export function PageHead({
       />
       <TwitterCardMeta page={page} />
       <StructuredDataScript page={page} />
+      <PreloadLinks preload={page.meta?.preload} />
       <DnsPrefetchLinks dnsPrefetch={page.meta?.dnsPrefetch} />
       <HreflangLinks
         page={page}
