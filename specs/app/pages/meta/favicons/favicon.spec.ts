@@ -254,7 +254,7 @@ test.describe('Favicon', () => {
   // ONE OPTIMIZED test verifying components work together efficiently
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-PAGES-META-FAVICONS-FAVICON-REGRESSION-001: user can complete full favicon workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
@@ -279,7 +279,7 @@ test.describe('Favicon', () => {
 
       // Verify favicon link
       const favicon = page.locator('link[rel="icon"]')
-      await expect(favicon).toBeVisible()
+      await expect(favicon).toBeAttached()
       await expect(favicon).toHaveAttribute('href', './public/favicon.ico')
     }
   )
