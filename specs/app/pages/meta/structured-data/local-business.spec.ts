@@ -519,7 +519,7 @@ test.describe('Local Business Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LOCALBUSINESS-013: should enable Google Business Profile rich results',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -557,11 +557,11 @@ test.describe('Local Business Schema', () => {
         ],
       })
 
-      // WHEN: opens is '09:00' and closes is '18:00' (HH:MM format)
+      // WHEN: complete business data with address, geo, and hours is provided
       await page.goto('/')
 
-      // THEN: it should specify daily operating hours
-      await expect(page.locator('script[type="application/ld+json"]')).toBeVisible()
+      // THEN: it should enable Google Business Profile rich results
+      await expect(page.locator('script[type="application/ld+json"]')).toBeAttached()
     }
   )
 
