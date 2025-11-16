@@ -336,7 +336,7 @@ test.describe('Local Business Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LOCALBUSINESS-009: should link business to social profiles',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
