@@ -14,6 +14,7 @@ import type { Analytics } from '@/domain/models/app/page/meta/analytics'
 import type { CustomElements } from '@/domain/models/app/page/meta/custom-elements'
 import type { FaviconSet } from '@/domain/models/app/page/meta/favicon-set'
 import type { OpenGraph } from '@/domain/models/app/page/meta/open-graph'
+import type { Preload } from '@/domain/models/app/page/meta/preload'
 import type { Page } from '@/domain/models/app/pages'
 
 /**
@@ -308,6 +309,42 @@ export function FaviconSetLinks({
           />
         )
       })}
+    </>
+  )
+}
+
+/**
+ * Render preload link tags
+ * Generates <link rel="preload" ...> tags for critical resources
+ *
+ * @param preload - Preload configuration from page.meta
+ * @returns React fragment with preload link tags
+ */
+export function PreloadLinks({
+  preload,
+}: {
+  readonly preload?: Preload
+}): Readonly<ReactElement | undefined> {
+  if (!preload || preload.length === 0) {
+    return undefined
+  }
+
+  return (
+    <>
+      {preload.map((item, index) => (
+        <link
+          key={index}
+          rel="preload"
+          href={item.href}
+          as={item.as}
+          {...(item.type && { type: item.type })}
+          {...(item.crossorigin !== undefined &&
+            (typeof item.crossorigin === 'boolean'
+              ? item.crossorigin && { crossOrigin: 'anonymous' }
+              : { crossOrigin: item.crossorigin }))}
+          {...(item.media && { media: item.media })}
+        />
+      ))}
     </>
   )
 }
