@@ -15,6 +15,7 @@ import {
   StructuredDataScript,
   TwitterCardMeta,
 } from '@/presentation/components/metadata'
+import { normalizeFavicons } from '@/application/metadata/favicon-transformer'
 import { renderInlineScriptTag, renderScriptTag } from '@/presentation/scripts/script-renderers'
 import { resolveTranslationPattern } from '@/presentation/translations/translation-resolver'
 import type { GroupedScripts } from './PageScripts'
@@ -276,6 +277,7 @@ export function PageHead({
 }: PageHeadProps): Readonly<ReactElement> {
   const hasCustomViewport = hasCustomViewportMeta(page.meta?.customElements)
   const openGraphData = extractOpenGraphData(page, lang, languages)
+  const normalizedFavicons = normalizeFavicons(page.meta?.favicons)
 
   return (
     <>
@@ -306,7 +308,7 @@ export function PageHead({
           href={page.meta.favicon}
         />
       )}
-      <FaviconSetLinks favicons={page.meta?.favicons} />
+      <FaviconSetLinks favicons={normalizedFavicons} />
       <ThemeFonts theme={theme} />
       <GlobalStyles directionStyles={directionStyles} />
       <HeadScripts scripts={scripts} />

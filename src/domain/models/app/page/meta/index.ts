@@ -11,6 +11,7 @@ import { CustomElementsSchema } from './custom-elements'
 import { DnsPrefetchSchema } from './dns-prefetch'
 import { FaviconSchema } from './favicon'
 import { FaviconSetSchema } from './favicon-set'
+import { FaviconsConfigSchema } from './favicons-config'
 import { OpenGraphSchema } from './open-graph'
 import { PreloadSchema } from './preload'
 import { StructuredDataSchema } from './structured-data'
@@ -168,7 +169,7 @@ export const MetaSchema = Schema.Struct({
     })
   ),
   favicon: Schema.optional(FaviconSchema),
-  favicons: Schema.optional(FaviconSetSchema),
+  favicons: Schema.optional(Schema.Union(FaviconSetSchema, FaviconsConfigSchema)),
   stylesheet: Schema.optional(
     Schema.String.annotations({
       description: 'Path to the main stylesheet',
@@ -235,6 +236,7 @@ export type Meta = Schema.Schema.Type<typeof MetaSchema>
 // Re-export all meta schemas for convenience
 export * from './favicon'
 export * from './favicon-set'
+export * from './favicons-config'
 export * from './open-graph'
 export * from './twitter-card'
 export * from './structured-data'

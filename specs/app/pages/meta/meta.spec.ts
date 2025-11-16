@@ -181,7 +181,7 @@ test.describe('Page Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-006: should support both single and multi-favicon configurations',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
