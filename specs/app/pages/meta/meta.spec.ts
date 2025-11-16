@@ -84,7 +84,7 @@ test.describe('Page Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-003: should enforce description length constraint',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
