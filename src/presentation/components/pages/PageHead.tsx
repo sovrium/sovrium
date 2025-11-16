@@ -6,6 +6,7 @@
  */
 
 import { type ReactElement } from 'react'
+import { normalizeFavicons } from '@/application/metadata/favicon-transformer'
 import {
   AnalyticsHead,
   CustomElementsHead,
@@ -276,6 +277,7 @@ export function PageHead({
 }: PageHeadProps): Readonly<ReactElement> {
   const hasCustomViewport = hasCustomViewportMeta(page.meta?.customElements)
   const openGraphData = extractOpenGraphData(page, lang, languages)
+  const normalizedFavicons = normalizeFavicons(page.meta?.favicons)
 
   return (
     <>
@@ -306,7 +308,7 @@ export function PageHead({
           href={page.meta.favicon}
         />
       )}
-      <FaviconSetLinks favicons={page.meta?.favicons} />
+      <FaviconSetLinks favicons={normalizedFavicons} />
       <ThemeFonts theme={theme} />
       <GlobalStyles directionStyles={directionStyles} />
       <HeadScripts scripts={scripts} />
