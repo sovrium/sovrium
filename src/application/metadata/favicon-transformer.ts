@@ -9,6 +9,23 @@ import type { FaviconSet } from '@/domain/models/app/page/meta/favicon-set'
 import type { FaviconsConfig } from '@/domain/models/app/page/meta/favicons-config'
 
 /**
+ * Normalizes a favicon path to ensure it starts with './'
+ *
+ * @param href - Favicon path (with or without './' prefix)
+ * @returns Path guaranteed to start with './'
+ *
+ * @example
+ * ```typescript
+ * normalizeFaviconPath('/icon.svg')    // './icon.svg'
+ * normalizeFaviconPath('./icon.svg')   // './icon.svg'
+ * normalizeFaviconPath('icon.svg')     // './icon.svg'
+ * ```
+ */
+function normalizeFaviconPath(href: string): string {
+  return href.startsWith('./') ? href : `.${href}`
+}
+
+/**
  * Transforms FaviconsConfig (object format) to FaviconSet (array format)
  *
  * This function converts the simplified object-based configuration format
@@ -43,43 +60,37 @@ import type { FaviconsConfig } from '@/domain/models/app/page/meta/favicons-conf
  * ```
  */
 export function transformFaviconsConfigToSet(config: FaviconsConfig): FaviconSet {
-  const faviconSet: FaviconSet = []
-
   // Transform icon
-  if (config.icon) {
-    const href = config.icon.startsWith('./') ? config.icon : `.${config.icon}`
-    faviconSet.push({
-      rel: 'icon',
-      type: 'image/svg+xml',
-      href,
-    })
-  }
+  const iconItems = config.icon
+    ? [
+        {
+          rel: 'icon' as const,
+          type: 'image/svg+xml' as const,
+          href: normalizeFaviconPath(config.icon),
+        },
+      ]
+    : []
 
   // Transform appleTouchIcon
-  if (config.appleTouchIcon) {
-    const href = config.appleTouchIcon.startsWith('./')
-      ? config.appleTouchIcon
-      : `.${config.appleTouchIcon}`
-    faviconSet.push({
-      rel: 'apple-touch-icon',
-      href,
-    })
-  }
+  const appleTouchIconItems = config.appleTouchIcon
+    ? [
+        {
+          rel: 'apple-touch-icon' as const,
+          href: normalizeFaviconPath(config.appleTouchIcon),
+        },
+      ]
+    : []
 
   // Transform sizes
-  if (config.sizes && config.sizes.length > 0) {
-    for (const sizeItem of config.sizes) {
-      const href = sizeItem.href.startsWith('./') ? sizeItem.href : `.${sizeItem.href}`
-      faviconSet.push({
-        rel: 'icon',
-        type: 'image/png',
-        sizes: sizeItem.size,
-        href,
-      })
-    }
-  }
+  const sizeItems =
+    config.sizes?.map((sizeItem) => ({
+      rel: 'icon' as const,
+      type: 'image/png' as const,
+      sizes: sizeItem.size,
+      href: normalizeFaviconPath(sizeItem.href),
+    })) ?? []
 
-  return faviconSet
+  return [...iconItems, ...appleTouchIconItems, ...sizeItems]
 }
 
 /**

@@ -6,6 +6,7 @@
  */
 
 import { type ReactElement } from 'react'
+import { normalizeFavicons } from '@/application/metadata/favicon-transformer'
 import {
   AnalyticsHead,
   CustomElementsHead,
@@ -15,7 +16,6 @@ import {
   StructuredDataScript,
   TwitterCardMeta,
 } from '@/presentation/components/metadata'
-import { normalizeFavicons } from '@/application/metadata/favicon-transformer'
 import { renderInlineScriptTag, renderScriptTag } from '@/presentation/scripts/script-renderers'
 import { resolveTranslationPattern } from '@/presentation/translations/translation-resolver'
 import type { GroupedScripts } from './PageScripts'
