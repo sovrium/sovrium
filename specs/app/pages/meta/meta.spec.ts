@@ -54,7 +54,7 @@ test.describe('Page Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-002: should enforce title length constraint',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
