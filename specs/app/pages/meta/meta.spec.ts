@@ -433,7 +433,7 @@ test.describe('Page Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-012: should provide comprehensive page metadata management',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -456,7 +456,26 @@ test.describe('Page Metadata', () => {
               twitter: { card: 'summary' },
               schema: { '@type': 'WebPage' },
               dnsPrefetch: ['https://fonts.googleapis.com'],
-              analytics: { googleAnalytics: 'G-XXXXXXXXXX' },
+              analytics: {
+                providers: [
+                  {
+                    name: 'google',
+                    enabled: true,
+                    scripts: [
+                      {
+                        src: 'https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX',
+                        async: true,
+                      },
+                    ],
+                    initScript:
+                      "window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-XXXXXXXXXX');",
+                    dnsPrefetch: 'https://www.googletagmanager.com',
+                    config: {
+                      trackingId: 'G-XXXXXXXXXX',
+                    },
+                  },
+                ],
+              },
             },
             sections: [],
           },
