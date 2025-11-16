@@ -175,7 +175,7 @@ test.describe('Local Business Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LOCALBUSINESS-005: should provide business contact information',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
