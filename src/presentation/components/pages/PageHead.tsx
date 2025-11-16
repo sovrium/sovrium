@@ -155,6 +155,54 @@ function ThemeFonts({ theme }: { readonly theme: Theme | undefined }): ReactElem
 }
 
 /**
+ * Renders custom stylesheet link from meta.stylesheet
+ */
+function CustomStylesheet({
+  stylesheet,
+}: {
+  readonly stylesheet: string | undefined
+}): ReactElement | undefined {
+  if (!stylesheet) return undefined
+
+  return (
+    <link
+      rel="stylesheet"
+      href={stylesheet}
+    />
+  )
+}
+
+/**
+ * Renders Google Fonts with performance optimizations
+ * Includes preconnect hints for fonts.googleapis.com and fonts.gstatic.com
+ */
+function GoogleFonts({
+  googleFonts,
+}: {
+  readonly googleFonts: string | undefined
+}): ReactElement | undefined {
+  if (!googleFonts) return undefined
+
+  return (
+    <>
+      <link
+        rel="preconnect"
+        href="https://fonts.googleapis.com"
+      />
+      <link
+        rel="preconnect"
+        href="https://fonts.gstatic.com"
+        crossOrigin="anonymous"
+      />
+      <link
+        rel="stylesheet"
+        href={googleFonts}
+      />
+    </>
+  )
+}
+
+/**
  * Renders global CSS and direction styles
  * Theme CSS is compiled globally at /assets/output.css
  *
@@ -255,6 +303,8 @@ function HreflangLinks({
  * - Analytics scripts
  * - Custom elements
  * - Favicon links
+ * - Custom stylesheet from meta.stylesheet
+ * - Google Fonts with preconnect hints from meta.googleFonts
  * - Font stylesheets from theme
  * - Global CSS with compiled theme tokens
  * - Direction styles for RTL support
@@ -309,6 +359,8 @@ export function PageHead({
         />
       )}
       <FaviconSetLinks favicons={normalizedFavicons} />
+      <CustomStylesheet stylesheet={page.meta?.stylesheet} />
+      <GoogleFonts googleFonts={page.meta?.googleFonts} />
       <ThemeFonts theme={theme} />
       <GlobalStyles directionStyles={directionStyles} />
       <HeadScripts scripts={scripts} />
