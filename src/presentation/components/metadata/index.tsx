@@ -270,6 +270,30 @@ export function CustomElementsHead({
 }
 
 /**
+ * Render single favicon link tag
+ * Generates simple <link rel="icon" href="..."> tag for default favicon
+ *
+ * @param favicon - Favicon path from page.meta.favicon
+ * @returns React element with favicon link tag or undefined
+ */
+export function FaviconLink({
+  favicon,
+}: {
+  readonly favicon?: string
+}): Readonly<ReactElement | undefined> {
+  if (!favicon) {
+    return undefined
+  }
+
+  return (
+    <link
+      rel="icon"
+      href={favicon}
+    />
+  )
+}
+
+/**
  * Render favicon set link tags
  * Generates <link rel="..."> tags for multi-device favicon support
  *
