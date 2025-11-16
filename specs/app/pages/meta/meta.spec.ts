@@ -222,7 +222,7 @@ test.describe('Page Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-007: should include CSS and font resources',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -253,7 +253,7 @@ test.describe('Page Metadata', () => {
       await expect(page.locator('link[rel="stylesheet"][href="/styles/main.css"]')).toBeAttached()
       await expect(
         page.locator('link[rel="preconnect"][href="https://fonts.googleapis.com"]')
-      ).toBeVisible()
+      ).toBeAttached()
     }
   )
 
