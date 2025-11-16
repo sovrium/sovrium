@@ -19,6 +19,7 @@ export type PageMetadata = {
   readonly title: string
   readonly description: string
   readonly keywords?: string
+  readonly canonical?: string
   readonly bodyStyle:
     | {
         readonly fontFamily?: string
@@ -152,6 +153,7 @@ export function extractPageMetadata(
   const title = determineTitle(page, lang, languages)
   const description = determineDescription(page, lang, languages)
   const keywords = determineKeywords(page, lang, languages)
+  const canonical = page.meta?.canonical
   const bodyStyle = buildBodyStyle(theme)
 
   return {
@@ -160,6 +162,7 @@ export function extractPageMetadata(
     title,
     description,
     keywords,
+    canonical,
     bodyStyle,
   }
 }

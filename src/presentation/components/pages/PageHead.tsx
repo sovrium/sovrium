@@ -34,6 +34,7 @@ type PageHeadProps = {
   readonly title: string
   readonly description: string
   readonly keywords?: string
+  readonly canonical?: string
   readonly lang: string
   readonly languages?: Languages
   readonly scripts: GroupedScripts
@@ -84,17 +85,19 @@ function extractOpenGraphData(
 }
 
 /**
- * Renders basic meta tags (charset, viewport, title, description, keywords)
+ * Renders basic meta tags (charset, viewport, title, description, keywords, canonical)
  */
 function BasicMetaTags({
   title,
   description,
   keywords,
+  canonical,
   hasCustomViewport,
 }: {
   readonly title: string
   readonly description: string
   readonly keywords?: string
+  readonly canonical?: string
   readonly hasCustomViewport: boolean
 }): ReactElement {
   return (
@@ -117,6 +120,12 @@ function BasicMetaTags({
         <meta
           name="keywords"
           content={keywords}
+        />
+      )}
+      {canonical && (
+        <link
+          rel="canonical"
+          href={canonical}
         />
       )}
     </>
@@ -260,6 +269,7 @@ export function PageHead({
   title,
   description,
   keywords,
+  canonical,
   lang,
   languages,
   scripts,
@@ -273,6 +283,7 @@ export function PageHead({
         title={title}
         description={description}
         keywords={keywords}
+        canonical={canonical}
         hasCustomViewport={hasCustomViewport}
       />
       <OpenGraphMeta
