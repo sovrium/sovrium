@@ -252,7 +252,7 @@ test.describe('Local Business Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LOCALBUSINESS-007: should include physical address for maps',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
