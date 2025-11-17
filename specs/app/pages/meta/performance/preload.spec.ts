@@ -341,7 +341,7 @@ test.describe('Resource Preloading', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-PERFORMANCE-PRELOAD-REGRESSION-001: user can complete full preload workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
