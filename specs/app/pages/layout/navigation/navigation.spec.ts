@@ -24,10 +24,10 @@ test.describe('Navigation Configuration', () => {
   // One test per spec in schema - defines EXHAUSTIVE acceptance criteria
   // ============================================================================
 
-  test(
-    'APP-PAGES-NAV-001: should display logo image',
-    { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+  test('APP-PAGES-NAV-001: should display logo image', { tag: '@spec' }, async ({
+    page,
+    startServerWithSchema,
+  }) => {
       // GIVEN: a navigation with logo
       await startServerWithSchema({
         name: 'test-app',
@@ -91,7 +91,7 @@ test.describe('Navigation Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-NAV-003: should provide accessible alt text for logo',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

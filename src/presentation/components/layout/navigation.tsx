@@ -32,7 +32,7 @@ function NavLinkItem({ link }: Readonly<{ link: NavLink }>): Readonly<ReactEleme
 
   if (hasChildren) {
     return (
-      <div className="relative group">
+      <div className="group relative">
         <a
           {...linkProps}
           className="flex items-center gap-2"
@@ -41,7 +41,7 @@ function NavLinkItem({ link }: Readonly<{ link: NavLink }>): Readonly<ReactEleme
           {link.badge && (
             <span
               data-testid="badge"
-              className="text-xs px-2 py-0.5 rounded bg-blue-500 text-white"
+              className="rounded bg-blue-500 px-2 py-0.5 text-xs text-white"
             >
               {link.badge}
             </span>
@@ -49,7 +49,7 @@ function NavLinkItem({ link }: Readonly<{ link: NavLink }>): Readonly<ReactEleme
         </a>
         <div
           data-testid="nav-dropdown"
-          className="hidden group-hover:block absolute top-full left-0 mt-1 bg-white shadow-lg rounded p-2"
+          className="absolute top-full left-0 mt-1 hidden rounded bg-white p-2 shadow-lg group-hover:block"
         >
           {link.children?.map((child: NavLink) => (
             <a
@@ -74,7 +74,7 @@ function NavLinkItem({ link }: Readonly<{ link: NavLink }>): Readonly<ReactEleme
       {link.badge && (
         <span
           data-testid="badge"
-          className="text-xs px-2 py-0.5 rounded bg-blue-500 text-white"
+          className="rounded bg-blue-500 px-2 py-0.5 text-xs text-white"
         >
           {link.badge}
         </span>
@@ -123,11 +123,15 @@ function buildNavClassName(config: NavStyleConfig): string {
 /**
  * Logo Component
  */
-function NavLogo({ logo, logoAlt }: Readonly<{ logo: string; logoAlt?: string }>): Readonly<ReactElement> {
+function NavLogo({
+  logo,
+  logoAlt,
+}: Readonly<{ logo: string; logoAlt?: string }>): Readonly<ReactElement> {
   const altText = logoAlt ?? 'Logo'
   return (
     <a
       href="/"
+      data-testid="nav-logo-link"
       aria-label=""
     >
       <img
@@ -142,7 +146,9 @@ function NavLogo({ logo, logoAlt }: Readonly<{ logo: string; logoAlt?: string }>
 /**
  * CTA Button Component
  */
-function NavCTA({ cta }: Readonly<{ cta: NavigationProps['cta'] }>): Readonly<ReactElement | undefined> {
+function NavCTA({
+  cta,
+}: Readonly<{ cta: NavigationProps['cta'] }>): Readonly<ReactElement | undefined> {
   if (!cta) return undefined
 
   return (
@@ -168,7 +174,9 @@ function NavCTA({ cta }: Readonly<{ cta: NavigationProps['cta'] }>): Readonly<Re
 /**
  * Search Input Component
  */
-function NavSearch({ search }: Readonly<{ search: NavigationProps['search'] }>): Readonly<ReactElement | undefined> {
+function NavSearch({
+  search,
+}: Readonly<{ search: NavigationProps['search'] }>): Readonly<ReactElement | undefined> {
   if (!search?.enabled) return undefined
 
   return (
@@ -186,7 +194,9 @@ function NavSearch({ search }: Readonly<{ search: NavigationProps['search'] }>):
 /**
  * User Menu Component
  */
-function NavUserMenu({ user }: Readonly<{ user: NavigationProps['user'] }>): Readonly<ReactElement | undefined> {
+function NavUserMenu({
+  user,
+}: Readonly<{ user: NavigationProps['user'] }>): Readonly<ReactElement | undefined> {
   if (!user?.enabled) return undefined
 
   return (
