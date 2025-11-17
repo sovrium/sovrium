@@ -16,7 +16,6 @@ import {
   MobileMenuToggle,
   MobileMenu,
 } from './navigation-components'
-import { useScrollDetection } from './use-scroll-detection'
 import type { Navigation as NavigationProps } from '@/domain/models/app/page/layout/navigation'
 import type { ReactElement } from 'react'
 
@@ -28,7 +27,6 @@ type NavStyleConfig = Readonly<{
   textColor?: string
   sticky?: boolean
   transparent?: boolean
-  isScrolled: boolean
 }>
 
 /**
@@ -36,11 +34,17 @@ type NavStyleConfig = Readonly<{
  */
 function buildNavStyleObject(config: NavStyleConfig): Record<string, unknown> {
   const baseStyle = buildColorStyles(config.backgroundColor, config.textColor)
+
+  // Only include baseStyle backgroundColor if NOT using transparent mode
+  // In transparent mode, background is controlled by CSS class based on scroll
+  const styleWithoutBg =
+    config.transparent && baseStyle
+      ? Object.fromEntries(Object.entries(baseStyle).filter(([key]) => key !== 'backgroundColor'))
+      : baseStyle
+
   return {
-    ...baseStyle,
+    ...styleWithoutBg,
     ...(config.sticky && { position: 'sticky', top: 0, zIndex: 50 }),
-    ...(config.transparent && !config.isScrolled && { backgroundColor: 'transparent' }),
-    ...(config.transparent && config.isScrolled && { backgroundColor: 'white' }),
   }
 }
 
@@ -48,13 +52,17 @@ function buildNavStyleObject(config: NavStyleConfig): Record<string, unknown> {
  * Builds navigation className string
  */
 function buildNavClassName(config: NavStyleConfig): string {
-  return [
-    config.sticky && 'sticky top-0 z-50',
-    config.transparent && !config.isScrolled && 'bg-transparent',
-    config.transparent && config.isScrolled && 'bg-white shadow-md',
-  ]
-    .filter(Boolean)
-    .join(' ')
+  return [config.sticky && 'sticky top-0 z-50'].filter(Boolean).join(' ')
+}
+
+/**
+ * Generates inline script for scroll detection (runs immediately in browser)
+ * This approach works without React hydration since the app uses SSR without client-side hydration
+ *
+ * @returns Minified JavaScript code for scroll detection
+ */
+function getScrollDetectionScript(): string {
+  return `(function(){const nav=document.querySelector('[data-testid="navigation"]');if(!nav)return;const transparent=nav.getAttribute('data-transparent')==='true';if(!transparent)return;const threshold=100;function updateNavBackground(){const isScrolled=window.scrollY>threshold;if(isScrolled){nav.style.backgroundColor='white';nav.classList.add('shadow-md');}else{nav.style.backgroundColor='transparent';nav.classList.remove('shadow-md');}}updateNavBackground();window.addEventListener('scroll',updateNavBackground);})();`
 }
 
 /**
@@ -80,20 +88,27 @@ export function Navigation({
   backgroundColor,
   textColor,
 }: Readonly<NavigationProps>): Readonly<ReactElement> {
-  const isScrolled = useScrollDetection(transparent ?? false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const styleConfig: NavStyleConfig = { backgroundColor, textColor, sticky, transparent, isScrolled }
+  const styleConfig: NavStyleConfig = { backgroundColor, textColor, sticky, transparent }
   const navStyle = buildNavStyleObject(styleConfig)
   const navClasses = buildNavClassName(styleConfig)
   const mobileLinks = links?.mobile ?? links?.desktop ?? []
 
+  // Initial background for transparent mode (script will update on scroll)
+  const initialStyle = {
+    ...navStyle,
+    ...(transparent && { backgroundColor: 'transparent' }),
+  }
+
   return (
-    <nav
-      data-testid="navigation"
-      aria-label="Main navigation"
-      style={navStyle}
-      className={`${navClasses} relative`}
-    >
+    <>
+      <nav
+        data-testid="navigation"
+        aria-label="Main navigation"
+        style={initialStyle}
+        className={`${navClasses} relative`}
+        data-transparent={transparent}
+      >
       <NavLogo
         logo={logo}
         logoMobile={logoMobile}
@@ -125,5 +140,12 @@ export function Navigation({
       <NavSearch search={search} />
       <NavUserMenu user={user} />
     </nav>
+      {transparent && (
+        <script
+          dangerouslySetInnerHTML={{ __html: getScrollDetectionScript() }}
+          suppressHydrationWarning
+        />
+      )}
+    </>
   )
 }

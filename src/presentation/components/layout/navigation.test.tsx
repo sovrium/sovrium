@@ -333,7 +333,8 @@ describe('Navigation Component', () => {
       // Then
       expect(html).toContain('data-testid="navigation"')
       expect(html).toContain('background-color:transparent')
-      expect(html).toContain('bg-transparent')
+      expect(html).toContain('data-transparent="true"')
+      expect(html).toContain('<script') // Inline script for scroll detection
     })
     test('transparent navigation becomes white on scroll', () => {
       // Given
@@ -344,10 +345,12 @@ describe('Navigation Component', () => {
       // When
       const html = renderToStaticMarkup(<Navigation {...props} />)
       // Then
-      // SSR renders initial state (transparent)
+      // SSR renders initial state (transparent) with inline script for scroll detection
       expect(html).toContain('data-testid="navigation"')
-      expect(html).toContain('bg-transparent')
-      // Client-side scroll behavior would be tested in E2E tests
+      expect(html).toContain('background-color:transparent')
+      expect(html).toContain('data-transparent="true"')
+      expect(html).toContain('updateNavBackground') // Scroll detection function
+      // Client-side scroll behavior is tested in E2E tests (APP-PAGES-NAV-005)
     })
   })
   describe('Complex configurations', () => {

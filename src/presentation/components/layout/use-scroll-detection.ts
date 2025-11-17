@@ -18,14 +18,33 @@ export function useScrollDetection(enabled: boolean, threshold = 100): boolean {
   const [isScrolled, setIsScrolled] = useState(false)
 
   useEffect(() => {
-    if (!enabled) return
-
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > threshold)
+    if (!enabled) {
+      console.log('[useScrollDetection] Disabled, skipping')
+      return
     }
 
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
+    const checkScroll = () => {
+      const scrollY = window.scrollY
+      const shouldBeScrolled = scrollY > threshold
+      console.log(`[useScrollDetection] scrollY=${scrollY}, threshold=${threshold}, shouldBeScrolled=${shouldBeScrolled}`)
+      setIsScrolled(shouldBeScrolled)
+    }
+
+    // Check initial scroll position immediately
+    console.log('[useScrollDetection] Initial check')
+    checkScroll()
+
+    // Set up scroll event listener
+    window.addEventListener('scroll', checkScroll)
+
+    // Also check periodically in case scroll events don't fire (e.g., in tests)
+    const intervalId = setInterval(checkScroll, 50)
+
+    return () => {
+      console.log('[useScrollDetection] Cleanup')
+      window.removeEventListener('scroll', checkScroll)
+      clearInterval(intervalId)
+    }
   }, [enabled, threshold])
 
   return isScrolled
