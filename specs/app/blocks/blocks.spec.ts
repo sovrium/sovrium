@@ -178,8 +178,8 @@ test.describe('Reusable Blocks', () => {
         name: 'test-app',
         blocks: [{ name: 'shared-block', type: 'div' }],
         pages: [
-          { path: '/', sections: [{ block: 'shared-block' }] },
-          { path: '/about', sections: [{ block: 'shared-block' }] },
+          { name: 'Home', path: '/', sections: [{ block: 'shared-block' }] },
+          { name: 'About', path: '/about', sections: [{ block: 'shared-block' }] },
         ],
       })
 

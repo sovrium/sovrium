@@ -39,6 +39,7 @@ test.describe('Analytics Configuration', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'Home',
             path: '/',
             meta: {
               lang: 'en-US',
@@ -76,6 +77,7 @@ test.describe('Analytics Configuration', () => {
           name: 'test-app',
           pages: [
             {
+              name: 'Home',
               path: '/',
               meta: {
                 lang: 'en-US',
@@ -102,6 +104,7 @@ test.describe('Analytics Configuration', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'Home',
             path: '/',
             meta: {
               lang: 'en-US',
@@ -137,6 +140,7 @@ test.describe('Analytics Configuration', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'Home',
             path: '/',
             meta: {
               lang: 'en-US',
@@ -173,6 +177,7 @@ test.describe('Analytics Configuration', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'Home',
             path: '/',
             meta: {
               lang: 'en-US',
@@ -210,6 +215,7 @@ test.describe('Analytics Configuration', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'Home',
             path: '/',
             meta: {
               lang: 'en-US',
@@ -248,6 +254,7 @@ test.describe('Analytics Configuration', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'Home',
             path: '/',
             meta: {
               lang: 'en-US',
@@ -360,6 +367,7 @@ test.describe('Analytics Configuration', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'Home',
             path: '/',
             meta: {
               lang: 'en-US',
@@ -398,6 +406,7 @@ test.describe('Analytics Configuration', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'Home',
             path: '/',
             meta: {
               lang: 'en-US',

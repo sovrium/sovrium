@@ -271,11 +271,7 @@ export function Navigation({
 
   useEffect(() => {
     if (!transparent) return
-
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 100)
-    }
-
+    const handleScroll = () => setIsScrolled(window.scrollY > 100)
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [transparent])

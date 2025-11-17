@@ -155,16 +155,12 @@ export function createNotFoundPageConfig(): Page {
             children: [
               {
                 type: 'h1',
-                props: {
-                  className: 'mb-4 text-6xl font-bold text-gray-900',
-                },
+                props: { className: 'mb-4 text-6xl font-bold text-gray-900' },
                 children: ['404'],
               },
               {
                 type: 'p',
-                props: {
-                  className: 'mb-8 text-xl text-gray-600',
-                },
+                props: { className: 'mb-8 text-xl text-gray-600' },
                 children: ['Page not found'],
               },
               {
@@ -219,16 +215,12 @@ export function createErrorPageConfig(): Page {
             children: [
               {
                 type: 'h1',
-                props: {
-                  className: 'mb-4 text-6xl font-bold text-red-600',
-                },
+                props: { className: 'mb-4 text-6xl font-bold text-red-600' },
                 children: ['500'],
               },
               {
                 type: 'p',
-                props: {
-                  className: 'mb-8 text-xl text-gray-600',
-                },
+                props: { className: 'mb-8 text-xl text-gray-600' },
                 children: ['Internal Server Error'],
               },
               {

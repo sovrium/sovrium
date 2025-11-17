@@ -43,7 +43,7 @@ test.describe('Block Props', () => {
             },
           },
         ],
-        pages: [{ path: '/', sections: [{ block: 'props-block', vars: {} }] }],
+        pages: [{ name: 'Home', path: '/', sections: [{ block: 'props-block', vars: {} }] }],
       })
 
       // WHEN: props uses patternProperties for flexible property names
@@ -71,7 +71,7 @@ test.describe('Block Props', () => {
             props: { className: 'btn-primary', ariaLabel: 'Click me', dataTestId: 'submit-btn' },
           },
         ],
-        pages: [{ path: '/', sections: [{ block: 'custom-button', vars: {} }] }],
+        pages: [{ name: 'Home', path: '/', sections: [{ block: 'custom-button', vars: {} }] }],
       })
 
       // WHEN: property names match ^[a-zA-Z][a-zA-Z0-9]*$ pattern
@@ -138,7 +138,7 @@ test.describe('Block Props', () => {
             props: { columns: 3, gap: 4, maxWidth: 1200 },
           },
         ],
-        pages: [{ path: '/', sections: [{ block: 'grid-layout', vars: {} }] }],
+        pages: [{ name: 'Home', path: '/', sections: [{ block: 'grid-layout', vars: {} }] }],
       })
 
       // WHEN: value is number like 4, 12, 300
@@ -166,7 +166,7 @@ test.describe('Block Props', () => {
             props: { disabled: true, required: true, hidden: false },
           },
         ],
-        pages: [{ path: '/', sections: [{ block: 'form-input', vars: {} }] }],
+        pages: [{ name: 'Home', path: '/', sections: [{ block: 'form-input', vars: {} }] }],
       })
 
       // WHEN: value is true or false
@@ -200,7 +200,7 @@ test.describe('Block Props', () => {
             },
           },
         ],
-        pages: [{ path: '/', sections: [{ block: 'chart-widget', vars: {} }] }],
+        pages: [{ name: 'Home', path: '/', sections: [{ block: 'chart-widget', vars: {} }] }],
       })
 
       // WHEN: value is nested object
@@ -230,7 +230,7 @@ test.describe('Block Props', () => {
             props: { tags: ['react', 'typescript', 'tailwind'] },
           },
         ],
-        pages: [{ path: '/', sections: [{ block: 'tag-list', vars: {} }] }],
+        pages: [{ name: 'Home', path: '/', sections: [{ block: 'tag-list', vars: {} }] }],
       })
 
       // WHEN: value is array of items
@@ -299,7 +299,11 @@ test.describe('Block Props', () => {
           },
         ],
         pages: [
-          { path: '/', sections: [{ block: 'container', vars: { width: '7xl', padding: '4' } }] },
+          {
+            name: 'Home',
+            path: '/',
+            sections: [{ block: 'container', vars: { width: '7xl', padding: '4' } }],
+          },
         ],
       })
 

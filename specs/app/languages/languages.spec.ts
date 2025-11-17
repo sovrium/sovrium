@@ -64,6 +64,7 @@ test.describe('Languages Configuration', () => {
         ],
         pages: [
           {
+            name: 'Home',
             path: '/',
             sections: [
               {
@@ -109,6 +110,7 @@ test.describe('Languages Configuration', () => {
         ],
         pages: [
           {
+            name: 'Home',
             path: '/',
             sections: [
               {
@@ -821,6 +823,7 @@ test.describe('Languages Configuration', () => {
         ],
         pages: [
           {
+            name: 'Home',
             path: '/',
             meta: {
               lang: 'en-US',
