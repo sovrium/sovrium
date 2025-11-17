@@ -122,7 +122,7 @@
     "prettier": "3.6.2",
     "semantic-release": "^25.0.2",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.46.4"
+    "typescript-eslint": "^8.47.0"
   },
   "peerDependencies": {
     "typescript": "^5.9.3"
