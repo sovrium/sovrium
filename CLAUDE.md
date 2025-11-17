@@ -229,6 +229,7 @@ sovrium/
 - **Styling & CSS**: `@docs/infrastructure/ui/tailwind.md`, `@docs/infrastructure/css/css-compiler.md`
 - **Theming Architecture**: `@docs/architecture/patterns/theming-architecture.md`
 - **Internationalization (i18n)**: `@docs/architecture/patterns/i18n-centralized-translations.md`
+- **Testing React Components**: `@docs/infrastructure/testing/react-testing-library.md` (RTL + Happy DOM + Bun)
 
 **Slash Command**: Use `/docs` to list all available documentation files
 

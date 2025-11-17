@@ -48,6 +48,7 @@
 - `@docs/infrastructure/quality/prettier.md` - Prettier formatting
 - `@docs/infrastructure/quality/knip.md` - Dead code detection
 - `@docs/infrastructure/testing/bun-test.md` - Unit testing
+- `@docs/infrastructure/testing/react-testing-library.md` - React component testing (RTL + Happy DOM + Bun)
 - `@docs/infrastructure/testing/playwright.md` - E2E testing
 
 ### CI/CD & Release

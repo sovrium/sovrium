@@ -7,7 +7,12 @@
 
 import { describe, expect, test } from 'bun:test'
 import { Hono } from 'hono'
-import { setupCSSRoute, setupJavaScriptRoutes, createJavaScriptHandler, setupStaticAssets } from './static-assets'
+import {
+  setupCSSRoute,
+  setupJavaScriptRoutes,
+  createJavaScriptHandler,
+  setupStaticAssets,
+} from './static-assets'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -173,10 +178,7 @@ describe('Static Assets - createJavaScriptHandler', () => {
 
   describe('Given JavaScript file missing', () => {
     test('When file not found Then return 500 with error comment', async () => {
-      const handler = createJavaScriptHandler(
-        'nonexistent.js',
-        './nonexistent/path/script.js'
-      )
+      const handler = createJavaScriptHandler('nonexistent.js', './nonexistent/path/script.js')
       const c = new Hono().get('/', handler)
 
       const res = await c.request('/')
