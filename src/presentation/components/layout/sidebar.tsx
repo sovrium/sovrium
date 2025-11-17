@@ -195,7 +195,7 @@ export function Sidebar(
   const [renderedElements] = renderItems(items, { link: 0, group: 0, divider: 0 })
 
   const sidebarClass = [
-    sticky && 'sticky top-0',
+    sticky && 'fixed top-0',
     position === 'left' ? 'border-r border-gray-200' : 'border-l border-gray-200',
     'overflow-y-auto bg-white p-4',
   ]
