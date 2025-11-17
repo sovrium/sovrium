@@ -409,7 +409,7 @@ test.describe('Structured Data', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-STRUCTURED-DATA-REGRESSION-001: user can complete full structured data workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
