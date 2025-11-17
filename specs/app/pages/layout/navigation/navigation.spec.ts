@@ -122,7 +122,7 @@ test.describe('Navigation Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-NAV-004: should stick to top on scroll',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
