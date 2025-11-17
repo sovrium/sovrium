@@ -196,7 +196,7 @@ test.describe('Navigation Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-NAV-006: should render desktop navigation menu',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
