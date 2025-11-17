@@ -41,7 +41,7 @@ test.describe('Block Children', () => {
             ],
           },
         ],
-        pages: [{ path: '/', sections: [{ block: 'card', vars: {} }] }],
+        pages: [{ name: 'Home', path: '/', sections: [{ block: 'card', vars: {} }] }],
       })
 
       // WHEN: array contains child component objects
@@ -68,7 +68,7 @@ test.describe('Block Children', () => {
             children: [{ type: 'div' }, { type: 'span' }, { type: 'button' }, { type: 'text' }],
           },
         ],
-        pages: [{ path: '/', sections: [{ block: 'multi-type', vars: {} }] }],
+        pages: [{ name: 'Home', path: '/', sections: [{ block: 'multi-type', vars: {} }] }],
       })
 
       // WHEN: each child has type property
@@ -102,7 +102,7 @@ test.describe('Block Children', () => {
             ],
           },
         ],
-        pages: [{ path: '/', sections: [{ block: 'props-test', vars: {} }] }],
+        pages: [{ name: 'Home', path: '/', sections: [{ block: 'props-test', vars: {} }] }],
       })
 
       // WHEN: child has props referencing block-props.schema.json
@@ -152,7 +152,7 @@ test.describe('Block Children', () => {
             ],
           },
         ],
-        pages: [{ path: '/', sections: [{ block: 'nested-list', vars: {} }] }],
+        pages: [{ name: 'Home', path: '/', sections: [{ block: 'nested-list', vars: {} }] }],
       })
 
       // WHEN: child has children property with self-reference (#)
@@ -328,7 +328,11 @@ test.describe('Block Children', () => {
           },
         ],
         pages: [
-          { path: '/', sections: [{ block: 'simple-message', vars: { label: 'Welcome back!' } }] },
+          {
+            name: 'Home',
+            path: '/',
+            sections: [{ block: 'simple-message', vars: { label: 'Welcome back!' } }],
+          },
         ],
       })
 
@@ -437,7 +441,11 @@ test.describe('Block Children', () => {
           },
         ],
         pages: [
-          { path: '/', sections: [{ block: 'page-section', vars: { content: 'Content here' } }] },
+          {
+            name: 'Home',
+            path: '/',
+            sections: [{ block: 'page-section', vars: { content: 'Content here' } }],
+          },
         ],
       })
 

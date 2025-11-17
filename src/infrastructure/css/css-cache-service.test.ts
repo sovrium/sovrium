@@ -313,7 +313,7 @@ describe('CSS Cache Service', () => {
       const program1 = Effect.gen(function* () {
         yield* setCachedCSS(cacheKey, compiled)
       })
-      // eslint-disable-next-line functional/no-expression-statements
+
       await Effect.runPromise(program1)
 
       // Second run: retrieve cache

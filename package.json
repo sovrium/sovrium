@@ -60,7 +60,6 @@
     "lint:fix": "eslint . --fix --cache --cache-location .eslintcache",
     "quality": "bun run scripts/check-quality.ts",
     "test:unit": "bun test --concurrent .test.ts .test.tsx",
-    "test:unit:watch": "bun test --concurrent --watch .test.ts .test.tsx",
     "test:e2e": "playwright test",
     "test:e2e:spec": "playwright test --grep='@spec'",
     "test:e2e:regression": "playwright test --grep='@regression'",
@@ -91,16 +90,13 @@
     "release": "semantic-release"
   },
   "devDependencies": {
-    "@apidevtools/json-schema-ref-parser": "^14.2.1",
-    "@eslint/compat": "^1.4.1",
+    "@apidevtools/json-schema-ref-parser": "^15.1.2",
+    "@eslint/compat": "^2.0.0",
     "@eslint/js": "^9.39.1",
-    "@happy-dom/global-registrator": "^20.0.10",
     "@playwright/test": "^1.56.1",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
     "@testcontainers/postgresql": "^11.8.1",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.0",
     "@types/bun": "^1.3.2",
     "@types/dompurify": "^3.2.0",
     "@types/node": "^24.10.1",
@@ -126,7 +122,7 @@
     "prettier": "3.6.2",
     "semantic-release": "^25.0.2",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.46.4"
+    "typescript-eslint": "^8.47.0"
   },
   "peerDependencies": {
     "typescript": "^5.9.3"
@@ -146,11 +142,11 @@
     "effect": "^3.19.4",
     "hono": "^4.10.6",
     "jiti": "^2.6.1",
-    "lucide-react": "^0.553.0",
+    "lucide-react": "^0.554.0",
     "postcss": "^8.5.6",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-hook-form": "^7.66.0",
+    "react-hook-form": "^7.66.1",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.1.17",
     "tw-animate-css": "^1.4.0",

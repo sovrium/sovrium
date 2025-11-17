@@ -120,6 +120,56 @@ export function createDefaultHomePageConfig(app: App): Page {
 }
 
 /**
+ * Creates error page section with centered layout
+ */
+function createErrorSection(
+  code: string,
+  message: string,
+  codeColor: string = 'text-gray-900'
+): ReadonlyArray<Component> {
+  return [
+    {
+      type: 'div',
+      props: {
+        className: 'flex min-h-screen items-center justify-center bg-gray-50',
+      },
+      children: [
+        {
+          type: 'div',
+          props: {
+            className: 'text-center',
+          },
+          children: [
+            {
+              type: 'h1',
+              props: {
+                className: `mb-4 text-6xl font-bold ${codeColor}`,
+              },
+              children: [code],
+            },
+            {
+              type: 'p',
+              props: {
+                className: 'mb-8 text-xl text-gray-600',
+              },
+              children: [message],
+            },
+            {
+              type: 'link',
+              props: {
+                href: '/',
+                className: 'font-medium text-blue-600 hover:text-blue-700',
+              },
+              children: ['Go back home'],
+            },
+          ],
+        },
+      ],
+    },
+  ]
+}
+
+/**
  * Creates a Page configuration for 404 Not Found error page
  *
  * Renders:
@@ -140,46 +190,7 @@ export function createNotFoundPageConfig(): Page {
       title: '404 - Not Found',
       description: 'Page not found',
     },
-    sections: [
-      {
-        type: 'div',
-        props: {
-          className: 'flex min-h-screen items-center justify-center bg-gray-50',
-        },
-        children: [
-          {
-            type: 'div',
-            props: {
-              className: 'text-center',
-            },
-            children: [
-              {
-                type: 'h1',
-                props: {
-                  className: 'mb-4 text-6xl font-bold text-gray-900',
-                },
-                children: ['404'],
-              },
-              {
-                type: 'p',
-                props: {
-                  className: 'mb-8 text-xl text-gray-600',
-                },
-                children: ['Page not found'],
-              },
-              {
-                type: 'link',
-                props: {
-                  href: '/',
-                  className: 'font-medium text-blue-600 hover:text-blue-700',
-                },
-                children: ['Go back home'],
-              },
-            ],
-          },
-        ],
-      },
-    ],
+    sections: createErrorSection('404', 'Page not found'),
   }
 }
 
@@ -204,45 +215,6 @@ export function createErrorPageConfig(): Page {
       title: '500 - Internal Server Error',
       description: 'Internal Server Error',
     },
-    sections: [
-      {
-        type: 'div',
-        props: {
-          className: 'flex min-h-screen items-center justify-center bg-gray-50',
-        },
-        children: [
-          {
-            type: 'div',
-            props: {
-              className: 'text-center',
-            },
-            children: [
-              {
-                type: 'h1',
-                props: {
-                  className: 'mb-4 text-6xl font-bold text-red-600',
-                },
-                children: ['500'],
-              },
-              {
-                type: 'p',
-                props: {
-                  className: 'mb-8 text-xl text-gray-600',
-                },
-                children: ['Internal Server Error'],
-              },
-              {
-                type: 'link',
-                props: {
-                  href: '/',
-                  className: 'font-medium text-blue-600 hover:text-blue-700',
-                },
-                children: ['Go back home'],
-              },
-            ],
-          },
-        ],
-      },
-    ],
+    sections: createErrorSection('500', 'Internal Server Error', 'text-red-600'),
   }
 }

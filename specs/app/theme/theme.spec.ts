@@ -527,6 +527,7 @@ test.describe('Theme Configuration', () => {
         },
         pages: [
           {
+            name: 'Home',
             path: '/',
             sections: [
               {
@@ -582,6 +583,7 @@ test.describe('Theme Configuration', () => {
         },
         pages: [
           {
+            name: 'Home',
             path: '/',
             sections: [
               { type: 'header' },
@@ -632,6 +634,7 @@ test.describe('Theme Configuration', () => {
         },
         pages: [
           {
+            name: 'Home',
             path: '/',
             sections: [
               {
@@ -718,6 +721,7 @@ test.describe('Theme Configuration', () => {
         },
         pages: [
           {
+            name: 'Home',
             path: '/',
             sections: [
               {
