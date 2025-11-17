@@ -99,6 +99,7 @@ import { SectionsSchema } from './page/sections'
  * ```typescript
  * // Minimal page with required properties
  * const minimalPage: Page = {
+ *   name: 'Home',
  *   path: '/',
  *   meta: {
  *     lang: 'en-US',
@@ -260,11 +261,13 @@ export const PageSchema = Schema.Struct({
  * ```typescript
  * const pages: Pages = [
  *   {
+ *     name: 'Home',
  *     path: '/',
  *     meta: { lang: 'en-US', title: 'Home', description: 'Welcome' },
  *     sections: []
  *   },
  *   {
+ *     name: 'About',
  *     path: '/about',
  *     meta: { lang: 'en-US', title: 'About', description: 'About us' },
  *     sections: []
