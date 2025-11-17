@@ -32,7 +32,9 @@ test.describe('Block Reference', () => {
       await startServerWithSchema({
         name: 'test-app',
         blocks: [{ name: 'my-block', type: 'div', props: { className: 'text-$color' } }],
-        pages: [{ path: '/', sections: [{ block: 'my-block', vars: { color: 'blue' } }] }],
+        pages: [
+          { name: 'Home', path: '/', sections: [{ block: 'my-block', vars: { color: 'blue' } }] },
+        ],
       })
 
       // WHEN: block and vars are provided
@@ -89,7 +91,13 @@ test.describe('Block Reference', () => {
       await startServerWithSchema({
         name: 'test-app',
         blocks: validBlocks,
-        pages: [{ path: '/', sections: validBlocks.map((b) => ({ block: b.name, vars: {} })) }],
+        pages: [
+          {
+            name: 'Home',
+            path: '/',
+            sections: validBlocks.map((b) => ({ block: b.name, vars: {} })),
+          },
+        ],
       })
 
       // WHEN: block matches ^[a-z][a-z0-9-]*$ pattern
@@ -108,7 +116,7 @@ test.describe('Block Reference', () => {
       await startServerWithSchema({
         name: 'test-app',
         blocks: [{ name: 'icon-badge', type: 'badge' }],
-        pages: [{ path: '/', sections: [{ block: 'icon-badge', vars: {} }] }],
+        pages: [{ name: 'Home', path: '/', sections: [{ block: 'icon-badge', vars: {} }] }],
       })
 
       // WHEN: block value must match existing block name in blocks array

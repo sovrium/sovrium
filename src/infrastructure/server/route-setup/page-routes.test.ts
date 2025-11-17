@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/no-expression-statements */
-
 import { describe, expect, test, mock } from 'bun:test'
 import { Hono } from 'hono'
 import {

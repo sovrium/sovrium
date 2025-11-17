@@ -47,7 +47,7 @@ GlobalRegistrator.register()
 
 ```typescript
 /// <reference lib="dom" />
-import './happydom' // Import Happy DOM setup at the top
+import '@/happydom' // Import Happy DOM setup at the top
 import { render, screen } from '@testing-library/react'
 import { MyComponent } from './my-component'
 
@@ -75,7 +75,7 @@ This triple-slash directive tells TypeScript to include DOM API types.
 
 ```typescript
 /// <reference lib="dom" />
-import './happydom' // Import Happy DOM setup for this test file
+import '@/happydom' // Import Happy DOM setup for this test file
 
 import { describe, test, expect } from 'bun:test'
 import { render, screen } from '@testing-library/react'
@@ -99,7 +99,7 @@ test('renders button with text', () => {
 
 ```typescript
 /// <reference lib="dom" />
-import './happydom'
+import '@/happydom'
 
 import { describe, test, expect } from 'bun:test'
 import { render, screen } from '@testing-library/react'
@@ -135,7 +135,7 @@ describe('Banner', () => {
 
 ```typescript
 /// <reference lib="dom" />
-import './happydom'
+import '@/happydom'
 
 import { describe, test, expect } from 'bun:test'
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -167,7 +167,7 @@ test('increments counter on button click', () => {
 
 ```typescript
 /// <reference lib="dom" />
-import './happydom'
+import '@/happydom'
 
 import { describe, test, expect } from 'bun:test'
 import { render, screen, waitFor } from '@testing-library/react'
@@ -384,7 +384,7 @@ This project uses **functional components only** (no class components):
 
 ```typescript
 /// <reference lib="dom" />
-import './happydom'
+import '@/happydom'
 
 import { describe, test, expect } from 'bun:test'
 import { render, screen } from '@testing-library/react'
@@ -406,7 +406,7 @@ If components use Effect.ts (e.g., via React hooks wrapping Effect programs):
 
 ```typescript
 /// <reference lib="dom" />
-import './happydom'
+import '@/happydom'
 
 import { describe, test, expect } from 'bun:test'
 import { render, screen, waitFor } from '@testing-library/react'
@@ -445,7 +445,7 @@ test('loads data from Effect program', async () => {
 
 ```typescript
 /// <reference lib="dom" />
-import './happydom'
+import '@/happydom'
 
 import { describe, test, expect } from 'bun:test'
 import { render, screen } from '@testing-library/react'
@@ -588,7 +588,7 @@ test('useCounter increments correctly', () => {
 
 **Solution**:
 
-1. Add `import './happydom'` at the top of your test file (after triple-slash directive)
+1. Add `import '@/happydom'` at the top of your test file (after triple-slash directive)
 2. Add `/// <reference lib="dom" />` to test file for TypeScript types
 3. Make sure you're testing a component that actually needs DOM (not SSR-only)
 
@@ -600,7 +600,7 @@ test('useCounter increments correctly', () => {
 
 ```typescript
 /// <reference lib="dom" />
-import './happydom'
+import '@/happydom'
 ```
 
 ### Issue: "Warning: ReactDOM.render has been deprecated"
@@ -633,7 +633,7 @@ await waitFor(() => {
 
 ```typescript
 /// <reference lib="dom" />
-import './happydom'
+import '@/happydom'
 
 import { afterEach } from 'bun:test'
 import { cleanup } from '@testing-library/react'

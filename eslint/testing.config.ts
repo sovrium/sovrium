@@ -10,7 +10,16 @@ import type { Linter } from 'eslint'
 export default [
   // Test files - Allow 'any' for testing flexibility
   {
-    files: ['**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}', 'specs/**/*.{ts,tsx}'],
+    files: [
+      '**/*.test.ts',
+      '**/*.test.tsx',
+      '**/*.spec.ts',
+      '**/*.spec.tsx',
+      'specs/**/*.ts',
+      'specs/**/*.tsx',
+      'scripts/**/*.test.ts',
+      'scripts/**/*.test.tsx',
+    ],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off', // Allow 'any' in tests for testing invalid inputs
       '@typescript-eslint/naming-convention': 'off', // Allow flexible naming in tests
@@ -21,6 +30,8 @@ export default [
       'functional/immutable-data': 'off', // Allow mutations in test setup
       'functional/prefer-immutable-types': 'off', // Allow mutable types in tests
       'functional/no-throw-statements': 'off', // Allow throwing in tests
+      'functional/no-loop-statements': 'off', // Allow loops in tests
+      'prefer-destructuring': 'off', // Allow non-destructured assignments in tests
       'unicorn/no-null': 'off', // Allow null in tests for edge cases
       // Size limits OFF for test files (comprehensive test suites require longer functions)
       'max-lines': 'off', // Tests can be comprehensive
@@ -33,7 +44,7 @@ export default [
   // E2E Tests - Must use Playwright (not Bun Test)
   // Enforces testing strategy: E2E tests in specs/ directory use Playwright
   {
-    files: ['specs/**/*.{ts,tsx}'],
+    files: ['specs/**/*.ts', 'specs/**/*.tsx'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -53,7 +64,12 @@ export default [
   // Unit Tests - Must use Bun Test (not Playwright)
   // Enforces testing strategy: Unit tests (*.test.ts) use Bun Test
   {
-    files: ['src/**/*.test.{ts,tsx}'],
+    files: [
+      'src/**/*.test.ts',
+      'src/**/*.test.tsx',
+      'scripts/**/*.test.ts',
+      'scripts/**/*.test.tsx',
+    ],
     rules: {
       'no-restricted-imports': [
         'error',
