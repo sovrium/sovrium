@@ -425,7 +425,7 @@ test.describe('Postal Address', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-STRUCTURED-DATA-POSTAL-ADDRESS-REGRESSION-001: user can complete full Postal Address workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
