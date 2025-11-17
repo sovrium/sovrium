@@ -125,9 +125,36 @@ function buildNavClassName(config: NavStyleConfig): string {
  */
 function NavLogo({
   logo,
+  logoMobile,
   logoAlt,
-}: Readonly<{ logo: string; logoAlt?: string }>): Readonly<ReactElement> {
+}: Readonly<{ logo: string; logoMobile?: string; logoAlt?: string }>): Readonly<ReactElement> {
   const altText = logoAlt ?? 'Logo'
+
+  // If logoMobile is provided, render both with responsive classes
+  if (logoMobile) {
+    return (
+      <a
+        href="/"
+        data-testid="nav-logo-link"
+        aria-label=""
+      >
+        <img
+          data-testid="nav-logo"
+          src={logo}
+          alt={altText}
+          className="hidden md:block"
+        />
+        <img
+          data-testid="nav-logo-mobile"
+          src={logoMobile}
+          alt={altText}
+          className="block md:hidden"
+        />
+      </a>
+    )
+  }
+
+  // Otherwise render only the desktop logo
   return (
     <a
       href="/"
@@ -229,6 +256,7 @@ function NavUserMenu({
  */
 export function Navigation({
   logo,
+  logoMobile,
   logoAlt,
   sticky,
   transparent,
@@ -271,6 +299,7 @@ export function Navigation({
     >
       <NavLogo
         logo={logo}
+        logoMobile={logoMobile}
         logoAlt={logoAlt}
       />
       {links?.desktop && (
