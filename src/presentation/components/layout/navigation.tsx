@@ -95,29 +95,29 @@ type NavStyleConfig = Readonly<{
 }>
 
 /**
- * Builds navigation style object
+ * Builds navigation style and className
  */
-function buildNavStyleObject(config: NavStyleConfig): Record<string, unknown> {
+function buildNavStyles(config: NavStyleConfig): {
+  style: Record<string, unknown>
+  className: string
+} {
   const baseStyle = buildColorStyles(config.backgroundColor, config.textColor)
-  return {
+  const style = {
     ...baseStyle,
     ...(config.sticky && { position: 'sticky', top: 0, zIndex: 50 }),
     ...(config.transparent && !config.isScrolled && { backgroundColor: 'transparent' }),
     ...(config.transparent && config.isScrolled && { backgroundColor: 'white' }),
   }
-}
 
-/**
- * Builds navigation className string
- */
-function buildNavClassName(config: NavStyleConfig): string {
-  return [
+  const className = [
     config.sticky && 'sticky top-0 z-50',
     config.transparent && !config.isScrolled && 'bg-transparent',
     config.transparent && config.isScrolled && 'bg-white shadow-md',
   ]
     .filter(Boolean)
     .join(' ')
+
+  return { style, className }
 }
 
 /**
@@ -130,13 +130,15 @@ function NavLogo({
 }: Readonly<{ logo: string; logoMobile?: string; logoAlt?: string }>): Readonly<ReactElement> {
   const altText = logoAlt ?? 'Logo'
 
+  const logoLabel = `Go to homepage - ${altText}`
+
   // If logoMobile is provided, render both with responsive classes
   if (logoMobile) {
     return (
       <a
         href="/"
         data-testid="nav-logo-link"
-        aria-label=""
+        aria-label={logoLabel}
       >
         <img
           data-testid="nav-logo"
@@ -159,7 +161,7 @@ function NavLogo({
     <a
       href="/"
       data-testid="nav-logo-link"
-      aria-label=""
+      aria-label={logoLabel}
     >
       <img
         data-testid="nav-logo"
@@ -245,11 +247,56 @@ function NavUserMenu({
 }
 
 /**
+ * Mobile Menu Toggle Component
+ */
+function MobileMenuToggle({
+  onClick,
+}: Readonly<{ onClick: () => void }>): Readonly<ReactElement> {
+  return (
+    <button
+      type="button"
+      data-testid="mobile-menu-toggle"
+      onClick={onClick}
+      className="block md:hidden"
+      aria-label="Toggle mobile menu"
+    >
+      ☰
+    </button>
+  )
+}
+
+/**
+ * Mobile Menu Component
+ */
+function MobileMenu({
+  isOpen,
+  links,
+}: Readonly<{ isOpen: boolean; links: readonly NavLink[] }>): Readonly<ReactElement> {
+  return (
+    <div
+      data-testid="mobile-menu"
+      className="absolute top-full left-0 z-50 w-full bg-white shadow-lg"
+      style={{ display: isOpen ? 'block' : 'none' }}
+    >
+      {links.map((link) => (
+        <a
+          key={link.href}
+          href={link.href}
+          className="block px-4 py-2 hover:bg-gray-100"
+        >
+          {link.label}
+        </a>
+      ))}
+    </div>
+  )
+}
+
+/**
  * Navigation Component
  *
  * Renders the main navigation header with logo, links, and optional CTA button.
  * Supports sticky positioning, transparent background with scroll detection,
- * search input, and user authentication menu.
+ * search input, user authentication menu, and mobile menu with separate mobile links.
  *
  * @param props - Navigation configuration
  * @returns Navigation header element
@@ -268,6 +315,7 @@ export function Navigation({
   textColor,
 }: Readonly<NavigationProps>): Readonly<ReactElement> {
   const [isScrolled, setIsScrolled] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     if (!transparent) return
@@ -283,15 +331,17 @@ export function Navigation({
     transparent,
     isScrolled,
   }
-  const navStyle = buildNavStyleObject(styleConfig)
-  const navClasses = buildNavClassName(styleConfig)
+  const { style: navStyle, className: navClasses } = buildNavStyles(styleConfig)
+
+  // Use mobile links if available, otherwise fallback to desktop links
+  const mobileLinks = links?.mobile ?? links?.desktop ?? []
 
   return (
     <nav
       data-testid="navigation"
       aria-label="Main navigation"
       style={navStyle}
-      className={navClasses}
+      className={`${navClasses} relative`}
     >
       <NavLogo
         logo={logo}
@@ -301,7 +351,7 @@ export function Navigation({
       {links?.desktop && (
         <div
           data-testid="nav-links"
-          className="flex gap-4"
+          className="hidden gap-4 md:flex"
         >
           {links.desktop.map((link) => (
             <NavLinkItem
@@ -310,6 +360,15 @@ export function Navigation({
             />
           ))}
         </div>
+      )}
+      {mobileLinks.length > 0 && (
+        <MobileMenuToggle onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
+      )}
+      {mobileLinks.length > 0 && (
+        <MobileMenu
+          isOpen={isMobileMenuOpen}
+          links={mobileLinks}
+        />
       )}
       <NavCTA cta={cta} />
       <NavSearch search={search} />
