@@ -241,7 +241,7 @@ test.describe('Navigation Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-NAV-007: should render different links for mobile menu',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
