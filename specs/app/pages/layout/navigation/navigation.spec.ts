@@ -91,7 +91,7 @@ test.describe('Navigation Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-NAV-003: should provide accessible alt text for logo',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
