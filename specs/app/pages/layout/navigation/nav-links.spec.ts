@@ -34,6 +34,8 @@ test.describe('Navigation Links', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             layout: {
@@ -67,6 +69,8 @@ test.describe('Navigation Links', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -101,6 +105,8 @@ test.describe('Navigation Links', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -134,6 +140,8 @@ test.describe('Navigation Links', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -166,6 +174,8 @@ test.describe('Navigation Links', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -212,6 +222,8 @@ test.describe('Navigation Links', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -247,6 +259,8 @@ test.describe('Navigation Links', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -288,6 +302,8 @@ test.describe('Navigation Links', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -340,6 +356,8 @@ test.describe('Navigation Links', () => {
           pages: [
             {
               name: 'Test',
+              name: 'home',
+
               path: '/',
               meta: { lang: 'en-US', title: 'Test' },
               layout: {
@@ -371,6 +389,8 @@ test.describe('Navigation Links', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -408,6 +428,8 @@ test.describe('Navigation Links', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {

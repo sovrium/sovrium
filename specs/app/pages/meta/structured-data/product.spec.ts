@@ -29,6 +29,8 @@ test.describe('Product Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -67,6 +69,8 @@ test.describe('Product Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -106,6 +110,8 @@ test.describe('Product Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -150,6 +156,8 @@ test.describe('Product Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -189,6 +197,8 @@ test.describe('Product Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -227,6 +237,8 @@ test.describe('Product Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -265,6 +277,8 @@ test.describe('Product Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -304,6 +318,8 @@ test.describe('Product Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -343,6 +359,8 @@ test.describe('Product Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -387,6 +405,8 @@ test.describe('Product Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -431,6 +451,8 @@ test.describe('Product Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -481,6 +503,8 @@ test.describe('Product Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -531,6 +555,8 @@ test.describe('Product Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',

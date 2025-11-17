@@ -34,6 +34,7 @@ test.describe('Responsive Variants', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -72,6 +73,7 @@ test.describe('Responsive Variants', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -119,6 +121,7 @@ test.describe('Responsive Variants', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -160,6 +163,7 @@ test.describe('Responsive Variants', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -217,6 +221,7 @@ test.describe('Responsive Variants', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -261,6 +266,7 @@ test.describe('Responsive Variants', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -304,6 +310,7 @@ test.describe('Responsive Variants', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -353,6 +360,7 @@ test.describe('Responsive Variants', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -406,6 +414,7 @@ test.describe('Responsive Variants', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -459,6 +468,7 @@ test.describe('Responsive Variants', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -532,6 +542,7 @@ test.describe('Responsive Variants', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {

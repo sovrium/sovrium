@@ -34,6 +34,8 @@ test.describe('Footer Configuration', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             layout: { footer: { enabled: true } },
@@ -60,6 +62,8 @@ test.describe('Footer Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: { footer: { enabled: true, logo: './logo-footer.svg' } },
@@ -89,6 +93,8 @@ test.describe('Footer Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -119,6 +125,8 @@ test.describe('Footer Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -168,6 +176,8 @@ test.describe('Footer Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -209,6 +219,8 @@ test.describe('Footer Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -253,6 +265,8 @@ test.describe('Footer Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -311,6 +325,8 @@ test.describe('Footer Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: { footer: { enabled: true, social: { links: socialLinks } } },
@@ -339,6 +355,8 @@ test.describe('Footer Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -383,6 +401,8 @@ test.describe('Footer Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -413,6 +433,8 @@ test.describe('Footer Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -451,6 +473,8 @@ test.describe('Footer Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: { footer: { enabled: false } },
@@ -477,6 +501,8 @@ test.describe('Footer Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -520,6 +546,8 @@ test.describe('Footer Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -566,6 +594,8 @@ test.describe('Footer Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {

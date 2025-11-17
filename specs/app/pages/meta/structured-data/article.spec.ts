@@ -29,6 +29,8 @@ test.describe('Article Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -69,6 +71,8 @@ test.describe('Article Schema', () => {
           pages: [
             {
               name: 'test',
+              name: 'home',
+
               path: '/',
               meta: {
                 lang: 'en-US',
@@ -103,6 +107,8 @@ test.describe('Article Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -140,6 +146,8 @@ test.describe('Article Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -179,6 +187,8 @@ test.describe('Article Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -218,6 +228,8 @@ test.describe('Article Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -256,6 +268,8 @@ test.describe('Article Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -299,6 +313,8 @@ test.describe('Article Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -338,6 +354,8 @@ test.describe('Article Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -376,6 +394,8 @@ test.describe('Article Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -415,6 +435,8 @@ test.describe('Article Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -457,6 +479,8 @@ test.describe('Article Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -495,6 +519,8 @@ test.describe('Article Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -538,6 +564,8 @@ test.describe('Article Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -579,6 +607,8 @@ test.describe('Article Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',

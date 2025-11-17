@@ -52,6 +52,8 @@ test.describe('Language Switcher Block', () => {
         pages: [
           {
             name: 'Home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             sections: [{ block: 'language-switcher' }],
@@ -103,6 +105,8 @@ test.describe('Language Switcher Block', () => {
         pages: [
           {
             name: 'Home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             sections: [{ block: 'language-switcher' }],
@@ -148,6 +152,8 @@ test.describe('Language Switcher Block', () => {
         pages: [
           {
             name: 'Home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             sections: [{ block: 'language-switcher' }],
@@ -204,6 +210,8 @@ test.describe('Language Switcher Block', () => {
         pages: [
           {
             name: 'Home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             sections: [{ block: 'language-switcher' }],

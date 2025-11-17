@@ -52,6 +52,8 @@ test.describe('CTA Button', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             layout: {
@@ -82,6 +84,8 @@ test.describe('CTA Button', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             layout: {
@@ -115,6 +119,8 @@ test.describe('CTA Button', () => {
           pages: [
             {
               name: 'test',
+              name: 'home',
+
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
               layout: {
@@ -144,6 +150,8 @@ test.describe('CTA Button', () => {
           pages: [
             {
               name: 'test',
+              name: 'home',
+
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
               layout: {
@@ -169,6 +177,8 @@ test.describe('CTA Button', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             layout: {
@@ -202,6 +212,8 @@ test.describe('CTA Button', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             layout: {
@@ -242,6 +254,8 @@ test.describe('CTA Button', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             layout: {
@@ -277,6 +291,8 @@ test.describe('CTA Button', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             layout: {
@@ -312,6 +328,8 @@ test.describe('CTA Button', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             layout: {
@@ -342,6 +360,8 @@ test.describe('CTA Button', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             layout: {
@@ -389,6 +409,8 @@ test.describe('CTA Button', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {

@@ -29,6 +29,8 @@ test.describe('Structured Data', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -67,6 +69,8 @@ test.describe('Structured Data', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -104,6 +108,8 @@ test.describe('Structured Data', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -141,6 +147,8 @@ test.describe('Structured Data', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -178,6 +186,8 @@ test.describe('Structured Data', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -215,6 +225,8 @@ test.describe('Structured Data', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -259,6 +271,8 @@ test.describe('Structured Data', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -296,6 +310,8 @@ test.describe('Structured Data', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -333,6 +349,8 @@ test.describe('Structured Data', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -381,6 +399,8 @@ test.describe('Structured Data', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -418,6 +438,8 @@ test.describe('Structured Data', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',

@@ -49,6 +49,8 @@ test.describe('Language Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [{ block: 'language-switcher' }],
@@ -91,6 +93,8 @@ test.describe('Language Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'ar-SA', title: 'Test', description: 'Test page' },
             sections: [{ block: 'language-switcher' }],
@@ -133,6 +137,8 @@ test.describe('Language Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [{ block: 'language-switcher' }],
@@ -174,6 +180,8 @@ test.describe('Language Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [{ block: 'language-switcher' }],
@@ -217,6 +225,8 @@ test.describe('Language Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [{ block: 'language-switcher' }],
@@ -261,6 +271,8 @@ test.describe('Language Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [{ block: 'language-switcher' }],
@@ -308,6 +320,8 @@ test.describe('Language Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [{ block: 'language-switcher' }],
@@ -353,6 +367,8 @@ test.describe('Language Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [{ block: 'language-switcher' }],
@@ -418,6 +434,8 @@ test.describe('Language Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [{ block: 'language-switcher' }],

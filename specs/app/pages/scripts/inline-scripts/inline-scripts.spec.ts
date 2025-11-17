@@ -29,6 +29,8 @@ test.describe('Inline Scripts', () => {
         pages: [
           {
             name: 'test_page',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: { inlineScripts: [{ code: "console.log('Page loaded');" }] },
@@ -61,6 +63,8 @@ test.describe('Inline Scripts', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {
@@ -94,6 +98,8 @@ test.describe('Inline Scripts', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: { inlineScripts: [{ code: "console.log('head');", position: 'head' }] },
@@ -125,6 +131,8 @@ test.describe('Inline Scripts', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {
@@ -158,6 +166,8 @@ test.describe('Inline Scripts', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: { inlineScripts: [{ code: "await fetch('/api/data')", async: true }] },
@@ -187,6 +197,8 @@ test.describe('Inline Scripts', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {
@@ -216,6 +228,8 @@ test.describe('Inline Scripts', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {
@@ -254,6 +268,8 @@ test.describe('Inline Scripts', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: { inlineScripts: [{ code: "console.log('default');" }] },
@@ -285,6 +301,8 @@ test.describe('Inline Scripts', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {
@@ -318,6 +336,8 @@ test.describe('Inline Scripts', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {
@@ -350,6 +370,8 @@ test.describe('Inline Scripts', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {

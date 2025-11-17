@@ -29,6 +29,8 @@ test.describe('Education Event Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -66,6 +68,8 @@ test.describe('Education Event Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -105,6 +109,8 @@ test.describe('Education Event Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -142,6 +148,8 @@ test.describe('Education Event Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -186,6 +194,8 @@ test.describe('Education Event Schema', () => {
           pages: [
             {
               name: 'test',
+              name: 'home',
+
               path: '/',
               meta: {
                 lang: 'en-US',
@@ -228,6 +238,8 @@ test.describe('Education Event Schema', () => {
           pages: [
             {
               name: 'test',
+              name: 'home',
+
               path: '/',
               meta: {
                 lang: 'en-US',
@@ -263,6 +275,8 @@ test.describe('Education Event Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -306,6 +320,8 @@ test.describe('Education Event Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -348,6 +364,8 @@ test.describe('Education Event Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -393,6 +411,8 @@ test.describe('Education Event Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -439,6 +459,8 @@ test.describe('Education Event Schema', () => {
           pages: [
             {
               name: 'test',
+              name: 'home',
+
               path: '/',
               meta: {
                 lang: 'en-US',
@@ -474,6 +496,8 @@ test.describe('Education Event Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -514,6 +538,8 @@ test.describe('Education Event Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -554,6 +580,8 @@ test.describe('Education Event Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -592,6 +620,8 @@ test.describe('Education Event Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',

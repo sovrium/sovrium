@@ -34,6 +34,8 @@ test.describe('Page Layout', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page description' },
             layout: {
@@ -68,6 +70,8 @@ test.describe('Page Layout', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -99,6 +103,8 @@ test.describe('Page Layout', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -139,6 +145,8 @@ test.describe('Page Layout', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -182,6 +190,8 @@ test.describe('Page Layout', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -226,6 +236,8 @@ test.describe('Page Layout', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {},
@@ -256,6 +268,8 @@ test.describe('Page Layout', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -301,6 +315,8 @@ test.describe('Page Layout', () => {
         pages: [
           {
             name: 'Home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home' },
             layout: null,
@@ -308,6 +324,8 @@ test.describe('Page Layout', () => {
           },
           {
             name: 'About',
+            name: 'about',
+
             path: '/about',
             meta: { lang: 'en-US', title: 'About' },
             layout: { navigation: { logo: '/logo.svg' } },
@@ -315,6 +333,8 @@ test.describe('Page Layout', () => {
           },
           {
             name: 'Docs',
+            name: 'docs',
+
             path: '/docs',
             meta: { lang: 'en-US', title: 'Docs' },
             layout: { sidebar: { enabled: true } },
@@ -358,6 +378,8 @@ test.describe('Page Layout', () => {
         pages: [
           {
             name: 'Home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home' },
             layout: {
@@ -377,6 +399,8 @@ test.describe('Page Layout', () => {
           },
           {
             name: 'About',
+            name: 'about',
+
             path: '/about',
             meta: { lang: 'en-US', title: 'About' },
             layout: { navigation: { logo: '/logo.svg' } },

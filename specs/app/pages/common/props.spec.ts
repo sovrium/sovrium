@@ -34,6 +34,8 @@ test.describe('Component Props', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -62,6 +64,8 @@ test.describe('Component Props', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [{ type: 'div', props: { size: 16 }, children: ['Content'] }],
@@ -87,6 +91,8 @@ test.describe('Component Props', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [{ type: 'button', props: { enabled: true }, children: ['Click'] }],
@@ -112,6 +118,8 @@ test.describe('Component Props', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -145,6 +153,8 @@ test.describe('Component Props', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -176,6 +186,8 @@ test.describe('Component Props', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [{ block: 'welcome', vars: { siteName: 'My Site' } }],
@@ -201,6 +213,8 @@ test.describe('Component Props', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -235,6 +249,8 @@ test.describe('Component Props', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -277,6 +293,8 @@ test.describe('Component Props', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [{ block: 'greeting', vars: { primaryColor: 'blue', userName: 'John' } }],
@@ -304,6 +322,8 @@ test.describe('Component Props', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [{ type: 'div', props: {}, children: ['No Props'] }],
@@ -342,6 +362,8 @@ test.describe('Component Props', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [

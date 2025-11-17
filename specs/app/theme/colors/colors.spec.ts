@@ -40,6 +40,7 @@ test.describe('Color Palette', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -101,6 +102,7 @@ test.describe('Color Palette', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -162,6 +164,7 @@ test.describe('Color Palette', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -220,6 +223,7 @@ test.describe('Color Palette', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -278,6 +282,7 @@ test.describe('Color Palette', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -336,6 +341,7 @@ test.describe('Color Palette', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -397,6 +403,7 @@ test.describe('Color Palette', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -486,6 +493,7 @@ test.describe('Color Palette', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -586,6 +594,7 @@ test.describe('Color Palette', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -706,6 +715,7 @@ test.describe('Color Palette', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -785,6 +795,7 @@ test.describe('Color Palette', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -824,6 +835,7 @@ test.describe('Color Palette', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -861,6 +873,7 @@ test.describe('Color Palette', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -897,6 +910,7 @@ test.describe('Color Palette', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -939,6 +953,7 @@ test.describe('Color Palette', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -1048,6 +1063,7 @@ test.describe('Color Palette', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {

@@ -34,6 +34,8 @@ test.describe('Click Interaction', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -68,6 +70,8 @@ test.describe('Click Interaction', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -102,6 +106,8 @@ test.describe('Click Interaction', () => {
         pages: [
           {
             name: 'Home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home' },
             sections: [
@@ -115,6 +121,8 @@ test.describe('Click Interaction', () => {
           },
           {
             name: 'Contact',
+            name: 'contact',
+
             path: '/contact',
             meta: { lang: 'en-US', title: 'Contact' },
             sections: [],
@@ -142,6 +150,8 @@ test.describe('Click Interaction', () => {
         pages: [
           {
             name: 'Home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home' },
             sections: [
@@ -179,6 +189,8 @@ test.describe('Click Interaction', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -215,6 +227,8 @@ test.describe('Click Interaction', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -251,6 +265,8 @@ test.describe('Click Interaction', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -291,6 +307,8 @@ test.describe('Click Interaction', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -334,6 +352,8 @@ test.describe('Click Interaction', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -376,6 +396,8 @@ test.describe('Click Interaction', () => {
         pages: [
           {
             name: 'Home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home' },
             sections: [
@@ -389,6 +411,8 @@ test.describe('Click Interaction', () => {
           },
           {
             name: 'Signup',
+            name: 'signup',
+
             path: '/signup',
             meta: { lang: 'en-US', title: 'Signup' },
             sections: [],
@@ -417,6 +441,8 @@ test.describe('Click Interaction', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -451,6 +477,8 @@ test.describe('Click Interaction', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -490,6 +518,8 @@ test.describe('Click Interaction', () => {
         pages: [
           {
             name: 'Home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home' },
             sections: [
@@ -514,6 +544,8 @@ test.describe('Click Interaction', () => {
           },
           {
             name: 'Contact',
+            name: 'contact',
+
             path: '/contact',
             meta: { lang: 'en-US', title: 'Contact' },
             sections: [],

@@ -34,6 +34,8 @@ test.describe('Custom Head Elements', () => {
         pages: [
           {
             name: 'test_page',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -66,6 +68,8 @@ test.describe('Custom Head Elements', () => {
         pages: [
           {
             name: 'test_page',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -100,6 +104,8 @@ test.describe('Custom Head Elements', () => {
         pages: [
           {
             name: 'test_page',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -132,6 +138,8 @@ test.describe('Custom Head Elements', () => {
         pages: [
           {
             name: 'test_page',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -163,6 +171,8 @@ test.describe('Custom Head Elements', () => {
         pages: [
           {
             name: 'test_page',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -206,6 +216,8 @@ test.describe('Custom Head Elements', () => {
         pages: [
           {
             name: 'test_page',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -239,6 +251,8 @@ test.describe('Custom Head Elements', () => {
         pages: [
           {
             name: 'test_page',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -271,6 +285,8 @@ test.describe('Custom Head Elements', () => {
         pages: [
           {
             name: 'test_page',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -313,6 +329,8 @@ test.describe('Custom Head Elements', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',

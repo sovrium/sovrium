@@ -40,6 +40,8 @@ test.describe('Theme Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -111,6 +113,8 @@ test.describe('Theme Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -163,6 +167,8 @@ test.describe('Theme Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [],
@@ -215,6 +221,8 @@ test.describe('Theme Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -316,6 +324,8 @@ test.describe('Theme Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [],
@@ -357,6 +367,8 @@ test.describe('Theme Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -415,6 +427,8 @@ test.describe('Theme Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -473,6 +487,8 @@ test.describe('Theme Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [],
@@ -527,6 +543,8 @@ test.describe('Theme Configuration', () => {
         },
         pages: [
           {
+            name: 'home',
+
             path: '/',
             sections: [
               {
@@ -582,6 +600,8 @@ test.describe('Theme Configuration', () => {
         },
         pages: [
           {
+            name: 'home',
+
             path: '/',
             sections: [
               { type: 'header' },
@@ -632,6 +652,8 @@ test.describe('Theme Configuration', () => {
         },
         pages: [
           {
+            name: 'home',
+
             path: '/',
             sections: [
               {
@@ -718,6 +740,8 @@ test.describe('Theme Configuration', () => {
         },
         pages: [
           {
+            name: 'home',
+
             path: '/',
             sections: [
               {
@@ -799,6 +823,8 @@ test.describe('Theme Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [

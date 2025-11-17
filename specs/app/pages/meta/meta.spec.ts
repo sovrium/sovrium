@@ -34,6 +34,8 @@ test.describe('Page Metadata', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'My Page', description: 'Page description' },
             sections: [],
@@ -64,6 +66,8 @@ test.describe('Page Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -94,6 +98,8 @@ test.describe('Page Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -125,6 +131,8 @@ test.describe('Page Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -158,6 +166,8 @@ test.describe('Page Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -191,6 +201,8 @@ test.describe('Page Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -232,6 +244,8 @@ test.describe('Page Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -267,6 +281,8 @@ test.describe('Page Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -315,6 +331,8 @@ test.describe('Page Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -353,6 +371,8 @@ test.describe('Page Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -394,6 +414,8 @@ test.describe('Page Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -443,6 +465,8 @@ test.describe('Page Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -508,6 +532,8 @@ test.describe('Page Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',

@@ -29,6 +29,8 @@ test.describe('Breadcrumb Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -66,6 +68,8 @@ test.describe('Breadcrumb Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -106,6 +110,8 @@ test.describe('Breadcrumb Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -145,6 +151,8 @@ test.describe('Breadcrumb Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -188,6 +196,8 @@ test.describe('Breadcrumb Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -231,6 +241,8 @@ test.describe('Breadcrumb Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -276,6 +288,8 @@ test.describe('Breadcrumb Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -334,6 +348,8 @@ test.describe('Breadcrumb Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -378,6 +394,8 @@ test.describe('Breadcrumb Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -423,6 +441,8 @@ test.describe('Breadcrumb Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -461,6 +481,8 @@ test.describe('Breadcrumb Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',

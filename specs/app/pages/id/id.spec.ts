@@ -35,6 +35,8 @@ test.describe('Page ID', () => {
           {
             id: 'home-page-123',
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home', description: 'Home page description' },
             sections: [],
@@ -63,6 +65,8 @@ test.describe('Page ID', () => {
           {
             id: 'page-1',
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home', description: 'Home' },
             sections: [],
@@ -84,6 +88,8 @@ test.describe('Page ID', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home', description: 'Home' },
             sections: [],
@@ -110,6 +116,8 @@ test.describe('Page ID', () => {
           {
             id: '550e8400-e29b-41d4-a716-446655440000',
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home', description: 'Home' },
             sections: [],
@@ -138,6 +146,8 @@ test.describe('Page ID', () => {
           {
             id: '12345',
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home', description: 'Home' },
             sections: [],
@@ -164,6 +174,8 @@ test.describe('Page ID', () => {
           {
             id: 'page-1',
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home', description: 'Home' },
             sections: [],
@@ -171,6 +183,8 @@ test.describe('Page ID', () => {
           {
             id: 'page-2',
             name: 'about',
+            name: 'about',
+
             path: '/about',
             meta: { lang: 'en-US', title: 'About', description: 'About' },
             sections: [],
@@ -178,6 +192,8 @@ test.describe('Page ID', () => {
           {
             id: 'page-3',
             name: 'contact',
+            name: 'contact',
+
             path: '/contact',
             meta: { lang: 'en-US', title: 'Contact', description: 'Contact' },
             sections: [],
@@ -213,6 +229,8 @@ test.describe('Page ID', () => {
           {
             id: 'home-page',
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home', description: 'Home' },
             sections: [],
@@ -220,12 +238,16 @@ test.describe('Page ID', () => {
           {
             id: '550e8400-e29b-41d4-a716-446655440000',
             name: 'about',
+            name: 'about',
+
             path: '/about',
             meta: { lang: 'en-US', title: 'About', description: 'About' },
             sections: [],
           },
           {
             name: 'contact',
+            name: 'contact',
+
             path: '/contact',
             meta: { lang: 'en-US', title: 'Contact', description: 'Contact' },
             sections: [],

@@ -35,6 +35,7 @@ test.describe('Block Template', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [{ block: 'simple-block' }],
@@ -65,6 +66,7 @@ test.describe('Block Template', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -103,6 +105,7 @@ test.describe('Block Template', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [{ block: 'icon-badge' }],
@@ -136,6 +139,7 @@ test.describe('Block Template', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [{ block: 'layout' }, { block: 'row' }, { block: 'cta' }],
@@ -172,6 +176,7 @@ test.describe('Block Template', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -214,6 +219,7 @@ test.describe('Block Template', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               { block: 'card-header', vars: { title: 'Card Title', subtitle: 'Card subtitle' } },
@@ -253,6 +259,7 @@ test.describe('Block Template', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [{ block: 'alert-message', vars: { message: 'Operation successful!' } }],
           },
@@ -288,6 +295,7 @@ test.describe('Block Template', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [{ block: 'simple-text', vars: { color: 'blue', message: 'Hello World' } }],
           },
@@ -326,6 +334,7 @@ test.describe('Block Template', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -369,6 +378,7 @@ test.describe('Block Template', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               { block: 'stat-card', vars: { value: '1,234', label: 'Users' } },
@@ -423,6 +433,7 @@ test.describe('Block Template', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -474,6 +485,7 @@ test.describe('Block Template', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [{ block: 'pricing-badge', vars: { color: 'gold', price: '49' } }],
           },
@@ -524,6 +536,7 @@ test.describe('Block Template', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               { block: 'simple-text', vars: { color: 'blue', message: 'Welcome' } },

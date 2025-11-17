@@ -29,6 +29,8 @@ test.describe('Resource Preloading', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -61,6 +63,8 @@ test.describe('Resource Preloading', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -91,6 +95,8 @@ test.describe('Resource Preloading', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -121,6 +127,8 @@ test.describe('Resource Preloading', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -155,6 +163,8 @@ test.describe('Resource Preloading', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -185,6 +195,8 @@ test.describe('Resource Preloading', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -215,6 +227,8 @@ test.describe('Resource Preloading', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -255,6 +269,8 @@ test.describe('Resource Preloading', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -285,6 +301,8 @@ test.describe('Resource Preloading', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -317,6 +335,8 @@ test.describe('Resource Preloading', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -350,6 +370,8 @@ test.describe('Resource Preloading', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',

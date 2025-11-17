@@ -34,6 +34,8 @@ test.describe('Component Interactions', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -69,6 +71,8 @@ test.describe('Component Interactions', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -103,6 +107,8 @@ test.describe('Component Interactions', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -137,6 +143,8 @@ test.describe('Component Interactions', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -170,6 +178,8 @@ test.describe('Component Interactions', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -210,6 +220,8 @@ test.describe('Component Interactions', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -248,6 +260,8 @@ test.describe('Component Interactions', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -291,6 +305,8 @@ test.describe('Component Interactions', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -337,6 +353,8 @@ test.describe('Component Interactions', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -359,6 +377,8 @@ test.describe('Component Interactions', () => {
           },
           {
             name: 'About',
+            name: 'about',
+
             path: '/about',
             meta: { lang: 'en-US', title: 'About' },
             sections: [],

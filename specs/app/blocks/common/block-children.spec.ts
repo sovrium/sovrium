@@ -186,6 +186,7 @@ test.describe('Block Children', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -241,6 +242,7 @@ test.describe('Block Children', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -293,6 +295,7 @@ test.describe('Block Children', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               { block: 'badge-with-icon', vars: { icon: 'check-circle', color: 'green' } },
@@ -369,6 +372,7 @@ test.describe('Block Children', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -481,6 +485,7 @@ test.describe('Block Children', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {

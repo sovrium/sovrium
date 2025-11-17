@@ -102,6 +102,7 @@ test.describe('Block Props', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -262,6 +263,7 @@ test.describe('Block Props', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -338,6 +340,7 @@ test.describe('Block Props', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -406,6 +409,8 @@ test.describe('Block Props', () => {
         pages: [
           {
             name: 'form',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -477,6 +482,8 @@ test.describe('Block Props', () => {
         pages: [
           {
             name: 'main',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -534,6 +541,8 @@ test.describe('Block Props', () => {
         pages: [
           {
             name: 'landing',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -616,6 +625,8 @@ test.describe('Block Props', () => {
         pages: [
           {
             name: 'shop',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -678,6 +689,7 @@ test.describe('Block Props', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {

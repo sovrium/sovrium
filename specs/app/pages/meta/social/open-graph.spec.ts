@@ -29,6 +29,8 @@ test.describe('Open Graph Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -76,6 +78,8 @@ test.describe('Open Graph Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -112,6 +116,8 @@ test.describe('Open Graph Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -151,6 +157,8 @@ test.describe('Open Graph Metadata', () => {
           pages: [
             {
               name: 'Test',
+              name: 'home',
+
               path: '/',
               meta: {
                 lang: 'en-US',
@@ -178,6 +186,8 @@ test.describe('Open Graph Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -217,6 +227,8 @@ test.describe('Open Graph Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -257,6 +269,8 @@ test.describe('Open Graph Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -296,6 +310,8 @@ test.describe('Open Graph Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -333,6 +349,8 @@ test.describe('Open Graph Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -369,6 +387,8 @@ test.describe('Open Graph Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -409,6 +429,8 @@ test.describe('Open Graph Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -449,6 +471,8 @@ test.describe('Open Graph Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -491,6 +515,8 @@ test.describe('Open Graph Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',

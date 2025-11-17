@@ -34,6 +34,8 @@ test.describe('Entrance Animation', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -67,6 +69,8 @@ test.describe('Entrance Animation', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -100,6 +104,8 @@ test.describe('Entrance Animation', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -133,6 +139,8 @@ test.describe('Entrance Animation', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -167,6 +175,8 @@ test.describe('Entrance Animation', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -201,6 +211,8 @@ test.describe('Entrance Animation', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -257,6 +269,8 @@ test.describe('Entrance Animation', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -309,6 +323,8 @@ test.describe('Entrance Animation', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -353,6 +369,8 @@ test.describe('Entrance Animation', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [

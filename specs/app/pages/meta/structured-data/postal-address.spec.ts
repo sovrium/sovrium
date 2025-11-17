@@ -29,6 +29,8 @@ test.describe('Postal Address', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -67,6 +69,8 @@ test.describe('Postal Address', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -107,6 +111,8 @@ test.describe('Postal Address', () => {
           pages: [
             {
               name: 'Test',
+              name: 'home',
+
               path: '/',
               meta: {
                 lang: 'en-US',
@@ -144,6 +150,8 @@ test.describe('Postal Address', () => {
           pages: [
             {
               name: 'Test',
+              name: 'home',
+
               path: '/',
               meta: {
                 lang: 'en-US',
@@ -181,6 +189,8 @@ test.describe('Postal Address', () => {
           pages: [
             {
               name: 'Test',
+              name: 'home',
+
               path: '/',
               meta: {
                 lang: 'en-US',
@@ -218,6 +228,8 @@ test.describe('Postal Address', () => {
           pages: [
             {
               name: 'Test',
+              name: 'home',
+
               path: '/',
               meta: {
                 lang: 'en-US',
@@ -253,6 +265,8 @@ test.describe('Postal Address', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -301,6 +315,8 @@ test.describe('Postal Address', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -345,6 +361,8 @@ test.describe('Postal Address', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -391,6 +409,8 @@ test.describe('Postal Address', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -434,6 +454,8 @@ test.describe('Postal Address', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',

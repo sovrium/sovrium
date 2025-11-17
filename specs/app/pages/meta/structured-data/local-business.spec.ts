@@ -29,6 +29,8 @@ test.describe('Local Business Schema', () => {
         pages: [
           {
             name: 'test_page',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -67,6 +69,8 @@ test.describe('Local Business Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -106,6 +110,8 @@ test.describe('Local Business Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -146,6 +152,8 @@ test.describe('Local Business Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -185,6 +193,8 @@ test.describe('Local Business Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -227,6 +237,8 @@ test.describe('Local Business Schema', () => {
           pages: [
             {
               name: 'Test',
+              name: 'home',
+
               path: '/',
               meta: {
                 lang: 'en-US',
@@ -262,6 +274,8 @@ test.describe('Local Business Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -306,6 +320,8 @@ test.describe('Local Business Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -346,6 +362,8 @@ test.describe('Local Business Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -389,6 +407,8 @@ test.describe('Local Business Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -436,6 +456,8 @@ test.describe('Local Business Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -483,6 +505,8 @@ test.describe('Local Business Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -529,6 +553,8 @@ test.describe('Local Business Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -575,6 +601,8 @@ test.describe('Local Business Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -618,6 +646,8 @@ test.describe('Local Business Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',

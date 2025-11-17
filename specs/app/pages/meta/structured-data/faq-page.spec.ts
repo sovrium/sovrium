@@ -29,6 +29,8 @@ test.describe('FAQ Page Schema', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -62,6 +64,8 @@ test.describe('FAQ Page Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -105,6 +109,8 @@ test.describe('FAQ Page Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -150,6 +156,8 @@ test.describe('FAQ Page Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -193,6 +201,8 @@ test.describe('FAQ Page Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -237,6 +247,8 @@ test.describe('FAQ Page Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -283,6 +295,8 @@ test.describe('FAQ Page Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -347,6 +361,8 @@ test.describe('FAQ Page Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -392,6 +408,8 @@ test.describe('FAQ Page Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -437,6 +455,8 @@ test.describe('FAQ Page Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -482,6 +502,8 @@ test.describe('FAQ Page Schema', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',

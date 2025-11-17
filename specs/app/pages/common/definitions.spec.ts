@@ -34,6 +34,8 @@ test.describe('Common Definitions', () => {
         pages: [
           {
             name: 'hello',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [],
@@ -60,6 +62,8 @@ test.describe('Common Definitions', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [{ block: 'my-component-name', vars: {} }],
@@ -86,6 +90,8 @@ test.describe('Common Definitions', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [{ block: 'test-block', vars: { myVariable123: 'Hello' } }],
@@ -112,6 +118,8 @@ test.describe('Common Definitions', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [{ block: 'welcome', vars: { siteName: 'My Site' } }],
@@ -138,6 +146,8 @@ test.describe('Common Definitions', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [{ type: 'div', props: { className: 'bg-custom' }, children: ['Test'] }],
@@ -164,6 +174,8 @@ test.describe('Common Definitions', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -196,6 +208,8 @@ test.describe('Common Definitions', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: { navigation: { logo: './public/logo.svg' } },
@@ -222,6 +236,8 @@ test.describe('Common Definitions', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: { footer: { email: 'user@example.com' } },
@@ -248,6 +264,8 @@ test.describe('Common Definitions', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -289,6 +307,8 @@ test.describe('Common Definitions', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [{ block: 'icon-block', vars: {} }],
@@ -314,6 +334,8 @@ test.describe('Common Definitions', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [
@@ -360,6 +382,8 @@ test.describe('Common Definitions', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             sections: [{ block: 'icons', vars: {} }],
@@ -406,6 +430,8 @@ test.describe('Common Definitions', () => {
         pages: [
           {
             name: 'Test Page',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',

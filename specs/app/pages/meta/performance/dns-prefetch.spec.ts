@@ -29,6 +29,8 @@ test.describe('DNS Prefetch', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -64,6 +66,8 @@ test.describe('DNS Prefetch', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -99,6 +103,8 @@ test.describe('DNS Prefetch', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -131,6 +137,8 @@ test.describe('DNS Prefetch', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -166,6 +174,8 @@ test.describe('DNS Prefetch', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -198,6 +208,8 @@ test.describe('DNS Prefetch', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -232,6 +244,8 @@ test.describe('DNS Prefetch', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -265,6 +279,8 @@ test.describe('DNS Prefetch', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -300,6 +316,8 @@ test.describe('DNS Prefetch', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -332,6 +350,8 @@ test.describe('DNS Prefetch', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -362,6 +382,8 @@ test.describe('DNS Prefetch', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',

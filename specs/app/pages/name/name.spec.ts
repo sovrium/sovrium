@@ -34,6 +34,8 @@ test.describe('Page Name', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home', description: 'Home page' },
             sections: [],
@@ -61,6 +63,8 @@ test.describe('Page Name', () => {
         pages: [
           {
             name: 'about',
+            name: 'about',
+
             path: '/about',
             meta: { lang: 'en-US', title: 'About', description: 'About' },
             sections: [],
@@ -82,6 +86,8 @@ test.describe('Page Name', () => {
         pages: [
           {
             name: 'about',
+            name: 'about',
+
             path: '/about',
             meta: { lang: 'en-US', title: 'About', description: 'About' },
             sections: [],
@@ -107,12 +113,16 @@ test.describe('Page Name', () => {
         pages: [
           {
             name: 'pricing',
+            name: 'pricing',
+
             path: '/pricing',
             meta: { lang: 'en-US', title: 'Pricing', description: 'Pricing' },
             sections: [],
           },
           {
             name: 'contact',
+            name: 'contact',
+
             path: '/contact',
             meta: { lang: 'en-US', title: 'Contact', description: 'Contact' },
             sections: [],
@@ -140,12 +150,16 @@ test.describe('Page Name', () => {
         pages: [
           {
             name: 'home_page',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home', description: 'Home' },
             sections: [],
           },
           {
             name: 'about_us',
+            name: 'about',
+
             path: '/about',
             meta: { lang: 'en-US', title: 'About', description: 'About' },
             sections: [],
@@ -173,24 +187,32 @@ test.describe('Page Name', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home', description: 'Home' },
             sections: [],
           },
           {
             name: 'about',
+            name: 'about',
+
             path: '/about',
             meta: { lang: 'en-US', title: 'About', description: 'About' },
             sections: [],
           },
           {
             name: 'pricing',
+            name: 'pricing',
+
             path: '/pricing',
             meta: { lang: 'en-US', title: 'Pricing', description: 'Pricing' },
             sections: [],
           },
           {
             name: 'contact',
+            name: 'contact',
+
             path: '/contact',
             meta: { lang: 'en-US', title: 'Contact', description: 'Contact' },
             sections: [],
@@ -219,6 +241,8 @@ test.describe('Page Name', () => {
           name: 'test-app',
           pages: [
             {
+              name: 'home',
+
               path: '/',
               meta: { lang: 'en-US', title: 'Home', description: 'Home' },
               sections: [],
@@ -239,18 +263,24 @@ test.describe('Page Name', () => {
         pages: [
           {
             name: 'homepage',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Welcome', description: 'Welcome' },
             sections: [],
           },
           {
             name: 'company_info',
+            name: 'about',
+
             path: '/about',
             meta: { lang: 'en-US', title: 'About Us', description: 'About Us' },
             sections: [],
           },
           {
             name: 'plans_and_pricing',
+            name: 'pricing',
+
             path: '/pricing',
             meta: { lang: 'en-US', title: 'Pricing', description: 'Pricing' },
             sections: [],

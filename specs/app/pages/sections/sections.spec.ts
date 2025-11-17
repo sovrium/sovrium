@@ -29,6 +29,8 @@ test.describe('Page Sections', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             sections: [
@@ -86,6 +88,8 @@ test.describe('Page Sections', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             sections: componentTypes.map((type) => ({ type })),
@@ -112,6 +116,8 @@ test.describe('Page Sections', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             sections: [
@@ -149,6 +155,8 @@ test.describe('Page Sections', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             sections: [
@@ -194,6 +202,8 @@ test.describe('Page Sections', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             sections: [
@@ -227,6 +237,8 @@ test.describe('Page Sections', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             sections: [
@@ -266,6 +278,8 @@ test.describe('Page Sections', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             sections: [
@@ -310,6 +324,8 @@ test.describe('Page Sections', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             sections: [{ block: 'section-header', vars: { title: 'Our Features' } }],
@@ -344,6 +360,8 @@ test.describe('Page Sections', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             sections: [
@@ -379,6 +397,8 @@ test.describe('Page Sections', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             sections: [
@@ -439,6 +459,8 @@ test.describe('Page Sections', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             sections: [
@@ -472,6 +494,8 @@ test.describe('Page Sections', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             sections: [
@@ -522,6 +546,8 @@ test.describe('Page Sections', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             sections: [
@@ -577,6 +603,8 @@ test.describe('Page Sections', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             sections: [

@@ -34,6 +34,8 @@ test.describe('Pages', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home Page', description: 'Home page description' },
             sections: [],
@@ -59,6 +61,8 @@ test.describe('Pages', () => {
         pages: [
           {
             name: 'about',
+            name: 'about',
+
             path: '/about',
             meta: { lang: 'en-US', title: 'About Us', description: 'About us page' },
             sections: [],
@@ -86,6 +90,8 @@ test.describe('Pages', () => {
           {
             id: 'homepage',
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Welcome', description: 'Welcome page' },
             layout: { navigation: { logo: '/logo.svg' } },
@@ -114,6 +120,8 @@ test.describe('Pages', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home', description: 'Home page' },
             sections: [],
@@ -140,6 +148,8 @@ test.describe('Pages', () => {
         pages: [
           {
             name: 'pricing',
+            name: 'products_pricing',
+
             path: '/products/pricing',
             meta: { lang: 'en-US', title: 'Pricing', description: 'Pricing page' },
             sections: [],
@@ -166,6 +176,8 @@ test.describe('Pages', () => {
         pages: [
           {
             name: 'simple_page',
+            name: 'simple',
+
             path: '/simple',
             meta: { lang: 'en-US', title: 'Simple', description: 'Simple page' },
             sections: [
@@ -205,6 +217,8 @@ test.describe('Pages', () => {
         pages: [
           {
             name: 'landing',
+            name: 'landing',
+
             path: '/landing',
             meta: { lang: 'en-US', title: 'Landing', description: 'Landing page' },
             sections: [{ block: 'hero', vars: { title: 'Welcome to Our Platform' } }],
@@ -230,6 +244,8 @@ test.describe('Pages', () => {
         pages: [
           {
             name: 'full_layout',
+            name: 'full',
+
             path: '/full',
             meta: { lang: 'en-US', title: 'Full Layout', description: 'Full layout page' },
             layout: {
@@ -272,6 +288,8 @@ test.describe('Pages', () => {
         pages: [
           {
             name: 'interactive',
+            name: 'interactive',
+
             path: '/interactive',
             meta: { lang: 'en-US', title: 'Interactive', description: 'Interactive page' },
             scripts: {
@@ -302,24 +320,32 @@ test.describe('Pages', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home', description: 'Home page' },
             sections: [],
           },
           {
             name: 'about',
+            name: 'about',
+
             path: '/about',
             meta: { lang: 'en-US', title: 'About', description: 'About page' },
             sections: [],
           },
           {
             name: 'pricing',
+            name: 'pricing',
+
             path: '/pricing',
             meta: { lang: 'en-US', title: 'Pricing', description: 'Pricing page' },
             sections: [],
           },
           {
             name: 'contact',
+            name: 'contact',
+
             path: '/contact',
             meta: { lang: 'en-US', title: 'Contact', description: 'Contact page' },
             sections: [],
@@ -352,12 +378,16 @@ test.describe('Pages', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home', description: 'Home page' },
             sections: [{ block: 'cta', vars: { label: 'Get Started' } }],
           },
           {
             name: 'pricing',
+            name: 'pricing',
+
             path: '/pricing',
             meta: { lang: 'en-US', title: 'Pricing', description: 'Pricing page' },
             sections: [{ block: 'cta', vars: { label: 'Buy Now' } }],
@@ -385,6 +415,8 @@ test.describe('Pages', () => {
         pages: [
           {
             name: 'product_page',
+            name: 'product',
+
             path: '/product',
             meta: {
               lang: 'en-US',
@@ -437,6 +469,8 @@ test.describe('Pages', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home', description: 'Home page' },
             sections: [
@@ -480,12 +514,16 @@ test.describe('Pages', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home', description: 'Home page' },
             sections: [{ type: 'h1', children: ['$t:hero.title'] }],
           },
           {
             name: 'home_french',
+            name: 'fr',
+
             path: '/fr',
             meta: { lang: 'fr-FR', title: 'Accueil', description: 'Page accueil' },
             sections: [{ type: 'h1', children: ['$t:hero.title'] }],
@@ -523,12 +561,16 @@ test.describe('Pages', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home', description: 'Home page' },
             sections: [{ block: 'hero', vars: { title: 'Welcome', cta: 'Get Started' } }],
           },
           {
             name: 'pricing',
+            name: 'pricing',
+
             path: '/pricing',
             meta: { lang: 'en-US', title: 'Pricing', description: 'Pricing page' },
             sections: [{ block: 'hero', vars: { title: 'Pricing', cta: 'Buy Now' } }],
@@ -558,6 +600,8 @@ test.describe('Pages', () => {
         pages: [
           {
             name: 'responsive',
+            name: 'responsive',
+
             path: '/responsive',
             meta: { lang: 'en-US', title: 'Responsive', description: 'Responsive page' },
             sections: [
@@ -621,12 +665,16 @@ test.describe('Pages', () => {
         pages: [
           {
             name: 'home_english',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en', title: 'Home', description: 'Home page' },
             sections: [{ block: 'hero', vars: { title: '$t:hero.title' } }],
           },
           {
             name: 'home_french',
+            name: 'fr',
+
             path: '/fr',
             meta: { lang: 'fr', title: 'Accueil', description: 'Page accueil' },
             sections: [{ block: 'hero', vars: { title: '$t:hero.title' } }],
@@ -664,12 +712,16 @@ test.describe('Pages', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home', description: 'Home page' },
             sections: [{ block: 'cta', vars: { label: 'Get Started' } }],
           },
           {
             name: 'about',
+            name: 'about',
+
             path: '/about',
             meta: { lang: 'en-US', title: 'About', description: 'About page' },
             layout: { navigation: { logo: '/logo.svg' } },

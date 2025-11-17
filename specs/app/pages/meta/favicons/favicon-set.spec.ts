@@ -29,6 +29,8 @@ test.describe('Favicon Set', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -59,6 +61,8 @@ test.describe('Favicon Set', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -91,6 +95,8 @@ test.describe('Favicon Set', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -121,6 +127,8 @@ test.describe('Favicon Set', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -155,6 +163,8 @@ test.describe('Favicon Set', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -185,6 +195,8 @@ test.describe('Favicon Set', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -216,6 +228,8 @@ test.describe('Favicon Set', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -252,6 +266,8 @@ test.describe('Favicon Set', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',

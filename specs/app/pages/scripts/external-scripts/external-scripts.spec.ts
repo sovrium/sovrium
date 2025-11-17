@@ -29,6 +29,8 @@ test.describe('External Scripts', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {
@@ -59,6 +61,8 @@ test.describe('External Scripts', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {
@@ -88,6 +92,8 @@ test.describe('External Scripts', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {
@@ -116,6 +122,8 @@ test.describe('External Scripts', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: { externalScripts: [{ src: './js/app.js', module: true }] },
@@ -139,6 +147,8 @@ test.describe('External Scripts', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {
@@ -172,6 +182,8 @@ test.describe('External Scripts', () => {
           pages: [
             {
               name: 'Test',
+              name: 'home',
+
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test' },
               scripts: {
@@ -198,6 +210,8 @@ test.describe('External Scripts', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {
@@ -229,6 +243,8 @@ test.describe('External Scripts', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {
@@ -260,6 +276,8 @@ test.describe('External Scripts', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {
@@ -291,6 +309,8 @@ test.describe('External Scripts', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {
@@ -329,6 +349,8 @@ test.describe('External Scripts', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: { externalScripts: [{ src: './js/app.js' }] },
@@ -355,6 +377,8 @@ test.describe('External Scripts', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: { externalScripts: [{ src: 'https://cdn.example.com/script.js' }] },
@@ -383,6 +407,8 @@ test.describe('External Scripts', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {

@@ -39,6 +39,8 @@ test.describe('Analytics Configuration', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -76,6 +78,8 @@ test.describe('Analytics Configuration', () => {
           name: 'test-app',
           pages: [
             {
+              name: 'home',
+
               path: '/',
               meta: {
                 lang: 'en-US',
@@ -102,6 +106,8 @@ test.describe('Analytics Configuration', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -137,6 +143,8 @@ test.describe('Analytics Configuration', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -173,6 +181,8 @@ test.describe('Analytics Configuration', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -210,6 +220,8 @@ test.describe('Analytics Configuration', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -248,6 +260,8 @@ test.describe('Analytics Configuration', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -282,6 +296,8 @@ test.describe('Analytics Configuration', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -317,6 +333,8 @@ test.describe('Analytics Configuration', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -360,6 +378,8 @@ test.describe('Analytics Configuration', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -398,6 +418,8 @@ test.describe('Analytics Configuration', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -444,6 +466,8 @@ test.describe('Analytics Configuration', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -487,6 +511,8 @@ test.describe('Analytics Configuration', () => {
         pages: [
           {
             name: 'test_page',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',

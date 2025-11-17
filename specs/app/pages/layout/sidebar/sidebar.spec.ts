@@ -34,6 +34,8 @@ test.describe('Sidebar Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: { sidebar: { enabled: true, items: [] } },
@@ -60,6 +62,8 @@ test.describe('Sidebar Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: { sidebar: { enabled: true, position: 'left' } },
@@ -87,6 +91,8 @@ test.describe('Sidebar Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: { sidebar: { enabled: true, position: 'right' } },
@@ -114,6 +120,8 @@ test.describe('Sidebar Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: { sidebar: { enabled: true, width: '280px', items: [] } },
@@ -141,6 +149,8 @@ test.describe('Sidebar Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -178,6 +188,8 @@ test.describe('Sidebar Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -214,6 +226,8 @@ test.describe('Sidebar Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -251,6 +265,8 @@ test.describe('Sidebar Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -288,6 +304,8 @@ test.describe('Sidebar Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -334,6 +352,8 @@ test.describe('Sidebar Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -370,6 +390,8 @@ test.describe('Sidebar Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -421,6 +443,8 @@ test.describe('Sidebar Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -461,6 +485,8 @@ test.describe('Sidebar Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {

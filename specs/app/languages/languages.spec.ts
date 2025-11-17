@@ -64,6 +64,8 @@ test.describe('Languages Configuration', () => {
         ],
         pages: [
           {
+            name: 'home',
+
             path: '/',
             sections: [
               {
@@ -109,6 +111,8 @@ test.describe('Languages Configuration', () => {
         ],
         pages: [
           {
+            name: 'home',
+
             path: '/',
             sections: [
               {
@@ -170,6 +174,8 @@ test.describe('Languages Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -239,6 +245,8 @@ test.describe('Languages Configuration', () => {
           pages: [
             {
               name: 'home',
+              name: 'home',
+
               path: '/',
               meta: { title: 'Test', description: 'Test page' },
               sections: [
@@ -293,6 +301,8 @@ test.describe('Languages Configuration', () => {
           pages: [
             {
               name: 'home',
+              name: 'home',
+
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
               sections: [
@@ -340,6 +350,8 @@ test.describe('Languages Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -393,6 +405,8 @@ test.describe('Languages Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -441,6 +455,8 @@ test.describe('Languages Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -495,6 +511,8 @@ test.describe('Languages Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -552,6 +570,8 @@ test.describe('Languages Configuration', () => {
           pages: [
             {
               name: 'home',
+              name: 'home',
+
               path: '/',
               meta: { title: 'Test', description: 'Test page' },
               sections: [
@@ -605,6 +625,8 @@ test.describe('Languages Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [],
@@ -632,6 +654,8 @@ test.describe('Languages Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [],
@@ -669,6 +693,8 @@ test.describe('Languages Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -716,6 +742,8 @@ test.describe('Languages Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { title: 'Test', description: 'Test page' },
             sections: [
@@ -770,6 +798,8 @@ test.describe('Languages Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -821,6 +851,8 @@ test.describe('Languages Configuration', () => {
         ],
         pages: [
           {
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -909,6 +941,8 @@ test.describe('Languages Configuration', () => {
         pages: [
           {
             name: 'product',
+            name: 'home',
+
             path: '/',
             meta: {
               title: '$t:meta.title',
@@ -1027,6 +1061,8 @@ test.describe('Languages Configuration', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -1092,6 +1128,8 @@ test.describe('Languages Configuration', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'fr-FR', title: 'Test', description: 'Test page' },
             sections: [
@@ -1147,6 +1185,8 @@ test.describe('Languages Configuration', () => {
         pages: [
           {
             name: 'homepage',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -1197,6 +1237,8 @@ test.describe('Languages Configuration', () => {
         pages: [
           {
             name: 'homepage',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -1248,6 +1290,8 @@ test.describe('Languages Configuration', () => {
         pages: [
           {
             name: 'homepage',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -1306,6 +1350,8 @@ test.describe('Languages Configuration', () => {
         pages: [
           {
             name: 'homepage',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -1363,6 +1409,8 @@ test.describe('Languages Configuration', () => {
         pages: [
           {
             name: 'homepage',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -1470,6 +1518,8 @@ test.describe('Languages Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -1538,6 +1588,8 @@ test.describe('Languages Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { title: 'Home', description: 'Homepage' },
             sections: [{ block: 'language-switcher' }],
@@ -1583,6 +1635,8 @@ test.describe('Languages Configuration', () => {
           pages: [
             {
               name: 'home',
+              name: 'home',
+
               path: '/',
               meta: { title: 'Home', description: 'Homepage' },
               sections: [{ block: 'language-switcher' }],
@@ -1625,6 +1679,8 @@ test.describe('Languages Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { title: 'Home', description: 'Homepage' },
             sections: [{ block: 'language-switcher' }],
@@ -1667,6 +1723,8 @@ test.describe('Languages Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { title: 'Home', description: 'Homepage' },
             sections: [{ block: 'language-switcher' }],
@@ -1707,6 +1765,8 @@ test.describe('Languages Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { title: 'Home', description: 'Homepage' },
             sections: [],

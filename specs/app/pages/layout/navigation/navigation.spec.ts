@@ -34,6 +34,8 @@ test.describe('Navigation Configuration', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             layout: { navigation: { logo: './public/logo.svg' } },
@@ -64,6 +66,8 @@ test.describe('Navigation Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -101,6 +105,8 @@ test.describe('Navigation Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -132,6 +138,8 @@ test.describe('Navigation Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -167,6 +175,8 @@ test.describe('Navigation Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -206,6 +216,8 @@ test.describe('Navigation Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -251,6 +263,8 @@ test.describe('Navigation Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -297,6 +311,8 @@ test.describe('Navigation Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -337,6 +353,8 @@ test.describe('Navigation Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -371,6 +389,8 @@ test.describe('Navigation Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -404,6 +424,8 @@ test.describe('Navigation Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: { navigation: { logo: './public/logo.svg' } },
@@ -432,6 +454,8 @@ test.describe('Navigation Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
             layout: {
@@ -469,6 +493,8 @@ test.describe('Navigation Configuration', () => {
         pages: [
           {
             name: 'Home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home' },
             layout: {

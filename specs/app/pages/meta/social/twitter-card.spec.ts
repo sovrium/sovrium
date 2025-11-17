@@ -29,6 +29,8 @@ test.describe('Twitter Card Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -62,6 +64,8 @@ test.describe('Twitter Card Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -97,6 +101,8 @@ test.describe('Twitter Card Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -135,6 +141,8 @@ test.describe('Twitter Card Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -172,6 +180,8 @@ test.describe('Twitter Card Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -214,6 +224,8 @@ test.describe('Twitter Card Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -248,6 +260,8 @@ test.describe('Twitter Card Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -285,6 +299,8 @@ test.describe('Twitter Card Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -323,6 +339,8 @@ test.describe('Twitter Card Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -360,6 +378,8 @@ test.describe('Twitter Card Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -398,6 +418,8 @@ test.describe('Twitter Card Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -436,6 +458,8 @@ test.describe('Twitter Card Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -482,6 +506,8 @@ test.describe('Twitter Card Metadata', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',

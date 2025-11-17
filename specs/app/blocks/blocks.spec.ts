@@ -35,6 +35,8 @@ test.describe('Reusable Blocks', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test Page', description: 'Test page' },
             sections: [{ block: 'test-block' }],
@@ -61,6 +63,8 @@ test.describe('Reusable Blocks', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test Page', description: 'Test page' },
             sections: [{ block: 'reusable' }, { block: 'reusable' }],
@@ -87,6 +91,8 @@ test.describe('Reusable Blocks', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test Page', description: 'Test page' },
             sections: [{ block: 'single', vars: { message: 'Hello World' } }],
@@ -124,6 +130,8 @@ test.describe('Reusable Blocks', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test Page', description: 'Test page' },
             sections: [{ block: 'block1' }, { block: 'block2' }],
@@ -154,6 +162,8 @@ test.describe('Reusable Blocks', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test Page', description: 'Test page' },
             sections: [{ block: 'icon-badge' }, { block: 'section-header' }],
@@ -204,6 +214,8 @@ test.describe('Reusable Blocks', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test Page', description: 'Test page' },
             sections: [{ block: 'var-block' }],
@@ -230,6 +242,8 @@ test.describe('Reusable Blocks', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test Page', description: 'Test page' },
             sections: [{ block: 'props-block' }],
@@ -258,6 +272,8 @@ test.describe('Reusable Blocks', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test Page', description: 'Test page' },
             sections: [{ block: 'parent-block' }],
@@ -294,6 +310,8 @@ test.describe('Reusable Blocks', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test Page', description: 'Test page' },
             sections: [{ block: 'complex' }],
@@ -326,6 +344,8 @@ test.describe('Reusable Blocks', () => {
           pages: [
             {
               name: 'home',
+              name: 'home',
+
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
               sections: [],
@@ -354,6 +374,8 @@ test.describe('Reusable Blocks', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home', description: 'Home' },
             sections: [
@@ -413,6 +435,8 @@ test.describe('Reusable Blocks', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home', description: 'Home' },
             sections: [{ block: 'themed-card' }],
@@ -459,6 +483,8 @@ test.describe('Reusable Blocks', () => {
         pages: [
           {
             name: 'product',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Product', description: 'Product page' },
             sections: [
@@ -539,6 +565,8 @@ test.describe('Reusable Blocks', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test Page', description: 'Test page' },
             sections: [

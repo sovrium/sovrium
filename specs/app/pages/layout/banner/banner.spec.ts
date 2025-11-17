@@ -34,6 +34,8 @@ test.describe('Banner Configuration', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             layout: { banner: { enabled: true, text: 'Announcement' } },
@@ -62,6 +64,8 @@ test.describe('Banner Configuration', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             layout: { banner: { enabled: true, text: '🎉 New feature available!' } },
@@ -89,6 +93,8 @@ test.describe('Banner Configuration', () => {
         pages: [
           {
             name: 'home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home', description: 'Home page' },
             layout: {
@@ -102,6 +108,8 @@ test.describe('Banner Configuration', () => {
           },
           {
             name: 'features',
+            name: 'features',
+
             path: '/features',
             meta: { lang: 'en-US', title: 'Features', description: 'Features page' },
             sections: [],
@@ -131,6 +139,8 @@ test.describe('Banner Configuration', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             layout: {
@@ -164,6 +174,8 @@ test.describe('Banner Configuration', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             layout: { banner: { enabled: true, text: 'Announcement', backgroundColor: '#FF5733' } },
@@ -191,6 +203,8 @@ test.describe('Banner Configuration', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             layout: {
@@ -225,6 +239,8 @@ test.describe('Banner Configuration', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             layout: { banner: { enabled: true, text: 'Announcement', dismissible: true } },
@@ -260,6 +276,8 @@ test.describe('Banner Configuration', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             layout: { banner: { enabled: true, text: 'Announcement', sticky: true } },
@@ -294,6 +312,8 @@ test.describe('Banner Configuration', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             layout: { banner: { enabled: false, text: 'This banner is disabled' } },
@@ -320,6 +340,8 @@ test.describe('Banner Configuration', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             layout: { banner: { enabled: true, text: '🎉🎊🥳 Triple celebration emojis!' } },
@@ -352,6 +374,8 @@ test.describe('Banner Configuration', () => {
         pages: [
           {
             name: 'Home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home' },
             layout: {
@@ -369,6 +393,8 @@ test.describe('Banner Configuration', () => {
           },
           {
             name: 'Pricing',
+            name: 'pricing',
+
             path: '/pricing',
             meta: { lang: 'en-US', title: 'Pricing' },
             sections: [],

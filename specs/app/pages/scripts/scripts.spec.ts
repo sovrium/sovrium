@@ -29,6 +29,8 @@ test.describe('Client Scripts Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {
@@ -65,6 +67,8 @@ test.describe('Client Scripts Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: { features: { darkMode: true, animations: true, analytics: false } },
@@ -92,6 +96,8 @@ test.describe('Client Scripts Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {
@@ -122,6 +128,8 @@ test.describe('Client Scripts Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: { inlineScripts: [{ code: 'console.log("Hello")' }] },
@@ -152,6 +160,8 @@ test.describe('Client Scripts Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: { config: { apiUrl: 'https://api.example.com', environment: 'production' } },
@@ -179,6 +189,8 @@ test.describe('Client Scripts Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {},
@@ -206,6 +218,8 @@ test.describe('Client Scripts Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: { config: { customProp: 'value', anotherProp: 123 } },
@@ -234,6 +248,8 @@ test.describe('Client Scripts Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: { features: { analytics: true }, config: { analyticsId: 'G-XXXXX' } },
@@ -261,6 +277,8 @@ test.describe('Client Scripts Configuration', () => {
         pages: [
           {
             name: 'Home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home', description: 'Home' },
             scripts: { features: { analytics: true } },
@@ -268,6 +286,8 @@ test.describe('Client Scripts Configuration', () => {
           },
           {
             name: 'Blog',
+            name: 'blog',
+
             path: '/blog',
             meta: { lang: 'en-US', title: 'Blog', description: 'Blog' },
             scripts: {},
@@ -298,6 +318,8 @@ test.describe('Client Scripts Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {
@@ -327,6 +349,8 @@ test.describe('Client Scripts Configuration', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {

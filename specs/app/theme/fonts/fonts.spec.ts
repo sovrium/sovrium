@@ -41,6 +41,7 @@ test.describe('Font Configuration', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [],
@@ -87,6 +88,7 @@ test.describe('Font Configuration', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [],
@@ -134,6 +136,7 @@ test.describe('Font Configuration', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -233,6 +236,7 @@ test.describe('Font Configuration', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -286,6 +290,7 @@ test.describe('Font Configuration', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [],
@@ -335,6 +340,7 @@ test.describe('Font Configuration', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -391,6 +397,7 @@ test.describe('Font Configuration', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -446,6 +453,7 @@ test.describe('Font Configuration', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [],
@@ -487,6 +495,7 @@ test.describe('Font Configuration', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [],
@@ -541,6 +550,7 @@ test.describe('Font Configuration', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -606,6 +616,7 @@ test.describe('Font Configuration', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -660,6 +671,7 @@ test.describe('Font Configuration', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -733,6 +745,7 @@ test.describe('Font Configuration', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {

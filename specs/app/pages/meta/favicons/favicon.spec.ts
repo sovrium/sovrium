@@ -34,6 +34,8 @@ test.describe('Favicon', () => {
         pages: [
           {
             name: 'test_page',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -64,6 +66,8 @@ test.describe('Favicon', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test', favicon: './favicon.ico' },
             sections: [],
@@ -90,6 +94,8 @@ test.describe('Favicon', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test', favicon: './favicon.png' },
             sections: [],
@@ -116,6 +122,8 @@ test.describe('Favicon', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -147,6 +155,8 @@ test.describe('Favicon', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -178,6 +188,8 @@ test.describe('Favicon', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test', favicon: './favicon.ico' },
             sections: [],
@@ -203,6 +215,8 @@ test.describe('Favicon', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',
@@ -233,6 +247,8 @@ test.describe('Favicon', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test', favicon: './favicon.ico' },
             sections: [],
@@ -263,6 +279,8 @@ test.describe('Favicon', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: {
               lang: 'en-US',

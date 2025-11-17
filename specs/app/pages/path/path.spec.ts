@@ -77,12 +77,16 @@ test.describe('URL Path', () => {
           { name: 'About', path: '/about', meta: { lang: 'en-US', title: 'About' }, sections: [] },
           {
             name: 'Pricing',
+            name: 'pricing',
+
             path: '/pricing',
             meta: { lang: 'en-US', title: 'Pricing' },
             sections: [],
           },
           {
             name: 'Contact',
+            name: 'contact',
+
             path: '/contact',
             meta: { lang: 'en-US', title: 'Contact' },
             sections: [],
@@ -110,12 +114,16 @@ test.describe('URL Path', () => {
         pages: [
           {
             name: 'Pricing',
+            name: 'products_pricing',
+
             path: '/products/pricing',
             meta: { lang: 'en-US', title: 'Pricing' },
             sections: [],
           },
           {
             name: 'Article',
+            name: 'blog_article',
+
             path: '/blog/article',
             meta: { lang: 'en-US', title: 'Article' },
             sections: [],
@@ -143,12 +151,16 @@ test.describe('URL Path', () => {
         pages: [
           {
             name: 'Team',
+            name: 'our-team',
+
             path: '/our-team',
             meta: { lang: 'en-US', title: 'Our Team' },
             sections: [],
           },
           {
             name: 'Contact',
+            name: 'contact-us',
+
             path: '/contact-us',
             meta: { lang: 'en-US', title: 'Contact Us' },
             sections: [],
@@ -178,12 +190,16 @@ test.describe('URL Path', () => {
           { name: 'About', path: '/about', meta: { lang: 'en-US', title: 'About' }, sections: [] },
           {
             name: 'Pricing',
+            name: 'pricing',
+
             path: '/pricing',
             meta: { lang: 'en-US', title: 'Pricing' },
             sections: [],
           },
           {
             name: 'Contact',
+            name: 'contact',
+
             path: '/contact',
             meta: { lang: 'en-US', title: 'Contact' },
             sections: [],
@@ -230,12 +246,16 @@ test.describe('URL Path', () => {
           { name: 'About', path: '/about', meta: { lang: 'en-US', title: 'About' }, sections: [] },
           {
             name: 'Pricing',
+            name: 'pricing',
+
             path: '/pricing',
             meta: { lang: 'en-US', title: 'Pricing' },
             sections: [],
           },
           {
             name: 'Contact',
+            name: 'contact',
+
             path: '/contact',
             meta: { lang: 'en-US', title: 'Contact' },
             sections: [],
@@ -263,6 +283,8 @@ test.describe('URL Path', () => {
         pages: [
           {
             name: 'Pricing',
+            name: 'pricing',
+
             path: '/pricing',
             meta: { lang: 'en-US', title: 'Pricing Plans' },
             sections: [],
@@ -290,12 +312,16 @@ test.describe('URL Path', () => {
         pages: [
           {
             name: 'Blog Post',
+            name: 'blog_:slug',
+
             path: '/blog/:slug',
             meta: { lang: 'en-US', title: 'Blog' },
             sections: [],
           },
           {
             name: 'Product',
+            name: 'products_:id',
+
             path: '/products/:id',
             meta: { lang: 'en-US', title: 'Product' },
             sections: [],
@@ -357,6 +383,8 @@ test.describe('URL Path', () => {
         pages: [
           {
             name: 'about',
+            name: 'about',
+
             path: '/about',
             meta: { lang: 'en-US', title: 'About Us', description: 'About page' },
             sections: [{ type: 'section', children: [{ type: 'heading', content: 'About Us' }] }],
@@ -387,6 +415,8 @@ test.describe('URL Path', () => {
         pages: [
           {
             name: 'custom_home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Custom Home', description: 'Custom home page' },
             sections: [
@@ -471,6 +501,8 @@ test.describe('URL Path', () => {
         pages: [
           {
             name: 'custom_home',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Home', description: 'Home page' },
             sections: [{ block: 'hero', vars: { title: 'Welcome Home' } }],
@@ -511,6 +543,8 @@ test.describe('URL Path', () => {
           { name: 'About', path: '/about', meta: { lang: 'en-US', title: 'About' }, sections: [] },
           {
             name: 'Pricing',
+            name: 'products_pricing',
+
             path: '/products/pricing',
             meta: { lang: 'en-US', title: 'Pricing' },
             sections: [],

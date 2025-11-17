@@ -43,6 +43,7 @@ test.describe('Breakpoints', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -94,6 +95,7 @@ test.describe('Breakpoints', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -135,6 +137,7 @@ test.describe('Breakpoints', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [],
@@ -172,6 +175,7 @@ test.describe('Breakpoints', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -213,6 +217,7 @@ test.describe('Breakpoints', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [
@@ -254,6 +259,7 @@ test.describe('Breakpoints', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
             sections: [],
@@ -290,6 +296,7 @@ test.describe('Breakpoints', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -331,6 +338,7 @@ test.describe('Breakpoints', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -374,6 +382,7 @@ test.describe('Breakpoints', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {
@@ -422,6 +431,7 @@ test.describe('Breakpoints', () => {
         pages: [
           {
             name: 'home',
+
             path: '/',
             sections: [
               {

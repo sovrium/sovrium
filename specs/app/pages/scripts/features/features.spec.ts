@@ -29,6 +29,8 @@ test.describe('Feature Flags', () => {
         pages: [
           {
             name: 'test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: { features: { darkMode: true } },
@@ -56,6 +58,8 @@ test.describe('Feature Flags', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: { features: { cookieConsent: false } },
@@ -83,6 +87,8 @@ test.describe('Feature Flags', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {
@@ -116,6 +122,8 @@ test.describe('Feature Flags', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: { features: { liveChat: { enabled: true } } },
@@ -143,6 +151,8 @@ test.describe('Feature Flags', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {
@@ -175,6 +185,8 @@ test.describe('Feature Flags', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: { features: { darkMode: true, liveChat: true, cookieConsent: false } },
@@ -204,6 +216,8 @@ test.describe('Feature Flags', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {
@@ -237,6 +251,8 @@ test.describe('Feature Flags', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {
@@ -269,6 +285,8 @@ test.describe('Feature Flags', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {
@@ -306,6 +324,8 @@ test.describe('Feature Flags', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: { features: { darkMode: true, analytics: true } },
@@ -332,6 +352,8 @@ test.describe('Feature Flags', () => {
         pages: [
           {
             name: 'Test',
+            name: 'home',
+
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             scripts: {
