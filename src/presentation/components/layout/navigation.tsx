@@ -109,37 +109,37 @@ export function Navigation({
         className={`${navClasses} relative`}
         data-transparent={transparent}
       >
-      <NavLogo
-        logo={logo}
-        logoMobile={logoMobile}
-        logoAlt={logoAlt}
-      />
-      {links?.desktop && (
-        <div
-          data-testid="nav-links"
-          className="hidden gap-4 md:flex"
-        >
-          {links.desktop.map((link) => (
-            <NavLinkItem
-              key={link.href}
-              link={link}
-            />
-          ))}
-        </div>
-      )}
-      {mobileLinks.length > 0 && (
-        <MobileMenuToggle onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
-      )}
-      {mobileLinks.length > 0 && (
-        <MobileMenu
-          isOpen={isMobileMenuOpen}
-          links={mobileLinks}
+        <NavLogo
+          logo={logo}
+          logoMobile={logoMobile}
+          logoAlt={logoAlt}
         />
-      )}
-      <NavCTA cta={cta} />
-      <NavSearch search={search} />
-      <NavUserMenu user={user} />
-    </nav>
+        {links?.desktop && (
+          <div
+            data-testid="nav-links"
+            className="hidden gap-4 md:flex"
+          >
+            {links.desktop.map((link) => (
+              <NavLinkItem
+                key={link.href}
+                link={link}
+              />
+            ))}
+          </div>
+        )}
+        {mobileLinks.length > 0 && (
+          <MobileMenuToggle onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
+        )}
+        {mobileLinks.length > 0 && (
+          <MobileMenu
+            isOpen={isMobileMenuOpen}
+            links={mobileLinks}
+          />
+        )}
+        <NavCTA cta={cta} />
+        <NavSearch search={search} />
+        <NavUserMenu user={user} />
+      </nav>
       {transparent && (
         <script
           dangerouslySetInnerHTML={{ __html: getScrollDetectionScript() }}
