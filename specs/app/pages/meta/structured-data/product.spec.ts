@@ -522,7 +522,7 @@ test.describe('Product Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-STRUCTURED-DATA-PRODUCT-REGRESSION-001: user can complete full Product workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
