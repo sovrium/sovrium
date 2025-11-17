@@ -172,7 +172,7 @@ test.describe('Page Layout', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LAYOUT-005: should display top banner above navigation',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -190,7 +190,7 @@ test.describe('Page Layout', () => {
                 text: '🎉 Limited time offer - 50% off all plans!',
                 backgroundColor: '#FF6B6B',
                 textColor: '#FFFFFF',
-                link: '/pricing',
+                link: { href: '/pricing', label: 'View Pricing' },
                 dismissible: true,
               },
               navigation: { logo: '/logo.svg' },
@@ -216,7 +216,7 @@ test.describe('Page Layout', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LAYOUT-006: should allow pages without global layout (blank page)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -242,11 +242,11 @@ test.describe('Page Layout', () => {
       await expect(page.locator('[data-testid="navigation"]')).toBeHidden()
       await expect(page.locator('[data-testid="footer"]')).toBeHidden()
       await expect(page.locator('[data-testid="sidebar"]')).toBeHidden()
-      await expect(page.locator('[data-testid="page-content"]')).toContainText('Content Only')
+      await expect(page.locator('[data-testid="page-test"]')).toContainText('Content Only')
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LAYOUT-007: should enable cohesive visual design across layout',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -287,7 +287,7 @@ test.describe('Page Layout', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LAYOUT-008: should override or extend default layout per page',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -348,7 +348,7 @@ test.describe('Page Layout', () => {
   // ONE OPTIMIZED test verifying components work together efficiently
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-PAGES-LAYOUT-REGRESSION-001: user can complete full layout workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {

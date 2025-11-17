@@ -236,6 +236,16 @@ export const NavigationSchema = Schema.Struct({
       default: false,
     })
   ),
+  backgroundColor: Schema.optional(
+    Schema.String.annotations({
+      description: 'Background color for navigation (hex, rgb, or named color)',
+    })
+  ),
+  textColor: Schema.optional(
+    Schema.String.annotations({
+      description: 'Text color for navigation (hex, rgb, or named color)',
+    })
+  ),
   links: Schema.optional(NavigationLinksSchema),
   cta: Schema.optional(CtaButtonSchema),
   search: Schema.optional(SearchConfigSchema),

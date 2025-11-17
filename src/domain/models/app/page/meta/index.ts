@@ -11,9 +11,9 @@ import { CustomElementsSchema } from './custom-elements'
 import { DnsPrefetchSchema } from './dns-prefetch'
 import { FaviconSchema } from './favicon'
 import { FaviconSetSchema } from './favicon-set'
+import { FaviconsConfigSchema } from './favicons-config'
 import { OpenGraphSchema } from './open-graph'
 import { PreloadSchema } from './preload'
-import { StructuredDataSchema } from './structured-data'
 import { TwitterCardSchema } from './twitter-card'
 
 /**
@@ -168,7 +168,7 @@ export const MetaSchema = Schema.Struct({
     })
   ),
   favicon: Schema.optional(FaviconSchema),
-  favicons: Schema.optional(FaviconSetSchema),
+  favicons: Schema.optional(Schema.Union(FaviconSetSchema, FaviconsConfigSchema)),
   stylesheet: Schema.optional(
     Schema.String.annotations({
       description: 'Path to the main stylesheet',
@@ -188,7 +188,12 @@ export const MetaSchema = Schema.Struct({
   ),
   openGraph: Schema.optional(OpenGraphSchema),
   twitter: Schema.optional(TwitterCardSchema),
-  schema: Schema.optional(StructuredDataSchema),
+  schema: Schema.optional(
+    Schema.Unknown.annotations({
+      description:
+        'Schema.org structured data - accepts orchestrator format (organization, faqPage, etc.) or direct Schema.org object (@context, @type, ...)',
+    })
+  ),
   preload: Schema.optional(PreloadSchema),
   dnsPrefetch: Schema.optional(DnsPrefetchSchema),
   analytics: Schema.optional(
@@ -235,6 +240,7 @@ export type Meta = Schema.Schema.Type<typeof MetaSchema>
 // Re-export all meta schemas for convenience
 export * from './favicon'
 export * from './favicon-set'
+export * from './favicons-config'
 export * from './open-graph'
 export * from './twitter-card'
 export * from './structured-data'

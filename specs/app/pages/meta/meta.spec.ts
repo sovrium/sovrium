@@ -54,7 +54,7 @@ test.describe('Page Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-002: should enforce title length constraint',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -84,7 +84,7 @@ test.describe('Page Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-003: should enforce description length constraint',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -115,7 +115,7 @@ test.describe('Page Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-004: should accept keyword string',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -148,7 +148,7 @@ test.describe('Page Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-005: should define canonical URL',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -181,7 +181,7 @@ test.describe('Page Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-006: should support both single and multi-favicon configurations',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -222,7 +222,7 @@ test.describe('Page Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-007: should include CSS and font resources',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -253,11 +253,11 @@ test.describe('Page Metadata', () => {
       await expect(page.locator('link[rel="stylesheet"][href="/styles/main.css"]')).toBeAttached()
       await expect(
         page.locator('link[rel="preconnect"][href="https://fonts.googleapis.com"]')
-      ).toBeVisible()
+      ).toBeAttached()
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-008: should enable rich social sharing',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -305,7 +305,7 @@ test.describe('Page Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-009: should provide search engine understanding',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -343,7 +343,7 @@ test.describe('Page Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-010: should optimize page load performance',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -380,11 +380,11 @@ test.describe('Page Metadata', () => {
       await expect(page.locator('link[rel="preload"][as="font"]')).toBeAttached()
       await expect(
         page.locator('link[rel="dns-prefetch"][href="https://fonts.googleapis.com"]')
-      ).toBeVisible()
+      ).toBeAttached()
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-011: should enable visitor analytics',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -399,7 +399,26 @@ test.describe('Page Metadata', () => {
               lang: 'en-US',
               title: 'Test',
               description: 'Test',
-              analytics: { googleAnalytics: 'G-XXXXXXXXXX', googleTagManager: 'GTM-XXXXXXX' },
+              analytics: {
+                providers: [
+                  {
+                    name: 'google',
+                    enabled: true,
+                    scripts: [
+                      {
+                        src: 'https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX',
+                        async: true,
+                      },
+                    ],
+                    initScript:
+                      "window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-XXXXXXXXXX');",
+                    dnsPrefetch: 'https://www.googletagmanager.com',
+                    config: {
+                      trackingId: 'G-XXXXXXXXXX',
+                    },
+                  },
+                ],
+              },
             },
             sections: [],
           },
@@ -414,7 +433,7 @@ test.describe('Page Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-012: should provide comprehensive page metadata management',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -437,7 +456,26 @@ test.describe('Page Metadata', () => {
               twitter: { card: 'summary' },
               schema: { '@type': 'WebPage' },
               dnsPrefetch: ['https://fonts.googleapis.com'],
-              analytics: { googleAnalytics: 'G-XXXXXXXXXX' },
+              analytics: {
+                providers: [
+                  {
+                    name: 'google',
+                    enabled: true,
+                    scripts: [
+                      {
+                        src: 'https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX',
+                        async: true,
+                      },
+                    ],
+                    initScript:
+                      "window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-XXXXXXXXXX');",
+                    dnsPrefetch: 'https://www.googletagmanager.com',
+                    config: {
+                      trackingId: 'G-XXXXXXXXXX',
+                    },
+                  },
+                ],
+              },
             },
             sections: [],
           },
@@ -461,7 +499,7 @@ test.describe('Page Metadata', () => {
   // ONE OPTIMIZED test verifying components work together efficiently
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-PAGES-META-REGRESSION-001: user can complete full metadata workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {

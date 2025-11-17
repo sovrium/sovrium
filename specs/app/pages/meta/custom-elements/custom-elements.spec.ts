@@ -304,7 +304,7 @@ test.describe('Custom Head Elements', () => {
   // ONE OPTIMIZED test verifying components work together efficiently
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-PAGES-META-CUSTOM-ELEMENTS-REGRESSION-001: user can complete full custom elements workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
@@ -345,10 +345,10 @@ test.describe('Custom Head Elements', () => {
       // Verify link
       await expect(
         page.locator('link[rel="preconnect"][href="https://fonts.gstatic.com"]')
-      ).toBeVisible()
+      ).toBeAttached()
 
       // Verify style
-      const styleContent = await page.locator('style').textContent()
+      const styleContent = await page.locator('style').first().textContent()
       expect(styleContent).toContain('body { margin: 0; }')
     }
   )

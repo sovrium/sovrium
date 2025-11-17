@@ -57,7 +57,7 @@ test.describe('Local Business Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LOCALBUSINESS-002: should provide business identity',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -96,7 +96,7 @@ test.describe('Local Business Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LOCALBUSINESS-003: should provide business branding',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -136,7 +136,7 @@ test.describe('Local Business Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LOCALBUSINESS-004: should support single or multiple business images',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -175,7 +175,7 @@ test.describe('Local Business Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LOCALBUSINESS-005: should provide business contact information',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -215,7 +215,7 @@ test.describe('Local Business Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LOCALBUSINESS-006: should indicate business price level',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -252,7 +252,7 @@ test.describe('Local Business Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LOCALBUSINESS-007: should include physical address for maps',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -296,7 +296,7 @@ test.describe('Local Business Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LOCALBUSINESS-008: should provide precise map location',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -336,7 +336,7 @@ test.describe('Local Business Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LOCALBUSINESS-009: should link business to social profiles',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -379,7 +379,7 @@ test.describe('Local Business Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LOCALBUSINESS-010: should provide business hours for each day',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -426,7 +426,7 @@ test.describe('Local Business Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LOCALBUSINESS-011: should specify which days hours apply to',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -473,7 +473,7 @@ test.describe('Local Business Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LOCALBUSINESS-012: should specify daily operating hours',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -519,7 +519,7 @@ test.describe('Local Business Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LOCALBUSINESS-013: should enable Google Business Profile rich results',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -557,15 +557,15 @@ test.describe('Local Business Schema', () => {
         ],
       })
 
-      // WHEN: opens is '09:00' and closes is '18:00' (HH:MM format)
+      // WHEN: complete business data with address, geo, and hours is provided
       await page.goto('/')
 
-      // THEN: it should specify daily operating hours
-      await expect(page.locator('script[type="application/ld+json"]')).toBeVisible()
+      // THEN: it should enable Google Business Profile rich results
+      await expect(page.locator('script[type="application/ld+json"]')).toBeAttached()
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-LOCALBUSINESS-014: should enable map pin and directions in search results',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -609,7 +609,7 @@ test.describe('Local Business Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-STRUCTURED-DATA-LOCAL-BUSINESS-REGRESSION-001: user can complete full Local Business workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {

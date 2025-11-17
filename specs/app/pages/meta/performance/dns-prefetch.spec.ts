@@ -353,7 +353,7 @@ test.describe('DNS Prefetch', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-PERFORMANCE-DNS-PREFETCH-REGRESSION-001: user can complete full DNS prefetch workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
@@ -385,10 +385,10 @@ test.describe('DNS Prefetch', () => {
       await expect(page.locator('link[rel="dns-prefetch"]')).toHaveCount(4)
       await expect(
         page.locator('link[rel="dns-prefetch"][href="https://fonts.googleapis.com"]')
-      ).toBeVisible()
+      ).toBeAttached()
       await expect(
         page.locator('link[rel="dns-prefetch"][href="https://www.google-analytics.com"]')
-      ).toBeVisible()
+      ).toBeAttached()
     }
   )
 })

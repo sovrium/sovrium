@@ -556,7 +556,7 @@ test.describe('Footer Configuration', () => {
   // ONE OPTIMIZED test verifying components work together efficiently
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-PAGES-LAYOUT-FOOTER-REGRESSION-001: user can complete full footer workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {

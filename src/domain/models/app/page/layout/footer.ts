@@ -146,6 +146,16 @@ export const FooterSchema = Schema.Struct({
       description: 'Company description or tagline',
     })
   ),
+  backgroundColor: Schema.optional(
+    Schema.String.annotations({
+      description: 'Background color for footer (hex, rgb, or named color)',
+    })
+  ),
+  textColor: Schema.optional(
+    Schema.String.annotations({
+      description: 'Text color for footer (hex, rgb, or named color)',
+    })
+  ),
   columns: Schema.optional(Schema.Array(FooterColumnSchema)),
   social: Schema.optional(SocialSectionSchema),
   newsletter: Schema.optional(NewsletterSchema),

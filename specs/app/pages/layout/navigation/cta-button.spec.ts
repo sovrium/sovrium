@@ -380,7 +380,7 @@ test.describe('CTA Button', () => {
   // ONE OPTIMIZED test verifying components work together efficiently
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-PAGES-LAYOUT-NAVIGATION-CTA-BUTTON-REGRESSION-001: user can complete full CTA button workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {

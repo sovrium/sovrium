@@ -6,12 +6,15 @@
  */
 
 import { type ReactElement } from 'react'
+import { normalizeFavicons } from '@/application/metadata/favicon-transformer'
 import {
   AnalyticsHead,
   CustomElementsHead,
   DnsPrefetchLinks,
+  FaviconLink,
   FaviconSetLinks,
   OpenGraphMeta,
+  PreloadLinks,
   StructuredDataScript,
   TwitterCardMeta,
 } from '@/presentation/components/metadata'
@@ -34,6 +37,7 @@ type PageHeadProps = {
   readonly title: string
   readonly description: string
   readonly keywords?: string
+  readonly canonical?: string
   readonly lang: string
   readonly languages?: Languages
   readonly scripts: GroupedScripts
@@ -84,17 +88,19 @@ function extractOpenGraphData(
 }
 
 /**
- * Renders basic meta tags (charset, viewport, title, description, keywords)
+ * Renders basic meta tags (charset, viewport, title, description, keywords, canonical)
  */
 function BasicMetaTags({
   title,
   description,
   keywords,
+  canonical,
   hasCustomViewport,
 }: {
   readonly title: string
   readonly description: string
   readonly keywords?: string
+  readonly canonical?: string
   readonly hasCustomViewport: boolean
 }): ReactElement {
   return (
@@ -119,6 +125,12 @@ function BasicMetaTags({
           content={keywords}
         />
       )}
+      {canonical && (
+        <link
+          rel="canonical"
+          href={canonical}
+        />
+      )}
     </>
   )
 }
@@ -140,6 +152,54 @@ function ThemeFonts({ theme }: { readonly theme: Theme | undefined }): ReactElem
           />
         ) : undefined
       )}
+    </>
+  )
+}
+
+/**
+ * Renders custom stylesheet link from meta.stylesheet
+ */
+function CustomStylesheet({
+  stylesheet,
+}: {
+  readonly stylesheet: string | undefined
+}): ReactElement | undefined {
+  if (!stylesheet) return undefined
+
+  return (
+    <link
+      rel="stylesheet"
+      href={stylesheet}
+    />
+  )
+}
+
+/**
+ * Renders Google Fonts with performance optimizations
+ * Includes preconnect hints for fonts.googleapis.com and fonts.gstatic.com
+ */
+function GoogleFonts({
+  googleFonts,
+}: {
+  readonly googleFonts: string | undefined
+}): ReactElement | undefined {
+  if (!googleFonts) return undefined
+
+  return (
+    <>
+      <link
+        rel="preconnect"
+        href="https://fonts.googleapis.com"
+      />
+      <link
+        rel="preconnect"
+        href="https://fonts.gstatic.com"
+        crossOrigin="anonymous"
+      />
+      <link
+        rel="stylesheet"
+        href={googleFonts}
+      />
     </>
   )
 }
@@ -241,10 +301,13 @@ function HreflangLinks({
  * - Basic meta tags (charset, viewport, title, description)
  * - OpenGraph and Twitter Card metadata
  * - Structured data (JSON-LD)
+ * - Preload hints for critical resources
  * - DNS prefetch hints
  * - Analytics scripts
  * - Custom elements
  * - Favicon links
+ * - Custom stylesheet from meta.stylesheet
+ * - Google Fonts with preconnect hints from meta.googleFonts
  * - Font stylesheets from theme
  * - Global CSS with compiled theme tokens
  * - Direction styles for RTL support
@@ -260,12 +323,14 @@ export function PageHead({
   title,
   description,
   keywords,
+  canonical,
   lang,
   languages,
   scripts,
 }: PageHeadProps): Readonly<ReactElement> {
   const hasCustomViewport = hasCustomViewportMeta(page.meta?.customElements)
   const openGraphData = extractOpenGraphData(page, lang, languages)
+  const normalizedFavicons = normalizeFavicons(page.meta?.favicons)
 
   return (
     <>
@@ -273,6 +338,7 @@ export function PageHead({
         title={title}
         description={description}
         keywords={keywords}
+        canonical={canonical}
         hasCustomViewport={hasCustomViewport}
       />
       <OpenGraphMeta
@@ -282,6 +348,7 @@ export function PageHead({
       />
       <TwitterCardMeta page={page} />
       <StructuredDataScript page={page} />
+      <PreloadLinks preload={page.meta?.preload} />
       <DnsPrefetchLinks dnsPrefetch={page.meta?.dnsPrefetch} />
       <HreflangLinks
         page={page}
@@ -289,13 +356,10 @@ export function PageHead({
       />
       <AnalyticsHead analytics={page.meta?.analytics} />
       <CustomElementsHead customElements={page.meta?.customElements} />
-      {page.meta?.favicon && (
-        <link
-          rel="icon"
-          href={page.meta.favicon}
-        />
-      )}
-      <FaviconSetLinks favicons={page.meta?.favicons} />
+      <FaviconLink favicon={page.meta?.favicon} />
+      <FaviconSetLinks favicons={normalizedFavicons} />
+      <CustomStylesheet stylesheet={page.meta?.stylesheet} />
+      <GoogleFonts googleFonts={page.meta?.googleFonts} />
       <ThemeFonts theme={theme} />
       <GlobalStyles directionStyles={directionStyles} />
       <HeadScripts scripts={scripts} />

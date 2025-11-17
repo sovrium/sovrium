@@ -10,6 +10,7 @@ import { BlocksSchema } from './blocks'
 import { DescriptionSchema } from './description'
 import { LanguagesSchema } from './languages'
 import { NameSchema } from './name'
+import { LayoutSchema } from './page/layout'
 import { PagesSchema } from './pages'
 import { TablesSchema } from './tables'
 import { ThemeSchema } from './theme'
@@ -104,6 +105,19 @@ export const AppSchema = Schema.Struct({
    * $vars for dynamic content.
    */
   blocks: Schema.optional(BlocksSchema),
+
+  /**
+   * Default layout configuration for all pages (optional).
+   *
+   * Defines the default layout components (banner, navigation, footer, sidebar) that
+   * apply to all pages. Individual pages can:
+   * - Override: Provide their own layout configuration
+   * - Extend: Add components (e.g., sidebar) to the default layout
+   * - Disable: Set layout to null to render without any layout components
+   *
+   * This enables consistent layout across pages with per-page customization flexibility.
+   */
+  defaultLayout: Schema.optional(LayoutSchema),
 
   /**
    * Marketing and content pages (optional).

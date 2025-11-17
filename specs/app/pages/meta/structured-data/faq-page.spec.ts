@@ -473,7 +473,7 @@ test.describe('FAQ Page Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-STRUCTURED-DATA-FAQ-PAGE-REGRESSION-001: user can complete full FAQ Page workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {

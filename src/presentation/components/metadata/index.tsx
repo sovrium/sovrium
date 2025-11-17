@@ -14,6 +14,7 @@ import type { Analytics } from '@/domain/models/app/page/meta/analytics'
 import type { CustomElements } from '@/domain/models/app/page/meta/custom-elements'
 import type { FaviconSet } from '@/domain/models/app/page/meta/favicon-set'
 import type { OpenGraph } from '@/domain/models/app/page/meta/open-graph'
+import type { Preload } from '@/domain/models/app/page/meta/preload'
 import type { Page } from '@/domain/models/app/pages'
 
 /**
@@ -48,9 +49,14 @@ export function OpenGraphMeta({
     { key: 'title', value: resolveValue(openGraph.title) },
     { key: 'description', value: resolveValue(openGraph.description) },
     { key: 'image', value: openGraph.image },
+    { key: 'image:alt', value: resolveValue(openGraph.imageAlt) },
     { key: 'url', value: openGraph.url },
     { key: 'type', value: openGraph.type },
     { key: 'site_name', value: resolveValue(openGraph.siteName) },
+    { key: 'locale', value: openGraph.locale },
+    { key: 'determiner', value: openGraph.determiner },
+    { key: 'video', value: openGraph.video },
+    { key: 'audio', value: openGraph.audio },
   ]
 
   return (
@@ -88,22 +94,28 @@ export function TwitterCardMeta({
     return undefined
   }
 
-  const fields: ReadonlyArray<{ readonly key: string; readonly value?: string }> = [
+  const fields: ReadonlyArray<{ readonly key: string; readonly value?: string | number }> = [
     { key: 'card', value: twitterCard.card },
     { key: 'title', value: twitterCard.title },
     { key: 'description', value: twitterCard.description },
     { key: 'image', value: twitterCard.image },
+    { key: 'image:alt', value: twitterCard.imageAlt },
+    { key: 'site', value: twitterCard.site },
+    { key: 'creator', value: twitterCard.creator },
+    { key: 'player', value: twitterCard.player },
+    { key: 'player:width', value: twitterCard.playerWidth },
+    { key: 'player:height', value: twitterCard.playerHeight },
   ]
 
   return (
     <>
       {fields.map(
         ({ key, value }) =>
-          value && (
+          value !== undefined && (
             <meta
               key={key}
               name={`twitter:${key}`}
-              content={value}
+              content={String(value)}
             />
           )
       )}
@@ -116,8 +128,12 @@ export function TwitterCardMeta({
  * Generates Schema.org structured data for rich search results
  * Supports both 'schema' (canonical) and 'structuredData' (test alias)
  *
- * Each structured data type (organization, breadcrumb, article, etc.) is rendered
- * as a separate <script type="application/ld+json"> tag for proper Schema.org validation
+ * Handles two formats:
+ * 1. Direct Schema.org object: { "@context": "...", "@type": "...", ... }
+ * 2. Orchestrator schema: { organization: {...}, faqPage: {...}, ... }
+ *
+ * Each structured data type is rendered as a separate <script type="application/ld+json">
+ * tag for proper Schema.org validation
  *
  * SECURITY: Safe use of dangerouslySetInnerHTML
  * - Content: Schema.org structured data (JSON.stringify)
@@ -142,7 +158,28 @@ export function StructuredDataScript({
     return undefined
   }
 
-  // Extract all structured data types from the orchestrator schema
+  // Type guard: ensure structuredData is an object
+  if (typeof structuredData !== 'object' || structuredData === null) {
+    return undefined
+  }
+
+  // Check if this is a direct Schema.org object (has @context and @type)
+  const isDirectSchemaObject =
+    '@context' in structuredData && '@type' in structuredData
+
+  // Handle direct Schema.org object format
+  if (isDirectSchemaObject) {
+    return (
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(structuredData),
+        }}
+      />
+    )
+  }
+
+  // Handle orchestrator schema format (organization, faqPage, etc.)
   const structuredDataTypes = Object.entries(structuredData).filter(
     ([, value]) => value !== undefined && value !== null
   )
@@ -244,6 +281,30 @@ export function CustomElementsHead({
 }
 
 /**
+ * Render single favicon link tag
+ * Generates simple <link rel="icon" href="..."> tag for default favicon
+ *
+ * @param favicon - Favicon path from page.meta.favicon
+ * @returns React element with favicon link tag or undefined
+ */
+export function FaviconLink({
+  favicon,
+}: {
+  readonly favicon?: string
+}): Readonly<ReactElement | undefined> {
+  if (!favicon) {
+    return undefined
+  }
+
+  return (
+    <link
+      rel="icon"
+      href={favicon}
+    />
+  )
+}
+
+/**
  * Render favicon set link tags
  * Generates <link rel="..."> tags for multi-device favicon support
  *
@@ -283,6 +344,42 @@ export function FaviconSetLinks({
           />
         )
       })}
+    </>
+  )
+}
+
+/**
+ * Render preload link tags
+ * Generates <link rel="preload" ...> tags for critical resources
+ *
+ * @param preload - Preload configuration from page.meta
+ * @returns React fragment with preload link tags
+ */
+export function PreloadLinks({
+  preload,
+}: {
+  readonly preload?: Preload
+}): Readonly<ReactElement | undefined> {
+  if (!preload || preload.length === 0) {
+    return undefined
+  }
+
+  return (
+    <>
+      {preload.map((item, index) => (
+        <link
+          key={index}
+          rel="preload"
+          href={item.href}
+          as={item.as}
+          {...(item.type && { type: item.type })}
+          {...(item.crossorigin !== undefined &&
+            (typeof item.crossorigin === 'boolean'
+              ? item.crossorigin && { crossOrigin: 'anonymous' }
+              : { crossOrigin: item.crossorigin }))}
+          {...(item.media && { media: item.media })}
+        />
+      ))}
     </>
   )
 }
