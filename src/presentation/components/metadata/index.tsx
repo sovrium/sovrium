@@ -94,22 +94,28 @@ export function TwitterCardMeta({
     return undefined
   }
 
-  const fields: ReadonlyArray<{ readonly key: string; readonly value?: string }> = [
+  const fields: ReadonlyArray<{ readonly key: string; readonly value?: string | number }> = [
     { key: 'card', value: twitterCard.card },
     { key: 'title', value: twitterCard.title },
     { key: 'description', value: twitterCard.description },
     { key: 'image', value: twitterCard.image },
+    { key: 'image:alt', value: twitterCard.imageAlt },
+    { key: 'site', value: twitterCard.site },
+    { key: 'creator', value: twitterCard.creator },
+    { key: 'player', value: twitterCard.player },
+    { key: 'player:width', value: twitterCard.playerWidth },
+    { key: 'player:height', value: twitterCard.playerHeight },
   ]
 
   return (
     <>
       {fields.map(
         ({ key, value }) =>
-          value && (
+          value !== undefined && (
             <meta
               key={key}
               name={`twitter:${key}`}
-              content={value}
+              content={String(value)}
             />
           )
       )}
