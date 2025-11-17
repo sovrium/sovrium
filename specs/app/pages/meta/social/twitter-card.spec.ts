@@ -473,7 +473,7 @@ test.describe('Twitter Card Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-META-SOCIAL-TWITTER-CARD-REGRESSION-001: user can complete full Twitter Card workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
