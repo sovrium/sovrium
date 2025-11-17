@@ -571,6 +571,7 @@ test.describe('Spacing Configuration', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -612,6 +613,7 @@ test.describe('Spacing Configuration', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -653,6 +655,7 @@ test.describe('Spacing Configuration', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -704,6 +707,7 @@ test.describe('Spacing Configuration', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {

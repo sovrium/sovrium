@@ -33,6 +33,7 @@ test.describe('Variable Reference', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
             path: '/',
             vars: {
               color: 'blue',
@@ -64,6 +65,7 @@ test.describe('Variable Reference', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
             path: '/',
             vars: {
               primaryText: 'Welcome to our site',
@@ -95,6 +97,7 @@ test.describe('Variable Reference', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
             path: '/',
             vars: {
               siteName: 'Sovrium',
@@ -126,6 +129,7 @@ test.describe('Variable Reference', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
             path: '/',
             vars: {
               siteName: 'Sovrium',
@@ -157,6 +161,7 @@ test.describe('Variable Reference', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
             path: '/',
             vars: {
               primaryColor: 'blue',
@@ -188,6 +193,7 @@ test.describe('Variable Reference', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
             path: '/',
             vars: {
               productName: 'Pro Plan',
@@ -220,6 +226,7 @@ test.describe('Variable Reference', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
             path: '/',
             vars: {
               color1: 'red',
@@ -252,6 +259,7 @@ test.describe('Variable Reference', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
             path: '/',
             vars: {
               icon: 'fa-home',
@@ -291,6 +299,7 @@ test.describe('Variable Reference', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
             path: '/',
             vars: {
               siteName: 'Sovrium',

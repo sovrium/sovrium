@@ -206,7 +206,7 @@ test.describe('Page Name', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-NAME-007: should fail validation (name is required)',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {

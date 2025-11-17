@@ -390,6 +390,7 @@ test.describe('Animation Configuration', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -430,6 +431,7 @@ test.describe('Animation Configuration', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -470,6 +472,7 @@ test.describe('Animation Configuration', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -520,6 +523,7 @@ test.describe('Animation Configuration', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -568,6 +572,7 @@ test.describe('Animation Configuration', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -616,6 +621,7 @@ test.describe('Animation Configuration', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -666,6 +672,7 @@ test.describe('Animation Configuration', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -714,6 +721,7 @@ test.describe('Animation Configuration', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -754,6 +762,7 @@ test.describe('Animation Configuration', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -852,6 +861,7 @@ test.describe('Animation Configuration', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -903,6 +913,7 @@ test.describe('Animation Configuration', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -997,6 +1008,7 @@ test.describe('Animation Configuration', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -1037,6 +1049,7 @@ test.describe('Animation Configuration', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {

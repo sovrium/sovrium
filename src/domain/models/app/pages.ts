@@ -169,13 +169,13 @@ export const PageSchema = Schema.Struct({
   /**
    * Human-readable name for the page
    *
-   * Used for identification in admin interfaces, not displayed to users
-   * Optional - if not provided, derived from the path
+   * Used for identification in admin interfaces and as internal identifier.
+   * Required field that serves as a unique identifier separate from the URL path.
    *
-   * @example "Home Page"
-   * @example "About Us"
+   * @example "home"
+   * @example "about"
    */
-  name: Schema.optional(PageNameSchema),
+  name: PageNameSchema,
 
   /**
    * URL path where the page is accessible

@@ -33,6 +33,7 @@ test.describe('Responsive Variants', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -70,6 +71,7 @@ test.describe('Responsive Variants', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -116,6 +118,7 @@ test.describe('Responsive Variants', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -156,6 +159,7 @@ test.describe('Responsive Variants', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -212,6 +216,7 @@ test.describe('Responsive Variants', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -255,6 +260,7 @@ test.describe('Responsive Variants', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -297,6 +303,7 @@ test.describe('Responsive Variants', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -345,6 +352,7 @@ test.describe('Responsive Variants', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -397,6 +405,7 @@ test.describe('Responsive Variants', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -449,6 +458,7 @@ test.describe('Responsive Variants', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -521,6 +531,7 @@ test.describe('Responsive Variants', () => {
         name: 'test-app',
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
