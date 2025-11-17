@@ -101,6 +101,7 @@ test.describe('Block Props', () => {
         ],
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -260,6 +261,7 @@ test.describe('Block Props', () => {
         ],
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -335,6 +337,7 @@ test.describe('Block Props', () => {
         ],
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -674,6 +677,7 @@ test.describe('Block Props', () => {
         ],
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {

@@ -54,7 +54,7 @@ test.describe('Navigation Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-NAV-002: should use alternative logo for mobile devices',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -91,7 +91,7 @@ test.describe('Navigation Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-NAV-003: should provide accessible alt text for logo',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -122,7 +122,7 @@ test.describe('Navigation Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-NAV-004: should stick to top on scroll',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

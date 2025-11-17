@@ -56,6 +56,7 @@ test.describe('Block Reference', () => {
         ],
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               { block: 'icon-badge', vars: { text: 'New' } },
@@ -138,6 +139,7 @@ test.describe('Block Reference', () => {
         ],
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -177,6 +179,7 @@ test.describe('Block Reference', () => {
         ],
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               { block: 'test-block', vars: { color: 'blue', titleText: 'Hello', isActive: true } },
@@ -214,6 +217,7 @@ test.describe('Block Reference', () => {
         ],
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -257,6 +261,7 @@ test.describe('Block Reference', () => {
         ],
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -303,6 +308,7 @@ test.describe('Block Reference', () => {
         ],
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -349,6 +355,7 @@ test.describe('Block Reference', () => {
         ],
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               { block: 'alert', vars: { variant: 'success', message: 'Saved successfully!' } },
@@ -389,6 +396,7 @@ test.describe('Block Reference', () => {
         ],
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -445,6 +453,7 @@ test.describe('Block Reference', () => {
         ],
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -509,6 +518,7 @@ test.describe('Block Reference', () => {
         ],
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               { block: 'section-header', vars: { title: 'Features' } },

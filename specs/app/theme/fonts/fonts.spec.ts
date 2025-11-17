@@ -605,6 +605,7 @@ test.describe('Font Configuration', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -658,6 +659,7 @@ test.describe('Font Configuration', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -730,6 +732,7 @@ test.describe('Font Configuration', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {

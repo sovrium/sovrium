@@ -76,6 +76,7 @@ function createHomePageContent(app: App): ReadonlyArray<Component | string> {
  */
 export function createDefaultHomePageConfig(app: App): Page {
   return {
+    name: 'home',
     path: '/',
     meta: {
       lang: 'en-US',
@@ -132,6 +133,7 @@ export function createDefaultHomePageConfig(app: App): Page {
  */
 export function createNotFoundPageConfig(): Page {
   return {
+    name: 'not_found',
     path: '/404',
     meta: {
       lang: 'en-US',
@@ -195,6 +197,7 @@ export function createNotFoundPageConfig(): Page {
  */
 export function createErrorPageConfig(): Page {
   return {
+    name: 'error',
     path: '/500',
     meta: {
       lang: 'en-US',

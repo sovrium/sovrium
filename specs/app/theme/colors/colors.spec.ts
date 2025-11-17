@@ -784,6 +784,7 @@ test.describe('Color Palette', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -822,6 +823,7 @@ test.describe('Color Palette', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -858,6 +860,7 @@ test.describe('Color Palette', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -893,6 +896,7 @@ test.describe('Color Palette', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -1043,6 +1047,7 @@ test.describe('Color Palette', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {

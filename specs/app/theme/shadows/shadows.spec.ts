@@ -399,6 +399,7 @@ test.describe('Shadows', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -444,6 +445,7 @@ test.describe('Shadows', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -489,6 +491,7 @@ test.describe('Shadows', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -534,6 +537,7 @@ test.describe('Shadows', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -584,6 +588,7 @@ test.describe('Shadows', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -629,6 +634,7 @@ test.describe('Shadows', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -679,6 +685,7 @@ test.describe('Shadows', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -726,6 +733,7 @@ test.describe('Shadows', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -776,6 +784,7 @@ test.describe('Shadows', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -849,6 +858,7 @@ test.describe('Shadows', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -903,6 +913,7 @@ test.describe('Shadows', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
