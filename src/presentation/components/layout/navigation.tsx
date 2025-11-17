@@ -98,12 +98,23 @@ type NavStyleConfig = Readonly<{
  * Builds navigation style object
  */
 function buildNavStyleObject(config: NavStyleConfig): Record<string, unknown> {
-  const baseStyle = buildColorStyles(config.backgroundColor, config.textColor)
+  // In transparent mode, we override any backgroundColor prop
+  const baseStyle = config.transparent
+    ? buildColorStyles(undefined, config.textColor) // Ignore backgroundColor in transparent mode
+    : buildColorStyles(config.backgroundColor, config.textColor)
+
+  // Handle transparent mode with proper opacity behavior
+  if (config.transparent) {
+    return {
+      ...baseStyle,
+      ...(config.sticky && { position: 'sticky', top: 0, zIndex: 50 }),
+      backgroundColor: config.isScrolled ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0)',
+    }
+  }
+
   return {
     ...baseStyle,
     ...(config.sticky && { position: 'sticky', top: 0, zIndex: 50 }),
-    ...(config.transparent && !config.isScrolled && { backgroundColor: 'transparent' }),
-    ...(config.transparent && config.isScrolled && { backgroundColor: 'white' }),
   }
 }
 
@@ -111,13 +122,19 @@ function buildNavStyleObject(config: NavStyleConfig): Record<string, unknown> {
  * Builds navigation className string
  */
 function buildNavClassName(config: NavStyleConfig): string {
-  return [
-    config.sticky && 'sticky top-0 z-50',
-    config.transparent && !config.isScrolled && 'bg-transparent',
-    config.transparent && config.isScrolled && 'bg-white shadow-md',
-  ]
-    .filter(Boolean)
-    .join(' ')
+  const classes: string[] = []
+
+  // Add transition for smooth background color change
+  if (config.transparent) {
+    classes.push('transition-colors duration-300')
+  }
+
+  // Add shadow when scrolled in transparent mode
+  if (config.transparent && config.isScrolled) {
+    classes.push('shadow-md')
+  }
+
+  return classes.filter(Boolean).join(' ')
 }
 
 /**
@@ -290,6 +307,8 @@ export function Navigation({
     <nav
       data-testid="navigation"
       aria-label="Main navigation"
+      data-scrolled={isScrolled ? 'true' : 'false'}
+      data-transparent={transparent ? 'true' : 'false'}
       style={navStyle}
       className={navClasses}
     >

@@ -157,7 +157,7 @@ test.describe('Navigation Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-NAV-005: should have transparent background (becomes opaque on scroll)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
