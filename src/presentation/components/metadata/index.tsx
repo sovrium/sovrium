@@ -164,8 +164,7 @@ export function StructuredDataScript({
   }
 
   // Check if this is a direct Schema.org object (has @context and @type)
-  const isDirectSchemaObject =
-    '@context' in structuredData && '@type' in structuredData
+  const isDirectSchemaObject = '@context' in structuredData && '@type' in structuredData
 
   // Handle direct Schema.org object format
   if (isDirectSchemaObject) {

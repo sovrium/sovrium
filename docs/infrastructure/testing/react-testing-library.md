@@ -20,11 +20,13 @@ bun add -d @testing-library/react @testing-library/jest-dom @happy-dom/global-re
 
 ## Configuration
 
-### Happy DOM Setup (Required First)
+### Happy DOM Setup (Import Per Test File)
 
-Happy DOM must be configured before React Testing Library can work. Unlike jsdom (used with Jest), Happy DOM is a lightweight, pure JavaScript DOM implementation optimized for Bun.
+Happy DOM provides a lightweight DOM implementation for React Testing Library. Unlike jsdom (used with Jest), Happy DOM is pure JavaScript and optimized for Bun.
 
-**Create `test/setup.ts`** (if not already present):
+**IMPORTANT**: Happy DOM is NOT globally preloaded to avoid interfering with server-side tests (URL resolution, API routes, etc.). Instead, import it manually in test files that need DOM APIs.
+
+**Setup File**: `happydom.ts` (project root - already configured):
 
 ```typescript
 /**
@@ -41,14 +43,21 @@ import '@testing-library/jest-dom'
 GlobalRegistrator.register()
 ```
 
-**Configure `bunfig.toml`** (project root):
+**Usage in Test Files**:
 
-```toml
-[test]
-preload = ["./test/setup.ts"]
+```typescript
+/// <reference lib="dom" />
+import './happydom' // Import Happy DOM setup at the top
+import { render, screen } from '@testing-library/react'
+import { MyComponent } from './my-component'
+
+test('renders component', () => {
+  render(<MyComponent />)
+  expect(screen.getByText('Hello')).toBeInTheDocument()
+})
 ```
 
-This preloads Happy DOM before all tests run, making `document`, `window`, and other DOM APIs globally available.
+**Why not global preload?** Server-side tests (API routes, schema parsing, etc.) don't need DOM and the global URL override from Happy DOM can break URL resolution in libraries like `@apidevtools/json-schema-ref-parser` and Better Auth.
 
 ### TypeScript Support
 
@@ -66,6 +75,7 @@ This triple-slash directive tells TypeScript to include DOM API types.
 
 ```typescript
 /// <reference lib="dom" />
+import './happydom' // Import Happy DOM setup for this test file
 
 import { describe, test, expect } from 'bun:test'
 import { render, screen } from '@testing-library/react'
@@ -80,12 +90,15 @@ test('renders button with text', () => {
 })
 ```
 
-**Note**: Use Bun's `test` function, NOT Jest's `it` or `test`.
+**Note**:
+- Use Bun's `test` function, NOT Jest's `it` or `test`
+- Import `./happydom` at the top of test files that need DOM APIs
 
 ### Testing with Props and State
 
 ```typescript
 /// <reference lib="dom" />
+import './happydom'
 
 import { describe, test, expect } from 'bun:test'
 import { render, screen } from '@testing-library/react'
@@ -121,6 +134,7 @@ describe('Banner', () => {
 
 ```typescript
 /// <reference lib="dom" />
+import './happydom'
 
 import { describe, test, expect } from 'bun:test'
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -152,6 +166,7 @@ test('increments counter on button click', () => {
 
 ```typescript
 /// <reference lib="dom" />
+import './happydom'
 
 import { describe, test, expect } from 'bun:test'
 import { render, screen, waitFor } from '@testing-library/react'
@@ -368,6 +383,7 @@ This project uses **functional components only** (no class components):
 
 ```typescript
 /// <reference lib="dom" />
+import './happydom'
 
 import { describe, test, expect } from 'bun:test'
 import { render, screen } from '@testing-library/react'
@@ -389,6 +405,7 @@ If components use Effect.ts (e.g., via React hooks wrapping Effect programs):
 
 ```typescript
 /// <reference lib="dom" />
+import './happydom'
 
 import { describe, test, expect } from 'bun:test'
 import { render, screen, waitFor } from '@testing-library/react'
@@ -427,6 +444,7 @@ test('loads data from Effect program', async () => {
 
 ```typescript
 /// <reference lib="dom" />
+import './happydom'
 
 import { describe, test, expect } from 'bun:test'
 import { render, screen } from '@testing-library/react'
@@ -565,22 +583,23 @@ test('useCounter increments correctly', () => {
 
 ### Issue: "ReferenceError: document is not defined"
 
-**Cause**: Happy DOM not configured properly.
+**Cause**: Happy DOM not imported in the test file.
 
 **Solution**:
 
-1. Verify `test/setup.ts` imports `GlobalRegistrator.register()`
-2. Check `bunfig.toml` has `preload = ["./test/setup.ts"]`
-3. Add `/// <reference lib="dom" />` to test file
+1. Add `import './happydom'` at the top of your test file (after triple-slash directive)
+2. Add `/// <reference lib="dom" />` to test file for TypeScript types
+3. Make sure you're testing a component that actually needs DOM (not SSR-only)
 
 ### Issue: "TypeError: Cannot read property 'toHaveTextContent' of undefined"
 
 **Cause**: `@testing-library/jest-dom` not imported.
 
-**Solution**: Add to `test/setup.ts`:
+**Solution**: The matchers are already imported in `happydom.ts`. Make sure you're importing `./happydom` in your test file:
 
 ```typescript
-import '@testing-library/jest-dom'
+/// <reference lib="dom" />
+import './happydom'
 ```
 
 ### Issue: "Warning: ReactDOM.render has been deprecated"
@@ -609,15 +628,20 @@ await waitFor(() => {
 
 **Cause**: State leakage between tests.
 
-**Solution**: Add cleanup to `test/setup.ts`:
+**Solution**: Add cleanup in test files that use React Testing Library:
 
 ```typescript
+/// <reference lib="dom" />
+import './happydom'
+
 import { afterEach } from 'bun:test'
 import { cleanup } from '@testing-library/react'
 
 afterEach(() => {
   cleanup()
-  document.body.innerHTML = ''
+  if (typeof document !== 'undefined') {
+    document.body.innerHTML = ''
+  }
 })
 ```
 
@@ -634,7 +658,8 @@ afterEach(() => {
 
 - **Unit tests use**: Bun Test + React Testing Library + Happy DOM
 - **File naming**: `*.test.tsx` (co-located with components)
-- **Setup**: `test/setup.ts` + `bunfig.toml` preload
+- **Setup**: Import `./happydom` in test files that need DOM (NOT globally preloaded)
 - **Key difference**: Bun's test runner (NOT Jest), Happy DOM (NOT jsdom)
 - **Philosophy**: Test behavior users see, not implementation details
 - **Integration**: Works seamlessly with functional components, Tailwind, Effect.ts
+- **Server-side tests**: SSR tests using `renderToString` don't need DOM imports

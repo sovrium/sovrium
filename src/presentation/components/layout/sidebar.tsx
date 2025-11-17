@@ -92,7 +92,7 @@ function renderItems(
         </summary>
         <div
           data-testid={`sidebar-group-${counters.group}-children`}
-          className="ml-4 mt-1"
+          className="mt-1 ml-4"
         >
           {childElements}
         </div>
@@ -220,7 +220,11 @@ export function Sidebar(
           </button>
         )}
         <nav>
-          {items.length > 0 ? <div>{renderedElements}</div> : props.links && renderLegacyLinks(props.links)}
+          {items.length > 0 ? (
+            <div>{renderedElements}</div>
+          ) : (
+            props.links && renderLegacyLinks(props.links)
+          )}
         </nav>
       </aside>
       <script dangerouslySetInnerHTML={{ __html: generateSidebarScript(collapsible, width) }} />
