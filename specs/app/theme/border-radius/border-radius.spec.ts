@@ -356,6 +356,7 @@ test.describe('Border Radius', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -404,6 +405,7 @@ test.describe('Border Radius', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -442,6 +444,7 @@ test.describe('Border Radius', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -491,6 +494,7 @@ test.describe('Border Radius', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -541,6 +545,7 @@ test.describe('Border Radius', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -581,6 +586,7 @@ test.describe('Border Radius', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -632,6 +638,7 @@ test.describe('Border Radius', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -701,6 +708,7 @@ test.describe('Border Radius', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -776,6 +784,7 @@ test.describe('Border Radius', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {

@@ -289,6 +289,7 @@ test.describe('Breakpoints', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -329,6 +330,7 @@ test.describe('Breakpoints', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -371,6 +373,7 @@ test.describe('Breakpoints', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
@@ -418,6 +421,7 @@ test.describe('Breakpoints', () => {
         },
         pages: [
           {
+            name: 'home',
             path: '/',
             sections: [
               {
