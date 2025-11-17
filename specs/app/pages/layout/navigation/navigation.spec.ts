@@ -54,7 +54,7 @@ test.describe('Navigation Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-NAV-002: should use alternative logo for mobile devices',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
