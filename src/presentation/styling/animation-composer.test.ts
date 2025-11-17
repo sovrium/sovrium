@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/// <reference lib="dom" />
+
 import { describe, test, expect } from 'bun:test'
 import { composeAnimation } from './animation-composer'
 import type { Theme } from '@/domain/models/app/theme'

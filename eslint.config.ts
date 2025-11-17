@@ -33,9 +33,9 @@ export default [
   ...boundariesConfig,
   ...drizzleConfig,
   ...sizeLimitsConfig,
-  ...testingConfig,
   ...uiComponentsConfig,
   ...infrastructureConfig,
   ...scriptsConfig,
   ...playwrightConfig,
+  ...testingConfig, // Moved to end to ensure it has final override
 ] as Linter.Config[]

@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable functional/no-expression-statements */
-
 import { describe, expect, test } from 'bun:test'
 import { Effect } from 'effect'
 import { createServer, type ServerConfig } from './server'

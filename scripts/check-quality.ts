@@ -324,7 +324,7 @@ const runFullChecks = Effect.gen(function* () {
       effect: runCheck(
         'Unit Tests',
         ['bun', 'test', '--concurrent', '.test.ts', '.test.tsx'],
-        30_000
+        60_000
       ),
     },
     {

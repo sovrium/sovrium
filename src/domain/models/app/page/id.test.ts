@@ -6,7 +6,8 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { Schema } from 'effect'
+import { Schema, Option } from 'effect'
+import * as AST from 'effect/SchemaAST'
 import { PageIdSchema } from './id'
 
 describe('PageIdSchema', () => {
@@ -219,14 +220,17 @@ describe('PageIdSchema', () => {
   describe('Schema metadata', () => {
     test('should have correct annotations', () => {
       // When
-      const ast = PageIdSchema.ast
-      const annotations = ast.annotations
+      const { ast } = PageIdSchema
+      const identifier = Option.getOrUndefined(AST.getIdentifierAnnotation(ast))
+      const title = Option.getOrUndefined(AST.getTitleAnnotation(ast))
+      const description = Option.getOrUndefined(AST.getDescriptionAnnotation(ast))
+      const examples = Option.getOrUndefined(AST.getExamplesAnnotation(ast))
 
       // Then
-      expect(annotations.identifier).toBe('PageId')
-      expect(annotations.title).toBe('Page ID')
-      expect(annotations.description).toBe('Unique identifier for the page')
-      expect(annotations.examples).toEqual([
+      expect(identifier).toBe('PageId')
+      expect(title).toBe('Page ID')
+      expect(description).toBe('Unique identifier for the page')
+      expect(examples).toEqual([
         'homepage',
         'about-us',
         'contact-form-123',

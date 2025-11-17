@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/// <reference lib="dom" />
+
 import { describe, expect, test } from 'bun:test'
 import { isCssValue, isTailwindClass } from './style-utils'
 

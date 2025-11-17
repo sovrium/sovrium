@@ -6,7 +6,8 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { Schema } from 'effect'
+import { Schema, Option } from 'effect'
+import * as AST from 'effect/SchemaAST'
 import { FaviconSizeItemSchema, FaviconsConfigSchema } from './favicons-config'
 
 describe('Favicons Config Schemas', () => {
@@ -318,21 +319,24 @@ describe('Favicons Config Schemas', () => {
     describe('Schema metadata', () => {
       test('FaviconSizeItemSchema should have correct annotations', () => {
         // When
-        const ast = FaviconSizeItemSchema.ast
-        const annotations = ast.annotations
+        const { ast } = FaviconSizeItemSchema
+        const description = Option.getOrUndefined(AST.getDescriptionAnnotation(ast))
 
         // Then
-        expect(annotations.description).toBe('Favicon size specification')
+        expect(description).toBe('Favicon size specification')
       })
 
       test('FaviconsConfigSchema should have correct annotations', () => {
         // When
-        const ast = FaviconsConfigSchema.ast
-        const annotations = ast.annotations
+        const { ast } = FaviconsConfigSchema
+        const title = Option.getOrUndefined(AST.getTitleAnnotation(ast))
+        const description = Option.getOrUndefined(AST.getDescriptionAnnotation(ast))
 
         // Then
-        expect(annotations.title).toBe('Favicons Configuration')
-        expect(annotations.description).toBe('Helper configuration for favicons with named properties')
+        expect(title).toBe('Favicons Configuration')
+        expect(description).toBe(
+          'Helper configuration for favicons with named properties'
+        )
       })
     })
   })

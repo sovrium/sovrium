@@ -14,7 +14,7 @@ describe('Health Schemas', () => {
       test('should accept valid health response', () => {
         // Given
         const response = {
-          status: 'ok',
+          status: 'ok' as const,
           timestamp: '2024-01-15T10:30:00.000Z',
           app: {
             name: 'My Application',
@@ -31,7 +31,7 @@ describe('Health Schemas', () => {
       test('should accept timestamp with timezone offset', () => {
         // Given
         const response = {
-          status: 'ok',
+          status: 'ok' as const,
           timestamp: '2024-01-15T10:30:00.000+02:00',
           app: {
             name: 'Test App',
@@ -48,7 +48,7 @@ describe('Health Schemas', () => {
       test('should accept timestamp with negative offset', () => {
         // Given
         const response = {
-          status: 'ok',
+          status: 'ok' as const,
           timestamp: '2024-01-15T10:30:00.000-05:00',
           app: {
             name: 'Production App',
@@ -65,7 +65,7 @@ describe('Health Schemas', () => {
       test('should accept timestamp with milliseconds', () => {
         // Given
         const response = {
-          status: 'ok',
+          status: 'ok' as const,
           timestamp: '2024-01-15T10:30:00.123Z',
           app: {
             name: 'App with Milliseconds',
@@ -93,7 +93,7 @@ describe('Health Schemas', () => {
         // When/Then
         appNames.forEach((name) => {
           const response = {
-            status: 'ok',
+            status: 'ok' as const,
             timestamp: '2024-01-15T10:30:00.000Z',
             app: { name },
           }
@@ -105,7 +105,7 @@ describe('Health Schemas', () => {
       test('should accept current timestamp', () => {
         // Given
         const response = {
-          status: 'ok',
+          status: 'ok' as const,
           timestamp: new Date().toISOString(),
           app: {
             name: 'Current Time App',
@@ -154,7 +154,7 @@ describe('Health Schemas', () => {
       test('should reject missing timestamp', () => {
         // Given
         const response = {
-          status: 'ok',
+          status: 'ok' as const,
           app: { name: 'Test' },
         }
 
@@ -167,7 +167,7 @@ describe('Health Schemas', () => {
       test('should reject missing app', () => {
         // Given
         const response = {
-          status: 'ok',
+          status: 'ok' as const,
           timestamp: '2024-01-15T10:30:00.000Z',
         }
 
@@ -180,7 +180,7 @@ describe('Health Schemas', () => {
       test('should reject missing app.name', () => {
         // Given
         const response = {
-          status: 'ok',
+          status: 'ok' as const,
           timestamp: '2024-01-15T10:30:00.000Z',
           app: {},
         }
@@ -206,7 +206,7 @@ describe('Health Schemas', () => {
         // When/Then
         invalidTimestamps.forEach((timestamp) => {
           const response = {
-            status: 'ok',
+            status: 'ok' as const,
             timestamp,
             app: { name: 'Test' },
           }
@@ -223,7 +223,7 @@ describe('Health Schemas', () => {
         // When/Then
         invalidNames.forEach((name) => {
           const response = {
-            status: 'ok',
+            status: 'ok' as const,
             timestamp: '2024-01-15T10:30:00.000Z',
             app: { name },
           }
@@ -236,7 +236,7 @@ describe('Health Schemas', () => {
       test('should reject extra properties in root', () => {
         // Given
         const response = {
-          status: 'ok',
+          status: 'ok' as const,
           timestamp: '2024-01-15T10:30:00.000Z',
           app: { name: 'Test' },
           extraProp: 'should be rejected',
@@ -249,7 +249,7 @@ describe('Health Schemas', () => {
         // Zod strips unknown keys by default
         expect(result).not.toHaveProperty('extraProp')
         expect(result).toEqual({
-          status: 'ok',
+          status: 'ok' as const,
           timestamp: '2024-01-15T10:30:00.000Z',
           app: { name: 'Test' },
         })
@@ -258,7 +258,7 @@ describe('Health Schemas', () => {
       test('should reject extra properties in app', () => {
         // Given
         const response = {
-          status: 'ok',
+          status: 'ok' as const,
           timestamp: '2024-01-15T10:30:00.000Z',
           app: {
             name: 'Test',
@@ -273,7 +273,7 @@ describe('Health Schemas', () => {
         // Zod strips unknown keys by default
         expect(result.app).not.toHaveProperty('version')
         expect(result).toEqual({
-          status: 'ok',
+          status: 'ok' as const,
           timestamp: '2024-01-15T10:30:00.000Z',
           app: { name: 'Test' },
         })
@@ -327,11 +327,7 @@ describe('Health Schemas', () => {
         const parsed = healthResponseSchema.parse(response)
 
         // Then
-        // TypeScript compile-time check
-        const _statusCheck: 'ok' = parsed.status
-        const _timestampCheck: string = parsed.timestamp
-        const _nameCheck: string = parsed.app.name
-
+        // TypeScript compile-time check (implicit via type inference)
         // Runtime check
         expect(parsed.status).toBe('ok')
         expect(typeof parsed.timestamp).toBe('string')

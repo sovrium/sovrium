@@ -6,7 +6,8 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { Schema } from 'effect'
+import { Schema, Option } from 'effect'
+import * as AST from 'effect/SchemaAST'
 import { PageNameSchema } from './name'
 
 describe('PageNameSchema', () => {
@@ -168,14 +169,7 @@ describe('PageNameSchema', () => {
 
     test('should accept international characters', () => {
       // Given
-      const names = [
-        'Café',
-        'Résumé',
-        'Über uns',
-        'こんにちは',
-        'Главная',
-        '主页',
-      ]
+      const names = ['Café', 'Résumé', 'Über uns', 'こんにちは', 'Главная', '主页']
 
       // When/Then
       names.forEach((name) => {
@@ -208,7 +202,8 @@ describe('PageNameSchema', () => {
 
     test('should reject very long string', () => {
       // Given
-      const name = 'This is a very long page name that exceeds the maximum allowed length of 63 characters'
+      const name =
+        'This is a very long page name that exceeds the maximum allowed length of 63 characters'
 
       // When/Then
       expect(() => {
@@ -280,13 +275,15 @@ describe('PageNameSchema', () => {
   describe('Schema metadata', () => {
     test('should have correct annotations', () => {
       // When
-      const ast = PageNameSchema.ast
-      const annotations = ast.annotations
+      const { ast } = PageNameSchema
+      const title = Option.getOrUndefined(AST.getTitleAnnotation(ast))
+      const description = Option.getOrUndefined(AST.getDescriptionAnnotation(ast))
+      const examples = Option.getOrUndefined(AST.getExamplesAnnotation(ast))
 
       // Then
-      expect(annotations.title).toBe('Page Name')
-      expect(annotations.description).toBe('Human-readable name for the page')
-      expect(annotations.examples).toEqual(['Home', 'About Us', 'Home Page', 'Pricing', 'Contact'])
+      expect(title).toBe('Page Name')
+      expect(description).toBe('Human-readable name for the page')
+      expect(examples).toEqual(['Home', 'About Us', 'Home Page', 'Pricing', 'Contact'])
     })
   })
 })

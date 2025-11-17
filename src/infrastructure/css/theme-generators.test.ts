@@ -154,7 +154,7 @@ describe('Theme Generators', () => {
       const fonts = {
         serif: {
           family: 'Georgia',
-          style: 'italic',
+          style: 'italic' as const,
         },
       }
 
@@ -170,7 +170,7 @@ describe('Theme Generators', () => {
       const fonts = {
         serif: {
           family: 'Georgia',
-          style: 'normal',
+          style: 'normal' as const,
         },
       }
 
@@ -186,7 +186,7 @@ describe('Theme Generators', () => {
       const fonts = {
         heading: {
           family: 'Montserrat',
-          transform: 'uppercase',
+          transform: 'uppercase' as const,
         },
       }
 
@@ -194,7 +194,9 @@ describe('Theme Generators', () => {
       const result = generateThemeFonts(fonts)
 
       // Then
-      expect(result).toBe('    --font-heading: Montserrat;\n    --font-heading-transform: uppercase;')
+      expect(result).toBe(
+        '    --font-heading: Montserrat;\n    --font-heading-transform: uppercase;'
+      )
     })
 
     test('should not include transform when none', () => {
@@ -202,7 +204,7 @@ describe('Theme Generators', () => {
       const fonts = {
         heading: {
           family: 'Montserrat',
-          transform: 'none',
+          transform: 'none' as const,
         },
       }
 
@@ -237,8 +239,8 @@ describe('Theme Generators', () => {
         display: {
           family: 'Playfair Display',
           fallback: 'serif',
-          style: 'italic',
-          transform: 'capitalize',
+          style: 'italic' as const,
+          transform: 'capitalize' as const,
           letterSpacing: '-0.02em',
         },
       }
@@ -259,7 +261,7 @@ describe('Theme Generators', () => {
       // Given
       const fonts = {
         sans: { family: 'Inter' },
-        serif: { family: 'Georgia', style: 'italic' },
+        serif: { family: 'Georgia', style: 'italic' as const },
         mono: { family: 'Fira Code', letterSpacing: '0.1em' },
       }
 
