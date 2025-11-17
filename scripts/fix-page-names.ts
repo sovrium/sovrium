@@ -7,8 +7,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { readdirSync, readFileSync, writeFileSync, statSync } from 'fs'
-import { join } from 'path'
+import { readdirSync, readFileSync, writeFileSync, statSync } from 'node:fs'
+import { join } from 'node:path'
 
 /**
  * Fix page configurations by adding missing 'name' fields
@@ -42,7 +42,7 @@ function getAllSpecFiles(dir: string): string[] {
 }
 
 function fixPageNames(filePath: string): boolean {
-  let content = readFileSync(filePath, 'utf-8')
+  const content = readFileSync(filePath, 'utf-8')
   let modified = false
 
   // Pattern to match page objects without 'name' field
