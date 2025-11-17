@@ -122,17 +122,12 @@ function buildNavStyleObject(config: NavStyleConfig): Record<string, unknown> {
  * Builds navigation className string
  */
 function buildNavClassName(config: NavStyleConfig): string {
-  const classes: string[] = []
-
-  // Add transition for smooth background color change
-  if (config.transparent) {
-    classes.push('transition-colors duration-300')
-  }
-
-  // Add shadow when scrolled in transparent mode
-  if (config.transparent && config.isScrolled) {
-    classes.push('shadow-md')
-  }
+  const classes = [
+    // Add transition for smooth background color change
+    config.transparent ? 'transition-colors duration-300' : '',
+    // Add shadow when scrolled in transparent mode
+    config.transparent && config.isScrolled ? 'shadow-md' : '',
+  ]
 
   return classes.filter(Boolean).join(' ')
 }
