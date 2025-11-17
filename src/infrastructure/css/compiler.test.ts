@@ -36,7 +36,10 @@ describe('CSS Compiler', () => {
       const result = await Effect.runPromise(program)
 
       // Tailwind base styles should be present
-      expect(result.css).toContain('*, ::before, ::after')
+      // Note: Tailwind v4 may use either ::before/::after (formatted) or :before/:after (minified)
+      const hasDoubleColonSyntax = result.css.includes('*, ::before, ::after')
+      const hasSingleColonSyntax = result.css.includes('*,:before,:after')
+      expect(hasDoubleColonSyntax || hasSingleColonSyntax).toBe(true)
       expect(result.css).toContain('box-sizing')
     })
 
