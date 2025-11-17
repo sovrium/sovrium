@@ -251,10 +251,4 @@ describe('HttpUrlSchema', () => {
     })
   })
 
-  describe('Schema metadata', () => {
-    test.skip('should have correct annotations', () => {
-      // Skip: Annotations on piped schemas are not directly accessible via ast.annotations
-      // The annotations are correctly applied but require internal API access to verify
-    })
-  })
 })

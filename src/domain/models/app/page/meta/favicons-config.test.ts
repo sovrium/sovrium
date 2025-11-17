@@ -334,9 +334,7 @@ describe('Favicons Config Schemas', () => {
 
         // Then
         expect(title).toBe('Favicons Configuration')
-        expect(description).toBe(
-          'Helper configuration for favicons with named properties'
-        )
+        expect(description).toBe('Helper configuration for favicons with named properties')
       })
     })
   })
