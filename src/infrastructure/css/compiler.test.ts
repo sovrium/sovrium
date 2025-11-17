@@ -35,8 +35,8 @@ describe('CSS Compiler', () => {
 
       const result = await Effect.runPromise(program)
 
-      // Tailwind base styles should be present
-      expect(result.css).toContain('*, ::before, ::after')
+      // Tailwind base styles should be present (minified format)
+      expect(result.css).toContain('*,:before,:after')
       expect(result.css).toContain('box-sizing')
     })
 
