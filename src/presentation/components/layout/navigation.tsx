@@ -131,6 +131,7 @@ function NavLogo({
   return (
     <a
       href="/"
+      data-testid="nav-logo-link"
       aria-label=""
     >
       <img

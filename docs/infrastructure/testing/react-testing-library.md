@@ -91,6 +91,7 @@ test('renders button with text', () => {
 ```
 
 **Note**:
+
 - Use Bun's `test` function, NOT Jest's `it` or `test`
 - Import `./happydom` at the top of test files that need DOM APIs
 
