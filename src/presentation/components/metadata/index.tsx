@@ -49,9 +49,14 @@ export function OpenGraphMeta({
     { key: 'title', value: resolveValue(openGraph.title) },
     { key: 'description', value: resolveValue(openGraph.description) },
     { key: 'image', value: openGraph.image },
+    { key: 'image:alt', value: resolveValue(openGraph.imageAlt) },
     { key: 'url', value: openGraph.url },
     { key: 'type', value: openGraph.type },
     { key: 'site_name', value: resolveValue(openGraph.siteName) },
+    { key: 'locale', value: openGraph.locale },
+    { key: 'determiner', value: openGraph.determiner },
+    { key: 'video', value: openGraph.video },
+    { key: 'audio', value: openGraph.audio },
   ]
 
   return (
