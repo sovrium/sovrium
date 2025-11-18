@@ -186,11 +186,11 @@ function renderLegacyLinks(
 export function Sidebar(
   props: SidebarType & { readonly links?: readonly { label: string; href: string }[] }
 ): Readonly<ReactElement> {
-  const width = props.width || '256px'
-  const position = props.position || 'left'
+  const width = props.width ?? '256px'
+  const position = props.position ?? 'left'
   const collapsible = props.collapsible !== false
   const sticky = props.sticky !== false
-  const items = props.items || []
+  const items = props.items ?? []
 
   const [renderedElements] = renderItems(items, { link: 0, group: 0, divider: 0 })
 

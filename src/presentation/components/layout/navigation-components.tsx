@@ -11,6 +11,20 @@ import type { NavLink } from '@/domain/models/app/page/layout/navigation/nav-lin
 import type { ReactElement } from 'react'
 
 /**
+ * Renders a badge for navigation links
+ */
+function NavBadge({ badge }: Readonly<{ badge: string }>): Readonly<ReactElement> {
+  return (
+    <span
+      data-testid="badge"
+      className="rounded bg-blue-500 px-2 py-0.5 text-xs text-white"
+    >
+      {badge}
+    </span>
+  )
+}
+
+/**
  * NavLinkItem Component
  *
  * Renders a single navigation link with support for icons, badges, and dropdowns.
@@ -33,14 +47,7 @@ export function NavLinkItem({ link }: Readonly<{ link: NavLink }>): Readonly<Rea
           className="flex items-center gap-2"
         >
           {link.label}
-          {link.badge && (
-            <span
-              data-testid="badge"
-              className="rounded bg-blue-500 px-2 py-0.5 text-xs text-white"
-            >
-              {link.badge}
-            </span>
-          )}
+          {link.badge && <NavBadge badge={link.badge} />}
         </a>
         <div
           data-testid="nav-dropdown"
@@ -66,14 +73,7 @@ export function NavLinkItem({ link }: Readonly<{ link: NavLink }>): Readonly<Rea
       className="flex items-center gap-2"
     >
       {link.label}
-      {link.badge && (
-        <span
-          data-testid="badge"
-          className="rounded bg-blue-500 px-2 py-0.5 text-xs text-white"
-        >
-          {link.badge}
-        </span>
-      )}
+      {link.badge && <NavBadge badge={link.badge} />}
     </a>
   )
 }

@@ -49,7 +49,7 @@ function createHomePageContent(app: App): ReadonlyArray<Component | string> {
     ...(app.description
       ? [
           {
-            type: 'p' as const,
+            type: 'p',
             props: {
               'data-testid': 'app-description',
               className: 'text-xl text-muted-foreground text-center',

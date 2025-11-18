@@ -89,7 +89,7 @@ export function TwitterCardMeta({
   readonly page: Page
 }): Readonly<ReactElement | undefined> {
   // Support both 'twitter' (canonical) and 'twitterCard' (test alias)
-  const twitterCard = page.meta?.twitter || page.meta?.twitterCard
+  const twitterCard = page.meta?.twitter ?? page.meta?.twitterCard
   if (!twitterCard) {
     return undefined
   }
@@ -153,7 +153,7 @@ export function StructuredDataScript({
   readonly page: Page
 }): Readonly<ReactElement | undefined> {
   // Support both 'schema' (canonical) and 'structuredData' (test alias)
-  const structuredData = page.meta?.schema || page.meta?.structuredData
+  const structuredData = page.meta?.schema ?? page.meta?.structuredData
   if (!structuredData) {
     return undefined
   }
