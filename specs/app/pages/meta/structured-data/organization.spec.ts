@@ -94,7 +94,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-003: should identify entity as Organization',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
