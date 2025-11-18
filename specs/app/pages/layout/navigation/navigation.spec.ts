@@ -287,7 +287,7 @@ test.describe('Navigation Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-NAV-008: should render prominent call-to-action button',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
