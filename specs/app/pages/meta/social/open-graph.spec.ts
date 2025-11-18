@@ -286,7 +286,7 @@ test.describe('Open Graph Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-OG-008: should specify content language for social platforms',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
