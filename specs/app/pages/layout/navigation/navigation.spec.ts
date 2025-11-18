@@ -327,7 +327,7 @@ test.describe('Navigation Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-NAV-009: should display search input in navigation',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
