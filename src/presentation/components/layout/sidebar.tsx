@@ -261,7 +261,11 @@ export function Sidebar(
           </nav>
         )}
       </aside>
-      <script dangerouslySetInnerHTML={{ __html: generateSidebarScript(config.collapsible, config.width) }} />
+      <script
+        dangerouslySetInnerHTML={{
+          __html: generateSidebarScript(config.collapsible, config.width),
+        }}
+      />
     </>
   )
 }

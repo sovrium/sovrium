@@ -1,0 +1,205 @@
+{
+  "$id": "static-i18n.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Static Site Generation - Multi-Language Support",
+  "description": "Specifications for internationalization in static site generation (language directories, translation replacement, hreflang links, language switchers)",
+  "x-specs": [
+    {
+      "id": "STATIC-I18N-001",
+      "given": "a static site configured with multiple languages (en, fr, es)",
+      "when": "static site is generated",
+      "then": "language directories should be created with same page structure in each language",
+      "application": {
+        "configuration": {
+          "languages": ["en", "fr", "es"],
+          "defaultLanguage": "en",
+          "pages": [{ "path": "/" }, { "path": "/about" }, { "path": "/contact" }]
+        },
+        "expectedOutput": {
+          "structure": {
+            "dist/": "index.html (default language redirect or en content)",
+            "dist/en/": "index.html, about/index.html, contact/index.html",
+            "dist/fr/": "index.html, about/index.html, contact/index.html",
+            "dist/es/": "index.html, about/index.html, contact/index.html"
+          },
+          "directories": ["dist/en/", "dist/fr/", "dist/es/"]
+        },
+        "useCases": [
+          "Multi-language sites: Support English, French, Spanish",
+          "Language isolation: /en/, /fr/, /es/ subdirectories",
+          "Same structure: Each language has identical page hierarchy",
+          "Default language: Root index.html redirects or shows default language",
+          "RTL languages: Handle /ar/, /he/ with appropriate directory names"
+        ],
+        "assertions": [
+          "Create a directory for each configured language",
+          "Use language codes as directory names (en/, fr/, es/)",
+          "Generate the same page structure in each language directory",
+          "Create a root index.html for default language or redirect",
+          "Handle RTL languages with appropriate directory names"
+        ]
+      }
+    },
+    {
+      "id": "STATIC-I18N-002",
+      "given": "a static site with translations for multiple languages",
+      "when": "static site is generated with translation placeholders",
+      "then": "HTML files should have translations replaced, lang attribute set, and locale-specific formatting applied",
+      "application": {
+        "configuration": {
+          "languages": ["en", "fr"],
+          "defaultLanguage": "en",
+          "translations": {
+            "en": {
+              "home.title": "Welcome",
+              "home.description": "Welcome to our site",
+              "date": "January 15, 2025"
+            },
+            "fr": {
+              "home.title": "Bienvenue",
+              "home.description": "Bienvenue sur notre site",
+              "date": "15 janvier 2025"
+            }
+          },
+          "pages": [
+            {
+              "path": "/",
+              "meta": {
+                "title": "$t:home.title",
+                "description": "$t:home.description"
+              },
+              "sections": [
+                { "type": "h1", "children": ["$t:home.title"] },
+                { "type": "p", "children": ["$t:home.description"] }
+              ]
+            }
+          ]
+        },
+        "expectedOutput": {
+          "en": {
+            "file": "dist/en/index.html",
+            "lang": "en",
+            "title": "Welcome",
+            "description": "Welcome to our site"
+          },
+          "fr": {
+            "file": "dist/fr/index.html",
+            "lang": "fr",
+            "title": "Bienvenue",
+            "description": "Bienvenue sur notre site"
+          }
+        },
+        "expectedHTML": {
+          "en": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <title>Welcome</title>\n  <meta name=\"description\" content=\"Welcome to our site\">\n</head>\n<body>\n  <h1>Welcome</h1>\n  <p>Welcome to our site</p>\n</body>\n</html>",
+          "fr": "<!DOCTYPE html>\n<html lang=\"fr\">\n<head>\n  <title>Bienvenue</title>\n  <meta name=\"description\" content=\"Bienvenue sur notre site\">\n</head>\n<body>\n  <h1>Bienvenue</h1>\n  <p>Bienvenue sur notre site</p>\n</body>\n</html>"
+        },
+        "useCases": [
+          "Translation replacement: $t:home.title → 'Welcome' (en) or 'Bienvenue' (fr)",
+          "Lang attribute: <html lang=\"en\"> vs <html lang=\"fr\">",
+          "Locale formatting: Dates in US format (January 15, 2025) vs French (15 janvier 2025)",
+          "Meta tags: Title and description localized for SEO",
+          "Default language: /en/ available, also at root level /"
+        ],
+        "assertions": [
+          "Replace translation placeholders with actual translations",
+          "Set correct lang attribute in HTML tag",
+          "Use locale-specific formats for dates and numbers",
+          "Generate proper meta descriptions in each language",
+          "Default language should be available at root level"
+        ]
+      }
+    },
+    {
+      "id": "STATIC-I18N-003",
+      "given": "a static site with baseUrl and multiple languages configured",
+      "when": "static site is generated",
+      "then": "hreflang links should be added to HTML head with full URLs and x-default for default language",
+      "application": {
+        "configuration": {
+          "baseUrl": "https://example.com",
+          "languages": ["en", "fr", "es"],
+          "defaultLanguage": "en",
+          "pages": [{ "path": "/" }, { "path": "/about" }]
+        },
+        "expectedOutput": {
+          "rootPage": {
+            "en": "dist/en/index.html",
+            "fr": "dist/fr/index.html",
+            "es": "dist/es/index.html"
+          },
+          "aboutPage": {
+            "en": "dist/en/about/index.html",
+            "fr": "dist/fr/about/index.html",
+            "es": "dist/es/about/index.html"
+          }
+        },
+        "expectedHTML": {
+          "rootPage": "<head>\n  <link rel=\"canonical\" href=\"https://example.com/en/\">\n  <link rel=\"alternate\" hreflang=\"en\" href=\"https://example.com/en/\">\n  <link rel=\"alternate\" hreflang=\"fr\" href=\"https://example.com/fr/\">\n  <link rel=\"alternate\" hreflang=\"es\" href=\"https://example.com/es/\">\n  <link rel=\"alternate\" hreflang=\"x-default\" href=\"https://example.com/en/\">\n</head>",
+          "aboutPage": "<head>\n  <link rel=\"canonical\" href=\"https://example.com/en/about\">\n  <link rel=\"alternate\" hreflang=\"en\" href=\"https://example.com/en/about\">\n  <link rel=\"alternate\" hreflang=\"fr\" href=\"https://example.com/fr/about\">\n  <link rel=\"alternate\" hreflang=\"es\" href=\"https://example.com/es/about\">\n  <link rel=\"alternate\" hreflang=\"x-default\" href=\"https://example.com/en/about\">\n</head>"
+        },
+        "useCases": [
+          "SEO: Help search engines understand language variants",
+          "Canonical URLs: Point to authoritative version of each page",
+          "Hreflang: Link all language versions of same page",
+          "x-default: Indicate default language for unknown locales",
+          "Nested paths: Hreflang works for /about, /blog/post-1, etc."
+        ],
+        "assertions": [
+          "Add hreflang link for each available language",
+          "Include x-default hreflang for default language",
+          "Use full URLs with baseUrl when provided",
+          "Add canonical URL for each page",
+          "Correctly handle nested paths in hreflang URLs"
+        ]
+      }
+    },
+    {
+      "id": "STATIC-I18N-004",
+      "given": "a static site with language switcher configuration",
+      "when": "static site is generated",
+      "then": "language switcher should be generated with all available languages, maintaining current page path",
+      "application": {
+        "configuration": {
+          "languages": ["en", "fr", "es"],
+          "defaultLanguage": "en",
+          "translations": {
+            "en": { "lang.en": "English", "lang.fr": "French", "lang.es": "Spanish" },
+            "fr": { "lang.en": "Anglais", "lang.fr": "Français", "lang.es": "Espagnol" },
+            "es": { "lang.en": "Inglés", "lang.fr": "Francés", "lang.es": "Español" }
+          },
+          "pages": [{ "path": "/" }, { "path": "/about" }]
+        },
+        "expectedOutput": {
+          "rootPage": {
+            "en": "Language switcher with links to /en/, /fr/, /es/",
+            "fr": "Language switcher with links to /en/, /fr/, /es/",
+            "es": "Language switcher with links to /en/, /fr/, /es/"
+          },
+          "aboutPage": {
+            "en": "Language switcher with links to /en/about, /fr/about, /es/about",
+            "fr": "Language switcher with links to /en/about, /fr/about, /es/about",
+            "es": "Language switcher with links to /en/about, /fr/about, /es/about"
+          }
+        },
+        "expectedHTML": {
+          "en": "<nav aria-label=\"Language switcher\">\n  <a href=\"/en/about\" hreflang=\"en\" aria-current=\"page\">English</a>\n  <a href=\"/fr/about\" hreflang=\"fr\">Français</a>\n  <a href=\"/es/about\" hreflang=\"es\">Español</a>\n</nav>",
+          "fr": "<nav aria-label=\"Language switcher\">\n  <a href=\"/en/about\" hreflang=\"en\">Anglais</a>\n  <a href=\"/fr/about\" hreflang=\"fr\" aria-current=\"page\">Français</a>\n  <a href=\"/es/about\" hreflang=\"es\">Espagnol</a>\n</nav>"
+        },
+        "useCases": [
+          "User preference: Allow users to switch language",
+          "Path preservation: Switching from /en/about → /fr/about (same page)",
+          "Localized labels: 'English' in EN, 'Français' in FR, 'Español' in ES",
+          "Current language: Mark active language with aria-current",
+          "Accessibility: aria-label for screen readers"
+        ],
+        "assertions": [
+          "Generate language switcher with all available languages",
+          "Maintain current page path when switching languages",
+          "Translate language switcher labels appropriately",
+          "Mark current language as active/selected",
+          "Include proper href attributes for each language option"
+        ]
+      }
+    }
+  ]
+}

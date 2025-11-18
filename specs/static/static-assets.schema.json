@@ -1,0 +1,132 @@
+{
+  "$id": "static-assets.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Static Site Generation - Asset Management",
+  "description": "Specifications for asset management in static site generation (copying files, preserving structure, handling binary files, updating references)",
+  "x-specs": [
+    {
+      "id": "STATIC-ASSETS-001",
+      "given": "a public/ directory with text and binary files",
+      "when": "static site is generated",
+      "then": "all files should be copied to output directory with correct encoding and no corruption",
+      "application": {
+        "publicDirectory": {
+          "structure": "public/favicon.ico, public/logo.png, public/manifest.json",
+          "files": ["favicon.ico", "logo.png", "manifest.json"]
+        },
+        "expectedOutput": {
+          "structure": "dist/favicon.ico, dist/logo.png, dist/manifest.json",
+          "preservation": "All files copied with exact byte content"
+        },
+        "useCases": [
+          "Static assets: Copy favicon, manifest, images from public/ to output",
+          "Build process: Preserve file integrity during copy operation",
+          "Missing public/: Gracefully handle when public/ directory doesn't exist"
+        ],
+        "assertions": [
+          "Copy all files from public/ to output root",
+          "Preserve file names and extensions exactly",
+          "Copy text files (JSON, TXT) with correct UTF-8 encoding",
+          "Copy binary files (ICO, PNG) without corruption",
+          "Handle missing public/ directory gracefully (no error)"
+        ]
+      }
+    },
+    {
+      "id": "STATIC-ASSETS-002",
+      "given": "a public/ directory with nested subdirectories (public/images/icons/)",
+      "when": "static site is generated",
+      "then": "directory structure should be preserved in output with all subdirectories created",
+      "application": {
+        "publicDirectory": {
+          "structure": "public/images/icons/star.svg, public/fonts/inter.woff2, public/data/config.json",
+          "nesting": "3 levels deep (public → images → icons → star.svg)"
+        },
+        "expectedOutput": {
+          "structure": "dist/images/icons/star.svg, dist/fonts/inter.woff2, dist/data/config.json",
+          "directories": ["dist/images/", "dist/images/icons/", "dist/fonts/", "dist/data/"]
+        },
+        "useCases": [
+          "Organized assets: Maintain folder structure for images, fonts, data",
+          "Deep nesting: Support arbitrary nesting depth (3+ levels)",
+          "Empty directories: Preserve empty folders if needed for asset organization"
+        ],
+        "assertions": [
+          "Maintain nested directory structure from public/",
+          "Create all necessary subdirectories in output",
+          "Place files in correct relative locations (dist/images/icons/star.svg)",
+          "Handle deep nesting levels (3+ levels)",
+          "Preserve empty directories if needed"
+        ]
+      }
+    },
+    {
+      "id": "STATIC-ASSETS-003",
+      "given": "a public/ directory with various binary file types (images, fonts, videos)",
+      "when": "static site is generated",
+      "then": "binary files should be copied without corruption, preserving exact byte content and file sizes",
+      "application": {
+        "publicDirectory": {
+          "binaryFiles": [
+            "public/logo.png (image)",
+            "public/fonts/inter.woff2 (font)",
+            "public/videos/intro.mp4 (video)"
+          ],
+          "fileTypes": ["PNG", "JPG", "GIF", "WOFF", "WOFF2", "TTF", "MP4", "WebM"]
+        },
+        "expectedOutput": {
+          "integrity": "Exact byte-for-byte copy (no encoding conversion)",
+          "sizes": "File sizes match exactly (dist/logo.png size === public/logo.png size)"
+        },
+        "useCases": [
+          "Images: Copy logo.png, hero.jpg, icon.gif without corruption",
+          "Fonts: Copy inter.woff2, roboto.ttf for web font loading",
+          "Videos: Copy intro.mp4, demo.webm for media content",
+          "Binary integrity: Ensure images display correctly, fonts load, videos play"
+        ],
+        "assertions": [
+          "Copy image files (PNG, JPG, GIF) without corruption",
+          "Copy font files (WOFF, WOFF2, TTF) correctly",
+          "Copy video files (MP4, WebM) properly",
+          "Preserve exact byte content of binary files",
+          "Maintain file sizes exactly (no size changes)"
+        ]
+      }
+    },
+    {
+      "id": "STATIC-ASSETS-004",
+      "given": "generated HTML and CSS files with asset references (img src, link href, font urls)",
+      "when": "static site is generated",
+      "then": "asset references should be updated to correct paths for both absolute and relative paths",
+      "application": {
+        "inputHTML": {
+          "imageSrc": "<img src=\"/logo.png\">",
+          "linkHref": "<link href=\"/styles.css\">",
+          "nestedPage": "about/index.html references ../logo.png"
+        },
+        "inputCSS": {
+          "fontUrl": "url('/fonts/inter.woff2')",
+          "backgroundImage": "url('/images/hero.jpg')"
+        },
+        "expectedOutput": {
+          "rootPage": "<img src=\"/logo.png\"> (absolute path unchanged)",
+          "nestedPage": "<img src=\"../logo.png\"> (relative path adjusted)",
+          "css": "url('/fonts/inter.woff2') (absolute path in CSS)"
+        },
+        "useCases": [
+          "Root pages: Absolute paths work from / (index.html → /logo.png)",
+          "Nested pages: Relative paths adjust for depth (about/index.html → ../logo.png)",
+          "CSS references: Font and image URLs resolve correctly",
+          "Path types: Handle both /absolute and ./relative path formats"
+        ],
+        "assertions": [
+          "Update image src attributes to correct paths",
+          "Update link href attributes for stylesheets",
+          "Update font references in CSS (@font-face url())",
+          "Handle both absolute and relative paths correctly",
+          "Adjust paths for nested HTML pages (../ for depth)"
+        ]
+      }
+    }
+  ]
+}

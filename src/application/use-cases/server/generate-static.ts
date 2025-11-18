@@ -13,7 +13,9 @@ import { ServerFactory as ServerFactoryService } from '@/application/ports/serve
 import { AppSchema } from '@/domain/models/app'
 import type { PageRenderer } from '@/application/ports/page-renderer'
 import type { ServerFactory } from '@/application/ports/server-factory'
-import type { App } from '@/domain/models/app'
+import type { App, Page } from '@/domain/models/app'
+import type { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
+import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
 
 /**
  * Options for static site generation
@@ -53,14 +55,16 @@ export interface GenerateStaticResult {
  * @param options - Static generation options
  * @returns Effect with output directory and generated files
  */
+// eslint-disable-next-line max-lines-per-function -- Complex generator function for static generation workflow
 export const generateStatic = (
   app: unknown,
   options: GenerateStaticOptions = {}
 ): Effect.Effect<
   GenerateStaticResult,
-  AppValidationError | StaticGenerationError,
+  AppValidationError | StaticGenerationError | CSSCompilationError | ServerCreationError,
   ServerFactory | PageRenderer
 > =>
+  // eslint-disable-next-line max-lines-per-function -- Complex Effect generator with multiple file generation steps
   Effect.gen(function* () {
     // Step 1: Validate app schema
     yield* Console.log('🔍 Validating app schema...')
@@ -75,7 +79,9 @@ export const generateStatic = (
 
     // Step 3: Create Hono app instance (without starting server)
     yield* Console.log('🏗️  Creating application instance...')
-    const honoApp = yield* serverFactory.create({
+    // Note: We create the Hono app for future SSG integration
+    // Currently unused but will be used when full SSG is implemented
+    yield* serverFactory.create({
       app: validatedApp,
       port: 0, // Not starting a server, just creating the app
       hostname: 'localhost',
@@ -113,13 +119,112 @@ export const generateStatic = (
     })
 
     // Generate files based on pages
-    const files: string[] = []
-    const pages = (validatedApp as any).pages || []
+    const pages = validatedApp.pages || []
 
-    for (const page of pages) {
-      // For now, generate simple HTML
-      // TODO: Use PageRenderer when it has a renderPage method
-      const html = `<!DOCTYPE html>
+    // Generate HTML files for all pages using functional approach
+    const generatedFiles = yield* Effect.forEach(pages, (page: Page) =>
+      Effect.gen(function* () {
+        // Generate HTML content
+        const html = generatePageHtml(page, validatedApp)
+
+        // Determine file path
+        const fileName = page.path === '/' ? 'index.html' : `${page.path.slice(1)}.html`
+        const filePath = `${outputDir}/${fileName}`
+
+        // Write file
+        yield* Effect.tryPromise({
+          try: () => fs.writeFile(filePath, html, 'utf-8'),
+          catch: (error) =>
+            new StaticGenerationError({
+              message: `Failed to write file: ${filePath}`,
+              cause: error,
+            }),
+        })
+
+        return fileName
+      })
+    )
+
+    // Step 5: Generate supporting files
+    const sitemapFiles = yield* Effect.if(options.generateSitemap ?? false, {
+      onTrue: () =>
+        Effect.gen(function* () {
+          yield* Console.log('🗺️  Generating sitemap.xml...')
+          const sitemap = generateSitemapContent(pages, options.baseUrl || 'https://example.com')
+          yield* Effect.tryPromise({
+            try: () => fs.writeFile(`${outputDir}/sitemap.xml`, sitemap, 'utf-8'),
+            catch: (error) =>
+              new StaticGenerationError({
+                message: 'Failed to write sitemap.xml',
+                cause: error,
+              }),
+          })
+          return ['sitemap.xml'] as const
+        }),
+      onFalse: () => Effect.succeed([] as readonly string[]),
+    })
+
+    const robotsFiles = yield* Effect.if(options.generateRobotsTxt ?? false, {
+      onTrue: () =>
+        Effect.gen(function* () {
+          yield* Console.log('🤖 Generating robots.txt...')
+          const robots = generateRobotsContent(
+            options.baseUrl || 'https://example.com',
+            options.generateSitemap
+          )
+          yield* Effect.tryPromise({
+            try: () => fs.writeFile(`${outputDir}/robots.txt`, robots, 'utf-8'),
+            catch: (error) =>
+              new StaticGenerationError({
+                message: 'Failed to write robots.txt',
+                cause: error,
+              }),
+          })
+          return ['robots.txt'] as const
+        }),
+      onFalse: () => Effect.succeed([] as readonly string[]),
+    })
+
+    const githubFiles = yield* Effect.if(options.deployment === 'github-pages', {
+      onTrue: () =>
+        Effect.gen(function* () {
+          yield* Console.log('📄 Creating .nojekyll file for GitHub Pages...')
+          yield* Effect.tryPromise({
+            try: () => fs.writeFile(`${outputDir}/.nojekyll`, '', 'utf-8'),
+            catch: (error) =>
+              new StaticGenerationError({
+                message: 'Failed to write .nojekyll',
+                cause: error,
+              }),
+          })
+          return ['.nojekyll'] as const
+        }),
+      onFalse: () => Effect.succeed([] as readonly string[]),
+    })
+
+    // Combine all files immutably
+    const allFiles = [
+      ...generatedFiles,
+      ...sitemapFiles,
+      ...robotsFiles,
+      ...githubFiles,
+    ] as readonly string[]
+
+    yield* Console.log(`✅ Generated ${allFiles.length} files to ${outputDir}`)
+
+    return {
+      outputDir,
+      files: allFiles,
+    }
+  })
+
+/**
+ * Generate HTML content for a single page
+ */
+const generatePageHtml = (page: Page, app: App): string => {
+  // For now, generate simple HTML
+  // TODO: Use PageRenderer when it has a renderPage method
+  return `<!DOCTYPE html>
 <html lang="${page.meta?.lang || 'en'}">
 <head>
   <meta charset="UTF-8">
@@ -128,90 +233,21 @@ export const generateStatic = (
   ${page.meta?.description ? `<meta name="description" content="${page.meta.description}">` : ''}
 </head>
 <body>
-  <h1>${validatedApp.name || 'Sovrium App'}</h1>
-  ${validatedApp.description ? `<p>${validatedApp.description}</p>` : ''}
+  <h1>${app.name || 'Sovrium App'}</h1>
+  ${app.description ? `<p>${app.description}</p>` : ''}
 </body>
 </html>`
-
-      // Determine file path
-      const fileName = page.path === '/' ? 'index.html' : `${page.path.slice(1)}.html`
-      const filePath = `${outputDir}/${fileName}`
-
-      // Write file
-      yield* Effect.tryPromise({
-        try: () => fs.writeFile(filePath, html, 'utf-8'),
-        catch: (error) =>
-          new StaticGenerationError({
-            message: `Failed to write file: ${filePath}`,
-            cause: error,
-          }),
-      })
-
-      files.push(fileName)
-    }
-
-    // Step 5: Generate supporting files
-    if (options.generateSitemap) {
-      yield* Console.log('🗺️  Generating sitemap.xml...')
-      const sitemap = generateSitemapContent(pages, options.baseUrl || 'https://example.com')
-      yield* Effect.tryPromise({
-        try: () => fs.writeFile(`${outputDir}/sitemap.xml`, sitemap, 'utf-8'),
-        catch: (error) =>
-          new StaticGenerationError({
-            message: 'Failed to write sitemap.xml',
-            cause: error,
-          }),
-      })
-      files.push('sitemap.xml')
-    }
-
-    if (options.generateRobotsTxt) {
-      yield* Console.log('🤖 Generating robots.txt...')
-      const robots = generateRobotsContent(
-        options.baseUrl || 'https://example.com',
-        options.generateSitemap
-      )
-      yield* Effect.tryPromise({
-        try: () => fs.writeFile(`${outputDir}/robots.txt`, robots, 'utf-8'),
-        catch: (error) =>
-          new StaticGenerationError({
-            message: 'Failed to write robots.txt',
-            cause: error,
-          }),
-      })
-      files.push('robots.txt')
-    }
-
-    if (options.deployment === 'github-pages') {
-      yield* Console.log('📄 Creating .nojekyll file for GitHub Pages...')
-      yield* Effect.tryPromise({
-        try: () => fs.writeFile(`${outputDir}/.nojekyll`, '', 'utf-8'),
-        catch: (error) =>
-          new StaticGenerationError({
-            message: 'Failed to write .nojekyll',
-            cause: error,
-          }),
-      })
-      files.push('.nojekyll')
-    }
-
-    yield* Console.log(`✅ Generated ${files.length} files to ${outputDir}`)
-
-    return {
-      outputDir,
-      files,
-    }
-  })
+}
 
 /**
  * Generate sitemap.xml content
  */
-const generateSitemapContent = (pages: readonly any[], baseUrl: string): string => {
+const generateSitemapContent = (pages: readonly Page[], baseUrl: string): string => {
   const entries = pages.map(
     (page) => `  <url>
     <loc>${baseUrl}${page.path}</loc>
-    <priority>${page.meta?.priority || '0.5'}</priority>
-    <changefreq>${page.meta?.changefreq || 'monthly'}</changefreq>
+    <priority>0.5</priority>
+    <changefreq>monthly</changefreq>
   </url>`
   )
 
@@ -225,11 +261,9 @@ ${entries.join('\n')}
  * Generate robots.txt content
  */
 const generateRobotsContent = (baseUrl: string, includeSitemap: boolean = false): string => {
-  const lines = ['User-agent: *', 'Allow: /']
-
-  if (includeSitemap) {
-    lines.push(`Sitemap: ${baseUrl}/sitemap.xml`)
-  }
+  const baseLines = ['User-agent: *', 'Allow: /']
+  const sitemapLine = includeSitemap ? [`Sitemap: ${baseUrl}/sitemap.xml`] : []
+  const lines = [...baseLines, ...sitemapLine]
 
   return lines.join('\n')
 }

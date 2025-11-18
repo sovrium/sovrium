@@ -186,34 +186,50 @@ const handleStartCommand = async (): Promise<void> => {
 }
 
 /**
+ * Parse boolean environment variable
+ */
+const parseBooleanEnv = (value: string | undefined): boolean | undefined =>
+  value === 'true' ? true : value === 'false' ? false : undefined
+
+/**
  * Parse static generation options from environment variables
  */
 const parseStaticOptions = (): GenerateStaticOptions => {
-  const outputDir = Bun.env.SOVRIUM_OUTPUT_DIR
-  const baseUrl = Bun.env.SOVRIUM_BASE_URL
-  const basePath = Bun.env.SOVRIUM_BASE_PATH
-  const deployment = Bun.env.SOVRIUM_DEPLOYMENT as 'github-pages' | 'generic' | undefined
-  const languages = Bun.env.SOVRIUM_LANGUAGES?.split(',').map((lang) => lang.trim())
-  const defaultLanguage = Bun.env.SOVRIUM_DEFAULT_LANGUAGE
-  const generateSitemap = Bun.env.SOVRIUM_GENERATE_SITEMAP === 'true'
-  const generateRobotsTxt = Bun.env.SOVRIUM_GENERATE_ROBOTS === 'true'
-  const hydration = Bun.env.SOVRIUM_HYDRATION === 'true'
-  const generateManifest = Bun.env.SOVRIUM_GENERATE_MANIFEST === 'true'
-  const bundleOptimization = Bun.env.SOVRIUM_BUNDLE_OPTIMIZATION as 'split' | 'none' | undefined
-
-  return {
-    ...(outputDir && { outputDir }),
-    ...(baseUrl && { baseUrl }),
-    ...(basePath && { basePath }),
-    ...(deployment && { deployment }),
-    ...(languages && { languages }),
-    ...(defaultLanguage && { defaultLanguage }),
-    ...(generateSitemap && { generateSitemap }),
-    ...(generateRobotsTxt && { generateRobotsTxt }),
-    ...(hydration && { hydration }),
-    ...(generateManifest && { generateManifest }),
-    ...(bundleOptimization && { bundleOptimization }),
+  // Parse environment variables
+  const envVars = {
+    outputDir: Bun.env.SOVRIUM_OUTPUT_DIR,
+    baseUrl: Bun.env.SOVRIUM_BASE_URL,
+    basePath: Bun.env.SOVRIUM_BASE_PATH,
+    deployment: Bun.env.SOVRIUM_DEPLOYMENT as 'github-pages' | 'generic' | undefined,
+    languages: Bun.env.SOVRIUM_LANGUAGES?.split(',').map((lang) => lang.trim()),
+    defaultLanguage: Bun.env.SOVRIUM_DEFAULT_LANGUAGE,
+    generateSitemap: parseBooleanEnv(Bun.env.SOVRIUM_GENERATE_SITEMAP),
+    generateRobotsTxt: parseBooleanEnv(Bun.env.SOVRIUM_GENERATE_ROBOTS),
+    hydration: parseBooleanEnv(Bun.env.SOVRIUM_HYDRATION),
+    generateManifest: parseBooleanEnv(Bun.env.SOVRIUM_GENERATE_MANIFEST),
+    bundleOptimization: Bun.env.SOVRIUM_BUNDLE_OPTIMIZATION as 'split' | 'none' | undefined,
   }
+
+  // Build options object with only defined values
+  const options = [
+    { key: 'outputDir', value: envVars.outputDir },
+    { key: 'baseUrl', value: envVars.baseUrl },
+    { key: 'basePath', value: envVars.basePath },
+    { key: 'deployment', value: envVars.deployment },
+    { key: 'languages', value: envVars.languages },
+    { key: 'defaultLanguage', value: envVars.defaultLanguage },
+    { key: 'generateSitemap', value: envVars.generateSitemap },
+    { key: 'generateRobotsTxt', value: envVars.generateRobotsTxt },
+    { key: 'hydration', value: envVars.hydration },
+    { key: 'generateManifest', value: envVars.generateManifest },
+    { key: 'bundleOptimization', value: envVars.bundleOptimization },
+  ].reduce(
+    (acc, { key, value }) =>
+      value !== undefined && value !== false ? { ...acc, [key]: value } : acc,
+    {} as GenerateStaticOptions
+  )
+
+  return options
 }
 
 /**
@@ -248,13 +264,14 @@ const handleStaticCommand = async (): Promise<void> => {
 const command = Bun.argv[2] || 'start'
 
 // Execute command - side effects required for CLI operation
- 
 ;(async () => {
   switch (command) {
     case 'start':
+      // eslint-disable-next-line functional/no-expression-statements -- CLI command execution requires side effects
       await handleStartCommand()
       break
     case 'static':
+      // eslint-disable-next-line functional/no-expression-statements -- CLI command execution requires side effects
       await handleStaticCommand()
       break
     case '--help':
@@ -269,6 +286,7 @@ const command = Bun.argv[2] || 'start'
       // If no recognized command, check if it looks like they're trying to start with default
       // This maintains backward compatibility
       if (!command.startsWith('-') && !command.includes('.')) {
+        // eslint-disable-next-line functional/no-expression-statements -- CLI command execution requires side effects
         await handleStartCommand()
       } else {
         Effect.runSync(

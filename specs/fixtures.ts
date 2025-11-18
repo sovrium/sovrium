@@ -300,58 +300,6 @@ async function stopServer(serverProcess: ChildProcess): Promise<void> {
 }
 
 /**
- * Helper function to render mock HTML sections
- * Used in the generateStaticSite mock implementation
- */
-function renderSection(section: any): string {
-  if (typeof section === 'string') {
-    return section
-  }
-
-  if (!section || !section.type) {
-    return ''
-  }
-
-  const { type, props = {}, children = [] } = section
-  const attributes = Object.entries(props)
-    .map(([key, value]) => {
-      if (key === 'className') {
-        return `class="${value}"`
-      }
-      if (key === 'htmlFor') {
-        return `for="${value}"`
-      }
-      if (typeof value === 'string' || typeof value === 'number') {
-        return `${key}="${value}"`
-      }
-      if (typeof value === 'boolean' && value) {
-        return key
-      }
-      if (key === 'style' && typeof value === 'object') {
-        const styles = Object.entries(value)
-          .map(([k, v]) => `${k.replace(/([A-Z])/g, '-$1').toLowerCase()}:${v}`)
-          .join(';')
-        return `style="${styles}"`
-      }
-      if (key.startsWith('data-') && typeof value === 'object') {
-        return `${key}='${JSON.stringify(value)}'`
-      }
-      return ''
-    })
-    .filter(Boolean)
-    .join(' ')
-
-  const childrenHtml = children.map((child: any) => renderSection(child)).join('')
-
-  // Self-closing tags
-  if (['img', 'input', 'br', 'hr', 'meta', 'link'].includes(type)) {
-    return `<${type}${attributes ? ' ' + attributes : ''}>`
-  }
-
-  return `<${type}${attributes ? ' ' + attributes : ''}>${childrenHtml}</${type}>`
-}
-
-/**
  * Custom fixtures for CLI server with AppSchema configuration and database isolation
  */
 type ServerFixtures = {
