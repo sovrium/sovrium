@@ -361,7 +361,7 @@ test.describe('Navigation Links', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-NAVLINKS-010: should enforce required properties for valid links',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
