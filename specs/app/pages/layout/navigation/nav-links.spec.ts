@@ -156,7 +156,7 @@ test.describe('Navigation Links', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-NAVLINKS-005: should render dropdown menu on hover/click',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
