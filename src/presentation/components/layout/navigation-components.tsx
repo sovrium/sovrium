@@ -27,6 +27,19 @@ function NavBadge({ badge }: Readonly<{ badge: string }>): Readonly<ReactElement
 }
 
 /**
+ * Renders link content (icon, label, badge) - DRY helper
+ */
+function NavLinkContent({ link }: Readonly<{ link: NavLink }>): Readonly<ReactElement> {
+  return (
+    <>
+      {link.icon && <Icon name={link.icon} />}
+      {link.label}
+      {link.badge && <NavBadge badge={link.badge} />}
+    </>
+  )
+}
+
+/**
  * NavLinkItem Component
  *
  * Renders a single navigation link with support for icons, badges, and dropdowns.
@@ -42,9 +55,7 @@ export function NavLinkItem({ link }: Readonly<{ link: NavLink }>): Readonly<Rea
           {...linkProps}
           className="flex items-center gap-2"
         >
-          {link.icon && <Icon name={link.icon} />}
-          {link.label}
-          {link.badge && <NavBadge badge={link.badge} />}
+          <NavLinkContent link={link} />
         </a>
         <div
           data-testid="nav-dropdown"
@@ -69,9 +80,7 @@ export function NavLinkItem({ link }: Readonly<{ link: NavLink }>): Readonly<Rea
       {...linkProps}
       className="flex items-center gap-2"
     >
-      {link.icon && <Icon name={link.icon} />}
-      {link.label}
-      {link.badge && <NavBadge badge={link.badge} />}
+      <NavLinkContent link={link} />
     </a>
   )
 }
