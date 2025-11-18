@@ -18,6 +18,7 @@ import type { ServerFactory } from '@/application/ports/server-factory'
 import type { App, Page } from '@/domain/models/app'
 import type { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
 import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
+import type { FileCopyError } from '@/infrastructure/filesystem/copy-directory'
 import type { SSGGenerationError } from '@/infrastructure/server/ssg-adapter'
 
 /**
@@ -69,7 +70,8 @@ export const generateStatic = (
   | StaticGenerationError
   | CSSCompilationError
   | ServerCreationError
-  | SSGGenerationError,
+  | SSGGenerationError
+  | FileCopyError,
   ServerFactory | PageRenderer
 > =>
   // eslint-disable-next-line max-lines-per-function, max-statements -- Complex Effect generator with multiple file generation steps and support file creation

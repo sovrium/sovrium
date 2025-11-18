@@ -276,7 +276,6 @@ test.describe('Static Site Generation - Asset Management', () => {
       // WHEN: reading generated HTML files
       const homeHtml = await readFile(join(outputDir, 'index.html'), 'utf-8')
       const nestedHtml = await readFile(join(outputDir, 'products/detail.html'), 'utf-8')
-      const css = await readFile(join(outputDir, 'assets/output.css'), 'utf-8')
 
       // THEN: should update asset references correctly
       // Home page (at root) should have correct paths
