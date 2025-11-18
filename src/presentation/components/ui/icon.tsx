@@ -5,14 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import {
-  Download,
-  ArrowRight,
-  Rocket,
-  ExternalLink,
-  Package,
-  type LucideProps,
-} from 'lucide-react'
+import { Download, ArrowRight, Rocket, ExternalLink, Package, type LucideProps } from 'lucide-react'
 import type { ReactElement } from 'react'
 
 interface IconProps extends LucideProps {

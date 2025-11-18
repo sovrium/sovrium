@@ -202,6 +202,9 @@ export function Sidebar(
     .filter(Boolean)
     .join(' ')
 
+  const hasContent = items.length > 0 || props.links
+  const shouldRenderToggle = collapsible && hasContent
+
   return (
     <>
       <aside
@@ -210,7 +213,7 @@ export function Sidebar(
         className={sidebarClass}
         style={{ width, height: '100vh' }}
       >
-        {collapsible && (
+        {shouldRenderToggle && (
           <button
             data-testid="sidebar-toggle"
             type="button"
@@ -219,13 +222,15 @@ export function Sidebar(
             Toggle
           </button>
         )}
-        <nav>
-          {items.length > 0 ? (
-            <div>{renderedElements}</div>
-          ) : (
-            props.links && renderLegacyLinks(props.links)
-          )}
-        </nav>
+        {hasContent && (
+          <nav>
+            {items.length > 0 ? (
+              <div>{renderedElements}</div>
+            ) : (
+              props.links && renderLegacyLinks(props.links)
+            )}
+          </nav>
+        )}
       </aside>
       <script dangerouslySetInnerHTML={{ __html: generateSidebarScript(collapsible, width) }} />
     </>

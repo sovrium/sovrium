@@ -109,14 +109,12 @@ export function NavLogo({
   logoAlt,
 }: Readonly<{ logo: string; logoMobile?: string; logoAlt?: string }>): Readonly<ReactElement> {
   const altText = logoAlt ?? 'Logo'
-  const logoLabel = `Go to homepage - ${altText}`
 
   if (logoMobile) {
     return (
       <a
         href="/"
         data-testid="nav-logo-link"
-        aria-label={logoLabel}
       >
         <img
           data-testid="nav-logo"
@@ -138,7 +136,6 @@ export function NavLogo({
     <a
       href="/"
       data-testid="nav-logo-link"
-      aria-label={logoLabel}
     >
       <img
         data-testid="nav-logo"
@@ -248,12 +245,13 @@ export function MobileMenuToggle({
 export function MobileMenu({
   isOpen,
   links,
-}: Readonly<{ isOpen: boolean; links: readonly NavLink[] }>): Readonly<ReactElement> {
+}: Readonly<{ isOpen: boolean; links: readonly NavLink[] }>): Readonly<ReactElement | undefined> {
+  if (!isOpen) return undefined
+
   return (
     <div
       data-testid="mobile-menu"
       className="absolute top-full left-0 z-50 w-full bg-white shadow-lg"
-      style={{ display: isOpen ? 'block' : 'none' }}
     >
       {links.map((link) => (
         <a
