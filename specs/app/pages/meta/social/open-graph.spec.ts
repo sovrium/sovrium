@@ -139,7 +139,7 @@ test.describe('Open Graph Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-OG-004: should categorize content type for social platforms',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
