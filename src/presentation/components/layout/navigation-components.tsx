@@ -44,10 +44,17 @@ function NavLinkContent({ link }: Readonly<{ link: NavLink }>): Readonly<ReactEl
  *
  * Renders a single navigation link with support for icons, badges, and dropdowns.
  * Handles smooth scrolling for anchor links (href starting with #).
+ * Supports unlimited nesting depth via recursive rendering.
  */
-export function NavLinkItem({ link }: Readonly<{ link: NavLink }>): Readonly<ReactElement> {
+export function NavLinkItem({
+  link,
+  depth = 0,
+}: Readonly<{ link: NavLink; depth?: number }>): Readonly<ReactElement> {
   const hasChildren = link.children && link.children.length > 0
-  const linkProps = getLinkAttributes(link.href, link.target, 'nav-link')
+  const isTopLevel = depth === 0
+  const isNested = depth > 0
+  const testId = isTopLevel ? 'nav-link' : 'nav-link-nested'
+  const linkProps = getLinkAttributes(link.href, link.target, testId)
   const isAnchorLink = link.href.startsWith('#')
 
   const handleAnchorClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -62,27 +69,33 @@ export function NavLinkItem({ link }: Readonly<{ link: NavLink }>): Readonly<Rea
   }
 
   if (hasChildren) {
+    // Top-level: dropdown appears below, Nested: dropdown appears to the right
+    const dropdownPosition = isTopLevel
+      ? 'top-full left-0 mt-1'
+      : 'top-0 left-full ml-1'
+    const linkClassName = isNested
+      ? 'block px-4 py-2 hover:bg-gray-100'
+      : 'flex items-center gap-2'
+
     return (
-      <div className="group relative">
+      <div className="group/item relative">
         <a
           {...linkProps}
-          className="flex items-center gap-2"
+          className={linkClassName}
           onClick={handleAnchorClick}
         >
           <NavLinkContent link={link} />
         </a>
         <div
           data-testid="nav-dropdown"
-          className="absolute top-full left-0 mt-1 hidden rounded bg-white p-2 shadow-lg group-hover:block"
+          className={`absolute ${dropdownPosition} hidden rounded bg-white p-2 shadow-lg group-hover/item:block`}
         >
           {link.children?.map((child: NavLink) => (
-            <a
+            <NavLinkItem
               key={child.href}
-              href={child.href}
-              className="block px-4 py-2 hover:bg-gray-100"
-            >
-              {child.label}
-            </a>
+              link={child}
+              depth={depth + 1}
+            />
           ))}
         </div>
       </div>
@@ -92,7 +105,7 @@ export function NavLinkItem({ link }: Readonly<{ link: NavLink }>): Readonly<Rea
   return (
     <a
       {...linkProps}
-      className="flex items-center gap-2"
+      className={isNested ? 'block px-4 py-2 hover:bg-gray-100' : 'flex items-center gap-2'}
       onClick={handleAnchorClick}
     >
       <NavLinkContent link={link} />
