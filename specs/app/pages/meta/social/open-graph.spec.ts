@@ -359,7 +359,7 @@ test.describe('Open Graph Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-OG-010: should enable video content sharing',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
