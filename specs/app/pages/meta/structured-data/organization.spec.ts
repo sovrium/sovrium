@@ -19,7 +19,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Organization Schema', () => {
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-001: should validate minimal Organization structured data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -57,7 +57,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-002: should specify Schema.org vocabulary',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

@@ -323,7 +323,7 @@ test.describe('Open Graph Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-OG-009: should provide grammatical article before title',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -359,7 +359,7 @@ test.describe('Open Graph Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-OG-010: should enable video content sharing',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -399,7 +399,7 @@ test.describe('Open Graph Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-OG-011: should enable audio content sharing',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -439,7 +439,7 @@ test.describe('Open Graph Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-OG-012: should display enhanced social sharing card',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
