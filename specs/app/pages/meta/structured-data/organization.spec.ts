@@ -57,7 +57,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-002: should specify Schema.org vocabulary',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
