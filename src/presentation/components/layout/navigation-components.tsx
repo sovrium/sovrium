@@ -43,10 +43,23 @@ function NavLinkContent({ link }: Readonly<{ link: NavLink }>): Readonly<ReactEl
  * NavLinkItem Component
  *
  * Renders a single navigation link with support for icons, badges, and dropdowns.
+ * Handles smooth scrolling for anchor links (href starting with #).
  */
 export function NavLinkItem({ link }: Readonly<{ link: NavLink }>): Readonly<ReactElement> {
   const hasChildren = link.children && link.children.length > 0
   const linkProps = getLinkAttributes(link.href, link.target, 'nav-link')
+  const isAnchorLink = link.href.startsWith('#')
+
+  const handleAnchorClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (isAnchorLink) {
+      e.preventDefault()
+      const targetId = link.href.slice(1)
+      const targetElement = document.getElementById(targetId)
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: 'smooth' })
+      }
+    }
+  }
 
   if (hasChildren) {
     return (
@@ -54,6 +67,7 @@ export function NavLinkItem({ link }: Readonly<{ link: NavLink }>): Readonly<Rea
         <a
           {...linkProps}
           className="flex items-center gap-2"
+          onClick={handleAnchorClick}
         >
           <NavLinkContent link={link} />
         </a>
@@ -79,6 +93,7 @@ export function NavLinkItem({ link }: Readonly<{ link: NavLink }>): Readonly<Rea
     <a
       {...linkProps}
       className="flex items-center gap-2"
+      onClick={handleAnchorClick}
     >
       <NavLinkContent link={link} />
     </a>

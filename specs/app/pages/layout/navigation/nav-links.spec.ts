@@ -202,7 +202,7 @@ test.describe('Navigation Links', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-NAVLINKS-006: should scroll to anchor on same page',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
