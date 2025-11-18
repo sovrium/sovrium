@@ -5,7 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useState } from 'react'
 import { buildColorStyles } from '@/presentation/utils/styles'
 import {
   NavLinkItem,
@@ -64,6 +63,16 @@ function buildNavClassName(config: NavStyleConfig): string {
  */
 function getScrollDetectionScript(): string {
   return `(function(){const nav=document.querySelector('[data-testid="navigation"]');if(!nav)return;const transparent=nav.getAttribute('data-transparent')==='true';if(!transparent)return;const threshold=100;function updateNavBackground(){const isScrolled=window.scrollY>threshold;if(isScrolled){nav.style.backgroundColor='white';nav.classList.add('shadow-md');}else{nav.style.backgroundColor='transparent';nav.classList.remove('shadow-md');}}updateNavBackground();window.addEventListener('scroll',updateNavBackground);})();`
+}
+
+/**
+ * Generates inline script for mobile menu toggling (runs immediately in browser)
+ * This approach works without React hydration since the app uses SSR without client-side hydration
+ *
+ * @returns Minified JavaScript code for mobile menu toggle
+ */
+function getMobileMenuScript(): string {
+  return `(function(){const toggle=document.querySelector('[data-testid="mobile-menu-toggle"]');const menu=document.querySelector('[data-testid="mobile-menu"]');if(!toggle||!menu)return;toggle.addEventListener('click',function(){const isOpen=menu.style.display!=='none';menu.style.display=isOpen?'none':'block';});})();`
 }
 
 /**
@@ -127,12 +136,12 @@ export function Navigation({
   backgroundColor,
   textColor,
 }: Readonly<NavigationProps>): Readonly<ReactElement> {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const styleConfig: NavStyleConfig = { backgroundColor, textColor, sticky, transparent }
   const navStyle = buildNavStyleObject(styleConfig)
   const navClasses = buildNavClassName(styleConfig)
   const mobileLinks = links?.mobile ?? links?.desktop ?? []
   const initialStyle = buildInitialStyle(navStyle, transparent)
+  const hasMobileMenu = mobileLinks.length > 0
 
   return (
     <>
@@ -149,15 +158,8 @@ export function Navigation({
           logoAlt={logoAlt}
         />
         <DesktopLinks links={links?.desktop} />
-        {mobileLinks.length > 0 && (
-          <MobileMenuToggle onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
-        )}
-        {mobileLinks.length > 0 && (
-          <MobileMenu
-            isOpen={isMobileMenuOpen}
-            links={mobileLinks}
-          />
-        )}
+        {hasMobileMenu && <MobileMenuToggle />}
+        {hasMobileMenu && <MobileMenu links={mobileLinks} />}
         <NavCTA cta={cta} />
         <NavSearch search={search} />
         <NavUserMenu user={user} />
@@ -165,6 +167,12 @@ export function Navigation({
       {transparent && (
         <script
           dangerouslySetInnerHTML={{ __html: getScrollDetectionScript() }}
+          suppressHydrationWarning
+        />
+      )}
+      {hasMobileMenu && (
+        <script
+          dangerouslySetInnerHTML={{ __html: getMobileMenuScript() }}
           suppressHydrationWarning
         />
       )}
