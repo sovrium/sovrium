@@ -66,7 +66,7 @@ test.describe('Open Graph Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-OG-002: should enforce title length for social display',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
