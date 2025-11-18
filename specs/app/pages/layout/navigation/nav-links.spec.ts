@@ -237,7 +237,7 @@ test.describe('Navigation Links', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-NAVLINKS-007: should render horizontal navigation menu',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
