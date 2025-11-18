@@ -36,6 +36,7 @@ describe('CSS Compiler', () => {
       const result = await Effect.runPromise(program)
 
       // Tailwind base styles should be present
+      // v4.1.17 uses `*, ::before, ::after` in @supports queries
       expect(result.css).toContain('*, ::before, ::after')
       expect(result.css).toContain('box-sizing')
     })
