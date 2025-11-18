@@ -218,7 +218,7 @@ describe('Server - Integration Tests', () => {
 
         await Effect.runPromise(program)
       },
-      15000
+      15_000
     )
 
     test(
@@ -247,7 +247,7 @@ describe('Server - Integration Tests', () => {
 
         await Effect.runPromise(program)
       },
-      15000
+      15_000
     )
 
     test(
@@ -276,7 +276,7 @@ describe('Server - Integration Tests', () => {
 
         await Effect.runPromise(program)
       },
-      15000
+      15_000
     )
 
     test(
@@ -300,7 +300,7 @@ describe('Server - Integration Tests', () => {
 
         await Effect.runPromise(program)
       },
-      15000
+      15_000
     )
 
     test(
@@ -328,7 +328,7 @@ describe('Server - Integration Tests', () => {
 
         await Effect.runPromise(program)
       },
-      15000
+      15_000
     )
 
     test(
@@ -356,7 +356,7 @@ describe('Server - Integration Tests', () => {
 
         await Effect.runPromise(program)
       },
-      15000
+      15_000
     )
   })
 
@@ -392,7 +392,7 @@ describe('Server - Integration Tests', () => {
 
         await Effect.runPromise(program)
       },
-      15000
+      15_000
     )
 
     test(
@@ -431,7 +431,7 @@ describe('Server - Integration Tests', () => {
 
         await Effect.runPromise(program)
       },
-      15000
+      15_000
     )
   })
 
@@ -463,7 +463,7 @@ describe('Server - Integration Tests', () => {
 
         await Effect.runPromise(program)
       },
-      15000
+      15_000
     )
 
     test(
@@ -491,7 +491,7 @@ describe('Server - Integration Tests', () => {
 
         await Effect.runPromise(program)
       },
-      15000
+      15_000
     )
   })
 })
