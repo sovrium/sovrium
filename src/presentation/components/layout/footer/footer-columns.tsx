@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { getLinkAttributes } from '@/presentation/utils/link-attributes'
 import type { FooterColumn } from '@/domain/models/app/page/layout/footer'
 import type { ReactElement } from 'react'
 
@@ -29,10 +30,11 @@ export function FooterColumns({ columns }: FooterColumnsProps): ReactElement | u
             {column.links.map((link, linkIndex) => (
               <li key={linkIndex}>
                 <a
-                  href={link.href}
-                  target={link.target}
-                  rel={link.target === '_blank' ? 'noopener noreferrer' : undefined}
-                  data-testid={link.target === '_blank' ? 'footer-link-external' : undefined}
+                  {...getLinkAttributes(
+                    link.href,
+                    link.target,
+                    link.target === '_blank' ? 'footer-link-external' : undefined
+                  )}
                 >
                   {link.label}
                 </a>
