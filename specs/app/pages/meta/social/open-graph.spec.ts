@@ -399,7 +399,7 @@ test.describe('Open Graph Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-OG-011: should enable audio content sharing',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
