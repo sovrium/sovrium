@@ -6,6 +6,7 @@
  */
 
 import { Button } from '@/presentation/components/ui/button'
+import { getLinkAttributes } from '@/presentation/utils/link-attributes'
 import type { Navigation as NavigationProps } from '@/domain/models/app/page/layout/navigation'
 import type { NavLink } from '@/domain/models/app/page/layout/navigation/nav-links'
 import type { ReactElement } from 'react'
@@ -31,13 +32,7 @@ function NavBadge({ badge }: Readonly<{ badge: string }>): Readonly<ReactElement
  */
 export function NavLinkItem({ link }: Readonly<{ link: NavLink }>): Readonly<ReactElement> {
   const hasChildren = link.children && link.children.length > 0
-
-  const linkProps = {
-    href: link.href,
-    'data-testid': 'nav-link',
-    ...(link.target && { target: link.target }),
-    ...(link.target === '_blank' && { rel: 'noopener noreferrer' }),
-  }
+  const linkProps = getLinkAttributes(link.href, link.target, 'nav-link')
 
   if (hasChildren) {
     return (

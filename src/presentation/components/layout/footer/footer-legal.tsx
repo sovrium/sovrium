@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { getLinkAttributes } from '@/presentation/utils/link-attributes'
 import type { FooterLink } from '@/domain/models/app/page/layout/footer'
 import type { ReactElement } from 'react'
 
@@ -22,9 +23,7 @@ export function FooterLegal({ legal }: FooterLegalProps): ReactElement | undefin
       {legal.map((link, index) => (
         <a
           key={index}
-          href={link.href}
-          target={link.target}
-          rel={link.target === '_blank' ? 'noopener noreferrer' : undefined}
+          {...getLinkAttributes(link.href, link.target)}
         >
           {link.label}
         </a>
