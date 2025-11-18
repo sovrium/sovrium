@@ -207,7 +207,7 @@ test.describe('Open Graph Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-OG-006: should provide alternative text for social image',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
