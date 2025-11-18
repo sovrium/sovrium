@@ -439,7 +439,7 @@ test.describe('Open Graph Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-OG-012: should display enhanced social sharing card',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
