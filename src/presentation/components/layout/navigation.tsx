@@ -139,7 +139,7 @@ export function Navigation({
   const styleConfig: NavStyleConfig = { backgroundColor, textColor, sticky, transparent }
   const navStyle = buildNavStyleObject(styleConfig)
   const navClasses = buildNavClassName(styleConfig)
-  const mobileLinks = links?.mobile ?? links?.desktop ?? []
+  const mobileLinks = links?.mobile ?? []
   const initialStyle = buildInitialStyle(navStyle, transparent)
   const hasMobileMenu = mobileLinks.length > 0
 
