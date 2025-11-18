@@ -247,7 +247,7 @@ test.describe('Open Graph Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-OG-007: should distinguish site from page title',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
