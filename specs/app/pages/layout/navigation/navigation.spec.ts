@@ -422,7 +422,7 @@ test.describe('Navigation Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-NAV-012: should compose navigation from modular schemas',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
