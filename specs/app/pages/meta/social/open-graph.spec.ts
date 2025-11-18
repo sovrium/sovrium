@@ -19,7 +19,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Open Graph Metadata', () => {
-  test.fixme(
+  test(
     'APP-PAGES-OG-001: should validate minimal Open Graph metadata',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
