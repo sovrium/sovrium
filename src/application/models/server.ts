@@ -6,6 +6,7 @@
  */
 
 import type { Effect } from 'effect'
+import type { Hono } from 'hono'
 
 /**
  * Running server instance with stop capability
@@ -15,9 +16,12 @@ import type { Effect } from 'effect'
  *
  * The actual server implementation (Bun.serve) is hidden
  * behind this interface to maintain layer separation.
+ *
+ * The Hono app is exposed for static site generation (SSG) purposes.
  */
 export interface ServerInstance {
   readonly server: ReturnType<typeof Bun.serve>
   readonly url: string
   readonly stop: Effect.Effect<void>
+  readonly app: Readonly<Hono>
 }

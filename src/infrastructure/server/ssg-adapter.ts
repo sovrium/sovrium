@@ -46,7 +46,7 @@ export interface SSGOptions {
  */
 export const generateStaticSite = (
   // eslint-disable-next-line functional/prefer-immutable-types -- Hono is a mutable class from external library
-  app: Hono,
+  app: Hono | Readonly<Hono>,
   options: Readonly<SSGOptions>
 ): Effect.Effect<
   { readonly outputDir: string; readonly files: readonly string[] },
@@ -58,23 +58,32 @@ export const generateStaticSite = (
       const outputDir = options.outputDir || './static'
 
       // Use Hono's toSSG to generate static files
-      // Note: toSSG result is currently not used as the API doesn't return file list
-      // This will be properly implemented when we integrate with Hono's SSG
-      // eslint-disable-next-line functional/no-expression-statements -- Required await for async operation
-      await toSSG(app, {
+      // Cast app as mutable Hono since toSSG expects mutable type
+      // Exclude /api and /test routes from static generation
+      const result = await toSSG(app as Hono, {
         dir: outputDir,
-        // Additional options will be configured here
+        beforeRequestHook: (req) => {
+          const url = new URL(req.url)
+          // Exclude /api/* and /test/* routes
+          if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/test/')) {
+            return false // Skip this route
+          }
+          return req // Include this route
+        },
       })
 
-      // Collect generated file paths
-      // Note: The actual file list would come from toSSG result
-      // For now, we'll return a placeholder
-      // This will be properly implemented when we integrate with Hono's SSG
-      const files: readonly string[] = []
+      // Check if SSG generation was successful
+      if (!result.success) {
+        // eslint-disable-next-line functional/no-throw-statements -- Error handling requires throw
+        throw new Error(
+          `Static site generation failed: ${result.error?.message || 'Unknown error'}`
+        )
+      }
 
+      // Return output directory and generated files from toSSG
       return {
         outputDir,
-        files,
+        files: result.files as readonly string[],
       } as const
     },
     catch: (error) =>

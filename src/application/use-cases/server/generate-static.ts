@@ -11,11 +11,14 @@ import { StaticGenerationError } from '@/application/errors/static-generation-er
 import { PageRenderer as PageRendererService } from '@/application/ports/page-renderer'
 import { ServerFactory as ServerFactoryService } from '@/application/ports/server-factory'
 import { AppSchema } from '@/domain/models/app'
+import { compileCSS } from '@/infrastructure/css/compiler'
+import { generateStaticSite } from '@/infrastructure/server/ssg-adapter'
 import type { PageRenderer } from '@/application/ports/page-renderer'
 import type { ServerFactory } from '@/application/ports/server-factory'
 import type { App, Page } from '@/domain/models/app'
 import type { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
 import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
+import type { SSGGenerationError } from '@/infrastructure/server/ssg-adapter'
 
 /**
  * Options for static site generation
@@ -61,10 +64,14 @@ export const generateStatic = (
   options: GenerateStaticOptions = {}
 ): Effect.Effect<
   GenerateStaticResult,
-  AppValidationError | StaticGenerationError | CSSCompilationError | ServerCreationError,
+  | AppValidationError
+  | StaticGenerationError
+  | CSSCompilationError
+  | ServerCreationError
+  | SSGGenerationError,
   ServerFactory | PageRenderer
 > =>
-  // eslint-disable-next-line max-lines-per-function -- Complex Effect generator with multiple file generation steps
+  // eslint-disable-next-line max-lines-per-function, max-statements -- Complex Effect generator with multiple file generation steps and support file creation
   Effect.gen(function* () {
     // Step 1: Validate app schema
     yield* Console.log('🔍 Validating app schema...')
@@ -77,13 +84,12 @@ export const generateStatic = (
     const serverFactory = yield* ServerFactoryService
     const pageRenderer = yield* PageRendererService
 
-    // Step 3: Create Hono app instance (without starting server)
+    // Step 3: Create server instance (temporarily) to get Hono app
+    // Note: Server will be stopped immediately after getting the app instance
     yield* Console.log('🏗️  Creating application instance...')
-    // Note: We create the Hono app for future SSG integration
-    // Currently unused but will be used when full SSG is implemented
-    yield* serverFactory.create({
+    const serverInstance = yield* serverFactory.create({
       app: validatedApp,
-      port: 0, // Not starting a server, just creating the app
+      port: 0, // Auto-select available port
       hostname: 'localhost',
       renderHomePage: pageRenderer.renderHome,
       renderPage: pageRenderer.renderPage,
@@ -91,14 +97,20 @@ export const generateStatic = (
       renderErrorPage: pageRenderer.renderError,
     })
 
-    // Step 4: Generate static files
+    // Stop the server immediately - we only needed the Hono app
+    yield* serverInstance.stop
+
+    // Step 4: Generate static HTML files using Hono's toSSG
+    // toSSG will exclude /api and /test routes via beforeRequestHook
     yield* Console.log('📝 Generating static HTML files...')
-
-    // For now, we'll create a simple implementation
-    // The full SSG implementation will be added in the infrastructure layer
     const outputDir = options.outputDir || './static'
+    const ssgResult = yield* generateStaticSite(serverInstance.app, { outputDir })
 
-    // Import fs module for file operations
+    // Step 5: Get CSS from cache (already compiled during server creation)
+    yield* Console.log('🎨 Getting compiled CSS...')
+    const { css } = yield* compileCSS(validatedApp)
+
+    // Import fs module for CSS file operations
     const fs = yield* Effect.tryPromise({
       try: () => import('node:fs/promises'),
       catch: (error) =>
@@ -108,42 +120,31 @@ export const generateStatic = (
         }),
     })
 
-    // Create output directory
+    // Create assets directory
     yield* Effect.tryPromise({
-      try: () => fs.mkdir(outputDir, { recursive: true }),
+      try: () => fs.mkdir(`${outputDir}/assets`, { recursive: true }),
       catch: (error) =>
         new StaticGenerationError({
-          message: `Failed to create output directory: ${outputDir}`,
+          message: `Failed to create assets directory`,
           cause: error,
         }),
     })
 
-    // Generate files based on pages
+    // Write CSS file
+    yield* Effect.tryPromise({
+      try: () => fs.writeFile(`${outputDir}/assets/output.css`, css, 'utf-8'),
+      catch: (error) =>
+        new StaticGenerationError({
+          message: 'Failed to write CSS file',
+          cause: error,
+        }),
+    })
+
+    // Collect all generated files (HTML from toSSG + CSS)
+    const generatedFiles = [...ssgResult.files, 'assets/output.css'] as readonly string[]
+
+    // Get pages for sitemap generation
     const pages = validatedApp.pages || []
-
-    // Generate HTML files for all pages using functional approach
-    const generatedFiles = yield* Effect.forEach(pages, (page: Page) =>
-      Effect.gen(function* () {
-        // Generate HTML content
-        const html = generatePageHtml(page, validatedApp)
-
-        // Determine file path
-        const fileName = page.path === '/' ? 'index.html' : `${page.path.slice(1)}.html`
-        const filePath = `${outputDir}/${fileName}`
-
-        // Write file
-        yield* Effect.tryPromise({
-          try: () => fs.writeFile(filePath, html, 'utf-8'),
-          catch: (error) =>
-            new StaticGenerationError({
-              message: `Failed to write file: ${filePath}`,
-              cause: error,
-            }),
-        })
-
-        return fileName
-      })
-    )
 
     // Step 5: Generate supporting files
     const sitemapFiles = yield* Effect.if(options.generateSitemap ?? false, {
@@ -217,27 +218,6 @@ export const generateStatic = (
       files: allFiles,
     }
   })
-
-/**
- * Generate HTML content for a single page
- */
-const generatePageHtml = (page: Page, app: App): string => {
-  // For now, generate simple HTML
-  // TODO: Use PageRenderer when it has a renderPage method
-  return `<!DOCTYPE html>
-<html lang="${page.meta?.lang || 'en'}">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${page.meta?.title || 'Page'}</title>
-  ${page.meta?.description ? `<meta name="description" content="${page.meta.description}">` : ''}
-</head>
-<body>
-  <h1>${app.name || 'Sovrium App'}</h1>
-  ${app.description ? `<p>${app.description}</p>` : ''}
-</body>
-</html>`
-}
 
 /**
  * Generate sitemap.xml content
