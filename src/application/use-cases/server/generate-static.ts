@@ -101,10 +101,11 @@ export const generateStatic = (
     yield* serverInstance.stop
 
     // Step 4: Generate static HTML files using Hono's toSSG
-    // toSSG will exclude /api and /test routes via beforeRequestHook
-    yield* Console.log('📝 Generating static HTML files...')
+    // Extract page paths from app configuration to explicitly tell toSSG which paths to generate
+    const pagePaths = validatedApp.pages?.map((page) => page.path) || []
+    yield* Console.log(`📝 Generating static HTML files for ${pagePaths.length} pages...`)
     const outputDir = options.outputDir || './static'
-    const ssgResult = yield* generateStaticSite(serverInstance.app, { outputDir })
+    const ssgResult = yield* generateStaticSite(serverInstance.app, { outputDir, pagePaths })
 
     // Step 5: Get CSS from cache (already compiled during server creation)
     yield* Console.log('🎨 Getting compiled CSS...')

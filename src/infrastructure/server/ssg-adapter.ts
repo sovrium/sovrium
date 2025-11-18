@@ -32,6 +32,7 @@ export interface SSGOptions {
   readonly hydration?: boolean
   readonly generateManifest?: boolean
   readonly bundleOptimization?: 'split' | 'none'
+  readonly pagePaths?: readonly string[] // Explicit list of page paths to generate
 }
 
 /**
@@ -44,6 +45,7 @@ export interface SSGOptions {
  * @param options - Static generation options
  * @returns Effect with output directory and generated files
  */
+// eslint-disable-next-line max-lines-per-function -- Complex SSG integration with route registration, toSSG invocation, and result validation. Splitting would harm readability.
 export const generateStaticSite = (
   // eslint-disable-next-line functional/prefer-immutable-types -- Hono is a mutable class from external library
   app: Hono | Readonly<Hono>,
@@ -57,15 +59,46 @@ export const generateStaticSite = (
     try: async () => {
       const outputDir = options.outputDir || './static'
 
+      // If pagePaths are provided, we need to explicitly register them in the app
+      // because Hono's toSSG can only discover routes that are explicitly defined
+      // (it can't auto-discover all paths handled by wildcard routes)
+      if (options.pagePaths && options.pagePaths.length > 0) {
+        // Cast to mutable Hono to register explicit routes for SSG
+        const mutableApp = app as Hono
+
+        // Register explicit GET routes for each page path
+        // These will be discovered by toSSG during route crawling
+        // eslint-disable-next-line functional/no-loop-statements -- Imperative route registration required by Hono's mutable API for toSSG discovery
+        for (const path of options.pagePaths) {
+          // Only register if not already the root path (/ is already registered)
+          if (path !== '/') {
+            // Register the route explicitly so toSSG can discover it
+            // The actual handler doesn't matter because toSSG will fetch it anyway
+            // eslint-disable-next-line functional/no-expression-statements -- Necessary side effect to mutate Hono app for toSSG route discovery
+            mutableApp.get(path, (c) => c.text(''))
+          }
+        }
+      }
+
       // Use Hono's toSSG to generate static files
       // Cast app as mutable Hono since toSSG expects mutable type
-      // Exclude /api and /test routes from static generation
       const result = await toSSG(app as Hono, {
         dir: outputDir,
         beforeRequestHook: (req) => {
           const url = new URL(req.url)
-          // Exclude /api/* and /test/* routes
-          if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/test/')) {
+          // Exclude actual API routes (but not pages that happen to have /api/ in path)
+          // API routes are: /api/health, /api/openapi.json, /api/scalar, /api/auth/*
+          // We explicitly registered page paths, so they will be generated even if they start with /api/
+          // Only exclude routes that match actual API route patterns
+          if (
+            url.pathname === '/api/health' ||
+            url.pathname === '/api/openapi.json' ||
+            url.pathname === '/api/scalar' ||
+            url.pathname.startsWith('/api/auth/') ||
+            url.pathname.startsWith('/api/tables/') ||
+            url.pathname.startsWith('/api/records/') ||
+            url.pathname.startsWith('/test/')
+          ) {
             return false // Skip this route
           }
           return req // Include this route
