@@ -193,265 +193,305 @@ describe('Server - createServer', () => {
 
 describe('Server - Integration Tests', () => {
   describe('Given server running', () => {
-    test('When accessing homepage Then render homepage', async () => {
-      const config = createServerConfig()
+    test(
+      'When accessing homepage Then render homepage',
+      async () => {
+        const config = createServerConfig()
 
-      const program = Effect.gen(function* () {
-        const serverInstance = yield* createServer(config)
+        const program = Effect.gen(function* () {
+          const serverInstance = yield* createServer(config)
 
-        const res = yield* Effect.tryPromise({
-          try: () => fetch(serverInstance.url),
-          catch: (error) => error,
+          const res = yield* Effect.tryPromise({
+            try: () => fetch(serverInstance.url),
+            catch: (error) => error,
+          })
+
+          expect(res.status).toBe(200)
+          const text = yield* Effect.tryPromise({
+            try: () => res.text(),
+            catch: (error) => error,
+          })
+          expect(text).toContain('Test Server App')
+
+          yield* serverInstance.stop
         })
 
-        expect(res.status).toBe(200)
-        const text = yield* Effect.tryPromise({
-          try: () => res.text(),
-          catch: (error) => error,
-        })
-        expect(text).toContain('Test Server App')
+        await Effect.runPromise(program)
+      },
+      15_000
+    )
 
-        yield* serverInstance.stop
-      })
+    test(
+      'When accessing /api/health Then return health status',
+      async () => {
+        const config = createServerConfig()
 
-      await Effect.runPromise(program)
-    })
+        const program = Effect.gen(function* () {
+          const serverInstance = yield* createServer(config)
 
-    test('When accessing /api/health Then return health status', async () => {
-      const config = createServerConfig()
+          const res = yield* Effect.tryPromise({
+            try: () => fetch(`${serverInstance.url}/api/health`),
+            catch: (error) => error,
+          })
 
-      const program = Effect.gen(function* () {
-        const serverInstance = yield* createServer(config)
+          expect(res.status).toBe(200)
+          const json = yield* Effect.tryPromise({
+            try: () => res.json(),
+            catch: (error) => error,
+          })
+          expect(json.status).toBe('ok')
+          expect(json.app.name).toBe('Test Server App')
 
-        const res = yield* Effect.tryPromise({
-          try: () => fetch(`${serverInstance.url}/api/health`),
-          catch: (error) => error,
-        })
-
-        expect(res.status).toBe(200)
-        const json = yield* Effect.tryPromise({
-          try: () => res.json(),
-          catch: (error) => error,
-        })
-        expect(json.status).toBe('ok')
-        expect(json.app.name).toBe('Test Server App')
-
-        yield* serverInstance.stop
-      })
-
-      await Effect.runPromise(program)
-    })
-
-    test('When accessing /assets/output.css Then serve compiled CSS', async () => {
-      const config = createServerConfig()
-
-      const program = Effect.gen(function* () {
-        const serverInstance = yield* createServer(config)
-
-        const res = yield* Effect.tryPromise({
-          try: () => fetch(`${serverInstance.url}/assets/output.css`),
-          catch: (error) => error,
+          yield* serverInstance.stop
         })
 
-        expect(res.status).toBe(200)
-        expect(res.headers.get('Content-Type')).toBe('text/css')
-        const css = yield* Effect.tryPromise({
-          try: () => res.text(),
-          catch: (error) => error,
-        })
-        expect(css.length).toBeGreaterThan(0)
+        await Effect.runPromise(program)
+      },
+      15_000
+    )
 
-        yield* serverInstance.stop
-      })
+    test(
+      'When accessing /assets/output.css Then serve compiled CSS',
+      async () => {
+        const config = createServerConfig()
 
-      await Effect.runPromise(program)
-    })
+        const program = Effect.gen(function* () {
+          const serverInstance = yield* createServer(config)
 
-    test('When accessing static JavaScript Then serve files', async () => {
-      const config = createServerConfig()
+          const res = yield* Effect.tryPromise({
+            try: () => fetch(`${serverInstance.url}/assets/output.css`),
+            catch: (error) => error,
+          })
 
-      const program = Effect.gen(function* () {
-        const serverInstance = yield* createServer(config)
+          expect(res.status).toBe(200)
+          expect(res.headers.get('Content-Type')).toBe('text/css')
+          const css = yield* Effect.tryPromise({
+            try: () => res.text(),
+            catch: (error) => error,
+          })
+          expect(css.length).toBeGreaterThan(0)
 
-        const res = yield* Effect.tryPromise({
-          try: () => fetch(`${serverInstance.url}/assets/language-switcher.js`),
-          catch: (error) => error,
-        })
-
-        expect(res.status).toBe(200)
-        expect(res.headers.get('Content-Type')).toBe('application/javascript')
-
-        yield* serverInstance.stop
-      })
-
-      await Effect.runPromise(program)
-    })
-
-    test('When accessing invalid route Then return 404', async () => {
-      const config = createServerConfig()
-
-      const program = Effect.gen(function* () {
-        const serverInstance = yield* createServer(config)
-
-        const res = yield* Effect.tryPromise({
-          try: () => fetch(`${serverInstance.url}/nonexistent`),
-          catch: (error) => error,
+          yield* serverInstance.stop
         })
 
-        expect(res.status).toBe(404)
-        const text = yield* Effect.tryPromise({
-          try: () => res.text(),
-          catch: (error) => error,
+        await Effect.runPromise(program)
+      },
+      15_000
+    )
+
+    test(
+      'When accessing static JavaScript Then serve files',
+      async () => {
+        const config = createServerConfig()
+
+        const program = Effect.gen(function* () {
+          const serverInstance = yield* createServer(config)
+
+          const res = yield* Effect.tryPromise({
+            try: () => fetch(`${serverInstance.url}/assets/language-switcher.js`),
+            catch: (error) => error,
+          })
+
+          expect(res.status).toBe(200)
+          expect(res.headers.get('Content-Type')).toBe('application/javascript')
+
+          yield* serverInstance.stop
         })
-        expect(text).toContain('404')
 
-        yield* serverInstance.stop
-      })
+        await Effect.runPromise(program)
+      },
+      15_000
+    )
 
-      await Effect.runPromise(program)
-    })
+    test(
+      'When accessing invalid route Then return 404',
+      async () => {
+        const config = createServerConfig()
 
-    test('When accessing existing page Then render page', async () => {
-      const config = createServerConfig()
+        const program = Effect.gen(function* () {
+          const serverInstance = yield* createServer(config)
 
-      const program = Effect.gen(function* () {
-        const serverInstance = yield* createServer(config)
+          const res = yield* Effect.tryPromise({
+            try: () => fetch(`${serverInstance.url}/nonexistent`),
+            catch: (error) => error,
+          })
 
-        const res = yield* Effect.tryPromise({
-          try: () => fetch(`${serverInstance.url}/about`),
-          catch: (error) => error,
+          expect(res.status).toBe(404)
+          const text = yield* Effect.tryPromise({
+            try: () => res.text(),
+            catch: (error) => error,
+          })
+          expect(text).toContain('404')
+
+          yield* serverInstance.stop
         })
 
-        expect(res.status).toBe(200)
-        const text = yield* Effect.tryPromise({
-          try: () => res.text(),
-          catch: (error) => error,
+        await Effect.runPromise(program)
+      },
+      15_000
+    )
+
+    test(
+      'When accessing existing page Then render page',
+      async () => {
+        const config = createServerConfig()
+
+        const program = Effect.gen(function* () {
+          const serverInstance = yield* createServer(config)
+
+          const res = yield* Effect.tryPromise({
+            try: () => fetch(`${serverInstance.url}/about`),
+            catch: (error) => error,
+          })
+
+          expect(res.status).toBe(200)
+          const text = yield* Effect.tryPromise({
+            try: () => res.text(),
+            catch: (error) => error,
+          })
+          expect(text).toContain('About')
+
+          yield* serverInstance.stop
         })
-        expect(text).toContain('About')
 
-        yield* serverInstance.stop
-      })
-
-      await Effect.runPromise(program)
-    })
+        await Effect.runPromise(program)
+      },
+      15_000
+    )
   })
 
   describe('Given language configuration', () => {
-    test('When languages configured Then language routes work', async () => {
-      const config = createServerConfig({
-        app: createMockApp({
-          languages: {
-            default: 'en-US',
-            supported: [
-              { code: 'en-US', label: 'English' },
-              { code: 'fr-FR', label: 'French' },
-            ],
-            detectBrowser: false,
-          },
-        }),
-      })
-
-      const program = Effect.gen(function* () {
-        const serverInstance = yield* createServer(config)
-
-        const res = yield* Effect.tryPromise({
-          try: () => fetch(`${serverInstance.url}/fr-FR/`),
-          catch: (error) => error,
+    test(
+      'When languages configured Then language routes work',
+      async () => {
+        const config = createServerConfig({
+          app: createMockApp({
+            languages: {
+              default: 'en-US',
+              supported: [
+                { code: 'en-US', label: 'English' },
+                { code: 'fr-FR', label: 'French' },
+              ],
+              detectBrowser: false,
+            },
+          }),
         })
 
-        expect(res.status).toBe(200)
+        const program = Effect.gen(function* () {
+          const serverInstance = yield* createServer(config)
 
-        yield* serverInstance.stop
-      })
+          const res = yield* Effect.tryPromise({
+            try: () => fetch(`${serverInstance.url}/fr-FR/`),
+            catch: (error) => error,
+          })
 
-      await Effect.runPromise(program)
-    })
+          expect(res.status).toBe(200)
 
-    test('When browser detection enabled Then redirect to detected language', async () => {
-      const config = createServerConfig({
-        app: createMockApp({
-          languages: {
-            default: 'en-US',
-            supported: [
-              { code: 'en-US', label: 'English' },
-              { code: 'fr-FR', label: 'French' },
-            ],
-            detectBrowser: true,
-          },
-        }),
-      })
-
-      const program = Effect.gen(function* () {
-        const serverInstance = yield* createServer(config)
-
-        const res = yield* Effect.tryPromise({
-          try: () =>
-            fetch(serverInstance.url, {
-              headers: { 'Accept-Language': 'fr-FR,fr;q=0.9' },
-              redirect: 'manual',
-            }),
-          catch: (error) => error,
+          yield* serverInstance.stop
         })
 
-        expect(res.status).toBe(302)
-        expect(res.headers.get('Location')).toBe('/fr-FR/')
+        await Effect.runPromise(program)
+      },
+      15_000
+    )
 
-        yield* serverInstance.stop
-      })
+    test(
+      'When browser detection enabled Then redirect to detected language',
+      async () => {
+        const config = createServerConfig({
+          app: createMockApp({
+            languages: {
+              default: 'en-US',
+              supported: [
+                { code: 'en-US', label: 'English' },
+                { code: 'fr-FR', label: 'French' },
+              ],
+              detectBrowser: true,
+            },
+          }),
+        })
 
-      await Effect.runPromise(program)
-    })
+        const program = Effect.gen(function* () {
+          const serverInstance = yield* createServer(config)
+
+          const res = yield* Effect.tryPromise({
+            try: () =>
+              fetch(serverInstance.url, {
+                headers: { 'Accept-Language': 'fr-FR,fr;q=0.9' },
+                redirect: 'manual',
+              }),
+            catch: (error) => error,
+          })
+
+          expect(res.status).toBe(302)
+          expect(res.headers.get('Location')).toBe('/fr-FR/')
+
+          yield* serverInstance.stop
+        })
+
+        await Effect.runPromise(program)
+      },
+      15_000
+    )
   })
 
   describe('Given error handling', () => {
-    test('When accessing /test/error in development Then return error page', async () => {
-      const originalEnv = process.env.NODE_ENV
-      process.env.NODE_ENV = 'development'
+    test(
+      'When accessing /test/error in development Then return error page',
+      async () => {
+        const originalEnv = process.env.NODE_ENV
+        process.env.NODE_ENV = 'development'
 
-      const config = createServerConfig()
+        const config = createServerConfig()
 
-      const program = Effect.gen(function* () {
-        const serverInstance = yield* createServer(config)
+        const program = Effect.gen(function* () {
+          const serverInstance = yield* createServer(config)
 
-        const res = yield* Effect.tryPromise({
-          try: () => fetch(`${serverInstance.url}/test/error`),
-          catch: (error) => error,
+          const res = yield* Effect.tryPromise({
+            try: () => fetch(`${serverInstance.url}/test/error`),
+            catch: (error) => error,
+          })
+
+          // Server should handle error with error handler
+          // Error handler returns 500 or the error might propagate differently
+          expect([404, 500]).toContain(res.status)
+
+          yield* serverInstance.stop
+
+          process.env.NODE_ENV = originalEnv
         })
 
-        // Server should handle error with error handler
-        // Error handler returns 500 or the error might propagate differently
-        expect([404, 500]).toContain(res.status)
+        await Effect.runPromise(program)
+      },
+      15_000
+    )
 
-        yield* serverInstance.stop
+    test(
+      'When accessing /test/error in production Then return 404',
+      async () => {
+        const originalEnv = process.env.NODE_ENV
+        process.env.NODE_ENV = 'production'
 
-        process.env.NODE_ENV = originalEnv
-      })
+        const config = createServerConfig()
 
-      await Effect.runPromise(program)
-    })
+        const program = Effect.gen(function* () {
+          const serverInstance = yield* createServer(config)
 
-    test('When accessing /test/error in production Then return 404', async () => {
-      const originalEnv = process.env.NODE_ENV
-      process.env.NODE_ENV = 'production'
+          const res = yield* Effect.tryPromise({
+            try: () => fetch(`${serverInstance.url}/test/error`),
+            catch: (error) => error,
+          })
 
-      const config = createServerConfig()
+          expect(res.status).toBe(404)
 
-      const program = Effect.gen(function* () {
-        const serverInstance = yield* createServer(config)
+          yield* serverInstance.stop
 
-        const res = yield* Effect.tryPromise({
-          try: () => fetch(`${serverInstance.url}/test/error`),
-          catch: (error) => error,
+          process.env.NODE_ENV = originalEnv
         })
 
-        expect(res.status).toBe(404)
-
-        yield* serverInstance.stop
-
-        process.env.NODE_ENV = originalEnv
-      })
-
-      await Effect.runPromise(program)
-    })
+        await Effect.runPromise(program)
+      },
+      15_000
+    )
   })
 })

@@ -17,6 +17,7 @@ import {
   MobileMenu,
 } from './navigation-components'
 import type { Navigation as NavigationProps } from '@/domain/models/app/page/layout/navigation'
+import type { NavLink } from '@/domain/models/app/page/layout/navigation/nav-links'
 import type { ReactElement } from 'react'
 
 /**
@@ -66,6 +67,44 @@ function getScrollDetectionScript(): string {
 }
 
 /**
+ * Builds initial inline styles for navigation element
+ */
+function buildInitialStyle(
+  navStyle: Record<string, unknown>,
+  transparent?: boolean
+): Record<string, unknown> {
+  return {
+    ...navStyle,
+    ...(transparent && { backgroundColor: 'transparent' }),
+  }
+}
+
+/**
+ * Renders desktop navigation links
+ */
+function DesktopLinks({
+  links,
+}: Readonly<{
+  links: readonly NavLink[] | undefined
+}>): ReactElement | undefined {
+  if (!links) return undefined
+
+  return (
+    <div
+      data-testid="nav-links"
+      className="hidden gap-4 md:flex"
+    >
+      {links.map((link) => (
+        <NavLinkItem
+          key={link.href}
+          link={link}
+        />
+      ))}
+    </div>
+  )
+}
+
+/**
  * Navigation Component
  *
  * Renders the main navigation header with logo, links, and optional CTA button.
@@ -93,12 +132,7 @@ export function Navigation({
   const navStyle = buildNavStyleObject(styleConfig)
   const navClasses = buildNavClassName(styleConfig)
   const mobileLinks = links?.mobile ?? links?.desktop ?? []
-
-  // Initial background for transparent mode (script will update on scroll)
-  const initialStyle = {
-    ...navStyle,
-    ...(transparent && { backgroundColor: 'transparent' }),
-  }
+  const initialStyle = buildInitialStyle(navStyle, transparent)
 
   return (
     <>
@@ -114,19 +148,7 @@ export function Navigation({
           logoMobile={logoMobile}
           logoAlt={logoAlt}
         />
-        {links?.desktop && (
-          <div
-            data-testid="nav-links"
-            className="hidden gap-4 md:flex"
-          >
-            {links.desktop.map((link) => (
-              <NavLinkItem
-                key={link.href}
-                link={link}
-              />
-            ))}
-          </div>
-        )}
+        <DesktopLinks links={links?.desktop} />
         {mobileLinks.length > 0 && (
           <MobileMenuToggle onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
         )}
