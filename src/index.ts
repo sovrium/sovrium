@@ -17,10 +17,15 @@
  */
 
 import { Console, Effect } from 'effect'
+import { generateStatic as generateStaticUseCase } from '@/application/use-cases/server/generate-static'
 import { startServer } from '@/application/use-cases/server/start-server'
 import { AppLayer } from '@/infrastructure/layers/app-layer'
 import { withGracefulShutdown } from '@/infrastructure/server/lifecycle'
 import type { ServerInstance } from '@/application/models/server'
+import type {
+  GenerateStaticOptions,
+  GenerateStaticResult,
+} from '@/application/use-cases/server/generate-static'
 import type { StartOptions } from '@/application/use-cases/server/start-server'
 
 /**
@@ -120,8 +125,74 @@ export const start = async (app: unknown, options: StartOptions = {}): Promise<S
 }
 
 /**
+ * Generate static site files from an Sovrium application
+ *
+ * This function generates static HTML files and supporting assets that can be
+ * deployed to any static hosting provider (GitHub Pages, Netlify, Vercel, etc.).
+ *
+ * @param app - Application configuration with pages, theme, etc.
+ * @param options - Optional static generation configuration
+ * @returns Promise that resolves to generation result with output directory and file list
+ *
+ * @example
+ * Basic usage:
+ * ```typescript
+ * import { generateStatic } from 'sovrium'
+ *
+ * const myApp = {
+ *   name: 'My App',
+ *   pages: [
+ *     {
+ *       name: 'home',
+ *       path: '/',
+ *       meta: { title: 'Home' },
+ *       sections: []
+ *     }
+ *   ]
+ * }
+ *
+ * const result = await generateStatic(myApp)
+ * console.log(`Generated ${result.files.length} files to ${result.outputDir}`)
+ * ```
+ *
+ * @example
+ * With options:
+ * ```typescript
+ * const result = await generateStatic(myApp, {
+ *   outputDir: './build',
+ *   baseUrl: 'https://example.com',
+ *   generateSitemap: true,
+ *   generateRobotsTxt: true,
+ *   deployment: 'github-pages'
+ * })
+ * ```
+ */
+export const generateStatic = async (
+  app: unknown,
+  options: GenerateStaticOptions = {}
+): Promise<GenerateStaticResult> => {
+  const program = Effect.gen(function* () {
+    yield* Console.log('Generating static site...')
+
+    // Generate static site (dependencies injected via AppLayer)
+    const result = yield* generateStaticUseCase(app, options)
+
+    yield* Console.log(`✅ Static site generated to ${result.outputDir}`)
+    yield* Console.log(`   Generated ${result.files.length} files`)
+
+    return result
+  }).pipe(
+    // Provide dependencies (ServerFactory + PageRenderer)
+    Effect.provide(AppLayer)
+  )
+
+  // Run the Effect program and return the result
+  return await Effect.runPromise(program)
+}
+
+/**
  * Re-export types for convenience
  */
-export type { StartOptions }
+export type { StartOptions, GenerateStaticOptions, GenerateStaticResult }
 export type { App, AppEncoded } from '@/domain/models/app'
 export { AppSchema } from '@/domain/models/app'

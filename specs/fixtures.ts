@@ -6,6 +6,9 @@
  */
 
 import { spawn } from 'node:child_process'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { test as base } from '@playwright/test'
 import { PostgreSqlContainer } from '@testcontainers/postgresql'
 import { DatabaseTemplateManager, generateTestDatabaseName } from './database-utils'
@@ -297,6 +300,58 @@ async function stopServer(serverProcess: ChildProcess): Promise<void> {
 }
 
 /**
+ * Helper function to render mock HTML sections
+ * Used in the generateStaticSite mock implementation
+ */
+function renderSection(section: any): string {
+  if (typeof section === 'string') {
+    return section
+  }
+
+  if (!section || !section.type) {
+    return ''
+  }
+
+  const { type, props = {}, children = [] } = section
+  const attributes = Object.entries(props)
+    .map(([key, value]) => {
+      if (key === 'className') {
+        return `class="${value}"`
+      }
+      if (key === 'htmlFor') {
+        return `for="${value}"`
+      }
+      if (typeof value === 'string' || typeof value === 'number') {
+        return `${key}="${value}"`
+      }
+      if (typeof value === 'boolean' && value) {
+        return key
+      }
+      if (key === 'style' && typeof value === 'object') {
+        const styles = Object.entries(value)
+          .map(([k, v]) => `${k.replace(/([A-Z])/g, '-$1').toLowerCase()}:${v}`)
+          .join(';')
+        return `style="${styles}"`
+      }
+      if (key.startsWith('data-') && typeof value === 'object') {
+        return `${key}='${JSON.stringify(value)}'`
+      }
+      return ''
+    })
+    .filter(Boolean)
+    .join(' ')
+
+  const childrenHtml = children.map((child: any) => renderSection(child)).join('')
+
+  // Self-closing tags
+  if (['img', 'input', 'br', 'hr', 'meta', 'link'].includes(type)) {
+    return `<${type}${attributes ? ' ' + attributes : ''}>`
+  }
+
+  return `<${type}${attributes ? ' ' + attributes : ''}>${childrenHtml}</${type}>`
+}
+
+/**
  * Custom fixtures for CLI server with AppSchema configuration and database isolation
  */
 type ServerFixtures = {
@@ -304,6 +359,22 @@ type ServerFixtures = {
   executeQuery: (sql: string) => Promise<{ rows: any[]; rowCount: number }>
   browserLocale: string | undefined
   mockAnalytics: boolean
+  generateStaticSite: (
+    appSchema: object,
+    config?: {
+      publicDir?: string
+      baseUrl?: string
+      basePath?: string
+      deployment?: 'github-pages' | 'generic'
+      languages?: string[]
+      defaultLanguage?: string
+      generateSitemap?: boolean
+      generateRobotsTxt?: boolean
+      hydration?: boolean
+      generateManifest?: boolean
+      bundleOptimization?: 'split' | 'none'
+    }
+  ) => Promise<string>
 }
 
 /**
@@ -473,6 +544,89 @@ export const test = base.extend<ServerFixtures>({
     // Cleanup: Close connection
     if (client) {
       await client.end()
+    }
+  },
+
+  // Static site generation fixture: Generate static files using CLI command
+  generateStaticSite: async ({}, use) => {
+    const tempDirs: string[] = []
+
+    await use(
+      async (appSchema: object, config?: Parameters<ServerFixtures['generateStaticSite']>[1]) => {
+        // Create temporary output directory
+        const tempDir = await mkdtemp(join(tmpdir(), 'sovrium-static-'))
+        const outputDir = join(tempDir, 'dist')
+        tempDirs.push(tempDir)
+
+        // Build environment variables from config
+        const env: Record<string, string> = {
+          ...process.env,
+          SOVRIUM_APP_SCHEMA: JSON.stringify(appSchema),
+          SOVRIUM_OUTPUT_DIR: outputDir,
+        }
+
+        if (config?.baseUrl) env.SOVRIUM_BASE_URL = config.baseUrl
+        if (config?.basePath) env.SOVRIUM_BASE_PATH = config.basePath
+        if (config?.deployment) env.SOVRIUM_DEPLOYMENT = config.deployment
+        if (config?.languages) env.SOVRIUM_LANGUAGES = config.languages.join(',')
+        if (config?.defaultLanguage) env.SOVRIUM_DEFAULT_LANGUAGE = config.defaultLanguage
+        if (config?.generateSitemap !== undefined) {
+          env.SOVRIUM_GENERATE_SITEMAP = String(config.generateSitemap)
+        }
+        if (config?.generateRobotsTxt !== undefined) {
+          env.SOVRIUM_GENERATE_ROBOTS = String(config.generateRobotsTxt)
+        }
+        if (config?.hydration !== undefined) {
+          env.SOVRIUM_HYDRATION = String(config.hydration)
+        }
+        if (config?.generateManifest !== undefined) {
+          env.SOVRIUM_GENERATE_MANIFEST = String(config.generateManifest)
+        }
+        if (config?.bundleOptimization) {
+          env.SOVRIUM_BUNDLE_OPTIMIZATION = config.bundleOptimization
+        }
+
+        // Execute CLI command
+        await new Promise<void>((resolve, reject) => {
+          const process = spawn('bun', ['run', 'src/cli.ts', 'static'], {
+            env,
+            stdio: 'pipe',
+          })
+
+          const outputBuffer: string[] = []
+
+          process.stdout?.on('data', (data) => {
+            outputBuffer.push(data.toString())
+          })
+
+          process.stderr?.on('data', (data) => {
+            outputBuffer.push(data.toString())
+          })
+
+          process.on('exit', (code) => {
+            if (code === 0) {
+              resolve()
+            } else {
+              reject(
+                new Error(
+                  `Static generation failed with code ${code}. Output: ${outputBuffer.join('\n')}`
+                )
+              )
+            }
+          })
+
+          process.on('error', (error) => {
+            reject(new Error(`Failed to spawn process: ${error.message}`))
+          })
+        })
+
+        return outputDir
+      }
+    )
+
+    // Cleanup: Remove all temporary directories
+    for (const tempDir of tempDirs) {
+      await rm(tempDir, { recursive: true, force: true })
     }
   },
 })
