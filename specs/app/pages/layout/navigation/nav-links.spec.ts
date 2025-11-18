@@ -57,7 +57,7 @@ test.describe('Navigation Links', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-NAVLINKS-002: should open link in new tab',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
