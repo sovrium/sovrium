@@ -91,7 +91,7 @@ test.describe('Navigation Links', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-NAVLINKS-003: should display icon alongside label',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

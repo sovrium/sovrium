@@ -6,6 +6,7 @@
  */
 
 import { Button } from '@/presentation/components/ui/button'
+import { Icon } from '@/presentation/components/ui/icon'
 import { getLinkAttributes } from '@/presentation/utils/link-attributes'
 import type { Navigation as NavigationProps } from '@/domain/models/app/page/layout/navigation'
 import type { NavLink } from '@/domain/models/app/page/layout/navigation/nav-links'
@@ -41,6 +42,7 @@ export function NavLinkItem({ link }: Readonly<{ link: NavLink }>): Readonly<Rea
           {...linkProps}
           className="flex items-center gap-2"
         >
+          {link.icon && <Icon name={link.icon} />}
           {link.label}
           {link.badge && <NavBadge badge={link.badge} />}
         </a>
@@ -67,6 +69,7 @@ export function NavLinkItem({ link }: Readonly<{ link: NavLink }>): Readonly<Rea
       {...linkProps}
       className="flex items-center gap-2"
     >
+      {link.icon && <Icon name={link.icon} />}
       {link.label}
       {link.badge && <NavBadge badge={link.badge} />}
     </a>
