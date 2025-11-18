@@ -40,6 +40,26 @@ function NavLinkContent({ link }: Readonly<{ link: NavLink }>): Readonly<ReactEl
 }
 
 /**
+ * Handles smooth scrolling for anchor links
+ */
+function useAnchorScroll(href: string) {
+  const isAnchorLink = href.startsWith('#')
+
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (isAnchorLink) {
+      e.preventDefault()
+      const targetId = href.slice(1)
+      const targetElement = document.getElementById(targetId)
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: 'smooth' })
+      }
+    }
+  }
+
+  return handleClick
+}
+
+/**
  * NavLinkItem Component
  *
  * Renders a single navigation link with support for icons, badges, and dropdowns.
@@ -55,27 +75,11 @@ export function NavLinkItem({
   const isNested = depth > 0
   const testId = isTopLevel ? 'nav-link' : 'nav-link-nested'
   const linkProps = getLinkAttributes(link.href, link.target, testId)
-  const isAnchorLink = link.href.startsWith('#')
-
-  const handleAnchorClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (isAnchorLink) {
-      e.preventDefault()
-      const targetId = link.href.slice(1)
-      const targetElement = document.getElementById(targetId)
-      if (targetElement) {
-        targetElement.scrollIntoView({ behavior: 'smooth' })
-      }
-    }
-  }
+  const handleAnchorClick = useAnchorScroll(link.href)
 
   if (hasChildren) {
-    // Top-level: dropdown appears below, Nested: dropdown appears to the right
-    const dropdownPosition = isTopLevel
-      ? 'top-full left-0 mt-1'
-      : 'top-0 left-full ml-1'
-    const linkClassName = isNested
-      ? 'block px-4 py-2 hover:bg-gray-100'
-      : 'flex items-center gap-2'
+    const dropdownPosition = isTopLevel ? 'top-full left-0 mt-1' : 'top-0 left-full ml-1'
+    const linkClassName = isNested ? 'block px-4 py-2 hover:bg-gray-100' : 'flex items-center gap-2'
 
     return (
       <div className="group/item relative">
