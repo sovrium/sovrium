@@ -102,7 +102,7 @@ test.describe('Open Graph Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-OG-003: should enforce description length for social cards',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

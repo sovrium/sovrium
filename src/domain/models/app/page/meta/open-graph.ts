@@ -113,12 +113,26 @@ export const OpenGraphDeterminerSchema = Schema.Literal('a', 'an', 'the', 'auto'
  */
 export const OpenGraphSchema = Schema.Struct({
   title: Schema.optional(
-    Schema.String.pipe(Schema.maxLength(90)).annotations({
+    Schema.String.pipe(
+      Schema.transform(Schema.String, {
+        strict: true,
+        decode: (s) => (s.length > 90 ? s.substring(0, 90) : s),
+        encode: (s) => s,
+      }),
+      Schema.maxLength(90)
+    ).annotations({
       description: 'Open Graph title (may differ from page title)',
     })
   ),
   description: Schema.optional(
-    Schema.String.pipe(Schema.maxLength(200)).annotations({
+    Schema.String.pipe(
+      Schema.transform(Schema.String, {
+        strict: true,
+        decode: (s) => (s.length > 200 ? s.substring(0, 200) : s),
+        encode: (s) => s,
+      }),
+      Schema.maxLength(200)
+    ).annotations({
       description: 'Open Graph description',
     })
   ),
