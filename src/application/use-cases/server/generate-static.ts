@@ -35,6 +35,7 @@ export interface GenerateStaticOptions {
   readonly hydration?: boolean
   readonly generateManifest?: boolean
   readonly bundleOptimization?: 'split' | 'none'
+  readonly publicDir?: string // Directory containing static assets to copy
 }
 
 /**
@@ -141,8 +142,30 @@ export const generateStatic = (
         }),
     })
 
-    // Collect all generated files (HTML from toSSG + CSS)
-    const generatedFiles = [...ssgResult.files, 'assets/output.css'] as readonly string[]
+    // Step 6: Copy static assets from publicDir if provided
+    const assetFiles = yield* Effect.if(options.publicDir !== undefined, {
+      onTrue: () =>
+        Effect.gen(function* () {
+          yield* Console.log(`📁 Copying assets from ${options.publicDir}...`)
+          const { copyDirectory } = yield* Effect.tryPromise({
+            try: () => import('@/infrastructure/filesystem/copy-directory'),
+            catch: (error) =>
+              new StaticGenerationError({
+                message: 'Failed to import copy-directory module',
+                cause: error,
+              }),
+          })
+          return yield* copyDirectory(options.publicDir!, outputDir)
+        }),
+      onFalse: () => Effect.succeed([] as readonly string[]),
+    })
+
+    // Collect all generated files (HTML from toSSG + CSS + assets)
+    const generatedFiles = [
+      ...ssgResult.files,
+      'assets/output.css',
+      ...assetFiles,
+    ] as readonly string[]
 
     // Get pages for sitemap generation
     const pages = validatedApp.pages || []

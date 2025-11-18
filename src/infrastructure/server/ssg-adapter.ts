@@ -33,6 +33,7 @@ export interface SSGOptions {
   readonly generateManifest?: boolean
   readonly bundleOptimization?: 'split' | 'none'
   readonly pagePaths?: readonly string[] // Explicit list of page paths to generate
+  readonly publicDir?: string // Directory containing static assets to copy
 }
 
 /**

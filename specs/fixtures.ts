@@ -533,6 +533,9 @@ export const test = base.extend<ServerFixtures>({
         if (config?.bundleOptimization) {
           env.SOVRIUM_BUNDLE_OPTIMIZATION = config.bundleOptimization
         }
+        if (config?.publicDir) {
+          env.SOVRIUM_PUBLIC_DIR = config.publicDir
+        }
 
         // Execute CLI command
         await new Promise<void>((resolve, reject) => {

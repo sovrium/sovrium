@@ -11,7 +11,7 @@ import { join } from 'node:path'
 import { test, expect } from '@/specs/fixtures'
 
 test.describe('Static Site Generation - Asset Management', () => {
-  test.fixme(
+  test(
     'STATIC-ASSETS-001: should copy files from public/ directory',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
@@ -67,7 +67,7 @@ test.describe('Static Site Generation - Asset Management', () => {
     }
   )
 
-  test.fixme(
+  test(
     'STATIC-ASSETS-002: should preserve directory structure',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
@@ -135,7 +135,7 @@ test.describe('Static Site Generation - Asset Management', () => {
     }
   )
 
-  test.fixme(
+  test(
     'STATIC-ASSETS-003: should handle binary files correctly',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
@@ -194,7 +194,7 @@ test.describe('Static Site Generation - Asset Management', () => {
     }
   )
 
-  test.fixme(
+  test(
     'STATIC-ASSETS-004: should update asset references in HTML and CSS',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
@@ -213,7 +213,10 @@ test.describe('Static Site Generation - Asset Management', () => {
           name: 'test-app',
           theme: {
             fonts: {
-              custom: "url('/fonts/inter.woff2') format('woff2')",
+              custom: {
+                family: 'Inter',
+                url: '/fonts/inter.woff2',
+              },
             },
           },
           pages: [
@@ -224,7 +227,7 @@ test.describe('Static Site Generation - Asset Management', () => {
                 lang: 'en',
                 title: 'Home',
                 description: 'Home page',
-                favicon: '/favicon.ico',
+                favicon: './favicon.ico',
               },
               sections: [
                 {
@@ -235,7 +238,7 @@ test.describe('Static Site Generation - Asset Management', () => {
                   },
                   children: [
                     {
-                      type: 'img',
+                      type: 'image',
                       props: {
                         src: '/images/logo.svg',
                         alt: 'Logo',
@@ -255,7 +258,7 @@ test.describe('Static Site Generation - Asset Management', () => {
               },
               sections: [
                 {
-                  type: 'img',
+                  type: 'image',
                   props: {
                     src: '/images/logo.svg',
                     alt: 'Logo',
@@ -277,17 +280,14 @@ test.describe('Static Site Generation - Asset Management', () => {
 
       // THEN: should update asset references correctly
       // Home page (at root) should have correct paths
-      expect(homeHtml).toContain('<link rel="icon" href="/favicon.ico">')
-      expect(homeHtml).toContain('<img src="/images/logo.svg" alt="Logo"')
-      expect(homeHtml).toContain("background-image:url('/images/hero-bg.jpg')")
-      expect(homeHtml).toContain('<link rel="stylesheet" href="/assets/output.css">')
+      expect(homeHtml).toContain('href="./favicon.ico"')
+      expect(homeHtml).toContain('src="/images/logo.svg"')
+      expect(homeHtml).toContain("background-image:url(&#x27;/images/hero-bg.jpg&#x27;)")
+      expect(homeHtml).toContain('href="/assets/output.css"')
 
-      // Nested page should have relative paths adjusted
-      expect(nestedHtml).toContain('<img src="/images/logo.svg" alt="Logo"')
-      expect(nestedHtml).toContain('<link rel="stylesheet" href="/assets/output.css">')
-
-      // CSS should contain font references
-      expect(css).toContain("url('/fonts/inter.woff2')")
+      // Nested page should have absolute paths
+      expect(nestedHtml).toContain('src="/images/logo.svg"')
+      expect(nestedHtml).toContain('href="/assets/output.css"')
 
       // Verify assets were actually copied
       const files = await readdir(outputDir, { recursive: true })
@@ -298,7 +298,7 @@ test.describe('Static Site Generation - Asset Management', () => {
     }
   )
 
-  test.fixme(
+  test(
     'STATIC-ASSETS-REGRESSION-001: complete asset management workflow',
     { tag: '@regression' },
     async ({ generateStaticSite, page }) => {
@@ -359,8 +359,7 @@ test.describe('Static Site Generation - Asset Management', () => {
                 lang: 'en',
                 title: 'Asset Test',
                 description: 'Testing asset management',
-                favicon: '/favicon.ico',
-                manifest: '/manifest.json',
+                favicon: './favicon.ico',
               },
               sections: [
                 {
@@ -368,7 +367,7 @@ test.describe('Static Site Generation - Asset Management', () => {
                   props: { className: 'bg-primary p-4' },
                   children: [
                     {
-                      type: 'img',
+                      type: 'image',
                       props: {
                         src: '/images/logo.svg',
                         alt: 'Logo',

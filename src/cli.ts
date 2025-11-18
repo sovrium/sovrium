@@ -208,6 +208,7 @@ const parseStaticOptions = (): GenerateStaticOptions => {
     hydration: parseBooleanEnv(Bun.env.SOVRIUM_HYDRATION),
     generateManifest: parseBooleanEnv(Bun.env.SOVRIUM_GENERATE_MANIFEST),
     bundleOptimization: Bun.env.SOVRIUM_BUNDLE_OPTIMIZATION as 'split' | 'none' | undefined,
+    publicDir: Bun.env.SOVRIUM_PUBLIC_DIR,
   }
 
   // Build options object with only defined values
@@ -223,6 +224,7 @@ const parseStaticOptions = (): GenerateStaticOptions => {
     { key: 'hydration', value: envVars.hydration },
     { key: 'generateManifest', value: envVars.generateManifest },
     { key: 'bundleOptimization', value: envVars.bundleOptimization },
+    { key: 'publicDir', value: envVars.publicDir },
   ].reduce(
     (acc, { key, value }) =>
       value !== undefined && value !== false ? { ...acc, [key]: value } : acc,

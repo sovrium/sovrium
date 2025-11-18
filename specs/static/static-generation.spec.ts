@@ -386,7 +386,9 @@ test.describe('Static Site Generation', () => {
       await expect(page.locator('h1').first()).toHaveText('Test App')
       await expect(page.locator('h2')).toHaveText('Welcome')
       await expect(page.locator('header p')).toHaveText('Static Site Generation')
-      await expect(page.locator('main').getByText('This is a statically generated page.')).toBeVisible()
+      await expect(
+        page.locator('main').getByText('This is a statically generated page.')
+      ).toBeVisible()
 
       // Verify CSS classes are present (actual styles don't load via file:// due to CORS)
       const header = page.locator('header')
