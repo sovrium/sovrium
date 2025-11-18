@@ -168,7 +168,7 @@ test.describe('Open Graph Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-OG-005: should provide social sharing image',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
