@@ -394,7 +394,7 @@ test.describe('Navigation Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-NAV-011: should render minimal navigation with logo',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
