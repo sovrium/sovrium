@@ -131,7 +131,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-004: should provide organization name',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
