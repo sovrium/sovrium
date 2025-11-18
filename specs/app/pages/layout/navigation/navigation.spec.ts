@@ -361,7 +361,7 @@ test.describe('Navigation Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-NAV-010: should show user account menu with login/signup links',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
