@@ -323,7 +323,7 @@ test.describe('Open Graph Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-OG-009: should provide grammatical article before title',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
