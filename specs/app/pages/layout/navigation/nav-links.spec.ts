@@ -278,7 +278,7 @@ test.describe('Navigation Links', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-NAVLINKS-008: should support unlimited nesting depth for menus',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -321,7 +321,7 @@ test.describe('Navigation Links', () => {
       // THEN: it should support unlimited nesting depth for menus
       const parentLink = page.locator('[data-testid="nav-link"]').filter({ hasText: 'Products' })
       await parentLink.hover()
-      await expect(page.locator('[data-testid="nav-dropdown"]')).toBeVisible()
+      await expect(page.locator('[data-testid="nav-dropdown"]').first()).toBeVisible()
       const categoryLink = page.locator('text=Category A')
       await categoryLink.hover()
       await expect(page.locator('text=Product A1')).toBeVisible()
