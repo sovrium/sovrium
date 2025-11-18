@@ -124,7 +124,7 @@ test.describe('Navigation Links', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-NAVLINKS-004: should display badge to highlight link',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
