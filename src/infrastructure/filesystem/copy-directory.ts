@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises'
+import { readdir, mkdir } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 import { Effect, Data } from 'effect'
 import type { Dirent } from 'node:fs'
@@ -19,16 +19,17 @@ export class FileCopyError extends Data.TaggedError('FileCopyError')<{
 }> {}
 
 /**
- * Copy a single file from source to destination
+ * Copy a single file from source to destination using Bun's native file API
  */
 const copyFile = (
   sourcePath: string,
   destPath: string
 ): Effect.Effect<string, FileCopyError, never> =>
   Effect.gen(function* () {
-    // Read file as binary (Buffer) to preserve binary content exactly
+    // Read file using Bun's native file API (faster and more idiomatic)
+    // arrayBuffer() preserves binary content exactly
     const content = yield* Effect.tryPromise({
-      try: () => readFile(sourcePath),
+      try: () => Bun.file(sourcePath).arrayBuffer(),
       catch: (error) =>
         new FileCopyError({
           message: `Failed to read file ${sourcePath}`,
@@ -36,9 +37,10 @@ const copyFile = (
         }),
     })
 
-    // Write file as binary (Buffer) to preserve binary content exactly
+    // Write file using Bun.write (faster than Node.js fs/promises)
+    // Bun.write handles ArrayBuffer, Buffer, string, etc.
     yield* Effect.tryPromise({
-      try: () => writeFile(destPath, content),
+      try: () => Bun.write(destPath, content),
       catch: (error) =>
         new FileCopyError({
           message: `Failed to write file ${destPath}`,
