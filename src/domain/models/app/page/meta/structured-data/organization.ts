@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { EducationEventSchema } from './education-event'
 import { PostalAddressSchema } from './postal-address'
 
 /**
@@ -31,7 +32,7 @@ import { PostalAddressSchema } from './postal-address'
  * - founder: Founder name
  * - foundingDate: Date organization was founded (YYYY-MM-DD format)
  * - employees: Number of employees (integer)
- * - event: Associated event (EducationEvent reference - not implemented in this schema)
+ * - event: Associated event (EducationEvent reference)
  *
  * Common use cases:
  * - **Knowledge Graph**: Company information panel in Google search results
@@ -158,6 +159,11 @@ export const OrganizationSchema = Schema.Struct({
   employees: Schema.optional(
     Schema.Int.pipe(Schema.greaterThanOrEqualTo(1)).annotations({
       description: 'Number of employees',
+    })
+  ),
+  event: Schema.optional(
+    EducationEventSchema.annotations({
+      description: 'Associated event hosted or organized by the organization',
     })
   ),
 }).annotations({
