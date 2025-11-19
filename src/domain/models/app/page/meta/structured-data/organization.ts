@@ -32,7 +32,7 @@ import { PostalAddressSchema } from './postal-address'
  * - founder: Founder name
  * - foundingDate: Date organization was founded (YYYY-MM-DD format)
  * - employees: Number of employees (integer)
- * - event: Associated event (EducationEvent reference)
+ * - event: Associated event hosted or organized by the organization (EducationEvent object)
  *
  * Common use cases:
  * - **Knowledge Graph**: Company information panel in Google search results
