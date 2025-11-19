@@ -31,10 +31,12 @@ type TokenReplacementContext = {
  * @returns String with all tokens replaced
  */
 function replaceTokens(str: string, context: TokenReplacementContext): string {
-  const langReplacement = context.useLocaleForLang ? context.langConfig.locale : context.langCode
+  // Use locale if available, otherwise fall back to short code
+  const locale = context.langConfig.locale || context.langCode
+  const langReplacement = context.useLocaleForLang ? locale : context.langCode
   return str
     .replace(/\{\{lang\}\}/g, langReplacement)
-    .replace(/\{\{locale\}\}/g, context.langConfig.locale)
+    .replace(/\{\{locale\}\}/g, locale)
     .replace(/\{\{([a-zA-Z0-9._-]+)\}\}/g, (_, key) => {
       return context.translations[key] || `{{${key}}}`
     })
