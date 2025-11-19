@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { toKebabCase } from '@/presentation/utilities/string-utils'
 import type { Theme } from '@/domain/models/app/theme'
 
 /**
@@ -49,13 +50,6 @@ function extractAnimationTiming(
       : defaultEasing
 
   return { duration, easing }
-}
-
-/**
- * Convert camelCase to kebab-case for CSS
- */
-function toKebabCase(str: string): string {
-  return str.replace(/([A-Z])/g, '-$1').toLowerCase()
 }
 
 /**
