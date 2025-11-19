@@ -17,7 +17,10 @@ import type { Page } from '@/domain/models/app/pages'
 /**
  * Replace {{currentPath}} placeholder in navigation languageSwitcher hrefs
  */
-function replaceCurrentPathInLayout(layout: Layout | undefined, currentPath: string): Layout | undefined {
+function replaceCurrentPathInLayout(
+  layout: Layout | undefined,
+  currentPath: string
+): Layout | undefined {
   if (!layout) return layout
 
   if (layout.navigation?.languageSwitcher) {
