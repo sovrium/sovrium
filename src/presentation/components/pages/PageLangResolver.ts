@@ -44,7 +44,10 @@ export function resolvePageLanguage(
           : 'en-US'
 
   // Determine text direction from language configuration
-  const langConfig = languages?.supported.find((l) => l.code === lang)
+  // Match by code (en) or locale (en-US)
+  const langConfig = languages?.supported.find(
+    (l) => l.code === lang || l.locale === lang
+  )
   const direction = langConfig?.direction || 'ltr'
 
   // Generate CSS for body direction to ensure RTL/LTR is applied as CSS property

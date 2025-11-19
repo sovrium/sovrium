@@ -76,45 +76,7 @@ export const generateStatic = (
 > =>
   // eslint-disable-next-line max-lines-per-function, max-statements -- Complex Effect generator with multiple file generation steps and support file creation
   Effect.gen(function* () {
-    // Step 1: Validate app schema
-    yield* Console.log('🔍 Validating app schema...')
-    const validatedApp = yield* Effect.try({
-      try: (): App => Schema.decodeUnknownSync(AppSchema)(app),
-      catch: (error) => new AppValidationError(error),
-    })
-
-    // Step 2: Get services from context
-    const serverFactory = yield* ServerFactoryService
-    const pageRenderer = yield* PageRendererService
-
-    // Step 3: Create server instance (temporarily) to get Hono app
-    // Note: Server will be stopped immediately after getting the app instance
-    yield* Console.log('🏗️  Creating application instance...')
-    const serverInstance = yield* serverFactory.create({
-      app: validatedApp,
-      port: 0, // Auto-select available port
-      hostname: 'localhost',
-      renderHomePage: pageRenderer.renderHome,
-      renderPage: pageRenderer.renderPage,
-      renderNotFoundPage: pageRenderer.renderNotFound,
-      renderErrorPage: pageRenderer.renderError,
-    })
-
-    // Stop the server immediately - we only needed the Hono app
-    yield* serverInstance.stop
-
-    // Step 4: Generate static HTML files using Hono's toSSG
-    // Extract page paths from app configuration to explicitly tell toSSG which paths to generate
-    const pagePaths = validatedApp.pages?.map((page) => page.path) || []
-    yield* Console.log(`📝 Generating static HTML files for ${pagePaths.length} pages...`)
-    const outputDir = options.outputDir || './static'
-    const ssgResult = yield* generateStaticSite(serverInstance.app, { outputDir, pagePaths })
-
-    // Step 5: Get CSS from cache (already compiled during server creation)
-    yield* Console.log('🎨 Getting compiled CSS...')
-    const { css } = yield* compileCSS(validatedApp)
-
-    // Import fs module for CSS file operations
+    // Step 1: Import dependencies
     const fs = yield* Effect.tryPromise({
       try: () => import('node:fs/promises'),
       catch: (error) =>
@@ -123,6 +85,143 @@ export const generateStatic = (
           cause: error,
         }),
     })
+
+    const { replaceAppTokens } = yield* Effect.tryPromise({
+      try: () => import('./translation-replacer'),
+      catch: (error) =>
+        new StaticGenerationError({
+          message: 'Failed to import translation-replacer module',
+          cause: error,
+        }),
+    })
+
+    // Step 2: Pre-process app to handle multi-language (replace tokens BEFORE validation)
+    // If languages are configured, we need to skip token validation and handle it specially
+    const rawApp = app as Record<string, unknown>
+    const hasLanguages = rawApp.languages !== undefined
+
+    // For multi-language apps, validate without pages first, then process each language
+    let validatedApp: App
+    if (hasLanguages && rawApp.pages) {
+      // Validate app without pages (to check languages config)
+      const appWithoutPages = { ...rawApp, pages: undefined }
+      const baseApp = yield* Effect.try({
+        try: (): App => Schema.decodeUnknownSync(AppSchema)(appWithoutPages),
+        catch: (error) => new AppValidationError(error),
+      })
+
+      // Use base app with original pages for now (will process per language)
+      validatedApp = { ...baseApp, pages: rawApp.pages as App['pages'] }
+    } else {
+      // No languages or no pages - validate normally
+      yield* Console.log('🔍 Validating app schema...')
+      validatedApp = yield* Effect.try({
+        try: (): App => Schema.decodeUnknownSync(AppSchema)(app),
+        catch: (error) => new AppValidationError(error),
+      })
+    }
+
+    // Step 3: Get services from context
+    const serverFactory = yield* ServerFactoryService
+    const pageRenderer = yield* PageRendererService
+
+    const outputDir = options.outputDir || './static'
+    const allGeneratedFiles: string[] = []
+
+    // Step 4: Generate static files for each language (or once if no languages)
+    if (validatedApp.languages && validatedApp.pages) {
+      yield* Console.log(`🌍 Generating multi-language static site...`)
+      const supportedLanguages = validatedApp.languages.supported
+
+      for (const lang of supportedLanguages) {
+        yield* Console.log(`📝 Generating pages for language: ${lang.code}...`)
+
+        // Replace tokens for this language
+        const langApp = replaceAppTokens(validatedApp, lang.code)
+
+        // Validate the language-specific app
+        const validatedLangApp = yield* Effect.try({
+          try: (): App => Schema.decodeUnknownSync(AppSchema)(langApp),
+          catch: (error) => new AppValidationError(error),
+        })
+
+        // Create server instance for this language
+        const serverInstance = yield* serverFactory.create({
+          app: validatedLangApp,
+          port: 0,
+          hostname: 'localhost',
+          renderHomePage: pageRenderer.renderHome,
+          renderPage: pageRenderer.renderPage,
+          renderNotFoundPage: pageRenderer.renderNotFound,
+          renderErrorPage: pageRenderer.renderError,
+        })
+
+        yield* serverInstance.stop
+
+        // Generate static files in language subdirectory
+        const langOutputDir = `${outputDir}/${lang.code}`
+        const pagePaths = validatedLangApp.pages?.map((page) => page.path) || []
+        const ssgResult = yield* generateStaticSite(serverInstance.app, {
+          outputDir: langOutputDir,
+          pagePaths
+        })
+
+        // Track generated files (prepend language dir)
+        allGeneratedFiles.push(...ssgResult.files.map(f => `${lang.code}/${f}`))
+      }
+
+      // Generate root index.html with default language
+      yield* Console.log(`📝 Generating root index.html with default language...`)
+      const defaultLang = validatedApp.languages.default
+      const defaultLangApp = replaceAppTokens(validatedApp, defaultLang)
+      const validatedDefaultApp = yield* Effect.try({
+        try: (): App => Schema.decodeUnknownSync(AppSchema)(defaultLangApp),
+        catch: (error) => new AppValidationError(error),
+      })
+
+      const defaultServer = yield* serverFactory.create({
+        app: validatedDefaultApp,
+        port: 0,
+        hostname: 'localhost',
+        renderHomePage: pageRenderer.renderHome,
+        renderPage: pageRenderer.renderPage,
+        renderNotFoundPage: pageRenderer.renderNotFound,
+        renderErrorPage: pageRenderer.renderError,
+      })
+
+      yield* defaultServer.stop
+
+      // Generate only root index.html
+      const rootSSGResult = yield* generateStaticSite(defaultServer.app, {
+        outputDir,
+        pagePaths: ['/']
+      })
+
+      allGeneratedFiles.push(...rootSSGResult.files)
+    } else {
+      // No multi-language - generate normally
+      yield* Console.log('🏗️  Creating application instance...')
+      const serverInstance = yield* serverFactory.create({
+        app: validatedApp,
+        port: 0,
+        hostname: 'localhost',
+        renderHomePage: pageRenderer.renderHome,
+        renderPage: pageRenderer.renderPage,
+        renderNotFoundPage: pageRenderer.renderNotFound,
+        renderErrorPage: pageRenderer.renderError,
+      })
+
+      yield* serverInstance.stop
+
+      const pagePaths = validatedApp.pages?.map((page) => page.path) || []
+      yield* Console.log(`📝 Generating static HTML files for ${pagePaths.length} pages...`)
+      const ssgResult = yield* generateStaticSite(serverInstance.app, { outputDir, pagePaths })
+      allGeneratedFiles.push(...ssgResult.files)
+    }
+
+    // Step 5: Get CSS from cache (already compiled during server creation)
+    yield* Console.log('🎨 Getting compiled CSS...')
+    const { css } = yield* compileCSS(validatedApp)
 
     // Create assets directory
     yield* Effect.tryPromise({
@@ -164,7 +263,7 @@ export const generateStatic = (
 
     // Collect all generated files (HTML from toSSG + CSS + assets)
     const generatedFiles = [
-      ...ssgResult.files,
+      ...allGeneratedFiles,
       'assets/output.css',
       ...assetFiles,
     ] as readonly string[]
