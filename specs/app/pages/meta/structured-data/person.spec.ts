@@ -53,7 +53,7 @@ test.describe('Person Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     "APP-PAGES-PERSON-002: should provide person's full name",
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
