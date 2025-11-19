@@ -114,11 +114,40 @@ function DesktopLinks({
 }
 
 /**
+ * Renders language switcher
+ */
+function LanguageSwitcher({
+  languageSwitcher,
+}: Readonly<{
+  languageSwitcher: NavigationProps['languageSwitcher']
+}>): ReactElement | undefined {
+  if (!languageSwitcher) return undefined
+
+  return (
+    <div
+      data-testid="language-switcher"
+      className="flex items-center gap-2"
+    >
+      <span>{languageSwitcher.label}</span>
+      {languageSwitcher.items.map((item) => (
+        <a
+          key={item.lang}
+          href={item.href}
+          data-testid={`language-link-${item.lang}`}
+        >
+          {item.label}
+        </a>
+      ))}
+    </div>
+  )
+}
+
+/**
  * Navigation Component
  *
  * Renders the main navigation header with logo, links, and optional CTA button.
  * Supports sticky positioning, transparent background with scroll detection,
- * search input, user authentication menu, and mobile menu with separate mobile links.
+ * search input, user authentication menu, language switcher, and mobile menu with separate mobile links.
  *
  * @param props - Navigation configuration
  * @returns Navigation header element
@@ -133,6 +162,7 @@ export function Navigation({
   cta,
   search,
   user,
+  languageSwitcher,
   backgroundColor,
   textColor,
 }: Readonly<NavigationProps>): Readonly<ReactElement> {
@@ -160,6 +190,7 @@ export function Navigation({
         <DesktopLinks links={links?.desktop} />
         {hasMobileMenu && <MobileMenuToggle />}
         {hasMobileMenu && <MobileMenu links={mobileLinks} />}
+        <LanguageSwitcher languageSwitcher={languageSwitcher} />
         <NavCTA cta={cta} />
         <NavSearch search={search} />
         <NavUserMenu user={user} />

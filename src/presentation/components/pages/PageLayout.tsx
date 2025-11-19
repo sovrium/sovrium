@@ -15,6 +15,33 @@ import type { Layout } from '@/domain/models/app/page/layout'
 import type { Page } from '@/domain/models/app/pages'
 
 /**
+ * Replace {{currentPath}} placeholder in navigation languageSwitcher hrefs
+ */
+function replaceCurrentPathInLayout(layout: Layout | undefined, currentPath: string): Layout | undefined {
+  if (!layout) return layout
+
+  if (layout.navigation?.languageSwitcher) {
+    const updatedItems = layout.navigation.languageSwitcher.items.map((item) => ({
+      ...item,
+      href: item.href.replace(/\{\{currentPath\}\}/g, currentPath),
+    }))
+
+    return {
+      ...layout,
+      navigation: {
+        ...layout.navigation,
+        languageSwitcher: {
+          ...layout.navigation.languageSwitcher,
+          items: updatedItems,
+        },
+      },
+    }
+  }
+
+  return layout
+}
+
+/**
  * Props for PageLayout component
  */
 type PageLayoutProps = {
@@ -43,7 +70,8 @@ export function PageLayout({
   defaultLayout,
   children,
 }: PageLayoutProps): Readonly<ReactElement> {
-  const effectiveLayout = mergeLayouts(defaultLayout, page.layout)
+  const mergedLayout = mergeLayouts(defaultLayout, page.layout)
+  const effectiveLayout = replaceCurrentPathInLayout(mergedLayout, page.path)
 
   return (
     <>

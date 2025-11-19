@@ -260,7 +260,7 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
     }
   )
 
-  test.fixme(
+  test(
     'STATIC-I18N-004: should create language switcher links',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
@@ -303,11 +303,13 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
         },
         defaultLayout: {
           navigation: {
-            position: 'top',
-            items: [
-              { type: 'link', label: '$t:nav.home', href: '/' },
-              { type: 'link', label: '$t:nav.about', href: '/about' },
-            ],
+            logo: './logo.svg',
+            links: {
+              desktop: [
+                { label: '$t:nav.home', href: '/' },
+                { label: '$t:nav.about', href: '/about' },
+              ],
+            },
             languageSwitcher: {
               label: '$t:lang.switch',
               items: [
@@ -342,21 +344,30 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
       // THEN: should create language switcher links
       // English home page should have language switcher
       expect(enHome).toContain('Language') // Label
-      expect(enHome).toContain('<a href="/en/">English</a>')
-      expect(enHome).toContain('<a href="/fr/">Français</a>')
-      expect(enHome).toContain('<a href="/es/">Español</a>')
+      expect(enHome).toContain('href="/en/"')
+      expect(enHome).toContain('>English</a>')
+      expect(enHome).toContain('href="/fr/"')
+      expect(enHome).toContain('>Français</a>')
+      expect(enHome).toContain('href="/es/"')
+      expect(enHome).toContain('>Español</a>')
 
       // French home page
       expect(frHome).toContain('Langue') // Label in French
-      expect(frHome).toContain('<a href="/en/">English</a>')
-      expect(frHome).toContain('<a href="/fr/">Français</a>')
-      expect(frHome).toContain('<a href="/es/">Español</a>')
+      expect(frHome).toContain('href="/en/"')
+      expect(frHome).toContain('>English</a>')
+      expect(frHome).toContain('href="/fr/"')
+      expect(frHome).toContain('>Français</a>')
+      expect(frHome).toContain('href="/es/"')
+      expect(frHome).toContain('>Español</a>')
 
       // Spanish about page - should link to about page in other languages
       expect(esAbout).toContain('Idioma') // Label in Spanish
-      expect(esAbout).toContain('<a href="/en/about">English</a>')
-      expect(esAbout).toContain('<a href="/fr/about">Français</a>')
-      expect(esAbout).toContain('<a href="/es/about">Español</a>')
+      expect(esAbout).toContain('href="/en/about"')
+      expect(esAbout).toContain('>English</a>')
+      expect(esAbout).toContain('href="/fr/about"')
+      expect(esAbout).toContain('>Français</a>')
+      expect(esAbout).toContain('href="/es/about"')
+      expect(esAbout).toContain('>Español</a>')
 
       // Navigation should be translated
       expect(enHome).toContain('Home')

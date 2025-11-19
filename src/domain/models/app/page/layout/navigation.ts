@@ -7,7 +7,7 @@
 
 import { Schema } from 'effect'
 import { CtaButtonSchema } from './navigation/cta-button'
-import { NavLinksSchema } from './navigation/nav-links'
+import { NavLinksSchema, NavLinkSchema } from './navigation/nav-links'
 
 /**
  * Navigation links configuration
@@ -140,6 +140,80 @@ export const UserMenuConfigSchema = Schema.Struct({
 })
 
 /**
+ * Language switcher item configuration
+ *
+ * Defines a single language option in the language switcher.
+ *
+ * Required properties:
+ * - lang: Language code (e.g., 'en', 'fr', 'es')
+ * - label: Display label for the language (e.g., 'English', 'Français')
+ * - href: URL pattern for language switch (supports {{currentPath}} placeholder)
+ *
+ * URL patterns:
+ * - {{currentPath}}: Replaced with current page path (e.g., '/about', '/')
+ * - Example: '/en{{currentPath}}' becomes '/en/about' on about page
+ *
+ * @example
+ * ```typescript
+ * const languageSwitcherItem = {
+ *   lang: 'en',
+ *   label: 'English',
+ *   href: '/en{{currentPath}}'
+ * }
+ * ```
+ */
+export const LanguageSwitcherItemSchema = Schema.Struct({
+  lang: Schema.String.annotations({
+    description: 'Language code (e.g., en, fr, es)',
+  }),
+  label: Schema.String.annotations({
+    description: 'Display label for the language',
+  }),
+  href: Schema.String.annotations({
+    description: 'URL pattern for language switch (supports {{currentPath}} placeholder)',
+  }),
+}).annotations({
+  description: 'Language switcher item',
+})
+
+/**
+ * Language switcher configuration
+ *
+ * Optional language switcher dropdown in navigation bar.
+ *
+ * Required properties:
+ * - label: Switcher button label (e.g., 'Language', '$t:lang.switch')
+ * - items: Array of language options
+ *
+ * Integration:
+ * - Displays as dropdown in navigation
+ * - Each item links to language-specific URL
+ * - Supports translation tokens in label and item labels
+ *
+ * @example
+ * ```typescript
+ * const languageSwitcher = {
+ *   label: '$t:lang.switch',
+ *   items: [
+ *     { lang: 'en', label: '$t:lang.en', href: '/en{{currentPath}}' },
+ *     { lang: 'fr', label: '$t:lang.fr', href: '/fr{{currentPath}}' },
+ *     { lang: 'es', label: '$t:lang.es', href: '/es{{currentPath}}' }
+ *   ]
+ * }
+ * ```
+ */
+export const LanguageSwitcherSchema = Schema.Struct({
+  label: Schema.String.annotations({
+    description: 'Switcher button label',
+  }),
+  items: Schema.Array(LanguageSwitcherItemSchema).annotations({
+    description: 'Language options',
+  }),
+}).annotations({
+  description: 'Language switcher configuration',
+})
+
+/**
  * Main navigation configuration including logo, links, and CTA
  *
  * The header navigation bar displayed at the top of the page.
@@ -250,6 +324,7 @@ export const NavigationSchema = Schema.Struct({
   cta: Schema.optional(CtaButtonSchema),
   search: Schema.optional(SearchConfigSchema),
   user: Schema.optional(UserMenuConfigSchema),
+  languageSwitcher: Schema.optional(LanguageSwitcherSchema),
 }).annotations({
   title: 'Navigation Configuration',
   description: 'Main navigation configuration including logo, links, and CTA',
@@ -258,4 +333,6 @@ export const NavigationSchema = Schema.Struct({
 export type NavigationLinks = Schema.Schema.Type<typeof NavigationLinksSchema>
 export type SearchConfig = Schema.Schema.Type<typeof SearchConfigSchema>
 export type UserMenuConfig = Schema.Schema.Type<typeof UserMenuConfigSchema>
+export type LanguageSwitcherItem = Schema.Schema.Type<typeof LanguageSwitcherItemSchema>
+export type LanguageSwitcher = Schema.Schema.Type<typeof LanguageSwitcherSchema>
 export type Navigation = Schema.Schema.Type<typeof NavigationSchema>

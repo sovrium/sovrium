@@ -18,34 +18,44 @@ type TokenReplacementContext = {
   readonly langConfig: LanguageConfig
   readonly languages: Languages | undefined
   readonly translations: Record<string, string>
+  readonly currentPath?: string // Optional current page path for {{currentPath}} replacement
 }
 
 /**
  * Replace translation tokens in a string
  *
  * Replaces $t:key patterns with translations from the centralized translations dictionary.
+ * Also replaces {{currentPath}} with the current page path.
  * Uses the same resolution logic as dynamic rendering (with fallback support).
  *
- * @param str - String potentially containing $t:key patterns
+ * @param str - String potentially containing $t:key or {{currentPath}} patterns
  * @param context - Token replacement context
- * @returns String with all $t: patterns resolved to translations
+ * @returns String with all patterns resolved
  *
  * @example
  * ```typescript
  * replaceTokens('$t:welcome', context)  // 'Welcome' (or 'Bienvenue' for fr)
  * replaceTokens('$t:goodbye', context)  // Falls back to default if missing
+ * replaceTokens('/en{{currentPath}}', { ...context, currentPath: '/about' })  // '/en/about'
  * replaceTokens('Hello world', context) // 'Hello world' (no pattern)
  * ```
  */
 function replaceTokens(str: string, context: TokenReplacementContext): string {
-  // Check if string contains $t: pattern
-  if (str.startsWith('$t:')) {
-    const key = str.slice(3) // Remove '$t:' prefix
-    return resolveTranslation(key, context.langCode, context.languages)
+  let result = str
+
+  // Replace $t: translation pattern
+  if (result.startsWith('$t:')) {
+    const key = result.slice(3) // Remove '$t:' prefix
+    result = resolveTranslation(key, context.langCode, context.languages)
   }
 
-  // No translation pattern found - return string as-is
-  return str
+  // Replace {{currentPath}} pattern (for language switcher hrefs)
+  if (result.includes('{{currentPath}}')) {
+    const currentPath = context.currentPath || '/'
+    result = result.replace(/\{\{currentPath\}\}/g, currentPath)
+  }
+
+  return result
 }
 
 /**
@@ -93,6 +103,7 @@ function replaceMetaTokens(meta: Page['meta'], context: TokenReplacementContext)
  * Replace translation tokens in a page configuration
  *
  * Resolves $t:key patterns throughout the page and sets meta.lang programmatically.
+ * Also replaces {{currentPath}} patterns in language switcher hrefs.
  *
  * @param page - Page with potential $t:key translation tokens
  * @param langCode - Language code (e.g., 'en', 'fr')
@@ -113,6 +124,7 @@ export function replacePageTokens(
     langConfig,
     languages,
     translations,
+    currentPath: page.path, // Pass current page path for {{currentPath}} replacement
   }
 
   // Replace tokens in everything except meta
@@ -129,13 +141,49 @@ export function replacePageTokens(
 }
 
 /**
+ * Replace translation tokens ($t:key) in a value, preserving {{currentPath}} placeholders
+ *
+ * This is used for defaultLayout where {{currentPath}} needs to be resolved per-page,
+ * not at the app level.
+ */
+function replaceTokensPreservingCurrentPath(
+  value: unknown,
+  context: Omit<TokenReplacementContext, 'currentPath'>
+): unknown {
+  if (typeof value === 'string') {
+    // Only replace $t: patterns, keep {{currentPath}} as-is
+    if (value.startsWith('$t:')) {
+      const key = value.slice(3)
+      return resolveTranslation(key, context.langCode, context.languages)
+    }
+    return value
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => replaceTokensPreservingCurrentPath(item, context))
+  }
+
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, val]) => [
+        key,
+        replaceTokensPreservingCurrentPath(val, context),
+      ])
+    )
+  }
+
+  return value
+}
+
+/**
  * Replace translation tokens in app configuration for a specific language
  *
  * Resolves all $t:key patterns throughout the app for static site generation.
+ * For defaultLayout, preserves {{currentPath}} placeholders to be resolved per-page.
  * This is a pure function that performs token replacement without throwing exceptions.
  * Callers should validate language codes before calling this function.
  *
- * @param app - App configuration (may contain $t:key tokens in pages)
+ * @param app - App configuration (may contain $t:key tokens in pages and defaultLayout)
  * @param langCode - Language code to generate for (e.g., 'en', 'fr')
  * @returns App with all $t: patterns resolved for the language
  * @internal This function assumes langCode exists in supported languages
@@ -152,14 +200,31 @@ export function replaceAppTokens(app: App, langCode: string): App {
   // Get translations for this language
   const translations = app.languages.translations?.[langCode] || {}
 
-  // Replace tokens in pages
+  // Create context for defaultLayout (preserving {{currentPath}})
+  const contextWithoutPath = {
+    langCode,
+    langConfig,
+    languages: app.languages,
+    translations,
+  }
+
+  // Replace tokens in pages (with currentPath resolution)
   const pages = app.pages?.map((page) =>
     replacePageTokens(page, langCode, langConfig, app.languages, translations)
   )
 
-  // Return app with replaced pages
+  // Replace tokens in defaultLayout (preserving {{currentPath}} for per-page resolution)
+  const defaultLayout = app.defaultLayout
+    ? (replaceTokensPreservingCurrentPath(
+        app.defaultLayout,
+        contextWithoutPath
+      ) as App['defaultLayout'])
+    : app.defaultLayout
+
+  // Return app with replaced pages and defaultLayout
   return {
     ...app,
     pages,
+    defaultLayout,
   }
 }
