@@ -280,7 +280,7 @@ test.describe('URL Path', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PATH-010: should support dynamic route parameters (if applicable)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

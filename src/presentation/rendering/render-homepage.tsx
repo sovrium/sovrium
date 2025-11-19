@@ -6,6 +6,7 @@
  */
 
 import { renderToString } from 'react-dom/server'
+import { findMatchingRoute } from '@/domain/utils/route-matcher'
 import { DefaultHomePage } from '@/presentation/components/pages/DefaultHomePage'
 import { DynamicPage } from '@/presentation/components/pages/DynamicPage'
 import type { App } from '@/domain/models/app'
@@ -13,13 +14,29 @@ import type { App } from '@/domain/models/app'
 /**
  * Renders a page by path to HTML string for server-side rendering
  *
+ * Supports both static routes (exact match) and dynamic routes (with :param segments)
+ *
  * @param app - Validated application data from AppSchema
- * @param path - Page path to render (e.g., '/', '/about')
+ * @param path - Page path to render (e.g., '/', '/about', '/blog/hello-world')
  * @param detectedLanguage - Optional detected language from Accept-Language header or URL
  * @returns Complete HTML document as string with DOCTYPE, or null if page not found
  */
 function renderPageByPath(app: App, path: string, detectedLanguage?: string): string | undefined {
-  const page = app.pages?.find((p) => p.path === path)
+  // If no pages configured, return undefined
+  if (!app.pages || app.pages.length === 0) {
+    return undefined
+  }
+
+  // Extract all page patterns and find matching route
+  const pagePatterns = app.pages.map((p) => p.path)
+  const match = findMatchingRoute(pagePatterns, path)
+
+  if (!match) {
+    return undefined
+  }
+
+  // Get the matched page
+  const page = app.pages[match.index]
   if (!page) {
     return undefined
   }
@@ -32,6 +49,7 @@ function renderPageByPath(app: App, path: string, detectedLanguage?: string): st
       languages={app.languages}
       defaultLayout={app.defaultLayout}
       detectedLanguage={detectedLanguage}
+      routeParams={match.params}
     />
   )
 
