@@ -29,7 +29,7 @@ test.describe('URL Path', () => {
   // One test per spec in schema - defines EXHAUSTIVE acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-PAGES-PATH-001: should validate as homepage path',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
