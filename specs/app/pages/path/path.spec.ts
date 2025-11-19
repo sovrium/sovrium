@@ -253,7 +253,7 @@ test.describe('URL Path', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PATH-009: should map URL to page configuration for rendering',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
