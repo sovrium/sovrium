@@ -19,7 +19,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Organization Schema', () => {
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-001: should validate minimal Organization structured data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -57,7 +57,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-002: should specify Schema.org vocabulary',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -94,7 +94,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-003: should identify entity as Organization',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -131,7 +131,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-004: should provide organization name',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -168,7 +168,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-005: should provide organization website URL',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -206,7 +206,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-006: should provide logo for search results',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -244,7 +244,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-007: should support single or multiple organization images',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -283,7 +283,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-008: should provide contact information',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -323,7 +323,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-009: should include PostalAddress structured data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -369,7 +369,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-010: should link organization to social profiles',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -413,7 +413,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-011: should provide organization history',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -453,7 +453,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-012: should indicate organization size',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -491,7 +491,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-013: should link organization to hosted events',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -534,7 +534,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-014: should enable Google Knowledge Graph panel in search results',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -570,7 +570,7 @@ test.describe('Organization Schema', () => {
       await page.goto('/')
 
       // THEN: it should enable Google Knowledge Graph panel in search results
-      await expect(page.locator('script[type="application/ld+json"]')).toBeVisible()
+      await expect(page.locator('script[type="application/ld+json"]')).toBeAttached()
     }
   )
 

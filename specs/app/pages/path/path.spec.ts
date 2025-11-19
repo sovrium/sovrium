@@ -29,7 +29,7 @@ test.describe('URL Path', () => {
   // One test per spec in schema - defines EXHAUSTIVE acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-PAGES-PATH-001: should validate as homepage path',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -48,7 +48,7 @@ test.describe('URL Path', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PATH-002: should follow shared path pattern from common definitions',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -66,7 +66,7 @@ test.describe('URL Path', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PATH-003: should accept paths with leading slash',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -100,7 +100,7 @@ test.describe('URL Path', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PATH-004: should accept multi-level URL paths',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -133,7 +133,7 @@ test.describe('URL Path', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PATH-005: should accept kebab-case URL segments',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -166,7 +166,7 @@ test.describe('URL Path', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PATH-006: should provide examples for typical URL patterns',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

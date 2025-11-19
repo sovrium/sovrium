@@ -405,7 +405,7 @@ test.describe('Structured Data', () => {
       await page.goto('/')
 
       // THEN: it should enable rich search results and enhanced SERP display
-      await expect(page.locator('script[type="application/ld+json"]')).toBeVisible()
+      await expect(page.locator('script[type="application/ld+json"]')).toBeAttached()
     }
   )
 
