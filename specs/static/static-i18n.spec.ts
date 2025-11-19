@@ -19,30 +19,26 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
         {
           name: 'test-app',
           languages: {
-            en: {
-              name: 'English',
-              locale: 'en-US',
-              translations: {
+            default: 'en',
+            supported: [
+              { code: 'en', label: 'English', locale: 'en-US' },
+              { code: 'fr', label: 'Français', locale: 'fr-FR' },
+              { code: 'es', label: 'Español', locale: 'es-ES' },
+            ],
+            translations: {
+              en: {
                 'welcome.title': 'Welcome',
                 'welcome.description': 'Welcome to our site',
                 'about.title': 'About Us',
                 'about.description': 'Learn more about us',
               },
-            },
-            fr: {
-              name: 'Français',
-              locale: 'fr-FR',
-              translations: {
+              fr: {
                 'welcome.title': 'Bienvenue',
                 'welcome.description': 'Bienvenue sur notre site',
                 'about.title': 'À propos',
                 'about.description': 'En savoir plus sur nous',
               },
-            },
-            es: {
-              name: 'Español',
-              locale: 'es-ES',
-              translations: {
+              es: {
                 'welcome.title': 'Bienvenido',
                 'welcome.description': 'Bienvenido a nuestro sitio',
                 'about.title': 'Acerca de',
@@ -76,13 +72,9 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
                 { type: 'h1', children: ['{{about.title}}'] },
                 { type: 'p', children: ['{{about.description}}'] },
               ],
-            },
-          ],
-        },
-        {
-          languages: ['en', 'fr', 'es'],
-        }
-      )
+          },
+        ],
+      })
 
       // WHEN: examining generated directory structure
       const files = await readdir(outputDir, { recursive: true, withFileTypes: true })
@@ -123,56 +115,49 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: app with translations
-      const outputDir = await generateStaticSite(
-        {
-          name: 'test-app',
-          languages: {
+      const outputDir = await generateStaticSite({
+        name: 'test-app',
+        languages: {
+          default: 'en',
+          supported: [
+            { code: 'en', label: 'English', locale: 'en-US' },
+            { code: 'fr', label: 'Français', locale: 'fr-FR' },
+          ],
+          translations: {
             en: {
-              name: 'English',
-              locale: 'en-US',
-              translations: {
-                'home.title': 'Home',
-                'home.heading': 'Welcome to Our Site',
-                'home.content': 'This is the English version',
-              },
+              'home.title': 'Home',
+              'home.heading': 'Welcome to Our Site',
+              'home.content': 'This is the English version',
             },
             fr: {
-              name: 'Français',
-              locale: 'fr-FR',
-              translations: {
-                'home.title': 'Accueil',
-                'home.heading': 'Bienvenue sur Notre Site',
-                'home.content': 'Ceci est la version française',
-              },
+              'home.title': 'Accueil',
+              'home.heading': 'Bienvenue sur Notre Site',
+              'home.content': 'Ceci est la version française',
             },
           },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: {
-                lang: '{{lang}}',
-                title: '{{home.title}}',
-                description: '{{home.content}}',
-              },
-              sections: [
-                {
-                  type: 'main',
-                  props: { className: 'container' },
-                  children: [
-                    { type: 'h1', children: ['{{home.heading}}'] },
-                    { type: 'p', children: ['{{home.content}}'] },
-                  ],
-                },
-              ],
-            },
-          ],
         },
-        {
-          languages: ['en', 'fr'],
-          defaultLanguage: 'en',
-        }
-      )
+        pages: [
+          {
+            name: 'home',
+            path: '/',
+            meta: {
+              lang: '{{lang}}',
+              title: '{{home.title}}',
+              description: '{{home.content}}',
+            },
+            sections: [
+              {
+                type: 'main',
+                props: { className: 'container' },
+                children: [
+                  { type: 'h1', children: ['{{home.heading}}'] },
+                  { type: 'p', children: ['{{home.content}}'] },
+                ],
+              },
+            ],
+          },
+        ],
+      })
 
       // WHEN: reading language-specific HTML files
       const enHtml = await readFile(join(outputDir, 'en/index.html'), 'utf-8')
@@ -206,52 +191,42 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: app with multiple languages and baseUrl
-      const outputDir = await generateStaticSite(
-        {
-          name: 'test-app',
-          languages: {
-            en: {
-              name: 'English',
-              locale: 'en-US',
-              translations: { title: 'Home' },
-            },
-            fr: {
-              name: 'Français',
-              locale: 'fr-FR',
-              translations: { title: 'Accueil' },
-            },
-            de: {
-              name: 'Deutsch',
-              locale: 'de-DE',
-              translations: { title: 'Startseite' },
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: {
-                lang: '{{lang}}',
-                title: '{{title}}',
-              },
-              sections: [],
-            },
-            {
-              name: 'about',
-              path: '/about',
-              meta: {
-                lang: '{{lang}}',
-                title: 'About',
-              },
-              sections: [],
-            },
+      const outputDir = await generateStaticSite({
+        name: 'test-app',
+        languages: {
+          default: 'en',
+          supported: [
+            { code: 'en', label: 'English', locale: 'en-US' },
+            { code: 'fr', label: 'Français', locale: 'fr-FR' },
+            { code: 'de', label: 'Deutsch', locale: 'de-DE' },
           ],
+          translations: {
+            en: { title: 'Home' },
+            fr: { title: 'Accueil' },
+            de: { title: 'Startseite' },
+          },
         },
-        {
-          languages: ['en', 'fr', 'de'],
-          baseUrl: 'https://example.com',
-        }
-      )
+        pages: [
+          {
+            name: 'home',
+            path: '/',
+            meta: {
+              lang: '{{lang}}',
+              title: '{{title}}',
+            },
+            sections: [],
+          },
+          {
+            name: 'about',
+            path: '/about',
+            meta: {
+              lang: '{{lang}}',
+              title: 'About',
+            },
+            sections: [],
+          },
+        ],
+      })
 
       // WHEN: reading HTML files
       const enHome = await readFile(join(outputDir, 'en/index.html'), 'utf-8')
@@ -319,83 +294,74 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: app with language switcher in layout
-      const outputDir = await generateStaticSite(
-        {
-          name: 'test-app',
-          languages: {
+      const outputDir = await generateStaticSite({
+        name: 'test-app',
+        languages: {
+          default: 'en',
+          supported: [
+            { code: 'en', label: 'English', locale: 'en-US' },
+            { code: 'fr', label: 'Français', locale: 'fr-FR' },
+            { code: 'es', label: 'Español', locale: 'es-ES' },
+          ],
+          translations: {
             en: {
-              name: 'English',
-              locale: 'en-US',
-              translations: {
-                'nav.home': 'Home',
-                'nav.about': 'About',
-                'lang.switch': 'Language',
-                'lang.en': 'English',
-                'lang.fr': 'Français',
-                'lang.es': 'Español',
-              },
+              'nav.home': 'Home',
+              'nav.about': 'About',
+              'lang.switch': 'Language',
+              'lang.en': 'English',
+              'lang.fr': 'Français',
+              'lang.es': 'Español',
             },
             fr: {
-              name: 'Français',
-              locale: 'fr-FR',
-              translations: {
-                'nav.home': 'Accueil',
-                'nav.about': 'À propos',
-                'lang.switch': 'Langue',
-                'lang.en': 'English',
-                'lang.fr': 'Français',
-                'lang.es': 'Español',
-              },
+              'nav.home': 'Accueil',
+              'nav.about': 'À propos',
+              'lang.switch': 'Langue',
+              'lang.en': 'English',
+              'lang.fr': 'Français',
+              'lang.es': 'Español',
             },
             es: {
-              name: 'Español',
-              locale: 'es-ES',
-              translations: {
-                'nav.home': 'Inicio',
-                'nav.about': 'Acerca de',
-                'lang.switch': 'Idioma',
-                'lang.en': 'English',
-                'lang.fr': 'Français',
-                'lang.es': 'Español',
-              },
+              'nav.home': 'Inicio',
+              'nav.about': 'Acerca de',
+              'lang.switch': 'Idioma',
+              'lang.en': 'English',
+              'lang.fr': 'Français',
+              'lang.es': 'Español',
             },
           },
-          defaultLayout: {
-            navigation: {
-              position: 'top',
-              items: [
-                { type: 'link', label: '{{nav.home}}', href: '/' },
-                { type: 'link', label: '{{nav.about}}', href: '/about' },
-              ],
-              languageSwitcher: {
-                label: '{{lang.switch}}',
-                items: [
-                  { lang: 'en', label: '{{lang.en}}', href: '/en{{currentPath}}' },
-                  { lang: 'fr', label: '{{lang.fr}}', href: '/fr{{currentPath}}' },
-                  { lang: 'es', label: '{{lang.es}}', href: '/es{{currentPath}}' },
-                ],
-              },
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: { lang: '{{lang}}', title: '{{nav.home}}' },
-              sections: [],
-            },
-            {
-              name: 'about',
-              path: '/about',
-              meta: { lang: '{{lang}}', title: '{{nav.about}}' },
-              sections: [],
-            },
-          ],
         },
-        {
-          languages: ['en', 'fr', 'es'],
-        }
-      )
+        defaultLayout: {
+          navigation: {
+            position: 'top',
+            items: [
+              { type: 'link', label: '{{nav.home}}', href: '/' },
+              { type: 'link', label: '{{nav.about}}', href: '/about' },
+            ],
+            languageSwitcher: {
+              label: '{{lang.switch}}',
+              items: [
+                { lang: 'en', label: '{{lang.en}}', href: '/en{{currentPath}}' },
+                { lang: 'fr', label: '{{lang.fr}}', href: '/fr{{currentPath}}' },
+                { lang: 'es', label: '{{lang.es}}', href: '/es{{currentPath}}' },
+              ],
+            },
+          },
+        },
+        pages: [
+          {
+            name: 'home',
+            path: '/',
+            meta: { lang: '{{lang}}', title: '{{nav.home}}' },
+            sections: [],
+          },
+          {
+            name: 'about',
+            path: '/about',
+            meta: { lang: '{{lang}}', title: '{{nav.about}}' },
+            sections: [],
+          },
+        ],
+      })
 
       // WHEN: reading HTML files
       const enHome = await readFile(join(outputDir, 'en/index.html'), 'utf-8')
@@ -436,105 +402,97 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
     { tag: '@regression' },
     async ({ generateStaticSite, page }) => {
       // GIVEN: complete multi-language app
-      const outputDir = await generateStaticSite(
-        {
-          name: 'test-app',
-          description: 'Multi-language test application',
-          theme: {
-            colors: { primary: '#3B82F6' },
-          },
-          languages: {
+      const outputDir = await generateStaticSite({
+        name: 'test-app',
+        description: 'Multi-language test application',
+        theme: {
+          colors: { primary: '#3B82F6' },
+        },
+        languages: {
+          default: 'en',
+          supported: [
+            { code: 'en', label: 'English', locale: 'en-US' },
+            { code: 'fr', label: 'Français', locale: 'fr-FR' },
+          ],
+          translations: {
             en: {
-              name: 'English',
-              locale: 'en-US',
-              translations: {
-                'site.title': 'Multilingual Site',
-                'home.welcome': 'Welcome',
-                'home.description': 'This site is available in multiple languages',
-                'home.cta': 'Learn More',
-                'about.title': 'About Us',
-                'about.content': 'We are an international company',
-              },
+              'site.title': 'Multilingual Site',
+              'home.welcome': 'Welcome',
+              'home.description': 'This site is available in multiple languages',
+              'home.cta': 'Learn More',
+              'about.title': 'About Us',
+              'about.content': 'We are an international company',
             },
             fr: {
-              name: 'Français',
-              locale: 'fr-FR',
-              translations: {
-                'site.title': 'Site Multilingue',
-                'home.welcome': 'Bienvenue',
-                'home.description': 'Ce site est disponible en plusieurs langues',
-                'home.cta': 'En Savoir Plus',
-                'about.title': 'À Propos',
-                'about.content': 'Nous sommes une entreprise internationale',
-              },
+              'site.title': 'Site Multilingue',
+              'home.welcome': 'Bienvenue',
+              'home.description': 'Ce site est disponible en plusieurs langues',
+              'home.cta': 'En Savoir Plus',
+              'about.title': 'À Propos',
+              'about.content': 'Nous sommes une entreprise internationale',
             },
           },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: {
-                lang: '{{lang}}',
-                title: '{{home.welcome}} - {{site.title}}',
-                description: '{{home.description}}',
-              },
-              sections: [
-                {
-                  type: 'header',
-                  props: { className: 'bg-primary text-white p-8 text-center' },
-                  children: [
-                    {
-                      type: 'h1',
-                      props: { className: 'text-4xl mb-4' },
-                      children: ['{{home.welcome}}'],
-                    },
-                    {
-                      type: 'p',
-                      props: { className: 'text-xl' },
-                      children: ['{{home.description}}'],
-                    },
-                    {
-                      type: 'a',
-                      props: {
-                        href: '/about',
-                        className: 'inline-block mt-4 px-6 py-3 bg-white text-primary rounded',
-                      },
-                      children: ['{{home.cta}}'],
-                    },
-                  ],
-                },
-              ],
+      },
+        pages: [
+          {
+            name: 'home',
+            path: '/',
+            meta: {
+              lang: '{{lang}}',
+              title: '{{home.welcome}} - {{site.title}}',
+              description: '{{home.description}}',
             },
-            {
-              name: 'about',
-              path: '/about',
-              meta: {
-                lang: '{{lang}}',
-                title: '{{about.title}} - {{site.title}}',
-              },
-              sections: [
-                {
-                  type: 'main',
-                  props: { className: 'container mx-auto p-8' },
-                  children: [
-                    {
-                      type: 'h1',
-                      props: { className: 'text-3xl mb-4' },
-                      children: ['{{about.title}}'],
+            sections: [
+              {
+                type: 'header',
+                props: { className: 'bg-primary text-white p-8 text-center' },
+                children: [
+                  {
+                    type: 'h1',
+                    props: { className: 'text-4xl mb-4' },
+                    children: ['{{home.welcome}}'],
+                  },
+                  {
+                    type: 'p',
+                    props: { className: 'text-xl' },
+                    children: ['{{home.description}}'],
+                  },
+                  {
+                    type: 'a',
+                    props: {
+                      href: '/about',
+                      className: 'inline-block mt-4 px-6 py-3 bg-white text-primary rounded',
                     },
-                    { type: 'p', children: ['{{about.content}}'] },
-                  ],
-                },
-              ],
+                    children: ['{{home.cta}}'],
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            name: 'about',
+            path: '/about',
+            meta: {
+              lang: '{{lang}}',
+              title: '{{about.title}} - {{site.title}}',
             },
-          ],
-        },
-        {
-          languages: ['en', 'fr'],
-          defaultLanguage: 'en',
-          baseUrl: 'https://example.com',
-        }
-      )
+            sections: [
+              {
+                type: 'main',
+                props: { className: 'container mx-auto p-8' },
+                children: [
+                  {
+                    type: 'h1',
+                    props: { className: 'text-3xl mb-4' },
+                    children: ['{{about.title}}'],
+                  },
+                  { type: 'p', children: ['{{about.content}}'] },
+                ],
+              },
+            ],
+          },
+        ],
+      })
 
       // WHEN: loading English version
       await page.goto(`file://${join(outputDir, 'en/index.html')}`)
