@@ -283,7 +283,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-008: should provide contact information',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
