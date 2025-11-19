@@ -497,7 +497,7 @@ test.describe('URL Path', () => {
   // ONE OPTIMIZED test verifying components work together efficiently
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-PAGES-PATH-REGRESSION-001: user can complete full path workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
