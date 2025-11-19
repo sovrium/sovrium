@@ -323,7 +323,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-009: should include PostalAddress structured data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
