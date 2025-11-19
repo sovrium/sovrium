@@ -48,7 +48,7 @@ test.describe('URL Path', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PATH-002: should follow shared path pattern from common definitions',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
