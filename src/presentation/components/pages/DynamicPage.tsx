@@ -14,6 +14,7 @@ import { PageLayout } from '@/presentation/components/pages/PageLayout'
 import { PageMain } from '@/presentation/components/pages/PageMain'
 import { extractPageMetadata } from '@/presentation/components/pages/PageMetadata'
 import { groupScriptsByPosition } from '@/presentation/components/pages/PageScripts'
+import type { RouteParams } from '@/domain/utils/route-matcher'
 import type { Blocks } from '@/domain/models/app/blocks'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Layout } from '@/domain/models/app/page/layout'
@@ -27,6 +28,7 @@ type DynamicPageProps = {
   readonly languages?: Languages
   readonly defaultLayout?: Layout
   readonly detectedLanguage?: string
+  readonly routeParams?: RouteParams
 }
 
 type DynamicPageHeadProps = {
@@ -119,6 +121,7 @@ type DynamicPageBodyProps = {
         readonly textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize'
       }
     | undefined
+  readonly routeParams?: RouteParams
 }
 
 /**
@@ -135,9 +138,44 @@ function DynamicPageBody({
   scripts,
   lang,
   bodyStyle,
+  routeParams,
 }: DynamicPageBodyProps): Readonly<ReactElement> {
+  // Convert route params to data attributes for testing
+  // Use context-aware naming: generic params (id, key) get prefixed, descriptive ones (slug) don't
+  const dataAttributes: Record<string, string> = {}
+  if (routeParams && page.path) {
+    const pathSegments = page.path.split('/').filter(Boolean)
+    const genericParams = new Set(['id', 'key', 'uid', 'pk'])
+
+    for (const [key, value] of Object.entries(routeParams)) {
+      // Check if parameter name is generic and needs context
+      if (genericParams.has(key)) {
+        // Generic parameter - add context from previous path segment
+        // e.g., /products/:id -> data-product-id
+        const paramIndex = pathSegments.findIndex(seg => seg === `:${key}`)
+        if (paramIndex > 0) {
+          const contextSegment = pathSegments[paramIndex - 1]
+          const singularContext = contextSegment?.endsWith('s')
+            ? contextSegment.slice(0, -1) // Remove trailing 's' for singular form
+            : contextSegment
+          dataAttributes[`data-${singularContext}-${key}`] = value
+        } else {
+          // No context available, use parameter name only
+          dataAttributes[`data-${key}`] = value
+        }
+      } else {
+        // Descriptive parameter - use as-is
+        // e.g., /blog/:slug -> data-slug
+        dataAttributes[`data-${key}`] = value
+      }
+    }
+  }
+
   return (
-    <body {...(bodyStyle && { style: bodyStyle })}>
+    <body
+      {...(bodyStyle && { style: bodyStyle })}
+      {...dataAttributes}
+    >
       <PageBodyScripts
         page={page}
         theme={theme}
@@ -183,6 +221,7 @@ export function DynamicPage({
   languages,
   defaultLayout,
   detectedLanguage,
+  routeParams,
 }: DynamicPageProps): Readonly<ReactElement> {
   const metadata = extractPageMetadata(page, theme, languages, detectedLanguage)
   const langConfig = resolvePageLanguage(page, languages, detectedLanguage)
@@ -216,6 +255,7 @@ export function DynamicPage({
         scripts={scripts}
         lang={langConfig.lang}
         bodyStyle={metadata.bodyStyle}
+        routeParams={routeParams}
       />
     </html>
   )
