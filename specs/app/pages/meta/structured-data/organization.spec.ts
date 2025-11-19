@@ -453,7 +453,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-012: should indicate organization size',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
