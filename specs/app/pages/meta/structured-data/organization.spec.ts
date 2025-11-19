@@ -168,7 +168,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-005: should provide organization website URL',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
