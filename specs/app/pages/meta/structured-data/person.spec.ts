@@ -473,7 +473,7 @@ test.describe('Person Schema', () => {
       await page.goto('/')
 
       // THEN: it should enable Google Knowledge Graph panel for notable persons
-      await expect(page.locator('script[type="application/ld+json"]')).toBeVisible()
+      await expect(page.locator('script[type="application/ld+json"]')).toBeAttached()
     }
   )
 

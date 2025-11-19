@@ -467,7 +467,7 @@ test.describe('Product Schema', () => {
       await page.goto('/')
 
       // THEN: it should enable Google Shopping rich results
-      await expect(page.locator('script[type="application/ld+json"]')).toBeVisible()
+      await expect(page.locator('script[type="application/ld+json"]')).toBeAttached()
     }
   )
 

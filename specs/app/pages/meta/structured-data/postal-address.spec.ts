@@ -421,7 +421,7 @@ test.describe('Postal Address', () => {
       await page.goto('/')
 
       // THEN: it should provide country code
-      await expect(page.locator('script[type="application/ld+json"]')).toBeVisible()
+      await expect(page.locator('script[type="application/ld+json"]')).toBeAttached()
     }
   )
 
