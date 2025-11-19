@@ -400,8 +400,7 @@ test.describe('Static Site Generation - Deployment Features', () => {
               name: 'home',
               path: '/',
               meta: {
-                lang: '{{lang}}',
-                title: '{{title}}',
+                title: '$t:title',
                 description: 'Multi-language home page',
                 priority: 1.0,
                 changefreq: 'daily',
@@ -411,7 +410,7 @@ test.describe('Static Site Generation - Deployment Features', () => {
                   type: 'header',
                   props: { className: 'bg-primary text-white p-4' },
                   children: [
-                    { type: 'h1', children: ['{{title}}'] },
+                    { type: 'h1', children: ['$t:title'] },
                     {
                       type: 'nav',
                       children: [
@@ -428,7 +427,6 @@ test.describe('Static Site Generation - Deployment Features', () => {
               name: 'about',
               path: '/about',
               meta: {
-                lang: '{{lang}}',
                 title: 'About',
                 priority: 0.8,
                 changefreq: 'weekly',
@@ -439,7 +437,6 @@ test.describe('Static Site Generation - Deployment Features', () => {
               name: 'products',
               path: '/products',
               meta: {
-                lang: '{{lang}}',
                 title: 'Products',
                 priority: 0.9,
                 changefreq: 'daily',

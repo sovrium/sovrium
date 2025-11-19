@@ -6,7 +6,9 @@
  */
 
 import type { App, Page } from '@/domain/models/app'
+import type { Languages } from '@/domain/models/app/languages'
 import type { LanguageConfig } from '@/domain/models/app/language/language-config'
+import { resolveTranslation } from '@/presentation/translations/translation-resolver'
 
 /**
  * Context for token replacement operations
@@ -14,32 +16,36 @@ import type { LanguageConfig } from '@/domain/models/app/language/language-confi
 type TokenReplacementContext = {
   readonly langCode: string
   readonly langConfig: LanguageConfig
+  readonly languages: Languages | undefined
   readonly translations: Record<string, string>
-  readonly useLocaleForLang: boolean
 }
 
 /**
  * Replace translation tokens in a string
  *
- * Replaces:
- * - {{lang}} → full locale (e.g., 'en-US', 'fr-FR') for meta.lang, short code otherwise
- * - {{locale}} → full locale (e.g., 'en-US', 'fr-FR')
- * - {{key.name}} → translation from translations dictionary
+ * Replaces $t:key patterns with translations from the centralized translations dictionary.
+ * Uses the same resolution logic as dynamic rendering (with fallback support).
  *
- * @param str - String potentially containing tokens
+ * @param str - String potentially containing $t:key patterns
  * @param context - Token replacement context
- * @returns String with all tokens replaced
+ * @returns String with all $t: patterns resolved to translations
+ *
+ * @example
+ * ```typescript
+ * replaceTokens('$t:welcome', context)  // 'Welcome' (or 'Bienvenue' for fr)
+ * replaceTokens('$t:goodbye', context)  // Falls back to default if missing
+ * replaceTokens('Hello world', context) // 'Hello world' (no pattern)
+ * ```
  */
 function replaceTokens(str: string, context: TokenReplacementContext): string {
-  // Use locale if available, otherwise fall back to short code
-  const locale = context.langConfig.locale || context.langCode
-  const langReplacement = context.useLocaleForLang ? locale : context.langCode
+  // Check if string contains $t: pattern
+  if (str.startsWith('$t:')) {
+    const key = str.slice(3) // Remove '$t:' prefix
+    return resolveTranslation(key, context.langCode, context.languages)
+  }
+
+  // No translation pattern found - return string as-is
   return str
-    .replace(/\{\{lang\}\}/g, langReplacement)
-    .replace(/\{\{locale\}\}/g, locale)
-    .replace(/\{\{([a-zA-Z0-9._-]+)\}\}/g, (_, key) => {
-      return context.translations[key] || `{{${key}}}`
-    })
 }
 
 /**
@@ -64,46 +70,56 @@ function replaceTokensInValue(value: unknown, context: TokenReplacementContext):
 }
 
 /**
- * Replace translation tokens in page meta specially
- * meta.lang uses full locale (en-US) instead of short code (en)
+ * Replace translation tokens in page meta and set lang attribute programmatically
+ *
+ * Sets meta.lang to the full locale (e.g., 'en-US', 'fr-FR') without using tokens.
+ * Then resolves any $t: patterns in the remaining meta fields.
  */
 function replaceMetaTokens(meta: Page['meta'], context: TokenReplacementContext): Page['meta'] {
   if (!meta) return meta
 
-  // Use full locale for {{lang}} replacement in meta
-  const metaContext: TokenReplacementContext = { ...context, useLocaleForLang: true }
-  return replaceTokensInValue(meta, metaContext) as Page['meta']
+  // Set lang to full locale programmatically (not via token)
+  const locale = context.langConfig.locale || context.langCode
+  const metaWithLang = {
+    ...meta,
+    lang: locale,
+  }
+
+  // Resolve $t: patterns in remaining meta fields
+  return replaceTokensInValue(metaWithLang, context) as Page['meta']
 }
 
 /**
  * Replace translation tokens in a page configuration
  *
- * Special handling for meta.lang field: uses full locale instead of short code
+ * Resolves $t:key patterns throughout the page and sets meta.lang programmatically.
  *
- * @param page - Page with potential translation tokens
+ * @param page - Page with potential $t:key translation tokens
  * @param langCode - Language code (e.g., 'en', 'fr')
  * @param langConfig - Language configuration object
+ * @param languages - Full languages configuration (for fallback resolution)
  * @param translations - Translations for the language
- * @returns Page with tokens replaced
+ * @returns Page with all $t: patterns resolved
  */
 export function replacePageTokens(
   page: Page,
   langCode: string,
   langConfig: LanguageConfig,
+  languages: Languages | undefined,
   translations: Record<string, string>
 ): Page {
   const context: TokenReplacementContext = {
     langCode,
     langConfig,
+    languages,
     translations,
-    useLocaleForLang: false,
   }
 
   // Replace tokens in everything except meta
   const { meta, ...restOfPage } = page
   const replacedRest = replaceTokensInValue(restOfPage, context) as Omit<Page, 'meta'>
 
-  // Replace meta separately with special locale handling
+  // Replace meta separately with special lang handling
   const replacedMeta = replaceMetaTokens(meta, context)
 
   return {
@@ -115,12 +131,13 @@ export function replacePageTokens(
 /**
  * Replace translation tokens in app configuration for a specific language
  *
+ * Resolves all $t:key patterns throughout the app for static site generation.
  * This is a pure function that performs token replacement without throwing exceptions.
  * Callers should validate language codes before calling this function.
  *
- * @param app - App configuration (may contain tokens in pages)
- * @param langCode - Language code to generate for
- * @returns App with all tokens replaced for the language
+ * @param app - App configuration (may contain $t:key tokens in pages)
+ * @param langCode - Language code to generate for (e.g., 'en', 'fr')
+ * @returns App with all $t: patterns resolved for the language
  * @internal This function assumes langCode exists in supported languages
  */
 export function replaceAppTokens(app: App, langCode: string): App {
@@ -137,7 +154,7 @@ export function replaceAppTokens(app: App, langCode: string): App {
 
   // Replace tokens in pages
   const pages = app.pages?.map((page) =>
-    replacePageTokens(page, langCode, langConfig, translations)
+    replacePageTokens(page, langCode, langConfig, app.languages, translations)
   )
 
   // Return app with replaced pages
