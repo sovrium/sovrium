@@ -133,7 +133,7 @@ test.describe('URL Path', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PATH-005: should accept kebab-case URL segments',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
