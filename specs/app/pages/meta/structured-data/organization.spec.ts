@@ -206,7 +206,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-006: should provide logo for search results',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
