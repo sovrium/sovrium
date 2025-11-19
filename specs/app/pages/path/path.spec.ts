@@ -166,7 +166,7 @@ test.describe('URL Path', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PATH-006: should provide examples for typical URL patterns',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
