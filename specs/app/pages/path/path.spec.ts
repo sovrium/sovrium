@@ -452,12 +452,10 @@ test.describe('URL Path', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PATH-015: Custom "/" page renders blocks from sections',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // NOTE: This test requires block variable substitution which is not yet implemented
-      // See: src/presentation/components/sections/component-renderer.tsx:99
       // GIVEN: app with pages=[{path: '/', sections: [{block: 'hero'}]}]
       await startServerWithSchema({
         name: 'my-app',
@@ -483,7 +481,7 @@ test.describe('URL Path', () => {
 
       // THEN: custom page renders blocks from sections
       await expect(page).toHaveTitle('Home')
-      await expect(page.locator('[data-testid="page-custom_home"]')).toBeVisible()
+      await expect(page.locator('[data-testid="page-custom-home"]')).toBeVisible()
       await expect(page.locator('h1')).toHaveText('Welcome Home')
 
       // Verify DefaultHomePage is NOT rendered
