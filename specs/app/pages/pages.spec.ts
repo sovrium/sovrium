@@ -472,8 +472,8 @@ test.describe('Pages', () => {
         languages: {
           default: 'en',
           supported: [
-            { code: 'en', label: 'English' },
-            { code: 'fr', label: 'Français' },
+            { code: 'en', locale: 'en-US', label: 'English' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français' },
           ],
           translations: { en: { 'hero.title': 'Welcome' }, fr: { 'hero.title': 'Bienvenue' } },
         },
@@ -599,8 +599,8 @@ test.describe('Pages', () => {
         languages: {
           default: 'en',
           supported: [
-            { code: 'en', label: 'English' },
-            { code: 'fr', label: 'Français' },
+            { code: 'en', locale: 'en-US', label: 'English' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français' },
           ],
           translations: { en: { 'hero.title': 'Welcome' }, fr: { 'hero.title': 'Bienvenue' } },
         },

@@ -361,7 +361,7 @@ test.describe('Languages Configuration', () => {
 
       // THEN: it should remember the choice in localStorage for future visits
       const storedLanguage = await page.evaluate(() => localStorage.getItem('sovrium_language'))
-      expect(storedLanguage).toBe('fr-FR')
+      expect(storedLanguage).toBe('fr')
 
       // Reload and verify persistence
       await page.reload()
@@ -577,7 +577,7 @@ test.describe('Languages Configuration', () => {
         await page.locator('[data-testid="language-switcher"]').click()
         await page.locator('[data-testid="language-option-es-ES"]').click()
         const storedLanguage = await page.evaluate(() => localStorage.getItem('sovrium_language'))
-        expect(storedLanguage).toBe('es-ES')
+        expect(storedLanguage).toBe('es')
 
         // Reload to verify persistence works
         await page.reload()
@@ -686,7 +686,7 @@ test.describe('Languages Configuration', () => {
       // THEN: it should automatically use default language as fallback
       await page.goto('/')
       const fallbackLanguage = await page.evaluate(() => (window as any).APP_LANGUAGES?.fallback)
-      expect(fallbackLanguage).toBe('en-US')
+      expect(fallbackLanguage).toBe('en')
     }
   )
 
@@ -736,9 +736,9 @@ test.describe('Languages Configuration', () => {
 
       // Verify fallback is configured correctly (not same as default)
       const fallbackLanguage = await page.evaluate(() => (window as any).APP_LANGUAGES?.fallback)
-      expect(fallbackLanguage).toBe('en-US')
+      expect(fallbackLanguage).toBe('en')
       const defaultLanguage = await page.evaluate(() => (window as any).APP_LANGUAGES?.default)
-      expect(defaultLanguage).toBe('fr-FR')
+      expect(defaultLanguage).toBe('fr')
     }
   )
 
@@ -1597,8 +1597,8 @@ test.describe('Languages Configuration', () => {
         // WHEN: user with French browser visits /
         await page.goto('/')
 
-        // THEN: should redirect to /fr-FR/ (detected language differs from default)
-        await expect(page).toHaveURL('/fr-FR/')
+        // THEN: should redirect to /fr/ (detected language differs from default)
+        await expect(page).toHaveURL('/fr/')
         await expect(page.locator('html')).toHaveAttribute('lang', 'fr-FR')
         await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
       }
@@ -1636,8 +1636,8 @@ test.describe('Languages Configuration', () => {
         ],
       })
 
-      // WHEN: user visits /fr-FR/ directly
-      await page.goto('/fr-FR/')
+      // WHEN: user visits /fr/ directly
+      await page.goto('/fr/')
 
       // THEN: should render French homepage
       await expect(page.locator('html')).toHaveAttribute('lang', 'fr-FR')
@@ -1678,18 +1678,18 @@ test.describe('Languages Configuration', () => {
         ],
       })
 
-      // WHEN: user visits /fr-FR/
-      await page.goto('/fr-FR/')
-      await expect(page).toHaveURL('/fr-FR/')
+      // WHEN: user visits /fr/
+      await page.goto('/fr/')
+      await expect(page).toHaveURL('/fr/')
       await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
 
       // AND: switches to English
       await page.locator('[data-testid="language-switcher"]').click()
       await page.locator('[data-testid="language-option-en-US"]').click()
 
-      // THEN: should navigate to /en-US/
-      await page.waitForURL('/en-US/')
-      await expect(page).toHaveURL('/en-US/')
+      // THEN: should navigate to /en/
+      await page.waitForURL('/en/')
+      await expect(page).toHaveURL('/en/')
       await expect(page.locator('html')).toHaveAttribute('lang', 'en-US')
     }
   )
@@ -1719,7 +1719,7 @@ test.describe('Languages Configuration', () => {
       })
 
       // WHEN: user visits /invalid-lang/ (not in supported languages)
-      const response = await page.goto('/de-DE/')
+      const response = await page.goto('/de/')
 
       // THEN: should return 404
       expect(response?.status()).toBe(404)
