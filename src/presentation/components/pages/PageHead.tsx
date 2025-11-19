@@ -260,6 +260,12 @@ function HeadScripts({ scripts }: { readonly scripts: GroupedScripts }): ReactEl
 /**
  * Renders hreflang alternate links for multi-language SEO
  * Generates <link rel="alternate" hreflang="..."> tags for each supported language
+ *
+ * Uses dual-pattern approach:
+ * - hreflang attribute: Full locale (e.g., 'en-US', 'fr-FR') for SEO standards
+ * - href attribute: Short code URL path (e.g., '/en/', '/fr/') for routing
+ *
+ * Includes x-default link pointing to the default language for undefined locales
  */
 function HreflangLinks({
   page,
@@ -276,14 +282,19 @@ function HreflangLinks({
 
   return (
     <>
-      {languages.supported.map((lang) => (
-        <link
-          key={lang.code}
-          rel="alternate"
-          hrefLang={lang.code}
-          href={`/${lang.code}${basePath}/`}
-        />
-      ))}
+      {languages.supported.map((lang) => {
+        // Use full locale for hreflang attribute (e.g., 'en-US', 'fr-FR')
+        // Use short code for URL path (e.g., '/en/', '/fr/')
+        const hreflang = lang.locale || lang.code
+        return (
+          <link
+            key={lang.code}
+            rel="alternate"
+            hrefLang={hreflang}
+            href={`/${lang.code}${basePath}/`}
+          />
+        )
+      })}
       <link
         key="x-default"
         rel="alternate"
