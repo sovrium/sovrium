@@ -14,12 +14,12 @@ import { PageLayout } from '@/presentation/components/pages/PageLayout'
 import { PageMain } from '@/presentation/components/pages/PageMain'
 import { extractPageMetadata } from '@/presentation/components/pages/PageMetadata'
 import { groupScriptsByPosition } from '@/presentation/components/pages/PageScripts'
-import type { RouteParams } from '@/domain/utils/route-matcher'
 import type { Blocks } from '@/domain/models/app/blocks'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Layout } from '@/domain/models/app/page/layout'
 import type { Page } from '@/domain/models/app/pages'
 import type { Theme } from '@/domain/models/app/theme'
+import type { RouteParams } from '@/domain/utils/route-matcher'
 
 type DynamicPageProps = {
   readonly page: Page
@@ -125,6 +125,46 @@ type DynamicPageBodyProps = {
 }
 
 /**
+ * Converts route parameters to data attributes for testing
+ * Uses context-aware naming: generic params (id, key) get prefixed, descriptive ones (slug) don't
+ *
+ * @param routeParams - Route parameters extracted from URL
+ * @param path - Page path pattern (e.g., '/blog/:slug')
+ * @returns Data attributes object
+ */
+function buildDataAttributes(
+  routeParams: RouteParams | undefined,
+  path: string | undefined
+): Record<string, string> {
+  if (!routeParams || !path) {
+    return {}
+  }
+
+  const pathSegments = path.split('/').filter(Boolean)
+  const genericParams = new Set(['id', 'key', 'uid', 'pk'])
+
+  return Object.entries(routeParams).reduce<Record<string, string>>((acc, [key, value]) => {
+    // Check if parameter name is generic and needs context
+    if (genericParams.has(key)) {
+      // Generic parameter - add context from previous path segment
+      // e.g., /products/:id -> data-product-id
+      const paramIndex = pathSegments.findIndex((seg) => seg === `:${key}`)
+      if (paramIndex > 0) {
+        const contextSegment = pathSegments[paramIndex - 1]
+        const singularContext = contextSegment?.endsWith('s')
+          ? contextSegment.slice(0, -1) // Remove trailing 's' for singular form
+          : contextSegment
+        return { ...acc, [`data-${singularContext}-${key}`]: value }
+      }
+      // No context available, use parameter name only
+      return { ...acc, [`data-${key}`]: value }
+    }
+    // Descriptive parameter - use as-is (e.g., /blog/:slug -> data-slug)
+    return { ...acc, [`data-${key}`]: value }
+  }, {})
+}
+
+/**
  * Renders the <body> section of DynamicPage
  * Extracted to satisfy max-lines-per-function ESLint rule
  */
@@ -140,36 +180,7 @@ function DynamicPageBody({
   bodyStyle,
   routeParams,
 }: DynamicPageBodyProps): Readonly<ReactElement> {
-  // Convert route params to data attributes for testing
-  // Use context-aware naming: generic params (id, key) get prefixed, descriptive ones (slug) don't
-  const dataAttributes: Record<string, string> = {}
-  if (routeParams && page.path) {
-    const pathSegments = page.path.split('/').filter(Boolean)
-    const genericParams = new Set(['id', 'key', 'uid', 'pk'])
-
-    for (const [key, value] of Object.entries(routeParams)) {
-      // Check if parameter name is generic and needs context
-      if (genericParams.has(key)) {
-        // Generic parameter - add context from previous path segment
-        // e.g., /products/:id -> data-product-id
-        const paramIndex = pathSegments.findIndex(seg => seg === `:${key}`)
-        if (paramIndex > 0) {
-          const contextSegment = pathSegments[paramIndex - 1]
-          const singularContext = contextSegment?.endsWith('s')
-            ? contextSegment.slice(0, -1) // Remove trailing 's' for singular form
-            : contextSegment
-          dataAttributes[`data-${singularContext}-${key}`] = value
-        } else {
-          // No context available, use parameter name only
-          dataAttributes[`data-${key}`] = value
-        }
-      } else {
-        // Descriptive parameter - use as-is
-        // e.g., /blog/:slug -> data-slug
-        dataAttributes[`data-${key}`] = value
-      }
-    }
-  }
+  const dataAttributes = buildDataAttributes(routeParams, page.path)
 
   return (
     <body

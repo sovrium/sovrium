@@ -40,7 +40,7 @@ export type RouteMatch = {
  * // Returns: /^\/users\/([^/]+)\/posts\/([^/]+)$/
  * ```
  */
-function patternToRegex(pattern: string): RegExp {
+function patternToRegex(pattern: string): Readonly<RegExp> {
   // Escape forward slashes and convert :param to capture groups
   const regexPattern = pattern
     .split('/')
@@ -131,14 +131,14 @@ export function matchRoute(pattern: string, urlPath: string): RouteMatch {
   const paramNames = extractParamNames(pattern)
   const paramValues = match.slice(1) // Remove full match, keep capture groups
 
-  const params: Record<string, string> = {}
-  for (let i = 0; i < paramNames.length; i++) {
-    const name = paramNames[i]
+  // Use reduce to build params object functionally (no mutation)
+  const params = paramNames.reduce<Record<string, string>>((acc, name, i) => {
     const value = paramValues[i]
     if (name && value) {
-      params[name] = value
+      return { ...acc, [name]: value }
     }
-  }
+    return acc
+  }, {})
 
   return {
     matched: true,
@@ -169,15 +169,16 @@ export function findMatchingRoute(
   patterns: readonly string[],
   urlPath: string
 ): { readonly index: number; readonly params: RouteParams } | undefined {
-  for (let i = 0; i < patterns.length; i++) {
-    const pattern = patterns[i]
-    if (!pattern) continue
+  // Use findIndex + map to avoid imperative loop
+  const matchResult = patterns
+    .map((pattern, index) => ({ pattern, index }))
+    .filter(({ pattern }) => pattern !== undefined && pattern !== '')
+    .find(({ pattern }) => matchRoute(pattern, urlPath).matched)
 
-    const match = matchRoute(pattern, urlPath)
-    if (match.matched) {
-      return { index: i, params: match.params }
-    }
+  if (!matchResult) {
+    return undefined
   }
 
-  return undefined
+  const match = matchRoute(matchResult.pattern, urlPath)
+  return { index: matchResult.index, params: match.params }
 }

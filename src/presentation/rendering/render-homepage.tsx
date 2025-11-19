@@ -6,9 +6,9 @@
  */
 
 import { renderToString } from 'react-dom/server'
+import { findMatchingRoute } from '@/domain/utils/route-matcher'
 import { DefaultHomePage } from '@/presentation/components/pages/DefaultHomePage'
 import { DynamicPage } from '@/presentation/components/pages/DynamicPage'
-import { findMatchingRoute } from '@/domain/utils/route-matcher'
 import type { App } from '@/domain/models/app'
 
 /**
