@@ -534,7 +534,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-014: should enable Google Knowledge Graph panel in search results',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -570,7 +570,7 @@ test.describe('Organization Schema', () => {
       await page.goto('/')
 
       // THEN: it should enable Google Knowledge Graph panel in search results
-      await expect(page.locator('script[type="application/ld+json"]')).toBeVisible()
+      await expect(page.locator('script[type="application/ld+json"]')).toBeAttached()
     }
   )
 
