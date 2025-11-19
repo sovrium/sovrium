@@ -369,7 +369,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-010: should link organization to social profiles',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
