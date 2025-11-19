@@ -232,7 +232,7 @@ test.describe('Language Switcher Block', () => {
 
       // Step 5: Verify localStorage persisted the choice
       const storedLanguage = await page.evaluate(() => localStorage.getItem('sovrium_language'))
-      expect(storedLanguage).toBe('fr-FR')
+      expect(storedLanguage).toBe('fr')
 
       // THEN: user can complete full language-switcher workflow
       // All features work together: dropdown variant, flags, language switching, persistence
