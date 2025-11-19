@@ -15,63 +15,62 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: app with multiple languages configured
-      const outputDir = await generateStaticSite(
-        {
-          name: 'test-app',
-          languages: {
-            default: 'en',
-            supported: [
-              { code: 'en', label: 'English', locale: 'en-US' },
-              { code: 'fr', label: 'Français', locale: 'fr-FR' },
-              { code: 'es', label: 'Español', locale: 'es-ES' },
-            ],
-            translations: {
-              en: {
-                'welcome.title': 'Welcome',
-                'welcome.description': 'Welcome to our site',
-                'about.title': 'About Us',
-                'about.description': 'Learn more about us',
-              },
-              fr: {
-                'welcome.title': 'Bienvenue',
-                'welcome.description': 'Bienvenue sur notre site',
-                'about.title': 'À propos',
-                'about.description': 'En savoir plus sur nous',
-              },
-              es: {
-                'welcome.title': 'Bienvenido',
-                'welcome.description': 'Bienvenido a nuestro sitio',
-                'about.title': 'Acerca de',
-                'about.description': 'Aprende más sobre nosotros',
-              },
+      const outputDir = await generateStaticSite({
+        name: 'test-app',
+        languages: {
+          default: 'en',
+          supported: [
+            { code: 'en', label: 'English', locale: 'en-US' },
+            { code: 'fr', label: 'Français', locale: 'fr-FR' },
+            { code: 'es', label: 'Español', locale: 'es-ES' },
+          ],
+          translations: {
+            en: {
+              'welcome.title': 'Welcome',
+              'welcome.description': 'Welcome to our site',
+              'about.title': 'About Us',
+              'about.description': 'Learn more about us',
+            },
+            fr: {
+              'welcome.title': 'Bienvenue',
+              'welcome.description': 'Bienvenue sur notre site',
+              'about.title': 'À propos',
+              'about.description': 'En savoir plus sur nous',
+            },
+            es: {
+              'welcome.title': 'Bienvenido',
+              'welcome.description': 'Bienvenido a nuestro sitio',
+              'about.title': 'Acerca de',
+              'about.description': 'Aprende más sobre nosotros',
             },
           },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: {
-                lang: '{{lang}}',
-                title: '{{welcome.title}}',
-                description: '{{welcome.description}}',
-              },
-              sections: [
-                { type: 'h1', children: ['{{welcome.title}}'] },
-                { type: 'p', children: ['{{welcome.description}}'] },
-              ],
+        },
+        pages: [
+          {
+            name: 'home',
+            path: '/',
+            meta: {
+              lang: '{{lang}}',
+              title: '{{welcome.title}}',
+              description: '{{welcome.description}}',
             },
-            {
-              name: 'about',
-              path: '/about',
-              meta: {
-                lang: '{{lang}}',
-                title: '{{about.title}}',
-                description: '{{about.description}}',
-              },
-              sections: [
-                { type: 'h1', children: ['{{about.title}}'] },
-                { type: 'p', children: ['{{about.description}}'] },
-              ],
+            sections: [
+              { type: 'h1', children: ['{{welcome.title}}'] },
+              { type: 'p', children: ['{{welcome.description}}'] },
+            ],
+          },
+          {
+            name: 'about',
+            path: '/about',
+            meta: {
+              lang: '{{lang}}',
+              title: '{{about.title}}',
+              description: '{{about.description}}',
+            },
+            sections: [
+              { type: 'h1', children: ['{{about.title}}'] },
+              { type: 'p', children: ['{{about.description}}'] },
+            ],
           },
         ],
       })
@@ -432,7 +431,7 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
               'about.content': 'Nous sommes une entreprise internationale',
             },
           },
-      },
+        },
         pages: [
           {
             name: 'home',

@@ -379,17 +379,17 @@ test.describe('Block Props', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English', direction: 'ltr' },
-            { code: 'fr-FR', label: 'Français', direction: 'ltr' },
+            { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' },
           ],
           translations: {
-            'en-US': {
+            en: {
               'close.label': 'Close',
               'save.tooltip': 'Save changes',
             },
-            'fr-FR': {
+            fr: {
               'close.label': 'Fermer',
               'save.tooltip': 'Enregistrer les modifications',
             },
@@ -448,10 +448,10 @@ test.describe('Block Props', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
-          supported: [{ code: 'en-US', label: 'English', direction: 'ltr' }],
+          default: 'en',
+          supported: [{ code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' }],
           translations: {
-            'en-US': {
+            en: {
               'menu.home': 'Home',
               'menu.products': 'Products',
               'menu.contact': 'Contact',
@@ -514,10 +514,10 @@ test.describe('Block Props', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
-          supported: [{ code: 'en-US', label: 'English', direction: 'ltr' }],
+          default: 'en',
+          supported: [{ code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' }],
           translations: {
-            'en-US': {
+            en: {
               'hero.tagline': 'Build your next great app',
               'footer.copyright': '© 2025 All rights reserved',
             },
@@ -576,10 +576,10 @@ test.describe('Block Props', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
-          supported: [{ code: 'en-US', label: 'English', direction: 'ltr' }],
+          default: 'en',
+          supported: [{ code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' }],
           translations: {
-            'en-US': {
+            en: {
               'card.title': 'Product',
               'card.price': 'Price:',
               'card.action': 'Add to Cart',

@@ -101,123 +101,138 @@ export const generateStatic = (
     const hasLanguages = rawApp.languages !== undefined
 
     // For multi-language apps, validate without pages first, then process each language
-    let validatedApp: App
-    if (hasLanguages && rawApp.pages) {
-      // Validate app without pages (to check languages config)
-      const appWithoutPages = { ...rawApp, pages: undefined }
-      const baseApp = yield* Effect.try({
-        try: (): App => Schema.decodeUnknownSync(AppSchema)(appWithoutPages),
-        catch: (error) => new AppValidationError(error),
-      })
+    const validatedApp: App =
+      hasLanguages && rawApp.pages
+        ? yield* Effect.gen(function* () {
+            // Validate app without pages (to check languages config)
+            const appWithoutPages = { ...rawApp, pages: undefined }
+            const baseApp = yield* Effect.try({
+              try: (): App => Schema.decodeUnknownSync(AppSchema)(appWithoutPages),
+              catch: (error) => new AppValidationError(error),
+            })
 
-      // Use base app with original pages for now (will process per language)
-      validatedApp = { ...baseApp, pages: rawApp.pages as App['pages'] }
-    } else {
-      // No languages or no pages - validate normally
-      yield* Console.log('🔍 Validating app schema...')
-      validatedApp = yield* Effect.try({
-        try: (): App => Schema.decodeUnknownSync(AppSchema)(app),
-        catch: (error) => new AppValidationError(error),
-      })
-    }
+            // Use base app with original pages for now (will process per language)
+            return { ...baseApp, pages: rawApp.pages as App['pages'] }
+          })
+        : yield* Effect.gen(function* () {
+            // No languages or no pages - validate normally
+            yield* Console.log('🔍 Validating app schema...')
+            return yield* Effect.try({
+              try: (): App => Schema.decodeUnknownSync(AppSchema)(app),
+              catch: (error) => new AppValidationError(error),
+            })
+          })
 
     // Step 3: Get services from context
     const serverFactory = yield* ServerFactoryService
     const pageRenderer = yield* PageRendererService
 
     const outputDir = options.outputDir || './static'
-    const allGeneratedFiles: string[] = []
 
     // Step 4: Generate static files for each language (or once if no languages)
-    if (validatedApp.languages && validatedApp.pages) {
-      yield* Console.log(`🌍 Generating multi-language static site...`)
-      const supportedLanguages = validatedApp.languages.supported
+    const allGeneratedFiles: readonly string[] =
+      validatedApp.languages && validatedApp.pages
+        ? // eslint-disable-next-line max-lines-per-function -- Multi-language generation requires sequential steps
+          yield* Effect.gen(function* () {
+            yield* Console.log(`🌍 Generating multi-language static site...`)
+            const supportedLanguages = validatedApp.languages!.supported
 
-      for (const lang of supportedLanguages) {
-        yield* Console.log(`📝 Generating pages for language: ${lang.code}...`)
+            // Generate files for each language using Effect.forEach
+            const langFiles = yield* Effect.forEach(
+              supportedLanguages,
+              (lang) =>
+                Effect.gen(function* () {
+                  yield* Console.log(`📝 Generating pages for language: ${lang.code}...`)
 
-        // Replace tokens for this language
-        const langApp = replaceAppTokens(validatedApp, lang.code)
+                  // Replace tokens for this language
+                  const langApp = replaceAppTokens(validatedApp, lang.code)
 
-        // Validate the language-specific app
-        const validatedLangApp = yield* Effect.try({
-          try: (): App => Schema.decodeUnknownSync(AppSchema)(langApp),
-          catch: (error) => new AppValidationError(error),
-        })
+                  // Validate the language-specific app
+                  const validatedLangApp = yield* Effect.try({
+                    try: (): App => Schema.decodeUnknownSync(AppSchema)(langApp),
+                    catch: (error) => new AppValidationError(error),
+                  })
 
-        // Create server instance for this language
-        const serverInstance = yield* serverFactory.create({
-          app: validatedLangApp,
-          port: 0,
-          hostname: 'localhost',
-          renderHomePage: pageRenderer.renderHome,
-          renderPage: pageRenderer.renderPage,
-          renderNotFoundPage: pageRenderer.renderNotFound,
-          renderErrorPage: pageRenderer.renderError,
-        })
+                  // Create server instance for this language
+                  const serverInstance = yield* serverFactory.create({
+                    app: validatedLangApp,
+                    port: 0,
+                    hostname: 'localhost',
+                    renderHomePage: pageRenderer.renderHome,
+                    renderPage: pageRenderer.renderPage,
+                    renderNotFoundPage: pageRenderer.renderNotFound,
+                    renderErrorPage: pageRenderer.renderError,
+                  })
 
-        yield* serverInstance.stop
+                  yield* serverInstance.stop
 
-        // Generate static files in language subdirectory
-        const langOutputDir = `${outputDir}/${lang.code}`
-        const pagePaths = validatedLangApp.pages?.map((page) => page.path) || []
-        const ssgResult = yield* generateStaticSite(serverInstance.app, {
-          outputDir: langOutputDir,
-          pagePaths
-        })
+                  // Generate static files in language subdirectory
+                  const langOutputDir = `${outputDir}/${lang.code}`
+                  const pagePaths = validatedLangApp.pages?.map((page) => page.path) || []
+                  const ssgResult = yield* generateStaticSite(serverInstance.app, {
+                    outputDir: langOutputDir,
+                    pagePaths,
+                  })
 
-        // Track generated files (prepend language dir)
-        allGeneratedFiles.push(...ssgResult.files.map(f => `${lang.code}/${f}`))
-      }
+                  // Return files with language prefix
+                  return ssgResult.files.map((f) => `${lang.code}/${f}`)
+                }),
+              { concurrency: 'unbounded' }
+            )
 
-      // Generate root index.html with default language
-      yield* Console.log(`📝 Generating root index.html with default language...`)
-      const defaultLang = validatedApp.languages.default
-      const defaultLangApp = replaceAppTokens(validatedApp, defaultLang)
-      const validatedDefaultApp = yield* Effect.try({
-        try: (): App => Schema.decodeUnknownSync(AppSchema)(defaultLangApp),
-        catch: (error) => new AppValidationError(error),
-      })
+            // Generate root index.html with default language
+            yield* Console.log(`📝 Generating root index.html with default language...`)
+            const defaultLang = validatedApp.languages!.default
+            const defaultLangApp = replaceAppTokens(validatedApp, defaultLang)
+            const validatedDefaultApp = yield* Effect.try({
+              try: (): App => Schema.decodeUnknownSync(AppSchema)(defaultLangApp),
+              catch: (error) => new AppValidationError(error),
+            })
 
-      const defaultServer = yield* serverFactory.create({
-        app: validatedDefaultApp,
-        port: 0,
-        hostname: 'localhost',
-        renderHomePage: pageRenderer.renderHome,
-        renderPage: pageRenderer.renderPage,
-        renderNotFoundPage: pageRenderer.renderNotFound,
-        renderErrorPage: pageRenderer.renderError,
-      })
+            const defaultServer = yield* serverFactory.create({
+              app: validatedDefaultApp,
+              port: 0,
+              hostname: 'localhost',
+              renderHomePage: pageRenderer.renderHome,
+              renderPage: pageRenderer.renderPage,
+              renderNotFoundPage: pageRenderer.renderNotFound,
+              renderErrorPage: pageRenderer.renderError,
+            })
 
-      yield* defaultServer.stop
+            yield* defaultServer.stop
 
-      // Generate only root index.html
-      const rootSSGResult = yield* generateStaticSite(defaultServer.app, {
-        outputDir,
-        pagePaths: ['/']
-      })
+            // Generate only root index.html
+            const rootSSGResult = yield* generateStaticSite(defaultServer.app, {
+              outputDir,
+              pagePaths: ['/'],
+            })
 
-      allGeneratedFiles.push(...rootSSGResult.files)
-    } else {
-      // No multi-language - generate normally
-      yield* Console.log('🏗️  Creating application instance...')
-      const serverInstance = yield* serverFactory.create({
-        app: validatedApp,
-        port: 0,
-        hostname: 'localhost',
-        renderHomePage: pageRenderer.renderHome,
-        renderPage: pageRenderer.renderPage,
-        renderNotFoundPage: pageRenderer.renderNotFound,
-        renderErrorPage: pageRenderer.renderError,
-      })
+            // Combine all files immutably
+            return [...langFiles.flat(), ...rootSSGResult.files]
+          })
+        : yield* Effect.gen(function* () {
+            // No multi-language - generate normally
+            yield* Console.log('🏗️  Creating application instance...')
+            const serverInstance = yield* serverFactory.create({
+              app: validatedApp,
+              port: 0,
+              hostname: 'localhost',
+              renderHomePage: pageRenderer.renderHome,
+              renderPage: pageRenderer.renderPage,
+              renderNotFoundPage: pageRenderer.renderNotFound,
+              renderErrorPage: pageRenderer.renderError,
+            })
 
-      yield* serverInstance.stop
+            yield* serverInstance.stop
 
-      const pagePaths = validatedApp.pages?.map((page) => page.path) || []
-      yield* Console.log(`📝 Generating static HTML files for ${pagePaths.length} pages...`)
-      const ssgResult = yield* generateStaticSite(serverInstance.app, { outputDir, pagePaths })
-      allGeneratedFiles.push(...ssgResult.files)
-    }
+            const pagePaths = validatedApp.pages?.map((page) => page.path) || []
+            yield* Console.log(`📝 Generating static HTML files for ${pagePaths.length} pages...`)
+            const ssgResult = yield* generateStaticSite(serverInstance.app, {
+              outputDir,
+              pagePaths,
+            })
+            return ssgResult.files
+          })
 
     // Step 5: Get CSS from cache (already compiled during server creation)
     yield* Console.log('🎨 Getting compiled CSS...')

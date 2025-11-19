@@ -11,18 +11,18 @@ import type { Languages } from '@/domain/models/app/languages'
 
 describe('substitutePropsTranslationTokens', () => {
   const languages: Languages = {
-    default: 'en-US',
+    default: 'en',
     supported: [
-      { code: 'en-US', label: 'English', direction: 'ltr' },
-      { code: 'fr-FR', label: 'Français', direction: 'ltr' },
+      { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+      { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' },
     ],
     translations: {
-      'en-US': {
+      en: {
         'close.label': 'Close dialog',
         'save.tooltip': 'Save changes',
         'search.placeholder': 'Type to search',
       },
-      'fr-FR': {
+      fr: {
         'close.label': 'Fermer la boîte de dialogue',
         'save.tooltip': 'Enregistrer les modifications',
         'search.placeholder': 'Tapez pour rechercher',

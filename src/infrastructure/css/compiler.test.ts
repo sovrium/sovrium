@@ -46,8 +46,8 @@ describe('CSS Compiler', () => {
         name: 'Test App',
         description: 'Test',
         languages: {
-          default: 'en-US',
-          supported: [{ code: 'en-US', label: 'English' }] as const,
+          default: 'en',
+          supported: [{ code: 'en', locale: 'en-US', label: 'English' }] as const,
         },
         pages: [],
         theme: {
@@ -79,8 +79,8 @@ describe('CSS Compiler', () => {
         name: 'Test App',
         description: 'Test',
         languages: {
-          default: 'en-US',
-          supported: [{ code: 'en-US', label: 'English' }] as const,
+          default: 'en',
+          supported: [{ code: 'en', locale: 'en-US', label: 'English' }] as const,
         },
         pages: [],
         theme: {
@@ -115,8 +115,8 @@ describe('CSS Compiler', () => {
         name: 'Test App',
         description: 'Test',
         languages: {
-          default: 'en-US',
-          supported: [{ code: 'en-US', label: 'English' }] as const,
+          default: 'en',
+          supported: [{ code: 'en', locale: 'en-US', label: 'English' }] as const,
         },
         pages: [],
         theme: {
@@ -148,8 +148,8 @@ describe('CSS Compiler', () => {
         name: 'Test App',
         description: 'Test',
         languages: {
-          default: 'en-US',
-          supported: [{ code: 'en-US', label: 'English' }] as const,
+          default: 'en',
+          supported: [{ code: 'en', locale: 'en-US', label: 'English' }] as const,
         },
         pages: [],
         theme: {
@@ -180,8 +180,8 @@ describe('CSS Compiler', () => {
         name: 'Test App',
         description: 'Test',
         languages: {
-          default: 'en-US',
-          supported: [{ code: 'en-US', label: 'English' }] as const,
+          default: 'en',
+          supported: [{ code: 'en', locale: 'en-US', label: 'English' }] as const,
         },
         pages: [],
         theme: {
@@ -210,8 +210,8 @@ describe('CSS Compiler', () => {
         name: 'Test App',
         description: 'Test',
         languages: {
-          default: 'en-US',
-          supported: [{ code: 'en-US', label: 'English' }] as const,
+          default: 'en',
+          supported: [{ code: 'en', locale: 'en-US', label: 'English' }] as const,
         },
         pages: [],
         theme: {
@@ -242,8 +242,8 @@ describe('CSS Compiler', () => {
         name: 'Test App',
         description: 'Test',
         languages: {
-          default: 'en-US',
-          supported: [{ code: 'en-US', label: 'English' }] as const,
+          default: 'en',
+          supported: [{ code: 'en', locale: 'en-US', label: 'English' }] as const,
         },
         pages: [],
         theme: {
@@ -276,8 +276,8 @@ describe('CSS Compiler', () => {
         name: 'Test App',
         description: 'Test',
         languages: {
-          default: 'en-US',
-          supported: [{ code: 'en-US', label: 'English' }] as const,
+          default: 'en',
+          supported: [{ code: 'en', locale: 'en-US', label: 'English' }] as const,
         },
         pages: [],
         theme: {
@@ -305,8 +305,8 @@ describe('CSS Compiler', () => {
         name: 'Test App 1',
         description: 'Test',
         languages: {
-          default: 'en-US',
-          supported: [{ code: 'en-US', label: 'English' }] as const,
+          default: 'en',
+          supported: [{ code: 'en', locale: 'en-US', label: 'English' }] as const,
         },
         pages: [],
         theme: {
@@ -320,8 +320,8 @@ describe('CSS Compiler', () => {
         name: 'Test App 2',
         description: 'Test',
         languages: {
-          default: 'en-US',
-          supported: [{ code: 'en-US', label: 'English' }] as const,
+          default: 'en',
+          supported: [{ code: 'en', locale: 'en-US', label: 'English' }] as const,
         },
         pages: [],
         theme: {
@@ -350,8 +350,8 @@ describe('CSS Compiler', () => {
         name: 'Test App',
         description: 'Test',
         languages: {
-          default: 'en-US',
-          supported: [{ code: 'en-US', label: 'English' }] as const,
+          default: 'en',
+          supported: [{ code: 'en', locale: 'en-US', label: 'English' }] as const,
         },
         pages: [],
         theme: {

@@ -72,8 +72,8 @@ export function getTranslationData(
  * @example
  * ```typescript
  * const languages = {
- *   default: 'en-US',
- *   translations: { 'en-US': { 'close.label': 'Close dialog' } }
+ *   default: 'en',
+ *   translations: { 'en': { 'close.label': 'Close dialog' } }
  * }
  * const props = {
  *   'aria-label': '$t:close.label',

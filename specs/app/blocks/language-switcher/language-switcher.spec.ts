@@ -33,11 +33,11 @@ test.describe('Language Switcher Block', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English' },
-            { code: 'fr-FR', label: 'Français' },
-            { code: 'es-ES', label: 'Español' },
+            { code: 'en', locale: 'en-US', label: 'English' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français' },
+            { code: 'es', locale: 'es-ES', label: 'Español' },
           ],
         },
         blocks: [
@@ -84,10 +84,10 @@ test.describe('Language Switcher Block', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English', flag: '🇺🇸' },
-            { code: 'fr-FR', label: 'Français', flag: '🇫🇷' },
+            { code: 'en', locale: 'en-US', label: 'English', flag: '🇺🇸' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français', flag: '🇫🇷' },
           ],
         },
         blocks: [
@@ -133,10 +133,10 @@ test.describe('Language Switcher Block', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English' },
-            { code: 'fr-FR', label: 'Français' },
+            { code: 'en', locale: 'en-US', label: 'English' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français' },
           ],
         },
         blocks: [
@@ -183,12 +183,12 @@ test.describe('Language Switcher Block', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           persistSelection: true,
           supported: [
-            { code: 'en-US', label: 'English', flag: '🇺🇸' },
-            { code: 'fr-FR', label: 'Français', flag: '🇫🇷' },
-            { code: 'es-ES', label: 'Español', flag: '🇪🇸' },
+            { code: 'en', locale: 'en-US', label: 'English', flag: '🇺🇸' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français', flag: '🇫🇷' },
+            { code: 'es', locale: 'es-ES', label: 'Español', flag: '🇪🇸' },
           ],
         },
         blocks: [

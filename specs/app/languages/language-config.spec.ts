@@ -32,10 +32,11 @@ test.describe('Language Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
             {
-              code: 'en-US',
+              code: 'en',
+              locale: 'en-US',
               label: 'English',
             },
           ],
@@ -73,10 +74,11 @@ test.describe('Language Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'ar-SA',
+          default: 'ar',
           supported: [
             {
-              code: 'ar-SA',
+              code: 'ar',
+              locale: 'ar-SA',
               label: 'العربية',
               direction: 'rtl',
             },
@@ -157,10 +159,11 @@ test.describe('Language Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
             {
-              code: 'en-US',
+              code: 'en',
+              locale: 'en-US',
               label: 'English (United States)',
             },
           ],
@@ -198,10 +201,11 @@ test.describe('Language Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'fr-FR',
+          default: 'fr',
           supported: [
             {
-              code: 'fr-FR',
+              code: 'fr',
+              locale: 'fr-FR',
               label: 'Français',
               direction: 'ltr',
               flag: '🇫🇷',
@@ -242,10 +246,11 @@ test.describe('Language Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'es-ES',
+          default: 'es',
           supported: [
             {
-              code: 'es-ES',
+              code: 'es',
+              locale: 'es-ES',
               label: 'Español',
               direction: 'ltr',
               flag: '/flags/es.svg',
@@ -289,14 +294,14 @@ test.describe('Language Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English' },
-            { code: 'fr-FR', label: 'Français' },
-            { code: 'es-ES', label: 'Español' },
-            { code: 'ar-SA', label: 'العربية', direction: 'rtl' },
-            { code: 'zh-CN', label: '中文' },
-            { code: 'ja-JP', label: '日本語' },
+            { code: 'en', locale: 'en-US', label: 'English' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français' },
+            { code: 'es', locale: 'es-ES', label: 'Español' },
+            { code: 'ar', locale: 'ar-SA', label: 'العربية', direction: 'rtl' },
+            { code: 'zh', locale: 'zh-CN', label: '中文' },
+            { code: 'ja', locale: 'ja-JP', label: '日本語' },
           ],
         },
         blocks: [
@@ -336,10 +341,11 @@ test.describe('Language Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
             {
-              code: 'en-US',
+              code: 'en',
+              locale: 'en-US',
               label: 'English',
             },
           ],
@@ -384,22 +390,25 @@ test.describe('Language Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
             {
-              code: 'en-US',
+              code: 'en',
+              locale: 'en-US',
               label: 'English',
               direction: 'ltr',
               flag: '🇺🇸',
             },
             {
-              code: 'fr-FR',
+              code: 'fr',
+              locale: 'fr-FR',
               label: 'Français',
               direction: 'ltr',
               flag: '🇫🇷',
             },
             {
-              code: 'ar-SA',
+              code: 'ar',
+              locale: 'ar-SA',
               label: 'العربية',
               direction: 'rtl',
               flag: '🇸🇦',

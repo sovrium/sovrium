@@ -341,10 +341,10 @@ describe('Server - Integration Tests', () => {
       const config = createServerConfig({
         app: createMockApp({
           languages: {
-            default: 'en-US',
+            default: 'en',
             supported: [
-              { code: 'en-US', label: 'English' },
-              { code: 'fr-FR', label: 'French' },
+              { code: 'en', locale: 'en-US', label: 'English' },
+              { code: 'fr', locale: 'fr-FR', label: 'French' },
             ],
             detectBrowser: false,
           },
@@ -371,10 +371,10 @@ describe('Server - Integration Tests', () => {
       const config = createServerConfig({
         app: createMockApp({
           languages: {
-            default: 'en-US',
+            default: 'en',
             supported: [
-              { code: 'en-US', label: 'English' },
-              { code: 'fr-FR', label: 'French' },
+              { code: 'en', locale: 'en-US', label: 'English' },
+              { code: 'fr', locale: 'fr-FR', label: 'French' },
             ],
             detectBrowser: true,
           },

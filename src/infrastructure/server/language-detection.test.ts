@@ -21,11 +21,11 @@ describe('Language Detection', () => {
         name: 'Test App',
         description: 'Test',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English' },
-            { code: 'fr-FR', label: 'French' },
-            { code: 'es-ES', label: 'Spanish' },
+            { code: 'en', locale: 'en-US', label: 'English' },
+            { code: 'fr', locale: 'fr-FR', label: 'French' },
+            { code: 'es', locale: 'es-ES', label: 'Spanish' },
           ] as const,
         },
         pages: [],
@@ -53,8 +53,8 @@ describe('Language Detection', () => {
         name: 'Test App',
         description: 'Test',
         languages: {
-          default: 'en-US',
-          supported: [{ code: 'en-US', label: 'English' }] as const,
+          default: 'en',
+          supported: [{ code: 'en', locale: 'en-US', label: 'English' }] as const,
         },
         pages: [],
       }
@@ -148,11 +148,11 @@ describe('Language Detection', () => {
       name: 'Test App',
       description: 'Test',
       languages: {
-        default: 'en-US',
+        default: 'en',
         supported: [
-          { code: 'en-US', label: 'English' },
-          { code: 'fr-FR', label: 'French' },
-          { code: 'es-ES', label: 'Spanish' },
+          { code: 'en', locale: 'en-US', label: 'English' },
+          { code: 'fr', locale: 'fr-FR', label: 'French' },
+          { code: 'es', locale: 'es-ES', label: 'Spanish' },
         ] as const,
       },
       pages: [],
@@ -174,10 +174,10 @@ describe('Language Detection', () => {
       const appWithDetectionDisabled: App = {
         ...app,
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English' },
-            { code: 'fr-FR', label: 'French' },
+            { code: 'en', locale: 'en-US', label: 'English' },
+            { code: 'fr', locale: 'fr-FR', label: 'French' },
           ] as const,
           detectBrowser: false,
         },
@@ -210,10 +210,10 @@ describe('Language Detection', () => {
       const appWithDetectionEnabled: App = {
         ...app,
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English' },
-            { code: 'fr-FR', label: 'French' },
+            { code: 'en', locale: 'en-US', label: 'English' },
+            { code: 'fr', locale: 'fr-FR', label: 'French' },
           ] as const,
           detectBrowser: true,
         },
@@ -228,10 +228,10 @@ describe('Language Detection', () => {
       const appWithDefaultDetection: App = {
         ...app,
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English' },
-            { code: 'fr-FR', label: 'French' },
+            { code: 'en', locale: 'en-US', label: 'English' },
+            { code: 'fr', locale: 'fr-FR', label: 'French' },
           ] as const,
         },
       }
@@ -247,11 +247,11 @@ describe('Language Detection', () => {
       name: 'Test App',
       description: 'Test',
       languages: {
-        default: 'en-US',
+        default: 'en',
         supported: [
-          { code: 'en-US', label: 'English' },
-          { code: 'fr-FR', label: 'French' },
-          { code: 'es-ES', label: 'Spanish' },
+          { code: 'en', locale: 'en-US', label: 'English' },
+          { code: 'fr', locale: 'fr-FR', label: 'French' },
+          { code: 'es', locale: 'es-ES', label: 'Spanish' },
         ] as const,
       },
       pages: [],

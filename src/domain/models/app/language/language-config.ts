@@ -24,8 +24,7 @@ import { Schema } from 'effect'
  */
 export const LanguageCodeSchema = Schema.String.pipe(
   Schema.pattern(/^[a-z]{2}$/, {
-    message: () =>
-      'Language code must be ISO 639-1 format (2 lowercase letters, e.g., "en", "fr")',
+    message: () => 'Language code must be ISO 639-1 format (2 lowercase letters, e.g., "en", "fr")',
   }),
   Schema.annotations({
     title: 'Language Code',
@@ -51,8 +50,7 @@ export const LanguageCodeSchema = Schema.String.pipe(
  */
 export const LanguageLocaleSchema = Schema.String.pipe(
   Schema.pattern(/^[a-z]{2}-[A-Z]{2}$/, {
-    message: () =>
-      'Locale must be ISO 639-1 + ISO 3166-1 format (e.g., "en-US", "fr-FR")',
+    message: () => 'Locale must be ISO 639-1 + ISO 3166-1 format (e.g., "en-US", "fr-FR")',
   }),
   Schema.annotations({
     title: 'Language Locale',

@@ -63,10 +63,10 @@ describe('Page Routes - setupHomepageRoute', () => {
       const config = createMockConfig({
         app: createMockApp({
           languages: {
-            default: 'en-US',
+            default: 'en',
             supported: [
-              { code: 'en-US', label: 'English' },
-              { code: 'fr-FR', label: 'French' },
+              { code: 'en', locale: 'en-US', label: 'English' },
+              { code: 'fr', locale: 'fr-FR', label: 'French' },
             ],
             detectBrowser: false,
           },
@@ -84,10 +84,10 @@ describe('Page Routes - setupHomepageRoute', () => {
       const config = createMockConfig({
         app: createMockApp({
           languages: {
-            default: 'en-US',
+            default: 'en',
             supported: [
-              { code: 'en-US', label: 'English' },
-              { code: 'fr-FR', label: 'French' },
+              { code: 'en', locale: 'en-US', label: 'English' },
+              { code: 'fr', locale: 'fr-FR', label: 'French' },
             ],
             detectBrowser: false,
           },
@@ -109,10 +109,10 @@ describe('Page Routes - setupHomepageRoute', () => {
       const config = createMockConfig({
         app: createMockApp({
           languages: {
-            default: 'en-US',
+            default: 'en',
             supported: [
-              { code: 'en-US', label: 'English' },
-              { code: 'fr-FR', label: 'French' },
+              { code: 'en', locale: 'en-US', label: 'English' },
+              { code: 'fr', locale: 'fr-FR', label: 'French' },
             ],
             detectBrowser: true,
           },
@@ -132,10 +132,10 @@ describe('Page Routes - setupHomepageRoute', () => {
       const config = createMockConfig({
         app: createMockApp({
           languages: {
-            default: 'en-US',
+            default: 'en',
             supported: [
-              { code: 'en-US', label: 'English' },
-              { code: 'fr-FR', label: 'French' },
+              { code: 'en', locale: 'en-US', label: 'English' },
+              { code: 'fr', locale: 'fr-FR', label: 'French' },
             ],
             detectBrowser: true,
           },
@@ -156,10 +156,10 @@ describe('Page Routes - setupHomepageRoute', () => {
       const config = createMockConfig({
         app: createMockApp({
           languages: {
-            default: 'en-US',
+            default: 'en',
             supported: [
-              { code: 'en-US', label: 'English' },
-              { code: 'fr-FR', label: 'French' },
+              { code: 'en', locale: 'en-US', label: 'English' },
+              { code: 'fr', locale: 'fr-FR', label: 'French' },
             ],
             detectBrowser: true,
           },
@@ -177,10 +177,10 @@ describe('Page Routes - setupHomepageRoute', () => {
       const config = createMockConfig({
         app: createMockApp({
           languages: {
-            default: 'en-US',
+            default: 'en',
             supported: [
-              { code: 'en-US', label: 'English' },
-              { code: 'fr-FR', label: 'French' },
+              { code: 'en', locale: 'en-US', label: 'English' },
+              { code: 'fr', locale: 'fr-FR', label: 'French' },
             ],
             detectBrowser: true,
           },
@@ -222,10 +222,10 @@ describe('Page Routes - setupLanguageRoutes', () => {
       const config = createMockConfig({
         app: createMockApp({
           languages: {
-            default: 'en-US',
+            default: 'en',
             supported: [
-              { code: 'en-US', label: 'English' },
-              { code: 'fr-FR', label: 'French' },
+              { code: 'en', locale: 'en-US', label: 'English' },
+              { code: 'fr', locale: 'fr-FR', label: 'French' },
             ],
             detectBrowser: true,
           },
@@ -246,10 +246,10 @@ describe('Page Routes - setupLanguageRoutes', () => {
       const config = createMockConfig({
         app: createMockApp({
           languages: {
-            default: 'en-US',
+            default: 'en',
             supported: [
-              { code: 'en-US', label: 'English' },
-              { code: 'fr-FR', label: 'French' },
+              { code: 'en', locale: 'en-US', label: 'English' },
+              { code: 'fr', locale: 'fr-FR', label: 'French' },
             ],
             detectBrowser: true,
           },
@@ -269,10 +269,10 @@ describe('Page Routes - setupLanguageRoutes', () => {
       const config = createMockConfig({
         app: createMockApp({
           languages: {
-            default: 'en-US',
+            default: 'en',
             supported: [
-              { code: 'en-US', label: 'English' },
-              { code: 'fr-FR', label: 'French' },
+              { code: 'en', locale: 'en-US', label: 'English' },
+              { code: 'fr', locale: 'fr-FR', label: 'French' },
             ],
             detectBrowser: true,
           },
@@ -295,8 +295,8 @@ describe('Page Routes - setupLanguageRoutes', () => {
         renderPage: mock(() => undefined),
         app: createMockApp({
           languages: {
-            default: 'en-US',
-            supported: [{ code: 'en-US', label: 'English' }],
+            default: 'en',
+            supported: [{ code: 'en', locale: 'en-US', label: 'English' }],
             detectBrowser: false,
           },
         }),
@@ -316,10 +316,10 @@ describe('Page Routes - setupLanguageRoutes', () => {
       const config = createMockConfig({
         app: createMockApp({
           languages: {
-            default: 'en-US',
+            default: 'en',
             supported: [
-              { code: 'en-US', label: 'English' },
-              { code: 'fr-FR', label: 'French' },
+              { code: 'en', locale: 'en-US', label: 'English' },
+              { code: 'fr', locale: 'fr-FR', label: 'French' },
             ],
             detectBrowser: true,
           },
@@ -343,10 +343,10 @@ describe('Page Routes - setupLanguageRoutes', () => {
       const config = createMockConfig({
         app: createMockApp({
           languages: {
-            default: 'en-US',
+            default: 'en',
             supported: [
-              { code: 'en-US', label: 'English' },
-              { code: 'fr-FR', label: 'French' },
+              { code: 'en', locale: 'en-US', label: 'English' },
+              { code: 'fr', locale: 'fr-FR', label: 'French' },
             ],
             detectBrowser: true,
           },
@@ -366,10 +366,10 @@ describe('Page Routes - setupLanguageRoutes', () => {
       const config = createMockConfig({
         app: createMockApp({
           languages: {
-            default: 'en-US',
+            default: 'en',
             supported: [
-              { code: 'en-US', label: 'English' },
-              { code: 'fr-FR', label: 'French' },
+              { code: 'en', locale: 'en-US', label: 'English' },
+              { code: 'fr', locale: 'fr-FR', label: 'French' },
             ],
             detectBrowser: true,
           },
@@ -389,10 +389,10 @@ describe('Page Routes - setupLanguageRoutes', () => {
       const config = createMockConfig({
         app: createMockApp({
           languages: {
-            default: 'en-US',
+            default: 'en',
             supported: [
-              { code: 'en-US', label: 'English' },
-              { code: 'fr-FR', label: 'French' },
+              { code: 'en', locale: 'en-US', label: 'English' },
+              { code: 'fr', locale: 'fr-FR', label: 'French' },
             ],
             detectBrowser: true,
           },
@@ -417,8 +417,8 @@ describe('Page Routes - setupLanguageRoutes', () => {
         renderErrorPage: mockRenderErrorPage,
         app: createMockApp({
           languages: {
-            default: 'en-US',
-            supported: [{ code: 'en-US', label: 'English' }],
+            default: 'en',
+            supported: [{ code: 'en', locale: 'en-US', label: 'English' }],
             detectBrowser: false,
           },
         }),
@@ -468,10 +468,10 @@ describe('Page Routes - setupDynamicPageRoutes', () => {
       const config = createMockConfig({
         app: createMockApp({
           languages: {
-            default: 'en-US',
+            default: 'en',
             supported: [
-              { code: 'en-US', label: 'English' },
-              { code: 'fr-FR', label: 'French' },
+              { code: 'en', locale: 'en-US', label: 'English' },
+              { code: 'fr', locale: 'fr-FR', label: 'French' },
             ],
             detectBrowser: true,
           },
@@ -538,10 +538,10 @@ describe('Page Routes - setupPageRoutes (Integration)', () => {
     const config = createMockConfig({
       app: createMockApp({
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English' },
-            { code: 'fr-FR', label: 'French' },
+            { code: 'en', locale: 'en-US', label: 'English' },
+            { code: 'fr', locale: 'fr-FR', label: 'French' },
           ],
           detectBrowser: true,
         },

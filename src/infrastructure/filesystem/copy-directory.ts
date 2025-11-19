@@ -54,9 +54,7 @@ const copyFile = (
 /**
  * Create a directory at the destination
  */
-const createDirectory = (
-  destPath: string
-): Effect.Effect<void, FileCopyError, never> =>
+const createDirectory = (destPath: string): Effect.Effect<void, FileCopyError, never> =>
   Effect.tryPromise({
     try: () => mkdir(destPath, { recursive: true }),
     catch: (error) =>
