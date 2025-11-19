@@ -76,11 +76,12 @@ export const NameSchema = Schema.String.pipe(
  *
  * Must:
  * - Start with forward slash (/)
- * - Contain only lowercase letters, numbers, hyphens, and forward slashes
+ * - Contain only lowercase letters, numbers, hyphens, colons, and forward slashes
  * - Be descriptive and hierarchical
+ * - Support dynamic route parameters with colon prefix (e.g., :id, :slug)
  *
  * Used for page routing, API endpoints, and navigation links.
- * Nested paths are supported for hierarchical structure.
+ * Nested paths and dynamic parameters are supported for flexible routing.
  *
  * @example
  * ```typescript
@@ -88,20 +89,31 @@ export const NameSchema = Schema.String.pipe(
  * const simple = '/about'
  * const nested = '/products/inventory'
  * const kebabCase = '/our-team'
+ * const dynamic = '/blog/:slug'
+ * const multiParam = '/users/:userId/posts/:postId'
  * ```
  *
  * @see specs/app/common/definitions.schema.json#/definitions/path
  */
 export const PathSchema = Schema.String.pipe(
   Schema.minLength(1),
-  Schema.pattern(/^\/[a-z0-9-/]*$/, {
+  Schema.pattern(/^\/[a-z0-9-/:]*$/, {
     message: () =>
-      'Path must start with / and contain only lowercase letters, numbers, hyphens, and forward slashes',
+      'Path must start with / and contain only lowercase letters, numbers, hyphens, colons, and forward slashes',
   }),
   Schema.annotations({
     title: 'Path',
-    description: 'URL path for routing and navigation',
-    examples: ['/home', '/customers', '/products/inventory', '/admin/settings', '/reports/sales'],
+    description: 'URL path for routing and navigation (supports dynamic parameters with :param)',
+    examples: [
+      '/home',
+      '/customers',
+      '/products/inventory',
+      '/admin/settings',
+      '/reports/sales',
+      '/blog/:slug',
+      '/products/:id',
+      '/users/:userId/posts/:postId',
+    ],
   })
 )
 
