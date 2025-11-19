@@ -218,7 +218,7 @@ test.describe('URL Path', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PATH-008: should ensure unique routing for all pages',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
