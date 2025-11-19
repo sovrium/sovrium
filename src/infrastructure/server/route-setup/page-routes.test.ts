@@ -149,7 +149,7 @@ describe('Page Routes - setupHomepageRoute', () => {
       })
 
       expect(res.status).toBe(302)
-      expect(res.headers.get('Location')).toBe('/fr-FR/')
+      expect(res.headers.get('Location')).toBe('/fr/')
     })
 
     test('When no Accept-Language header Then serve default without redirect', async () => {
@@ -234,7 +234,7 @@ describe('Page Routes - setupLanguageRoutes', () => {
       })
       const app = setupLanguageRoutes(new Hono(), config)
 
-      const res = await app.request('/fr-FR/')
+      const res = await app.request('/fr/')
 
       expect(res.status).toBe(200)
       expect(mockRenderPage).toHaveBeenCalled()
@@ -258,10 +258,10 @@ describe('Page Routes - setupLanguageRoutes', () => {
       })
       const app = setupLanguageRoutes(new Hono(), config)
 
-      const res = await app.request('/fr-FR/')
+      const res = await app.request('/fr/')
 
       expect(res.status).toBe(200)
-      expect(config.renderHomePage).toHaveBeenCalledWith(config.app, 'fr-FR')
+      expect(config.renderHomePage).toHaveBeenCalledWith(config.app, 'fr')
     })
 
     test('When invalid language subdirectory Then return 404', async () => {
@@ -303,7 +303,7 @@ describe('Page Routes - setupLanguageRoutes', () => {
       })
       const app = setupLanguageRoutes(new Hono(), config)
 
-      const res = await app.request('/en-US/')
+      const res = await app.request('/en/')
 
       expect(res.status).toBe(500)
       expect(config.renderErrorPage).toHaveBeenCalled()
@@ -328,7 +328,7 @@ describe('Page Routes - setupLanguageRoutes', () => {
       })
       const app = setupLanguageRoutes(new Hono(), config)
 
-      const res = await app.request('/fr-FR/about')
+      const res = await app.request('/fr/about')
 
       expect(res.status).toBe(200)
       expect(await res.text()).toContain('Page Content')
@@ -355,7 +355,7 @@ describe('Page Routes - setupLanguageRoutes', () => {
       })
       const app = setupLanguageRoutes(new Hono(), config)
 
-      const res = await app.request('/fr-FR/about')
+      const res = await app.request('/fr/about')
 
       expect(res.status).toBe(200)
       expect(await res.text()).toContain('About in French')
@@ -484,7 +484,7 @@ describe('Page Routes - setupDynamicPageRoutes', () => {
         headers: { 'Accept-Language': 'fr-FR,fr;q=0.9' },
       })
 
-      expect(mockRenderPage).toHaveBeenCalledWith(config.app, '/about', 'fr-FR')
+      expect(mockRenderPage).toHaveBeenCalledWith(config.app, '/about', 'fr')
     })
   })
 })
@@ -555,7 +555,7 @@ describe('Page Routes - setupPageRoutes (Integration)', () => {
     expect(homeRes.status).toBe(200)
 
     // Test language route
-    const langRes = await app.request('/fr-FR/')
+    const langRes = await app.request('/fr/')
     expect(langRes.status).toBe(200)
 
     // Test dynamic page

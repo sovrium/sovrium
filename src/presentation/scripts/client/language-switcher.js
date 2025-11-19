@@ -100,13 +100,14 @@
     const defaultLang = languagesConfig.default
 
     // 1. Check if page has explicit non-default language (page.meta.lang set explicitly)
+    // Normalize page lang to short code for comparison
+    const normalizedPageLang = pageLang
+      ? findSupportedLanguage(pageLang, languagesConfig.supported)
+      : undefined
+
     // If HTML lang differs from default, it means the page explicitly set a language
-    if (pageLang && pageLang !== defaultLang) {
-      // Verify page language is in supported languages (with normalization support)
-      const normalized = findSupportedLanguage(pageLang, languagesConfig.supported)
-      if (normalized) {
-        return normalized
-      }
+    if (normalizedPageLang && normalizedPageLang !== defaultLang) {
+      return normalizedPageLang
     }
 
     // 2. Check if persistence is enabled (defaults to true)
@@ -125,11 +126,8 @@
     }
 
     // 3. Use HTML lang attribute if it matches default (server's default or Accept-Language detection)
-    if (pageLang) {
-      const normalized = findSupportedLanguage(pageLang, languagesConfig.supported)
-      if (normalized) {
-        return normalized
-      }
+    if (normalizedPageLang) {
+      return normalizedPageLang
     }
 
     // 4. Check if browser detection is enabled (defaults to true)
@@ -286,8 +284,10 @@
       return
     }
 
-    // Update HTML lang attribute
-    document.documentElement.setAttribute('lang', currentLanguage)
+    // Update HTML lang attribute (use full locale, not short code)
+    const currentLang = languagesConfig.supported.find((lang) => lang.code === currentLanguage)
+    const locale = currentLang?.locale || currentLanguage
+    document.documentElement.setAttribute('lang', locale)
 
     // Update page metadata if i18n translations are available
     if (pageMeta.i18n && pageMeta.i18n[currentLanguage]) {
@@ -333,14 +333,16 @@
   function updateUI() {
     const currentLang = languagesConfig.supported.find((lang) => lang.code === currentLanguage)
     const label = currentLang?.label || currentLanguage
+    // Use full locale for language-code display (e.g., 'en-US', 'fr-FR')
+    const locale = currentLang?.locale || currentLanguage
 
     // Only update if text content differs from current value to avoid duplication
     if (currentLanguageEl && currentLanguageEl.textContent !== label) {
       currentLanguageEl.textContent = label
     }
 
-    if (languageCodeEl && languageCodeEl.textContent !== currentLanguage) {
-      languageCodeEl.textContent = currentLanguage
+    if (languageCodeEl && languageCodeEl.textContent !== locale) {
+      languageCodeEl.textContent = locale
     }
 
     // Update HTML dir attribute based on language direction
@@ -386,7 +388,7 @@
    * Selects a new language and updates the UI
    * Saves to localStorage if persistSelection is enabled
    * Handles navigation for language subdirectory URLs (/:lang/*)
-   * @param {string} code - ISO 639-1 language code (e.g., 'en-US', 'fr-FR')
+   * @param {string} code - ISO 639-1 short language code (e.g., 'en', 'fr', 'es')
    */
   function selectLanguage(code) {
     currentLanguage = code
@@ -407,7 +409,7 @@
 
     // If current URL starts with a supported language code, navigate to new language subdirectory
     if (firstSegment && supportedCodes.includes(firstSegment)) {
-      // Replace language segment: /fr-FR/about => /en-US/about
+      // Replace language segment: /fr/about => /en/about
       const pathWithoutLang = '/' + segments.slice(1).join('/')
       const newPath = `/${code}${pathWithoutLang}`
 
@@ -455,8 +457,10 @@
     // Create language option buttons
     supportedLanguages.forEach((lang) => {
       const button = document.createElement('button')
-      button.setAttribute('data-testid', `language-option-${lang.code}`)
+      // Use full locale for test ID to match HTML lang attribute
+      button.setAttribute('data-testid', `language-option-${lang.locale}`)
       button.setAttribute('data-language-option', 'true')
+      // Store short code for language selection
       button.setAttribute('data-language-code', lang.code)
       button.setAttribute('type', 'button')
 

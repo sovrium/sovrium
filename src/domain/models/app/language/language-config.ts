@@ -178,7 +178,10 @@ export const LanguageFlagSchema = Schema.String.pipe(
  */
 export const LanguageConfigSchema = Schema.Struct({
   code: LanguageCodeSchema,
-  locale: LanguageLocaleSchema,
+  locale: Schema.optional(LanguageLocaleSchema).annotations({
+    description:
+      'Full locale code (optional - defaults to short code if not specified). Used for HTML lang attribute and hreflang links.',
+  }),
   label: LanguageLabelSchema,
   direction: Schema.optional(LanguageDirectionSchema),
   flag: Schema.optional(LanguageFlagSchema),

@@ -12,10 +12,10 @@ import type { App } from '@/domain/models/app'
  * Get array of supported language codes from app configuration
  *
  * @param app - Application configuration
- * @returns Array of language codes or empty array if languages not configured
+ * @returns Array of short language codes or empty array if languages not configured
  *
  * @example
- * getSupportedLanguageCodes(app) // => ['en-US', 'fr-FR', 'es-ES']
+ * getSupportedLanguageCodes(app) // => ['en', 'fr', 'es']
  */
 export function getSupportedLanguageCodes(app: App): ReadonlyArray<string> {
   return app.languages?.supported.map((l) => l.code) || []
@@ -24,15 +24,15 @@ export function getSupportedLanguageCodes(app: App): ReadonlyArray<string> {
 /**
  * Extract and validate language code from URL path
  *
- * @param path - URL path (e.g., '/fr-FR/', '/en-US/about')
- * @param supportedLanguages - Array of supported language codes
- * @returns Language code if valid, undefined otherwise
+ * @param path - URL path (e.g., '/fr/', '/en/about')
+ * @param supportedLanguages - Array of supported short language codes
+ * @returns Short language code if valid, undefined otherwise
  *
  * @example
- * extractLanguageFromPath('/fr-FR/', ['en-US', 'fr-FR']) // => 'fr-FR'
- * extractLanguageFromPath('/fr-FR/about', ['en-US', 'fr-FR']) // => 'fr-FR'
- * extractLanguageFromPath('/invalid/', ['en-US', 'fr-FR']) // => undefined
- * extractLanguageFromPath('/', ['en-US', 'fr-FR']) // => undefined
+ * extractLanguageFromPath('/fr/', ['en', 'fr']) // => 'fr'
+ * extractLanguageFromPath('/fr/about', ['en', 'fr']) // => 'fr'
+ * extractLanguageFromPath('/invalid/', ['en', 'fr']) // => undefined
+ * extractLanguageFromPath('/', ['en', 'fr']) // => undefined
  */
 export function extractLanguageFromPath(
   path: string,
@@ -58,10 +58,10 @@ export function extractLanguageFromPath(
  *
  * @param app - Application configuration
  * @param header - Accept-Language HTTP header value
- * @returns Detected language code or undefined
+ * @returns Detected short language code or undefined
  *
  * @example
- * detectLanguageIfEnabled(app, 'fr-FR,fr;q=0.9,en;q=0.8') // => 'fr-FR'
+ * detectLanguageIfEnabled(app, 'fr-FR,fr;q=0.9,en;q=0.8') // => 'fr'
  * detectLanguageIfEnabled(appWithDetectionDisabled, 'fr-FR') // => undefined
  */
 export function detectLanguageIfEnabled(app: App, header: string | undefined): string | undefined {
@@ -75,11 +75,11 @@ export function detectLanguageIfEnabled(app: App, header: string | undefined): s
  * Validate and extract language code from URL subdirectory path
  *
  * @param app - Application configuration
- * @param path - URL path (e.g., '/fr-FR/', '/en-US/about')
- * @returns Language code if valid subdirectory, undefined otherwise
+ * @param path - URL path (e.g., '/fr/', '/en/about')
+ * @returns Short language code if valid subdirectory, undefined otherwise
  *
  * @example
- * validateLanguageSubdirectory(app, '/fr-FR/') // => 'fr-FR'
+ * validateLanguageSubdirectory(app, '/fr/') // => 'fr'
  * validateLanguageSubdirectory(app, '/products/pricing') // => undefined
  */
 export function validateLanguageSubdirectory(app: App, path: string): string | undefined {

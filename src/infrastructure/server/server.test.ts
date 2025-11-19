@@ -355,7 +355,7 @@ describe('Server - Integration Tests', () => {
         const serverInstance = yield* createServer(config)
 
         const res = yield* Effect.tryPromise({
-          try: () => fetch(`${serverInstance.url}/fr-FR/`),
+          try: () => fetch(`${serverInstance.url}/fr/`),
           catch: (error) => error,
         })
 
@@ -394,7 +394,7 @@ describe('Server - Integration Tests', () => {
         })
 
         expect(res.status).toBe(302)
-        expect(res.headers.get('Location')).toBe('/fr-FR/')
+        expect(res.headers.get('Location')).toBe('/fr/')
 
         yield* serverInstance.stop
       })

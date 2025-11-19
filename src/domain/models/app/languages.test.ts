@@ -27,15 +27,15 @@ describe('LanguageCodeSchema', () => {
     expect(results).toEqual(codes)
   })
 
-  test('should accept ISO 639-1 codes with region', () => {
-    // GIVEN: Language codes with region
+  test('should reject ISO 639-1 codes with region (use LanguageConfigSchema.locale instead)', () => {
+    // GIVEN: Language codes with region (these are now locale codes, not language codes)
     const codes = ['en-US', 'fr-FR', 'es-ES', 'de-DE', 'ja-JP', 'ar-SA']
 
-    // WHEN: Schema validation is performed on each
-    const results = codes.map((code) => Schema.decodeUnknownSync(LanguageCodeSchema)(code))
-
-    // THEN: All codes should be accepted
-    expect(results).toEqual(codes)
+    // WHEN/THEN: Schema validation should reject these
+    // NOTE: Use the 'locale' field in LanguageConfigSchema for full locale codes
+    codes.forEach((code) => {
+      expect(() => Schema.decodeUnknownSync(LanguageCodeSchema)(code)).toThrow()
+    })
   })
 
   test('should reject invalid language code formats', () => {
@@ -254,9 +254,9 @@ describe('LanguagesSchema', () => {
     // WHEN: Schema validation is performed
     const result = Schema.decodeUnknownSync(LanguagesSchema)(languages)
 
-    // THEN: Translations should be accepted
-    expect(result.translations?.['en-US']?.['common.save']).toBe('Save')
-    expect(result.translations?.['fr-FR']?.['common.save']).toBe('Enregistrer')
+    // THEN: Translations should be accepted (keyed by short codes, not full locales)
+    expect(result.translations?.['en']?.['common.save']).toBe('Save')
+    expect(result.translations?.['fr']?.['common.save']).toBe('Enregistrer')
   })
 
   test('should accept configuration with RTL and LTR languages', () => {

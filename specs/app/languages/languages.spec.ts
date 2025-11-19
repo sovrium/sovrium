@@ -984,19 +984,19 @@ test.describe('Languages Configuration', () => {
       // Verify each language has proper hreflang link
       await expect(page.locator('link[hreflang="en-US"]')).toHaveAttribute(
         'href',
-        expect.stringMatching(/\/en-US\/?/)
+        expect.stringMatching(/\/en\/?/)
       )
       await expect(page.locator('link[hreflang="fr-FR"]')).toHaveAttribute(
         'href',
-        expect.stringMatching(/\/fr-FR\/?/)
+        expect.stringMatching(/\/fr\/?/)
       )
       await expect(page.locator('link[hreflang="es-ES"]')).toHaveAttribute(
         'href',
-        expect.stringMatching(/\/es-ES\/?/)
+        expect.stringMatching(/\/es\/?/)
       )
       await expect(page.locator('link[hreflang="x-default"]')).toHaveAttribute(
         'href',
-        expect.stringMatching(/\/en-US\/?/) // Default language
+        expect.stringMatching(/\/en\/?/) // Default language
       )
     }
   )

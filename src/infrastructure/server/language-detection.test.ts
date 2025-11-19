@@ -33,7 +33,7 @@ describe('Language Detection', () => {
 
       const codes = getSupportedLanguageCodes(app)
 
-      expect(codes).toEqual(['en-US', 'fr-FR', 'es-ES'])
+      expect(codes).toEqual(['en', 'fr', 'es'])
     })
 
     test('returns empty array when languages not configured', () => {
@@ -61,29 +61,29 @@ describe('Language Detection', () => {
 
       const codes = getSupportedLanguageCodes(app)
 
-      expect(codes).toEqual(['en-US'])
+      expect(codes).toEqual(['en'])
     })
   })
 
   describe('extractLanguageFromPath', () => {
-    const supportedLanguages = ['en-US', 'fr-FR', 'es-ES']
+    const supportedLanguages = ['en', 'fr', 'es']
 
     test('extracts language from root path with trailing slash', () => {
-      const result = extractLanguageFromPath('/fr-FR/', supportedLanguages)
+      const result = extractLanguageFromPath('/fr/', supportedLanguages)
 
-      expect(result).toBe('fr-FR')
+      expect(result).toBe('fr')
     })
 
     test('extracts language from nested path', () => {
-      const result = extractLanguageFromPath('/fr-FR/about', supportedLanguages)
+      const result = extractLanguageFromPath('/fr/about', supportedLanguages)
 
-      expect(result).toBe('fr-FR')
+      expect(result).toBe('fr')
     })
 
     test('extracts language from deep nested path', () => {
-      const result = extractLanguageFromPath('/en-US/products/pricing', supportedLanguages)
+      const result = extractLanguageFromPath('/en/products/pricing', supportedLanguages)
 
-      expect(result).toBe('en-US')
+      expect(result).toBe('en')
     })
 
     test('returns undefined for root path', () => {
@@ -93,7 +93,7 @@ describe('Language Detection', () => {
     })
 
     test('returns undefined for unsupported language code', () => {
-      const result = extractLanguageFromPath('/de-DE/', supportedLanguages)
+      const result = extractLanguageFromPath('/de/', supportedLanguages)
 
       expect(result).toBeUndefined()
     })
@@ -111,9 +111,9 @@ describe('Language Detection', () => {
     })
 
     test('handles path without leading slash', () => {
-      const result = extractLanguageFromPath('fr-FR/about', supportedLanguages)
+      const result = extractLanguageFromPath('fr/about', supportedLanguages)
 
-      expect(result).toBe('fr-FR')
+      expect(result).toBe('fr')
     })
 
     test('handles empty path', () => {
@@ -123,13 +123,13 @@ describe('Language Detection', () => {
     })
 
     test('handles path with multiple slashes', () => {
-      const result = extractLanguageFromPath('//fr-FR//about//', supportedLanguages)
+      const result = extractLanguageFromPath('//fr//about//', supportedLanguages)
 
-      expect(result).toBe('fr-FR')
+      expect(result).toBe('fr')
     })
 
     test('returns undefined for empty supported languages', () => {
-      const result = extractLanguageFromPath('/en-US/', [])
+      const result = extractLanguageFromPath('/en/', [])
 
       expect(result).toBeUndefined()
     })
@@ -159,15 +159,15 @@ describe('Language Detection', () => {
     }
 
     test('detects language from Accept-Language header when enabled', () => {
-      const result = detectLanguageIfEnabled(app, 'fr-FR,fr;q=0.9,en;q=0.8')
+      const result = detectLanguageIfEnabled(app, 'fr,fr;q=0.9,en;q=0.8')
 
-      expect(result).toBe('fr-FR')
+      expect(result).toBe('fr')
     })
 
     test('returns best match from Accept-Language header', () => {
-      const result = detectLanguageIfEnabled(app, 'es-ES,es;q=0.9,en;q=0.8')
+      const result = detectLanguageIfEnabled(app, 'es,es;q=0.9,en;q=0.8')
 
-      expect(result).toBe('es-ES')
+      expect(result).toBe('es')
     })
 
     test('returns undefined when browser detection is disabled', () => {
@@ -201,7 +201,7 @@ describe('Language Detection', () => {
     })
 
     test('returns undefined when no supported language matches', () => {
-      const result = detectLanguageIfEnabled(app, 'de-DE,de;q=0.9')
+      const result = detectLanguageIfEnabled(app, 'de,de;q=0.9')
 
       expect(result).toBeUndefined()
     })
@@ -221,7 +221,7 @@ describe('Language Detection', () => {
 
       const result = detectLanguageIfEnabled(appWithDetectionEnabled, 'fr-FR,fr;q=0.9')
 
-      expect(result).toBe('fr-FR')
+      expect(result).toBe('fr')
     })
 
     test('detects language when detectBrowser is not specified (default enabled)', () => {
@@ -238,7 +238,7 @@ describe('Language Detection', () => {
 
       const result = detectLanguageIfEnabled(appWithDefaultDetection, 'fr-FR,fr;q=0.9')
 
-      expect(result).toBe('fr-FR')
+      expect(result).toBe('fr')
     })
   })
 
@@ -258,15 +258,15 @@ describe('Language Detection', () => {
     }
 
     test('validates and returns language code from subdirectory', () => {
-      const result = validateLanguageSubdirectory(app, '/fr-FR/')
+      const result = validateLanguageSubdirectory(app, '/fr/')
 
-      expect(result).toBe('fr-FR')
+      expect(result).toBe('fr')
     })
 
     test('validates language code from nested path', () => {
-      const result = validateLanguageSubdirectory(app, '/fr-FR/about')
+      const result = validateLanguageSubdirectory(app, '/fr/about')
 
-      expect(result).toBe('fr-FR')
+      expect(result).toBe('fr')
     })
 
     test('returns undefined for path without language subdirectory', () => {
@@ -288,9 +288,9 @@ describe('Language Detection', () => {
     })
 
     test('validates all supported languages', () => {
-      expect(validateLanguageSubdirectory(app, '/en-US/')).toBe('en-US')
-      expect(validateLanguageSubdirectory(app, '/fr-FR/')).toBe('fr-FR')
-      expect(validateLanguageSubdirectory(app, '/es-ES/')).toBe('es-ES')
+      expect(validateLanguageSubdirectory(app, '/en/')).toBe('en')
+      expect(validateLanguageSubdirectory(app, '/fr/')).toBe('fr')
+      expect(validateLanguageSubdirectory(app, '/es/')).toBe('es')
     })
 
     test('returns undefined when app has no languages configured', () => {
