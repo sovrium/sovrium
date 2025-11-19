@@ -413,7 +413,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-011: should provide organization history',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
