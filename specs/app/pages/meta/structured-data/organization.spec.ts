@@ -244,7 +244,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-007: should support single or multiple organization images',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
