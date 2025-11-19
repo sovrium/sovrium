@@ -491,7 +491,7 @@ test.describe('Organization Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ORGANIZATION-013: should link organization to hosted events',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
