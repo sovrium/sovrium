@@ -5,10 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { App, Page } from '@/domain/models/app'
-import type { Languages } from '@/domain/models/app/languages'
-import type { LanguageConfig } from '@/domain/models/app/language/language-config'
 import { resolveTranslation } from '@/presentation/translations/translation-resolver'
+import type { App, Page } from '@/domain/models/app'
+import type { LanguageConfig } from '@/domain/models/app/language/language-config'
+import type { Languages } from '@/domain/models/app/languages'
 
 /**
  * Context for token replacement operations
@@ -41,21 +41,14 @@ type TokenReplacementContext = {
  * ```
  */
 function replaceTokens(str: string, context: TokenReplacementContext): string {
-  let result = str
-
   // Replace $t: translation pattern
-  if (result.startsWith('$t:')) {
-    const key = result.slice(3) // Remove '$t:' prefix
-    result = resolveTranslation(key, context.langCode, context.languages)
-  }
+  const translatedStr = str.startsWith('$t:')
+    ? resolveTranslation(str.slice(3), context.langCode, context.languages)
+    : str
 
   // Replace {{currentPath}} pattern (for language switcher hrefs)
-  if (result.includes('{{currentPath}}')) {
-    const currentPath = context.currentPath || '/'
-    result = result.replace(/\{\{currentPath\}\}/g, currentPath)
-  }
-
-  return result
+  const currentPath = context.currentPath || '/'
+  return translatedStr.replace(/\{\{currentPath\}\}/g, currentPath)
 }
 
 /**
@@ -106,33 +99,21 @@ function replaceMetaTokens(meta: Page['meta'], context: TokenReplacementContext)
  * Also replaces {{currentPath}} patterns in language switcher hrefs.
  *
  * @param page - Page with potential $t:key translation tokens
- * @param langCode - Language code (e.g., 'en', 'fr')
- * @param langConfig - Language configuration object
- * @param languages - Full languages configuration (for fallback resolution)
- * @param translations - Translations for the language
+ * @param context - Token replacement context
  * @returns Page with all $t: patterns resolved
  */
-export function replacePageTokens(
-  page: Page,
-  langCode: string,
-  langConfig: LanguageConfig,
-  languages: Languages | undefined,
-  translations: Record<string, string>
-): Page {
-  const context: TokenReplacementContext = {
-    langCode,
-    langConfig,
-    languages,
-    translations,
+export function replacePageTokens(page: Page, context: TokenReplacementContext): Page {
+  const pageContext: TokenReplacementContext = {
+    ...context,
     currentPath: page.path, // Pass current page path for {{currentPath}} replacement
   }
 
   // Replace tokens in everything except meta
   const { meta, ...restOfPage } = page
-  const replacedRest = replaceTokensInValue(restOfPage, context) as Omit<Page, 'meta'>
+  const replacedRest = replaceTokensInValue(restOfPage, pageContext) as Omit<Page, 'meta'>
 
   // Replace meta separately with special lang handling
-  const replacedMeta = replaceMetaTokens(meta, context)
+  const replacedMeta = replaceMetaTokens(meta, pageContext)
 
   return {
     ...replacedRest,
@@ -200,8 +181,8 @@ export function replaceAppTokens(app: App, langCode: string): App {
   // Get translations for this language
   const translations = app.languages.translations?.[langCode] || {}
 
-  // Create context for defaultLayout (preserving {{currentPath}})
-  const contextWithoutPath = {
+  // Create context for token replacement
+  const context: TokenReplacementContext = {
     langCode,
     langConfig,
     languages: app.languages,
@@ -209,16 +190,11 @@ export function replaceAppTokens(app: App, langCode: string): App {
   }
 
   // Replace tokens in pages (with currentPath resolution)
-  const pages = app.pages?.map((page) =>
-    replacePageTokens(page, langCode, langConfig, app.languages, translations)
-  )
+  const pages = app.pages?.map((page) => replacePageTokens(page, context))
 
   // Replace tokens in defaultLayout (preserving {{currentPath}} for per-page resolution)
   const defaultLayout = app.defaultLayout
-    ? (replaceTokensPreservingCurrentPath(
-        app.defaultLayout,
-        contextWithoutPath
-      ) as App['defaultLayout'])
+    ? (replaceTokensPreservingCurrentPath(app.defaultLayout, context) as App['defaultLayout'])
     : app.defaultLayout
 
   // Return app with replaced pages and defaultLayout

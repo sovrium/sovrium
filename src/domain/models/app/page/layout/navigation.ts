@@ -7,7 +7,7 @@
 
 import { Schema } from 'effect'
 import { CtaButtonSchema } from './navigation/cta-button'
-import { NavLinksSchema, NavLinkSchema } from './navigation/nav-links'
+import { NavLinksSchema } from './navigation/nav-links'
 
 /**
  * Navigation links configuration
