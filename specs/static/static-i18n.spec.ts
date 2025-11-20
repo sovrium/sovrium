@@ -230,30 +230,30 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
 
       // THEN: should generate hreflang links
       // English home page should have links to other language versions (using full locales)
-      expect(enHome).toContain('hrefLang="en-US"')
+      expect(enHome).toContain('hreflang="en-US"')
       expect(enHome).toContain('href="/en/"')
-      expect(enHome).toContain('hrefLang="fr-FR"')
+      expect(enHome).toContain('hreflang="fr-FR"')
       expect(enHome).toContain('href="/fr/"')
-      expect(enHome).toContain('hrefLang="de-DE"')
+      expect(enHome).toContain('hreflang="de-DE"')
       expect(enHome).toContain('href="/de/"')
-      expect(enHome).toContain('hrefLang="x-default"')
+      expect(enHome).toContain('hreflang="x-default"')
 
       // French home page should have the same links
-      expect(frHome).toContain('hrefLang="en-US"')
-      expect(frHome).toContain('hrefLang="fr-FR"')
-      expect(frHome).toContain('hrefLang="de-DE"')
+      expect(frHome).toContain('hreflang="en-US"')
+      expect(frHome).toContain('hreflang="fr-FR"')
+      expect(frHome).toContain('hreflang="de-DE"')
 
       // German home page
-      expect(deHome).toContain('hrefLang="en-US"')
-      expect(deHome).toContain('hrefLang="fr-FR"')
-      expect(deHome).toContain('hrefLang="de-DE"')
+      expect(deHome).toContain('hreflang="en-US"')
+      expect(deHome).toContain('hreflang="fr-FR"')
+      expect(deHome).toContain('hreflang="de-DE"')
 
       // About page should have correct hreflang links
-      expect(enAbout).toContain('hrefLang="en-US"')
+      expect(enAbout).toContain('hreflang="en-US"')
       expect(enAbout).toContain('href="/en/about/"')
-      expect(enAbout).toContain('hrefLang="fr-FR"')
+      expect(enAbout).toContain('hreflang="fr-FR"')
       expect(enAbout).toContain('href="/fr/about/"')
-      expect(enAbout).toContain('hrefLang="de-DE"')
+      expect(enAbout).toContain('hreflang="de-DE"')
       expect(enAbout).toContain('href="/de/about/"')
 
       // Note: Canonical URLs would require baseUrl configuration (not tested here)
