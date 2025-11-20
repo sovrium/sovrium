@@ -234,7 +234,7 @@ test.describe('Person Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     "APP-PAGES-PERSON-007: should indicate person's professional role",
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
