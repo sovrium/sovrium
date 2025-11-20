@@ -125,6 +125,12 @@ type DynamicPageBodyProps = {
 }
 
 /**
+ * Generic parameter names that require context from path segments
+ * These parameters get prefixed with their context (e.g., product-id, user-key)
+ */
+const GENERIC_PARAM_NAMES = new Set(['id', 'key', 'uid', 'pk'])
+
+/**
  * Converts route parameters to data attributes for testing
  * Uses context-aware naming: generic params (id, key) get prefixed, descriptive ones (slug) don't
  *
@@ -141,18 +147,21 @@ function buildDataAttributes(
   }
 
   const pathSegments = path.split('/').filter(Boolean)
-  const genericParams = new Set(['id', 'key', 'uid', 'pk'])
 
   return Object.entries(routeParams).reduce<Record<string, string>>((acc, [key, value]) => {
     // Check if parameter name is generic and needs context
-    if (genericParams.has(key)) {
+    if (GENERIC_PARAM_NAMES.has(key)) {
       // Generic parameter - add context from previous path segment
       // e.g., /products/:id -> data-product-id
       const paramIndex = pathSegments.findIndex((seg) => seg === `:${key}`)
       if (paramIndex > 0) {
         const contextSegment = pathSegments[paramIndex - 1]
-        const singularContext = contextSegment?.endsWith('s')
-          ? contextSegment.slice(0, -1) // Remove trailing 's' for singular form
+        if (!contextSegment) {
+          return { ...acc, [`data-${key}`]: value }
+        }
+        // Convert plural to singular (e.g., 'products' -> 'product')
+        const singularContext = contextSegment.endsWith('s')
+          ? contextSegment.slice(0, -1)
           : contextSegment
         return { ...acc, [`data-${singularContext}-${key}`]: value }
       }
