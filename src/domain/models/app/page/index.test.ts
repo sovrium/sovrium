@@ -9,7 +9,7 @@
 // @ts-nocheck
 import { describe, expect, test } from 'bun:test'
 import { Schema } from 'effect'
-import { PageSchema } from './index'
+import { PageSchema } from '.'
 
 describe('PageSchema', () => {
   test('should accept page with required properties only', () => {

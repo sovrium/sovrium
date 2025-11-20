@@ -142,6 +142,72 @@
           "Support subdirectory deployment correctly"
         ]
       }
+    },
+    {
+      "id": "STATIC-DEPLOY-005",
+      "given": "a static site configured for GitHub Pages with custom domain",
+      "when": "static site is generated with deployment: 'github-pages' and baseUrl contains custom domain (not github.io)",
+      "then": "CNAME file should be created in output root with the extracted domain name",
+      "application": {
+        "configuration": {
+          "deployment": "github-pages",
+          "baseUrl": "https://sovrium.com",
+          "outputDirectory": "dist/"
+        },
+        "expectedOutput": {
+          "file": "dist/CNAME",
+          "content": "sovrium.com",
+          "purpose": "Configure custom domain for GitHub Pages"
+        },
+        "useCases": [
+          "Custom domain: Deploy to custom domain instead of username.github.io",
+          "Domain extraction: Extract domain from baseUrl (remove protocol and path)",
+          "Conditional: Only generate CNAME for custom domains (not *.github.io URLs)",
+          "GitHub Pages: Configure custom domain automatically"
+        ],
+        "assertions": [
+          "Create CNAME file in output root with domain name only",
+          "Extract domain from baseUrl (e.g., https://sovrium.com → sovrium.com)",
+          "No protocol, no path, no trailing whitespace in CNAME content",
+          "Only generate when deployment is 'github-pages' and baseUrl is custom domain",
+          "Do NOT generate CNAME for *.github.io URLs (default GitHub Pages domains)"
+        ]
+      }
+    },
+    {
+      "id": "STATIC-DEPLOY-006",
+      "given": "a static site with pages including underscore-prefixed paths",
+      "when": "static site is generated",
+      "then": "underscore-prefixed pages (/_admin, /_api, etc.) should be excluded from HTML generation but listed in robots.txt disallow rules",
+      "application": {
+        "configuration": {
+          "pages": [
+            { "path": "/", "title": "Home" },
+            { "path": "/about", "title": "About" },
+            { "path": "/_admin", "title": "Admin", "robots": "noindex" },
+            { "path": "/_api", "title": "API", "robots": "noindex" }
+          ]
+        },
+        "expectedOutput": {
+          "generated": ["index.html", "about.html"],
+          "excluded": ["_admin.html", "_api.html"],
+          "robotsTxt": "Disallow: /_admin\nDisallow: /_api"
+        },
+        "useCases": [
+          "Admin panels: Exclude /_admin from static generation",
+          "Internal APIs: Exclude /_api routes from static site",
+          "GitHub Pages: .nojekyll allows underscore files but we skip generation",
+          "SEO: Add underscore paths to robots.txt disallow list",
+          "Security: Prevent static generation of internal/admin pages"
+        ],
+        "assertions": [
+          "Do NOT generate HTML files for pages with underscore-prefixed paths",
+          "Add underscore-prefixed paths to robots.txt Disallow rules",
+          "Skip underscore pages during sitemap generation",
+          "Apply exclusion consistently across single and multi-language modes",
+          "Underscore pages with noindex should appear in robots.txt disallow"
+        ]
+      }
     }
   ]
 }

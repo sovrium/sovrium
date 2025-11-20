@@ -211,6 +211,73 @@
           "Handle special characters in paths safely"
         ]
       }
+    },
+    {
+      "id": "STATIC-GENERATION-006",
+      "given": "an app configuration with any page content",
+      "when": "static HTML is generated",
+      "then": "HTML should be properly formatted with Prettier using consistent indentation and line breaks",
+      "application": {
+        "configuration": {
+          "pages": [
+            {
+              "name": "formatted",
+              "path": "/formatted",
+              "meta": {
+                "lang": "en",
+                "title": "Formatted Page",
+                "description": "Page with properly formatted HTML",
+                "viewport": "width=device-width, initial-scale=1.0"
+              },
+              "sections": [
+                {
+                  "type": "div",
+                  "props": { "className": "container" },
+                  "children": [
+                    { "type": "h1", "children": ["Main Title"] },
+                    {
+                      "type": "div",
+                      "children": [
+                        { "type": "p", "children": ["First paragraph"] },
+                        { "type": "p", "children": ["Second paragraph"] }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "expectedOutput": {
+          "file": "dist/formatted.html",
+          "formatter": "Prettier with HTML parser",
+          "formatting": {
+            "indentation": "2 spaces (from .prettierrc.json)",
+            "lineBreaks": "Proper line breaks between major elements",
+            "doctype": "<!DOCTYPE html> on first line",
+            "selfClosingTags": "Proper formatting for self-closing tags",
+            "attributes": "One attribute per line (singleAttributePerLine: true)"
+          }
+        },
+        "expectedStructure": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Formatted Page</title>\n    <meta name=\"description\" content=\"Page with properly formatted HTML\">\n  </head>\n  <body>\n    <!-- Well-indented content -->\n  </body>\n</html>",
+        "useCases": [
+          "Professional formatting: Use Prettier for consistent HTML formatting across all files",
+          "Developer experience: Readable HTML for debugging and inspection",
+          "SEO: Well-structured HTML for search engine crawlers",
+          "Maintenance: Easy to inspect generated output with proper indentation",
+          "Standards: Following HTML formatting best practices via Prettier config"
+        ],
+        "assertions": [
+          "Use Prettier to format all generated HTML files",
+          "Apply .prettierrc.json configuration (2 spaces, singleAttributePerLine)",
+          "HTML should have consistent indentation matching project standards",
+          "Each major HTML element should be on its own line",
+          "DOCTYPE declaration should be on the first line",
+          "Nested elements should be properly indented",
+          "Self-closing tags should be properly formatted",
+          "Attributes should follow singleAttributePerLine rule"
+        ]
+      }
     }
   ]
 }

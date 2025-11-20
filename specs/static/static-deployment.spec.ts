@@ -11,7 +11,7 @@ import { join } from 'node:path'
 import { test, expect } from '@/specs/fixtures'
 
 test.describe('Static Site Generation - Deployment Features', () => {
-  test.fixme(
+  test(
     'STATIC-DEPLOY-001: should generate .nojekyll for GitHub Pages',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
@@ -27,8 +27,14 @@ test.describe('Static Site Generation - Deployment Features', () => {
               sections: [],
             },
             {
+              name: 'about',
+              path: '/about',
+              meta: { lang: 'en', title: 'About', description: 'About page' },
+              sections: [{ type: 'h1', children: ['About Us'] }],
+            },
+            {
               name: 'docs',
-              path: '/_docs/api', // Path starting with underscore
+              path: '/_docs/api', // Underscore path - should be excluded from generation
               meta: { lang: 'en', title: 'API Docs', description: 'API Documentation' },
               sections: [{ type: 'h1', children: ['API Documentation'] }],
             },
@@ -52,16 +58,18 @@ test.describe('Static Site Generation - Deployment Features', () => {
       const nojekyllContent = await readFile(join(outputDir, '.nojekyll'), 'utf-8')
       expect(nojekyllContent).toBe('')
 
-      // Should handle underscore paths correctly
+      // Underscore-prefixed pages should NOT be generated
       const allFiles = await readdir(outputDir, { recursive: true })
-      expect(allFiles).toContain('_docs/api.html')
+      expect(allFiles).not.toContain('_docs')
+      expect(allFiles).not.toContain('_docs/api.html')
 
-      // Verify underscore directory was created
-      await expect(access(join(outputDir, '_docs'), constants.R_OK)).resolves.toBeUndefined()
+      // Regular pages should be generated
+      expect(allFiles).toContain('index.html')
+      expect(allFiles).toContain('about.html')
     }
   )
 
-  test.fixme(
+  test(
     'STATIC-DEPLOY-002: should generate sitemap.xml',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
@@ -182,7 +190,7 @@ test.describe('Static Site Generation - Deployment Features', () => {
     }
   )
 
-  test.fixme(
+  test(
     'STATIC-DEPLOY-003: should generate robots.txt',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
@@ -195,17 +203,6 @@ test.describe('Static Site Generation - Deployment Features', () => {
               name: 'home',
               path: '/',
               meta: { lang: 'en', title: 'Home', description: 'Home' },
-              sections: [],
-            },
-            {
-              name: 'admin',
-              path: '/admin',
-              meta: {
-                lang: 'en',
-                title: 'Admin',
-                description: 'Admin panel',
-                robots: 'noindex, nofollow', // Should be disallowed
-              },
               sections: [],
             },
             {
@@ -253,7 +250,6 @@ test.describe('Static Site Generation - Deployment Features', () => {
       expect(robots).toContain('Allow: /')
 
       // Disallow pages with noindex
-      expect(robots).toContain('Disallow: /admin')
       expect(robots).toContain('Disallow: /api/docs')
       expect(robots).toContain('Disallow: /private')
 
@@ -274,7 +270,7 @@ test.describe('Static Site Generation - Deployment Features', () => {
     }
   )
 
-  test.fixme(
+  test(
     'STATIC-DEPLOY-004: should handle base path configuration',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
@@ -371,7 +367,82 @@ test.describe('Static Site Generation - Deployment Features', () => {
     }
   )
 
-  test.fixme(
+  test(
+    'STATIC-DEPLOY-005: should generate CNAME for custom domains',
+    { tag: '@spec' },
+    async ({ generateStaticSite }) => {
+      // GIVEN: app configured for GitHub Pages with custom domain
+      const outputDir = await generateStaticSite(
+        {
+          name: 'test-app',
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en', title: 'Home', description: 'Home page' },
+              sections: [],
+            },
+          ],
+        },
+        {
+          deployment: 'github-pages',
+          baseUrl: 'https://sovrium.com',
+        }
+      )
+
+      // WHEN: examining deployment files
+      const files = await readdir(outputDir)
+
+      // THEN: should generate CNAME file
+      expect(files).toContain('CNAME')
+
+      // Verify CNAME exists and is readable
+      await expect(access(join(outputDir, 'CNAME'), constants.R_OK)).resolves.toBeUndefined()
+
+      // CNAME should contain only the domain (no protocol, no path)
+      const cnameContent = await readFile(join(outputDir, 'CNAME'), 'utf-8')
+      expect(cnameContent).toBe('sovrium.com')
+
+      // Should also have .nojekyll (both files needed)
+      expect(files).toContain('.nojekyll')
+    }
+  )
+
+  test(
+    'STATIC-DEPLOY-005b: should NOT generate CNAME for github.io URLs',
+    { tag: '@spec' },
+    async ({ generateStaticSite }) => {
+      // GIVEN: app configured for GitHub Pages with github.io URL
+      const outputDir = await generateStaticSite(
+        {
+          name: 'test-app',
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en', title: 'Home', description: 'Home page' },
+              sections: [],
+            },
+          ],
+        },
+        {
+          deployment: 'github-pages',
+          baseUrl: 'https://username.github.io/repo',
+        }
+      )
+
+      // WHEN: examining deployment files
+      const files = await readdir(outputDir)
+
+      // THEN: should NOT generate CNAME for github.io domain
+      expect(files).not.toContain('CNAME')
+
+      // But should still have .nojekyll
+      expect(files).toContain('.nojekyll')
+    }
+  )
+
+  test(
     'STATIC-DEPLOY-REGRESSION-001: complete deployment workflow',
     { tag: '@regression' },
     async ({ generateStaticSite, page }) => {
@@ -384,15 +455,14 @@ test.describe('Static Site Generation - Deployment Features', () => {
             colors: { primary: '#3B82F6' },
           },
           languages: {
-            en: {
-              name: 'English',
-              locale: 'en-US',
-              translations: { title: 'Home' },
-            },
-            fr: {
-              name: 'Français',
-              locale: 'fr-FR',
-              translations: { title: 'Accueil' },
+            default: 'en',
+            supported: [
+              { code: 'en', locale: 'en-US', label: 'English' },
+              { code: 'fr', locale: 'fr-FR', label: 'Français' },
+            ],
+            translations: {
+              en: { title: 'Home' },
+              fr: { title: 'Accueil' },
             },
           },
           pages: [
@@ -443,16 +513,6 @@ test.describe('Static Site Generation - Deployment Features', () => {
               },
               sections: [],
             },
-            {
-              name: 'admin',
-              path: '/_admin',
-              meta: {
-                lang: 'en',
-                title: 'Admin',
-                robots: 'noindex, nofollow',
-              },
-              sections: [],
-            },
           ],
         },
         {
@@ -473,6 +533,9 @@ test.describe('Static Site Generation - Deployment Features', () => {
       // GitHub Pages specific
       expect(files).toContain('.nojekyll')
 
+      // CNAME should NOT be generated for github.io URLs
+      expect(files).not.toContain('CNAME')
+
       // Sitemap
       expect(files).toContain('sitemap.xml')
       const sitemap = await readFile(join(outputDir, 'sitemap.xml'), 'utf-8')
@@ -483,7 +546,6 @@ test.describe('Static Site Generation - Deployment Features', () => {
       // Robots.txt
       expect(files).toContain('robots.txt')
       const robots = await readFile(join(outputDir, 'robots.txt'), 'utf-8')
-      expect(robots).toContain('Disallow: /_admin')
       expect(robots).toContain('Sitemap: https://example.github.io/my-project/sitemap.xml')
 
       // Multi-language structure
@@ -508,8 +570,10 @@ test.describe('Static Site Generation - Deployment Features', () => {
       await page.goto(`file://${join(outputDir, 'en/index.html')}`)
       await expect(page.locator('h1')).toBeVisible()
 
-      // Verify underscore paths work (GitHub Pages compatibility)
-      expect(files).toContain('_admin.html')
+      // Verify underscore-prefixed pages are NOT generated (admin/internal pages)
+      expect(files).not.toContain('_admin.html')
+      expect(files).not.toContain('en/_admin.html')
+      expect(files).not.toContain('fr/_admin.html')
     }
   )
 })

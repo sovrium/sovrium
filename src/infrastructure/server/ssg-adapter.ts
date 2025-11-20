@@ -114,10 +114,24 @@ export const generateStaticSite = (
         )
       }
 
+      // Note: HTML formatting is handled in the application layer (generate-static.ts)
+      // to ensure it's applied consistently across all generation methods
+
+      // Normalize file paths to be relative to outputDir
+      // Hono's toSSG may return absolute paths, we need relative paths for consistent handling
+      const normalizedFiles = (result.files as readonly string[]).map((file) => {
+        // If file is absolute and starts with outputDir, make it relative
+        if (file.startsWith(outputDir)) {
+          return file.substring(outputDir.length + 1) // +1 to skip the leading slash
+        }
+        // Otherwise, return as-is (already relative)
+        return file
+      })
+
       // Return output directory and generated files from toSSG
       return {
         outputDir,
-        files: result.files as readonly string[],
+        files: normalizedFiles,
       } as const
     },
     catch: (error) =>

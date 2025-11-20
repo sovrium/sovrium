@@ -96,7 +96,7 @@ test.describe('Static Site Generation', () => {
       // THEN: should generate valid HTML with DOCTYPE
       expect(html.startsWith('<!DOCTYPE html>')).toBe(true)
       expect(html).toContain('lang="en"') // React adds dir attribute
-      expect(html).toContain('charSet="UTF-8"') // React uses charSet
+      expect(html).toContain('charset="UTF-8"') // Prettier normalizes charSet to charset (standard HTML)
       expect(html).toContain('name="viewport"')
       expect(html).toContain('content="width=device-width, initial-scale=1')
       expect(html).toContain('<title>Test App</title>')
@@ -288,6 +288,122 @@ test.describe('Static Site Generation', () => {
       const files = await readdir(outputDir, { recursive: true })
       expect(files).toContain('docs/guides/getting-started/installation.html')
       expect(files).toContain('api/v1/users/profile.html')
+    }
+  )
+
+  test(
+    'STATIC-GENERATION-006: should generate well-formatted HTML',
+    { tag: '@spec' },
+    async ({ generateStaticSite }) => {
+      // GIVEN: app with structured content
+      const outputDir = await generateStaticSite({
+        name: 'test-app',
+        pages: [
+          {
+            name: 'formatted',
+            path: '/formatted',
+            meta: {
+              lang: 'en',
+              title: 'Formatted Page',
+              description: 'Page with properly formatted HTML',
+              charset: 'UTF-8',
+              viewport: 'width=device-width, initial-scale=1.0',
+            },
+            sections: [
+              {
+                type: 'div',
+                props: { className: 'container mx-auto' },
+                children: [
+                  { type: 'h1', props: { className: 'text-3xl' }, children: ['Main Title'] },
+                  {
+                    type: 'div',
+                    props: { className: 'content' },
+                    children: [
+                      {
+                        type: 'p',
+                        props: { className: 'mb-4' },
+                        children: [
+                          'First paragraph with some text content that should be properly formatted.',
+                        ],
+                      },
+                      {
+                        type: 'p',
+                        props: { className: 'mb-4' },
+                        children: [
+                          'Second paragraph with additional content to ensure proper formatting.',
+                        ],
+                      },
+                      {
+                        type: 'list',
+                        props: { className: 'list' },
+                        children: [
+                          { type: 'list-item', children: ['First item'] },
+                          { type: 'list-item', children: ['Second item'] },
+                          { type: 'list-item', children: ['Third item'] },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      })
+
+      // WHEN: reading generated HTML
+      const html = await readFile(join(outputDir, 'formatted.html'), 'utf-8')
+
+      // THEN: HTML should be well formatted
+      // Check for DOCTYPE on first line
+      const lines = html.split('\n')
+      expect(lines[0].trim()).toBe('<!DOCTYPE html>')
+
+      // Check for proper structure (not minified)
+      expect(html).toContain('<html')
+      expect(html).toContain('<head>')
+      expect(html).toContain('<body')
+      expect(html).toContain('</html>')
+
+      // Check that major elements are on separate lines (not all on one line)
+      const htmlLines = html
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+      expect(htmlLines.length).toBeGreaterThan(10) // Should have multiple lines, not minified
+
+      // Check for consistent indentation patterns
+      // Head elements should be indented
+      const _headIndex = htmlLines.findIndex((line) => line.includes('<head>'))
+      const metaLines = htmlLines.filter((line) => line.startsWith('<meta'))
+      expect(metaLines.length).toBeGreaterThan(0) // Should have meta tags
+
+      // Check that nested content maintains structure
+      expect(html).toContain('<h1')
+      expect(html).toContain('Main Title')
+      expect(html).toContain('</h1>')
+
+      // Check that paragraphs are present (list components might not be implemented yet)
+      expect(html).toContain('First paragraph')
+      expect(html).toContain('Second paragraph')
+
+      // Verify HTML is not minified (has newlines between major sections)
+      const htmlWithoutSpaces = html.replace(/\s+/g, '')
+      expect(html.length).toBeGreaterThan(htmlWithoutSpaces.length * 0.9) // HTML should have significant whitespace
+
+      // Check for proper closing tags
+      const openTags = (html.match(/<[^/][^>]*>/g) || []).filter(
+        (tag) => !tag.includes('/>') && !tag.startsWith('<!')
+      )
+      const closeTags = html.match(/<\/[^>]+>/g) || []
+
+      // Common paired tags should match (approximation since React may have extra wrappers)
+      const pairedTags = ['html', 'head', 'body', 'div']
+      for (const tagName of pairedTags) {
+        const _openCount = openTags.filter((tag) => tag.includes(`<${tagName}`)).length
+        const closeCount = closeTags.filter((tag) => tag.includes(`</${tagName}>`)).length
+        expect(closeCount).toBeGreaterThan(0) // Should have at least some closing tags
+      }
     }
   )
 
