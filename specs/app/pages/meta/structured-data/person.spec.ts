@@ -437,7 +437,7 @@ test.describe('Person Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PERSON-012: should enable Google Knowledge Graph panel for notable persons',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
