@@ -357,7 +357,7 @@ test.describe('Static Site Generation', () => {
       // THEN: HTML should be well formatted
       // Check for DOCTYPE on first line
       const lines = html.split('\n')
-      expect(lines[0].trim()).toBe('<!DOCTYPE html>')
+      expect(lines[0]?.trim()).toBe('<!DOCTYPE html>')
 
       // Check for proper structure (not minified)
       expect(html).toContain('<html')
@@ -374,7 +374,6 @@ test.describe('Static Site Generation', () => {
 
       // Check for consistent indentation patterns
       // Head elements should be indented
-      const _headIndex = htmlLines.findIndex((line) => line.includes('<head>'))
       const metaLines = htmlLines.filter((line) => line.startsWith('<meta'))
       expect(metaLines.length).toBeGreaterThan(0) // Should have meta tags
 
@@ -392,15 +391,11 @@ test.describe('Static Site Generation', () => {
       expect(html.length).toBeGreaterThan(htmlWithoutSpaces.length * 0.9) // HTML should have significant whitespace
 
       // Check for proper closing tags
-      const openTags = (html.match(/<[^/][^>]*>/g) || []).filter(
-        (tag) => !tag.includes('/>') && !tag.startsWith('<!')
-      )
       const closeTags = html.match(/<\/[^>]+>/g) || []
 
       // Common paired tags should match (approximation since React may have extra wrappers)
       const pairedTags = ['html', 'head', 'body', 'div']
       for (const tagName of pairedTags) {
-        const _openCount = openTags.filter((tag) => tag.includes(`<${tagName}`)).length
         const closeCount = closeTags.filter((tag) => tag.includes(`</${tagName}>`)).length
         expect(closeCount).toBeGreaterThan(0) // Should have at least some closing tags
       }
