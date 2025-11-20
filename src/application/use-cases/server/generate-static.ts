@@ -13,13 +13,18 @@ import { ServerFactory as ServerFactoryService } from '@/application/ports/serve
 import { AppSchema } from '@/domain/models/app'
 import { compileCSS } from '@/infrastructure/css/compiler'
 import { generateStaticSite } from '@/infrastructure/server/ssg-adapter'
-import type { PageRenderer } from '@/application/ports/page-renderer'
-import type { ServerFactory } from '@/application/ports/server-factory'
 import type { App, Page } from '@/domain/models/app'
 import type { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
 import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
 import type { FileCopyError } from '@/infrastructure/filesystem/copy-directory'
 import type { SSGGenerationError } from '@/infrastructure/server/ssg-adapter'
+import type { Context } from 'effect'
+import type * as fs from 'node:fs/promises'
+import type * as path from 'node:path'
+
+// Service types extracted from Context.Tag
+type ServerFactory = Context.Tag.Service<typeof ServerFactoryService>
+type PageRenderer = Context.Tag.Service<typeof PageRendererService>
 
 /**
  * Options for static site generation
@@ -53,12 +58,294 @@ export interface GenerateStaticResult {
  */
 const isGitHubPagesUrl = (url: string): boolean => {
   try {
-    const hostname = new URL(url).hostname
+    const { hostname } = new URL(url)
     return hostname === 'github.io' || hostname.endsWith('.github.io')
   } catch {
     return false
   }
 }
+
+/**
+ * Generate static files for multi-language configuration
+ */
+const generateMultiLanguageFiles = (
+  validatedApp: App,
+  outputDir: string,
+  replaceAppTokens: (app: App, lang: string) => App,
+  serverFactory: ServerFactory,
+  pageRenderer: PageRenderer
+): Effect.Effect<
+  readonly string[],
+  AppValidationError | CSSCompilationError | ServerCreationError | SSGGenerationError,
+  never
+> =>
+  Effect.gen(function* () {
+    yield* Console.log(`🌍 Generating multi-language static site...`)
+    const supportedLanguages = validatedApp.languages!.supported
+
+    // Generate files for each language using Effect.forEach
+    const langFiles = yield* Effect.forEach(
+      supportedLanguages,
+      (lang) =>
+        Effect.gen(function* () {
+          yield* Console.log(`📝 Generating pages for language: ${lang.code}...`)
+
+          // Replace tokens for this language
+          const langApp = replaceAppTokens(validatedApp, lang.code)
+
+          // Validate the language-specific app
+          const validatedLangApp = yield* Effect.try({
+            try: (): App => Schema.decodeUnknownSync(AppSchema)(langApp),
+            catch: (error) => new AppValidationError(error),
+          })
+
+          // Create server instance for this language
+          const serverInstance = yield* serverFactory.create({
+            app: validatedLangApp,
+            port: 0,
+            hostname: 'localhost',
+            renderHomePage: pageRenderer.renderHome,
+            renderPage: pageRenderer.renderPage,
+            renderNotFoundPage: pageRenderer.renderNotFound,
+            renderErrorPage: pageRenderer.renderError,
+          })
+
+          yield* serverInstance.stop
+
+          // Generate static files in language subdirectory
+          const langOutputDir = `${outputDir}/${lang.code}`
+          // Filter out underscore-prefixed pages (admin/internal pages)
+          const pagePaths =
+            validatedLangApp.pages
+              ?.filter((page) => !page.path.startsWith('/_'))
+              .map((page) => page.path) || []
+          const ssgResult = yield* generateStaticSite(serverInstance.app, {
+            outputDir: langOutputDir,
+            pagePaths,
+          })
+
+          // Return files with language prefix (normalize paths to be relative)
+          return ssgResult.files.map((f) => {
+            // toSSG returns relative paths from the outputDir
+            // Simply prefix with language code
+            return `${lang.code}/${f}`
+          })
+        }),
+      { concurrency: 'unbounded' }
+    )
+
+    // Generate root index.html with default language
+    yield* Console.log(`📝 Generating root index.html with default language...`)
+    const defaultLang = validatedApp.languages!.default
+    const defaultLangApp = replaceAppTokens(validatedApp, defaultLang)
+    const validatedDefaultApp = yield* Effect.try({
+      try: (): App => Schema.decodeUnknownSync(AppSchema)(defaultLangApp),
+      catch: (error) => new AppValidationError(error),
+    })
+
+    const defaultServer = yield* serverFactory.create({
+      app: validatedDefaultApp,
+      port: 0,
+      hostname: 'localhost',
+      renderHomePage: pageRenderer.renderHome,
+      renderPage: pageRenderer.renderPage,
+      renderNotFoundPage: pageRenderer.renderNotFound,
+      renderErrorPage: pageRenderer.renderError,
+    })
+
+    yield* defaultServer.stop
+
+    // Generate only root index.html
+    const rootSSGResult = yield* generateStaticSite(defaultServer.app, {
+      outputDir,
+      pagePaths: ['/'],
+    })
+
+    // Combine all files immutably
+    return [...langFiles.flat(), ...rootSSGResult.files]
+  })
+
+/**
+ * Generate static files for single-language configuration
+ */
+const generateSingleLanguageFiles = (
+  validatedApp: App,
+  outputDir: string,
+  serverFactory: ServerFactory,
+  pageRenderer: PageRenderer
+): Effect.Effect<
+  readonly string[],
+  CSSCompilationError | ServerCreationError | SSGGenerationError,
+  never
+> =>
+  Effect.gen(function* () {
+    // No multi-language - generate normally
+    yield* Console.log('🏗️  Creating application instance...')
+    const serverInstance = yield* serverFactory.create({
+      app: validatedApp,
+      port: 0,
+      hostname: 'localhost',
+      renderHomePage: pageRenderer.renderHome,
+      renderPage: pageRenderer.renderPage,
+      renderNotFoundPage: pageRenderer.renderNotFound,
+      renderErrorPage: pageRenderer.renderError,
+    })
+
+    yield* serverInstance.stop
+
+    // Filter out underscore-prefixed pages (admin/internal pages)
+    const pagePaths =
+      validatedApp.pages?.filter((page) => !page.path.startsWith('/_')).map((page) => page.path) ||
+      []
+    yield* Console.log(`📝 Generating static HTML files for ${pagePaths.length} pages...`)
+    const ssgResult = yield* generateStaticSite(serverInstance.app, {
+      outputDir,
+      pagePaths,
+    })
+    return ssgResult.files
+  })
+
+/**
+ * Rewrite URLs in HTML files with base path
+ */
+const rewriteBasePathInHtml = (
+  generatedFiles: readonly string[],
+  outputDir: string,
+  basePath: string,
+  baseUrl: string | undefined,
+  // eslint-disable-next-line functional/prefer-immutable-types -- Module import type
+  fsModule: typeof fs,
+  rewriteUrlsWithBasePath: (
+    html: string,
+    basePath: string,
+    baseUrl: string | undefined,
+    canonicalPagePath: string
+  ) => string
+): Effect.Effect<void, StaticGenerationError, never> =>
+  Effect.gen(function* () {
+    yield* Console.log(`🔗 Rewriting URLs with base path: ${basePath}...`)
+    // Only rewrite actual page HTML files, not assets with .html extension
+    const htmlFiles = generatedFiles.filter(
+      (f) =>
+        f.endsWith('.html') &&
+        !f.startsWith('assets/') &&
+        !f.includes('/assets/') &&
+        !f.endsWith('.js.html')
+    )
+
+    yield* Effect.forEach(
+      htmlFiles,
+      (file) =>
+        Effect.gen(function* () {
+          // file might be absolute or relative - handle both cases
+          const filePath =
+            file.startsWith('/') || file.startsWith(outputDir) ? file : `${outputDir}/${file}`
+
+          const content = yield* Effect.tryPromise({
+            try: () => fsModule.readFile(filePath, 'utf-8'),
+            catch: (error) =>
+              new StaticGenerationError({
+                message: `Failed to read HTML file: ${file}`,
+                cause: error,
+              }),
+          })
+
+          // Determine page path from filename (index.html → /, about.html → /about)
+          const relativeFile = file.startsWith(outputDir) ? file.slice(outputDir.length + 1) : file
+
+          // Check if this file is in a language subdirectory (e.g., en/index.html, fr/about.html)
+          const langMatch = relativeFile.match(/^([a-z]{2})\//)
+          const langPrefix = langMatch ? `/${langMatch[1]}` : ''
+
+          // Extract page path without language prefix
+          const fileWithoutLang = langPrefix ? relativeFile.slice(3) : relativeFile // Skip "en/"
+          const basePagePath =
+            fileWithoutLang === 'index.html' ? '/' : `/${fileWithoutLang.replace('.html', '')}`
+
+          // Full page path includes basePath + language prefix
+          const fullBasePath = `${basePath}${langPrefix}`
+
+          // For canonical URL, use the page path relative to baseUrl
+          // If baseUrl includes the basePath (e.g., https://example.com/myapp),
+          // we should use basePagePath directly
+          const canonicalPagePath =
+            basePagePath === '/'
+              ? langPrefix === ''
+                ? '/'
+                : langPrefix
+              : `${langPrefix}${basePagePath}`
+
+          const rewrittenContent = rewriteUrlsWithBasePath(
+            content,
+            fullBasePath,
+            baseUrl,
+            canonicalPagePath
+          )
+
+          yield* Effect.tryPromise({
+            try: () => fsModule.writeFile(filePath, rewrittenContent, 'utf-8'),
+            catch: (error) =>
+              new StaticGenerationError({
+                message: `Failed to write rewritten HTML file: ${file}`,
+                cause: error,
+              }),
+          })
+        }),
+      { concurrency: 'unbounded' }
+    )
+  })
+
+/**
+ * Inject client-side hydration script into HTML files
+ */
+const injectHydrationScript = (
+  generatedFiles: readonly string[],
+  outputDir: string,
+  basePath: string,
+  // eslint-disable-next-line functional/prefer-immutable-types -- Module import type
+  fsModule: typeof fs,
+  pathModule: typeof path
+): Effect.Effect<void, StaticGenerationError, never> =>
+  Effect.gen(function* () {
+    yield* Console.log('💧 Injecting hydration script into HTML files...')
+    const htmlFiles = generatedFiles.filter(
+      (f) =>
+        f.endsWith('.html') &&
+        !f.endsWith('.js.html') &&
+        !f.startsWith('assets/') &&
+        !f.includes('/assets/')
+    )
+
+    yield* Effect.forEach(
+      htmlFiles,
+      (file) =>
+        Effect.gen(function* () {
+          const filePath = file.startsWith('/') ? file : pathModule.join(outputDir, file)
+          const content = yield* Effect.tryPromise({
+            try: () => fsModule.readFile(filePath, 'utf-8'),
+            catch: (error) =>
+              new StaticGenerationError({
+                message: `Failed to read HTML file for hydration injection: ${file}`,
+                cause: error,
+              }),
+          })
+
+          // Inject hydration script before </body>
+          const hydrationScript = `<script src="${basePath}/assets/client.js" defer=""></script>`
+          const updatedContent = content.replace('</body>', `${hydrationScript}\n</body>`)
+
+          yield* Effect.tryPromise({
+            try: () => fsModule.writeFile(filePath, updatedContent, 'utf-8'),
+            catch: (error) =>
+              new StaticGenerationError({
+                message: `Failed to write HTML file with hydration script: ${file}`,
+                cause: error,
+              }),
+          })
+        }),
+      { concurrency: 'unbounded' }
+    )
+  })
 
 /**
  * Generate static site from app configuration
@@ -85,7 +372,7 @@ export const generateStatic = (
   | ServerCreationError
   | SSGGenerationError
   | FileCopyError,
-  ServerFactory | PageRenderer
+  ServerFactoryService | PageRendererService
 > =>
   // eslint-disable-next-line max-lines-per-function, max-statements, complexity -- Complex Effect generator with multiple file generation steps and support file creation
   Effect.gen(function* () {
@@ -145,119 +432,14 @@ export const generateStatic = (
     // Step 4: Generate static files for each language (or once if no languages)
     const allGeneratedFiles: readonly string[] =
       validatedApp.languages && validatedApp.pages
-        ? // eslint-disable-next-line max-lines-per-function -- Multi-language generation requires sequential steps
-          yield* Effect.gen(function* () {
-            yield* Console.log(`🌍 Generating multi-language static site...`)
-            const supportedLanguages = validatedApp.languages!.supported
-
-            // Generate files for each language using Effect.forEach
-            const langFiles = yield* Effect.forEach(
-              supportedLanguages,
-              (lang) =>
-                Effect.gen(function* () {
-                  yield* Console.log(`📝 Generating pages for language: ${lang.code}...`)
-
-                  // Replace tokens for this language
-                  const langApp = replaceAppTokens(validatedApp, lang.code)
-
-                  // Validate the language-specific app
-                  const validatedLangApp = yield* Effect.try({
-                    try: (): App => Schema.decodeUnknownSync(AppSchema)(langApp),
-                    catch: (error) => new AppValidationError(error),
-                  })
-
-                  // Create server instance for this language
-                  const serverInstance = yield* serverFactory.create({
-                    app: validatedLangApp,
-                    port: 0,
-                    hostname: 'localhost',
-                    renderHomePage: pageRenderer.renderHome,
-                    renderPage: pageRenderer.renderPage,
-                    renderNotFoundPage: pageRenderer.renderNotFound,
-                    renderErrorPage: pageRenderer.renderError,
-                  })
-
-                  yield* serverInstance.stop
-
-                  // Generate static files in language subdirectory
-                  const langOutputDir = `${outputDir}/${lang.code}`
-                  // Filter out underscore-prefixed pages (admin/internal pages)
-                  const pagePaths =
-                    validatedLangApp.pages
-                      ?.filter((page) => !page.path.startsWith('/_'))
-                      .map((page) => page.path) || []
-                  const ssgResult = yield* generateStaticSite(serverInstance.app, {
-                    outputDir: langOutputDir,
-                    pagePaths,
-                  })
-
-                  // Return files with language prefix (normalize paths to be relative)
-                  return ssgResult.files.map((f) => {
-                    // toSSG returns relative paths from the outputDir
-                    // Simply prefix with language code
-                    return `${lang.code}/${f}`
-                  })
-                }),
-              { concurrency: 'unbounded' }
-            )
-
-            // Generate root index.html with default language
-            yield* Console.log(`📝 Generating root index.html with default language...`)
-            const defaultLang = validatedApp.languages!.default
-            const defaultLangApp = replaceAppTokens(validatedApp, defaultLang)
-            const validatedDefaultApp = yield* Effect.try({
-              try: (): App => Schema.decodeUnknownSync(AppSchema)(defaultLangApp),
-              catch: (error) => new AppValidationError(error),
-            })
-
-            const defaultServer = yield* serverFactory.create({
-              app: validatedDefaultApp,
-              port: 0,
-              hostname: 'localhost',
-              renderHomePage: pageRenderer.renderHome,
-              renderPage: pageRenderer.renderPage,
-              renderNotFoundPage: pageRenderer.renderNotFound,
-              renderErrorPage: pageRenderer.renderError,
-            })
-
-            yield* defaultServer.stop
-
-            // Generate only root index.html
-            const rootSSGResult = yield* generateStaticSite(defaultServer.app, {
-              outputDir,
-              pagePaths: ['/'],
-            })
-
-            // Combine all files immutably
-            return [...langFiles.flat(), ...rootSSGResult.files]
-          })
-        : yield* Effect.gen(function* () {
-            // No multi-language - generate normally
-            yield* Console.log('🏗️  Creating application instance...')
-            const serverInstance = yield* serverFactory.create({
-              app: validatedApp,
-              port: 0,
-              hostname: 'localhost',
-              renderHomePage: pageRenderer.renderHome,
-              renderPage: pageRenderer.renderPage,
-              renderNotFoundPage: pageRenderer.renderNotFound,
-              renderErrorPage: pageRenderer.renderError,
-            })
-
-            yield* serverInstance.stop
-
-            // Filter out underscore-prefixed pages (admin/internal pages)
-            const pagePaths =
-              validatedApp.pages
-                ?.filter((page) => !page.path.startsWith('/_'))
-                .map((page) => page.path) || []
-            yield* Console.log(`📝 Generating static HTML files for ${pagePaths.length} pages...`)
-            const ssgResult = yield* generateStaticSite(serverInstance.app, {
-              outputDir,
-              pagePaths,
-            })
-            return ssgResult.files
-          })
+        ? yield* generateMultiLanguageFiles(
+            validatedApp,
+            outputDir,
+            replaceAppTokens,
+            serverFactory,
+            pageRenderer
+          )
+        : yield* generateSingleLanguageFiles(validatedApp, outputDir, serverFactory, pageRenderer)
 
     // Step 5: Get CSS from cache (already compiled during server creation)
     yield* Console.log('🎨 Getting compiled CSS...')
@@ -376,129 +558,21 @@ export const generateStatic = (
     // Step 5b: Apply base path rewriting if basePath is configured
     yield* Effect.if(options.basePath !== undefined && options.basePath !== '', {
       onTrue: () =>
-        Effect.gen(function* () {
-          yield* Console.log(`🔗 Rewriting URLs with base path: ${options.basePath}...`)
-          // Only rewrite actual page HTML files, not assets with .html extension
-          const htmlFiles = generatedFiles.filter(
-            (f) =>
-              f.endsWith('.html') &&
-              !f.startsWith('assets/') &&
-              !f.includes('/assets/') &&
-              !f.endsWith('.js.html')
-          )
-
-          yield* Effect.forEach(
-            htmlFiles,
-            (file) =>
-              Effect.gen(function* () {
-                // file might be absolute or relative - handle both cases
-                const filePath =
-                  file.startsWith('/') || file.startsWith(outputDir) ? file : `${outputDir}/${file}`
-
-                const content = yield* Effect.tryPromise({
-                  try: () => fs.readFile(filePath, 'utf-8'),
-                  catch: (error) =>
-                    new StaticGenerationError({
-                      message: `Failed to read HTML file: ${file}`,
-                      cause: error,
-                    }),
-                })
-
-                // Determine page path from filename (index.html → /, about.html → /about)
-                const relativeFile = file.startsWith(outputDir)
-                  ? file.slice(outputDir.length + 1)
-                  : file
-
-                // Check if this file is in a language subdirectory (e.g., en/index.html, fr/about.html)
-                const langMatch = relativeFile.match(/^([a-z]{2})\//)
-                const langPrefix = langMatch ? `/${langMatch[1]}` : ''
-
-                // Extract page path without language prefix
-                const fileWithoutLang = langPrefix ? relativeFile.slice(3) : relativeFile // Skip "en/"
-                const basePagePath =
-                  fileWithoutLang === 'index.html'
-                    ? '/'
-                    : `/${fileWithoutLang.replace('.html', '')}`
-
-                // Full page path includes basePath + language prefix
-                const fullBasePath = `${options.basePath!}${langPrefix}`
-
-                // For canonical URL, use the page path relative to baseUrl
-                // If baseUrl includes the basePath (e.g., https://example.com/myapp),
-                // we should use basePagePath directly
-                const canonicalPagePath =
-                  basePagePath === '/'
-                    ? langPrefix === ''
-                      ? '/'
-                      : langPrefix
-                    : `${langPrefix}${basePagePath}`
-
-                const rewrittenContent = rewriteUrlsWithBasePath(
-                  content,
-                  fullBasePath,
-                  options.baseUrl,
-                  canonicalPagePath
-                )
-
-                yield* Effect.tryPromise({
-                  try: () => fs.writeFile(filePath, rewrittenContent, 'utf-8'),
-                  catch: (error) =>
-                    new StaticGenerationError({
-                      message: `Failed to write rewritten HTML file: ${file}`,
-                      cause: error,
-                    }),
-                })
-              }),
-            { concurrency: 'unbounded' }
-          )
-        }),
+        rewriteBasePathInHtml(
+          generatedFiles,
+          outputDir,
+          options.basePath!,
+          options.baseUrl,
+          fs,
+          rewriteUrlsWithBasePath
+        ),
       onFalse: () => Effect.succeed(undefined),
     })
 
     // Step 5c: Inject hydration script into HTML if enabled
     yield* Effect.if(options.hydration ?? false, {
       onTrue: () =>
-        Effect.gen(function* () {
-          yield* Console.log('💧 Injecting hydration script into HTML files...')
-          const htmlFiles = generatedFiles.filter(
-            (f) =>
-              f.endsWith('.html') &&
-              !f.endsWith('.js.html') &&
-              !f.startsWith('assets/') &&
-              !f.includes('/assets/')
-          )
-
-          yield* Effect.forEach(
-            htmlFiles,
-            (file) =>
-              Effect.gen(function* () {
-                const filePath = file.startsWith('/') ? file : path.join(outputDir, file)
-                const content = yield* Effect.tryPromise({
-                  try: () => fs.readFile(filePath, 'utf-8'),
-                  catch: (error) =>
-                    new StaticGenerationError({
-                      message: `Failed to read HTML file for hydration injection: ${file}`,
-                      cause: error,
-                    }),
-                })
-
-                // Inject hydration script before </body>
-                const basePath = options.basePath || ''
-                const hydrationScript = `<script src="${basePath}/assets/client.js" defer=""></script>`
-                const updatedContent = content.replace('</body>', `${hydrationScript}\n</body>`)
-
-                yield* Effect.tryPromise({
-                  try: () => fs.writeFile(filePath, updatedContent, 'utf-8'),
-                  catch: (error) =>
-                    new StaticGenerationError({
-                      message: `Failed to write HTML file with hydration script: ${file}`,
-                      cause: error,
-                    }),
-                })
-              }),
-            { concurrency: 'unbounded' }
-          )
-        }),
+        injectHydrationScript(generatedFiles, outputDir, options.basePath || '', fs, path),
       onFalse: () => Effect.succeed(undefined),
     })
 

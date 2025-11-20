@@ -1438,8 +1438,7 @@ export const home: Page = {
     {
       type: 'div',
       props: {
-        className:
-          'fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 hidden sm:block',
+        className: 'fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 hidden sm:block',
       },
       children: [
         {
