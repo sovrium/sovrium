@@ -97,9 +97,9 @@ export const NameSchema = Schema.String.pipe(
  */
 export const PathSchema = Schema.String.pipe(
   Schema.minLength(1),
-  Schema.pattern(/^\/[a-z0-9-/:]*$/, {
+  Schema.pattern(/^\/[a-z0-9-_/:]*$/, {
     message: () =>
-      'Path must start with / and contain only lowercase letters, numbers, hyphens, colons, and forward slashes',
+      'Path must start with / and contain only lowercase letters, numbers, hyphens, underscores, colons, and forward slashes',
   }),
   Schema.annotations({
     title: 'Path',
