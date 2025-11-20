@@ -6,6 +6,14 @@
  */
 
 import { Schema } from 'effect'
+import {
+  SchemaOrgContext,
+  SchemaOrgEmail,
+  SchemaOrgImageUrl,
+  SchemaOrgSameAs,
+  SchemaOrgTelephone,
+  SchemaOrgUrl,
+} from './common-fields'
 import { PostalAddressSchema } from './postal-address'
 
 /**
@@ -87,9 +95,7 @@ export const PersonWorksForSchema = Schema.Struct({
  * @see specs/app/pages/meta/structured-data/person.schema.json
  */
 export const PersonSchema = Schema.Struct({
-  '@context': Schema.Literal('https://schema.org').annotations({
-    description: 'Schema.org context',
-  }),
+  '@context': SchemaOrgContext,
   '@type': Schema.Literal('Person').annotations({
     description: 'Schema.org type',
   }),
@@ -106,27 +112,16 @@ export const PersonSchema = Schema.Struct({
       description: 'Last name',
     })
   ),
-  email: Schema.optional(
-    Schema.String.annotations({
-      description: 'Email address',
-      format: 'email',
-    })
-  ),
-  telephone: Schema.optional(
-    Schema.String.annotations({
-      description: 'Phone number',
-    })
-  ),
+  email: Schema.optional(SchemaOrgEmail),
+  telephone: Schema.optional(SchemaOrgTelephone),
   url: Schema.optional(
-    Schema.String.annotations({
+    SchemaOrgUrl.annotations({
       description: "Person's website or profile",
-      format: 'uri',
     })
   ),
   image: Schema.optional(
-    Schema.String.annotations({
+    SchemaOrgImageUrl.annotations({
       description: "Person's photo URL",
-      format: 'uri',
     })
   ),
   jobTitle: Schema.optional(
@@ -135,16 +130,7 @@ export const PersonSchema = Schema.Struct({
     })
   ),
   worksFor: Schema.optional(PersonWorksForSchema),
-  sameAs: Schema.optional(
-    Schema.Array(
-      Schema.String.annotations({
-        description: 'Social media profile URL',
-        format: 'uri',
-      })
-    ).annotations({
-      description: 'Array of social media profile URLs',
-    })
-  ),
+  sameAs: Schema.optional(SchemaOrgSameAs),
   address: Schema.optional(PostalAddressSchema),
 }).annotations({
   title: 'Person Schema',
