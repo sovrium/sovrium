@@ -9,28 +9,31 @@ import { Schema } from 'effect'
 import { LanguageConfigSchema } from './language/language-config'
 
 /**
- * ISO 639-1 language code with optional region
+ * Short language code for URLs and routing
  *
- * Format: ll or ll-RR where:
- * - ll: two lowercase letters (language code)
- * - RR: two uppercase letters (region code, optional)
+ * Format: ll (two lowercase letters)
+ * - ll: ISO 639-1 language code
+ *
+ * Used for:
+ * - URL paths (e.g., /en/, /fr/, /es/)
+ * - Translation dictionary keys
+ * - Default language setting
  *
  * @example
  * ```typescript
- * const codes = ['en', 'en-US', 'fr-FR', 'es-ES', 'ar-SA']
+ * const codes = ['en', 'fr', 'es', 'de', 'ar', 'he']
  * ```
  *
  * @see specs/app/languages/languages.schema.json
  */
 export const LanguageCodeSchema = Schema.String.pipe(
-  Schema.pattern(/^[a-z]{2}(-[A-Z]{2})?$/, {
-    message: () =>
-      'Language code must follow ISO 639-1 format: ll or ll-RR (e.g., en, en-US, fr-FR)',
+  Schema.pattern(/^[a-z]{2}$/, {
+    message: () => 'Language code must be 2 lowercase letters (ISO 639-1 format, e.g., en, fr, es)',
   }),
   Schema.annotations({
     title: 'Language Code',
-    description: 'ISO 639-1 language code with optional region',
-    examples: ['en-US', 'fr-FR', 'es-ES', 'ar-SA'],
+    description: 'Short language code (2 letters) for URLs and routing',
+    examples: ['en', 'fr', 'es', 'de', 'ar', 'he'],
   })
 )
 
@@ -87,7 +90,7 @@ export const TranslationDictionarySchema = Schema.Record({
 /**
  * Centralized translations for all supported languages
  *
- * Outer Record key: Language code (ISO 639-1)
+ * Outer Record key: Short language code (2 letters, e.g., en, fr, es)
  * Outer Record value: Translation dictionary for that language
  *
  * This is the PRIMARY i18n pattern. Use $t:key syntax in ANY string property
@@ -96,11 +99,11 @@ export const TranslationDictionarySchema = Schema.Record({
  * @example
  * ```typescript
  * const translations = {
- *   'en-US': {
+ *   'en': {
  *     'common.save': 'Save',
  *     'nav.home': 'Home'
  *   },
- *   'fr-FR': {
+ *   'fr': {
  *     'common.save': 'Enregistrer',
  *     'nav.home': 'Accueil'
  *   }
@@ -114,7 +117,7 @@ export const TranslationsSchema = Schema.Record({
   Schema.annotations({
     title: 'Centralized Translations',
     description:
-      'Translation dictionaries for all supported languages. Use $t:key syntax to reference translations.',
+      'Translation dictionaries for all supported languages (keyed by short codes: en, fr, es). Use $t:key syntax to reference translations.',
   })
 )
 
@@ -122,26 +125,30 @@ export const TranslationsSchema = Schema.Record({
  * Multi-language support configuration for the entire application
  *
  * Provides:
- * - default: Default language (required)
+ * - default: Default language short code (required, e.g., 'en', 'fr')
  * - supported: Array of supported languages with metadata (required)
  * - fallback: Language to use when translation is missing (optional, defaults to default language)
  * - detectBrowser: Auto-detect language from browser (optional, defaults to true)
  * - persistSelection: Remember user's language choice in localStorage (optional, defaults to true)
- * - translations: Centralized translation dictionaries (optional)
+ * - translations: Centralized translation dictionaries (optional, keyed by short codes)
+ *
+ * Language codes follow a dual pattern:
+ * - code: Short code (en, fr) for URLs and translation keys
+ * - locale: Full locale (en-US, fr-FR) for HTML lang attribute
  *
  * @example
  * ```typescript
  * const languages = {
- *   default: 'en-US',
+ *   default: 'en',
  *   supported: [
- *     { code: 'en-US', label: 'English', direction: 'ltr' },
- *     { code: 'fr-FR', label: 'Français', direction: 'ltr' }
+ *     { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+ *     { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' }
  *   ],
  *   detectBrowser: true,
  *   persistSelection: true,
  *   translations: {
- *     'en-US': { 'common.save': 'Save' },
- *     'fr-FR': { 'common.save': 'Enregistrer' }
+ *     'en': { 'common.save': 'Save' },
+ *     'fr': { 'common.save': 'Enregistrer' }
  *   }
  * }
  * ```

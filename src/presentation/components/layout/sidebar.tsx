@@ -175,6 +175,48 @@ function renderLegacyLinks(
 }
 
 /**
+ * Resolve sidebar configuration defaults
+ */
+function resolveSidebarDefaults(props: SidebarType): {
+  readonly width: string
+  readonly position: string
+  readonly collapsible: boolean
+  readonly sticky: boolean
+  readonly items: readonly SidebarItem[]
+} {
+  return {
+    width: props.width ?? '256px',
+    position: props.position ?? 'left',
+    collapsible: props.collapsible !== false,
+    sticky: props.sticky !== false,
+    items: props.items ?? [],
+  }
+}
+
+/**
+ * Build sidebar CSS classes
+ */
+function buildSidebarClasses(sticky: boolean, position: string): string {
+  return [
+    sticky && 'fixed top-0',
+    position === 'left' ? 'border-r border-gray-200' : 'border-l border-gray-200',
+    'overflow-y-auto bg-white p-4',
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
+/**
+ * Check if sidebar has content to render
+ */
+function hasContentToRender(
+  items: readonly SidebarItem[],
+  legacyLinks?: readonly { label: string; href: string }[]
+): boolean {
+  return items.length > 0 || !!legacyLinks
+}
+
+/**
  * Sidebar component for page layout
  *
  * Renders a sidebar with configurable position and navigation links.
@@ -186,31 +228,21 @@ function renderLegacyLinks(
 export function Sidebar(
   props: SidebarType & { readonly links?: readonly { label: string; href: string }[] }
 ): Readonly<ReactElement> {
-  const width = props.width ?? '256px'
-  const position = props.position ?? 'left'
-  const collapsible = props.collapsible !== false
-  const sticky = props.sticky !== false
-  const items = props.items ?? []
-
-  const [renderedElements] = renderItems(items, { link: 0, group: 0, divider: 0 })
-
-  const sidebarClass = [
-    sticky && 'fixed top-0',
-    position === 'left' ? 'border-r border-gray-200' : 'border-l border-gray-200',
-    'overflow-y-auto bg-white p-4',
-  ]
-    .filter(Boolean)
-    .join(' ')
+  const config = resolveSidebarDefaults(props)
+  const [renderedElements] = renderItems(config.items, { link: 0, group: 0, divider: 0 })
+  const sidebarClass = buildSidebarClasses(config.sticky, config.position)
+  const hasContent = hasContentToRender(config.items, props.links)
+  const shouldRenderToggle = config.collapsible && hasContent
 
   return (
     <>
       <aside
         data-testid="sidebar"
-        data-position={position}
+        data-position={config.position}
         className={sidebarClass}
-        style={{ width, height: '100vh' }}
+        style={{ width: config.width, height: '100vh' }}
       >
-        {collapsible && (
+        {shouldRenderToggle && (
           <button
             data-testid="sidebar-toggle"
             type="button"
@@ -219,15 +251,21 @@ export function Sidebar(
             Toggle
           </button>
         )}
-        <nav>
-          {items.length > 0 ? (
-            <div>{renderedElements}</div>
-          ) : (
-            props.links && renderLegacyLinks(props.links)
-          )}
-        </nav>
+        {hasContent && (
+          <nav>
+            {config.items.length > 0 ? (
+              <div>{renderedElements}</div>
+            ) : (
+              props.links && renderLegacyLinks(props.links)
+            )}
+          </nav>
+        )}
       </aside>
-      <script dangerouslySetInnerHTML={{ __html: generateSidebarScript(collapsible, width) }} />
+      <script
+        dangerouslySetInnerHTML={{
+          __html: generateSidebarScript(config.collapsible, config.width),
+        }}
+      />
     </>
   )
 }

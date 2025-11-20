@@ -5,7 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useState } from 'react'
 import { buildColorStyles } from '@/presentation/utils/styles'
 import {
   NavLinkItem,
@@ -67,6 +66,16 @@ function getScrollDetectionScript(): string {
 }
 
 /**
+ * Generates inline script for mobile menu toggling (runs immediately in browser)
+ * This approach works without React hydration since the app uses SSR without client-side hydration
+ *
+ * @returns Minified JavaScript code for mobile menu toggle
+ */
+function getMobileMenuScript(): string {
+  return `(function(){const toggle=document.querySelector('[data-testid="mobile-menu-toggle"]');const menu=document.querySelector('[data-testid="mobile-menu"]');if(!toggle||!menu)return;toggle.addEventListener('click',function(){const isOpen=menu.style.display!=='none';menu.style.display=isOpen?'none':'block';});})();`
+}
+
+/**
  * Builds initial inline styles for navigation element
  */
 function buildInitialStyle(
@@ -105,11 +114,40 @@ function DesktopLinks({
 }
 
 /**
+ * Renders language switcher
+ */
+function LanguageSwitcher({
+  languageSwitcher,
+}: Readonly<{
+  languageSwitcher: NavigationProps['languageSwitcher']
+}>): ReactElement | undefined {
+  if (!languageSwitcher) return undefined
+
+  return (
+    <div
+      data-testid="language-switcher"
+      className="flex items-center gap-2"
+    >
+      <span>{languageSwitcher.label}</span>
+      {languageSwitcher.items.map((item) => (
+        <a
+          key={item.lang}
+          href={item.href}
+          data-testid={`language-link-${item.lang}`}
+        >
+          {item.label}
+        </a>
+      ))}
+    </div>
+  )
+}
+
+/**
  * Navigation Component
  *
  * Renders the main navigation header with logo, links, and optional CTA button.
  * Supports sticky positioning, transparent background with scroll detection,
- * search input, user authentication menu, and mobile menu with separate mobile links.
+ * search input, user authentication menu, language switcher, and mobile menu with separate mobile links.
  *
  * @param props - Navigation configuration
  * @returns Navigation header element
@@ -124,15 +162,16 @@ export function Navigation({
   cta,
   search,
   user,
+  languageSwitcher,
   backgroundColor,
   textColor,
 }: Readonly<NavigationProps>): Readonly<ReactElement> {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const styleConfig: NavStyleConfig = { backgroundColor, textColor, sticky, transparent }
   const navStyle = buildNavStyleObject(styleConfig)
   const navClasses = buildNavClassName(styleConfig)
-  const mobileLinks = links?.mobile ?? links?.desktop ?? []
+  const mobileLinks = links?.mobile ?? []
   const initialStyle = buildInitialStyle(navStyle, transparent)
+  const hasMobileMenu = mobileLinks.length > 0
 
   return (
     <>
@@ -149,15 +188,9 @@ export function Navigation({
           logoAlt={logoAlt}
         />
         <DesktopLinks links={links?.desktop} />
-        {mobileLinks.length > 0 && (
-          <MobileMenuToggle onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
-        )}
-        {mobileLinks.length > 0 && (
-          <MobileMenu
-            isOpen={isMobileMenuOpen}
-            links={mobileLinks}
-          />
-        )}
+        {hasMobileMenu && <MobileMenuToggle />}
+        {hasMobileMenu && <MobileMenu links={mobileLinks} />}
+        <LanguageSwitcher languageSwitcher={languageSwitcher} />
         <NavCTA cta={cta} />
         <NavSearch search={search} />
         <NavUserMenu user={user} />
@@ -165,6 +198,12 @@ export function Navigation({
       {transparent && (
         <script
           dangerouslySetInnerHTML={{ __html: getScrollDetectionScript() }}
+          suppressHydrationWarning
+        />
+      )}
+      {hasMobileMenu && (
+        <script
+          dangerouslySetInnerHTML={{ __html: getMobileMenuScript() }}
           suppressHydrationWarning
         />
       )}

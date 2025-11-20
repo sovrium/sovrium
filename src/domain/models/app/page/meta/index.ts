@@ -167,6 +167,28 @@ export const MetaSchema = Schema.Struct({
       format: 'uri',
     })
   ),
+  robots: Schema.optional(
+    Schema.String.annotations({
+      description: 'Robot directives (e.g., noindex, nofollow, noindex, nofollow)',
+    })
+  ),
+  noindex: Schema.optional(
+    Schema.Boolean.annotations({
+      description: 'Prevent indexing by search engines (shorthand for robots: noindex)',
+    })
+  ),
+  priority: Schema.optional(
+    Schema.Number.pipe(Schema.between(0, 1)).annotations({
+      description: 'Sitemap priority (0.0 to 1.0) for search engine crawling hints',
+    })
+  ),
+  changefreq: Schema.optional(
+    Schema.Literal('always', 'hourly', 'daily', 'weekly', 'monthly', 'yearly', 'never').annotations(
+      {
+        description: 'Sitemap change frequency hint for search engines',
+      }
+    )
+  ),
   favicon: Schema.optional(FaviconSchema),
   favicons: Schema.optional(Schema.Union(FaviconSetSchema, FaviconsConfigSchema)),
   stylesheet: Schema.optional(

@@ -6,6 +6,9 @@
  */
 
 import { spawn } from 'node:child_process'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { test as base } from '@playwright/test'
 import { PostgreSqlContainer } from '@testcontainers/postgresql'
 import { DatabaseTemplateManager, generateTestDatabaseName } from './database-utils'
@@ -304,6 +307,22 @@ type ServerFixtures = {
   executeQuery: (sql: string) => Promise<{ rows: any[]; rowCount: number }>
   browserLocale: string | undefined
   mockAnalytics: boolean
+  generateStaticSite: (
+    appSchema: object,
+    config?: {
+      publicDir?: string
+      baseUrl?: string
+      basePath?: string
+      deployment?: 'github-pages' | 'generic'
+      languages?: string[]
+      defaultLanguage?: string
+      generateSitemap?: boolean
+      generateRobotsTxt?: boolean
+      hydration?: boolean
+      generateManifest?: boolean
+      bundleOptimization?: 'split' | 'none'
+    }
+  ) => Promise<string>
 }
 
 /**
@@ -473,6 +492,92 @@ export const test = base.extend<ServerFixtures>({
     // Cleanup: Close connection
     if (client) {
       await client.end()
+    }
+  },
+
+  // Static site generation fixture: Generate static files using CLI command
+  generateStaticSite: async ({}, use) => {
+    const tempDirs: string[] = []
+
+    await use(
+      async (appSchema: object, config?: Parameters<ServerFixtures['generateStaticSite']>[1]) => {
+        // Create temporary output directory
+        const tempDir = await mkdtemp(join(tmpdir(), 'sovrium-static-'))
+        const outputDir = join(tempDir, 'dist')
+        tempDirs.push(tempDir)
+
+        // Build environment variables from config
+        const env: Record<string, string> = {
+          ...process.env,
+          SOVRIUM_APP_SCHEMA: JSON.stringify(appSchema),
+          SOVRIUM_OUTPUT_DIR: outputDir,
+        }
+
+        if (config?.baseUrl) env.SOVRIUM_BASE_URL = config.baseUrl
+        if (config?.basePath) env.SOVRIUM_BASE_PATH = config.basePath
+        if (config?.deployment) env.SOVRIUM_DEPLOYMENT = config.deployment
+        if (config?.languages) env.SOVRIUM_LANGUAGES = config.languages.join(',')
+        if (config?.defaultLanguage) env.SOVRIUM_DEFAULT_LANGUAGE = config.defaultLanguage
+        if (config?.generateSitemap !== undefined) {
+          env.SOVRIUM_GENERATE_SITEMAP = String(config.generateSitemap)
+        }
+        if (config?.generateRobotsTxt !== undefined) {
+          env.SOVRIUM_GENERATE_ROBOTS = String(config.generateRobotsTxt)
+        }
+        if (config?.hydration !== undefined) {
+          env.SOVRIUM_HYDRATION = String(config.hydration)
+        }
+        if (config?.generateManifest !== undefined) {
+          env.SOVRIUM_GENERATE_MANIFEST = String(config.generateManifest)
+        }
+        if (config?.bundleOptimization) {
+          env.SOVRIUM_BUNDLE_OPTIMIZATION = config.bundleOptimization
+        }
+        if (config?.publicDir) {
+          env.SOVRIUM_PUBLIC_DIR = config.publicDir
+        }
+
+        // Execute CLI command
+        await new Promise<void>((resolve, reject) => {
+          const process = spawn('bun', ['run', 'src/cli.ts', 'static'], {
+            env,
+            stdio: 'pipe',
+          })
+
+          const outputBuffer: string[] = []
+
+          process.stdout?.on('data', (data) => {
+            outputBuffer.push(data.toString())
+          })
+
+          process.stderr?.on('data', (data) => {
+            outputBuffer.push(data.toString())
+          })
+
+          process.on('exit', (code) => {
+            if (code === 0) {
+              resolve()
+            } else {
+              reject(
+                new Error(
+                  `Static generation failed with code ${code}. Output: ${outputBuffer.join('\n')}`
+                )
+              )
+            }
+          })
+
+          process.on('error', (error) => {
+            reject(new Error(`Failed to spawn process: ${error.message}`))
+          })
+        })
+
+        return outputDir
+      }
+    )
+
+    // Cleanup: Remove all temporary directories
+    for (const tempDir of tempDirs) {
+      await rm(tempDir, { recursive: true, force: true })
     }
   },
 })

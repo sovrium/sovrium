@@ -7,9 +7,15 @@
   "properties": {
     "code": {
       "type": "string",
-      "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
-      "description": "Language code (ISO 639-1 with optional country)",
-      "examples": ["en-US", "fr-FR", "es-ES", "ar-SA"]
+      "pattern": "^[a-z]{2}$",
+      "description": "Short language code used for URLs and routing (ISO 639-1, 2 letters)",
+      "examples": ["en", "fr", "es", "de", "ar", "he"]
+    },
+    "locale": {
+      "type": "string",
+      "pattern": "^[a-z]{2}-[A-Z]{2}$",
+      "description": "Full locale code used for HTML lang attribute and locale-specific formatting (e.g., 'en-US', 'fr-FR', 'es-ES')",
+      "examples": ["en-US", "fr-FR", "es-ES", "de-DE", "ar-SA", "he-IL"]
     },
     "label": {
       "type": "string",
@@ -28,18 +34,20 @@
       "examples": ["🇺🇸", "🇫🇷", "🇪🇸", "/flags/us.svg"]
     }
   },
-  "required": ["code", "label"],
+  "required": ["code", "label", "locale"],
   "additionalProperties": false,
   "examples": [
     {
-      "code": "en-US",
+      "code": "en",
       "label": "English",
+      "locale": "en-US",
       "direction": "ltr",
       "flag": "🇺🇸"
     },
     {
-      "code": "ar-SA",
+      "code": "ar",
       "label": "العربية",
+      "locale": "ar-SA",
       "direction": "rtl",
       "flag": "🇸🇦"
     }
@@ -47,62 +55,69 @@
   "x-specs": [
     {
       "id": "APP-LANGUAGES-CONFIG-001",
-      "given": "a language config for English (en-US)",
-      "when": "language is defined with code and label",
+      "given": "a language config for English (en)",
+      "when": "language is defined with code, label, and locale",
       "then": "it should be valid with LTR direction by default",
       "validation": {
         "setup": {
           "language": {
-            "code": "en-US",
-            "label": "English"
+            "code": "en",
+            "label": "English",
+            "locale": "en-US"
           }
         },
         "assertions": [
-          "Code: 'en-US' (ISO 639-1 format with country)",
+          "Code: 'en' (short code for URLs/routing)",
+          "Locale: 'en-US' (full locale for HTML lang attribute)",
           "Label: 'English' (human-readable)",
           "Direction: defaults to 'ltr' (left-to-right)"
         ]
       },
       "application": {
         "language": {
-          "code": "en-US",
-          "label": "English"
+          "code": "en",
+          "label": "English",
+          "locale": "en-US"
         },
         "component": "html",
         "expectedDOM": "<html lang=\"en-US\" dir=\"ltr\"><body>...</body></html>",
         "assertions": [
-          "HTML lang attribute: lang=\"en-US\" (locale-specific)",
+          "Code used for URLs: /en/ (short code)",
+          "Locale used for HTML lang: lang=\"en-US\" (full locale)",
           "Direction defaults to 'ltr' when not specified",
           "HTML dir attribute: dir=\"ltr\" (explicit left-to-right)",
           "Text flows left-to-right (standard Latin script)",
           "UI elements aligned left (menus, navigation, forms)",
-          "Minimal config: Only code + label required, direction inferred"
+          "Required fields: code + label + locale"
         ]
       }
     },
     {
       "id": "APP-LANGUAGES-CONFIG-002",
-      "given": "a language config for Arabic (ar-SA) with rtl direction",
+      "given": "a language config for Arabic (ar) with rtl direction",
       "when": "language is defined with RTL direction",
       "then": "it should support right-to-left text rendering",
       "validation": {
         "setup": {
           "language": {
-            "code": "ar-SA",
+            "code": "ar",
             "label": "العربية",
+            "locale": "ar-SA",
             "direction": "rtl"
           }
         },
         "assertions": [
-          "Code: 'ar-SA' (Arabic - Saudi Arabia)",
+          "Code: 'ar' (short code for URLs/routing)",
+          "Locale: 'ar-SA' (Arabic - Saudi Arabia, full locale)",
           "Label: 'العربية' (native Arabic script)",
           "Direction: 'rtl' (right-to-left text flow)"
         ]
       },
       "application": {
         "language": {
-          "code": "ar-SA",
+          "code": "ar",
           "label": "العربية",
+          "locale": "ar-SA",
           "direction": "rtl"
         },
         "component": "html",
@@ -124,7 +139,8 @@
         "setup": {
           "language": {
             "code": "en",
-            "label": "English"
+            "label": "English",
+            "locale": "en-US"
           }
         },
         "assertions": [
@@ -158,8 +174,9 @@
       "validation": {
         "setup": {
           "language": {
-            "code": "en-US",
-            "label": "English (US)"
+            "code": "en",
+            "label": "English (US)",
+            "locale": "en-US"
           }
         },
         "assertions": [
@@ -191,8 +208,9 @@
       "validation": {
         "setup": {
           "language": {
-            "code": "fr-FR",
+            "code": "fr",
             "label": "Français",
+            "locale": "fr-FR",
             "flag": "🇫🇷"
           }
         },
@@ -209,7 +227,7 @@
           "flag": "🇫🇷"
         },
         "component": "language-switcher",
-        "expectedDOM": "<button data-testid=\"language-option-fr-FR\"><span class=\"flag\">🇫🇷</span><span class=\"label\">Français</span></button>",
+        "expectedDOM": "<button data-testid=\"language-option-fr\"><span class=\"flag\">🇫🇷</span><span class=\"label\">Français</span></button>",
         "assertions": [
           "Flag emoji renders in language switcher",
           "Visual identification of language",
@@ -225,8 +243,9 @@
       "validation": {
         "setup": {
           "language": {
-            "code": "es-ES",
+            "code": "es",
             "label": "Español",
+            "locale": "es-ES",
             "flag": "/flags/es.svg"
           }
         },
@@ -243,7 +262,7 @@
           "flag": "/flags/es.svg"
         },
         "component": "language-switcher",
-        "expectedDOM": "<button data-testid=\"language-option-es-ES\"><img src=\"/flags/es.svg\" alt=\"Spain flag\" class=\"flag\" /><span class=\"label\">Español</span></button>",
+        "expectedDOM": "<button data-testid=\"language-option-es\"><img src=\"/flags/es.svg\" alt=\"Spain flag\" class=\"flag\" /><span class=\"label\">Español</span></button>",
         "assertions": [
           "Flag image loads from path: src=\"/flags/es.svg\"",
           "Custom SVG flags for consistent styling",
@@ -292,7 +311,7 @@
           }
         ],
         "component": "language-switcher",
-        "expectedDOM": "<div data-testid=\"language-switcher\"><button data-testid=\"language-option-fr-FR\">Français</button><button data-testid=\"language-option-ar-SA\">العربية</button></div>",
+        "expectedDOM": "<div data-testid=\"language-switcher\"><button data-testid=\"language-option-fr\">Français</button><button data-testid=\"language-option-ar\">العربية</button></div>",
         "assertions": [
           "French accents render correctly: 'Français'",
           "Arabic script renders correctly: 'العربية'",
@@ -309,8 +328,9 @@
       "validation": {
         "setup": {
           "language": {
-            "code": "de-DE",
-            "label": "Deutsch"
+            "code": "de",
+            "label": "Deutsch",
+            "locale": "de-DE"
           }
         },
         "assertions": [
@@ -326,7 +346,7 @@
           "label": "Deutsch"
         },
         "component": "language-switcher",
-        "expectedDOM": "<html lang=\"de-DE\" dir=\"ltr\"><body><button data-testid=\"language-option-de-DE\">Deutsch</button></body></html>",
+        "expectedDOM": "<html lang=\"de-DE\" dir=\"ltr\"><body><button data-testid=\"language-option-de\">Deutsch</button></body></html>",
         "assertions": [
           "HTML: lang=\"de-DE\" dir=\"ltr\"",
           "Direction defaults to LTR",

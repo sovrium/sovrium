@@ -41,6 +41,7 @@ export const ComponentTypeSchema = Schema.Literal(
   'h6',
   'icon',
   'image',
+  'img',
   'button',
   'link',
   'a',

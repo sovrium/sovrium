@@ -81,7 +81,7 @@ test.describe('Person Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PERSON-003: should provide structured first and last names',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

@@ -52,8 +52,9 @@ export interface ServerConfig {
  *
  * @param config - Configuration object with app data and render functions
  * @returns Configured Hono app instance
+ * @knip-ignore - Used by both createServer and createHonoAppForSSG
  */
-function createHonoApp(config: HonoAppConfig): Readonly<Hono> {
+export function createHonoApp(config: HonoAppConfig): Readonly<Hono> {
   const { app, renderNotFoundPage, renderErrorPage } = config
 
   // Create base Hono app and chain API routes directly
@@ -174,5 +175,6 @@ export const createServer = (
       server,
       url,
       stop,
+      app: honoApp,
     }
   })

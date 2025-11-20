@@ -33,26 +33,28 @@ const myApp: App = {
 
   // Multi-language support
   languages: {
-    default: 'en-US',
+    default: 'en',
     supported: [
       {
-        code: 'en-US',
+        code: 'en',
+        locale: 'en-US',
         label: 'English',
         direction: 'ltr',
         flag: '🇺🇸',
       },
       {
-        code: 'fr-FR',
+        code: 'fr',
+        locale: 'fr-FR',
         label: 'Français',
         direction: 'ltr',
         flag: '🇫🇷',
       },
     ],
-    fallback: 'en-US',
+    fallback: 'en',
     detectBrowser: true,
     persistSelection: true,
     translations: {
-      'en-US': {
+      en: {
         'nav.home': 'Home',
         'nav.features': 'Features',
         'nav.pricing': 'Pricing',
@@ -76,7 +78,7 @@ const myApp: App = {
         'cta.button': 'Start Building Now',
         'footer.copyright': '© 2025 Sovrium. All rights reserved.',
       },
-      'fr-FR': {
+      fr: {
         'nav.home': 'Accueil',
         'nav.features': 'Fonctionnalités',
         'nav.pricing': 'Tarifs',

@@ -44,10 +44,11 @@ test.describe('Languages Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
             {
-              code: 'en-US',
+              code: 'en',
+              locale: 'en-US',
               label: 'English',
               direction: 'ltr',
             },
@@ -92,11 +93,11 @@ test.describe('Languages Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English', direction: 'ltr' },
-            { code: 'fr-FR', label: 'Français', direction: 'ltr' },
-            { code: 'es-ES', label: 'Español', direction: 'ltr' },
+            { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' },
+            { code: 'es', locale: 'es-ES', label: 'Español', direction: 'ltr' },
           ],
         },
         blocks: [
@@ -143,18 +144,18 @@ test.describe('Languages Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English', direction: 'ltr' },
-            { code: 'fr-FR', label: 'Français', direction: 'ltr' },
+            { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' },
           ],
-          fallback: 'en-US',
+          fallback: 'en',
           translations: {
-            'en-US': {
+            en: {
               welcome: 'Welcome',
               goodbye: 'Goodbye',
             },
-            'fr-FR': {
+            fr: {
               welcome: 'Bienvenue',
               // 'goodbye' is intentionally missing to trigger fallback
             },
@@ -222,10 +223,10 @@ test.describe('Languages Configuration', () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
-            default: 'en-US',
+            default: 'en',
             supported: [
-              { code: 'en-US', label: 'English', direction: 'ltr' },
-              { code: 'fr-FR', label: 'Français', direction: 'ltr' },
+              { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+              { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' },
             ],
             detectBrowser: true,
           },
@@ -276,10 +277,10 @@ test.describe('Languages Configuration', () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
-            default: 'en-US',
+            default: 'en',
             supported: [
-              { code: 'en-US', label: 'English', direction: 'ltr' },
-              { code: 'fr-FR', label: 'Français', direction: 'ltr' },
+              { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+              { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' },
             ],
             detectBrowser: false,
           },
@@ -323,10 +324,10 @@ test.describe('Languages Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English', direction: 'ltr' },
-            { code: 'fr-FR', label: 'Français', direction: 'ltr' },
+            { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' },
           ],
           persistSelection: true,
         },
@@ -360,7 +361,7 @@ test.describe('Languages Configuration', () => {
 
       // THEN: it should remember the choice in localStorage for future visits
       const storedLanguage = await page.evaluate(() => localStorage.getItem('sovrium_language'))
-      expect(storedLanguage).toBe('fr-FR')
+      expect(storedLanguage).toBe('fr')
 
       // Reload and verify persistence
       await page.reload()
@@ -376,10 +377,10 @@ test.describe('Languages Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English', direction: 'ltr' },
-            { code: 'fr-FR', label: 'Français', direction: 'ltr' },
+            { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' },
           ],
           persistSelection: false,
         },
@@ -425,10 +426,10 @@ test.describe('Languages Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English', direction: 'ltr' },
-            { code: 'ar-SA', label: 'العربية', direction: 'rtl' },
+            { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+            { code: 'ar', locale: 'ar-SA', label: 'العربية', direction: 'rtl' },
           ],
         },
         blocks: [
@@ -475,14 +476,14 @@ test.describe('Languages Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English', direction: 'ltr', flag: '🇺🇸' },
-            { code: 'fr-FR', label: 'Français', direction: 'ltr', flag: '🇫🇷' },
-            { code: 'es-ES', label: 'Español', direction: 'ltr', flag: '🇪🇸' },
-            { code: 'ar-SA', label: 'العربية', direction: 'rtl', flag: '🇸🇦' },
-            { code: 'zh-CN', label: '中文', direction: 'ltr', flag: '🇨🇳' },
-            { code: 'ja-JP', label: '日本語', direction: 'ltr', flag: '🇯🇵' },
+            { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr', flag: '🇺🇸' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr', flag: '🇫🇷' },
+            { code: 'es', locale: 'es-ES', label: 'Español', direction: 'ltr', flag: '🇪🇸' },
+            { code: 'ar', locale: 'ar-SA', label: 'العربية', direction: 'rtl', flag: '🇸🇦' },
+            { code: 'zh', locale: 'zh-CN', label: '中文', direction: 'ltr', flag: '🇨🇳' },
+            { code: 'ja', locale: 'ja-JP', label: '日本語', direction: 'ltr', flag: '🇯🇵' },
           ],
         },
         blocks: [
@@ -532,13 +533,13 @@ test.describe('Languages Configuration', () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
-            default: 'en-US',
+            default: 'en',
             supported: [
-              { code: 'en-US', label: 'English', direction: 'ltr' },
-              { code: 'fr-FR', label: 'Français', direction: 'ltr' },
-              { code: 'es-ES', label: 'Español', direction: 'ltr' },
+              { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+              { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' },
+              { code: 'es', locale: 'es-ES', label: 'Español', direction: 'ltr' },
             ],
-            fallback: 'en-US',
+            fallback: 'en',
             detectBrowser: true,
             persistSelection: true,
           },
@@ -576,7 +577,7 @@ test.describe('Languages Configuration', () => {
         await page.locator('[data-testid="language-switcher"]').click()
         await page.locator('[data-testid="language-option-es-ES"]').click()
         const storedLanguage = await page.evaluate(() => localStorage.getItem('sovrium_language'))
-        expect(storedLanguage).toBe('es-ES')
+        expect(storedLanguage).toBe('es')
 
         // Reload to verify persistence works
         await page.reload()
@@ -598,10 +599,10 @@ test.describe('Languages Configuration', () => {
       const schemaPromise = startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'fr-FR', label: 'Français', direction: 'ltr' },
-            { code: 'es-ES', label: 'Español', direction: 'ltr' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' },
+            { code: 'es', locale: 'es-ES', label: 'Español', direction: 'ltr' },
           ],
         },
         pages: [
@@ -627,9 +628,9 @@ test.describe('Languages Configuration', () => {
       const schemaPromise = startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
-          supported: [{ code: 'en-US', label: 'English', direction: 'ltr' }],
-          fallback: 'de-DE',
+          default: 'en',
+          supported: [{ code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' }],
+          fallback: 'de',
         },
         pages: [
           {
@@ -653,10 +654,10 @@ test.describe('Languages Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English', direction: 'ltr' },
-            { code: 'fr-FR', label: 'Français', direction: 'ltr' },
+            { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' },
           ],
         },
         blocks: [
@@ -685,7 +686,7 @@ test.describe('Languages Configuration', () => {
       // THEN: it should automatically use default language as fallback
       await page.goto('/')
       const fallbackLanguage = await page.evaluate(() => (window as any).APP_LANGUAGES?.fallback)
-      expect(fallbackLanguage).toBe('en-US')
+      expect(fallbackLanguage).toBe('en')
     }
   )
 
@@ -698,12 +699,12 @@ test.describe('Languages Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'fr-FR',
+          default: 'fr',
           supported: [
-            { code: 'fr-FR', label: 'Français', direction: 'ltr' },
-            { code: 'en-US', label: 'English', direction: 'ltr' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' },
+            { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
           ],
-          fallback: 'en-US',
+          fallback: 'en',
           detectBrowser: false,
         },
         blocks: [
@@ -735,9 +736,9 @@ test.describe('Languages Configuration', () => {
 
       // Verify fallback is configured correctly (not same as default)
       const fallbackLanguage = await page.evaluate(() => (window as any).APP_LANGUAGES?.fallback)
-      expect(fallbackLanguage).toBe('en-US')
+      expect(fallbackLanguage).toBe('en')
       const defaultLanguage = await page.evaluate(() => (window as any).APP_LANGUAGES?.default)
-      expect(defaultLanguage).toBe('fr-FR')
+      expect(defaultLanguage).toBe('fr')
     }
   )
 
@@ -753,11 +754,11 @@ test.describe('Languages Configuration', () => {
           colors: { primary: '#007bff' },
         },
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English', direction: 'ltr' },
-            { code: 'fr-FR', label: 'Français', direction: 'ltr' },
-            { code: 'ar-SA', label: 'العربية', direction: 'rtl' },
+            { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' },
+            { code: 'ar', locale: 'ar-SA', label: 'العربية', direction: 'rtl' },
           ],
         },
         blocks: [
@@ -806,10 +807,10 @@ test.describe('Languages Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English', direction: 'ltr' },
-            { code: 'fr-FR', label: 'Français', direction: 'ltr' },
+            { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' },
           ],
         },
         blocks: [
@@ -830,14 +831,14 @@ test.describe('Languages Configuration', () => {
               title: 'Home',
               description: 'Welcome',
               i18n: {
-                'fr-FR': { title: 'Accueil', description: 'Bienvenue' },
+                fr: { title: 'Accueil', description: 'Bienvenue' },
               },
             },
             sections: [
               {
                 block: 'language-switcher',
               },
-              { type: 'text', content: 'Hello', i18n: { 'fr-FR': { content: 'Bonjour' } } },
+              { type: 'text', content: 'Hello', i18n: { fr: { content: 'Bonjour' } } },
             ],
           },
         ],
@@ -873,26 +874,26 @@ test.describe('Languages Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English', direction: 'ltr' },
-            { code: 'fr-FR', label: 'Français', direction: 'ltr' },
-            { code: 'es-ES', label: 'Español', direction: 'ltr' },
+            { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' },
+            { code: 'es', locale: 'es-ES', label: 'Español', direction: 'ltr' },
           ],
           translations: {
-            'en-US': {
+            en: {
               'meta.title': 'Premium Wireless Headphones | Shop Now',
               'meta.description': 'High-quality noise-cancelling headphones with superior sound',
               'meta.keywords': 'headphones, wireless, noise-cancelling',
               'meta.og.siteName': 'AudioTech Store',
             },
-            'fr-FR': {
+            fr: {
               'meta.title': 'Casque Sans Fil Premium | Acheter Maintenant',
               'meta.description': 'Casque antibruit de haute qualité avec son supérieur',
               'meta.keywords': 'casque, sans fil, antibruit',
               'meta.og.siteName': 'Boutique AudioTech',
             },
-            'es-ES': {
+            es: {
               'meta.title': 'Auriculares Inalámbricos Premium | Comprar Ahora',
               'meta.description': 'Auriculares con cancelación de ruido de alta calidad',
               'meta.keywords': 'auriculares, inalámbricos, cancelación de ruido',
@@ -983,19 +984,19 @@ test.describe('Languages Configuration', () => {
       // Verify each language has proper hreflang link
       await expect(page.locator('link[hreflang="en-US"]')).toHaveAttribute(
         'href',
-        expect.stringMatching(/\/en-US\/?/)
+        expect.stringMatching(/\/en\/?/)
       )
       await expect(page.locator('link[hreflang="fr-FR"]')).toHaveAttribute(
         'href',
-        expect.stringMatching(/\/fr-FR\/?/)
+        expect.stringMatching(/\/fr\/?/)
       )
       await expect(page.locator('link[hreflang="es-ES"]')).toHaveAttribute(
         'href',
-        expect.stringMatching(/\/es-ES\/?/)
+        expect.stringMatching(/\/es\/?/)
       )
       await expect(page.locator('link[hreflang="x-default"]')).toHaveAttribute(
         'href',
-        expect.stringMatching(/\/en-US\/?/) // Default language
+        expect.stringMatching(/\/en\/?/) // Default language
       )
     }
   )
@@ -1008,14 +1009,14 @@ test.describe('Languages Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English', direction: 'ltr' },
-            { code: 'fr-FR', label: 'Français', direction: 'ltr' },
+            { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' },
           ],
           translations: {
-            'en-US': { 'common.save': 'Save' },
-            'fr-FR': { 'common.save': 'Enregistrer' },
+            en: { 'common.save': 'Save' },
+            fr: { 'common.save': 'Enregistrer' },
           },
         },
         blocks: [
@@ -1075,18 +1076,18 @@ test.describe('Languages Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
-          fallback: 'en-US',
+          default: 'en',
+          fallback: 'en',
           supported: [
-            { code: 'en-US', label: 'English', direction: 'ltr' },
-            { code: 'fr-FR', label: 'Français', direction: 'ltr' },
+            { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' },
           ],
           translations: {
-            'en-US': {
+            en: {
               'common.save': 'Save',
               'common.cancel': 'Cancel',
             },
-            'fr-FR': {
+            fr: {
               'common.save': 'Enregistrer',
               // 'common.cancel' is missing - will fall back to English
             },
@@ -1132,10 +1133,10 @@ test.describe('Languages Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
-          supported: [{ code: 'en-US', label: 'English', direction: 'ltr' }],
+          default: 'en',
+          supported: [{ code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' }],
           translations: {
-            'en-US': {
+            en: {
               'common.save': 'Save',
               'common.cancel': 'Cancel',
               'nav.home': 'Home',
@@ -1181,17 +1182,17 @@ test.describe('Languages Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English', direction: 'ltr' },
-            { code: 'fr-FR', label: 'Français', direction: 'ltr' },
+            { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' },
           ],
           translations: {
-            'en-US': {
+            en: {
               'hero.title': 'Welcome to Our Platform',
               'hero.cta': 'Get Started',
             },
-            'fr-FR': {
+            fr: {
               'hero.title': 'Bienvenue sur Notre Plateforme',
               'hero.cta': 'Commencer',
             },
@@ -1238,10 +1239,10 @@ test.describe('Languages Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
-          supported: [{ code: 'en-US', label: 'English', direction: 'ltr' }],
+          default: 'en',
+          supported: [{ code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' }],
           translations: {
-            'en-US': {
+            en: {
               'close.label': 'Close dialog',
               'search.placeholder': 'Type to search',
               'save.tooltip': 'Save changes',
@@ -1297,10 +1298,10 @@ test.describe('Languages Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
-          supported: [{ code: 'en-US', label: 'English', direction: 'ltr' }],
+          default: 'en',
+          supported: [{ code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' }],
           translations: {
-            'en-US': {
+            en: {
               'hero.tagline': 'Build amazing apps with configuration',
               'footer.copyright': '© 2025 All rights reserved',
             },
@@ -1347,10 +1348,10 @@ test.describe('Languages Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
-          supported: [{ code: 'en-US', label: 'English', direction: 'ltr' }],
+          default: 'en',
+          supported: [{ code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' }],
           translations: {
-            'en-US': {
+            en: {
               'page.title': 'Home Page',
               'nav.home': 'Home',
               'nav.about': 'About',
@@ -1451,13 +1452,13 @@ test.describe('Languages Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English', direction: 'ltr', flag: '🇺🇸' },
-            { code: 'fr-FR', label: 'Français', direction: 'ltr', flag: '🇫🇷' },
-            { code: 'ar-SA', label: 'العربية', direction: 'rtl', flag: '🇸🇦' },
+            { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr', flag: '🇺🇸' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr', flag: '🇫🇷' },
+            { code: 'ar', locale: 'ar-SA', label: 'العربية', direction: 'rtl', flag: '🇸🇦' },
           ],
-          fallback: 'en-US',
+          fallback: 'en',
           detectBrowser: false,
           persistSelection: true,
         },
@@ -1524,10 +1525,10 @@ test.describe('Languages Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English', direction: 'ltr' },
-            { code: 'fr-FR', label: 'Français', direction: 'ltr' },
+            { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' },
           ],
           detectBrowser: false,
         },
@@ -1569,10 +1570,10 @@ test.describe('Languages Configuration', () => {
         await startServerWithSchema({
           name: 'test-app',
           languages: {
-            default: 'en-US',
+            default: 'en',
             supported: [
-              { code: 'en-US', label: 'English', direction: 'ltr' },
-              { code: 'fr-FR', label: 'Français', direction: 'ltr' },
+              { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+              { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' },
             ],
             detectBrowser: true,
           },
@@ -1596,8 +1597,8 @@ test.describe('Languages Configuration', () => {
         // WHEN: user with French browser visits /
         await page.goto('/')
 
-        // THEN: should redirect to /fr-FR/ (detected language differs from default)
-        await expect(page).toHaveURL('/fr-FR/')
+        // THEN: should redirect to /fr/ (detected language differs from default)
+        await expect(page).toHaveURL('/fr/')
         await expect(page.locator('html')).toHaveAttribute('lang', 'fr-FR')
         await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
       }
@@ -1612,10 +1613,10 @@ test.describe('Languages Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English', direction: 'ltr' },
-            { code: 'fr-FR', label: 'Français', direction: 'ltr' },
+            { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' },
           ],
         },
         blocks: [
@@ -1635,8 +1636,8 @@ test.describe('Languages Configuration', () => {
         ],
       })
 
-      // WHEN: user visits /fr-FR/ directly
-      await page.goto('/fr-FR/')
+      // WHEN: user visits /fr/ directly
+      await page.goto('/fr/')
 
       // THEN: should render French homepage
       await expect(page.locator('html')).toHaveAttribute('lang', 'fr-FR')
@@ -1652,11 +1653,11 @@ test.describe('Languages Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English', direction: 'ltr' },
-            { code: 'fr-FR', label: 'Français', direction: 'ltr' },
-            { code: 'es-ES', label: 'Español', direction: 'ltr' },
+            { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' },
+            { code: 'es', locale: 'es-ES', label: 'Español', direction: 'ltr' },
           ],
           persistSelection: true,
         },
@@ -1677,18 +1678,18 @@ test.describe('Languages Configuration', () => {
         ],
       })
 
-      // WHEN: user visits /fr-FR/
-      await page.goto('/fr-FR/')
-      await expect(page).toHaveURL('/fr-FR/')
+      // WHEN: user visits /fr/
+      await page.goto('/fr/')
+      await expect(page).toHaveURL('/fr/')
       await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
 
       // AND: switches to English
       await page.locator('[data-testid="language-switcher"]').click()
       await page.locator('[data-testid="language-option-en-US"]').click()
 
-      // THEN: should navigate to /en-US/
-      await page.waitForURL('/en-US/')
-      await expect(page).toHaveURL('/en-US/')
+      // THEN: should navigate to /en/
+      await page.waitForURL('/en/')
+      await expect(page).toHaveURL('/en/')
       await expect(page.locator('html')).toHaveAttribute('lang', 'en-US')
     }
   )
@@ -1701,10 +1702,10 @@ test.describe('Languages Configuration', () => {
       await startServerWithSchema({
         name: 'test-app',
         languages: {
-          default: 'en-US',
+          default: 'en',
           supported: [
-            { code: 'en-US', label: 'English', direction: 'ltr' },
-            { code: 'fr-FR', label: 'Français', direction: 'ltr' },
+            { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+            { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' },
           ],
         },
         pages: [
@@ -1718,7 +1719,7 @@ test.describe('Languages Configuration', () => {
       })
 
       // WHEN: user visits /invalid-lang/ (not in supported languages)
-      const response = await page.goto('/de-DE/')
+      const response = await page.goto('/de/')
 
       // THEN: should return 404
       expect(response?.status()).toBe(404)

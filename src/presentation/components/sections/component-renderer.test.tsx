@@ -40,18 +40,18 @@ describe('ComponentRenderer - Variable Substitution', () => {
 describe('ComponentRenderer - Translation Fallback', () => {
   test('should render French translation when currentLang is fr-FR', () => {
     const languages = {
-      default: 'en-US',
-      fallback: 'en-US',
+      default: 'en',
+      fallback: 'en',
       supported: [
-        { code: 'en-US', label: 'English', direction: 'ltr' as const },
-        { code: 'fr-FR', label: 'Français', direction: 'ltr' as const },
+        { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' as const },
+        { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' as const },
       ],
       translations: {
-        'en-US': {
+        en: {
           'common.save': 'Save',
           'common.cancel': 'Cancel',
         },
-        'fr-FR': {
+        fr: {
           'common.save': 'Enregistrer',
           // 'common.cancel' is missing
         },
@@ -77,18 +77,18 @@ describe('ComponentRenderer - Translation Fallback', () => {
 
   test('should fall back to English when French translation is missing', () => {
     const languages = {
-      default: 'en-US',
-      fallback: 'en-US',
+      default: 'en',
+      fallback: 'en',
       supported: [
-        { code: 'en-US', label: 'English', direction: 'ltr' as const },
-        { code: 'fr-FR', label: 'Français', direction: 'ltr' as const },
+        { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' as const },
+        { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' as const },
       ],
       translations: {
-        'en-US': {
+        en: {
           'common.save': 'Save',
           'common.cancel': 'Cancel',
         },
-        'fr-FR': {
+        fr: {
           'common.save': 'Enregistrer',
           // 'common.cancel' is missing
         },

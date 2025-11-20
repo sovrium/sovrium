@@ -11,18 +11,18 @@ import { resolveTranslationPattern } from './translation-resolver'
 describe('resolveTranslationPattern - Fallback Behavior', () => {
   test('should use translation from current language when it exists', () => {
     const languages = {
-      default: 'en-US',
-      fallback: 'en-US',
+      default: 'en',
+      fallback: 'en',
       supported: [
-        { code: 'en-US', label: 'English', direction: 'ltr' as const },
-        { code: 'fr-FR', label: 'Français', direction: 'ltr' as const },
+        { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' as const },
+        { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' as const },
       ],
       translations: {
-        'en-US': {
+        en: {
           'common.save': 'Save',
           'common.cancel': 'Cancel',
         },
-        'fr-FR': {
+        fr: {
           'common.save': 'Enregistrer',
           // 'common.cancel' is missing - will fall back to English
         },
@@ -35,18 +35,18 @@ describe('resolveTranslationPattern - Fallback Behavior', () => {
 
   test('should fall back to default language when translation is missing in current language', () => {
     const languages = {
-      default: 'en-US',
-      fallback: 'en-US',
+      default: 'en',
+      fallback: 'en',
       supported: [
-        { code: 'en-US', label: 'English', direction: 'ltr' as const },
-        { code: 'fr-FR', label: 'Français', direction: 'ltr' as const },
+        { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' as const },
+        { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' as const },
       ],
       translations: {
-        'en-US': {
+        en: {
           'common.save': 'Save',
           'common.cancel': 'Cancel',
         },
-        'fr-FR': {
+        fr: {
           'common.save': 'Enregistrer',
           // 'common.cancel' is missing - will fall back to English
         },
@@ -62,8 +62,8 @@ describe('resolveTranslationPattern - Fallback Behavior', () => {
       default: 'en',
       fallback: 'en',
       supported: [
-        { code: 'en', label: 'English', direction: 'ltr' as const },
-        { code: 'fr', label: 'Français', direction: 'ltr' as const },
+        { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' as const },
+        { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' as const },
       ],
       translations: {
         en: {
@@ -85,8 +85,8 @@ describe('resolveTranslationPattern - Fallback Behavior', () => {
       default: 'en',
       fallback: 'en',
       supported: [
-        { code: 'en', label: 'English', direction: 'ltr' as const },
-        { code: 'fr', label: 'Français', direction: 'ltr' as const },
+        { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' as const },
+        { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' as const },
       ],
       translations: {
         en: {
@@ -103,25 +103,25 @@ describe('resolveTranslationPattern - Fallback Behavior', () => {
     expect(result).toBe('Welcome')
   })
 
-  test('should prefer exact match over base language match', () => {
+  test('should use short code for translation lookups', () => {
     const languages = {
-      default: 'en-US',
-      fallback: 'en-US',
+      default: 'en',
+      fallback: 'en',
       supported: [
-        { code: 'en-US', label: 'English (US)', direction: 'ltr' as const },
-        { code: 'en', label: 'English', direction: 'ltr' as const },
+        { code: 'en', locale: 'en-US', label: 'English (US)', direction: 'ltr' as const },
+        { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr' as const },
       ],
       translations: {
-        'en-US': {
+        en: {
           'common.color': 'color',
         },
-        en: {
-          'common.color': 'colour',
+        fr: {
+          'common.color': 'couleur',
         },
       },
     }
 
-    // When both 'en-US' and 'en' exist, prefer exact match
+    // Translation keys use short codes (en, fr) not full locales
     const result = resolveTranslationPattern('$t:common.color', 'en-US', languages)
     expect(result).toBe('color')
   })

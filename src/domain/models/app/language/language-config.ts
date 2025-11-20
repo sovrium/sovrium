@@ -8,30 +8,54 @@
 import { Schema } from 'effect'
 
 /**
- * Language code (ISO 639-1 with optional country code)
+ * Short language code (ISO 639-1, used for URLs/routing)
  *
- * Supports two formats:
- * - ISO 639-1 language-only: 'en', 'fr', 'ar' (2 lowercase letters)
- * - ISO 639-1 + country: 'en-US', 'fr-FR', 'ar-SA' (lowercase-UPPERCASE)
+ * 2 lowercase letters only (no country code)
+ * Used for URL paths like /en/, /fr/, /es/
  *
  * @example
  * ```typescript
- * const code1 = 'en-US'  // English (United States)
- * const code2 = 'fr-FR'  // French (France)
- * const code3 = 'ar'     // Arabic (generic)
+ * const code1 = 'en'  // English
+ * const code2 = 'fr'  // French
+ * const code3 = 'ar'  // Arabic
  * ```
  *
  * @see specs/app/languages/language-config.schema.json#/properties/code
  */
 export const LanguageCodeSchema = Schema.String.pipe(
-  Schema.pattern(/^[a-z]{2}(-[A-Z]{2})?$/, {
-    message: () =>
-      'Language code must be ISO 639-1 format: 2 lowercase letters (e.g., "en") or 2 lowercase letters followed by hyphen and 2 uppercase letters (e.g., "en-US")',
+  Schema.pattern(/^[a-z]{2}$/, {
+    message: () => 'Language code must be ISO 639-1 format (2 lowercase letters, e.g., "en", "fr")',
   }),
   Schema.annotations({
     title: 'Language Code',
-    description: 'Language code (ISO 639-1 with optional country)',
-    examples: ['en-US', 'fr-FR', 'es-ES', 'ar-SA'],
+    description: 'Short language code used for URLs and routing (ISO 639-1, 2 letters)',
+    examples: ['en', 'fr', 'es', 'de', 'ar', 'he'],
+  })
+)
+
+/**
+ * Full locale code (ISO 639-1 + ISO 3166-1, used for HTML lang attribute)
+ *
+ * Format: language-COUNTRY (e.g., 'en-US', 'fr-FR')
+ * Used for HTML lang attribute and locale-specific formatting
+ *
+ * @example
+ * ```typescript
+ * const locale1 = 'en-US'  // English (United States)
+ * const locale2 = 'fr-FR'  // French (France)
+ * const locale3 = 'ar-SA'  // Arabic (Saudi Arabia)
+ * ```
+ *
+ * @see specs/app/languages/language-config.schema.json#/properties/locale
+ */
+export const LanguageLocaleSchema = Schema.String.pipe(
+  Schema.pattern(/^[a-z]{2}-[A-Z]{2}$/, {
+    message: () => 'Locale must be ISO 639-1 + ISO 3166-1 format (e.g., "en-US", "fr-FR")',
+  }),
+  Schema.annotations({
+    title: 'Language Locale',
+    description: 'Full locale code used for HTML lang attribute and locale-specific formatting',
+    examples: ['en-US', 'fr-FR', 'es-ES', 'de-DE', 'ar-SA', 'he-IL'],
   })
 )
 
@@ -107,22 +131,25 @@ export const LanguageFlagSchema = Schema.String.pipe(
  * Configuration for a single supported language
  *
  * Defines a language option in the language switcher with:
- * - ISO 639-1 language code (with optional country)
+ * - Short code for URLs (en, fr) - used for routing
+ * - Full locale for HTML (en-US, fr-FR) - used for lang attribute
  * - Native language name for better UX
  * - Text direction for RTL language support
  * - Optional flag emoji or icon
  *
  * Key behaviors:
- * - Code and label are required properties
+ * - Code, locale, and label are required properties
+ * - Code (short) is used for URL paths: /en/, /fr/
+ * - Locale (full) is used for HTML lang attribute: lang="en-US"
  * - Direction defaults to 'ltr' when omitted
  * - Flag is optional for minimal configuration
- * - Supports both emoji flags and custom icon paths
  *
  * @example
  * ```typescript
  * // English (US) with all properties
  * const enUS = {
- *   code: 'en-US',
+ *   code: 'en',
+ *   locale: 'en-US',
  *   label: 'English',
  *   direction: 'ltr',
  *   flag: '🇺🇸'
@@ -130,7 +157,8 @@ export const LanguageFlagSchema = Schema.String.pipe(
  *
  * // Arabic with RTL support
  * const arSA = {
- *   code: 'ar-SA',
+ *   code: 'ar',
+ *   locale: 'ar-SA',
  *   label: 'العربية',
  *   direction: 'rtl',
  *   flag: '🇸🇦'
@@ -138,7 +166,8 @@ export const LanguageFlagSchema = Schema.String.pipe(
  *
  * // Minimal configuration
  * const deDE = {
- *   code: 'de-DE',
+ *   code: 'de',
+ *   locale: 'de-DE',
  *   label: 'Deutsch'
  *   // direction defaults to 'ltr'
  *   // flag omitted
@@ -149,6 +178,10 @@ export const LanguageFlagSchema = Schema.String.pipe(
  */
 export const LanguageConfigSchema = Schema.Struct({
   code: LanguageCodeSchema,
+  locale: Schema.optional(LanguageLocaleSchema).annotations({
+    description:
+      'Full locale code (optional - defaults to short code if not specified). Used for HTML lang attribute and hreflang links.',
+  }),
   label: LanguageLabelSchema,
   direction: Schema.optional(LanguageDirectionSchema),
   flag: Schema.optional(LanguageFlagSchema),
@@ -160,6 +193,7 @@ export const LanguageConfigSchema = Schema.Struct({
 )
 
 export type LanguageCode = Schema.Schema.Type<typeof LanguageCodeSchema>
+export type LanguageLocale = Schema.Schema.Type<typeof LanguageLocaleSchema>
 export type LanguageLabel = Schema.Schema.Type<typeof LanguageLabelSchema>
 export type LanguageDirection = Schema.Schema.Type<typeof LanguageDirectionSchema>
 export type LanguageFlag = Schema.Schema.Type<typeof LanguageFlagSchema>

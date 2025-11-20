@@ -7,9 +7,9 @@
   "properties": {
     "default": {
       "type": "string",
-      "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
-      "description": "Default language code (ISO 639-1)",
-      "examples": ["en-US", "fr-FR", "es-ES"]
+      "pattern": "^[a-z]{2}$",
+      "description": "Default language code (short code used for URLs/routing)",
+      "examples": ["en", "fr", "es"]
     },
     "supported": {
       "type": "array",
@@ -21,8 +21,8 @@
     },
     "fallback": {
       "type": "string",
-      "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
-      "description": "Fallback language when translation is missing (defaults to 'default' language if not specified)"
+      "pattern": "^[a-z]{2}$",
+      "description": "Fallback language when translation is missing (defaults to 'default' language if not specified). Uses short code (e.g., 'en', 'fr')"
     },
     "detectBrowser": {
       "type": "boolean",
@@ -37,7 +37,7 @@
     "translations": {
       "type": "object",
       "patternProperties": {
-        "^[a-z]{2}(-[A-Z]{2})?$": {
+        "^[a-z]{2}$": {
           "type": "object",
           "patternProperties": {
             "^[a-zA-Z0-9._-]+$": {
@@ -49,7 +49,7 @@
         }
       },
       "additionalProperties": false,
-      "description": "Centralized translation dictionaries for all supported languages. Use $t:key syntax in ANY string property to reference translations: children arrays (['$t:common.save']), component props ({ 'aria-label': '$t:common.close', placeholder: '$t:forms.email.placeholder' }), meta properties ({ title: '$t:page.title' }), etc. This is the ONLY supported i18n pattern."
+      "description": "Centralized translation dictionaries for all supported languages. Keys are short language codes (en, fr, es). Use $t:key syntax in ANY string property to reference translations: children arrays (['$t:common.save']), component props ({ 'aria-label': '$t:common.close', placeholder: '$t:forms.email.placeholder' }), meta properties ({ title: '$t:page.title' }), etc. This is the ONLY supported i18n pattern."
     }
   },
   "required": ["default", "supported"],
@@ -95,21 +95,24 @@
   },
   "examples": [
     {
-      "default": "en-US",
+      "default": "en",
       "supported": [
         {
-          "code": "en-US",
+          "code": "en",
           "label": "English",
+          "locale": "en-US",
           "direction": "ltr"
         },
         {
-          "code": "fr-FR",
+          "code": "fr",
           "label": "Français",
+          "locale": "fr-FR",
           "direction": "ltr"
         },
         {
-          "code": "ar-SA",
+          "code": "ar",
           "label": "العربية",
+          "locale": "ar-SA",
           "direction": "rtl"
         }
       ],
@@ -117,41 +120,45 @@
       "persistSelection": true
     },
     {
-      "default": "fr-FR",
+      "default": "fr",
       "supported": [
         {
-          "code": "en-US",
+          "code": "en",
           "label": "English",
+          "locale": "en-US",
           "direction": "ltr"
         },
         {
-          "code": "fr-FR",
+          "code": "fr",
           "label": "Français",
+          "locale": "fr-FR",
           "direction": "ltr"
         }
       ],
-      "fallback": "en-US",
+      "fallback": "en",
       "detectBrowser": true,
       "persistSelection": true
     },
     {
-      "default": "en-US",
+      "default": "en",
       "supported": [
         {
-          "code": "en-US",
+          "code": "en",
           "label": "English",
+          "locale": "en-US",
           "direction": "ltr"
         },
         {
-          "code": "fr-FR",
+          "code": "fr",
           "label": "Français",
+          "locale": "fr-FR",
           "direction": "ltr"
         }
       ],
       "detectBrowser": true,
       "persistSelection": true,
       "translations": {
-        "en-US": {
+        "en": {
           "common.save": "Save",
           "common.cancel": "Cancel",
           "common.delete": "Delete",
@@ -183,7 +190,7 @@
           "images.logo.alt": "Company logo",
           "images.hero.alt": "Hero banner image"
         },
-        "fr-FR": {
+        "fr": {
           "common.save": "Enregistrer",
           "common.cancel": "Annuler",
           "common.delete": "Supprimer",
@@ -219,21 +226,23 @@
     },
     {
       "_comment": "Example showing $t: usage in ALL string properties (children, props, meta)",
-      "default": "en-US",
+      "default": "en",
       "supported": [
         {
-          "code": "en-US",
+          "code": "en",
           "label": "English",
+          "locale": "en-US",
           "direction": "ltr"
         },
         {
-          "code": "fr-FR",
+          "code": "fr",
           "label": "Français",
+          "locale": "fr-FR",
           "direction": "ltr"
         }
       ],
       "translations": {
-        "en-US": {
+        "en": {
           "page.home.title": "Home - My App",
           "page.home.description": "Welcome to my application",
           "button.close": "Close",
@@ -242,7 +251,7 @@
           "input.search.label": "Search",
           "image.logo.alt": "Application logo"
         },
-        "fr-FR": {
+        "fr": {
           "page.home.title": "Accueil - Mon App",
           "page.home.description": "Bienvenue sur mon application",
           "button.close": "Fermer",
@@ -291,24 +300,25 @@
   "x-specs": [
     {
       "id": "APP-LANGUAGES-001",
-      "given": "an app with default language en-US and one supported language",
+      "given": "an app with default language en and one supported language",
       "when": "app is configured with minimal language setup",
       "then": "it should use English as the only available language",
       "validation": {
         "setup": {
           "languages": {
-            "default": "en-US",
+            "default": "en",
             "supported": [
               {
-                "code": "en-US",
-                "label": "English"
+                "code": "en",
+                "label": "English",
+                "locale": "en-US"
               }
             ]
           }
         },
         "assertions": [
-          "Default: 'en-US'",
-          "Supported: 1 language (en-US only)",
+          "Default: 'en'",
+          "Supported: 1 language (en only)",
           "Minimal valid configuration",
           "Single-language mode"
         ]
@@ -350,25 +360,28 @@
     },
     {
       "id": "APP-LANGUAGES-002",
-      "given": "an app with default en-US and supported languages [en-US, fr-FR, es-ES]",
+      "given": "an app with default en and supported languages [en, fr, es]",
       "when": "app is configured with multiple languages",
       "then": "users should be able to switch between all three languages",
       "validation": {
         "setup": {
           "languages": {
-            "default": "en-US",
+            "default": "en",
             "supported": [
               {
-                "code": "en-US",
-                "label": "English"
+                "code": "en",
+                "label": "English",
+                "locale": "en-US"
               },
               {
-                "code": "fr-FR",
-                "label": "Français"
+                "code": "fr",
+                "label": "Français",
+                "locale": "fr-FR"
               },
               {
-                "code": "es-ES",
-                "label": "Español"
+                "code": "es",
+                "label": "Español",
+                "locale": "es-ES"
               }
             ]
           }
@@ -382,24 +395,24 @@
       },
       "application": {
         "languages": {
-          "default": "en-US",
+          "default": "en",
           "supported": [
             {
-              "code": "en-US",
+              "code": "en",
               "label": "English"
             },
             {
-              "code": "fr-FR",
+              "code": "fr",
               "label": "Français"
             },
             {
-              "code": "es-ES",
+              "code": "es",
               "label": "Español"
             }
           ]
         },
         "component": "language-switcher",
-        "expectedDOM": "<div data-testid=\"language-switcher\"><button data-testid=\"language-option-en-US\" class=\"active\">English</button><button data-testid=\"language-option-fr-FR\">Français</button><button data-testid=\"language-option-es-ES\">Español</button></div>",
+        "expectedDOM": "<div data-testid=\"language-switcher\"><button data-testid=\"language-option-en\" class=\"active\">English</button><button data-testid=\"language-option-fr\">Français</button><button data-testid=\"language-option-es\">Español</button></div>",
         "assertions": [
           "3 language buttons rendered",
           "English marked as active (default)",
@@ -410,22 +423,24 @@
     },
     {
       "id": "APP-LANGUAGES-003",
-      "given": "an app with default en-US and fallback en-US",
+      "given": "an app with default en and fallback en",
       "when": "a translation is missing for the current language",
       "then": "it should display the English fallback text",
       "validation": {
         "setup": {
           "languages": {
-            "default": "en-US",
-            "fallback": "en-US",
+            "default": "en",
+            "fallback": "en",
             "supported": [
               {
-                "code": "en-US",
-                "label": "English"
+                "code": "en",
+                "label": "English",
+                "locale": "en-US"
               },
               {
-                "code": "fr-FR",
-                "label": "Français"
+                "code": "fr",
+                "label": "Français",
+                "locale": "fr-FR"
               }
             ]
           }
@@ -439,9 +454,9 @@
       },
       "application": {
         "languages": {
-          "default": "en-US",
-          "fallback": "en-US",
-          "currentLanguage": "fr-FR"
+          "default": "en",
+          "fallback": "en",
+          "currentLanguage": "fr"
         },
         "translations": {
           "en-US": {
@@ -470,16 +485,18 @@
       "validation": {
         "setup": {
           "languages": {
-            "default": "en-US",
+            "default": "en",
             "detectBrowser": true,
             "supported": [
               {
-                "code": "en-US",
-                "label": "English"
+                "code": "en",
+                "label": "English",
+                "locale": "en-US"
               },
               {
-                "code": "fr-FR",
-                "label": "Français"
+                "code": "fr",
+                "label": "Français",
+                "locale": "fr-FR"
               }
             ]
           }
@@ -493,11 +510,11 @@
       },
       "application": {
         "languages": {
-          "default": "en-US",
+          "default": "en",
           "detectBrowser": true,
-          "supported": ["en-US", "fr-FR"]
+          "supported": ["en", "fr"]
         },
-        "browserLanguage": "fr-FR",
+        "browserLanguage": "fr",
         "component": "app",
         "expectedDOM": "<html lang=\"fr-FR\"><body>...</body></html>",
         "localStorage": null,
@@ -518,16 +535,18 @@
       "validation": {
         "setup": {
           "languages": {
-            "default": "en-US",
+            "default": "en",
             "detectBrowser": false,
             "supported": [
               {
-                "code": "en-US",
-                "label": "English"
+                "code": "en",
+                "label": "English",
+                "locale": "en-US"
               },
               {
-                "code": "fr-FR",
-                "label": "Français"
+                "code": "fr",
+                "label": "Français",
+                "locale": "fr-FR"
               }
             ]
           }
@@ -541,10 +560,10 @@
       },
       "application": {
         "languages": {
-          "default": "en-US",
+          "default": "en",
           "detectBrowser": false
         },
-        "browserLanguage": "fr-FR",
+        "browserLanguage": "fr",
         "component": "app",
         "expectedDOM": "<html lang=\"en-US\"><body>...</body></html>",
         "assertions": [
@@ -563,16 +582,18 @@
       "validation": {
         "setup": {
           "languages": {
-            "default": "en-US",
+            "default": "en",
             "persistSelection": true,
             "supported": [
               {
-                "code": "en-US",
-                "label": "English"
+                "code": "en",
+                "label": "English",
+                "locale": "en-US"
               },
               {
-                "code": "fr-FR",
-                "label": "Français"
+                "code": "fr",
+                "label": "Français",
+                "locale": "fr-FR"
               }
             ]
           }
@@ -586,19 +607,19 @@
       },
       "application": {
         "languages": {
-          "default": "en-US",
+          "default": "en",
           "persistSelection": true
         },
         "userAction": "Click fr-FR button",
         "component": "language-switcher",
         "localStorage": {
           "key": "sovrium_language",
-          "value": "fr-FR"
+          "value": "fr"
         },
         "expectedDOM": "<html lang=\"fr-FR\"><body>...</body></html>",
         "assertions": [
           "User selects French",
-          "localStorage.setItem('sovrium_language', 'fr-FR')",
+          "localStorage.setItem('sovrium_language', 'fr')",
           "HTML updates to lang=\"fr-FR\"",
           "On next visit: reads localStorage and restores French",
           "Persistent language preference"
@@ -613,16 +634,18 @@
       "validation": {
         "setup": {
           "languages": {
-            "default": "en-US",
+            "default": "en",
             "persistSelection": false,
             "supported": [
               {
-                "code": "en-US",
-                "label": "English"
+                "code": "en",
+                "label": "English",
+                "locale": "en-US"
               },
               {
-                "code": "fr-FR",
-                "label": "Français"
+                "code": "fr",
+                "label": "Français",
+                "locale": "fr-FR"
               }
             ]
           }
@@ -636,7 +659,7 @@
       },
       "application": {
         "languages": {
-          "default": "en-US",
+          "default": "en",
           "persistSelection": false
         },
         "userAction": "Click fr-FR button",
@@ -654,22 +677,24 @@
     },
     {
       "id": "APP-LANGUAGES-008",
-      "given": "an app with supported languages including RTL (ar-SA) and LTR (en-US)",
+      "given": "an app with supported languages including RTL (ar) and LTR (en)",
       "when": "user switches between English and Arabic",
       "then": "the entire app layout should flip between LTR and RTL direction",
       "validation": {
         "setup": {
           "languages": {
-            "default": "en-US",
+            "default": "en",
             "supported": [
               {
-                "code": "en-US",
+                "code": "en",
                 "label": "English",
+                "locale": "en-US",
                 "direction": "ltr"
               },
               {
-                "code": "ar-SA",
+                "code": "ar",
                 "label": "العربية",
+                "locale": "ar-SA",
                 "direction": "rtl"
               }
             ]
@@ -684,14 +709,14 @@
       },
       "application": {
         "languages": {
-          "default": "en-US",
+          "default": "en",
           "supported": [
             {
-              "code": "en-US",
+              "code": "en",
               "direction": "ltr"
             },
             {
-              "code": "ar-SA",
+              "code": "ar",
               "direction": "rtl"
             }
           ]
@@ -717,35 +742,40 @@
       "validation": {
         "setup": {
           "languages": {
-            "default": "en-US",
+            "default": "en",
             "supported": [
               {
-                "code": "en-US",
+                "code": "en",
                 "label": "English",
+                "locale": "en-US",
                 "flag": "🇺🇸"
               },
               {
-                "code": "fr-FR",
+                "code": "fr",
                 "label": "Français",
+                "locale": "fr-FR",
                 "flag": "🇫🇷"
               },
               {
-                "code": "es-ES",
+                "code": "es",
                 "label": "Español",
+                "locale": "es-ES",
                 "flag": "🇪🇸"
               },
               {
-                "code": "de-DE",
+                "code": "de",
                 "label": "Deutsch",
+                "locale": "de-DE",
                 "flag": "🇩🇪"
               },
               {
-                "code": "ja-JP",
+                "code": "ja",
                 "label": "日本語",
+                "locale": "ja-JP",
                 "flag": "🇯🇵"
               },
               {
-                "code": "ar-SA",
+                "code": "ar",
                 "label": "العربية",
                 "flag": "🇸🇦"
               }
@@ -763,12 +793,12 @@
         "languages": {
           "supported": [
             {
-              "code": "en-US",
+              "code": "en",
               "label": "English",
               "flag": "🇺🇸"
             },
             {
-              "code": "fr-FR",
+              "code": "fr",
               "label": "Français",
               "flag": "🇫🇷"
             },
@@ -778,14 +808,14 @@
               "flag": "🇯🇵"
             },
             {
-              "code": "ar-SA",
+              "code": "ar",
               "label": "العربية",
               "flag": "🇸🇦"
             }
           ]
         },
         "component": "language-switcher",
-        "expectedDOM": "<div data-testid=\"language-switcher\"><button data-testid=\"language-option-en-US\">🇺🇸 English</button><button data-testid=\"language-option-fr-FR\">🇫🇷 Français</button><button data-testid=\"language-option-ja-JP\">🇯🇵 日本語</button><button data-testid=\"language-option-ar-SA\">🇸🇦 العربية</button></div>",
+        "expectedDOM": "<div data-testid=\"language-switcher\"><button data-testid=\"language-option-en\">🇺🇸 English</button><button data-testid=\"language-option-fr\">🇫🇷 Français</button><button data-testid=\"language-option-ja\">🇯🇵 日本語</button><button data-testid=\"language-option-ar\">🇸🇦 العربية</button></div>",
         "assertions": [
           "All languages listed with flags",
           "Native labels: Français, 日本語, العربية",
@@ -803,18 +833,20 @@
       "validation": {
         "setup": {
           "languages": {
-            "default": "en-US",
-            "fallback": "en-US",
+            "default": "en",
+            "fallback": "en",
             "detectBrowser": true,
             "persistSelection": true,
             "supported": [
               {
-                "code": "en-US",
-                "label": "English"
+                "code": "en",
+                "label": "English",
+                "locale": "en-US"
               },
               {
-                "code": "fr-FR",
-                "label": "Français"
+                "code": "fr",
+                "label": "Français",
+                "locale": "fr-FR"
               }
             ]
           }
@@ -866,21 +898,23 @@
     },
     {
       "id": "APP-LANGUAGES-011",
-      "given": "an app with default language not in supported array",
+      "given": "an app with default language code not in supported array",
       "when": "default is 'en-US' but supported array only contains fr-FR and es-ES",
       "then": "it should fail validation - default language must be in supported array",
       "validation": {
         "setup": {
           "languages": {
-            "default": "en-US",
+            "default": "en",
             "supported": [
               {
-                "code": "fr-FR",
-                "label": "Français"
+                "code": "fr",
+                "label": "Français",
+                "locale": "fr-FR"
               },
               {
-                "code": "es-ES",
-                "label": "Español"
+                "code": "es",
+                "label": "Español",
+                "locale": "es-ES"
               }
             ]
           }
@@ -911,16 +945,18 @@
       "validation": {
         "setup": {
           "languages": {
-            "default": "en-US",
-            "fallback": "de-DE",
+            "default": "en",
+            "fallback": "de",
             "supported": [
               {
-                "code": "en-US",
-                "label": "English"
+                "code": "en",
+                "label": "English",
+                "locale": "en-US"
               },
               {
-                "code": "fr-FR",
-                "label": "Français"
+                "code": "fr",
+                "label": "Français",
+                "locale": "fr-FR"
               }
             ]
           }
@@ -951,15 +987,17 @@
       "validation": {
         "setup": {
           "languages": {
-            "default": "en-US",
+            "default": "en",
             "supported": [
               {
-                "code": "en-US",
-                "label": "English"
+                "code": "en",
+                "label": "English",
+                "locale": "en-US"
               },
               {
-                "code": "fr-FR",
-                "label": "Français"
+                "code": "fr",
+                "label": "Français",
+                "locale": "fr-FR"
               }
             ]
           }
@@ -1014,16 +1052,18 @@
       "validation": {
         "setup": {
           "languages": {
-            "default": "fr-FR",
-            "fallback": "en-US",
+            "default": "fr",
+            "fallback": "en",
             "supported": [
               {
-                "code": "en-US",
-                "label": "English"
+                "code": "en",
+                "label": "English",
+                "locale": "en-US"
               },
               {
-                "code": "fr-FR",
-                "label": "Français"
+                "code": "fr",
+                "label": "Français",
+                "locale": "fr-FR"
               }
             ]
           }
@@ -1037,9 +1077,9 @@
       },
       "application": {
         "languages": {
-          "default": "fr-FR",
-          "fallback": "en-US",
-          "currentLanguage": "fr-FR"
+          "default": "fr",
+          "fallback": "en",
+          "currentLanguage": "fr"
         },
         "translations": {
           "en-US": {
@@ -1069,15 +1109,17 @@
       "validation": {
         "setup": {
           "languages": {
-            "default": "en-US",
+            "default": "en",
             "supported": [
               {
-                "code": "en-US",
-                "label": "English"
+                "code": "en",
+                "label": "English",
+                "locale": "en-US"
               },
               {
-                "code": "fr-FR",
-                "label": "Français"
+                "code": "fr",
+                "label": "Français",
+                "locale": "fr-FR"
               }
             ],
             "translations": {
@@ -1100,7 +1142,7 @@
       },
       "application": {
         "languages": {
-          "default": "en-US",
+          "default": "en",
           "translations": {
             "en-US": {
               "hero.title": "Welcome to Our Platform",
@@ -1146,7 +1188,7 @@
       "validation": {
         "setup": {
           "languages": {
-            "default": "en-US",
+            "default": "en",
             "translations": {
               "en-US": {
                 "button.close": "Close",
@@ -1167,7 +1209,7 @@
       },
       "application": {
         "languages": {
-          "default": "en-US",
+          "default": "en",
           "translations": {
             "en-US": {
               "close.label": "Close dialog",
@@ -1221,7 +1263,7 @@
       "validation": {
         "setup": {
           "languages": {
-            "default": "en-US",
+            "default": "en",
             "translations": {
               "en-US": {
                 "welcome.message": "Welcome back!"
@@ -1240,7 +1282,7 @@
       },
       "application": {
         "languages": {
-          "default": "en-US",
+          "default": "en",
           "translations": {
             "en-US": {
               "hero.tagline": "Build amazing apps with configuration",
@@ -1285,7 +1327,7 @@
       "validation": {
         "setup": {
           "languages": {
-            "default": "en-US",
+            "default": "en",
             "translations": {
               "en-US": {
                 "nav.home": "Home",
@@ -1305,7 +1347,7 @@
       },
       "application": {
         "languages": {
-          "default": "en-US",
+          "default": "en",
           "translations": {
             "en-US": {
               "page.title": "Home Page",
@@ -1395,14 +1437,14 @@
       "then": "it should apply RTL-aware theme tokens for Arabic/Hebrew while maintaining LTR for English/French",
       "application": {
         "languages": {
-          "default": "en-US",
+          "default": "en",
           "supported": [
             {
-              "code": "en-US",
+              "code": "en",
               "direction": "ltr"
             },
             {
-              "code": "ar-SA",
+              "code": "ar",
               "direction": "rtl"
             }
           ]
@@ -1435,15 +1477,15 @@
       "then": "it should update page metadata, HTML attributes, and visible text while maintaining scroll position and component state",
       "application": {
         "languages": {
-          "default": "en-US",
+          "default": "en",
           "persistSelection": true,
           "supported": [
             {
-              "code": "en-US",
+              "code": "en",
               "label": "English"
             },
             {
-              "code": "fr-FR",
+              "code": "fr",
               "label": "Français"
             }
           ]
@@ -1466,7 +1508,7 @@
         },
         "localStorage": {
           "key": "sovrium_language",
-          "value": "fr-FR"
+          "value": "fr"
         },
         "assertions": [
           "HTML lang attribute updates: en-US → fr-FR",
@@ -1488,15 +1530,17 @@
       "validation": {
         "setup": {
           "languages": {
-            "default": "en-US",
+            "default": "en",
             "supported": [
               {
-                "code": "en-US",
-                "label": "English"
+                "code": "en",
+                "label": "English",
+                "locale": "en-US"
               },
               {
-                "code": "fr-FR",
-                "label": "Français"
+                "code": "fr",
+                "label": "Français",
+                "locale": "fr-FR"
               }
             ],
             "translations": {
@@ -1555,16 +1599,18 @@
       "validation": {
         "setup": {
           "languages": {
-            "default": "en-US",
-            "fallback": "en-US",
+            "default": "en",
+            "fallback": "en",
             "supported": [
               {
-                "code": "en-US",
-                "label": "English"
+                "code": "en",
+                "label": "English",
+                "locale": "en-US"
               },
               {
-                "code": "fr-FR",
-                "label": "Français"
+                "code": "fr",
+                "label": "Français",
+                "locale": "fr-FR"
               }
             ],
             "translations": {
@@ -1587,7 +1633,7 @@
       },
       "application": {
         "languages": {
-          "currentLanguage": "fr-FR",
+          "currentLanguage": "fr",
           "translations": {
             "en-US": {
               "common.save": "Save",
@@ -1628,11 +1674,12 @@
       "validation": {
         "setup": {
           "languages": {
-            "default": "en-US",
+            "default": "en",
             "supported": [
               {
-                "code": "en-US",
-                "label": "English"
+                "code": "en",
+                "label": "English",
+                "locale": "en-US"
               }
             ],
             "translations": {
@@ -1701,7 +1748,7 @@
       "validation": {
         "setup": {
           "languages": {
-            "default": "en-US",
+            "default": "en",
             "supported": ["en-US", "fr-FR", "es-ES"],
             "translations": {
               "en-US": {
@@ -1737,7 +1784,7 @@
       },
       "application": {
         "languages": {
-          "default": "en-US",
+          "default": "en",
           "supported": ["en-US", "fr-FR", "es-ES"],
           "translations": {
             "en-US": {
@@ -1852,22 +1899,25 @@
       "application": {
         "completeExample": {
           "languages": {
-            "default": "en-US",
-            "fallback": "en-US",
+            "default": "en",
+            "fallback": "en",
             "supported": [
               {
-                "code": "en-US",
+                "code": "en",
                 "label": "English",
+                "locale": "en-US",
                 "direction": "ltr"
               },
               {
-                "code": "fr-FR",
+                "code": "fr",
                 "label": "Français",
+                "locale": "fr-FR",
                 "direction": "ltr"
               },
               {
-                "code": "es-ES",
+                "code": "es",
                 "label": "Español",
+                "locale": "es-ES",
                 "direction": "ltr"
               }
             ],
@@ -1941,7 +1991,7 @@
             }
           ]
         },
-        "expectedDOM": "<html lang=\"fr-FR\" dir=\"ltr\">\n<head>\n  <title>Bienvenue sur Notre Plateforme</title>\n  <meta name=\"description\" content=\"Créez des applications incroyables facilement\" />\n  <meta property=\"og:locale\" content=\"fr_FR\" />\n  <meta property=\"og:locale:alternate\" content=\"en_US\" />\n  <meta property=\"og:locale:alternate\" content=\"es_ES\" />\n  <link rel=\"alternate\" hreflang=\"en-US\" href=\"https://example.com/en/\" />\n  <link rel=\"alternate\" hreflang=\"fr-FR\" href=\"https://example.com/fr/\" />\n  <link rel=\"alternate\" hreflang=\"es-ES\" href=\"https://example.com/es/\" />\n  <link rel=\"alternate\" hreflang=\"x-default\" href=\"https://example.com/en/\" />\n</head>\n<body>\n  <header>\n    <nav>\n      <a href=\"/fr/\" data-testid=\"nav-link-home\">Accueil</a>\n      <a href=\"/fr/about\" data-testid=\"nav-link-about\">À propos</a>\n      <a href=\"/fr/contact\" data-testid=\"nav-link-contact\">Contact</a>\n      <div data-testid=\"language-switcher\" class=\"dropdown\">\n        <button data-testid=\"language-switcher-trigger\">🇫🇷 Français</button>\n        <ul data-testid=\"language-switcher-menu\">\n          <li><button data-testid=\"language-option-en-US\">🇺🇸 English</button></li>\n          <li><button data-testid=\"language-option-fr-FR\" class=\"active\">🇫🇷 Français</button></li>\n          <li><button data-testid=\"language-option-es-ES\">🇪🇸 Español</button></li>\n        </ul>\n      </div>\n    </nav>\n  </header>\n  <main>\n    <section data-testid=\"hero\">\n      <h1>Bienvenue sur Notre Plateforme</h1>\n      <p>Créez des applications incroyables facilement</p>\n      <button data-testid=\"hero-cta\">Commencer</button>\n    </section>\n  </main>\n</body>\n</html>",
+        "expectedDOM": "<html lang=\"fr-FR\" dir=\"ltr\">\n<head>\n  <title>Bienvenue sur Notre Plateforme</title>\n  <meta name=\"description\" content=\"Créez des applications incroyables facilement\" />\n  <meta property=\"og:locale\" content=\"fr_FR\" />\n  <meta property=\"og:locale:alternate\" content=\"en_US\" />\n  <meta property=\"og:locale:alternate\" content=\"es_ES\" />\n  <link rel=\"alternate\" hreflang=\"en-US\" href=\"https://example.com/en/\" />\n  <link rel=\"alternate\" hreflang=\"fr-FR\" href=\"https://example.com/fr/\" />\n  <link rel=\"alternate\" hreflang=\"es-ES\" href=\"https://example.com/es/\" />\n  <link rel=\"alternate\" hreflang=\"x-default\" href=\"https://example.com/en/\" />\n</head>\n<body>\n  <header>\n    <nav>\n      <a href=\"/fr/\" data-testid=\"nav-link-home\">Accueil</a>\n      <a href=\"/fr/about\" data-testid=\"nav-link-about\">À propos</a>\n      <a href=\"/fr/contact\" data-testid=\"nav-link-contact\">Contact</a>\n      <div data-testid=\"language-switcher\" class=\"dropdown\">\n        <button data-testid=\"language-switcher-trigger\">🇫🇷 Français</button>\n        <ul data-testid=\"language-switcher-menu\">\n          <li><button data-testid=\"language-option-en\">🇺🇸 English</button></li>\n          <li><button data-testid=\"language-option-fr\" class=\"active\">🇫🇷 Français</button></li>\n          <li><button data-testid=\"language-option-es\">🇪🇸 Español</button></li>\n        </ul>\n      </div>\n    </nav>\n  </header>\n  <main>\n    <section data-testid=\"hero\">\n      <h1>Bienvenue sur Notre Plateforme</h1>\n      <p>Créez des applications incroyables facilement</p>\n      <button data-testid=\"hero-cta\">Commencer</button>\n    </section>\n  </main>\n</body>\n</html>",
         "expectedMeta": {
           "htmlLang": "fr-FR",
           "direction": "ltr",
@@ -2006,7 +2056,7 @@
   "x-block-architecture-example": {
     "_comment": "Example demonstrating block-based architecture for language-switcher UI component",
     "configuration": {
-      "default": "en-US",
+      "default": "en",
       "supported": [
         {
           "code": "en-US",

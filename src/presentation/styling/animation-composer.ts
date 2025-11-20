@@ -32,13 +32,21 @@ interface AnimationComposerConfig {
 }
 
 /**
+ * Animation timing configuration
+ */
+type AnimationTiming = {
+  readonly duration: string
+  readonly easing: string
+}
+
+/**
  * Extract animation timing from config
  */
 function extractAnimationTiming(
   animationConfig: unknown,
   defaultDuration: string,
   defaultEasing: string
-) {
+): AnimationTiming {
   const duration =
     typeof animationConfig === 'object' && animationConfig !== null && 'duration' in animationConfig
       ? (animationConfig.duration as string)

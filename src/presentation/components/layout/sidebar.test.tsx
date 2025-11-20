@@ -51,28 +51,49 @@ describe('Sidebar Component', () => {
     })
   })
   describe('Collapsible functionality', () => {
-    test('renders toggle button when collapsible', () => {
+    test('renders toggle button when collapsible and has content', () => {
       // When
-      const html = renderToStaticMarkup(<Sidebar collapsible={true} />)
+      const html = renderToStaticMarkup(
+        <Sidebar
+          collapsible={true}
+          items={[{ type: 'link', label: 'Home', href: '/' }]}
+        />
+      )
       // Then
       expect(html).toContain('data-testid="sidebar-toggle"')
       expect(html).toContain('Toggle')
     })
-    test('renders toggle button by default', () => {
+    test('renders toggle button by default when has content', () => {
       // When
-      const html = renderToStaticMarkup(<Sidebar />)
+      const html = renderToStaticMarkup(
+        <Sidebar items={[{ type: 'link', label: 'Home', href: '/' }]} />
+      )
       // Then
       expect(html).toContain('data-testid="sidebar-toggle"')
     })
     test('does not render toggle when collapsible is false', () => {
       // When
-      const html = renderToStaticMarkup(<Sidebar collapsible={false} />)
+      const html = renderToStaticMarkup(
+        <Sidebar
+          collapsible={false}
+          items={[{ type: 'link', label: 'Home', href: '/' }]}
+        />
+      )
       // Then
       expect(html).not.toContain('data-testid="sidebar-toggle"')
     })
+    test('does not render toggle button element when no content', () => {
+      // When
+      const html = renderToStaticMarkup(<Sidebar collapsible={true} />)
+      // Then - Should not contain the button element (script may reference it)
+      expect(html).not.toContain('<button')
+      expect(html).not.toContain('Toggle</button>')
+    })
     test('toggle button has correct styling', () => {
       // When
-      const html = renderToStaticMarkup(<Sidebar />)
+      const html = renderToStaticMarkup(
+        <Sidebar items={[{ type: 'link', label: 'Home', href: '/' }]} />
+      )
       // Then
       expect(html).toContain('data-testid="sidebar-toggle"')
       expect(html).toContain('mb-4')
@@ -400,18 +421,21 @@ describe('Sidebar Component', () => {
     })
   })
   describe('Edge cases', () => {
-    test('renders with empty items array', () => {
+    test('renders without nav when items array is empty', () => {
       // When
       const html = renderToStaticMarkup(<Sidebar items={[]} />)
       // Then
       expect(html).toContain('data-testid="sidebar"')
-      expect(html).toContain('<nav')
+      expect(html).not.toContain('<nav')
+      expect(html).not.toContain('<button')
     })
-    test('handles undefined items', () => {
+    test('renders without nav when items is undefined', () => {
       // When
       const html = renderToStaticMarkup(<Sidebar />)
       // Then
       expect(html).toContain('data-testid="sidebar"')
+      expect(html).not.toContain('<nav')
+      expect(html).not.toContain('<button')
     })
     test('handles groups with undefined children', () => {
       // Given

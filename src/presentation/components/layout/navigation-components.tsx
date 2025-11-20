@@ -126,14 +126,12 @@ export function NavLogo({
   logoAlt,
 }: Readonly<{ logo: string; logoMobile?: string; logoAlt?: string }>): Readonly<ReactElement> {
   const altText = logoAlt ?? 'Logo'
-  const logoLabel = `Go to homepage - ${altText}`
 
   if (logoMobile) {
     return (
       <a
         href="/"
         data-testid="nav-logo-link"
-        aria-label={logoLabel}
       >
         <img
           data-testid="nav-logo"
@@ -155,7 +153,6 @@ export function NavLogo({
     <a
       href="/"
       data-testid="nav-logo-link"
-      aria-label={logoLabel}
     >
       <img
         data-testid="nav-logo"
@@ -242,15 +239,15 @@ export function NavUserMenu({
 
 /**
  * Mobile Menu Toggle Component
+ *
+ * Note: onClick handler is attached via inline script (getMobileMenuScript)
+ * to support SSR without client-side hydration
  */
-export function MobileMenuToggle({
-  onClick,
-}: Readonly<{ onClick: () => void }>): Readonly<ReactElement> {
+export function MobileMenuToggle(): Readonly<ReactElement> {
   return (
     <button
       type="button"
       data-testid="mobile-menu-toggle"
-      onClick={onClick}
       className="block md:hidden"
       aria-label="Toggle mobile menu"
     >
@@ -261,16 +258,18 @@ export function MobileMenuToggle({
 
 /**
  * Mobile Menu Component
+ *
+ * Note: Visibility is controlled via inline script (getMobileMenuScript)
+ * to support SSR without client-side hydration. Initially hidden with display: none.
  */
 export function MobileMenu({
-  isOpen,
   links,
-}: Readonly<{ isOpen: boolean; links: readonly NavLink[] }>): Readonly<ReactElement> {
+}: Readonly<{ links: readonly NavLink[] }>): Readonly<ReactElement> {
   return (
     <div
       data-testid="mobile-menu"
       className="absolute top-full left-0 z-50 w-full bg-white shadow-lg"
-      style={{ display: isOpen ? 'block' : 'none' }}
+      style={{ display: 'none' }}
     >
       {links.map((link) => (
         <a

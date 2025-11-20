@@ -27,15 +27,15 @@ describe('LanguageCodeSchema', () => {
     expect(results).toEqual(codes)
   })
 
-  test('should accept ISO 639-1 codes with region', () => {
-    // GIVEN: Language codes with region
+  test('should reject ISO 639-1 codes with region (use LanguageConfigSchema.locale instead)', () => {
+    // GIVEN: Language codes with region (these are now locale codes, not language codes)
     const codes = ['en-US', 'fr-FR', 'es-ES', 'de-DE', 'ja-JP', 'ar-SA']
 
-    // WHEN: Schema validation is performed on each
-    const results = codes.map((code) => Schema.decodeUnknownSync(LanguageCodeSchema)(code))
-
-    // THEN: All codes should be accepted
-    expect(results).toEqual(codes)
+    // WHEN/THEN: Schema validation should reject these
+    // NOTE: Use the 'locale' field in LanguageConfigSchema for full locale codes
+    codes.forEach((code) => {
+      expect(() => Schema.decodeUnknownSync(LanguageCodeSchema)(code)).toThrow()
+    })
   })
 
   test('should reject invalid language code formats', () => {
@@ -113,11 +113,11 @@ describe('TranslationsSchema', () => {
   test('should accept translations for multiple languages', () => {
     // GIVEN: Centralized translations
     const translations = {
-      'en-US': {
+      en: {
         'common.save': 'Save',
         'common.cancel': 'Cancel',
       },
-      'fr-FR': {
+      fr: {
         'common.save': 'Enregistrer',
         'common.cancel': 'Annuler',
       },
@@ -127,8 +127,8 @@ describe('TranslationsSchema', () => {
     const result = Schema.decodeUnknownSync(TranslationsSchema)(translations)
 
     // THEN: All languages should be accepted
-    expect(result['en-US']?.['common.save']).toBe('Save')
-    expect(result['fr-FR']?.['common.save']).toBe('Enregistrer')
+    expect(result['en']?.['common.save']).toBe('Save')
+    expect(result['fr']?.['common.save']).toBe('Enregistrer')
   })
 
   test('should accept empty translations', () => {
@@ -147,10 +147,11 @@ describe('LanguagesSchema', () => {
   test('should accept minimal configuration with default and one supported language', () => {
     // GIVEN: Minimal language setup
     const languages = {
-      default: 'en-US',
+      default: 'en',
       supported: [
         {
-          code: 'en-US',
+          code: 'en',
+          locale: 'en-US',
           label: 'English',
         },
       ],
@@ -160,18 +161,18 @@ describe('LanguagesSchema', () => {
     const result = Schema.decodeUnknownSync(LanguagesSchema)(languages)
 
     // THEN: Minimal configuration should be accepted
-    expect(result.default).toBe('en-US')
+    expect(result.default).toBe('en')
     expect(result.supported).toHaveLength(1)
   })
 
   test('should accept configuration with multiple supported languages', () => {
     // GIVEN: Multi-language configuration
     const languages = {
-      default: 'en-US',
+      default: 'en',
       supported: [
-        { code: 'en-US', label: 'English' },
-        { code: 'fr-FR', label: 'Français' },
-        { code: 'es-ES', label: 'Español' },
+        { code: 'en', locale: 'en-US', label: 'English' },
+        { code: 'fr', locale: 'fr-FR', label: 'Français' },
+        { code: 'es', locale: 'es-ES', label: 'Español' },
       ],
     }
 
@@ -185,11 +186,11 @@ describe('LanguagesSchema', () => {
   test('should accept configuration with fallback language', () => {
     // GIVEN: Configuration with fallback
     const languages = {
-      default: 'en-US',
-      fallback: 'en-US',
+      default: 'en',
+      fallback: 'en',
       supported: [
-        { code: 'en-US', label: 'English' },
-        { code: 'fr-FR', label: 'Français' },
+        { code: 'en', locale: 'en-US', label: 'English' },
+        { code: 'fr', locale: 'fr-FR', label: 'Français' },
       ],
     }
 
@@ -197,15 +198,15 @@ describe('LanguagesSchema', () => {
     const result = Schema.decodeUnknownSync(LanguagesSchema)(languages)
 
     // THEN: Fallback should be accepted
-    expect(result.fallback).toBe('en-US')
+    expect(result.fallback).toBe('en')
   })
 
   test('should accept configuration with detectBrowser flag', () => {
     // GIVEN: Configuration with detectBrowser
     const languages = {
-      default: 'en-US',
+      default: 'en',
       detectBrowser: true,
-      supported: [{ code: 'en-US', label: 'English' }],
+      supported: [{ code: 'en', locale: 'en-US', label: 'English' }],
     }
 
     // WHEN: Schema validation is performed
@@ -218,9 +219,9 @@ describe('LanguagesSchema', () => {
   test('should accept configuration with persistSelection flag', () => {
     // GIVEN: Configuration with persistSelection
     const languages = {
-      default: 'en-US',
+      default: 'en',
       persistSelection: true,
-      supported: [{ code: 'en-US', label: 'English' }],
+      supported: [{ code: 'en', locale: 'en-US', label: 'English' }],
     }
 
     // WHEN: Schema validation is performed
@@ -233,17 +234,17 @@ describe('LanguagesSchema', () => {
   test('should accept configuration with centralized translations', () => {
     // GIVEN: Configuration with translations
     const languages = {
-      default: 'en-US',
+      default: 'en',
       supported: [
-        { code: 'en-US', label: 'English' },
-        { code: 'fr-FR', label: 'Français' },
+        { code: 'en', locale: 'en-US', label: 'English' },
+        { code: 'fr', locale: 'fr-FR', label: 'Français' },
       ],
       translations: {
-        'en-US': {
+        en: {
           'common.save': 'Save',
           'common.cancel': 'Cancel',
         },
-        'fr-FR': {
+        fr: {
           'common.save': 'Enregistrer',
           'common.cancel': 'Annuler',
         },
@@ -253,18 +254,18 @@ describe('LanguagesSchema', () => {
     // WHEN: Schema validation is performed
     const result = Schema.decodeUnknownSync(LanguagesSchema)(languages)
 
-    // THEN: Translations should be accepted
-    expect(result.translations?.['en-US']?.['common.save']).toBe('Save')
-    expect(result.translations?.['fr-FR']?.['common.save']).toBe('Enregistrer')
+    // THEN: Translations should be accepted (keyed by short codes, not full locales)
+    expect(result.translations?.['en']?.['common.save']).toBe('Save')
+    expect(result.translations?.['fr']?.['common.save']).toBe('Enregistrer')
   })
 
   test('should accept configuration with RTL and LTR languages', () => {
     // GIVEN: Configuration with bidirectional support
     const languages = {
-      default: 'en-US',
+      default: 'en',
       supported: [
-        { code: 'en-US', label: 'English', direction: 'ltr' },
-        { code: 'ar-SA', label: 'العربية', direction: 'rtl' },
+        { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr' },
+        { code: 'ar', locale: 'ar-SA', label: 'العربية', direction: 'rtl' },
       ],
     }
 
@@ -279,11 +280,11 @@ describe('LanguagesSchema', () => {
   test('should accept configuration with language flags', () => {
     // GIVEN: Configuration with flag emojis
     const languages = {
-      default: 'en-US',
+      default: 'en',
       supported: [
-        { code: 'en-US', label: 'English', flag: '🇺🇸' },
-        { code: 'fr-FR', label: 'Français', flag: '🇫🇷' },
-        { code: 'ja-JP', label: '日本語', flag: '🇯🇵' },
+        { code: 'en', locale: 'en-US', label: 'English', flag: '🇺🇸' },
+        { code: 'fr', locale: 'fr-FR', label: 'Français', flag: '🇫🇷' },
+        { code: 'ja', locale: 'ja-JP', label: '日本語', flag: '🇯🇵' },
       ],
     }
 
@@ -299,17 +300,17 @@ describe('LanguagesSchema', () => {
   test('should accept configuration with all features enabled', () => {
     // GIVEN: Complete language configuration
     const languages = {
-      default: 'en-US',
-      fallback: 'en-US',
+      default: 'en',
+      fallback: 'en',
       detectBrowser: true,
       persistSelection: true,
       supported: [
-        { code: 'en-US', label: 'English' },
-        { code: 'fr-FR', label: 'Français' },
+        { code: 'en', locale: 'en-US', label: 'English' },
+        { code: 'fr', locale: 'fr-FR', label: 'Français' },
       ],
       translations: {
-        'en-US': { 'common.save': 'Save' },
-        'fr-FR': { 'common.save': 'Enregistrer' },
+        en: { 'common.save': 'Save' },
+        fr: { 'common.save': 'Enregistrer' },
       },
     }
 
@@ -317,8 +318,8 @@ describe('LanguagesSchema', () => {
     const result = Schema.decodeUnknownSync(LanguagesSchema)(languages)
 
     // THEN: All features should be accepted
-    expect(result.default).toBe('en-US')
-    expect(result.fallback).toBe('en-US')
+    expect(result.default).toBe('en')
+    expect(result.fallback).toBe('en')
     expect(result.detectBrowser).toBe(true)
     expect(result.persistSelection).toBe(true)
     expect(result.supported).toHaveLength(2)
@@ -328,7 +329,7 @@ describe('LanguagesSchema', () => {
   test('should reject configuration without default', () => {
     // GIVEN: Configuration missing required default
     const languages = {
-      supported: [{ code: 'en-US', label: 'English' }],
+      supported: [{ code: 'en', locale: 'en-US', label: 'English' }],
     }
 
     // WHEN: Schema validation is performed
@@ -339,7 +340,7 @@ describe('LanguagesSchema', () => {
   test('should reject configuration without supported array', () => {
     // GIVEN: Configuration missing required supported
     const languages = {
-      default: 'en-US',
+      default: 'en',
     }
 
     // WHEN: Schema validation is performed
@@ -350,7 +351,7 @@ describe('LanguagesSchema', () => {
   test('should reject configuration with empty supported array', () => {
     // GIVEN: Configuration with empty supported array
     const languages = {
-      default: 'en-US',
+      default: 'en',
       supported: [],
     }
 
