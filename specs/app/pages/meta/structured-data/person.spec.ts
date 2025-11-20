@@ -270,7 +270,7 @@ test.describe('Person Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PERSON-008: should link person to their employer',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
