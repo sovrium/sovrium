@@ -121,12 +121,8 @@ export const generateStaticSite = (
       // Hono's toSSG may return absolute paths, we need relative paths for consistent handling
       const normalizedFiles = (result.files as readonly string[]).map((file) => {
         // Normalize both paths by removing leading "./" for comparison
-        const normalizedOutputDir = outputDir.startsWith('./')
-          ? outputDir.substring(2)
-          : outputDir
-        const normalizedFile = file.startsWith('./')
-          ? file.substring(2)
-          : file
+        const normalizedOutputDir = outputDir.startsWith('./') ? outputDir.substring(2) : outputDir
+        const normalizedFile = file.startsWith('./') ? file.substring(2) : file
 
         // If file starts with outputDir path, make it relative
         if (normalizedFile.startsWith(normalizedOutputDir + '/')) {
