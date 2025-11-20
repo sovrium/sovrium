@@ -19,7 +19,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Postal Address', () => {
-  test.fixme(
+  test(
     'APP-PAGES-POSTALADDRESS-001: should validate minimal PostalAddress structured data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
