@@ -63,6 +63,16 @@ export default [
     },
   },
 
+  // Website page definitions - Declarative data structures
+  {
+    files: ['website/pages/**/*.ts'],
+    rules: {
+      'max-lines': 'off', // Page configurations are declarative data structures
+      'max-lines-per-function': 'off', // Large configuration objects are acceptable
+      'max-statements': 'off', // Configuration setup can have many statements
+    },
+  },
+
   // Strict limits for React components - Should be modular
   {
     files: ['src/presentation/components/**/*.tsx'],
@@ -104,6 +114,17 @@ export default [
     rules: {
       'max-lines-per-function': 'off', // SSR metadata/script rendering is declarative
       complexity: 'off', // Conditional configuration is acceptable
+    },
+  },
+
+  // Complex use case files with multiple helper functions
+  // These files handle complex domains and are well-structured with helper functions
+  {
+    files: ['src/application/use-cases/server/generate-static.ts'],
+    rules: {
+      'max-lines': ['warn', { max: 700, skipBlankLines: true, skipComments: true }], // Complex static generation with helpers
+      'max-lines-per-function': ['warn', { max: 100 }], // Allow larger helper functions for complex operations
+      'max-params': 'off', // Helper functions may need many parameters (consider options objects in future)
     },
   },
 
