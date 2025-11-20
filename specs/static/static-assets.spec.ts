@@ -281,7 +281,7 @@ test.describe('Static Site Generation - Asset Management', () => {
       // Home page (at root) should have correct paths
       expect(homeHtml).toContain('href="./favicon.ico"')
       expect(homeHtml).toContain('src="/images/logo.svg"')
-      expect(homeHtml).toContain('background-image:url(&#x27;/images/hero-bg.jpg&#x27;)')
+      expect(homeHtml).toContain('background-image: url(&#x27;/images/hero-bg.jpg&#x27;)')
       expect(homeHtml).toContain('href="/assets/output.css"')
 
       // Nested page should have absolute paths
