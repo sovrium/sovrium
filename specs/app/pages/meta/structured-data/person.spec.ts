@@ -196,7 +196,7 @@ test.describe('Person Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PERSON-006: should provide visual representation',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
