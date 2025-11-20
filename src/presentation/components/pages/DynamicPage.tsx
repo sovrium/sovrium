@@ -19,6 +19,7 @@ import type { Languages } from '@/domain/models/app/languages'
 import type { Layout } from '@/domain/models/app/page/layout'
 import type { Page } from '@/domain/models/app/pages'
 import type { Theme } from '@/domain/models/app/theme'
+import type { RouteParams } from '@/domain/utils/route-matcher'
 
 type DynamicPageProps = {
   readonly page: Page
@@ -27,6 +28,7 @@ type DynamicPageProps = {
   readonly languages?: Languages
   readonly defaultLayout?: Layout
   readonly detectedLanguage?: string
+  readonly routeParams?: RouteParams
 }
 
 type DynamicPageHeadProps = {
@@ -119,6 +121,56 @@ type DynamicPageBodyProps = {
         readonly textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize'
       }
     | undefined
+  readonly routeParams?: RouteParams
+}
+
+/**
+ * Generic parameter names that require context from path segments
+ * These parameters get prefixed with their context (e.g., product-id, user-key)
+ */
+const GENERIC_PARAM_NAMES = new Set(['id', 'key', 'uid', 'pk'])
+
+/**
+ * Converts route parameters to data attributes for testing
+ * Uses context-aware naming: generic params (id, key) get prefixed, descriptive ones (slug) don't
+ *
+ * @param routeParams - Route parameters extracted from URL
+ * @param path - Page path pattern (e.g., '/blog/:slug')
+ * @returns Data attributes object
+ */
+function buildDataAttributes(
+  routeParams: RouteParams | undefined,
+  path: string | undefined
+): Record<string, string> {
+  if (!routeParams || !path) {
+    return {}
+  }
+
+  const pathSegments = path.split('/').filter(Boolean)
+
+  return Object.entries(routeParams).reduce<Record<string, string>>((acc, [key, value]) => {
+    // Check if parameter name is generic and needs context
+    if (GENERIC_PARAM_NAMES.has(key)) {
+      // Generic parameter - add context from previous path segment
+      // e.g., /products/:id -> data-product-id
+      const paramIndex = pathSegments.findIndex((seg) => seg === `:${key}`)
+      if (paramIndex > 0) {
+        const contextSegment = pathSegments[paramIndex - 1]
+        if (!contextSegment) {
+          return { ...acc, [`data-${key}`]: value }
+        }
+        // Convert plural to singular (e.g., 'products' -> 'product')
+        const singularContext = contextSegment.endsWith('s')
+          ? contextSegment.slice(0, -1)
+          : contextSegment
+        return { ...acc, [`data-${singularContext}-${key}`]: value }
+      }
+      // No context available, use parameter name only
+      return { ...acc, [`data-${key}`]: value }
+    }
+    // Descriptive parameter - use as-is (e.g., /blog/:slug -> data-slug)
+    return { ...acc, [`data-${key}`]: value }
+  }, {})
 }
 
 /**
@@ -135,9 +187,15 @@ function DynamicPageBody({
   scripts,
   lang,
   bodyStyle,
+  routeParams,
 }: DynamicPageBodyProps): Readonly<ReactElement> {
+  const dataAttributes = buildDataAttributes(routeParams, page.path)
+
   return (
-    <body {...(bodyStyle && { style: bodyStyle })}>
+    <body
+      {...(bodyStyle && { style: bodyStyle })}
+      {...dataAttributes}
+    >
       <PageBodyScripts
         page={page}
         theme={theme}
@@ -183,6 +241,7 @@ export function DynamicPage({
   languages,
   defaultLayout,
   detectedLanguage,
+  routeParams,
 }: DynamicPageProps): Readonly<ReactElement> {
   const metadata = extractPageMetadata(page, theme, languages, detectedLanguage)
   const langConfig = resolvePageLanguage(page, languages, detectedLanguage)
@@ -216,6 +275,7 @@ export function DynamicPage({
         scripts={scripts}
         lang={langConfig.lang}
         bodyStyle={metadata.bodyStyle}
+        routeParams={routeParams}
       />
     </html>
   )

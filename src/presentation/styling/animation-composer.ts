@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { toKebabCase } from '@/presentation/utilities/string-utils'
 import type { Theme } from '@/domain/models/app/theme'
 
 /**
@@ -31,13 +32,21 @@ interface AnimationComposerConfig {
 }
 
 /**
+ * Animation timing configuration
+ */
+type AnimationTiming = {
+  readonly duration: string
+  readonly easing: string
+}
+
+/**
  * Extract animation timing from config
  */
 function extractAnimationTiming(
   animationConfig: unknown,
   defaultDuration: string,
   defaultEasing: string
-) {
+): AnimationTiming {
   const duration =
     typeof animationConfig === 'object' && animationConfig !== null && 'duration' in animationConfig
       ? (animationConfig.duration as string)
@@ -49,13 +58,6 @@ function extractAnimationTiming(
       : defaultEasing
 
   return { duration, easing }
-}
-
-/**
- * Convert camelCase to kebab-case for CSS
- */
-function toKebabCase(str: string): string {
-  return str.replace(/([A-Z])/g, '-$1').toLowerCase()
 }
 
 /**

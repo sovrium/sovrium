@@ -19,7 +19,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Person Schema', () => {
-  test.fixme(
+  test(
     'APP-PAGES-PERSON-001: should validate minimal Person structured data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -53,7 +53,7 @@ test.describe('Person Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     "APP-PAGES-PERSON-002: should provide person's full name",
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -81,7 +81,7 @@ test.describe('Person Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PERSON-003: should provide structured first and last names',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
