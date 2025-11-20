@@ -353,7 +353,7 @@ test.describe('Person Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PERSON-010: should include PostalAddress structured data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
