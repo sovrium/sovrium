@@ -309,7 +309,7 @@ test.describe('Person Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PERSON-009: should link person to their social profiles',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
