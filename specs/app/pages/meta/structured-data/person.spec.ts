@@ -397,7 +397,7 @@ test.describe('Person Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PERSON-011: should attribute content to specific author',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
