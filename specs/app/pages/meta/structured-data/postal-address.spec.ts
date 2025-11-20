@@ -57,7 +57,7 @@ test.describe('Postal Address', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-POSTALADDRESS-002: should provide street address',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
