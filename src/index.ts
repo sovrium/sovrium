@@ -196,3 +196,5 @@ export const generateStatic = async (
 export type { StartOptions, GenerateStaticOptions, GenerateStaticResult }
 export type { App, AppEncoded } from '@/domain/models/app'
 export { AppSchema } from '@/domain/models/app'
+export type { Page, PageEncoded } from '@/domain/models/app/pages'
+export { PageSchema } from '@/domain/models/app/pages'
