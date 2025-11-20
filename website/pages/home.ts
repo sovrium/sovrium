@@ -52,23 +52,29 @@ export const home: Page = {
               content: 'Sovrium™',
               props: {
                 className:
-                  'text-6xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-sovereignty-accent to-sovereignty-teal bg-clip-text text-transparent',
+                  'text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-6 bg-gradient-to-r from-sovereignty-accent to-sovereignty-teal bg-clip-text text-transparent',
               },
             },
             {
               type: 'h2',
               content: 'Own your data. Own your tools. Own your future.',
-              props: { className: 'text-2xl md:text-3xl font-semibold text-sovereignty-teal mb-8' },
+              props: {
+                className:
+                  'text-xl sm:text-2xl md:text-3xl font-semibold text-sovereignty-teal mb-8',
+              },
             },
             {
               type: 'paragraph',
               content:
                 'Break free from SaaS dependency with a self-hosted, configuration-driven platform that puts you back in control.',
-              props: { className: 'text-xl text-sovereignty-gray-400 max-w-3xl mx-auto mb-12' },
+              props: {
+                className:
+                  'text-base sm:text-lg md:text-xl text-sovereignty-gray-400 max-w-3xl mx-auto mb-12',
+              },
             },
             {
               type: 'flex',
-              props: { className: 'justify-center gap-4' },
+              props: { className: 'flex-col sm:flex-row justify-center gap-4' },
               children: [
                 {
                   type: 'link',
@@ -76,7 +82,7 @@ export const home: Page = {
                   props: {
                     href: '#getting-started',
                     className:
-                      'inline-block bg-sovereignty-accent hover:bg-sovereignty-accent-hover text-white px-8 py-4 rounded-lg font-semibold transition-all transform hover:-translate-y-1',
+                      'inline-block bg-sovereignty-accent hover:bg-sovereignty-accent-hover text-white px-6 sm:px-8 py-3 sm:py-4 rounded-lg font-semibold transition-all transform hover:-translate-y-1 text-center',
                   },
                 },
                 {
@@ -85,7 +91,7 @@ export const home: Page = {
                   props: {
                     href: 'https://github.com/sovrium/sovrium',
                     className:
-                      'inline-block border-2 border-sovereignty-accent text-sovereignty-accent px-8 py-4 rounded-lg font-semibold hover:bg-sovereignty-accent hover:text-white transition-all',
+                      'inline-block border-2 border-sovereignty-accent text-sovereignty-accent px-6 sm:px-8 py-3 sm:py-4 rounded-lg font-semibold hover:bg-sovereignty-accent hover:text-white transition-all text-center',
                   },
                 },
               ],
@@ -99,7 +105,7 @@ export const home: Page = {
     {
       type: 'section',
       props: {
-        className: 'py-24 bg-sovereignty-darker text-sovereignty-light',
+        className: 'py-16 md:py-24 bg-sovereignty-darker text-sovereignty-light',
         id: 'problem',
       },
       children: [
@@ -110,7 +116,9 @@ export const home: Page = {
             {
               type: 'h2',
               content: 'The SaaS Dependency Crisis',
-              props: { className: 'text-4xl md:text-5xl font-bold text-center mb-16' },
+              props: {
+                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-12 md:mb-16',
+              },
             },
 
             // Statistics Grid
@@ -128,7 +136,9 @@ export const home: Page = {
                     {
                       type: 'h3',
                       content: '20+',
-                      props: { className: 'text-5xl font-bold text-sovereignty-accent mb-2' },
+                      props: {
+                        className: 'text-4xl sm:text-5xl font-bold text-sovereignty-accent mb-2',
+                      },
                     },
                     {
                       type: 'paragraph',
@@ -147,7 +157,9 @@ export const home: Page = {
                     {
                       type: 'h3',
                       content: '$10,000+',
-                      props: { className: 'text-5xl font-bold text-sovereignty-accent mb-2' },
+                      props: {
+                        className: 'text-4xl sm:text-5xl font-bold text-sovereignty-accent mb-2',
+                      },
                     },
                     {
                       type: 'paragraph',
@@ -166,7 +178,9 @@ export const home: Page = {
                     {
                       type: 'h3',
                       content: '100%',
-                      props: { className: 'text-5xl font-bold text-sovereignty-accent mb-2' },
+                      props: {
+                        className: 'text-4xl sm:text-5xl font-bold text-sovereignty-accent mb-2',
+                      },
                     },
                     {
                       type: 'paragraph',
@@ -186,7 +200,7 @@ export const home: Page = {
                 {
                   type: 'h3',
                   content: 'The Hidden Costs',
-                  props: { className: 'text-2xl font-semibold mb-8' },
+                  props: { className: 'text-xl sm:text-2xl font-semibold mb-6 md:mb-8' },
                 },
                 {
                   type: 'div',
@@ -335,7 +349,7 @@ export const home: Page = {
     {
       type: 'section',
       props: {
-        className: 'py-24 bg-sovereignty-dark text-sovereignty-light',
+        className: 'py-16 md:py-24 bg-sovereignty-dark text-sovereignty-light',
         id: 'solution',
       },
       children: [
@@ -346,14 +360,17 @@ export const home: Page = {
             {
               type: 'h2',
               content: 'The Solution: Sovrium',
-              props: { className: 'text-4xl md:text-5xl font-bold text-center mb-8' },
+              props: {
+                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-6 md:mb-8',
+              },
             },
             {
               type: 'paragraph',
               content:
                 'A self-hosted, configuration-driven platform that interprets JSON to build full-featured web applications—without code generation, without vendor lock-in, without loss of control.',
               props: {
-                className: 'text-xl text-sovereignty-gray-400 text-center max-w-4xl mx-auto mb-16',
+                className:
+                  'text-base sm:text-lg md:text-xl text-sovereignty-gray-400 text-center max-w-4xl mx-auto mb-12 md:mb-16',
               },
             },
 
@@ -362,12 +379,12 @@ export const home: Page = {
               type: 'card',
               props: {
                 className:
-                  'bg-sovereignty-darker border border-sovereignty-gray-800 p-8 rounded-lg mb-16',
+                  'bg-sovereignty-darker border border-sovereignty-gray-800 p-4 sm:p-6 md:p-8 rounded-lg mb-12 md:mb-16',
               },
               children: [
                 {
                   type: 'pre',
-                  props: { className: 'overflow-x-auto' },
+                  props: { className: 'overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0' },
                   children: [
                     {
                       type: 'code',
@@ -378,7 +395,7 @@ export const home: Page = {
   "automations": [ /* your workflows */ ],
   "connections": [ /* your integrations */ ]
 }`,
-                      props: { className: 'text-sovereignty-light font-mono text-sm' },
+                      props: { className: 'text-sovereignty-light font-mono text-xs sm:text-sm' },
                     },
                   ],
                 },
@@ -414,11 +431,15 @@ export const home: Page = {
                 {
                   type: 'h3',
                   content: 'How It Works',
-                  props: { className: 'text-2xl font-semibold mb-8 text-center' },
+                  props: {
+                    className: 'text-xl sm:text-2xl font-semibold mb-6 md:mb-8 text-center',
+                  },
                 },
                 {
                   type: 'div',
-                  props: { className: 'grid grid-cols-1 md:grid-cols-4 gap-4' },
+                  props: {
+                    className: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-4',
+                  },
                   children: [
                     {
                       type: 'div',
@@ -529,7 +550,7 @@ export const home: Page = {
     {
       type: 'section',
       props: {
-        className: 'py-24 bg-sovereignty-darker text-sovereignty-light',
+        className: 'py-16 md:py-24 bg-sovereignty-darker text-sovereignty-light',
         id: 'principles',
       },
       children: [
@@ -540,29 +561,31 @@ export const home: Page = {
             {
               type: 'h2',
               content: 'Core Principles',
-              props: { className: 'text-4xl md:text-5xl font-bold text-center mb-16' },
+              props: {
+                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-12 md:mb-16',
+              },
             },
             {
               type: 'grid',
-              props: { className: 'grid grid-cols-1 md:grid-cols-2 gap-8' },
+              props: { className: 'grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8' },
               children: [
                 // Digital Sovereignty
                 {
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 md:p-8 rounded-lg hover:border-sovereignty-accent transition-colors',
                   },
                   children: [
                     {
                       type: 'div',
-                      props: { className: 'text-sovereignty-accent text-3xl mb-4' },
+                      props: { className: 'text-sovereignty-accent text-2xl sm:text-3xl mb-4' },
                       content: '🛡️',
                     },
                     {
                       type: 'h3',
                       content: 'Digital Sovereignty',
-                      props: { className: 'text-2xl font-semibold mb-4' },
+                      props: { className: 'text-xl sm:text-2xl font-semibold mb-4' },
                     },
                     {
                       type: 'div',
@@ -582,18 +605,18 @@ export const home: Page = {
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 md:p-8 rounded-lg hover:border-sovereignty-accent transition-colors',
                   },
                   children: [
                     {
                       type: 'div',
-                      props: { className: 'text-sovereignty-accent text-3xl mb-4' },
+                      props: { className: 'text-sovereignty-accent text-2xl sm:text-3xl mb-4' },
                       content: '⚙️',
                     },
                     {
                       type: 'h3',
                       content: 'Configuration Over Coding',
-                      props: { className: 'text-2xl font-semibold mb-4' },
+                      props: { className: 'text-xl sm:text-2xl font-semibold mb-4' },
                     },
                     {
                       type: 'div',
@@ -625,18 +648,18 @@ export const home: Page = {
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 md:p-8 rounded-lg hover:border-sovereignty-accent transition-colors',
                   },
                   children: [
                     {
                       type: 'div',
-                      props: { className: 'text-sovereignty-accent text-3xl mb-4' },
+                      props: { className: 'text-sovereignty-accent text-2xl sm:text-3xl mb-4' },
                       content: '📦',
                     },
                     {
                       type: 'h3',
                       content: 'Minimal Dependencies',
-                      props: { className: 'text-2xl font-semibold mb-4' },
+                      props: { className: 'text-xl sm:text-2xl font-semibold mb-4' },
                     },
                     {
                       type: 'div',
@@ -662,18 +685,18 @@ export const home: Page = {
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 md:p-8 rounded-lg hover:border-sovereignty-accent transition-colors',
                   },
                   children: [
                     {
                       type: 'div',
-                      props: { className: 'text-sovereignty-accent text-3xl mb-4' },
+                      props: { className: 'text-sovereignty-accent text-2xl sm:text-3xl mb-4' },
                       content: '🎯',
                     },
                     {
                       type: 'h3',
                       content: 'Business Focus',
-                      props: { className: 'text-2xl font-semibold mb-4' },
+                      props: { className: 'text-xl sm:text-2xl font-semibold mb-4' },
                     },
                     {
                       type: 'div',
@@ -698,7 +721,7 @@ export const home: Page = {
     {
       type: 'section',
       props: {
-        className: 'py-24 bg-sovereignty-dark text-sovereignty-light',
+        className: 'py-16 md:py-24 bg-sovereignty-dark text-sovereignty-light',
         id: 'comparison',
       },
       children: [
@@ -709,7 +732,9 @@ export const home: Page = {
             {
               type: 'h2',
               content: 'The Sovrium Advantage',
-              props: { className: 'text-4xl md:text-5xl font-bold text-center mb-16' },
+              props: {
+                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-12 md:mb-16',
+              },
             },
 
             // Key Stat
@@ -717,18 +742,18 @@ export const home: Page = {
               type: 'card',
               props: {
                 className:
-                  'bg-gradient-to-r from-sovereignty-accent to-sovereignty-teal p-8 rounded-lg text-center mb-16',
+                  'bg-gradient-to-r from-sovereignty-accent to-sovereignty-teal p-6 sm:p-8 rounded-lg text-center mb-12 md:mb-16',
               },
               children: [
                 {
                   type: 'h3',
                   content: '80% faster than custom development',
-                  props: { className: 'text-3xl font-bold text-white mb-2' },
+                  props: { className: 'text-xl sm:text-2xl md:text-3xl font-bold text-white mb-2' },
                 },
                 {
                   type: 'h3',
                   content: '100% more control than SaaS',
-                  props: { className: 'text-3xl font-bold text-white' },
+                  props: { className: 'text-xl sm:text-2xl md:text-3xl font-bold text-white' },
                 },
               ],
             },
@@ -741,22 +766,24 @@ export const home: Page = {
                 {
                   type: 'h3',
                   content: 'vs. Traditional No-Code SaaS',
-                  props: { className: 'text-2xl font-semibold mb-6' },
+                  props: { className: 'text-xl sm:text-2xl font-semibold mb-6' },
                 },
                 {
                   type: 'div',
-                  props: { className: 'overflow-x-auto' },
+                  props: { className: 'overflow-x-auto -mx-4 sm:mx-0' },
                   children: [
                     {
                       type: 'div',
                       props: {
                         className:
-                          'bg-sovereignty-gray-900 border border-sovereignty-gray-800 rounded-lg p-6',
+                          'bg-sovereignty-gray-900 border border-sovereignty-gray-800 rounded-lg p-4 sm:p-6 min-w-[600px] sm:min-w-0',
                       },
                       children: [
                         {
                           type: 'grid',
-                          props: { className: 'grid grid-cols-1 md:grid-cols-3 gap-4 text-sm' },
+                          props: {
+                            className: 'grid grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm',
+                          },
                           children: [
                             {
                               type: 'div',
@@ -895,7 +922,7 @@ export const home: Page = {
     {
       type: 'section',
       props: {
-        className: 'py-24 bg-sovereignty-darker text-sovereignty-light',
+        className: 'py-16 md:py-24 bg-sovereignty-darker text-sovereignty-light',
         id: 'use-cases',
       },
       children: [
@@ -906,11 +933,13 @@ export const home: Page = {
             {
               type: 'h2',
               content: 'Built For',
-              props: { className: 'text-4xl md:text-5xl font-bold text-center mb-16' },
+              props: {
+                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-12 md:mb-16',
+              },
             },
             {
               type: 'grid',
-              props: { className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8' },
+              props: { className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8' },
               children: [
                 {
                   type: 'card',
@@ -1043,7 +1072,7 @@ export const home: Page = {
     {
       type: 'section',
       props: {
-        className: 'py-24 bg-sovereignty-dark text-sovereignty-light',
+        className: 'py-16 md:py-24 bg-sovereignty-dark text-sovereignty-light',
         id: 'tech-stack',
       },
       children: [
@@ -1054,16 +1083,21 @@ export const home: Page = {
             {
               type: 'h2',
               content: 'Technical Architecture',
-              props: { className: 'text-4xl md:text-5xl font-bold text-center mb-8' },
+              props: {
+                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-6 md:mb-8',
+              },
             },
             {
               type: 'paragraph',
               content: 'Built on modern, proven technologies',
-              props: { className: 'text-xl text-sovereignty-gray-400 text-center mb-16' },
+              props: {
+                className:
+                  'text-base sm:text-lg md:text-xl text-sovereignty-gray-400 text-center mb-12 md:mb-16',
+              },
             },
             {
               type: 'grid',
-              props: { className: 'grid grid-cols-2 md:grid-cols-4 gap-6' },
+              props: { className: 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-6' },
               children: [
                 {
                   type: 'badge',
@@ -1140,7 +1174,7 @@ export const home: Page = {
     {
       type: 'section',
       props: {
-        className: 'py-24 bg-sovereignty-darker text-sovereignty-light',
+        className: 'py-16 md:py-24 bg-sovereignty-darker text-sovereignty-light',
         id: 'getting-started',
       },
       children: [
@@ -1151,13 +1185,18 @@ export const home: Page = {
             {
               type: 'h2',
               content: 'Get Started',
-              props: { className: 'text-4xl md:text-5xl font-bold text-center mb-16' },
+              props: {
+                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-12 md:mb-16',
+              },
             },
 
             // Steps
             {
               type: 'div',
-              props: { className: 'grid grid-cols-1 md:grid-cols-4 gap-8 mb-16' },
+              props: {
+                className:
+                  'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8 mb-12 md:mb-16',
+              },
               children: [
                 {
                   type: 'div',
@@ -1269,13 +1308,13 @@ export const home: Page = {
               type: 'card',
               props: {
                 className:
-                  'bg-gradient-to-r from-sovereignty-gray-900 to-sovereignty-gray-800 border border-sovereignty-accent p-8 rounded-lg text-center',
+                  'bg-gradient-to-r from-sovereignty-gray-900 to-sovereignty-gray-800 border border-sovereignty-accent p-6 sm:p-8 rounded-lg text-center',
               },
               children: [
                 {
                   type: 'h3',
                   content: '🚧 Phase 0 - Foundation',
-                  props: { className: 'text-2xl font-semibold mb-4' },
+                  props: { className: 'text-xl sm:text-2xl font-semibold mb-4' },
                 },
                 {
                   type: 'paragraph',
@@ -1314,11 +1353,11 @@ export const home: Page = {
             {
               type: 'h2',
               content: 'Ready to break free from SaaS dependency?',
-              props: { className: 'text-3xl font-bold mb-8' },
+              props: { className: 'text-2xl sm:text-3xl font-bold mb-6 md:mb-8' },
             },
             {
               type: 'flex',
-              props: { className: 'justify-center gap-4 mb-12' },
+              props: { className: 'flex-col sm:flex-row justify-center gap-4 mb-12' },
               children: [
                 {
                   type: 'link',
@@ -1326,7 +1365,7 @@ export const home: Page = {
                   props: {
                     href: 'https://github.com/sovrium/sovrium/blob/main/README.md',
                     className:
-                      'inline-block bg-sovereignty-accent hover:bg-sovereignty-accent-hover text-white px-6 py-3 rounded-lg font-semibold transition-all',
+                      'inline-block bg-sovereignty-accent hover:bg-sovereignty-accent-hover text-white px-6 py-3 rounded-lg font-semibold transition-all text-center',
                   },
                 },
                 {
@@ -1335,7 +1374,7 @@ export const home: Page = {
                   props: {
                     href: 'https://github.com/sovrium/sovrium',
                     className:
-                      'inline-block border-2 border-sovereignty-accent text-sovereignty-accent px-6 py-3 rounded-lg font-semibold hover:bg-sovereignty-accent hover:text-white transition-all',
+                      'inline-block border-2 border-sovereignty-accent text-sovereignty-accent px-6 py-3 rounded-lg font-semibold hover:bg-sovereignty-accent hover:text-white transition-all text-center',
                   },
                 },
               ],
@@ -1344,7 +1383,10 @@ export const home: Page = {
             // Footer Links
             {
               type: 'flex',
-              props: { className: 'justify-center gap-8 text-sovereignty-gray-400 mb-8 flex-wrap' },
+              props: {
+                className:
+                  'flex-col sm:flex-row justify-center gap-4 sm:gap-6 md:gap-8 text-sovereignty-gray-400 mb-8 text-center sm:text-left',
+              },
               children: [
                 {
                   type: 'link',

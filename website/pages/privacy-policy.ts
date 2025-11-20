@@ -20,7 +20,8 @@ export const privacyPolicy: Page = {
     {
       type: 'section',
       props: {
-        className: 'py-16 bg-gradient-to-b from-sovereignty-dark to-sovereignty-darker text-sovereignty-light',
+        className:
+          'py-16 bg-gradient-to-b from-sovereignty-dark to-sovereignty-darker text-sovereignty-light',
       },
       children: [
         {
@@ -30,7 +31,7 @@ export const privacyPolicy: Page = {
             {
               type: 'h1',
               content: 'Privacy Policy',
-              props: { className: 'text-4xl md:text-5xl font-bold mb-4' },
+              props: { className: 'text-3xl sm:text-4xl md:text-5xl font-bold mb-4' },
             },
             {
               type: 'paragraph',
@@ -46,12 +47,12 @@ export const privacyPolicy: Page = {
     {
       type: 'section',
       props: {
-        className: 'py-12 bg-sovereignty-darker text-sovereignty-light',
+        className: 'py-8 md:py-12 bg-sovereignty-darker text-sovereignty-light',
       },
       children: [
         {
           type: 'container',
-          props: { className: 'max-w-4xl mx-auto px-4 prose prose-invert' },
+          props: { className: 'max-w-4xl mx-auto px-4 sm:px-6 md:px-8 prose prose-invert' },
           children: [
             // Introduction
             {
@@ -61,7 +62,9 @@ export const privacyPolicy: Page = {
                 {
                   type: 'h2',
                   content: '1. Introduction',
-                  props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
+                  props: {
+                    className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
+                  },
                 },
                 {
                   type: 'paragraph',
@@ -86,13 +89,17 @@ export const privacyPolicy: Page = {
                 {
                   type: 'h2',
                   content: '2. Data Collection',
-                  props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
+                  props: {
+                    className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
+                  },
                 },
 
                 {
                   type: 'h3',
                   content: '2.1 Website Analytics',
-                  props: { className: 'text-xl font-semibold mb-3 text-sovereignty-teal' },
+                  props: {
+                    className: 'text-lg sm:text-xl font-semibold mb-3 text-sovereignty-teal',
+                  },
                 },
                 {
                   type: 'paragraph',
@@ -102,7 +109,7 @@ export const privacyPolicy: Page = {
                 },
                 {
                   type: 'div',
-                  props: { className: 'ml-4 space-y-2' },
+                  props: { className: 'ml-4 sm:ml-6 space-y-2' },
                   children: [
                     {
                       type: 'paragraph',
@@ -130,7 +137,9 @@ export const privacyPolicy: Page = {
                 {
                   type: 'h3',
                   content: '2.2 Self-Hosted Software',
-                  props: { className: 'text-xl font-semibold mb-3 mt-6 text-sovereignty-teal' },
+                  props: {
+                    className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
+                  },
                 },
                 {
                   type: 'paragraph',
@@ -140,7 +149,7 @@ export const privacyPolicy: Page = {
                 },
                 {
                   type: 'div',
-                  props: { className: 'ml-4 space-y-2' },
+                  props: { className: 'ml-4 sm:ml-6 space-y-2' },
                   children: [
                     {
                       type: 'paragraph',
@@ -174,7 +183,9 @@ export const privacyPolicy: Page = {
                 {
                   type: 'h3',
                   content: '2.3 GitHub and Open Source',
-                  props: { className: 'text-xl font-semibold mb-3 mt-6 text-sovereignty-teal' },
+                  props: {
+                    className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
+                  },
                 },
                 {
                   type: 'paragraph',
@@ -193,7 +204,9 @@ export const privacyPolicy: Page = {
                 {
                   type: 'h2',
                   content: '3. Use of Information',
-                  props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
+                  props: {
+                    className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
+                  },
                 },
                 {
                   type: 'paragraph',
@@ -202,7 +215,7 @@ export const privacyPolicy: Page = {
                 },
                 {
                   type: 'div',
-                  props: { className: 'ml-4 space-y-2' },
+                  props: { className: 'ml-4 sm:ml-6 space-y-2' },
                   children: [
                     {
                       type: 'paragraph',
@@ -246,7 +259,7 @@ export const privacyPolicy: Page = {
                 },
                 {
                   type: 'div',
-                  props: { className: 'ml-4 space-y-2' },
+                  props: { className: 'ml-4 sm:ml-6 space-y-2' },
                   children: [
                     {
                       type: 'paragraph',
@@ -291,7 +304,7 @@ export const privacyPolicy: Page = {
                 },
                 {
                   type: 'div',
-                  props: { className: 'ml-4 space-y-2' },
+                  props: { className: 'ml-4 sm:ml-6 space-y-2' },
                   children: [
                     {
                       type: 'paragraph',
@@ -402,7 +415,7 @@ export const privacyPolicy: Page = {
                 },
                 {
                   type: 'div',
-                  props: { className: 'ml-4 space-y-2' },
+                  props: { className: 'ml-4 sm:ml-6 space-y-2' },
                   children: [
                     {
                       type: 'paragraph',
@@ -450,7 +463,10 @@ export const privacyPolicy: Page = {
     // Footer
     {
       type: 'section',
-      props: { className: 'py-8 bg-sovereignty-darker border-t border-sovereignty-gray-800 text-sovereignty-light' },
+      props: {
+        className:
+          'py-8 bg-sovereignty-darker border-t border-sovereignty-gray-800 text-sovereignty-light',
+      },
       children: [
         {
           type: 'container',
@@ -458,7 +474,10 @@ export const privacyPolicy: Page = {
           children: [
             {
               type: 'flex',
-              props: { className: 'justify-center gap-8 text-sovereignty-gray-400 mb-4' },
+              props: {
+                className:
+                  'flex-col sm:flex-row justify-center gap-4 sm:gap-6 md:gap-8 text-sovereignty-gray-400 mb-4 text-center sm:text-left',
+              },
               children: [
                 {
                   type: 'link',
