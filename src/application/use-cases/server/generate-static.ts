@@ -48,6 +48,19 @@ export interface GenerateStaticResult {
 }
 
 /**
+ * Check if a URL is a GitHub Pages URL
+ * Security: Use proper hostname checking to avoid substring matching vulnerabilities
+ */
+const isGitHubPagesUrl = (url: string): boolean => {
+  try {
+    const hostname = new URL(url).hostname
+    return hostname === 'github.io' || hostname.endsWith('.github.io')
+  } catch {
+    return false
+  }
+}
+
+/**
  * Generate static site from app configuration
  *
  * This use case:
@@ -169,9 +182,10 @@ export const generateStatic = (
                   // Generate static files in language subdirectory
                   const langOutputDir = `${outputDir}/${lang.code}`
                   // Filter out underscore-prefixed pages (admin/internal pages)
-                  const pagePaths = validatedLangApp.pages
-                    ?.filter((page) => !page.path.startsWith('/_'))
-                    .map((page) => page.path) || []
+                  const pagePaths =
+                    validatedLangApp.pages
+                      ?.filter((page) => !page.path.startsWith('/_'))
+                      .map((page) => page.path) || []
                   const ssgResult = yield* generateStaticSite(serverInstance.app, {
                     outputDir: langOutputDir,
                     pagePaths,
@@ -233,9 +247,10 @@ export const generateStatic = (
             yield* serverInstance.stop
 
             // Filter out underscore-prefixed pages (admin/internal pages)
-            const pagePaths = validatedApp.pages
-              ?.filter((page) => !page.path.startsWith('/_'))
-              .map((page) => page.path) || []
+            const pagePaths =
+              validatedApp.pages
+                ?.filter((page) => !page.path.startsWith('/_'))
+                .map((page) => page.path) || []
             yield* Console.log(`📝 Generating static HTML files for ${pagePaths.length} pages...`)
             const ssgResult = yield* generateStaticSite(serverInstance.app, {
               outputDir,
@@ -412,7 +427,11 @@ export const generateStatic = (
                 // If baseUrl includes the basePath (e.g., https://example.com/myapp),
                 // we should use basePagePath directly
                 const canonicalPagePath =
-                  basePagePath === '/' ? (langPrefix === '' ? '/' : langPrefix) : `${langPrefix}${basePagePath}`
+                  basePagePath === '/'
+                    ? langPrefix === ''
+                      ? '/'
+                      : langPrefix
+                    : `${langPrefix}${basePagePath}`
 
                 const rewrittenContent = rewriteUrlsWithBasePath(
                   content,
@@ -561,7 +580,7 @@ export const generateStatic = (
     const cnameFiles = yield* Effect.if(
       options.deployment === 'github-pages' &&
         options.baseUrl !== undefined &&
-        !options.baseUrl.includes('github.io'),
+        !isGitHubPagesUrl(options.baseUrl),
       {
         onTrue: () =>
           Effect.gen(function* () {
@@ -618,58 +637,49 @@ const formatHtmlWithPrettier = async (html: string): Promise<string> => {
 const generateSitemapContent = (
   pages: readonly Page[],
   baseUrl: string,
-  basePath: string = '',
+  _basePath: string = '',
   languages?: readonly string[]
 ): string => {
   // Filter out pages with noindex AND underscore-prefixed pages
-  const indexablePages = pages.filter(
-    (page) => !page.meta?.noindex && !page.path.startsWith('/_')
-  )
+  const indexablePages = pages.filter((page) => !page.meta?.noindex && !page.path.startsWith('/_'))
 
   // Generate lastmod date (current date in ISO format)
   const lastmod = new Date().toISOString().split('T')[0]
 
-  const entries: string[] = []
+  // Generate sitemap entries using immutable patterns
+  const entries: readonly string[] =
+    languages && languages.length > 0
+      ? // Multi-language mode: Generate entries for each language
+        languages.flatMap((lang) =>
+          indexablePages.map((page) => {
+            const priority = page.meta?.priority ?? 0.5
+            const changefreq = page.meta?.changefreq ?? 'monthly'
+            // Multi-language URLs: /{lang}/ or /{lang}{path}
+            // Add trailing slash for root path (/) within language
+            const pagePath = page.path === '/' ? '' : page.path
+            const fullPath = `/${lang}${pagePath}${pagePath === '' ? '/' : ''}`
 
-  // If multi-language is enabled, generate entries for each language
-  if (languages && languages.length > 0) {
-    // eslint-disable-next-line functional/no-loop-statements -- Iterating over languages to generate sitemap entries
-    for (const lang of languages) {
-      // eslint-disable-next-line functional/no-loop-statements -- Iterating over pages to generate sitemap entries
-      for (const page of indexablePages) {
-        const priority = page.meta?.priority ?? 0.5
-        const changefreq = page.meta?.changefreq ?? 'monthly'
-        // Multi-language URLs: /{lang}/ or /{lang}{path}
-        // Add trailing slash for root path (/) within language
-        const pagePath = page.path === '/' ? '' : page.path
-        const fullPath = `/${lang}${pagePath}${pagePath === '' ? '/' : ''}`
-
-        // eslint-disable-next-line functional/immutable-data -- Necessary to build sitemap entries array
-        entries.push(`  <url>
+            return `  <url>
     <loc>${baseUrl}${fullPath}</loc>
     <lastmod>${lastmod}</lastmod>
     <priority>${priority.toFixed(1)}</priority>
     <changefreq>${changefreq}</changefreq>
-  </url>`)
-      }
-    }
-  } else {
-    // Single language - generate entries without language prefix
-    // eslint-disable-next-line functional/no-loop-statements -- Iterating over pages to generate sitemap entries
-    for (const page of indexablePages) {
-      const priority = page.meta?.priority ?? 0.5
-      const changefreq = page.meta?.changefreq ?? 'monthly'
-      const fullPath = page.path
+  </url>`
+          })
+        )
+      : // Single language mode: Generate entries without language prefix
+        indexablePages.map((page) => {
+          const priority = page.meta?.priority ?? 0.5
+          const changefreq = page.meta?.changefreq ?? 'monthly'
+          const fullPath = page.path
 
-      // eslint-disable-next-line functional/immutable-data -- Necessary to build sitemap entries array
-      entries.push(`  <url>
+          return `  <url>
     <loc>${baseUrl}${fullPath}</loc>
     <lastmod>${lastmod}</lastmod>
     <priority>${priority.toFixed(1)}</priority>
     <changefreq>${changefreq}</changefreq>
-  </url>`)
-    }
-  }
+  </url>`
+        })
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -683,7 +693,7 @@ ${entries.join('\n')}
 const generateRobotsContent = (
   pages: readonly Page[],
   baseUrl: string,
-  basePath: string = '',
+  _basePath: string = '',
   includeSitemap: boolean = false
 ): string => {
   const baseLines = ['User-agent: *', 'Allow: /']
@@ -762,7 +772,7 @@ const rewriteUrlsWithBasePath = (
   // Also handle hreflang alternate links specially (they should link to other languages)
   const hrefRewritten = html.replace(
     /(hrefLang|hreflang)="([^"]*)"[^>]*href="(\/[^"]*)"/g,
-    (_match, hreflangAttr, langCode, url) => {
+    (_match, _hreflangAttr, langCode, url) => {
       // For hreflang links, extract language from URL and construct correct path
       // Example: href="/en/" → href="https://baseUrl/my-project/en/"
       // Convert hrefLang to lowercase hreflang for standards compliance
