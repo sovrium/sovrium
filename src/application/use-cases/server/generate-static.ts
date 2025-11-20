@@ -269,7 +269,11 @@ const rewriteBasePathInHtml = (
           // If baseUrl includes the basePath (e.g., https://example.com/myapp),
           // we should use basePagePath directly
           const canonicalPagePath =
-            basePagePath === '/' ? (langPrefix === '' ? '/' : langPrefix) : `${langPrefix}${basePagePath}`
+            basePagePath === '/'
+              ? langPrefix === ''
+                ? '/'
+                : langPrefix
+              : `${langPrefix}${basePagePath}`
 
           const rewrittenContent = rewriteUrlsWithBasePath(
             content,
@@ -368,7 +372,7 @@ export const generateStatic = (
   | ServerCreationError
   | SSGGenerationError
   | FileCopyError,
-  typeof ServerFactoryService | typeof PageRendererService
+  ServerFactoryService | PageRendererService
 > =>
   // eslint-disable-next-line max-lines-per-function, max-statements, complexity -- Complex Effect generator with multiple file generation steps and support file creation
   Effect.gen(function* () {
@@ -568,13 +572,7 @@ export const generateStatic = (
     // Step 5c: Inject hydration script into HTML if enabled
     yield* Effect.if(options.hydration ?? false, {
       onTrue: () =>
-        injectHydrationScript(
-          generatedFiles,
-          outputDir,
-          options.basePath || '',
-          fs,
-          path
-        ),
+        injectHydrationScript(generatedFiles, outputDir, options.basePath || '', fs, path),
       onFalse: () => Effect.succeed(undefined),
     })
 

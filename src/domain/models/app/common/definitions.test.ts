@@ -267,13 +267,14 @@ describe('PathSchema', () => {
     expect(() => Schema.decodeUnknownSync(PathSchema)(path)).toThrow()
   })
 
-  test('should reject paths with underscores', () => {
-    // GIVEN: Path with underscores
+  test('should accept paths with underscores', () => {
+    // GIVEN: Path with underscores (e.g., /_docs/api for internal routes)
     const path = '/user_profile'
 
     // WHEN: Schema validation is performed
-    // THEN: Path should be rejected (only hyphens allowed)
-    expect(() => Schema.decodeUnknownSync(PathSchema)(path)).toThrow()
+    // THEN: Path should be accepted (underscores allowed for backward compatibility)
+    expect(() => Schema.decodeUnknownSync(PathSchema)(path)).not.toThrow()
+    expect(Schema.decodeUnknownSync(PathSchema)(path)).toBe('/user_profile')
   })
 
   test('should reject empty string', () => {
