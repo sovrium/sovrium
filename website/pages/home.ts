@@ -37,7 +37,7 @@ export const home: Page = {
   sections: [
     // Hero Section
     {
-      type: 'hero-section',
+      type: 'section',
       props: {
         className:
           'min-h-screen flex items-center justify-center bg-gradient-to-b from-sovereignty-dark to-sovereignty-darker text-sovereignty-light',
@@ -352,13 +352,18 @@ export const home: Page = {
               type: 'paragraph',
               content:
                 'A self-hosted, configuration-driven platform that interprets JSON to build full-featured web applications—without code generation, without vendor lock-in, without loss of control.',
-              props: { className: 'text-xl text-sovereignty-gray-400 text-center max-w-4xl mx-auto mb-16' },
+              props: {
+                className: 'text-xl text-sovereignty-gray-400 text-center max-w-4xl mx-auto mb-16',
+              },
             },
 
             // Code Example
             {
               type: 'card',
-              props: { className: 'bg-sovereignty-darker border border-sovereignty-gray-800 p-8 rounded-lg mb-16' },
+              props: {
+                className:
+                  'bg-sovereignty-darker border border-sovereignty-gray-800 p-8 rounded-lg mb-16',
+              },
               children: [
                 {
                   type: 'pre',
@@ -744,7 +749,10 @@ export const home: Page = {
                   children: [
                     {
                       type: 'div',
-                      props: { className: 'bg-sovereignty-gray-900 border border-sovereignty-gray-800 rounded-lg p-6' },
+                      props: {
+                        className:
+                          'bg-sovereignty-gray-900 border border-sovereignty-gray-800 rounded-lg p-6',
+                      },
                       children: [
                         {
                           type: 'grid',
@@ -1294,7 +1302,10 @@ export const home: Page = {
     // Footer CTA Section
     {
       type: 'footer',
-      props: { className: 'py-16 bg-sovereignty-darker border-t border-sovereignty-gray-800 text-sovereignty-light' },
+      props: {
+        className:
+          'py-16 bg-sovereignty-darker border-t border-sovereignty-gray-800 text-sovereignty-light',
+      },
       children: [
         {
           type: 'container',
