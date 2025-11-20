@@ -163,7 +163,7 @@ test.describe('Person Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     "APP-PAGES-PERSON-005: should link to person's web presence",
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
