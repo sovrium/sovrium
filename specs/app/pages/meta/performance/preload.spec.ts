@@ -175,7 +175,7 @@ test.describe('Resource Preloading', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRELOAD-006: should prefetch critical API responses',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
