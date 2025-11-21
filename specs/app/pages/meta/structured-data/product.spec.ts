@@ -57,7 +57,7 @@ test.describe('Product Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRODUCT-002: should provide product identity',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
