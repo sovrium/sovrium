@@ -243,7 +243,7 @@ test.describe('Postal Address', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-POSTALADDRESS-007: should provide full mailing address',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
