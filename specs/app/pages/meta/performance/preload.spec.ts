@@ -307,7 +307,7 @@ test.describe('Resource Preloading', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRELOAD-010: should optimize First Contentful Paint (FCP)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
