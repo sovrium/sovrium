@@ -275,7 +275,7 @@ test.describe('Resource Preloading', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRELOAD-009: should preload only when media query matches',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
