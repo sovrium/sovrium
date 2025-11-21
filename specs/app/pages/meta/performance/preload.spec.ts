@@ -81,7 +81,7 @@ test.describe('Resource Preloading', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRELOAD-003: should preload critical scripts',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
