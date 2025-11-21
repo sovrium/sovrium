@@ -132,7 +132,7 @@ test.describe('Postal Address', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-POSTALADDRESS-004: should provide state or region name',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
