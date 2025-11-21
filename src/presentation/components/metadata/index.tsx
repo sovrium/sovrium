@@ -374,7 +374,7 @@ export function PreloadLinks({
           {...(item.type && { type: item.type })}
           {...(item.crossorigin !== undefined &&
             (typeof item.crossorigin === 'boolean'
-              ? item.crossorigin && { crossOrigin: 'anonymous' }
+              ? item.crossorigin && { crossOrigin: '' }
               : { crossOrigin: item.crossorigin }))}
           {...(item.media && { media: item.media })}
         />

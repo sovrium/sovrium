@@ -111,7 +111,7 @@ test.describe('Resource Preloading', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRELOAD-004: should preload web fonts',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
