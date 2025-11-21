@@ -168,26 +168,7 @@ export function buildElementProps({
 /**
  * Convert custom props to data-* attributes for badge components
  * Standard HTML attributes (className, style, id, etc.) pass through unchanged
+ *
+ * Re-exported from prop-conversion module for backward compatibility
  */
-export function convertBadgeProps(elementProps: Record<string, unknown>): Record<string, unknown> {
-  const standardHtmlAttrs = new Set([
-    'className',
-    'style',
-    'id',
-    'role',
-    'data-testid',
-    'data-block',
-    'data-type',
-    'data-translation-key',
-    'data-translations',
-  ])
-
-  return Object.entries(elementProps).reduce<Record<string, unknown>>((acc, [key, value]) => {
-    if (standardHtmlAttrs.has(key) || key.startsWith('data-') || key.startsWith('aria-')) {
-      // Keep standard HTML attrs, data-*, and aria-* unchanged
-      return { ...acc, [key]: value }
-    }
-    // Convert custom props to data-* attributes
-    return { ...acc, [`data-${key}`]: value }
-  }, {})
-}
+export { convertBadgeProps } from './prop-conversion'
