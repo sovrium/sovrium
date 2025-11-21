@@ -333,7 +333,7 @@ test.describe('Product Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRODUCT-009: should show product availability in search results',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
