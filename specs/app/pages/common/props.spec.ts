@@ -52,7 +52,7 @@ test.describe('Component Props', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PROPS-002: should accept numeric property',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

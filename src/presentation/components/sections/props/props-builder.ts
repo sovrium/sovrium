@@ -6,6 +6,7 @@
  */
 
 import { calculateTotalDelay } from '../utils/time-parser'
+import { convertCustomPropsToDataAttributes } from './prop-conversion'
 import type { ElementPropsConfig, TestIdConfig } from './props-builder-config'
 
 /**
@@ -100,6 +101,9 @@ function buildElementPropsFromConfig(config: ElementPropsConfig): Record<string,
   const { animation: _animation, ...substitutedPropsWithoutAnimation } =
     config.substitutedProps || {}
 
+  // Convert custom props to data attributes
+  const customDataAttributes = convertCustomPropsToDataAttributes(substitutedPropsWithoutAnimation)
+
   return {
     ...substitutedPropsWithoutAnimation,
     ...corePropsWithoutStyle,
@@ -109,6 +113,7 @@ function buildElementPropsFromConfig(config: ElementPropsConfig): Record<string,
     ...entrancePropsWithoutStyle,
     ...scrollPropsWithoutStyle,
     ...emptyStylePropsWithoutStyle,
+    ...customDataAttributes,
     ...(Object.keys(mergedStyle).length > 0 && { style: mergedStyle }),
   }
 }
