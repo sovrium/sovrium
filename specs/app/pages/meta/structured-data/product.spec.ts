@@ -377,7 +377,7 @@ test.describe('Product Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRODUCT-010: should display star ratings in search results',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
