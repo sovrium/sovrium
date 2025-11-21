@@ -292,7 +292,7 @@ test.describe('Postal Address', () => {
     }
   )
 
-  test.fixme(
+  test(
     "APP-PAGES-POSTALADDRESS-008: should provide organization's physical address",
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
