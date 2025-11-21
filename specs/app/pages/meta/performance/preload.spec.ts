@@ -245,7 +245,7 @@ test.describe('Resource Preloading', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRELOAD-008: should help browser prioritize resource',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
