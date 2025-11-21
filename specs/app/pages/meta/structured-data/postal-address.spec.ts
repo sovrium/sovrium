@@ -381,7 +381,7 @@ test.describe('Postal Address', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-POSTALADDRESS-010: should improve local search ranking and map visibility',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
