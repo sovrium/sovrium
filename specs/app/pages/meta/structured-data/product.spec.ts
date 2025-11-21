@@ -96,7 +96,7 @@ test.describe('Product Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRODUCT-003: should support single or multiple product images',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
