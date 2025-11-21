@@ -51,7 +51,7 @@ test.describe('Resource Preloading', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRELOAD-002: should preload critical stylesheet',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
