@@ -217,7 +217,7 @@ test.describe('Product Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRODUCT-006: should provide standardized product identifier',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
