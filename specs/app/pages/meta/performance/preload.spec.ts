@@ -19,7 +19,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Resource Preloading', () => {
-  test.fixme(
+  test(
     'APP-PAGES-PRELOAD-001: should preload critical resource',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -47,7 +47,7 @@ test.describe('Resource Preloading', () => {
       // THEN: it should preload critical resource
       await expect(
         page.locator('link[rel="preload"][href="./output.css"][as="style"]')
-      ).toBeVisible()
+      ).toBeAttached()
     }
   )
 
