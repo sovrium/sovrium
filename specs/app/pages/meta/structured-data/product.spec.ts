@@ -140,7 +140,7 @@ test.describe('Product Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRODUCT-004: should identify product manufacturer',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
