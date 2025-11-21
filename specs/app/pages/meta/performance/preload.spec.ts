@@ -145,7 +145,7 @@ test.describe('Resource Preloading', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRELOAD-005: should preload hero images',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
