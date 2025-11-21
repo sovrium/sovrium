@@ -421,7 +421,7 @@ test.describe('Product Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRODUCT-011: should enable Google Shopping rich results',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
