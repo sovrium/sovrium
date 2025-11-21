@@ -255,7 +255,7 @@ test.describe('Product Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRODUCT-007: should provide pricing information',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
