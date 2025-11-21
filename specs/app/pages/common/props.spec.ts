@@ -102,7 +102,7 @@ test.describe('Component Props', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PROPS-004: should accept nested object property',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
