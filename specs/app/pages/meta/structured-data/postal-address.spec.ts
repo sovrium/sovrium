@@ -206,7 +206,7 @@ test.describe('Postal Address', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-POSTALADDRESS-006: should provide country code',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
