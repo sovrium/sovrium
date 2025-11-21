@@ -169,7 +169,7 @@ test.describe('Postal Address', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-POSTALADDRESS-005: should provide postal or ZIP code',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
