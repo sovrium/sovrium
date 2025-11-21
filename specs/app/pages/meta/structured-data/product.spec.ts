@@ -471,7 +471,7 @@ test.describe('Product Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRODUCT-012: should display price, availability, and ratings in SERPs',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
