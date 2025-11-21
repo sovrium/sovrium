@@ -14,6 +14,105 @@ import type { ElementPropsConfig, TestIdConfig } from './props-builder-config'
 const CONTAINER_TYPES = ['div', 'container', 'flex', 'grid', 'card', 'badge'] as const
 
 /**
+ * HTML/React props that should not be converted to data attributes
+ */
+const RESERVED_PROPS = new Set([
+  'className',
+  'style',
+  'children',
+  'ref',
+  'key',
+  'id',
+  'role',
+  'aria-label',
+  'aria-labelledby',
+  'aria-describedby',
+  'title',
+  'alt',
+  'src',
+  'href',
+  'type',
+  'value',
+  'placeholder',
+  'disabled',
+  'checked',
+  'selected',
+  'multiple',
+  'autoFocus',
+  'autoComplete',
+  'readOnly',
+  'required',
+  'maxLength',
+  'minLength',
+  'pattern',
+  'name',
+  'tabIndex',
+  'onClick',
+  'onChange',
+  'onSubmit',
+  'onFocus',
+  'onBlur',
+  'onKeyDown',
+  'onKeyUp',
+  'onKeyPress',
+  'onMouseEnter',
+  'onMouseLeave',
+  'animation',
+  'data-testid',
+  'data-block',
+  'data-type',
+  'data-translation-key',
+  'data-translations',
+  'data-scroll-animation',
+  'data-scroll-threshold',
+  'data-scroll-delay',
+  'data-scroll-duration',
+  'data-scroll-once',
+  'data-i18n-content',
+])
+
+/**
+ * Converts custom props to data attributes
+ * Handles numeric, boolean, array, and object values
+ *
+ * @param props - Props object to convert
+ * @returns Object with data attributes for custom props
+ */
+function convertCustomPropsToDataAttributes(
+  props: Record<string, unknown> | undefined
+): Record<string, string> {
+  if (!props) return {}
+
+  const dataAttributes: Record<string, string> = {}
+
+  for (const [key, value] of Object.entries(props)) {
+    // Skip reserved props
+    if (RESERVED_PROPS.has(key)) continue
+
+    // Skip props that are already data attributes
+    if (key.startsWith('data-')) continue
+
+    // Convert custom props to data attributes based on type
+    if (typeof value === 'number') {
+      dataAttributes[`data-${key}`] = value.toString()
+    } else if (typeof value === 'boolean') {
+      dataAttributes[`data-${key}`] = value.toString()
+    } else if (Array.isArray(value)) {
+      dataAttributes[`data-${key}`] = JSON.stringify(value)
+    } else if (typeof value === 'object' && value !== null) {
+      // Skip style objects as they're handled separately
+      if (key !== 'style') {
+        dataAttributes[`data-${key}`] = JSON.stringify(value)
+      }
+    }
+    // String values are not converted to data attributes - they remain as-is
+    // (e.g., className, text properties)
+  }
+
+  return dataAttributes
+}
+
+/**
  * Build test ID for component using config object
  */
 function buildTestId(config: TestIdConfig): string | undefined {
@@ -100,6 +199,9 @@ function buildElementPropsFromConfig(config: ElementPropsConfig): Record<string,
   const { animation: _animation, ...substitutedPropsWithoutAnimation } =
     config.substitutedProps || {}
 
+  // Convert custom props to data attributes
+  const customDataAttributes = convertCustomPropsToDataAttributes(substitutedPropsWithoutAnimation)
+
   return {
     ...substitutedPropsWithoutAnimation,
     ...corePropsWithoutStyle,
@@ -109,6 +211,7 @@ function buildElementPropsFromConfig(config: ElementPropsConfig): Record<string,
     ...entrancePropsWithoutStyle,
     ...scrollPropsWithoutStyle,
     ...emptyStylePropsWithoutStyle,
+    ...customDataAttributes,
     ...(Object.keys(mergedStyle).length > 0 && { style: mergedStyle }),
   }
 }
