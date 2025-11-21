@@ -24,7 +24,7 @@ test.describe('Component Props', () => {
   // One test per spec in schema - defines EXHAUSTIVE acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-PAGES-PROPS-001: should accept string property',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
