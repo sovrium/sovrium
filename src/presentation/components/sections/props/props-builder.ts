@@ -97,8 +97,8 @@ function buildElementPropsFromConfig(config: ElementPropsConfig): Record<string,
   const { style: _scrollStyle, ...scrollPropsWithoutStyle } = scrollProps
   const { style: _emptyStyle, ...emptyStylePropsWithoutStyle } = emptyStyleProps
 
-  // Remove animation prop from substitutedProps (already applied to style)
-  const { animation: _animation, ...substitutedPropsWithoutAnimation } =
+  // Remove animation and style props from substitutedProps (already applied to style object)
+  const { animation: _animation, style: _style, ...substitutedPropsWithoutAnimation } =
     config.substitutedProps || {}
 
   // Convert custom props to data attributes
