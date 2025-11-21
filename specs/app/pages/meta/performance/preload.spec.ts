@@ -205,7 +205,7 @@ test.describe('Resource Preloading', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRELOAD-007: should set CORS for cross-origin fonts',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
