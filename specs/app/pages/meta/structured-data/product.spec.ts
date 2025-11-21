@@ -294,7 +294,7 @@ test.describe('Product Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRODUCT-008: should specify product price with currency',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
