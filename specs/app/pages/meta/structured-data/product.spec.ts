@@ -19,7 +19,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Product Schema', () => {
-  test.fixme(
+  test(
     'APP-PAGES-PRODUCT-001: should validate minimal Product structured data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
