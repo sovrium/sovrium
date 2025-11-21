@@ -335,7 +335,7 @@ test.describe('Postal Address', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-POSTALADDRESS-009: should enable local business map display in search results',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
