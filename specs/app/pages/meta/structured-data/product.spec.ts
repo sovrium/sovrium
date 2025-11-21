@@ -179,7 +179,7 @@ test.describe('Product Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRODUCT-005: should provide stock keeping unit',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
