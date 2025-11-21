@@ -77,7 +77,7 @@ test.describe('Component Props', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PROPS-003: should accept boolean property',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
