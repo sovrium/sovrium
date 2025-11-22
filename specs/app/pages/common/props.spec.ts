@@ -163,7 +163,7 @@ test.describe('Component Props', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PROPS-006: should accept string with $variable syntax',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

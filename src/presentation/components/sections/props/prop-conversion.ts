@@ -72,19 +72,17 @@ export const RESERVED_PROPS = new Set([
 /**
  * Checks if a prop should be skipped during conversion
  */
-function shouldSkipProp(key: string, value: unknown): boolean {
-  return (
-    RESERVED_PROPS.has(key) ||
-    key.startsWith('data-') ||
-    key.startsWith('aria-') ||
-    typeof value === 'string'
-  )
+function shouldSkipProp(key: string, _value: unknown): boolean {
+  return RESERVED_PROPS.has(key) || key.startsWith('data-') || key.startsWith('aria-')
 }
 
 /**
  * Converts a value to a data attribute string
  */
 function valueToDataAttributeString(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    return value
+  }
   if (typeof value === 'number' || typeof value === 'boolean') {
     return value.toString()
   }
