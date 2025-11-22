@@ -169,7 +169,7 @@ test.describe('Border Radius', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-THEME-RADIUS-003: should validate fully rounded elements',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -186,7 +186,15 @@ test.describe('Border Radius', () => {
             name: 'home',
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-            sections: [],
+            sections: [
+              {
+                type: 'div',
+                props: {
+                  'data-testid': 'radius-full',
+                  className: 'w-20 h-20 bg-purple-500 rounded-full',
+                },
+              },
+            ],
           },
         ],
       })
