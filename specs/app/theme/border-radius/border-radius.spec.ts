@@ -130,7 +130,7 @@ test.describe('Border Radius', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-THEME-RADIUS-002: should validate no rounding',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -147,7 +147,15 @@ test.describe('Border Radius', () => {
             name: 'home',
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-            sections: [],
+            sections: [
+              {
+                type: 'div',
+                props: {
+                  'data-testid': 'radius-none',
+                  className: 'w-20 h-20 bg-blue-500 rounded-none',
+                },
+              },
+            ],
           },
         ],
       })
