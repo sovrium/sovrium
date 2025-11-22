@@ -5,7 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { normalizeStyleAnimations, parseStyle } from '@/presentation/styling/parse-style'
+import {
+  isCssProperty,
+  normalizeStyleAnimations,
+  parseStyle,
+} from '@/presentation/styling/parse-style'
 import { applyComponentAnimations } from './animation-composer-wrapper'
 import { buildFlexClasses, buildGridClasses } from './class-builders'
 import { getComponentShadow } from './shadow-resolver'
@@ -14,16 +18,71 @@ import type { Component } from '@/domain/models/app/page/sections'
 import type { Theme } from '@/domain/models/app/theme'
 
 /**
- * Parse and normalize style object
+ * Extract CSS properties from props object
+ * Separates CSS properties (e.g., maxWidth, backgroundColor) from other props
+ *
+ * @param props - Props object that may contain CSS properties
+ * @returns Object with cssProps and remainingProps
  */
-export function parseComponentStyle(styleValue: unknown): Record<string, unknown> | undefined {
-  if (!styleValue) return undefined
+export function extractCssProperties(props: Record<string, unknown> | undefined): {
+  readonly cssProps: Record<string, unknown>
+  readonly remainingProps: Record<string, unknown>
+} {
+  if (!props) {
+    return { cssProps: {}, remainingProps: {} }
+  }
 
-  return normalizeStyleAnimations(
-    typeof styleValue === 'string'
-      ? parseStyle(styleValue)
-      : (styleValue as Record<string, unknown>)
+  // Use reduce for immutable accumulation
+  return Object.entries(props).reduce<{
+    readonly cssProps: Record<string, unknown>
+    readonly remainingProps: Record<string, unknown>
+  }>(
+    (acc, [key, value]) => {
+      if (isCssProperty(key)) {
+        return {
+          ...acc,
+          cssProps: { ...acc.cssProps, [key]: value },
+        }
+      }
+      return {
+        ...acc,
+        remainingProps: { ...acc.remainingProps, [key]: value },
+      }
+    },
+    { cssProps: {}, remainingProps: {} }
   )
+}
+
+/**
+ * Parse and normalize style object
+ * Extracts CSS properties from the root of the props object and merges them with the style property
+ */
+export function parseComponentStyle(
+  styleValue: unknown,
+  props: Record<string, unknown> | undefined
+): Record<string, unknown> | undefined {
+  // Parse the explicit style property
+  const explicitStyle = styleValue
+    ? normalizeStyleAnimations(
+        typeof styleValue === 'string'
+          ? parseStyle(styleValue)
+          : (styleValue as Record<string, unknown>)
+      )
+    : undefined
+
+  // Extract CSS properties from props (excluding the style property itself)
+  const { cssProps } = extractCssProperties(props)
+
+  // Remove the style property from cssProps if it exists (already handled above)
+  const { style: _style, ...cssPropsWithoutStyle } = cssProps
+
+  // Merge CSS properties with explicit style
+  const mergedStyle = {
+    ...cssPropsWithoutStyle,
+    ...explicitStyle,
+  }
+
+  return Object.keys(mergedStyle).length > 0 ? mergedStyle : undefined
 }
 
 /**
@@ -94,9 +153,10 @@ export function applyComponentShadow(
 export function processComponentStyle(
   type: Component['type'],
   styleValue: unknown,
-  theme: Theme | undefined
+  theme: Theme | undefined,
+  props?: Record<string, unknown> | undefined
 ): Record<string, unknown> | undefined {
-  const baseStyle = parseComponentStyle(styleValue)
+  const baseStyle = parseComponentStyle(styleValue, props)
   const styleWithAnimations = applyComponentAnimations(type, baseStyle, theme)
   return applyComponentShadow(type, styleWithAnimations, theme)
 }

@@ -95,7 +95,7 @@ function prepareProcessedValues(config: ComponentPropsConfig) {
   const substitutedProps = applyTokenSubstitutions(props, currentLang, languages, theme)
   const firstTranslationKey = findFirstTranslationKey(children)
   const translationData = getTranslationData(firstTranslationKey, languages)
-  const styleWithShadow = processComponentStyle(type, substitutedProps?.style, theme)
+  const styleWithShadow = processComponentStyle(type, substitutedProps?.style, theme, substitutedProps)
   const hoverTransitionStyles = buildHoverTransitionStyles(interactions?.hover)
   const finalClassName = buildFinalClassName({
     type,
