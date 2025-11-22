@@ -440,7 +440,7 @@ test.describe('Block Props', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-BLOCKS-PROPS-012: should resolve translation tokens in block children during rendering',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
