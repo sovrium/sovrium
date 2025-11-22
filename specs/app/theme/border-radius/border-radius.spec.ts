@@ -399,7 +399,7 @@ test.describe('Border Radius', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-THEME-RADIUS-APPLICATION-002: should render image as circle with 9999px border-radius',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

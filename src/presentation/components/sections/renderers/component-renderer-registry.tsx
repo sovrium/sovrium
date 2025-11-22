@@ -112,6 +112,7 @@ const COMPONENT_RENDERERS: Readonly<Record<string, ComponentRenderer>> = {
 
   // Media elements
   image: ({ elementPropsWithSpacing }) => Renderers.renderImage(elementPropsWithSpacing),
+  avatar: ({ elementPropsWithSpacing }) => Renderers.renderAvatar(elementPropsWithSpacing),
   video: ({ elementPropsWithSpacing, renderedChildren }) =>
     Renderers.renderVideo(elementPropsWithSpacing, renderedChildren),
   audio: ({ elementPropsWithSpacing, renderedChildren }) =>
