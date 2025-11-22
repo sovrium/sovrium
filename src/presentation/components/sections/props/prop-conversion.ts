@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { toKebabCase } from '@/presentation/utilities/string-utils'
+
 /**
  * HTML/React props that should not be converted to data attributes
  * This includes standard HTML attributes, React-specific props, ARIA attributes,
@@ -110,7 +112,7 @@ function convertPropToDataAttribute(
   if (shouldSkipProp(key, value) || key === 'style') return undefined
 
   const stringValue = valueToDataAttributeString(value)
-  return stringValue ? ([`data-${key}`, stringValue] as const) : undefined
+  return stringValue ? ([`data-${toKebabCase(key)}`, stringValue] as const) : undefined
 }
 
 /**
@@ -163,6 +165,6 @@ export function convertBadgeProps(elementProps: Record<string, unknown>): Record
       return { ...acc, [key]: value }
     }
     // Convert custom props to data-* attributes (including strings)
-    return { ...acc, [`data-${key}`]: value }
+    return { ...acc, [`data-${toKebabCase(key)}`]: value }
   }, {})
 }

@@ -124,7 +124,7 @@ test.describe('Block Props', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-BLOCKS-PROPS-004: should render numeric value as HTML attribute',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
