@@ -135,7 +135,7 @@ test.describe('Component Props', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PROPS-005: should accept array property',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
