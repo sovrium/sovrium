@@ -96,7 +96,7 @@ test.describe('Product Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRODUCT-003: should support single or multiple product images',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -140,7 +140,7 @@ test.describe('Product Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRODUCT-004: should identify product manufacturer',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -179,7 +179,7 @@ test.describe('Product Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRODUCT-005: should provide stock keeping unit',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -217,7 +217,7 @@ test.describe('Product Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRODUCT-006: should provide standardized product identifier',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -255,7 +255,7 @@ test.describe('Product Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRODUCT-007: should provide pricing information',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -294,7 +294,7 @@ test.describe('Product Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRODUCT-008: should specify product price with currency',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -333,7 +333,7 @@ test.describe('Product Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRODUCT-009: should show product availability in search results',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -377,7 +377,7 @@ test.describe('Product Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRODUCT-010: should display star ratings in search results',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -421,7 +421,7 @@ test.describe('Product Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRODUCT-011: should enable Google Shopping rich results',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -471,7 +471,7 @@ test.describe('Product Schema', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PRODUCT-012: should display price, availability, and ratings in SERPs',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

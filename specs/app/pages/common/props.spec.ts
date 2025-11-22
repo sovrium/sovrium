@@ -24,7 +24,7 @@ test.describe('Component Props', () => {
   // One test per spec in schema - defines EXHAUSTIVE acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-PAGES-PROPS-001: should accept string property',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -52,7 +52,7 @@ test.describe('Component Props', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PROPS-002: should accept numeric property',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -77,7 +77,7 @@ test.describe('Component Props', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PROPS-003: should accept boolean property',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -102,7 +102,7 @@ test.describe('Component Props', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PROPS-004: should accept nested object property',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -135,7 +135,7 @@ test.describe('Component Props', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PROPS-005: should accept array property',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

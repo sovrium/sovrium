@@ -6,31 +6,11 @@
  */
 
 /**
- * Standard HTML attributes for badge components
- */
-export const STANDARD_HTML_ATTRS = new Set([
-  'className',
-  'style',
-  'id',
-  'role',
-  'data-testid',
-  'data-block',
-  'data-type',
-  'data-translation-key',
-  'data-translations',
-])
-
-/**
  * Convert custom props to data-* attributes for badge components
+ *
+ * Re-exported from prop-conversion module for backward compatibility
  */
-export function convertBadgeProps(elementProps: Record<string, unknown>): Record<string, unknown> {
-  return Object.entries(elementProps).reduce<Record<string, unknown>>((acc, [key, value]) => {
-    if (STANDARD_HTML_ATTRS.has(key) || key.startsWith('data-') || key.startsWith('aria-')) {
-      return { ...acc, [key]: value }
-    }
-    return { ...acc, [`data-${key}`]: value }
-  }, {})
-}
+export { convertBadgeProps } from '../props/prop-conversion'
 
 /**
  * Parse HTML content string into React elements
