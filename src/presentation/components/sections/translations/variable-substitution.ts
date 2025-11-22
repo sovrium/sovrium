@@ -131,23 +131,30 @@ export function substituteChildrenVariables(
  * but our schema may define them in camelCase for convenience.
  * This function normalizes prop names to the format React expects.
  *
- * @param key - Property key (potentially in camelCase)
+ * Handles both camelCase (ariaLabel) and already-kebab-case (aria-label) inputs.
+ * If prop is already in kebab-case, it returns unchanged to avoid double-conversion.
+ *
+ * @param key - Property key (potentially in camelCase or kebab-case)
  * @returns Normalized key (kebab-case for aria/data attributes)
  *
  * @example
  * ```typescript
  * normalizeAriaDataProps('ariaLabel') // 'aria-label'
+ * normalizeAriaDataProps('aria-label') // 'aria-label' (unchanged)
  * normalizeAriaDataProps('dataTestId') // 'data-test-id'
+ * normalizeAriaDataProps('data-test-id') // 'data-test-id' (unchanged)
  * normalizeAriaDataProps('className') // 'className' (unchanged)
  * ```
  */
 function normalizeAriaDataProps(key: string): string {
   // Convert ariaLabel → aria-label, dataTestId → data-test-id
+  // Check if fifth character is uppercase letter (not hyphen or other character)
+  // to avoid double-conversion (aria-label → aria--label)
   if (
     key.startsWith('aria') &&
     key.length > 4 &&
     key[4] !== undefined &&
-    key[4] === key[4].toUpperCase()
+    /[A-Z]/.test(key[4])
   ) {
     // ariaLabel → aria-label
     const suffix = key.slice(4) // 'Label'
@@ -159,7 +166,7 @@ function normalizeAriaDataProps(key: string): string {
     key.startsWith('data') &&
     key.length > 4 &&
     key[4] !== undefined &&
-    key[4] === key[4].toUpperCase()
+    /[A-Z]/.test(key[4])
   ) {
     // dataTestId → data-test-id
     const suffix = key.slice(4) // 'TestId'
