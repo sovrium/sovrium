@@ -568,7 +568,7 @@ test.describe('Block Props', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-BLOCKS-PROPS-014: should work with both translation tokens ($t:) and variable references ($variable)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
