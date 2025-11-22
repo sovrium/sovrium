@@ -18,14 +18,14 @@ import type { Theme } from '@/domain/models/app/theme'
 describe('Style Processor', () => {
   describe('parseComponentStyle', () => {
     test('returns undefined for falsy values', () => {
-      expect(parseComponentStyle(undefined)).toBeUndefined()
-      expect(parseComponentStyle('')).toBeUndefined()
-      expect(parseComponentStyle(0)).toBeUndefined()
-      expect(parseComponentStyle(false)).toBeUndefined()
+      expect(parseComponentStyle(undefined, undefined)).toBeUndefined()
+      expect(parseComponentStyle('', undefined)).toBeUndefined()
+      expect(parseComponentStyle(0, undefined)).toBeUndefined()
+      expect(parseComponentStyle(false, undefined)).toBeUndefined()
     })
 
     test('parses string style to object', () => {
-      const result = parseComponentStyle('color: red; padding: 10px')
+      const result = parseComponentStyle('color: red; padding: 10px', undefined)
       expect(result).toBeDefined()
       expect(result).toHaveProperty('color')
       expect(result).toHaveProperty('padding')
@@ -33,7 +33,7 @@ describe('Style Processor', () => {
 
     test('returns object style as-is', () => {
       const style = { color: 'blue', margin: '5px' }
-      const result = parseComponentStyle(style)
+      const result = parseComponentStyle(style, undefined)
       expect(result).toMatchObject(style)
     })
 
@@ -43,10 +43,35 @@ describe('Style Processor', () => {
         animationName: 'fade',
         animationDuration: '300ms',
       }
-      const result = parseComponentStyle(style)
+      const result = parseComponentStyle(style, undefined)
       expect(result).toBeDefined()
       // Animation properties handled by animation composer
       expect(result).toHaveProperty('animationDuration')
+    })
+
+    test('extracts CSS properties from props', () => {
+      const props = { maxWidth: '1200px', minHeight: '400px', backgroundColor: '#f0f0f0' }
+      const result = parseComponentStyle(undefined, props)
+      expect(result).toBeDefined()
+      expect(result).toHaveProperty('maxWidth', '1200px')
+      expect(result).toHaveProperty('minHeight', '400px')
+      expect(result).toHaveProperty('backgroundColor', '#f0f0f0')
+    })
+
+    test('merges CSS properties from props with explicit style', () => {
+      const props = { maxWidth: '1200px', padding: '10px' }
+      const result = parseComponentStyle({ color: 'red' }, props)
+      expect(result).toBeDefined()
+      expect(result).toHaveProperty('maxWidth', '1200px')
+      expect(result).toHaveProperty('padding', '10px')
+      expect(result).toHaveProperty('color', 'red')
+    })
+
+    test('explicit style overrides CSS properties from props', () => {
+      const props = { padding: '10px' }
+      const result = parseComponentStyle({ padding: '20px' }, props)
+      expect(result).toBeDefined()
+      expect(result).toHaveProperty('padding', '20px')
     })
   })
 
@@ -261,7 +286,12 @@ describe('Style Processor', () => {
 
   describe('processComponentStyle', () => {
     test('returns undefined when styleValue is falsy', () => {
-      const result = processComponentStyle('section' as Component['type'], undefined, undefined)
+      const result = processComponentStyle(
+        'section' as Component['type'],
+        undefined,
+        undefined,
+        undefined
+      )
       expect(result).toBeUndefined()
     })
 
@@ -269,6 +299,7 @@ describe('Style Processor', () => {
       const result = processComponentStyle(
         'section' as Component['type'],
         'color: red; padding: 10px',
+        undefined,
         undefined
       )
       expect(result).toBeDefined()
@@ -278,7 +309,7 @@ describe('Style Processor', () => {
 
     test('processes object style', () => {
       const style = { color: 'blue', margin: '5px' }
-      const result = processComponentStyle('section' as Component['type'], style, undefined)
+      const result = processComponentStyle('section' as Component['type'], style, undefined, undefined)
       expect(result).toMatchObject(style)
     })
 
@@ -296,7 +327,7 @@ describe('Style Processor', () => {
         },
       }
 
-      const result = processComponentStyle('toast', style, theme)
+      const result = processComponentStyle('toast', style, theme, undefined)
 
       // Should have animation properties
       expect(result).toBeDefined()
@@ -310,7 +341,7 @@ describe('Style Processor', () => {
         shadows: { md: '0 4px 6px rgba(0,0,0,0.1)' },
       }
 
-      const result = processComponentStyle('card', style, theme)
+      const result = processComponentStyle('card', style, theme, undefined)
 
       // Should have shadow
       expect(result).toMatchObject({
@@ -333,7 +364,7 @@ describe('Style Processor', () => {
         shadows: { md: '0 4px 6px rgba(0,0,0,0.1)' },
       }
 
-      const result = processComponentStyle('card', style, theme)
+      const result = processComponentStyle('card', style, theme, undefined)
 
       // Should have both animation and shadow
       expect(result).toBeDefined()
@@ -346,7 +377,7 @@ describe('Style Processor', () => {
       const style = { color: 'blue' }
       const theme: Theme = {}
 
-      const result = processComponentStyle('card', style, theme)
+      const result = processComponentStyle('card', style, theme, undefined)
 
       // Should return style without animations or shadows
       expect(result).toEqual(style)
@@ -374,7 +405,7 @@ describe('Style Processor', () => {
         },
       }
 
-      const result = processComponentStyle('card', style, theme)
+      const result = processComponentStyle('card', style, theme, undefined)
 
       // Should preserve original style and add theme features
       expect(result).toMatchObject({
@@ -385,6 +416,28 @@ describe('Style Processor', () => {
       })
       // Animation properties handled by animation composer
       expect(result).toHaveProperty('boxShadow', 'var(--shadow-custom)')
+    })
+
+    test('extracts CSS properties from props', () => {
+      const props = { maxWidth: '1200px', minHeight: '400px', backgroundColor: '#f0f0f0' }
+      const result = processComponentStyle('section' as Component['type'], undefined, undefined, props)
+      expect(result).toBeDefined()
+      expect(result).toHaveProperty('maxWidth', '1200px')
+      expect(result).toHaveProperty('minHeight', '400px')
+      expect(result).toHaveProperty('backgroundColor', '#f0f0f0')
+    })
+
+    test('merges CSS properties from props with explicit style and applies shadows', () => {
+      const props = { maxWidth: '1200px', padding: '10px' }
+      const theme: Theme = {
+        shadows: { md: '0 4px 6px rgba(0,0,0,0.1)' },
+      }
+      const result = processComponentStyle('card', { color: 'red' }, theme, props)
+      expect(result).toBeDefined()
+      expect(result).toHaveProperty('maxWidth', '1200px')
+      expect(result).toHaveProperty('padding', '10px')
+      expect(result).toHaveProperty('color', 'red')
+      expect(result).toHaveProperty('boxShadow', 'var(--shadow-md)')
     })
   })
 })

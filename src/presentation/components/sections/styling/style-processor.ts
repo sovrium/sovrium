@@ -32,18 +32,25 @@ export function extractCssProperties(props: Record<string, unknown> | undefined)
     return { cssProps: {}, remainingProps: {} }
   }
 
-  const cssProps: Record<string, unknown> = {}
-  const remainingProps: Record<string, unknown> = {}
-
-  for (const [key, value] of Object.entries(props)) {
-    if (isCssProperty(key)) {
-      cssProps[key] = value
-    } else {
-      remainingProps[key] = value
-    }
-  }
-
-  return { cssProps, remainingProps }
+  // Use reduce for immutable accumulation
+  return Object.entries(props).reduce<{
+    readonly cssProps: Record<string, unknown>
+    readonly remainingProps: Record<string, unknown>
+  }>(
+    (acc, [key, value]) => {
+      if (isCssProperty(key)) {
+        return {
+          ...acc,
+          cssProps: { ...acc.cssProps, [key]: value },
+        }
+      }
+      return {
+        ...acc,
+        remainingProps: { ...acc.remainingProps, [key]: value },
+      }
+    },
+    { cssProps: {}, remainingProps: {} }
+  )
 }
 
 /**
