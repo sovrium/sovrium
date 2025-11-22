@@ -191,7 +191,7 @@ test.describe('Component Props', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PROPS-007: should support mixed property types',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
