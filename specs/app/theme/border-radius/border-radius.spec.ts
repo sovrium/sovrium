@@ -288,7 +288,7 @@ test.describe('Border Radius', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-THEME-RADIUS-005: should validate kebab-case convention',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -306,7 +306,33 @@ test.describe('Border Radius', () => {
             name: 'home',
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-            sections: [],
+            sections: [
+              {
+                type: 'div',
+                props: {
+                  'data-testid': 'kebab-case-radius',
+                  className: 'flex gap-4 p-5',
+                },
+                children: [
+                  {
+                    type: 'div',
+                    props: {
+                      'data-testid': 'radius-button-radius',
+                      className: 'w-20 h-20 bg-purple-500 rounded-[--radius-button-radius]',
+                    },
+                    children: ['Button'],
+                  },
+                  {
+                    type: 'div',
+                    props: {
+                      'data-testid': 'radius-card-radius',
+                      className: 'w-20 h-20 bg-indigo-500 rounded-[--radius-card-radius]',
+                    },
+                    children: ['Card'],
+                  },
+                ],
+              },
+            ],
           },
         ],
       })
