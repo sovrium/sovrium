@@ -259,7 +259,7 @@ test.describe('Component Props', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PROPS-009: should support multiple variable references across properties',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
