@@ -346,7 +346,7 @@ test.describe('Border Radius', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-THEME-RADIUS-006: should validate complete rounding system',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -370,7 +370,22 @@ test.describe('Border Radius', () => {
             name: 'home',
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-            sections: [],
+            sections: [
+              {
+                type: 'div',
+                props: {
+                  'data-testid': 'radius-none',
+                  className: 'w-20 h-20 bg-blue-500 rounded-none',
+                },
+              },
+              {
+                type: 'div',
+                props: {
+                  'data-testid': 'radius-full',
+                  className: 'w-20 h-20 bg-purple-500 rounded-full',
+                },
+              },
+            ],
           },
         ],
       })
