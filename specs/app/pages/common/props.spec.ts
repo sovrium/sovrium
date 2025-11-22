@@ -225,7 +225,7 @@ test.describe('Component Props', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PROPS-008: should validate camelCase naming convention',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
