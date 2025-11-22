@@ -572,7 +572,7 @@ test.describe('Border Radius', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-THEME-RADIUS-APPLICATION-005: should render element with custom radius on each corner creating arrow-like shape',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

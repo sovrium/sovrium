@@ -7,6 +7,7 @@
 
 import { Hero } from '@/presentation/components/layout/hero'
 import { ResponsiveNavigation } from '@/presentation/components/layout/responsive-navigation'
+import { SpeechBubble } from '@/presentation/components/ui/speech-bubble'
 import * as Renderers from '../renderers/element-renderers'
 import { convertBadgeProps, parseHTMLContent } from './component-registry-helpers'
 import type { ComponentRenderer } from './component-dispatch-config'
@@ -192,6 +193,15 @@ export const COMPONENT_REGISTRY: Partial<Record<Component['type'], ComponentRend
       interactions: interactions,
     })
   },
+
+  'speech-bubble': ({ elementProps, content, renderedChildren }) => (
+    <SpeechBubble
+      data-testid={elementProps['data-testid'] as string | undefined}
+      className={elementProps.className as string | undefined}
+    >
+      {content || renderedChildren}
+    </SpeechBubble>
+  ),
 
   icon: ({ elementProps, renderedChildren }) =>
     Renderers.renderIcon(elementProps, renderedChildren),
