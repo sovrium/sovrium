@@ -294,7 +294,7 @@ test.describe('Component Props', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-PROPS-010: should accept empty object for components without props',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
