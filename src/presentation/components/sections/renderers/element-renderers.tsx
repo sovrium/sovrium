@@ -171,6 +171,29 @@ export function renderImage(props: ElementProps): ReactElement {
 }
 
 /**
+ * Renders avatar image with circular border-radius
+ * Includes default dimensions to ensure visibility even when image fails to load
+ */
+export function renderAvatar(props: ElementProps): ReactElement {
+  const style = {
+    ...((props.style as Record<string, unknown> | undefined) || {}),
+    minWidth: '48px',
+    minHeight: '48px',
+    width: '48px',
+    height: '48px',
+  }
+
+  return (
+    <img
+      {...props}
+      style={style}
+      alt={(props.alt as string | undefined) || ''}
+      className={[props.className, 'rounded-full'].filter(Boolean).join(' ')}
+    />
+  )
+}
+
+/**
  * Renders video element
  */
 export function renderVideo(
