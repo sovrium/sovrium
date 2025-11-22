@@ -371,7 +371,7 @@ test.describe('Block Props', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-BLOCKS-PROPS-011: should resolve translation tokens in block props during rendering',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
