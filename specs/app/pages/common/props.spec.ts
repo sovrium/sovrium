@@ -324,7 +324,7 @@ test.describe('Component Props', () => {
   // ONE OPTIMIZED test verifying components work together efficiently
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-PAGES-PROPS-REGRESSION-011: user can complete full props workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
