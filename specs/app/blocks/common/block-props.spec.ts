@@ -180,7 +180,7 @@ test.describe('Block Props', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-BLOCKS-PROPS-006: should render object as JSON data attribute',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
