@@ -678,7 +678,7 @@ test.describe('Border Radius', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-THEME-RADIUS-APPLICATION-007: should apply appropriate radius for each image context',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

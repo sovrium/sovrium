@@ -194,6 +194,34 @@ export function renderAvatar(props: ElementProps): ReactElement {
 }
 
 /**
+ * Renders thumbnail image with moderate border-radius
+ * Applies md radius (0.375rem) for soft corners while preserving aspect ratio
+ */
+export function renderThumbnail(props: ElementProps): ReactElement {
+  return (
+    <img
+      {...props}
+      alt={(props.alt as string | undefined) || ''}
+      className={[props.className, 'rounded-md'].filter(Boolean).join(' ')}
+    />
+  )
+}
+
+/**
+ * Renders hero image with top-only border-radius
+ * Applies lg radius to top corners only for integration with card layout
+ */
+export function renderHeroImage(props: ElementProps): ReactElement {
+  return (
+    <img
+      {...props}
+      alt={(props.alt as string | undefined) || ''}
+      className={[props.className, 'rounded-t-lg'].filter(Boolean).join(' ')}
+    />
+  )
+}
+
+/**
  * Renders video element
  */
 export function renderVideo(
