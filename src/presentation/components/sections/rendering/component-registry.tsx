@@ -8,6 +8,12 @@
 import { Hero } from '@/presentation/components/layout/hero'
 import { ResponsiveNavigation } from '@/presentation/components/layout/responsive-navigation'
 import { SpeechBubble } from '@/presentation/components/ui/speech-bubble'
+import {
+  CardWithHeader,
+  CardHeader,
+  CardBody,
+  CardFooter,
+} from '@/presentation/components/ui/card'
 import * as Renderers from '../renderers/element-renderers'
 import { convertBadgeProps, parseHTMLContent } from './component-registry-helpers'
 import type { ComponentRenderer } from './component-dispatch-config'
@@ -201,6 +207,42 @@ export const COMPONENT_REGISTRY: Partial<Record<Component['type'], ComponentRend
     >
       {content || renderedChildren}
     </SpeechBubble>
+  ),
+
+  'card-with-header': ({ elementProps, content, renderedChildren }) => (
+    <CardWithHeader
+      data-testid={elementProps['data-testid'] as string | undefined}
+      className={elementProps.className as string | undefined}
+    >
+      {content || renderedChildren}
+    </CardWithHeader>
+  ),
+
+  'card-header': ({ elementProps, content, renderedChildren }) => (
+    <CardHeader
+      data-testid={elementProps['data-testid'] as string | undefined}
+      className={elementProps.className as string | undefined}
+    >
+      {content || renderedChildren}
+    </CardHeader>
+  ),
+
+  'card-body': ({ elementProps, content, renderedChildren }) => (
+    <CardBody
+      data-testid={elementProps['data-testid'] as string | undefined}
+      className={elementProps.className as string | undefined}
+    >
+      {content || renderedChildren}
+    </CardBody>
+  ),
+
+  'card-footer': ({ elementProps, content, renderedChildren }) => (
+    <CardFooter
+      data-testid={elementProps['data-testid'] as string | undefined}
+      className={elementProps.className as string | undefined}
+    >
+      {content || renderedChildren}
+    </CardFooter>
   ),
 
   icon: ({ elementProps, renderedChildren }) =>

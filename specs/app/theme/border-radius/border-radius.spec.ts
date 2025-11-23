@@ -749,7 +749,7 @@ test.describe('Border Radius', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-THEME-RADIUS-APPLICATION-008: should apply radius to create cohesive nested component design',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

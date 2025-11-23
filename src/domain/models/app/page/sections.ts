@@ -18,7 +18,7 @@ import { ResponsiveSchema } from './common/responsive'
  * - Layout: section, container, flex, grid, div, modal, sidebar, hero, navigation, header, footer, main, article, aside, nav
  * - Content: text, heading, paragraph, h1, h2, h3, h4, h5, h6, icon, image, avatar, customHTML, span, p, code, pre
  * - Interactive: button, link, a, accordion, dropdown
- * - Grouping: card, badge, timeline, list-item, speech-bubble
+ * - Grouping: card, badge, timeline, list-item, speech-bubble, card-with-header, card-header, card-body, card-footer
  * - Media: video, audio, iframe
  * - Forms: form, input
  * - Feedback: toast, spinner, alert
@@ -30,6 +30,10 @@ export const ComponentTypeSchema = Schema.Literal(
   'flex',
   'grid',
   'card',
+  'card-with-header',
+  'card-header',
+  'card-body',
+  'card-footer',
   'text',
   'heading',
   'paragraph',
