@@ -5,19 +5,37 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable max-lines -- Component registry requires mapping all component types. Refactoring to smaller files would harm maintainability. */
+
 import { Hero } from '@/presentation/components/layout/hero'
 import { ResponsiveNavigation } from '@/presentation/components/layout/responsive-navigation'
-import { SpeechBubble } from '@/presentation/components/ui/speech-bubble'
 import {
   CardWithHeader,
   CardHeader,
   CardBody,
   CardFooter,
 } from '@/presentation/components/ui/card'
+import { SpeechBubble } from '@/presentation/components/ui/speech-bubble'
 import * as Renderers from '../renderers/element-renderers'
 import { convertBadgeProps, parseHTMLContent } from './component-registry-helpers'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { Component } from '@/domain/models/app/page/sections'
+
+/**
+ * Creates a renderer for card components
+ */
+function createCardRenderer(
+  Component: typeof CardWithHeader | typeof CardHeader | typeof CardBody | typeof CardFooter
+): ComponentRenderer {
+  return ({ elementProps, content, renderedChildren }) => (
+    <Component
+      data-testid={elementProps['data-testid'] as string | undefined}
+      className={elementProps.className as string | undefined}
+    >
+      {content || renderedChildren}
+    </Component>
+  )
+}
 
 /**
  * Shared renderer for hero and hero-section component types
@@ -209,41 +227,10 @@ export const COMPONENT_REGISTRY: Partial<Record<Component['type'], ComponentRend
     </SpeechBubble>
   ),
 
-  'card-with-header': ({ elementProps, content, renderedChildren }) => (
-    <CardWithHeader
-      data-testid={elementProps['data-testid'] as string | undefined}
-      className={elementProps.className as string | undefined}
-    >
-      {content || renderedChildren}
-    </CardWithHeader>
-  ),
-
-  'card-header': ({ elementProps, content, renderedChildren }) => (
-    <CardHeader
-      data-testid={elementProps['data-testid'] as string | undefined}
-      className={elementProps.className as string | undefined}
-    >
-      {content || renderedChildren}
-    </CardHeader>
-  ),
-
-  'card-body': ({ elementProps, content, renderedChildren }) => (
-    <CardBody
-      data-testid={elementProps['data-testid'] as string | undefined}
-      className={elementProps.className as string | undefined}
-    >
-      {content || renderedChildren}
-    </CardBody>
-  ),
-
-  'card-footer': ({ elementProps, content, renderedChildren }) => (
-    <CardFooter
-      data-testid={elementProps['data-testid'] as string | undefined}
-      className={elementProps.className as string | undefined}
-    >
-      {content || renderedChildren}
-    </CardFooter>
-  ),
+  'card-with-header': createCardRenderer(CardWithHeader),
+  'card-header': createCardRenderer(CardHeader),
+  'card-body': createCardRenderer(CardBody),
+  'card-footer': createCardRenderer(CardFooter),
 
   icon: ({ elementProps, renderedChildren }) =>
     Renderers.renderIcon(elementProps, renderedChildren),
