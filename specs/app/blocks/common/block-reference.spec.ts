@@ -249,7 +249,7 @@ test.describe('Block Reference', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-BLOCKS-REFERENCE-008: should render badge with orange color, users icon, and French text',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
