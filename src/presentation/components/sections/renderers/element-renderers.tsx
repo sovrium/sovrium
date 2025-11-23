@@ -341,13 +341,6 @@ export function renderInput(props: ElementProps): ReactElement {
 }
 
 /**
- * Renders badge (styled span) element
- */
-export function renderBadge(props: ElementProps, content: string | undefined): ReactElement {
-  return <span {...props}>{content}</span>
-}
-
-/**
  * Renders icon as SVG element
  * Uses 'name' prop to generate data-testid="icon-{name}"
  * Uses 'color' prop to add data-color attribute
