@@ -209,6 +209,116 @@ function renderChildren(
 }
 
 /**
+ * Renders responsive children with CSS-based visibility
+ *
+ * When a component has responsive.{breakpoint}.children, this function renders
+ * all breakpoint children variants and uses Tailwind CSS classes to show/hide them
+ * based on viewport. This approach works without JavaScript and is reliable in tests.
+ *
+ * @param responsive - Responsive configuration with children overrides
+ * @param baseChildren - Base children (fallback)
+ * @param props - Component renderer props
+ * @returns Rendered children with responsive visibility classes
+ */
+function renderResponsiveChildren(
+  responsive: Responsive | undefined,
+  baseChildren: ReadonlyArray<Component | string> | undefined,
+  props: ComponentRendererProps
+): readonly ReactElement[] {
+  if (!responsive) {
+    return renderChildren(baseChildren, props)
+  }
+
+  // Check if any breakpoint has children overrides
+  const hasResponsiveChildren = Object.values(responsive).some(
+    (overrides) => overrides.children !== undefined
+  )
+
+  if (!hasResponsiveChildren) {
+    return renderChildren(baseChildren, props)
+  }
+
+  // Collect all breakpoint children variants
+  const breakpointChildren: Array<{
+    breakpoint: string
+    children: ReadonlyArray<Component | string>
+  }> = []
+
+  // Map breakpoints to Tailwind visibility classes
+  const breakpointClasses: Record<string, string> = {
+    mobile: 'lg:hidden', // Show only on mobile (hide on lg and above)
+    lg: 'max-lg:hidden', // Show only on desktop lg+ (hide below lg)
+    md: 'max-md:hidden lg:hidden', // Show only on md (hide below md and on lg+)
+    sm: 'max-sm:hidden md:hidden', // Show only on sm (hide below sm and on md+)
+    xl: 'max-xl:hidden', // Show only on xl+ (hide below xl)
+    '2xl': 'max-2xl:hidden', // Show only on 2xl+ (hide below 2xl)
+  }
+
+  // Collect children for each breakpoint
+  for (const [breakpoint, overrides] of Object.entries(responsive)) {
+    if (overrides.children) {
+      breakpointChildren.push({
+        breakpoint,
+        children: overrides.children,
+      })
+    }
+  }
+
+  // If no breakpoint children found, fall back to base children
+  if (breakpointChildren.length === 0) {
+    return renderChildren(baseChildren, props)
+  }
+
+  // Render all breakpoint children with visibility classes
+  const allRenderedChildren: ReactElement[] = []
+
+  for (const { breakpoint, children } of breakpointChildren) {
+    const visibilityClass = breakpointClasses[breakpoint] || ''
+
+    for (let index = 0; index < children.length; index++) {
+      const child = children[index]
+
+      if (typeof child === 'string') {
+        // String children - wrap in span with visibility class
+        allRenderedChildren.push(
+          <span
+            key={`${breakpoint}-${index}`}
+            className={visibilityClass}
+          >
+            {resolveChildTranslation(child, props.currentLang, props.languages)}
+          </span>
+        )
+      } else {
+        // Component children - add visibility class to component props
+        const childWithVisibility: Component = {
+          ...child,
+          props: {
+            ...child.props,
+            className: child.props?.className
+              ? `${child.props.className} ${visibilityClass}`
+              : visibilityClass,
+          },
+        }
+
+        allRenderedChildren.push(
+          <ComponentRenderer
+            key={`${breakpoint}-${index}`}
+            component={childWithVisibility}
+            blocks={props.blocks}
+            theme={props.theme}
+            languages={props.languages}
+            currentLang={props.currentLang}
+            childIndex={index}
+          />
+        )
+      }
+    }
+  }
+
+  return allRenderedChildren
+}
+
+/**
  * Renders direct component (non-block-reference)
  *
  * This is a React component (not a helper function) because it uses the useId hook.
@@ -315,7 +425,7 @@ function RenderDirectComponent({
   const hoverData = buildHoverData(interactions?.hover, uniqueId)
   const baseElementProps = mergeHoverAttributes(elementProps, hoverData)
   const baseElementPropsWithSpacing = mergeHoverAttributes(elementPropsWithSpacing, hoverData)
-  const baseRenderedChildren = renderChildren(mergedChildren, props)
+  const baseRenderedChildren = renderResponsiveChildren(responsive, children, props)
 
   // Resolve content with i18n priority: component.i18n[lang].content > $t: pattern > content
   const resolvedContent = resolveComponentContent(mergedContent, i18n, props.currentLang, props.languages)

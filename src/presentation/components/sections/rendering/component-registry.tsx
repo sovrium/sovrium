@@ -8,7 +8,6 @@
 /* eslint-disable max-lines -- Component registry requires mapping all component types. Refactoring to smaller files would harm maintainability. */
 
 import { Hero } from '@/presentation/components/layout/hero'
-import { ResponsiveNavigation } from '@/presentation/components/layout/responsive-navigation'
 import {
   CardWithHeader,
   CardHeader,
@@ -386,12 +385,14 @@ export const COMPONENT_REGISTRY: Partial<Record<Component['type'], ComponentRend
 
   list: ({ elementProps, content, theme }) => Renderers.renderList(elementProps, content, theme),
 
-  navigation: ({ elementProps, theme }) => (
-    <ResponsiveNavigation
-      theme={theme}
-      data-testid={elementProps['data-testid'] as string | undefined}
-    />
-  ),
+  navigation: ({ elementPropsWithSpacing, content, renderedChildren, interactions }) =>
+    Renderers.renderHTMLElement({
+      type: 'nav',
+      props: elementPropsWithSpacing,
+      content: content,
+      children: renderedChildren,
+      interactions: interactions,
+    }),
 
   ul: ({ elementProps, content, renderedChildren }) =>
     Renderers.renderUnorderedList(elementProps, content, renderedChildren),
