@@ -136,11 +136,13 @@ function renderConditionalScripts(config: {
           defer={true}
         />
       )}
-      {/* Client-side scroll animation functionality - always inject (script has guard for zero elements) */}
-      <script
-        src="/assets/scroll-animation.js"
-        defer={true}
-      />
+      {/* Client-side scroll animation functionality - inject when page has sections or theme has scaleUp */}
+      {(page.sections && page.sections.length > 0) || theme?.animations?.scaleUp ? (
+        <script
+          src="/assets/scroll-animation.js"
+          defer={true}
+        />
+      ) : null}
       {/* Client-side language switcher functionality - always inject when languages configured */}
       {languages && (
         <LanguageSwitcherScripts
