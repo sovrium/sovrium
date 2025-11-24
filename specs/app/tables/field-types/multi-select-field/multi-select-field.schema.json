@@ -36,15 +36,172 @@
   "x-specs": [
     {
       "id": "APP-MULTI-SELECT-FIELD-001",
-      "given": "entity with type='multi-select'",
-      "when": "processing configuration",
-      "then": "correct handler should be selected"
+      "given": "table configuration with multi-select field 'tags' (options: Feature, Bug, Enhancement, Documentation)",
+      "when": "field migration creates column",
+      "then": "PostgreSQL TEXT[] array column is created for multiple selections",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE issues (id SERIAL PRIMARY KEY)",
+          "fieldConfig": {
+            "id": 1,
+            "name": "tags",
+            "type": "multi-select",
+            "options": [
+              { "value": "Feature" },
+              { "value": "Bug" },
+              { "value": "Enhancement" },
+              { "value": "Documentation" }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column created as TEXT[] array",
+            "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='issues' AND column_name='tags'",
+            "expected": {
+              "column_name": "tags",
+              "data_type": "ARRAY"
+            }
+          },
+          {
+            "description": "Single value can be inserted as array",
+            "executeQuery": "INSERT INTO issues (tags) VALUES (ARRAY['Feature']) RETURNING tags",
+            "expected": { "tags": ["Feature"] }
+          },
+          {
+            "description": "Multiple values can be inserted",
+            "executeQuery": "INSERT INTO issues (tags) VALUES (ARRAY['Bug', 'Enhancement']) RETURNING tags",
+            "expected": { "tags": ["Bug", "Enhancement"] }
+          }
+        ]
+      }
     },
     {
       "id": "APP-MULTI-SELECT-FIELD-002",
-      "given": "invalid type value",
-      "when": "validating configuration",
-      "then": "clear error message should identify the issue"
+      "given": "table 'products' with multi-select field 'features'",
+      "when": "array operations and queries are performed",
+      "then": "PostgreSQL supports array contains, overlap, and length operations",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, features TEXT[])",
+            "INSERT INTO products (features) VALUES (ARRAY['WiFi', 'Bluetooth']), (ARRAY['WiFi', '5G']), (ARRAY['Bluetooth', 'NFC'])"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Find records containing specific value",
+            "executeQuery": "SELECT COUNT(*) as count FROM products WHERE 'WiFi' = ANY(features)",
+            "expected": { "count": 2 }
+          },
+          {
+            "description": "Find records with array overlap",
+            "executeQuery": "SELECT COUNT(*) as count FROM products WHERE features && ARRAY['Bluetooth', 'NFC']",
+            "expected": { "count": 2 }
+          },
+          {
+            "description": "Count array elements",
+            "executeQuery": "SELECT array_length(features, 1) as length FROM products WHERE id = 1",
+            "expected": { "length": 2 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-MULTI-SELECT-FIELD-003",
+      "given": "table 'articles' with multi-select field 'categories' (maxSelections=3)",
+      "when": "CHECK constraint enforces maximum selections",
+      "then": "PostgreSQL rejects arrays exceeding maxSelections limit",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE articles (id SERIAL PRIMARY KEY, categories TEXT[] CHECK (array_length(categories, 1) <= 3))"
+        },
+        "assertions": [
+          {
+            "description": "CHECK constraint exists for maxSelections",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%categories%'",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "Array with 3 items succeeds",
+            "executeQuery": "INSERT INTO articles (categories) VALUES (ARRAY['Tech', 'Business', 'Lifestyle']) RETURNING array_length(categories, 1) as length",
+            "expected": { "length": 3 }
+          },
+          {
+            "description": "Array exceeding limit rejected",
+            "executeQuery": "INSERT INTO articles (categories) VALUES (ARRAY['Tech', 'Business', 'Lifestyle', 'Sports'])",
+            "expectError": "violates check constraint"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-MULTI-SELECT-FIELD-004",
+      "given": "table 'projects' with multi-select field 'stakeholders' and default value",
+      "when": "row inserted without providing stakeholders value",
+      "then": "PostgreSQL applies DEFAULT empty array or specified values",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE projects (id SERIAL PRIMARY KEY, stakeholders TEXT[] DEFAULT ARRAY[]::TEXT[])",
+          "fieldConfig": {
+            "id": 1,
+            "name": "stakeholders",
+            "type": "multi-select",
+            "default": []
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT empty array",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='projects' AND column_name='stakeholders'",
+            "expected": { "column_default": "ARRAY[]::text[]" }
+          },
+          {
+            "description": "INSERT without stakeholders uses default empty array",
+            "executeQuery": "INSERT INTO projects (id) VALUES (DEFAULT) RETURNING stakeholders",
+            "expected": { "stakeholders": [] }
+          },
+          {
+            "description": "Explicit values override default",
+            "executeQuery": "INSERT INTO projects (stakeholders) VALUES (ARRAY['Manager', 'Developer']) RETURNING stakeholders",
+            "expected": { "stakeholders": ["Manager", "Developer"] }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-MULTI-SELECT-FIELD-005",
+      "given": "table configuration with multi-select field 'skills', indexed=true",
+      "when": "GIN index is created on the array field",
+      "then": "PostgreSQL GIN index exists for fast array containment queries",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE candidates (id SERIAL PRIMARY KEY, skills TEXT[] NOT NULL)",
+            "CREATE INDEX idx_candidates_skills ON candidates USING GIN(skills)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "skills",
+            "type": "multi-select",
+            "indexed": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists in pg_indexes",
+            "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_candidates_skills'",
+            "expected": { "indexname": "idx_candidates_skills", "tablename": "candidates" }
+          },
+          {
+            "description": "Index uses GIN for array operations",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_candidates_skills'",
+            "expected": {
+              "indexdef": "CREATE INDEX idx_candidates_skills ON public.candidates USING gin (skills)"
+            }
+          }
+        ]
+      }
     }
   ]
 }

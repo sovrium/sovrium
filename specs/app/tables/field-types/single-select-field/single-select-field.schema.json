@@ -33,27 +33,182 @@
   "x-specs": [
     {
       "id": "APP-FIELD-SINGLE-SELECT-001",
-      "given": "I am working with a single select field",
-      "when": "I create a record",
-      "then": "it should complete successfully"
+      "given": "table configuration with single-select field 'priority' (options: High, Medium, Low)",
+      "when": "field migration creates column",
+      "then": "PostgreSQL VARCHAR column with CHECK constraint for enum values is created",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE tasks (id SERIAL PRIMARY KEY)",
+          "fieldConfig": {
+            "id": 1,
+            "name": "priority",
+            "type": "single-select",
+            "options": [
+              { "value": "High", "label": "High", "color": "red" },
+              { "value": "Medium", "label": "Medium", "color": "yellow" },
+              { "value": "Low", "label": "Low", "color": "green" }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column created as VARCHAR",
+            "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='tasks' AND column_name='priority'",
+            "expected": {
+              "column_name": "priority",
+              "data_type": "character varying"
+            }
+          },
+          {
+            "description": "CHECK constraint exists for enum values",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%priority%'",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "Valid option value can be inserted",
+            "executeQuery": "INSERT INTO tasks (priority) VALUES ('High') RETURNING priority",
+            "expected": { "priority": "High" }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-SINGLE-SELECT-002",
-      "given": "I am working with an invalid single select field",
-      "when": "I create a record",
-      "then": "it should fail with validation error"
+      "given": "table 'issues' with single-select field 'status' (options: Open, In Progress, Closed)",
+      "when": "invalid value is inserted",
+      "then": "PostgreSQL CHECK constraint rejects value not in options",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE issues (id SERIAL PRIMARY KEY, status VARCHAR(50) CHECK (status IN ('Open', 'In Progress', 'Closed')))"
+        },
+        "assertions": [
+          {
+            "description": "Valid option 'Open' succeeds",
+            "executeQuery": "INSERT INTO issues (status) VALUES ('Open') RETURNING status",
+            "expected": { "status": "Open" }
+          },
+          {
+            "description": "Valid option 'In Progress' succeeds",
+            "executeQuery": "INSERT INTO issues (status) VALUES ('In Progress') RETURNING status",
+            "expected": { "status": "In Progress" }
+          },
+          {
+            "description": "Invalid value rejected by CHECK constraint",
+            "executeQuery": "INSERT INTO issues (status) VALUES ('Invalid Status')",
+            "expectError": "violates check constraint"
+          }
+        ]
+      }
     },
     {
       "id": "APP-SINGLE-SELECT-FIELD-003",
-      "given": "entity with type='single-select'",
-      "when": "processing configuration",
-      "then": "correct handler should be selected"
+      "given": "table 'products' with single-select field 'category' (required, unique)",
+      "when": "constraints are applied",
+      "then": "PostgreSQL enforces NOT NULL and UNIQUE constraints",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, category VARCHAR(50) UNIQUE NOT NULL CHECK (category IN ('Electronics', 'Clothing', 'Food')))",
+            "INSERT INTO products (category) VALUES ('Electronics')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "NOT NULL constraint enforced",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='category'",
+            "expected": { "is_nullable": "NO" }
+          },
+          {
+            "description": "UNIQUE constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='products' AND constraint_type='UNIQUE' AND constraint_name LIKE '%category%'",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "Duplicate value rejected",
+            "executeQuery": "INSERT INTO products (category) VALUES ('Electronics')",
+            "expectError": "duplicate key value violates unique constraint"
+          },
+          {
+            "description": "NULL value rejected",
+            "executeQuery": "INSERT INTO products (category) VALUES (NULL)",
+            "expectError": "violates not-null constraint"
+          }
+        ]
+      }
     },
     {
       "id": "APP-SINGLE-SELECT-FIELD-004",
-      "given": "invalid type value",
-      "when": "validating configuration",
-      "then": "clear error message should identify the issue"
+      "given": "table 'tickets' with single-select field 'severity' and default value 'Low'",
+      "when": "row inserted without providing severity value",
+      "then": "PostgreSQL applies DEFAULT value 'Low'",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE tickets (id SERIAL PRIMARY KEY, severity VARCHAR(50) DEFAULT 'Low' CHECK (severity IN ('Critical', 'High', 'Medium', 'Low')))",
+          "fieldConfig": {
+            "id": 1,
+            "name": "severity",
+            "type": "single-select",
+            "options": [
+              { "value": "Critical" },
+              { "value": "High" },
+              { "value": "Medium" },
+              { "value": "Low" }
+            ],
+            "default": "Low"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT value",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='tickets' AND column_name='severity'",
+            "expected": { "column_default": "'Low'::character varying" }
+          },
+          {
+            "description": "INSERT without severity uses default",
+            "executeQuery": "INSERT INTO tickets (id) VALUES (DEFAULT) RETURNING severity",
+            "expected": { "severity": "Low" }
+          },
+          {
+            "description": "Explicit value overrides default",
+            "executeQuery": "INSERT INTO tickets (severity) VALUES ('Critical') RETURNING severity",
+            "expected": { "severity": "Critical" }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-SINGLE-SELECT-FIELD-005",
+      "given": "table configuration with single-select field 'type', indexed=true",
+      "when": "index is created on the single-select field",
+      "then": "PostgreSQL btree index exists for fast filtering by option value",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE documents (id SERIAL PRIMARY KEY, type VARCHAR(50) NOT NULL CHECK (type IN ('PDF', 'Word', 'Excel')))",
+            "CREATE INDEX idx_documents_type ON documents(type)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "type",
+            "type": "single-select",
+            "indexed": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists in pg_indexes",
+            "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_documents_type'",
+            "expected": { "indexname": "idx_documents_type", "tablename": "documents" }
+          },
+          {
+            "description": "Index uses btree for option filtering",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_documents_type'",
+            "expected": {
+              "indexdef": "CREATE INDEX idx_documents_type ON public.documents USING btree (type)"
+            }
+          }
+        ]
+      }
     }
   ]
 }
