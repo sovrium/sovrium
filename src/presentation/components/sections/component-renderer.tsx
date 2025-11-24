@@ -24,6 +24,7 @@ import type {
 } from '@/domain/models/app/block/common/block-reference'
 import type { Blocks } from '@/domain/models/app/blocks'
 import type { Languages } from '@/domain/models/app/languages'
+import type { VariantOverrides } from '@/domain/models/app/page/common/responsive'
 import type { Component } from '@/domain/models/app/page/sections'
 import type { Theme } from '@/domain/models/app/theme'
 
@@ -243,7 +244,7 @@ function RenderDirectComponent({
   // Strategy: Convert responsive visibility config into appropriate Tailwind classes
   const responsiveVisibilityClasses = responsive
     ? (() => {
-        const visibilityConfig = Object.entries(responsive)
+        const visibilityConfig = (Object.entries(responsive) as [string, VariantOverrides][])
           .filter(([, overrides]) => overrides.visible !== undefined)
           .reduce<Record<string, boolean>>((acc, [bp, overrides]) => {
             return { ...acc, [bp]: overrides.visible! }
