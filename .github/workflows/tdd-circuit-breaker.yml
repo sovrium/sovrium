@@ -1,9 +1,9 @@
 name: TDD Circuit Breaker
 
 on:
-  # Check health every 15 minutes
+  # Check health every 30 minutes (optimized from 15 min to reduce GitHub Actions usage)
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '*/30 * * * *'
 
   # Manual trigger for testing
   workflow_dispatch:

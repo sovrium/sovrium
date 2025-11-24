@@ -28,21 +28,11 @@ on:
   pull_request_review:
     types: [submitted]
 
-# Concurrency control: Prevent duplicate runs
-# - workflow_dispatch: Use per-issue concurrency (one run per issue, queued not cancelled)
-# - issue_comment from automation (🤖): Use per-issue concurrency (allows queue processing)
-# - issue_comment from humans: Use per-issue concurrency (allows manual @claude)
-# - Skip Claude bot comments (prevents self-cancellation)
+# Concurrency control: One run per issue/PR, queued not cancelled
+# Groups runs by issue/PR number to prevent duplicate execution
+# Note: claude[bot] comments are filtered in validate-context job (lines 80-98)
 concurrency:
-  group: claude-${{
-    github.event_name == 'workflow_dispatch' && format('issue-{0}', github.event.inputs.issue_number) ||
-    (github.event_name == 'issue_comment' && github.event.comment.user.login == 'claude[bot]') && format('skip-bot-{0}', github.run_id) ||
-    (github.event_name == 'issue_comment' && contains(github.event.issue.title, '🤖')) && format('issue-{0}', github.event.issue.number) ||
-    (github.event_name == 'issues' && contains(github.event.issue.title, '🤖')) && format('issue-{0}', github.event.issue.number) ||
-    github.event.issue.number ||
-    github.event.pull_request.number ||
-    'default'
-    }}
+  group: claude-issue-${{ github.event.issue.number || github.event.pull_request.number || github.event.inputs.issue_number || 'default' }}
   cancel-in-progress: false
 
 env:

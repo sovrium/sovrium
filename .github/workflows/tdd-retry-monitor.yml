@@ -6,7 +6,7 @@ name: TDD Retry Monitor
 on:
   # Run every 20 minutes to check for stuck retries
   schedule:
-    - cron: '*/20 * * * *'
+    - cron: '*/30 * * * *'  # Optimized from 20 min to reduce GitHub Actions usage
 
   # Manual trigger for testing
   workflow_dispatch:

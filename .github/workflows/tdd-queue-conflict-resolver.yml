@@ -14,7 +14,7 @@ on:
       - main
   schedule:
     # Run every 15 minutes to catch any conflicts
-    - cron: '*/15 * * * *'
+    - cron: '*/30 * * * *'  # Optimized from 15 min to reduce GitHub Actions usage
   workflow_dispatch: # Allow manual triggering
 
 concurrency:

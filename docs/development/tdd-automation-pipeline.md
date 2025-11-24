@@ -995,8 +995,217 @@ When updating the queue system:
 
 ---
 
-**Last Updated**: 2025-11-03
-**Version**: 2.1.0 (Queue System + Self-Healing Safeguards)
+## Claude Code Workflow Instructions
+
+### Automation Mode - Non-Interactive Operation
+
+When Claude Code receives a `@claude` mention for TDD automation, it operates in **pipeline/automation mode**:
+
+- ✅ Make autonomous decisions following Sovrium architectural patterns
+- ✅ Implement minimal code to pass the test
+- ✅ Use Effect.ts for side effects in Application/Infrastructure layers
+- ❌ DO NOT ask clarifying questions - proceed with best judgment
+- ❌ DO NOT wait for user approval - implement and commit
+
+### Success Criteria Checklist
+
+**Task is NOT complete until ALL boxes are checked**:
+
+- [ ] Branch created automatically by Claude Code (pattern: `claude/issue-{ISSUE_NUMBER}-timestamp`)
+- [ ] `.fixme()` removed from test `{SPEC_ID}` ONLY (not other tests)
+- [ ] Both agents invoked: e2e-test-fixer → codebase-refactor-auditor
+- [ ] Code follows layer-based architecture (Domain/Application/Infrastructure/Presentation)
+- [ ] Copyright headers added: `bun run license`
+- [ ] Changes committed: `fix: implement {SPEC_ID}`
+- [ ] Changes pushed to remote branch
+- [ ] **⚠️ CRITICAL (Step 4A): Pull Request created** (verify: `gh pr list --label tdd-automation`)
+- [ ] PR has correct format (title, body with `Closes #{ISSUE_NUMBER}`, label)
+- [ ] **⚠️ CRITICAL (Step 4B): Auto-merge enabled AND verified** (command: `gh pr view $PR_NUMBER --json autoMergeRequest`)
+- [ ] Auto-merge verification shows non-null result with `mergeMethod: SQUASH`
+
+### Most Common Failures
+
+1. **Missing PR creation** (issue #1319) → spec marked failed after 2 min
+2. **Missing auto-merge enablement** (PRs #1541, #1546) → Pipeline blocked for hours
+3. **Auto-merge enabled but not VERIFIED** → May silently fail
+
+### Implementation Workflow (4 Steps - ALL REQUIRED)
+
+**Note**: Branch is created automatically by Claude Code with pattern `claude/issue-{ISSUE_NUMBER}-{timestamp}`. No manual branch creation needed.
+
+#### Step 1: Invoke e2e-test-fixer Agent
+
+**Use the Task tool** to invoke the **e2e-test-fixer** agent:
+
+- Agent autonomously locates test `{SPEC_ID}` in `{TEST_FILE}`
+- Agent removes `.fixme()` from ONE specific test only
+- Agent implements minimal code following architecture:
+  - **Domain Layer**: Schemas in `src/domain/models/` (Effect Schema)
+  - **Application Layer**: Business logic in `src/application/` (Effect.ts workflows)
+  - **Infrastructure Layer**: External services in `src/infrastructure/` (Effect.ts)
+  - **Presentation Layer**: UI components in `src/presentation/components/` (React)
+- Agent runs specific test: `bun test:e2e -- {TEST_FILE} --grep "{SPEC_ID}"`
+- Agent runs regression tests: `bun test:e2e:regression`
+
+**Architecture Notes**:
+
+- Use Effect.ts (`Effect.gen`, `pipe`) for side effects in Application/Infrastructure layers
+- Keep Domain layer pure (no side effects)
+- Follow functional programming patterns (immutability, pure functions)
+
+#### Step 2: Invoke codebase-refactor-auditor Agent (MANDATORY)
+
+**Use the Task tool** to invoke the **codebase-refactor-auditor** agent:
+
+- Agent reviews implementation for code quality
+- Agent checks for code duplication
+- Agent ensures architectural compliance
+- Agent refactors and optimizes as needed
+- Agent validates against Sovrium best practices
+
+**IMPORTANT**: This step is MANDATORY even if Step 1 code seems clean.
+
+#### Step 3: Quality Checks & Commit
+
+```bash
+bun run license           # Add copyright headers (REQUIRED - fails if missing)
+git add -A
+git commit -m "fix: implement {SPEC_ID}"
+git push -u origin HEAD
+```
+
+#### Step 4A: ⚠️ CREATE PULL REQUEST (MANDATORY - NOT OPTIONAL)
+
+**THIS IS THE MOST CRITICAL STEP. THE WORKFLOW FAILS WITHOUT IT.**
+
+```bash
+gh pr create \
+  --title "fix: implement {SPEC_ID}" \
+  --body "Closes #{ISSUE_NUMBER}" \
+  --label "tdd-automation"
+```
+
+**PR Requirements (ALL REQUIRED)**:
+
+- ✅ Title: Exactly `fix: implement {SPEC_ID}`
+- ✅ Body: Exactly `Closes #{ISSUE_NUMBER}` (NO extra text after number - breaks auto-close)
+- ✅ Label: `tdd-automation`
+- ✅ Required even if only `.fixme()` was removed (no code changes)
+
+**Failure Example**: Issue #1319 - Claude removed `.fixme()`, committed, pushed, but **skipped PR creation** → marked as failed → required manual intervention
+
+**Verify PR was created**:
+
+```bash
+gh pr list --label tdd-automation --limit 1 --json number,title | jq '.[0].number'
+```
+
+Save the PR number to a variable for Step 4B:
+
+```bash
+PR_NUMBER=$(gh pr list --label tdd-automation --limit 1 --json number --jq '.[0].number')
+echo "Created PR #$PR_NUMBER"
+```
+
+#### Step 4B: ⚠️ ENABLE AUTO-MERGE (EQUALLY CRITICAL - DO NOT SKIP)
+
+**THIS STEP IS REQUIRED IMMEDIATELY AFTER PR CREATION. DO NOT WAIT FOR CI.**
+
+Without auto-merge, the PR will sit open forever and block the entire pipeline.
+
+```bash
+# Enable auto-merge IMMEDIATELY (don't wait for CI to finish)
+gh pr merge $PR_NUMBER --auto --squash
+
+# VERIFY it was enabled (REQUIRED - must show non-null result)
+gh pr view $PR_NUMBER --json autoMergeRequest --jq '.autoMergeRequest'
+```
+
+**Expected output** (if successful):
+
+```json
+{
+  "enabledAt": "2025-11-03T...",
+  "enabledBy": {...},
+  "mergeMethod": "SQUASH"
+}
+```
+
+**If output is `null`**, the command FAILED. You MUST retry:
+
+```bash
+# Retry up to 3 times if needed
+for i in {1..3}; do
+  echo "Attempt $i: Enabling auto-merge..."
+  if gh pr merge $PR_NUMBER --auto --squash; then
+    sleep 2
+    RESULT=$(gh pr view $PR_NUMBER --json autoMergeRequest --jq '.autoMergeRequest')
+    if [ "$RESULT" != "null" ]; then
+      echo "✅ Auto-merge enabled successfully"
+      break
+    fi
+  fi
+  sleep 3
+done
+```
+
+**⚠️ CRITICAL**: Do NOT exit or consider the task complete until auto-merge is verified enabled.
+
+**Failure Examples**:
+
+- Issue #1319: PR created, but auto-merge NOT enabled → Pipeline blocked
+- PR #1546: All checks passing, mergeable, but stuck open for 2 hours → Pipeline blocked
+- PR #1541: Same issue → Manual intervention required
+
+### CI Monitoring & Failure Handling
+
+After enabling auto-merge in Step 4B, you MUST monitor CI validation:
+
+#### Phase 1: Monitor CI Status
+
+- test.yml CI runs: lint, typecheck, unit tests, E2E regression
+- Check status: `gh pr checks $PR_NUMBER`
+- Auto-merge is already enabled, so PR will merge automatically when CI passes
+
+#### Phase 2A: If CI Validation PASSES ✅
+
+- PR will auto-merge automatically (no action needed)
+- Issue will auto-close via `Closes #{ISSUE_NUMBER}`
+- Exit successfully
+
+You can verify the PR merged:
+
+```bash
+gh pr view $PR_NUMBER --json state --jq '.state'
+# Should show: MERGED
+```
+
+#### Phase 2B: If CI Validation FAILS ❌
+
+**Retry loop** (max 3 attempts):
+
+1. Analyze test.yml error logs
+2. Fix code issues
+3. Add retry label: `gh issue edit {ISSUE_NUMBER} --add-label retry:N` (N=1,2,3)
+4. Commit and push fixes
+5. Wait for next validation
+6. If passes → Enable auto-merge (Phase 2A)
+7. If 3rd failure → Mark `tdd-spec:failed` and exit
+
+**After 3 failures**:
+
+```bash
+gh issue edit {ISSUE_NUMBER} \
+  --remove-label tdd-spec:in-progress \
+  --add-label tdd-spec:failed
+gh issue comment {ISSUE_NUMBER} \
+  --body "❌ Failed after 3 attempts. Manual review required."
+```
+
+---
+
+**Last Updated**: 2025-11-24
+**Version**: 2.2.0 (Queue System + Self-Healing Safeguards + Phase 1 Optimizations)
 **Status**: Active
 
 **Changelog**:
