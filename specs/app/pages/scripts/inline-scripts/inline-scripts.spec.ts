@@ -341,7 +341,7 @@ test.describe('Inline Scripts', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SCRIPTS-INLINE-REGRESSION-001: user can complete full Inline Scripts workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
