@@ -18,7 +18,11 @@ import {
   StructuredDataScript,
   TwitterCardMeta,
 } from '@/presentation/components/metadata'
-import { renderInlineScriptTag, renderScriptTag } from '@/presentation/scripts/script-renderers'
+import {
+  renderInlineScriptTag,
+  renderScriptTag,
+  renderWindowConfig,
+} from '@/presentation/scripts/script-renderers'
 import { resolveTranslationPattern } from '@/presentation/translations/translation-resolver'
 import type { GroupedScripts } from './PageScripts'
 import type { Languages } from '@/domain/models/app/languages'
@@ -232,7 +236,13 @@ function GlobalStyles({ directionStyles }: { readonly directionStyles: string })
 /**
  * Renders external and inline scripts for head section
  */
-function HeadScripts({ scripts }: { readonly scripts: GroupedScripts }): ReactElement {
+function HeadScripts({
+  scripts,
+  page,
+}: {
+  readonly scripts: GroupedScripts
+  readonly page: Page
+}): ReactElement {
   return (
     <>
       {scripts.external.head.map((script, index) =>
@@ -253,6 +263,12 @@ function HeadScripts({ scripts }: { readonly scripts: GroupedScripts }): ReactEl
           reactKey: `inline-head-${index}`,
         })
       )}
+      {page.scripts?.config &&
+        renderWindowConfig({
+          windowKey: 'APP_CONFIG',
+          data: page.scripts.config,
+          reactKey: 'window-app-config',
+        })}
     </>
   )
 }
@@ -373,7 +389,10 @@ export function PageHead({
       <GoogleFonts googleFonts={page.meta?.googleFonts} />
       <ThemeFonts theme={theme} />
       <GlobalStyles directionStyles={directionStyles} />
-      <HeadScripts scripts={scripts} />
+      <HeadScripts
+        scripts={scripts}
+        page={page}
+      />
     </>
   )
 }
