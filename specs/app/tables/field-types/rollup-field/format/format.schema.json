@@ -1,22 +1,116 @@
 {
   "$id": "format.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Display format for the result",
-  "description": "Display format for the result",
+  "title": "Rollup Field Display Format",
+  "description": "Display format hint for rollup aggregation results. Rollup fields compute aggregations across related records. Format controls result presentation: currency (monetary values), number (numeric), percentage (0-100%), date (datetime results).",
   "type": "string",
-  "examples": ["currency", "number", "percentage"],
+  "examples": ["currency", "number", "percentage", "date"],
   "x-specs": [
     {
       "id": "APP-FIELD-ROLLUP-FORMAT-001",
-      "given": "user provides format",
-      "when": "validating input",
-      "then": "string value should be accepted"
+      "given": "rollup field with format: 'currency' and aggregation: SUM",
+      "when": "rollup computes total from related records",
+      "then": "PostgreSQL aggregates values, application displays with currency formatting",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER, total DECIMAL(15,2))",
+            "CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255), total_spent DECIMAL(15,2))",
+            "INSERT INTO orders (customer_id, total) VALUES (1, 150.00), (1, 250.50), (2, 99.99)",
+            "UPDATE customers SET total_spent = (SELECT SUM(total) FROM orders WHERE customer_id = customers.id) WHERE id = 1"
+          ],
+          "fieldConfig": {
+            "name": "total_spent",
+            "type": "rollup",
+            "aggregation": "SUM",
+            "sourceField": "orders.total",
+            "format": "currency"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Rollup aggregates related values (SUM)",
+            "executeQuery": "SELECT total_spent FROM customers WHERE id = 1",
+            "expected": { "total_spent": 400.50 }
+          },
+          {
+            "description": "Application displays with currency formatting",
+            "displayFormat": "currency",
+            "executeQuery": "SELECT total_spent FROM customers WHERE id = 1",
+            "expectedDisplay": "$400.50"
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-ROLLUP-FORMAT-002",
-      "given": "format is empty string",
-      "when": "validating input",
-      "then": "behavior should follow optional/required rules"
+      "given": "rollup field with format: 'number' and aggregation: COUNT",
+      "when": "rollup counts related records",
+      "then": "PostgreSQL COUNT aggregation displayed as integer",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, project_id INTEGER, title VARCHAR(255))",
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), task_count INTEGER)",
+            "INSERT INTO tasks (project_id, title) VALUES (1, 'Task 1'), (1, 'Task 2'), (1, 'Task 3')",
+            "UPDATE projects SET task_count = (SELECT COUNT(*) FROM tasks WHERE project_id = projects.id) WHERE id = 1"
+          ],
+          "fieldConfig": {
+            "name": "task_count",
+            "type": "rollup",
+            "aggregation": "COUNT",
+            "sourceField": "tasks.id",
+            "format": "number"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Rollup counts related records (COUNT)",
+            "executeQuery": "SELECT task_count FROM projects WHERE id = 1",
+            "expected": { "task_count": 3 }
+          },
+          {
+            "description": "Application displays as integer",
+            "displayFormat": "number",
+            "executeQuery": "SELECT task_count FROM projects WHERE id = 1",
+            "expectedDisplay": "3"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ROLLUP-FORMAT-003",
+      "given": "rollup field without format property",
+      "when": "format is empty or omitted",
+      "then": "PostgreSQL aggregation result displayed without formatting",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE measurements (id SERIAL PRIMARY KEY, sensor_id INTEGER, value DECIMAL(10,2))",
+            "CREATE TABLE sensors (id SERIAL PRIMARY KEY, name VARCHAR(255), avg_value DECIMAL(10,2))",
+            "INSERT INTO measurements (sensor_id, value) VALUES (1, 23.5), (1, 24.8), (1, 22.1)",
+            "UPDATE sensors SET avg_value = (SELECT AVG(value) FROM measurements WHERE sensor_id = sensors.id) WHERE id = 1"
+          ],
+          "fieldConfig": {
+            "name": "avg_value",
+            "type": "rollup",
+            "aggregation": "AVG",
+            "sourceField": "measurements.value"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Rollup computes average (AVG)",
+            "executeQuery": "SELECT avg_value FROM sensors WHERE id = 1",
+            "expected": { "avg_value": 23.47 }
+          },
+          {
+            "description": "Display without formatting (raw numeric)",
+            "executeQuery": "SELECT avg_value FROM sensors WHERE id = 1",
+            "expectedDisplay": "23.47"
+          }
+        ]
+      }
     }
   ]
 }

@@ -1,29 +1,136 @@
 {
   "$id": "format.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Display format for the duration",
-  "description": "Display format for the duration",
+  "title": "Duration Display Format",
+  "description": "Display format for duration values. Storage uses PostgreSQL INTERVAL type (ISO 8601 duration). Display format controls presentation: h:mm (hours:minutes), h:mm:ss (with seconds), minutes (total minutes), seconds (total seconds).",
   "type": "string",
   "default": "h:mm:ss",
   "enum": ["h:mm", "h:mm:ss", "minutes", "seconds"],
   "x-specs": [
     {
       "id": "APP-FIELD-DURATION-FORMAT-001",
-      "given": "user selects format from valid options",
-      "when": "validating input",
-      "then": "selection should be accepted"
+      "given": "duration field with format: 'h:mm:ss' (hours:minutes:seconds)",
+      "when": "field migration creates INTERVAL column",
+      "then": "PostgreSQL stores duration, application displays in h:mm:ss format",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), time_spent INTERVAL)",
+            "INSERT INTO tasks (title, time_spent) VALUES ('Coding', INTERVAL '2 hours 30 minutes 45 seconds'), ('Review', INTERVAL '1 hour 15 minutes')"
+          ],
+          "fieldConfig": {
+            "name": "time_spent",
+            "type": "duration",
+            "format": "h:mm:ss"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column uses INTERVAL type",
+            "executeQuery": "SELECT data_type FROM information_schema.columns WHERE table_name='tasks' AND column_name='time_spent'",
+            "expected": { "data_type": "interval" }
+          },
+          {
+            "description": "Duration stored as INTERVAL",
+            "executeQuery": "SELECT time_spent FROM tasks WHERE title = 'Coding'",
+            "expected": { "time_spent": "02:30:45" }
+          },
+          {
+            "description": "Application displays in h:mm:ss format",
+            "displayFormat": "h:mm:ss",
+            "executeQuery": "SELECT time_spent FROM tasks WHERE title = 'Coding'",
+            "expectedDisplay": "2:30:45"
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-DURATION-FORMAT-002",
-      "given": "user provides invalid format value",
-      "when": "validating input",
-      "then": "error should list valid options: h:mm, h:mm:ss, minutes"
+      "given": "duration field with format: 'minutes' (total minutes)",
+      "when": "duration '1 hour 30 minutes' retrieved",
+      "then": "application displays as '90' (total minutes)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE meetings (id SERIAL PRIMARY KEY, title VARCHAR(255), duration INTERVAL)",
+            "INSERT INTO meetings (title, duration) VALUES ('Standup', INTERVAL '15 minutes'), ('Planning', INTERVAL '1 hour 30 minutes')"
+          ],
+          "fieldConfig": {
+            "name": "duration",
+            "type": "duration",
+            "format": "minutes"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Application displays total minutes",
+            "displayFormat": "minutes",
+            "executeQuery": "SELECT duration FROM meetings WHERE title = 'Planning'",
+            "expectedDisplay": "90"
+          },
+          {
+            "description": "Short duration displayed correctly",
+            "displayFormat": "minutes",
+            "executeQuery": "SELECT duration FROM meetings WHERE title = 'Standup'",
+            "expectedDisplay": "15"
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-DURATION-FORMAT-003",
-      "given": "format is set to any valid enum value",
-      "when": "processing entity",
-      "then": "appropriate behavior should execute"
+      "given": "duration field with invalid format value",
+      "when": "field configuration validation runs",
+      "then": "error lists valid options: h:mm, h:mm:ss, minutes, seconds",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "elapsed_time",
+            "type": "duration",
+            "format": "INVALID-FORMAT"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Invalid format rejected with enum error",
+            "validateConfig": true,
+            "expectError": "format must be one of: h:mm, h:mm:ss, minutes, seconds"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-DURATION-FORMAT-004",
+      "given": "duration field with format: 'seconds' (total seconds)",
+      "when": "duration '2 minutes 30 seconds' retrieved",
+      "then": "application displays as '150' (total seconds)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE api_calls (id SERIAL PRIMARY KEY, endpoint VARCHAR(255), response_time INTERVAL)",
+            "INSERT INTO api_calls (endpoint, response_time) VALUES ('/api/users', INTERVAL '2 minutes 30 seconds'), ('/api/posts', INTERVAL '45 seconds')"
+          ],
+          "fieldConfig": {
+            "name": "response_time",
+            "type": "duration",
+            "format": "seconds"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Application displays total seconds",
+            "displayFormat": "seconds",
+            "executeQuery": "SELECT response_time FROM api_calls WHERE endpoint = '/api/users'",
+            "expectedDisplay": "150"
+          },
+          {
+            "description": "Sub-minute duration displayed correctly",
+            "displayFormat": "seconds",
+            "executeQuery": "SELECT response_time FROM api_calls WHERE endpoint = '/api/posts'",
+            "expectedDisplay": "45"
+          }
+        ]
+      }
     }
   ]
 }
