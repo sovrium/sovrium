@@ -41,15 +41,176 @@
   "x-specs": [
     {
       "id": "APP-DECIMAL-FIELD-001",
-      "given": "a Decimal Field is configured",
-      "when": "validating schema",
-      "then": "type must be 'decimal'"
+      "given": "table configuration with decimal field 'price' (precision=2)",
+      "when": "field migration creates column",
+      "then": "PostgreSQL NUMERIC column is created with 2 decimal places",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE products (id SERIAL PRIMARY KEY)",
+          "fieldConfig": { "id": 1, "name": "price", "type": "decimal", "precision": 2 }
+        },
+        "assertions": [
+          {
+            "description": "Column created as NUMERIC type",
+            "executeQuery": "SELECT column_name, data_type, numeric_precision, numeric_scale FROM information_schema.columns WHERE table_name='products' AND column_name='price'",
+            "expected": {
+              "column_name": "price",
+              "data_type": "numeric",
+              "numeric_precision": null,
+              "numeric_scale": 2
+            }
+          },
+          {
+            "description": "Decimal value with 2 places can be inserted",
+            "executeQuery": "INSERT INTO products (price) VALUES (19.99) RETURNING price",
+            "expected": { "price": "19.99" }
+          },
+          {
+            "description": "Value with more than 2 decimals is rounded",
+            "executeQuery": "INSERT INTO products (price) VALUES (29.999) RETURNING price",
+            "expected": { "price": "30.00" }
+          }
+        ]
+      }
     },
     {
       "id": "APP-DECIMAL-FIELD-002",
-      "given": "type is set to 'decimal'",
-      "when": "processing field",
-      "then": "it should be treated as a Decimal Field"
+      "given": "table 'measurements' with decimal field 'weight' (precision=3, min=0.001, max=999.999)",
+      "when": "CHECK constraint enforces range validation",
+      "then": "PostgreSQL rejects values outside min/max range",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE measurements (id SERIAL PRIMARY KEY, weight NUMERIC(6, 3) CHECK (weight >= 0.001 AND weight <= 999.999))"
+        },
+        "assertions": [
+          {
+            "description": "CHECK constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%weight%'",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "Valid decimal within range succeeds",
+            "executeQuery": "INSERT INTO measurements (weight) VALUES (123.456) RETURNING weight",
+            "expected": { "weight": "123.456" }
+          },
+          {
+            "description": "Value below min rejected",
+            "executeQuery": "INSERT INTO measurements (weight) VALUES (0.0001)",
+            "expectError": "violates check constraint"
+          },
+          {
+            "description": "Value above max rejected",
+            "executeQuery": "INSERT INTO measurements (weight) VALUES (1000.000)",
+            "expectError": "violates check constraint"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-DECIMAL-FIELD-003",
+      "given": "table 'financial_records' with decimal field 'amount' (precision=2, required, unique)",
+      "when": "constraints are applied",
+      "then": "PostgreSQL enforces NOT NULL and UNIQUE constraints",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE financial_records (id SERIAL PRIMARY KEY, amount NUMERIC(10, 2) UNIQUE NOT NULL)",
+            "INSERT INTO financial_records (amount) VALUES (1234.56)"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "NOT NULL constraint enforced",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='financial_records' AND column_name='amount'",
+            "expected": { "is_nullable": "NO" }
+          },
+          {
+            "description": "UNIQUE constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='financial_records' AND constraint_type='UNIQUE' AND constraint_name LIKE '%amount%'",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "Duplicate decimal rejected",
+            "executeQuery": "INSERT INTO financial_records (amount) VALUES (1234.56)",
+            "expectError": "duplicate key value violates unique constraint"
+          },
+          {
+            "description": "NULL insertion fails",
+            "executeQuery": "INSERT INTO financial_records (amount) VALUES (NULL)",
+            "expectError": "violates not-null constraint"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-DECIMAL-FIELD-004",
+      "given": "table 'configurations' with decimal field 'threshold' (precision=1) and default value 5.5",
+      "when": "row inserted without providing threshold value",
+      "then": "PostgreSQL applies DEFAULT value 5.5",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE configurations (id SERIAL PRIMARY KEY, threshold NUMERIC(3, 1) DEFAULT 5.5)",
+          "fieldConfig": {
+            "id": 1,
+            "name": "threshold",
+            "type": "decimal",
+            "precision": 1,
+            "default": 5.5
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT value",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='configurations' AND column_name='threshold'",
+            "expected": { "column_default": "5.5" }
+          },
+          {
+            "description": "INSERT without threshold uses default",
+            "executeQuery": "INSERT INTO configurations (id) VALUES (DEFAULT) RETURNING threshold",
+            "expected": { "threshold": "5.5" }
+          },
+          {
+            "description": "Explicit value overrides default",
+            "executeQuery": "INSERT INTO configurations (threshold) VALUES (9.8) RETURNING threshold",
+            "expected": { "threshold": "9.8" }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-DECIMAL-FIELD-005",
+      "given": "table configuration with decimal field 'rating' (precision=1), indexed=true",
+      "when": "index is created on the decimal field",
+      "then": "PostgreSQL btree index exists for fast numerical queries",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE reviews (id SERIAL PRIMARY KEY, rating NUMERIC(2, 1) NOT NULL)",
+            "CREATE INDEX idx_reviews_rating ON reviews(rating)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "rating",
+            "type": "decimal",
+            "precision": 1,
+            "indexed": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists in pg_indexes",
+            "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_reviews_rating'",
+            "expected": { "indexname": "idx_reviews_rating", "tablename": "reviews" }
+          },
+          {
+            "description": "Index uses btree for range queries and sorting",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_reviews_rating'",
+            "expected": {
+              "indexdef": "CREATE INDEX idx_reviews_rating ON public.reviews USING btree (rating)"
+            }
+          }
+        ]
+      }
     }
   ]
 }
