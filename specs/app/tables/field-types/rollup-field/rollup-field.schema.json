@@ -33,15 +33,220 @@
   "x-specs": [
     {
       "id": "APP-ROLLUP-FIELD-001",
-      "given": "entity with type='rollup'",
-      "when": "processing configuration",
-      "then": "correct handler should be selected"
+      "given": "table 'customers' with rollup field 'total_order_amount' using SUM aggregation",
+      "when": "aggregating related order amounts",
+      "then": "PostgreSQL SUM aggregation calculates total from related records",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "INSERT INTO customers (name) VALUES ('Alice'), ('Bob')",
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER REFERENCES customers(id), amount DECIMAL(10,2))",
+            "INSERT INTO orders (customer_id, amount) VALUES (1, 100.00), (1, 150.00), (1, 75.50), (2, 200.00)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "total_order_amount",
+            "type": "rollup",
+            "relationshipField": "customer_id",
+            "relatedField": "amount",
+            "aggregation": "sum"
+          }
+        },
+        "assertions": [
+          {
+            "description": "SUM aggregation for customer 1",
+            "executeQuery": "SELECT c.id, c.name, COALESCE(SUM(o.amount), 0) as total_order_amount FROM customers c LEFT JOIN orders o ON c.id = o.customer_id WHERE c.id = 1 GROUP BY c.id, c.name",
+            "expected": { "id": 1, "name": "Alice", "total_order_amount": "325.50" }
+          },
+          {
+            "description": "SUM aggregation for customer 2",
+            "executeQuery": "SELECT c.id, c.name, COALESCE(SUM(o.amount), 0) as total_order_amount FROM customers c LEFT JOIN orders o ON c.id = o.customer_id WHERE c.id = 2 GROUP BY c.id, c.name",
+            "expected": { "id": 2, "name": "Bob", "total_order_amount": "200.00" }
+          },
+          {
+            "description": "SUM returns 0 when no related records",
+            "executeQuery": "INSERT INTO customers (name) VALUES ('Charlie') RETURNING (SELECT COALESCE(SUM(o.amount), 0) FROM orders o WHERE o.customer_id = 3) as total_order_amount",
+            "expected": { "total_order_amount": "0" }
+          }
+        ]
+      }
     },
     {
       "id": "APP-ROLLUP-FIELD-002",
-      "given": "invalid type value",
-      "when": "validating configuration",
-      "then": "clear error message should identify the issue"
+      "given": "table 'projects' with rollup field 'task_count' using COUNT aggregation",
+      "when": "counting related task records",
+      "then": "PostgreSQL COUNT aggregation returns number of related records",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "INSERT INTO projects (name) VALUES ('Website Redesign'), ('Mobile App')",
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, project_id INTEGER REFERENCES projects(id), title VARCHAR(255))",
+            "INSERT INTO tasks (project_id, title) VALUES (1, 'Design mockups'), (1, 'Write code'), (1, 'Test'), (2, 'Setup project')"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "task_count",
+            "type": "rollup",
+            "relationshipField": "project_id",
+            "relatedField": "id",
+            "aggregation": "count"
+          }
+        },
+        "assertions": [
+          {
+            "description": "COUNT aggregation for project 1",
+            "executeQuery": "SELECT p.id, p.name, COUNT(t.id) as task_count FROM projects p LEFT JOIN tasks t ON p.id = t.project_id WHERE p.id = 1 GROUP BY p.id, p.name",
+            "expected": { "id": 1, "name": "Website Redesign", "task_count": 3 }
+          },
+          {
+            "description": "COUNT aggregation for project 2",
+            "executeQuery": "SELECT p.id, p.name, COUNT(t.id) as task_count FROM projects p LEFT JOIN tasks t ON p.id = t.project_id WHERE p.id = 2 GROUP BY p.id, p.name",
+            "expected": { "id": 2, "name": "Mobile App", "task_count": 1 }
+          },
+          {
+            "description": "COUNT returns 0 when no related records",
+            "executeQuery": "INSERT INTO projects (name) VALUES ('Empty Project') RETURNING (SELECT COUNT(t.id) FROM tasks t WHERE t.project_id = 3) as task_count",
+            "expected": { "task_count": 0 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-ROLLUP-FIELD-003",
+      "given": "table 'products' with rollup fields using AVG, MIN, MAX aggregations",
+      "when": "computing statistical aggregations on related ratings",
+      "then": "PostgreSQL supports AVG, MIN, MAX aggregate functions",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "INSERT INTO products (name) VALUES ('Laptop')",
+            "CREATE TABLE reviews (id SERIAL PRIMARY KEY, product_id INTEGER REFERENCES products(id), rating INTEGER)",
+            "INSERT INTO reviews (product_id, rating) VALUES (1, 5), (1, 4), (1, 5), (1, 3)"
+          ],
+          "fieldConfig": [
+            {
+              "id": 1,
+              "name": "avg_rating",
+              "type": "rollup",
+              "aggregation": "average"
+            },
+            {
+              "id": 2,
+              "name": "min_rating",
+              "type": "rollup",
+              "aggregation": "min"
+            },
+            {
+              "id": 3,
+              "name": "max_rating",
+              "type": "rollup",
+              "aggregation": "max"
+            }
+          ]
+        },
+        "assertions": [
+          {
+            "description": "AVG aggregation calculates mean rating",
+            "executeQuery": "SELECT p.id, AVG(r.rating)::NUMERIC(10,2) as avg_rating FROM products p LEFT JOIN reviews r ON p.id = r.product_id WHERE p.id = 1 GROUP BY p.id",
+            "expected": { "id": 1, "avg_rating": "4.25" }
+          },
+          {
+            "description": "MIN aggregation returns lowest rating",
+            "executeQuery": "SELECT p.id, MIN(r.rating) as min_rating FROM products p LEFT JOIN reviews r ON p.id = r.product_id WHERE p.id = 1 GROUP BY p.id",
+            "expected": { "id": 1, "min_rating": 3 }
+          },
+          {
+            "description": "MAX aggregation returns highest rating",
+            "executeQuery": "SELECT p.id, MAX(r.rating) as max_rating FROM products p LEFT JOIN reviews r ON p.id = r.product_id WHERE p.id = 1 GROUP BY p.id",
+            "expected": { "id": 1, "max_rating": 5 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-ROLLUP-FIELD-004",
+      "given": "table 'departments' with rollup field 'total_salary' using GROUP BY",
+      "when": "aggregating for multiple parent records simultaneously",
+      "then": "PostgreSQL GROUP BY efficiently aggregates across all parent records",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE departments (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "INSERT INTO departments (name) VALUES ('Engineering'), ('Sales'), ('Marketing')",
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, department_id INTEGER REFERENCES departments(id), salary DECIMAL(10,2))",
+            "INSERT INTO employees (department_id, salary) VALUES (1, 90000), (1, 85000), (1, 95000), (2, 70000), (2, 75000), (3, 60000)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "total_salary",
+            "type": "rollup",
+            "relationshipField": "department_id",
+            "relatedField": "salary",
+            "aggregation": "sum"
+          }
+        },
+        "assertions": [
+          {
+            "description": "GROUP BY aggregates all departments at once",
+            "executeQuery": "SELECT d.id, d.name, COALESCE(SUM(e.salary), 0) as total_salary FROM departments d LEFT JOIN employees e ON d.id = e.department_id GROUP BY d.id, d.name ORDER BY d.id",
+            "expected": [
+              { "id": 1, "name": "Engineering", "total_salary": "270000.00" },
+              { "id": 2, "name": "Sales", "total_salary": "145000.00" },
+              { "id": 3, "name": "Marketing", "total_salary": "60000.00" }
+            ]
+          },
+          {
+            "description": "Filtered GROUP BY for specific department",
+            "executeQuery": "SELECT d.name, SUM(e.salary) as total_salary FROM departments d LEFT JOIN employees e ON d.id = e.department_id WHERE d.name = 'Engineering' GROUP BY d.name",
+            "expected": { "name": "Engineering", "total_salary": "270000.00" }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-ROLLUP-FIELD-005",
+      "given": "table configuration with rollup field 'revenue_total' defined as VIEW",
+      "when": "VIEW is created to encapsulate rollup aggregation",
+      "then": "PostgreSQL VIEW provides rollup field with GROUP BY logic",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE accounts (id SERIAL PRIMARY KEY, account_name VARCHAR(255))",
+            "INSERT INTO accounts (account_name) VALUES ('Acme Corp'), ('Tech Inc')",
+            "CREATE TABLE invoices (id SERIAL PRIMARY KEY, account_id INTEGER REFERENCES accounts(id), amount DECIMAL(10,2))",
+            "INSERT INTO invoices (account_id, amount) VALUES (1, 5000.00), (1, 3000.00), (2, 10000.00)",
+            "CREATE VIEW accounts_with_revenue AS SELECT a.id, a.account_name, COALESCE(SUM(i.amount), 0) as revenue_total FROM accounts a LEFT JOIN invoices i ON a.id = i.account_id GROUP BY a.id, a.account_name"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "revenue_total",
+            "type": "rollup",
+            "relationshipField": "account_id",
+            "relatedField": "amount",
+            "aggregation": "sum"
+          }
+        },
+        "assertions": [
+          {
+            "description": "VIEW exists in information_schema",
+            "executeQuery": "SELECT table_name FROM information_schema.views WHERE table_name = 'accounts_with_revenue'",
+            "expected": { "table_name": "accounts_with_revenue" }
+          },
+          {
+            "description": "VIEW returns rollup field with aggregated value",
+            "executeQuery": "SELECT id, account_name, revenue_total FROM accounts_with_revenue WHERE id = 1",
+            "expected": { "id": 1, "account_name": "Acme Corp", "revenue_total": "8000.00" }
+          },
+          {
+            "description": "VIEW supports querying all aggregated records",
+            "executeQuery": "SELECT COUNT(*) as count, SUM(revenue_total) as total_revenue FROM accounts_with_revenue",
+            "expected": { "count": 2, "total_revenue": "18000.00" }
+          }
+        ]
+      }
     }
   ]
 }

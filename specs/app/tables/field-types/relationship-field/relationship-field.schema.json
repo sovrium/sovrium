@@ -42,15 +42,199 @@
   "x-specs": [
     {
       "id": "APP-RELATIONSHIP-FIELD-001",
-      "given": "entity with type='relationship'",
-      "when": "processing configuration",
-      "then": "correct handler should be selected"
+      "given": "table configuration with relationship field 'author_id' to 'users' table (one-to-many)",
+      "when": "field migration creates foreign key column",
+      "then": "PostgreSQL INTEGER column with FOREIGN KEY constraint is created",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "CREATE TABLE posts (id SERIAL PRIMARY KEY)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "author_id",
+            "type": "relationship",
+            "relatedTable": "users",
+            "relationType": "one-to-many"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column created as INTEGER",
+            "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='posts' AND column_name='author_id'",
+            "expected": {
+              "column_name": "author_id",
+              "data_type": "integer"
+            }
+          },
+          {
+            "description": "FOREIGN KEY constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='posts' AND constraint_type='FOREIGN KEY' AND constraint_name LIKE '%author_id%'",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "Foreign key references users table",
+            "executeQuery": "SELECT ccu.table_name as referenced_table FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name WHERE tc.table_name='posts' AND tc.constraint_type='FOREIGN KEY'",
+            "expected": { "referenced_table": "users" }
+          }
+        ]
+      }
     },
     {
       "id": "APP-RELATIONSHIP-FIELD-002",
-      "given": "invalid type value",
-      "when": "validating configuration",
-      "then": "clear error message should identify the issue"
+      "given": "table 'orders' with relationship field 'customer_id' referencing 'customers'",
+      "when": "inserting record with invalid foreign key",
+      "then": "PostgreSQL FOREIGN KEY constraint rejects non-existent reference",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "INSERT INTO customers (name) VALUES ('John Doe')",
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER REFERENCES customers(id))"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Valid foreign key succeeds",
+            "executeQuery": "INSERT INTO orders (customer_id) VALUES (1) RETURNING customer_id",
+            "expected": { "customer_id": 1 }
+          },
+          {
+            "description": "Invalid foreign key rejected by constraint",
+            "executeQuery": "INSERT INTO orders (customer_id) VALUES (999)",
+            "expectError": "violates foreign key constraint"
+          },
+          {
+            "description": "NULL foreign key allowed (optional relationship)",
+            "executeQuery": "INSERT INTO orders (customer_id) VALUES (NULL) RETURNING customer_id IS NULL as is_null",
+            "expected": { "is_null": true }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-RELATIONSHIP-FIELD-003",
+      "given": "table 'comments' with relationship field 'post_id' and onDelete=CASCADE",
+      "when": "parent record is deleted",
+      "then": "PostgreSQL CASCADE deletes child records automatically",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE posts (id SERIAL PRIMARY KEY, title VARCHAR(255))",
+            "INSERT INTO posts (title) VALUES ('First Post'), ('Second Post')",
+            "CREATE TABLE comments (id SERIAL PRIMARY KEY, post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE)",
+            "INSERT INTO comments (post_id) VALUES (1), (1), (2)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "post_id",
+            "type": "relationship",
+            "onDelete": "cascade"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Comments exist for post 1",
+            "executeQuery": "SELECT COUNT(*) as count FROM comments WHERE post_id = 1",
+            "expected": { "count": 2 }
+          },
+          {
+            "description": "Deleting post cascades to comments",
+            "executeQuery": "DELETE FROM posts WHERE id = 1",
+            "expected": {}
+          },
+          {
+            "description": "Cascaded comments are deleted",
+            "executeQuery": "SELECT COUNT(*) as count FROM comments WHERE post_id = 1",
+            "expected": { "count": 0 }
+          },
+          {
+            "description": "Other comments remain intact",
+            "executeQuery": "SELECT COUNT(*) as count FROM comments WHERE post_id = 2",
+            "expected": { "count": 1 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-RELATIONSHIP-FIELD-004",
+      "given": "table 'tasks' with relationship field 'assigned_to' and onDelete=SET NULL",
+      "when": "referenced user is deleted",
+      "then": "PostgreSQL SET NULL clears foreign key reference",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "INSERT INTO users (name) VALUES ('Alice'), ('Bob')",
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), assigned_to INTEGER REFERENCES users(id) ON DELETE SET NULL)",
+            "INSERT INTO tasks (title, assigned_to) VALUES ('Task 1', 1), ('Task 2', 2), ('Task 3', 1)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "assigned_to",
+            "type": "relationship",
+            "onDelete": "set-null"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Tasks assigned to user 1",
+            "executeQuery": "SELECT COUNT(*) as count FROM tasks WHERE assigned_to = 1",
+            "expected": { "count": 2 }
+          },
+          {
+            "description": "Deleting user sets foreign key to NULL",
+            "executeQuery": "DELETE FROM users WHERE id = 1",
+            "expected": {}
+          },
+          {
+            "description": "Previously assigned tasks now NULL",
+            "executeQuery": "SELECT COUNT(*) as count FROM tasks WHERE assigned_to IS NULL",
+            "expected": { "count": 2 }
+          },
+          {
+            "description": "Other assignments remain intact",
+            "executeQuery": "SELECT COUNT(*) as count FROM tasks WHERE assigned_to = 2",
+            "expected": { "count": 1 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-RELATIONSHIP-FIELD-005",
+      "given": "table configuration with relationship field 'category_id', indexed=true",
+      "when": "index is created on the foreign key field",
+      "then": "PostgreSQL btree index exists for fast join performance",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE categories (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, category_id INTEGER REFERENCES categories(id))",
+            "CREATE INDEX idx_products_category ON products(category_id)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "category_id",
+            "type": "relationship",
+            "indexed": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists in pg_indexes",
+            "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_products_category'",
+            "expected": { "indexname": "idx_products_category", "tablename": "products" }
+          },
+          {
+            "description": "Index uses btree for foreign key lookups",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_products_category'",
+            "expected": {
+              "indexdef": "CREATE INDEX idx_products_category ON public.products USING btree (category_id)"
+            }
+          }
+        ]
+      }
     }
   ]
 }

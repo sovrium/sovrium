@@ -24,15 +24,178 @@
   "x-specs": [
     {
       "id": "APP-CREATED-BY-FIELD-001",
-      "given": "entity with type='created-by'",
-      "when": "processing configuration",
-      "then": "correct handler should be selected"
+      "given": "table configuration with created-by field 'created_by'",
+      "when": "field migration creates foreign key to users",
+      "then": "PostgreSQL INTEGER NOT NULL column with FOREIGN KEY to users is created",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "CREATE TABLE posts (id SERIAL PRIMARY KEY, title VARCHAR(255))"
+          ],
+          "fieldConfig": { "id": 1, "name": "created_by", "type": "created-by" }
+        },
+        "assertions": [
+          {
+            "description": "Column created as INTEGER with NOT NULL",
+            "executeQuery": "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='posts' AND column_name='created_by'",
+            "expected": {
+              "column_name": "created_by",
+              "data_type": "integer",
+              "is_nullable": "NO"
+            }
+          },
+          {
+            "description": "FOREIGN KEY constraint references users table",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='posts' AND constraint_type='FOREIGN KEY' AND constraint_name LIKE '%created_by%'",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "Foreign key references users table",
+            "executeQuery": "SELECT ccu.table_name as referenced_table FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name WHERE tc.table_name='posts' AND tc.constraint_type='FOREIGN KEY' AND tc.constraint_name LIKE '%created_by%'",
+            "expected": { "referenced_table": "users" }
+          }
+        ]
+      }
     },
     {
       "id": "APP-CREATED-BY-FIELD-002",
-      "given": "invalid type value",
-      "when": "validating configuration",
-      "then": "clear error message should identify the issue"
+      "given": "table 'documents' with created-by field and current user context",
+      "when": "record is inserted with creator user ID",
+      "then": "PostgreSQL stores the creator user reference permanently",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "INSERT INTO users (name) VALUES ('Alice'), ('Bob')",
+            "CREATE TABLE documents (id SERIAL PRIMARY KEY, title VARCHAR(255), created_by INTEGER NOT NULL REFERENCES users(id))"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "INSERT with explicit creator succeeds",
+            "executeQuery": "INSERT INTO documents (title, created_by) VALUES ('First Doc', 1) RETURNING created_by",
+            "expected": { "created_by": 1 }
+          },
+          {
+            "description": "Multiple records by same creator",
+            "executeQuery": "INSERT INTO documents (title, created_by) VALUES ('Second Doc', 1), ('Third Doc', 1) RETURNING (SELECT COUNT(*) FROM documents WHERE created_by = 1) as count",
+            "expected": { "count": 3 }
+          },
+          {
+            "description": "Creator user can be queried via JOIN",
+            "executeQuery": "SELECT d.title, u.name as creator_name FROM documents d JOIN users u ON d.created_by = u.id WHERE d.id = 1",
+            "expected": { "title": "First Doc", "creator_name": "Alice" }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-CREATED-BY-FIELD-003",
+      "given": "table 'issues' with created-by field (immutable audit trail)",
+      "when": "attempting to update creator after creation",
+      "then": "application enforces created_by immutability (no UPDATE trigger)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "INSERT INTO users (name) VALUES ('John'), ('Jane')",
+            "CREATE TABLE issues (id SERIAL PRIMARY KEY, title VARCHAR(255), created_by INTEGER NOT NULL REFERENCES users(id))",
+            "INSERT INTO issues (title, created_by) VALUES ('Bug #1', 1)"
+          ],
+          "fieldConfig": { "id": 1, "name": "created_by", "type": "created-by" }
+        },
+        "assertions": [
+          {
+            "description": "Original creator is John (user 1)",
+            "executeQuery": "SELECT created_by FROM issues WHERE id = 1",
+            "expected": { "created_by": 1 }
+          },
+          {
+            "description": "Update creator (application should prevent, but DB allows)",
+            "executeQuery": "UPDATE issues SET created_by = 2 WHERE id = 1 RETURNING created_by",
+            "expected": { "created_by": 2 }
+          },
+          {
+            "description": "No UPDATE trigger exists (immutability enforced by app)",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.triggers WHERE event_object_table='issues' AND trigger_name LIKE '%created_by%'",
+            "expected": { "count": 0 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-CREATED-BY-FIELD-004",
+      "given": "table 'tasks' with created-by field for ownership filtering",
+      "when": "querying records by creator",
+      "then": "PostgreSQL supports efficient filtering by created_by user",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "INSERT INTO users (name) VALUES ('Alice'), ('Bob'), ('Charlie')",
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), created_by INTEGER NOT NULL REFERENCES users(id))",
+            "INSERT INTO tasks (title, created_by) VALUES ('Task 1', 1), ('Task 2', 2), ('Task 3', 1), ('Task 4', 3), ('Task 5', 1)"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Filter tasks created by Alice",
+            "executeQuery": "SELECT COUNT(*) as count FROM tasks WHERE created_by = 1",
+            "expected": { "count": 3 }
+          },
+          {
+            "description": "Filter tasks created by Bob",
+            "executeQuery": "SELECT COUNT(*) as count FROM tasks WHERE created_by = 2",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "Join with users to get creator names",
+            "executeQuery": "SELECT t.title, u.name as creator FROM tasks t JOIN users u ON t.created_by = u.id WHERE t.created_by IN (1, 3) ORDER BY t.id",
+            "expected": [
+              { "title": "Task 1", "creator": "Alice" },
+              { "title": "Task 3", "creator": "Alice" },
+              { "title": "Task 4", "creator": "Charlie" },
+              { "title": "Task 5", "creator": "Alice" }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-CREATED-BY-FIELD-005",
+      "given": "table configuration with created-by field, indexed=true",
+      "when": "index is created on the created_by field",
+      "then": "PostgreSQL btree index exists for fast creator filtering",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "CREATE TABLE comments (id SERIAL PRIMARY KEY, content TEXT, created_by INTEGER NOT NULL REFERENCES users(id))",
+            "CREATE INDEX idx_comments_created_by ON comments(created_by)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "created_by",
+            "type": "created-by",
+            "indexed": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists in pg_indexes",
+            "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_comments_created_by'",
+            "expected": { "indexname": "idx_comments_created_by", "tablename": "comments" }
+          },
+          {
+            "description": "Index uses btree for creator filtering",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_comments_created_by'",
+            "expected": {
+              "indexdef": "CREATE INDEX idx_comments_created_by ON public.comments USING btree (created_by)"
+            }
+          }
+        ]
+      }
     }
   ]
 }
