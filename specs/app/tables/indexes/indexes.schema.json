@@ -37,63 +37,332 @@
   "x-specs": [
     {
       "id": "APP-TABLES-INDEXES-001",
-      "given": "user provides indexes array",
-      "when": "validating input",
-      "then": "items should be processed in order"
+      "given": "table configuration with single-column index on 'email' field",
+      "when": "index migration creates btree index",
+      "then": "PostgreSQL CREATE INDEX statement creates index for efficient lookups",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255))",
+            "CREATE INDEX idx_user_email ON users(email)",
+            "INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com'), ('Bob', 'bob@example.com'), ('Charlie', 'charlie@example.com')"
+          ],
+          "indexConfig": {
+            "name": "idx_user_email",
+            "fields": ["email"]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists in pg_indexes",
+            "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_user_email'",
+            "expected": { "indexname": "idx_user_email", "tablename": "users" }
+          },
+          {
+            "description": "Index is on email column",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_user_email'",
+            "expected": { "indexdef": "CREATE INDEX idx_user_email ON public.users USING btree (email)" }
+          },
+          {
+            "description": "Email lookup uses index (fast query)",
+            "executeQuery": "SELECT name FROM users WHERE email = 'alice@example.com'",
+            "expected": { "name": "Alice" }
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-INDEXES-002",
-      "given": "indexes array is empty",
-      "when": "validating input",
-      "then": "behavior should follow optional/required rules"
+      "given": "table configuration with composite index on multiple fields (last_name, first_name)",
+      "when": "index migration creates multi-column index",
+      "then": "PostgreSQL CREATE INDEX with multiple columns for compound lookups",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE contacts (id SERIAL PRIMARY KEY, first_name VARCHAR(255), last_name VARCHAR(255), phone VARCHAR(50))",
+            "CREATE INDEX idx_contacts_name ON contacts(last_name, first_name)",
+            "INSERT INTO contacts (first_name, last_name, phone) VALUES ('Alice', 'Smith', '555-1111'), ('Bob', 'Smith', '555-2222'), ('Alice', 'Jones', '555-3333')"
+          ],
+          "indexConfig": {
+            "name": "idx_contacts_name",
+            "fields": ["last_name", "first_name"]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Composite index exists",
+            "executeQuery": "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_contacts_name'",
+            "expected": { "indexname": "idx_contacts_name" }
+          },
+          {
+            "description": "Index includes both columns in order",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_contacts_name'",
+            "expected": { "indexdef": "CREATE INDEX idx_contacts_name ON public.contacts USING btree (last_name, first_name)" }
+          },
+          {
+            "description": "Lookup by last_name uses index",
+            "executeQuery": "SELECT COUNT(*) as count FROM contacts WHERE last_name = 'Smith'",
+            "expected": { "count": 2 }
+          },
+          {
+            "description": "Lookup by both columns uses index",
+            "executeQuery": "SELECT phone FROM contacts WHERE last_name = 'Smith' AND first_name = 'Alice'",
+            "expected": { "phone": "555-1111" }
+          }
+        ]
+      }
     },
     {
-      "id": "APP-TABLES-INDEXES-UNIQUE-001",
-      "given": "unique is true",
-      "when": "processing entity",
-      "then": "corresponding behavior should be enforced"
+      "id": "APP-TABLES-INDEXES-003",
+      "given": "table configuration with UNIQUE index on 'username' field",
+      "when": "unique: true creates UNIQUE constraint",
+      "then": "PostgreSQL prevents duplicate values in indexed column",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE accounts (id SERIAL PRIMARY KEY, username VARCHAR(255), email VARCHAR(255))",
+            "CREATE UNIQUE INDEX idx_accounts_username ON accounts(username)",
+            "INSERT INTO accounts (username, email) VALUES ('alice123', 'alice@example.com')"
+          ],
+          "indexConfig": {
+            "name": "idx_accounts_username",
+            "fields": ["username"],
+            "unique": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "UNIQUE index exists",
+            "executeQuery": "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_accounts_username'",
+            "expected": { "indexname": "idx_accounts_username" }
+          },
+          {
+            "description": "Index definition includes UNIQUE",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_accounts_username'",
+            "expected": { "indexdef": "CREATE UNIQUE INDEX idx_accounts_username ON public.accounts USING btree (username)" }
+          },
+          {
+            "description": "Duplicate username rejected",
+            "executeQuery": "INSERT INTO accounts (username, email) VALUES ('alice123', 'duplicate@example.com')",
+            "expectError": "duplicate key value violates unique constraint"
+          },
+          {
+            "description": "Different username succeeds",
+            "executeQuery": "INSERT INTO accounts (username, email) VALUES ('bob456', 'bob@example.com') RETURNING username",
+            "expected": { "username": "bob456" }
+          }
+        ]
+      }
     },
     {
-      "id": "APP-TABLES-INDEXES-UNIQUE-002",
-      "given": "unique is false (default: False)",
-      "when": "processing entity",
-      "then": "corresponding behavior should not be enforced"
+      "id": "APP-TABLES-INDEXES-004",
+      "given": "table with no indexes configured (empty array)",
+      "when": "table is created",
+      "then": "PostgreSQL only creates default primary key index",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE logs (id SERIAL PRIMARY KEY, message TEXT, created_at TIMESTAMPTZ)",
+            "INSERT INTO logs (message, created_at) VALUES ('Log 1', NOW()), ('Log 2', NOW())"
+          ],
+          "indexConfig": []
+        },
+        "assertions": [
+          {
+            "description": "Only primary key index exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'logs'",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "Primary key index is on id column",
+            "executeQuery": "SELECT indexname FROM pg_indexes WHERE tablename = 'logs' AND indexname LIKE '%pkey'",
+            "expected": { "indexname": "logs_pkey" }
+          },
+          {
+            "description": "No custom indexes created",
+            "executeQuery": "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'logs' AND indexname NOT LIKE '%pkey'",
+            "expected": { "count": 0 }
+          }
+        ]
+      }
     },
     {
-      "id": "APP-TABLES-INDEXES-UNIQUE-003",
-      "given": "configuration with unique",
-      "when": "validating settings",
-      "then": "boolean value should be accepted"
+      "id": "APP-TABLES-INDEXES-005",
+      "given": "table with multiple indexes configured",
+      "when": "all indexes are created",
+      "then": "PostgreSQL creates all specified indexes independently",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, sku VARCHAR(100), name VARCHAR(255), category VARCHAR(100), price DECIMAL(10,2))",
+            "CREATE INDEX idx_products_sku ON products(sku)",
+            "CREATE INDEX idx_products_category ON products(category)",
+            "CREATE INDEX idx_products_price ON products(price)",
+            "INSERT INTO products (sku, name, category, price) VALUES ('SKU-001', 'Product 1', 'Electronics', 99.99)"
+          ],
+          "indexConfig": [
+            {
+              "name": "idx_products_sku",
+              "fields": ["sku"]
+            },
+            {
+              "name": "idx_products_category",
+              "fields": ["category"]
+            },
+            {
+              "name": "idx_products_price",
+              "fields": ["price"]
+            }
+          ]
+        },
+        "assertions": [
+          {
+            "description": "All three indexes exist",
+            "executeQuery": "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'products' AND indexname LIKE 'idx_products_%'",
+            "expected": { "count": 3 }
+          },
+          {
+            "description": "SKU index exists",
+            "executeQuery": "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_products_sku'",
+            "expected": { "indexname": "idx_products_sku" }
+          },
+          {
+            "description": "Category index exists",
+            "executeQuery": "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_products_category'",
+            "expected": { "indexname": "idx_products_category" }
+          },
+          {
+            "description": "Price index exists",
+            "executeQuery": "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_products_price'",
+            "expected": { "indexname": "idx_products_price" }
+          }
+        ]
+      }
     },
     {
-      "id": "APP-TABLES-INDEXES-FIELDS-001",
-      "given": "user provides fields with at least 1 items",
-      "when": "validating input",
-      "then": "array should be accepted"
+      "id": "APP-TABLES-INDEXES-006",
+      "given": "table with index on timestamp field (created_at)",
+      "when": "index is used for date range queries",
+      "then": "PostgreSQL btree index optimizes ORDER BY and range queries",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE events (id SERIAL PRIMARY KEY, name VARCHAR(255), created_at TIMESTAMPTZ)",
+            "CREATE INDEX idx_events_created_at ON events(created_at)",
+            "INSERT INTO events (name, created_at) VALUES ('Event 1', '2024-01-01 10:00:00'), ('Event 2', '2024-01-02 10:00:00'), ('Event 3', '2024-01-03 10:00:00')"
+          ],
+          "indexConfig": {
+            "name": "idx_events_created_at",
+            "fields": ["created_at"]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists on created_at",
+            "executeQuery": "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_events_created_at'",
+            "expected": { "indexname": "idx_events_created_at" }
+          },
+          {
+            "description": "Range query uses index",
+            "executeQuery": "SELECT COUNT(*) as count FROM events WHERE created_at > '2024-01-01'",
+            "expected": { "count": 2 }
+          },
+          {
+            "description": "ORDER BY uses index for sorting",
+            "executeQuery": "SELECT name FROM events ORDER BY created_at DESC LIMIT 1",
+            "expected": { "name": "Event 3" }
+          },
+          {
+            "description": "Date filter with ORDER BY uses index",
+            "executeQuery": "SELECT name FROM events WHERE created_at >= '2024-01-01' ORDER BY created_at ASC",
+            "expected": [{ "name": "Event 1" }, { "name": "Event 2" }, { "name": "Event 3" }]
+          }
+        ]
+      }
     },
     {
-      "id": "APP-TABLES-INDEXES-FIELDS-002",
-      "given": "user provides fields with fewer than 1 items",
-      "when": "validating input",
-      "then": "error should enforce minimum items"
+      "id": "APP-TABLES-INDEXES-007",
+      "given": "table with partial unique index (unique username per tenant)",
+      "when": "composite unique index on (tenant_id, username)",
+      "then": "PostgreSQL enforces uniqueness within each tenant only",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tenant_users (id SERIAL PRIMARY KEY, tenant_id INTEGER, username VARCHAR(255), email VARCHAR(255))",
+            "CREATE UNIQUE INDEX idx_tenant_users_unique ON tenant_users(tenant_id, username)",
+            "INSERT INTO tenant_users (tenant_id, username, email) VALUES (1, 'alice', 'alice@tenant1.com'), (2, 'alice', 'alice@tenant2.com')"
+          ],
+          "indexConfig": {
+            "name": "idx_tenant_users_unique",
+            "fields": ["tenant_id", "username"],
+            "unique": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Composite unique index exists",
+            "executeQuery": "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_tenant_users_unique'",
+            "expected": { "indexname": "idx_tenant_users_unique" }
+          },
+          {
+            "description": "Same username allowed in different tenants",
+            "executeQuery": "SELECT COUNT(*) as count FROM tenant_users WHERE username = 'alice'",
+            "expected": { "count": 2 }
+          },
+          {
+            "description": "Duplicate username in same tenant rejected",
+            "executeQuery": "INSERT INTO tenant_users (tenant_id, username, email) VALUES (1, 'alice', 'duplicate@tenant1.com')",
+            "expectError": "duplicate key value violates unique constraint"
+          },
+          {
+            "description": "Same username in different tenant succeeds",
+            "executeQuery": "INSERT INTO tenant_users (tenant_id, username, email) VALUES (3, 'alice', 'alice@tenant3.com') RETURNING username",
+            "expected": { "username": "alice" }
+          }
+        ]
+      }
     },
     {
-      "id": "APP-TABLES-INDEXES-NAME-001",
-      "given": "user provides name matching pattern",
-      "when": "validating input",
-      "then": "value should be accepted"
-    },
-    {
-      "id": "APP-TABLES-INDEXES-NAME-002",
-      "given": "user provides name not matching pattern",
-      "when": "validating input",
-      "then": "clear error message should explain format requirement"
-    },
-    {
-      "id": "APP-TABLES-INDEXES-NAME-003",
-      "given": "name is stored",
-      "when": "retrieved later",
-      "then": "original format should be preserved"
+      "id": "APP-TABLES-INDEXES-008",
+      "given": "table with text search index using GIN (for full-text search)",
+      "when": "index is created with to_tsvector",
+      "then": "PostgreSQL GIN index enables efficient text search queries",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE articles (id SERIAL PRIMARY KEY, title VARCHAR(255), content TEXT)",
+            "CREATE INDEX idx_articles_search ON articles USING GIN (to_tsvector('english', title || ' ' || content))",
+            "INSERT INTO articles (title, content) VALUES ('PostgreSQL Tutorial', 'Learn about database indexes'), ('Python Guide', 'Introduction to Python programming')"
+          ],
+          "indexConfig": {
+            "name": "idx_articles_search",
+            "fields": ["title", "content"],
+            "type": "gin"
+          }
+        },
+        "assertions": [
+          {
+            "description": "GIN index exists",
+            "executeQuery": "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_articles_search'",
+            "expected": { "indexname": "idx_articles_search" }
+          },
+          {
+            "description": "Index uses GIN access method",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_articles_search'",
+            "expected": { "indexdef": "CREATE INDEX idx_articles_search ON public.articles USING gin (to_tsvector('english'::regconfig, ((title)::text || ' '::text) || content))" }
+          },
+          {
+            "description": "Full-text search uses GIN index",
+            "executeQuery": "SELECT title FROM articles WHERE to_tsvector('english', title || ' ' || content) @@ to_tsquery('english', 'database')",
+            "expected": { "title": "PostgreSQL Tutorial" }
+          },
+          {
+            "description": "Multiple word search",
+            "executeQuery": "SELECT COUNT(*) as count FROM articles WHERE to_tsvector('english', title || ' ' || content) @@ to_tsquery('english', 'programming | database')",
+            "expected": { "count": 2 }
+          }
+        ]
+      }
     }
   ]
 }

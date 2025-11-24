@@ -60,15 +60,282 @@
   "x-specs": [
     {
       "id": "APP-TABLES-VIEWS-001",
-      "given": "a table with multiple views configured",
-      "when": "the table configuration is loaded",
-      "then": "all views should be available with their complete configurations"
+      "given": "view with filter configuration (status = 'active')",
+      "when": "view is applied to query",
+      "then": "PostgreSQL WHERE clause filters records by condition",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), status VARCHAR(50), priority INTEGER)",
+            "INSERT INTO tasks (title, status, priority) VALUES ('Task 1', 'active', 1), ('Task 2', 'completed', 2), ('Task 3', 'active', 3)"
+          ],
+          "viewConfig": {
+            "id": "active_tasks",
+            "name": "Active Tasks",
+            "type": "grid",
+            "filters": {
+              "operator": "AND",
+              "conditions": [
+                {
+                  "field": "status",
+                  "operator": "equals",
+                  "value": "active"
+                }
+              ]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Filter translates to WHERE clause",
+            "executeQuery": "SELECT COUNT(*) as count FROM tasks WHERE status = 'active'",
+            "expected": { "count": 2 }
+          },
+          {
+            "description": "Only active tasks returned",
+            "executeQuery": "SELECT title FROM tasks WHERE status = 'active' ORDER BY id",
+            "expected": [{ "title": "Task 1" }, { "title": "Task 3" }]
+          },
+          {
+            "description": "Completed tasks excluded",
+            "executeQuery": "SELECT COUNT(*) as count FROM tasks WHERE status = 'completed'",
+            "expected": { "count": 1 }
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-VIEWS-002",
-      "given": "a table with a default view configured",
+      "given": "view with multiple AND conditions (status = 'active' AND priority > 2)",
+      "when": "view is applied to query",
+      "then": "PostgreSQL combines conditions with AND operator",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), status VARCHAR(50), priority INTEGER)",
+            "INSERT INTO projects (name, status, priority) VALUES ('Project A', 'active', 1), ('Project B', 'active', 3), ('Project C', 'completed', 3)"
+          ],
+          "viewConfig": {
+            "id": "high_priority_active",
+            "name": "High Priority Active",
+            "type": "grid",
+            "filters": {
+              "operator": "AND",
+              "conditions": [
+                {
+                  "field": "status",
+                  "operator": "equals",
+                  "value": "active"
+                },
+                {
+                  "field": "priority",
+                  "operator": "greaterThan",
+                  "value": 2
+                }
+              ]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Both conditions combined with AND",
+            "executeQuery": "SELECT COUNT(*) as count FROM projects WHERE status = 'active' AND priority > 2",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "Only Project B matches both conditions",
+            "executeQuery": "SELECT name FROM projects WHERE status = 'active' AND priority > 2",
+            "expected": { "name": "Project B" }
+          },
+          {
+            "description": "Project A excluded (priority not > 2)",
+            "executeQuery": "SELECT COUNT(*) as count FROM projects WHERE status = 'active' AND priority <= 2",
+            "expected": { "count": 1 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-TABLES-VIEWS-003",
+      "given": "view with sort configuration (ORDER BY created_at DESC)",
+      "when": "view is applied to query",
+      "then": "PostgreSQL ORDER BY clause sorts records accordingly",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE articles (id SERIAL PRIMARY KEY, title VARCHAR(255), created_at TIMESTAMPTZ)",
+            "INSERT INTO articles (title, created_at) VALUES ('Article 1', '2024-01-01 10:00:00'), ('Article 2', '2024-01-03 10:00:00'), ('Article 3', '2024-01-02 10:00:00')"
+          ],
+          "viewConfig": {
+            "id": "recent_first",
+            "name": "Recent First",
+            "type": "grid",
+            "sorts": [
+              {
+                "field": "created_at",
+                "direction": "desc"
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Records sorted by created_at descending",
+            "executeQuery": "SELECT title FROM articles ORDER BY created_at DESC",
+            "expected": [
+              { "title": "Article 2" },
+              { "title": "Article 3" },
+              { "title": "Article 1" }
+            ]
+          },
+          {
+            "description": "Most recent article first",
+            "executeQuery": "SELECT title FROM articles ORDER BY created_at DESC LIMIT 1",
+            "expected": { "title": "Article 2" }
+          },
+          {
+            "description": "Oldest article last",
+            "executeQuery": "SELECT title FROM articles ORDER BY created_at ASC LIMIT 1",
+            "expected": { "title": "Article 1" }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-TABLES-VIEWS-004",
+      "given": "view with groupBy configuration (GROUP BY department)",
+      "when": "view is applied to query",
+      "then": "PostgreSQL GROUP BY clause aggregates records by field",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), department VARCHAR(100), salary DECIMAL(10,2))",
+            "INSERT INTO employees (name, department, salary) VALUES ('Alice', 'Engineering', 75000), ('Bob', 'Engineering', 80000), ('Charlie', 'Marketing', 60000)"
+          ],
+          "viewConfig": {
+            "id": "by_department",
+            "name": "By Department",
+            "type": "kanban",
+            "groupBy": {
+              "field": "department",
+              "direction": "asc"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Records grouped by department",
+            "executeQuery": "SELECT department, COUNT(*) as count FROM employees GROUP BY department ORDER BY department",
+            "expected": [
+              { "department": "Engineering", "count": 2 },
+              { "department": "Marketing", "count": 1 }
+            ]
+          },
+          {
+            "description": "Aggregate functions work with GROUP BY",
+            "executeQuery": "SELECT department, AVG(salary) as avg_salary FROM employees GROUP BY department ORDER BY department",
+            "expected": [
+              { "department": "Engineering", "avg_salary": 77500.00 },
+              { "department": "Marketing", "avg_salary": 60000.00 }
+            ]
+          },
+          {
+            "description": "Group order matches direction (asc)",
+            "executeQuery": "SELECT department FROM employees GROUP BY department ORDER BY department ASC",
+            "expected": [{ "department": "Engineering" }, { "department": "Marketing" }]
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-TABLES-VIEWS-005",
+      "given": "view with field visibility configuration (only name, email visible)",
+      "when": "view is applied to query",
+      "then": "PostgreSQL SELECT includes only specified columns",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), phone VARCHAR(50), salary DECIMAL(10,2))",
+            "INSERT INTO users (name, email, phone, salary) VALUES ('Alice', 'alice@example.com', '555-1234', 75000)"
+          ],
+          "viewConfig": {
+            "id": "contact_info",
+            "name": "Contact Info",
+            "type": "grid",
+            "visibleFields": ["name", "email"]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Only specified fields in SELECT",
+            "executeQuery": "SELECT name, email FROM users WHERE id = 1",
+            "expected": { "name": "Alice", "email": "alice@example.com" }
+          },
+          {
+            "description": "Hidden fields not included in result",
+            "executeQuery": "SELECT column_name FROM information_schema.columns WHERE table_name='users' AND column_name IN ('phone', 'salary')",
+            "expected": [{ "column_name": "phone" }, { "column_name": "salary" }]
+          },
+          {
+            "description": "View config controls SELECT columns, not table schema",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='users'",
+            "expected": { "count": 5 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-TABLES-VIEWS-006",
+      "given": "default view configured (isDefault: true)",
       "when": "no specific view is requested",
-      "then": "the default view configuration should be applied"
+      "then": "default view configuration is applied to query",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE posts (id SERIAL PRIMARY KEY, title VARCHAR(255), status VARCHAR(50), published_at TIMESTAMPTZ)",
+            "INSERT INTO posts (title, status, published_at) VALUES ('Post 1', 'published', '2024-01-01'), ('Post 2', 'draft', NULL), ('Post 3', 'published', '2024-01-02')"
+          ],
+          "viewConfig": {
+            "id": "published_posts",
+            "name": "Published Posts",
+            "type": "grid",
+            "isDefault": true,
+            "filters": {
+              "operator": "AND",
+              "conditions": [
+                {
+                  "field": "status",
+                  "operator": "equals",
+                  "value": "published"
+                }
+              ]
+            },
+            "sorts": [
+              {
+                "field": "published_at",
+                "direction": "desc"
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Default view filter applied",
+            "executeQuery": "SELECT COUNT(*) as count FROM posts WHERE status = 'published'",
+            "expected": { "count": 2 }
+          },
+          {
+            "description": "Default view sort applied",
+            "executeQuery": "SELECT title FROM posts WHERE status = 'published' ORDER BY published_at DESC",
+            "expected": [{ "title": "Post 3" }, { "title": "Post 1" }]
+          },
+          {
+            "description": "Draft posts excluded by default view",
+            "executeQuery": "SELECT COUNT(*) as count FROM posts WHERE status = 'draft'",
+            "expected": { "count": 1 }
+          }
+        ]
+      }
     }
   ]
 }
