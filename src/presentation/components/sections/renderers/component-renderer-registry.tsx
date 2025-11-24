@@ -7,7 +7,6 @@
 
 import { type ReactElement } from 'react'
 import { Hero } from '@/presentation/components/layout/hero'
-import { ResponsiveNavigation } from '@/presentation/components/layout/responsive-navigation'
 import { convertBadgeProps } from '../props/element-props'
 import * as Renderers from './element-renderers'
 import type { Languages } from '@/domain/models/app/languages'
@@ -148,12 +147,7 @@ const COMPONENT_RENDERERS: Readonly<Record<string, ComponentRenderer>> = {
   list: ({ elementPropsWithSpacing, content, theme }) =>
     Renderers.renderList(elementPropsWithSpacing, content, theme),
 
-  navigation: ({ elementPropsWithSpacing, theme }) => (
-    <ResponsiveNavigation
-      theme={theme}
-      data-testid={elementPropsWithSpacing['data-testid'] as string | undefined}
-    />
-  ),
+  navigation: createHTMLRenderer('div'),
 }
 
 /**
