@@ -112,7 +112,7 @@ test.describe('Client Scripts Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SCRIPTS-004: should inject inline JavaScript code',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
