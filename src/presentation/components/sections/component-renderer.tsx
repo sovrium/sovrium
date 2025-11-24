@@ -24,8 +24,8 @@ import type {
 } from '@/domain/models/app/block/common/block-reference'
 import type { Blocks } from '@/domain/models/app/blocks'
 import type { Languages } from '@/domain/models/app/languages'
-import type { Component } from '@/domain/models/app/page/sections'
 import type { VariantOverrides } from '@/domain/models/app/page/common/responsive'
+import type { Component } from '@/domain/models/app/page/sections'
 import type { Theme } from '@/domain/models/app/theme'
 
 /**
