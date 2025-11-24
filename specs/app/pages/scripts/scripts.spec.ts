@@ -253,7 +253,7 @@ test.describe('Client Scripts Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SCRIPTS-009: should support per-page script customization',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
