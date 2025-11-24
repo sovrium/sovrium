@@ -32,21 +32,149 @@
   "x-specs": [
     {
       "id": "APP-FIELD-EMAIL-001",
-      "given": "I create an email field",
-      "when": "I enter a valid email",
-      "then": "it should accept the input"
+      "given": "table configuration with email field 'email'",
+      "when": "field migration creates column",
+      "then": "PostgreSQL VARCHAR(255) column is created for email storage",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE users (id SERIAL PRIMARY KEY)",
+          "fieldConfig": { "id": 1, "name": "email", "type": "email" }
+        },
+        "assertions": [
+          {
+            "description": "Column created as VARCHAR(255)",
+            "executeQuery": "SELECT column_name, data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='users' AND column_name='email'",
+            "expected": {
+              "column_name": "email",
+              "data_type": "character varying",
+              "character_maximum_length": 255,
+              "is_nullable": "YES"
+            }
+          },
+          {
+            "description": "Valid email can be inserted",
+            "executeQuery": "INSERT INTO users (email) VALUES ('john.doe@example.com') RETURNING email",
+            "expected": { "email": "john.doe@example.com" }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-EMAIL-002",
-      "given": "I create an email field",
-      "when": "I enter text without @ symbol",
-      "then": "it should show validation error"
+      "given": "table 'contacts' with email field 'email', application normalizes emails to lowercase before storage",
+      "when": "insert email with mixed case 'John.Doe@EXAMPLE.COM'",
+      "then": "email is stored as lowercase 'john.doe@example.com' in database",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE contacts (id SERIAL PRIMARY KEY, email VARCHAR(255))"
+        },
+        "assertions": [
+          {
+            "description": "Application layer normalizes to lowercase before INSERT",
+            "executeQuery": "INSERT INTO contacts (email) VALUES (LOWER('John.Doe@EXAMPLE.COM')) RETURNING email",
+            "expected": { "email": "john.doe@example.com" }
+          },
+          {
+            "description": "Database stores lowercase value",
+            "executeQuery": "SELECT email FROM contacts WHERE id = 1",
+            "expected": { "email": "john.doe@example.com" }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-EMAIL-003",
-      "given": "I create an email field with unique constraint",
-      "when": "I enter a duplicate email",
-      "then": "it should reject the input regardless of case"
+      "given": "table 'members' with email field 'email' (required, unique), existing row email='john@example.com'",
+      "when": "attempt to insert duplicate email='john@example.com'",
+      "then": "PostgreSQL UNIQUE constraint rejects insertion",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE members (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL)",
+            "INSERT INTO members (email) VALUES ('john@example.com')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "UNIQUE constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='members' AND constraint_type='UNIQUE' AND constraint_name LIKE '%email%'",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "Duplicate email rejected",
+            "executeQuery": "INSERT INTO members (email) VALUES ('john@example.com')",
+            "expectError": "duplicate key value violates unique constraint"
+          },
+          {
+            "description": "Database still contains only 1 row",
+            "executeQuery": "SELECT COUNT(*) as count FROM members",
+            "expected": { "count": 1 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-EMAIL-FIELD-004",
+      "given": "table 'subscribers' with required email field 'email'",
+      "when": "attempt to insert NULL value for required email",
+      "then": "PostgreSQL NOT NULL constraint rejects insertion",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE subscribers (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL)"
+        },
+        "assertions": [
+          {
+            "description": "NOT NULL constraint enforced",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='subscribers' AND column_name='email'",
+            "expected": { "is_nullable": "NO" }
+          },
+          {
+            "description": "Valid email insertion succeeds",
+            "executeQuery": "INSERT INTO subscribers (email) VALUES ('jane@example.com') RETURNING email",
+            "expected": { "email": "jane@example.com" }
+          },
+          {
+            "description": "NULL email insertion fails",
+            "executeQuery": "INSERT INTO subscribers (email) VALUES (NULL)",
+            "expectError": "violates not-null constraint"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-EMAIL-FIELD-005",
+      "given": "table configuration with email field, indexed=true",
+      "when": "index is created on the email field",
+      "then": "PostgreSQL btree index exists for fast email lookups",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE customers (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL)",
+            "CREATE INDEX idx_customers_email ON customers(email)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "email",
+            "type": "email",
+            "unique": true,
+            "indexed": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists in pg_indexes",
+            "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_customers_email'",
+            "expected": { "indexname": "idx_customers_email", "tablename": "customers" }
+          },
+          {
+            "description": "Index uses btree for email searching",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_customers_email'",
+            "expected": {
+              "indexdef": "CREATE INDEX idx_customers_email ON public.customers USING btree (email)"
+            }
+          }
+        ]
+      }
     }
   ]
 }

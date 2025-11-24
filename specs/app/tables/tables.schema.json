@@ -476,7 +476,11 @@
           {
             "description": "New column exists",
             "executeQuery": "SELECT column_name, data_type, character_maximum_length FROM information_schema.columns WHERE table_name = 'customers' AND column_name = 'phone'",
-            "expected": { "column_name": "phone", "data_type": "character varying", "character_maximum_length": 20 }
+            "expected": {
+              "column_name": "phone",
+              "data_type": "character varying",
+              "character_maximum_length": 20
+            }
           },
           {
             "description": "Table has 3 columns total",
@@ -624,7 +628,12 @@
       "validation": {
         "setup": {
           "executeQuery": "CREATE TABLE items (id SERIAL PRIMARY KEY)",
-          "fieldConfig": { "id": 1, "name": "status", "type": "single-select", "options": ["active", "inactive"] }
+          "fieldConfig": {
+            "id": 1,
+            "name": "status",
+            "type": "single-select",
+            "options": ["active", "inactive"]
+          }
         },
         "assertions": [
           {

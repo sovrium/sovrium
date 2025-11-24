@@ -32,175 +32,157 @@
   "x-specs": [
     {
       "id": "APP-FIELD-PHONE-NUMBER-001",
-      "given": "table 'contacts' with phone number field 'phone'",
-      "when": "I enter US phone number '5551234567' (without formatting)",
-      "then": "value is stored as '5551234567', displayed as formatted '(555) 123-4567' in UI, and searchable by either format",
+      "given": "table configuration with phone-number field 'phone'",
+      "when": "field migration creates column",
+      "then": "PostgreSQL VARCHAR(255) column is created for phone number storage",
       "validation": {
         "setup": {
-          "tables": [
-            {
-              "id": "tbl_001",
-              "name": "contacts",
-              "fields": [
-                {"id": 1, "name": "name", "type": "single-line-text", "required": true},
-                {"id": 2, "name": "phone", "type": "phone-number", "required": false}
-              ]
-            }
-          ]
+          "executeQuery": "CREATE TABLE contacts (id SERIAL PRIMARY KEY)",
+          "fieldConfig": { "id": 1, "name": "phone", "type": "phone-number" }
         },
         "assertions": [
-          {"field": "phone", "type": "phone-number"}
-        ]
-      },
-      "application": {
-        "expectedDOM": [
-          "textbox name='phone' type='tel' value='(555) 123-4567'",
-          "input shows formatted display value",
-          "stored value in database: '5551234567' (raw)"
-        ],
-        "assertions": [
-          "POST /api/tables/tbl_001/records with {\"name\": \"John\", \"phone\": \"5551234567\"} returns 201",
-          "response includes {\"id\": \"rec_001\", \"phone\": \"5551234567\"}",
-          "UI displays formatted: '(555) 123-4567'",
-          "search for '555' or '(555) 123' finds the record"
+          {
+            "description": "Column created as VARCHAR(255)",
+            "executeQuery": "SELECT column_name, data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='contacts' AND column_name='phone'",
+            "expected": {
+              "column_name": "phone",
+              "data_type": "character varying",
+              "character_maximum_length": 255,
+              "is_nullable": "YES"
+            }
+          },
+          {
+            "description": "Phone number can be inserted",
+            "executeQuery": "INSERT INTO contacts (phone) VALUES ('+1-555-123-4567') RETURNING phone",
+            "expected": { "phone": "+1-555-123-4567" }
+          }
         ]
       }
     },
     {
       "id": "APP-FIELD-PHONE-NUMBER-002",
-      "given": "table 'contacts' with phone number field 'phone' accepting international formats",
-      "when": "I enter international numbers from different countries: '+33 1 23 45 67 89' (France), '+44 20 7123 4567' (UK), '+81 3-1234-5678' (Japan)",
-      "then": "all international numbers are accepted and stored without validation errors, formatted for display based on detected country code",
+      "given": "table 'customers' with phone-number field 'mobile'",
+      "when": "insert international phone numbers with different formats",
+      "then": "all formats are stored as-is without validation (VARCHAR accepts any text)",
       "validation": {
         "setup": {
-          "tables": [
-            {
-              "id": "tbl_001",
-              "name": "contacts",
-              "fields": [
-                {"id": 1, "name": "name", "type": "single-line-text", "required": true},
-                {"id": 2, "name": "phone", "type": "phone-number", "required": false}
-              ]
-            }
-          ]
+          "executeQuery": "CREATE TABLE customers (id SERIAL PRIMARY KEY, mobile VARCHAR(255))"
         },
         "assertions": [
-          {"field": "phone", "type": "phone-number", "validation": "none"}
-        ]
-      },
-      "application": {
-        "expectedDOM": [
-          "textbox name='phone' accepts '+33 1 23 45 67 89'",
-          "no validation error shown",
-          "formatted display: '+33 1 23 45 67 89'"
-        ],
-        "assertions": [
-          "POST with {\"name\": \"Pierre\", \"phone\": \"+33123456789\"} returns 201 (France)",
-          "POST with {\"name\": \"James\", \"phone\": \"+442071234567\"} returns 201 (UK)",
-          "POST with {\"name\": \"Yuki\", \"phone\": \"+81312345678\"} returns 201 (Japan)",
-          "all formats stored as-is, no validation enforced",
-          "UI formats based on country code detection"
+          {
+            "description": "French phone number insertion succeeds",
+            "executeQuery": "INSERT INTO customers (mobile) VALUES ('+33 1 23 45 67 89') RETURNING mobile",
+            "expected": { "mobile": "+33 1 23 45 67 89" }
+          },
+          {
+            "description": "UK phone number insertion succeeds",
+            "executeQuery": "INSERT INTO customers (mobile) VALUES ('+44 20 7123 4567') RETURNING mobile",
+            "expected": { "mobile": "+44 20 7123 4567" }
+          },
+          {
+            "description": "Japanese phone number insertion succeeds",
+            "executeQuery": "INSERT INTO customers (mobile) VALUES ('+81 3-1234-5678') RETURNING mobile",
+            "expected": { "mobile": "+81 3-1234-5678" }
+          },
+          {
+            "description": "All international formats stored correctly",
+            "executeQuery": "SELECT COUNT(*) as count FROM customers WHERE mobile LIKE '+%'",
+            "expected": { "count": 3 }
+          }
         ]
       }
     },
     {
       "id": "APP-FIELD-PHONE-NUMBER-003",
-      "given": "table 'customers' with phone number field 'phone' having unique constraint, existing record with phone='+1-555-1234'",
-      "when": "I attempt to create new record with duplicate phone='+1-555-1234'",
-      "then": "API returns 409 Conflict with error 'phone must be unique. Value \"+1-555-1234\" already exists.', no record is created",
+      "given": "table 'users' with phone-number field 'phone' (required, unique), existing row phone='+1-555-1234'",
+      "when": "attempt to insert duplicate phone='+1-555-1234'",
+      "then": "PostgreSQL UNIQUE constraint rejects insertion",
       "validation": {
         "setup": {
-          "tables": [
-            {
-              "id": "tbl_001",
-              "name": "customers",
-              "fields": [
-                {"id": 1, "name": "name", "type": "single-line-text", "required": true},
-                {"id": 2, "name": "phone", "type": "phone-number", "required": true, "unique": true}
-              ]
-            }
-          ],
-          "records": {
-            "tbl_001": [
-              {"id": "rec_001", "name": "John Doe", "phone": "+1-555-1234"}
-            ]
-          }
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, phone VARCHAR(255) UNIQUE NOT NULL)",
+            "INSERT INTO users (phone) VALUES ('+1-555-1234')"
+          ]
         },
         "assertions": [
-          {"field": "phone", "type": "phone-number", "required": true, "unique": true, "constraint": "unique"}
-        ]
-      },
-      "application": {
-        "expectedDOM": [
-          "textbox name='phone' value='+1-555-1234' aria-invalid=true",
-          "alert role=alert text='phone must be unique. Value \"+1-555-1234\" already exists.'"
-        ],
-        "assertions": [
-          "POST /api/tables/tbl_001/records with {\"name\": \"Jane\", \"phone\": \"+1-555-1234\"} returns 409 Conflict",
-          "response: {\"error\": \"UniqueConstraintViolation\", \"field\": \"phone\"}",
-          "database still contains only 1 record"
+          {
+            "description": "UNIQUE constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE' AND constraint_name LIKE '%phone%'",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "Duplicate phone rejected",
+            "executeQuery": "INSERT INTO users (phone) VALUES ('+1-555-1234')",
+            "expectError": "duplicate key value violates unique constraint"
+          },
+          {
+            "description": "Database still contains only 1 row",
+            "executeQuery": "SELECT COUNT(*) as count FROM users",
+            "expected": { "count": 1 }
+          }
         ]
       }
     },
     {
       "id": "APP-PHONE-NUMBER-FIELD-004",
-      "given": "JSON schema definition for phone number field with type property",
-      "when": "validating field configuration against JSON Schema",
-      "then": "type property must have const value 'phone-number', any other value fails validation",
+      "given": "table 'support_tickets' with required phone-number field 'contact_phone'",
+      "when": "attempt to insert NULL value for required contact_phone",
+      "then": "PostgreSQL NOT NULL constraint rejects insertion",
       "validation": {
         "setup": {
-          "schema": {
-            "type": "object",
-            "properties": {
-              "type": {"const": "phone-number"}
-            },
-            "required": ["type"]
-          }
+          "executeQuery": "CREATE TABLE support_tickets (id SERIAL PRIMARY KEY, contact_phone VARCHAR(255) NOT NULL)"
         },
         "assertions": [
-          {"property": "type", "const": "phone-number"}
-        ]
-      },
-      "application": {
-        "assertions": [
-          "valid: {\"type\": \"phone-number\"} passes validation",
-          "invalid: {\"type\": \"phone\"} fails with 'type must be phone-number'",
-          "invalid: {\"type\": \"telephone\"} fails with 'type must be phone-number'",
-          "invalid: missing type fails with 'type is required'"
+          {
+            "description": "NOT NULL constraint enforced",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='support_tickets' AND column_name='contact_phone'",
+            "expected": { "is_nullable": "NO" }
+          },
+          {
+            "description": "Valid phone number insertion succeeds",
+            "executeQuery": "INSERT INTO support_tickets (contact_phone) VALUES ('+1-800-SUPPORT') RETURNING contact_phone",
+            "expected": { "contact_phone": "+1-800-SUPPORT" }
+          },
+          {
+            "description": "NULL phone number insertion fails",
+            "executeQuery": "INSERT INTO support_tickets (contact_phone) VALUES (NULL)",
+            "expectError": "violates not-null constraint"
+          }
         ]
       }
     },
     {
       "id": "APP-PHONE-NUMBER-FIELD-005",
-      "given": "field configuration with type='phone-number' in table schema",
-      "when": "application processes field to render form input or display record data",
-      "then": "field is rendered as HTML input[type=tel] with automatic formatting on blur, tel: protocol link in read-only view, and no strict validation",
+      "given": "table configuration with phone-number field, indexed=true",
+      "when": "index is created on the phone field",
+      "then": "PostgreSQL btree index exists for fast phone number lookups",
       "validation": {
         "setup": {
-          "tables": [
-            {
-              "id": "tbl_001",
-              "name": "contacts",
-              "fields": [
-                {"id": 1, "name": "phone", "type": "phone-number"},
-                {"id": 2, "name": "email", "type": "email"}
-              ]
-            }
-          ]
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, phone VARCHAR(255) UNIQUE NOT NULL)",
+            "CREATE INDEX idx_employees_phone ON employees(phone)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "phone",
+            "type": "phone-number",
+            "unique": true,
+            "indexed": true
+          }
         },
-        "assertions": []
-      },
-      "application": {
-        "expectedDOM": [
-          "textbox name='phone' type='tel' (rendered as <input type=\"tel\">)",
-          "link href='tel:+15551234567' (in read-only view)"
-        ],
         "assertions": [
-          "phone field uses <input type=\"tel\"> for mobile keyboard optimization",
-          "on blur, applies automatic formatting based on country detection",
-          "in read-only view, phone number is clickable tel: link",
-          "clicking tel: link opens phone dialer on mobile devices",
-          "no strict validation - accepts any text format"
+          {
+            "description": "Index exists in pg_indexes",
+            "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_employees_phone'",
+            "expected": { "indexname": "idx_employees_phone", "tablename": "employees" }
+          },
+          {
+            "description": "Index uses btree for phone number searching",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_employees_phone'",
+            "expected": {
+              "indexdef": "CREATE INDEX idx_employees_phone ON public.employees USING btree (phone)"
+            }
+          }
         ]
       }
     }
