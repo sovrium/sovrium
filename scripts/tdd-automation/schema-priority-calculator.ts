@@ -8,9 +8,15 @@
 /**
  * Schema-Based Priority Calculator
  *
- * Processes tests by schema group in serial, with regression tests last for each group.
+ * Processes tests by domain (App → Api → Admin) and schema group in serial,
+ * with regression tests last for each group.
  *
- * Priority calculation:
+ * Domain priority order:
+ * - APP specs: 0-999,999 (highest priority, runs first)
+ * - API specs: 1,000,000-1,999,999 (medium priority, runs after APP)
+ * - ADMIN specs: 2,000,000-2,999,999 (lowest priority, runs last)
+ *
+ * Priority calculation within each domain:
  * - Schema groups get base priorities (1000, 2000, 3000, etc.) based on hierarchy
  * - Within each schema: individual tests (+1, +2, +3, etc.)
  * - Regression tests: +900 (ensures they run last in their schema group)
@@ -18,16 +24,33 @@
  * Example execution order:
  * - APP-VERSION-001 (1001), APP-VERSION-002 (1002), APP-VERSION-REGRESSION (1900)
  * - APP-NAME-001 (2001), APP-NAME-002 (2002), APP-NAME-REGRESSION (2900)
- * - APP-THEME-001 (3001), APP-THEME-002 (3002), APP-THEME-REGRESSION (3900)
+ * - API-PATHS-HEALTH-001 (1,001,001), API-PATHS-AUTH-001 (1,002,001)
+ * - ADMIN-TABLES-001 (2,001,001), ADMIN-TABLES-002 (2,001,002)
  *
  * This ensures:
- * 1. All tests from same schema are processed together
- * 2. Regression tests validate the schema after all its tests
- * 3. Schema order follows hierarchy (required root → optional root → nested)
+ * 1. All APP specs complete before API specs
+ * 2. All API specs complete before ADMIN specs
+ * 3. All tests from same schema are processed together
+ * 4. Regression tests validate the schema after all its tests
+ * 5. Schema order follows hierarchy (required root → optional root → nested)
  */
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+
+/**
+ * Spec domain type
+ */
+type SpecDomain = 'app' | 'api' | 'admin'
+
+/**
+ * Domain base priorities (in millions to separate domains completely)
+ */
+const DOMAIN_BASE_PRIORITIES: Record<SpecDomain, number> = {
+  app: 0, // Runs first (0-999,999)
+  api: 1_000_000, // Runs after APP specs (1,000,000-1,999,999)
+  admin: 2_000_000, // Runs after API specs (2,000,000-2,999,999)
+}
 
 /**
  * Schema property metadata
@@ -43,6 +66,20 @@ interface SchemaProperty {
  * Schema hierarchy map
  */
 type SchemaHierarchy = Map<string, SchemaProperty>
+
+/**
+ * Detect spec domain from spec ID prefix
+ *
+ * @param specId Full spec ID (e.g., "APP-VERSION-001", "API-PATHS-HEALTH-001", "ADMIN-TABLES-001")
+ * @returns Domain type ('app', 'api', or 'admin')
+ */
+function getSpecDomain(specId: string): SpecDomain {
+  const prefix = specId.split('-')[0]?.toUpperCase()
+  if (prefix === 'APP') return 'app'
+  if (prefix === 'API') return 'api'
+  if (prefix === 'ADMIN') return 'admin'
+  return 'app' // Default fallback for unknown prefixes
+}
 
 /**
  * Load and parse app.schema.json to build hierarchy
@@ -393,14 +430,78 @@ export function createSchemaPriorityCalculator(rootSchemaPath: string): (specId:
 }
 
 /**
+ * Calculate simple priority for API and ADMIN specs
+ * Uses alphabetical ordering of feature path with test number offset
+ *
+ * @param specId Full spec ID (e.g., "API-PATHS-HEALTH-001", "ADMIN-TABLES-001")
+ * @returns Priority number within domain (0-999,999)
+ */
+function calculateSimplePriority(specId: string): number {
+  // Extract feature path and test identifier
+  const featurePath = getFeaturePathFromSpecId(specId)
+  const parts = specId.split('-')
+  const testIdentifier = parts[parts.length - 1] || ''
+
+  // Check if this is a regression test
+  const isRegressionOnly = testIdentifier.toUpperCase() === 'REGRESSION'
+  const secondToLastPart = parts.length >= 2 ? parts[parts.length - 2] : undefined
+  const isRegressionWithNumber =
+    secondToLastPart !== undefined &&
+    secondToLastPart.toUpperCase() === 'REGRESSION' &&
+    /^\d+$/.test(testIdentifier)
+  const isRegression = isRegressionOnly || isRegressionWithNumber
+
+  // Calculate alphabetical priority for feature path
+  // Convert path segments to numeric value for consistent ordering
+  const pathParts = featurePath.split('/')
+  let featurePriority = 0
+
+  for (let i = 0; i < pathParts.length; i++) {
+    const part = pathParts[i] || ''
+    const partValue = getAlphabeticalIndexForSubFeature(part)
+    // Each level gets exponentially less weight (1000, 100, 10, 1)
+    featurePriority += partValue * Math.pow(10, 3 - i)
+  }
+
+  // Round to nearest 1000 to create groups
+  const baseGroup = Math.floor(featurePriority / 1000) * 1000
+
+  // Add offset within the group
+  if (isRegression) {
+    return baseGroup + 900
+  } else {
+    const testNumber = parseInt(testIdentifier, 10) || 1
+    return baseGroup + testNumber
+  }
+}
+
+/**
  * Calculate priority for spec IDs with grouped schema processing
  * This is the main export for TDD automation queue ordering
  *
- * @param specId Full spec ID (e.g., "APP-VERSION-001", "APP-THEME-REGRESSION")
+ * Handles three domains:
+ * - APP: Uses JSON Schema hierarchy (app.schema.json)
+ * - API: Uses simple alphabetical ordering (OpenAPI structure)
+ * - ADMIN: Uses simple alphabetical ordering
+ *
+ * @param specId Full spec ID (e.g., "APP-VERSION-001", "API-PATHS-HEALTH-001", "ADMIN-TABLES-001")
  * @param rootSchemaPath Path to the root app.schema.json file
  * @returns Priority number (lower = higher priority)
  */
 export function calculateSpecPriority(specId: string, rootSchemaPath: string): number {
-  const hierarchy = loadSchemaHierarchy(rootSchemaPath)
-  return calculateSchemaBasedPriority(specId, hierarchy)
+  // Detect domain from spec ID
+  const domain = getSpecDomain(specId)
+  const domainBasePriority = DOMAIN_BASE_PRIORITIES[domain]
+
+  // For APP domain, use existing schema-based logic
+  if (domain === 'app') {
+    const hierarchy = loadSchemaHierarchy(rootSchemaPath)
+    const schemaPriority = calculateSchemaBasedPriority(specId, hierarchy)
+    return domainBasePriority + schemaPriority
+  }
+
+  // For API and ADMIN domains, use simple alphabetical ordering
+  // (can be enhanced later to parse OpenAPI/other schemas if needed)
+  const simplePriority = calculateSimplePriority(specId)
+  return domainBasePriority + simplePriority
 }
