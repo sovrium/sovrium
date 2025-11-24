@@ -30,15 +30,193 @@
   "x-specs": [
     {
       "id": "APP-FORMULA-FIELD-001",
-      "given": "entity with type='formula'",
-      "when": "processing configuration",
-      "then": "correct handler should be selected"
+      "given": "table configuration with formula field 'total' (quantity * unit_price)",
+      "when": "field migration creates GENERATED column",
+      "then": "PostgreSQL GENERATED ALWAYS AS column computes arithmetic formula",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE line_items (id SERIAL PRIMARY KEY, quantity INTEGER NOT NULL, unit_price DECIMAL(10,2) NOT NULL, total DECIMAL(10,2) GENERATED ALWAYS AS (quantity * unit_price) STORED)",
+            "INSERT INTO line_items (quantity, unit_price) VALUES (5, 19.99), (10, 9.50)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "total",
+            "type": "formula",
+            "formula": "quantity * unit_price",
+            "resultType": "number"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column is a generated column",
+            "executeQuery": "SELECT column_name, is_generated FROM information_schema.columns WHERE table_name='line_items' AND column_name='total'",
+            "expected": { "column_name": "total", "is_generated": "ALWAYS" }
+          },
+          {
+            "description": "Formula computes correct total for first record",
+            "executeQuery": "SELECT quantity, unit_price, total FROM line_items WHERE id = 1",
+            "expected": { "quantity": 5, "unit_price": "19.99", "total": "99.95" }
+          },
+          {
+            "description": "Formula computes correct total for second record",
+            "executeQuery": "SELECT quantity, unit_price, total FROM line_items WHERE id = 2",
+            "expected": { "quantity": 10, "unit_price": "9.50", "total": "95.00" }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FORMULA-FIELD-002",
-      "given": "invalid type value",
-      "when": "validating configuration",
-      "then": "clear error message should identify the issue"
+      "given": "table 'contacts' with formula field 'full_name' concatenating first and last names",
+      "when": "string concatenation formula is used",
+      "then": "PostgreSQL GENERATED column performs text concatenation",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE contacts (id SERIAL PRIMARY KEY, first_name VARCHAR(100) NOT NULL, last_name VARCHAR(100) NOT NULL, full_name VARCHAR(255) GENERATED ALWAYS AS (first_name || ' ' || last_name) STORED)",
+            "INSERT INTO contacts (first_name, last_name) VALUES ('John', 'Doe'), ('Jane', 'Smith')"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "full_name",
+            "type": "formula",
+            "formula": "first_name || ' ' || last_name",
+            "resultType": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Formula concatenates names for first contact",
+            "executeQuery": "SELECT first_name, last_name, full_name FROM contacts WHERE id = 1",
+            "expected": { "first_name": "John", "last_name": "Doe", "full_name": "John Doe" }
+          },
+          {
+            "description": "Formula concatenates names for second contact",
+            "executeQuery": "SELECT first_name, last_name, full_name FROM contacts WHERE id = 2",
+            "expected": { "first_name": "Jane", "last_name": "Smith", "full_name": "Jane Smith" }
+          },
+          {
+            "description": "Generated column automatically updates when source fields change",
+            "executeQuery": "UPDATE contacts SET first_name = 'Janet' WHERE id = 2 RETURNING full_name",
+            "expected": { "full_name": "Janet Smith" }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FORMULA-FIELD-003",
+      "given": "table 'products' with formula field 'discount_price' using conditional logic",
+      "when": "CASE WHEN formula applies conditional calculation",
+      "then": "PostgreSQL GENERATED column supports conditional expressions",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, price DECIMAL(10,2) NOT NULL, on_sale BOOLEAN NOT NULL, discount_price DECIMAL(10,2) GENERATED ALWAYS AS (CASE WHEN on_sale THEN price * 0.80 ELSE price END) STORED)",
+            "INSERT INTO products (price, on_sale) VALUES (100.00, true), (50.00, false)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "discount_price",
+            "type": "formula",
+            "formula": "CASE WHEN on_sale THEN price * 0.80 ELSE price END",
+            "resultType": "number"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Product on sale gets 20% discount",
+            "executeQuery": "SELECT price, on_sale, discount_price FROM products WHERE id = 1",
+            "expected": { "price": "100.00", "on_sale": true, "discount_price": "80.00" }
+          },
+          {
+            "description": "Product not on sale has no discount",
+            "executeQuery": "SELECT price, on_sale, discount_price FROM products WHERE id = 2",
+            "expected": { "price": "50.00", "on_sale": false, "discount_price": "50.00" }
+          },
+          {
+            "description": "Formula updates when on_sale changes",
+            "executeQuery": "UPDATE products SET on_sale = true WHERE id = 2 RETURNING discount_price",
+            "expected": { "discount_price": "40.00" }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FORMULA-FIELD-004",
+      "given": "table 'measurements' with formula field 'rounded_value' using numeric functions",
+      "when": "formula uses ROUND, ABS, or other math functions",
+      "then": "PostgreSQL GENERATED column applies mathematical functions",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE measurements (id SERIAL PRIMARY KEY, raw_value DECIMAL(10,4) NOT NULL, rounded_value DECIMAL(10,2) GENERATED ALWAYS AS (ROUND(raw_value, 2)) STORED)",
+            "INSERT INTO measurements (raw_value) VALUES (19.9567), (49.1234), (-15.6789)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "rounded_value",
+            "type": "formula",
+            "formula": "ROUND(raw_value, 2)",
+            "resultType": "number"
+          }
+        },
+        "assertions": [
+          {
+            "description": "ROUND function rounds to 2 decimal places",
+            "executeQuery": "SELECT raw_value, rounded_value FROM measurements WHERE id = 1",
+            "expected": { "raw_value": "19.9567", "rounded_value": "19.96" }
+          },
+          {
+            "description": "Second record rounded correctly",
+            "executeQuery": "SELECT raw_value, rounded_value FROM measurements WHERE id = 2",
+            "expected": { "raw_value": "49.1234", "rounded_value": "49.12" }
+          },
+          {
+            "description": "Negative value rounded correctly",
+            "executeQuery": "SELECT raw_value, rounded_value FROM measurements WHERE id = 3",
+            "expected": { "raw_value": "-15.6789", "rounded_value": "-15.68" }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FORMULA-FIELD-005",
+      "given": "table 'invoices' with formula field 'is_overdue' using date comparison",
+      "when": "formula compares dates with current timestamp",
+      "then": "PostgreSQL GENERATED column evaluates boolean date logic",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE invoices (id SERIAL PRIMARY KEY, due_date DATE NOT NULL, paid BOOLEAN NOT NULL DEFAULT false, is_overdue BOOLEAN GENERATED ALWAYS AS (NOT paid AND due_date < CURRENT_DATE) STORED)",
+            "INSERT INTO invoices (due_date, paid) VALUES ('2024-01-15', false), ('2025-12-31', false), ('2024-06-01', true)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "is_overdue",
+            "type": "formula",
+            "formula": "NOT paid AND due_date < CURRENT_DATE",
+            "resultType": "boolean"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Unpaid invoice with past due date is overdue",
+            "executeQuery": "SELECT due_date, paid, is_overdue FROM invoices WHERE id = 1",
+            "expected": { "due_date": "2024-01-15", "paid": false, "is_overdue": true }
+          },
+          {
+            "description": "Unpaid invoice with future due date is not overdue",
+            "executeQuery": "SELECT due_date, paid, is_overdue FROM invoices WHERE id = 2",
+            "expected": { "due_date": "2025-12-31", "paid": false, "is_overdue": false }
+          },
+          {
+            "description": "Paid invoice is never overdue regardless of date",
+            "executeQuery": "SELECT due_date, paid, is_overdue FROM invoices WHERE id = 3",
+            "expected": { "due_date": "2024-06-01", "paid": true, "is_overdue": false }
+          }
+        ]
+      }
     }
   ]
 }

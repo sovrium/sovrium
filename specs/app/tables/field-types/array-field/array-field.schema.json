@@ -30,15 +30,168 @@
   "x-specs": [
     {
       "id": "APP-ARRAY-FIELD-001",
-      "given": "entity with type='array'",
-      "when": "processing configuration",
-      "then": "correct handler should be selected"
+      "given": "table configuration with array field 'tags' (itemType=text)",
+      "when": "field migration creates TEXT[] column",
+      "then": "PostgreSQL TEXT array column is created",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE articles (id SERIAL PRIMARY KEY, tags TEXT[])",
+          "fieldConfig": {
+            "id": 1,
+            "name": "tags",
+            "type": "array",
+            "itemType": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column created as TEXT array",
+            "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='articles' AND column_name='tags'",
+            "expected": { "column_name": "tags", "data_type": "ARRAY" }
+          },
+          {
+            "description": "Empty array can be inserted",
+            "executeQuery": "INSERT INTO articles (tags) VALUES (ARRAY[]::TEXT[]) RETURNING tags",
+            "expected": { "tags": [] }
+          },
+          {
+            "description": "Array with multiple items can be inserted",
+            "executeQuery": "INSERT INTO articles (tags) VALUES (ARRAY['javascript', 'react', 'typescript']) RETURNING tags",
+            "expected": { "tags": ["javascript", "react", "typescript"] }
+          }
+        ]
+      }
     },
     {
       "id": "APP-ARRAY-FIELD-002",
-      "given": "invalid type value",
-      "when": "validating configuration",
-      "then": "clear error message should identify the issue"
+      "given": "table 'posts' with array field supporting array operations",
+      "when": "querying with array functions",
+      "then": "PostgreSQL supports array containment, overlap, and length",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE posts (id SERIAL PRIMARY KEY, keywords TEXT[])",
+            "INSERT INTO posts (keywords) VALUES (ARRAY['nodejs', 'express']), (ARRAY['nodejs', 'fastify']), (ARRAY['python', 'flask'])"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Find records containing specific value",
+            "executeQuery": "SELECT COUNT(*) as count FROM posts WHERE 'nodejs' = ANY(keywords)",
+            "expected": { "count": 2 }
+          },
+          {
+            "description": "Find records with array overlap",
+            "executeQuery": "SELECT COUNT(*) as count FROM posts WHERE keywords && ARRAY['nodejs', 'python']",
+            "expected": { "count": 3 }
+          },
+          {
+            "description": "Get array length",
+            "executeQuery": "SELECT array_length(keywords, 1) as length FROM posts WHERE id = 1",
+            "expected": { "length": 2 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-ARRAY-FIELD-003",
+      "given": "table configuration with array field 'numbers' (itemType=number, maxItems=10)",
+      "when": "CHECK constraint enforces maximum array size",
+      "then": "PostgreSQL rejects arrays exceeding maxItems limit",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE datasets (id SERIAL PRIMARY KEY, numbers INTEGER[] CHECK (array_length(numbers, 1) <= 10))",
+          "fieldConfig": {
+            "id": 1,
+            "name": "numbers",
+            "type": "array",
+            "itemType": "number",
+            "maxItems": 10
+          }
+        },
+        "assertions": [
+          {
+            "description": "Array with 10 items succeeds",
+            "executeQuery": "INSERT INTO datasets (numbers) VALUES (ARRAY[1,2,3,4,5,6,7,8,9,10]) RETURNING array_length(numbers, 1) as length",
+            "expected": { "length": 10 }
+          },
+          {
+            "description": "Array exceeding maxItems rejected",
+            "executeQuery": "INSERT INTO datasets (numbers) VALUES (ARRAY[1,2,3,4,5,6,7,8,9,10,11])",
+            "expectError": "violates check constraint"
+          },
+          {
+            "description": "Empty array allowed",
+            "executeQuery": "INSERT INTO datasets (numbers) VALUES (ARRAY[]::INTEGER[]) RETURNING numbers",
+            "expected": { "numbers": [] }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-ARRAY-FIELD-004",
+      "given": "table 'documents' with array field 'categories' and GIN index",
+      "when": "GIN index is created for efficient array queries",
+      "then": "PostgreSQL GIN index supports fast array containment searches",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE documents (id SERIAL PRIMARY KEY, categories TEXT[])",
+            "CREATE INDEX idx_documents_categories ON documents USING GIN(categories)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "categories",
+            "type": "array",
+            "indexed": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists in pg_indexes",
+            "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_documents_categories'",
+            "expected": { "indexname": "idx_documents_categories", "tablename": "documents" }
+          },
+          {
+            "description": "Index uses GIN for array operations",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_documents_categories'",
+            "expected": {
+              "indexdef": "CREATE INDEX idx_documents_categories ON public.documents USING gin (categories)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-ARRAY-FIELD-005",
+      "given": "table 'recipes' with array field 'ingredients' supporting array modification",
+      "when": "array_append and array_remove functions modify arrays",
+      "then": "PostgreSQL supports dynamic array manipulation",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE recipes (id SERIAL PRIMARY KEY, ingredients TEXT[])",
+            "INSERT INTO recipes (ingredients) VALUES (ARRAY['flour', 'sugar', 'eggs'])"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "array_append adds element to array",
+            "executeQuery": "UPDATE recipes SET ingredients = array_append(ingredients, 'butter') WHERE id = 1 RETURNING ingredients",
+            "expected": { "ingredients": ["flour", "sugar", "eggs", "butter"] }
+          },
+          {
+            "description": "array_remove removes element from array",
+            "executeQuery": "UPDATE recipes SET ingredients = array_remove(ingredients, 'sugar') WHERE id = 1 RETURNING ingredients",
+            "expected": { "ingredients": ["flour", "eggs", "butter"] }
+          },
+          {
+            "description": "Array element access by index",
+            "executeQuery": "SELECT ingredients[1] as first_ingredient FROM recipes WHERE id = 1",
+            "expected": { "first_ingredient": "flour" }
+          }
+        ]
+      }
     }
   ]
 }
