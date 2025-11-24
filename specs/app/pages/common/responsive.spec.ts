@@ -207,7 +207,7 @@ test.describe('Responsive Variants', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-RESPONSIVE-005: should apply sm-specific props',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
