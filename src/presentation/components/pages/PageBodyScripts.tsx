@@ -14,6 +14,7 @@ import {
 import { buildPageMetadataI18n } from './PageMetadataI18n'
 import type { GroupedScripts } from './PageScripts'
 import type { Languages } from '@/domain/models/app/languages'
+import type { SectionItem } from '@/domain/models/app/page/sections'
 import type { Page } from '@/domain/models/app/pages'
 import type { Theme } from '@/domain/models/app/theme'
 
@@ -118,6 +119,89 @@ function LanguageSwitcherScripts({
 }
 
 /**
+ * Check if section or its children have scroll interactions
+ */
+function hasSectionScrollInteraction(section: SectionItem): boolean {
+  // Type guard: check if this is a component (not a string or block reference)
+  if (typeof section === 'string') {
+    return false
+  }
+
+  // Check if section has scroll interactions
+  if ('interactions' in section && section.interactions?.scroll) {
+    return true
+  }
+
+  // Recursively check children if they exist
+  if ('children' in section && Array.isArray(section.children)) {
+    return section.children.some((child) => hasSectionScrollInteraction(child))
+  }
+
+  return false
+}
+
+/**
+ * Check if page has scroll interactions in any section
+ */
+function hasScrollInteractions(sections: readonly SectionItem[]): boolean {
+  return sections.some((section) => hasSectionScrollInteraction(section))
+}
+
+/**
+ * Check if page needs scroll animation script
+ */
+function needsScrollAnimationScript(page: Page, theme: Theme | undefined): boolean {
+  return hasScrollInteractions(page.sections) || theme?.animations?.scaleUp === true
+}
+
+/**
+ * Renders banner dismiss script if banner is dismissible
+ */
+function renderBannerScript(page: Page): ReactElement | undefined {
+  if (!page.layout?.banner?.dismissible) {
+    return undefined
+  }
+
+  return (
+    <script
+      src="/assets/banner-dismiss.js"
+      defer={true}
+    />
+  )
+}
+
+/**
+ * Renders scroll animation script if needed
+ */
+function renderScrollAnimationScript(page: Page, theme: Theme | undefined): ReactElement | undefined {
+  if (!needsScrollAnimationScript(page, theme)) {
+    return undefined
+  }
+
+  return (
+    <script
+      src="/assets/scroll-animation.js"
+      defer={true}
+    />
+  )
+}
+
+/**
+ * Renders feature flags configuration
+ */
+function renderFeatureFlags(page: Page): ReactElement | undefined {
+  if (!page.scripts?.features) {
+    return undefined
+  }
+
+  return renderWindowConfig({
+    windowKey: 'FEATURES',
+    data: page.scripts.features,
+    reactKey: 'window-features',
+  })
+}
+
+/**
  * Renders conditional script tags (banner, animation, features)
  */
 function renderConditionalScripts(config: {
@@ -127,23 +211,11 @@ function renderConditionalScripts(config: {
   readonly direction: 'ltr' | 'rtl'
 }): ReactElement {
   const { page, theme, languages, direction } = config
+
   return (
     <>
-      {/* Client-side banner dismiss functionality - inject when banner is dismissible */}
-      {page.layout?.banner?.dismissible && (
-        <script
-          src="/assets/banner-dismiss.js"
-          defer={true}
-        />
-      )}
-      {/* Client-side scroll animation functionality - inject when page has sections or theme has scaleUp */}
-      {(page.sections && page.sections.length > 0) || theme?.animations?.scaleUp ? (
-        <script
-          src="/assets/scroll-animation.js"
-          defer={true}
-        />
-      ) : null}
-      {/* Client-side language switcher functionality - always inject when languages configured */}
+      {renderBannerScript(page)}
+      {renderScrollAnimationScript(page, theme)}
       {languages && (
         <LanguageSwitcherScripts
           page={page}
@@ -152,13 +224,7 @@ function renderConditionalScripts(config: {
           direction={direction}
         />
       )}
-      {/* Client-side feature flags - inject when features configured */}
-      {page.scripts?.features &&
-        renderWindowConfig({
-          windowKey: 'FEATURES',
-          data: page.scripts.features,
-          reactKey: 'window-features',
-        })}
+      {renderFeatureFlags(page)}
     </>
   )
 }
