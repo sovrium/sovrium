@@ -328,7 +328,7 @@ test.describe('Responsive Variants', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-RESPONSIVE-007: should apply xl/2xl-specific props for very wide screens',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
