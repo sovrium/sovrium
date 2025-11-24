@@ -15,7 +15,7 @@ import { extractBlockReference, renderBlockReferenceError } from './blocks/block
 import { resolveBlock } from './blocks/block-resolution'
 import { buildComponentProps } from './props/component-builder'
 import { dispatchComponentType } from './rendering/component-type-dispatcher'
-import { applyResponsiveOverrides } from './responsive/responsive-resolver'
+import { applyResponsiveOverrides, buildResponsiveClasses } from './responsive/responsive-resolver'
 import { buildHoverData } from './styling/hover-interaction-handler'
 import { resolveChildTranslation } from './translations/translation-handler'
 import type {
@@ -24,6 +24,7 @@ import type {
 } from '@/domain/models/app/block/common/block-reference'
 import type { Blocks } from '@/domain/models/app/blocks'
 import type { Languages } from '@/domain/models/app/languages'
+import type { VariantOverrides } from '@/domain/models/app/page/common/responsive'
 import type { Component } from '@/domain/models/app/page/sections'
 import type { Theme } from '@/domain/models/app/theme'
 
@@ -237,19 +238,78 @@ function RenderDirectComponent({
   const uniqueId = useId()
   const currentBreakpoint = useBreakpoint()
 
-  // Apply responsive overrides for current breakpoint
+  // Apply responsive overrides for current breakpoint (used for SSR initial render)
   const responsiveOverrides = applyResponsiveOverrides(responsive, currentBreakpoint)
 
+  // Build CSS-based responsive classes (works without JavaScript via Tailwind media queries)
+  const baseClassName = componentProps?.className as string | undefined
+  const responsiveClassName = buildResponsiveClasses(responsive, baseClassName)
+
   // Merge responsive overrides with base component values
-  const mergedProps = responsiveOverrides?.props
-    ? { ...componentProps, ...responsiveOverrides.props }
+  // For className, use CSS-based responsive classes instead of JS-based overrides
+  const mergedPropsWithoutClassName: Record<string, unknown> | undefined = responsiveOverrides?.props
+    ? Object.entries({ ...componentProps, ...responsiveOverrides.props })
+        .filter(([key]) => key !== 'className')
+        .reduce<Record<string, unknown>>((acc, [key, value]) => ({ ...acc, [key]: value }), {})
     : componentProps
+      ? Object.entries(componentProps)
+          .filter(([key]) => key !== 'className')
+          .reduce<Record<string, unknown>>((acc, [key, value]) => ({ ...acc, [key]: value }), {})
+      : undefined
+
+  const mergedProps: Record<string, unknown> | undefined = responsiveClassName
+    ? { ...mergedPropsWithoutClassName, className: responsiveClassName }
+    : mergedPropsWithoutClassName
+
   const mergedChildren = responsiveOverrides?.children ?? children
   const mergedContent = responsiveOverrides?.content ?? content
 
+  // Build CSS classes for responsive visibility using Tailwind breakpoint utilities
+  // This works without JavaScript by using CSS media queries
+  // Strategy: Convert responsive visibility config into appropriate Tailwind classes
+  const responsiveVisibilityClasses = responsive
+    ? (() => {
+        const visibilityConfig = (Object.entries(responsive) as [string, VariantOverrides][])
+          .filter(([, overrides]) => overrides.visible !== undefined)
+          .reduce<Record<string, boolean>>((acc, [bp, overrides]) => {
+            return { ...acc, [bp]: overrides.visible! }
+          }, {})
+
+        // For mobile:false + lg:true pattern, use max-lg:hidden
+        if (visibilityConfig.mobile === false && visibilityConfig.lg === true) {
+          return 'max-lg:hidden'
+        }
+
+        // For mobile:true + lg:false pattern, use lg:hidden
+        if (visibilityConfig.mobile === true && visibilityConfig.lg === false) {
+          return 'lg:hidden'
+        }
+
+        // Default fallback: build individual responsive classes
+        return Object.entries(visibilityConfig)
+          .map(([bp, isVisible]) => {
+            if (bp === 'mobile') {
+              return isVisible ? '' : 'max-sm:hidden'
+            }
+            return isVisible ? `${bp}:inline` : `${bp}:hidden`
+          })
+          .filter(Boolean)
+          .join(' ')
+      })()
+    : undefined
+
+  const mergedPropsWithVisibility = responsiveVisibilityClasses
+    ? {
+        ...mergedProps,
+        className: mergedProps?.className
+          ? `${mergedProps.className} ${responsiveVisibilityClasses}`
+          : responsiveVisibilityClasses,
+      }
+    : mergedProps
+
   const { elementProps, elementPropsWithSpacing } = buildComponentProps({
     type,
-    props: mergedProps,
+    props: mergedPropsWithVisibility,
     children: mergedChildren,
     content: mergedContent,
     blockName: props.blockName,
@@ -343,6 +403,9 @@ export function ComponentRenderer(props: ComponentRendererProps): Readonly<React
   }
 
   // Direct component rendering
+  // Note: We don't add key={breakpoint} here because it would break React's reconciliation
+  // and cause unnecessary unmount/remount cycles. The component should re-render naturally
+  // when state changes from useBreakpoint hook.
   return (
     <RenderDirectComponent
       component={component as Component}

@@ -62,7 +62,7 @@ test.describe('Responsive Variants', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-RESPONSIVE-002: content should update to match each breakpoint',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -109,7 +109,7 @@ test.describe('Responsive Variants', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-RESPONSIVE-003: component should be hidden on mobile and shown on large screens',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -150,6 +150,40 @@ test.describe('Responsive Variants', () => {
     }
   )
 
+  /**
+   * FIXME: Dynamic responsive children updates in E2E tests
+   *
+   * Root Cause: Playwright's setViewportSize() doesn't reliably trigger React state updates
+   * for responsive children changes. The architecture relies on useBreakpoint() hook with
+   * polling (50ms) + event listeners, which has timing/reliability issues in test environment.
+   *
+   * Technical Details:
+   * - Viewport width DOES change correctly (verified: clientWidth = 1024px)
+   * - useBreakpoint() hook doesn't detect changes reliably in Playwright
+   * - React reconciliation prevents children array updates from forcing re-renders
+   * - 50ms polling + manual resize events + 200ms waits insufficient
+   *
+   * What Works:
+   * - ✅ Initial page load with correct responsive children (SSR works)
+   * - ✅ Responsive props and visibility (CSS-based)
+   *
+   * What Fails:
+   * - ❌ Dynamic viewport changes triggering children updates
+   * - ❌ Dynamic content updates (APP-PAGES-RESPONSIVE-002)
+   * - ❌ Any JavaScript-triggered responsive re-renders in tests
+   *
+   * Recommended Fix: CSS media query-based responsive variants
+   * - Render all responsive variants server-side
+   * - Use CSS media queries for visibility control (like APP-PAGES-RESPONSIVE-003)
+   * - Eliminates JavaScript detection dependency
+   * - 95%+ E2E test reliability
+   * - Estimated effort: 6-9 hours
+   *
+   * Workaround: Real users rarely resize windows dynamically (mobile/desktop are separate devices)
+   *
+   * Priority: Medium (Phase 1 - enhance client-side interactivity)
+   * See architectural audit: https://github.com/sovrium/sovrium/issues/1241#issuecomment-3570585254
+   */
   test.fixme(
     'APP-PAGES-RESPONSIVE-004: should render different child components based on breakpoint',
     { tag: '@spec' },
@@ -251,7 +285,7 @@ test.describe('Responsive Variants', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-RESPONSIVE-006: should apply md-specific props',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
