@@ -41,141 +41,873 @@
   "x-specs": [
     {
       "id": "APP-TABLES-001",
-      "given": "the application is running",
-      "when": "I return the admin tables page",
-      "then": "it should work correctly"
+      "given": "application initialized with empty database and authenticated admin user",
+      "when": "I navigate to /admin/tables page",
+      "then": "page displays 'Tables' heading, 'Create Table' button, and empty state message 'No tables created yet. Get started by creating your first table.'",
+      "validation": {
+        "setup": {
+          "tables": [],
+          "user": {
+            "id": "usr_admin",
+            "email": "admin@example.com",
+            "role": "admin"
+          }
+        },
+        "assertions": []
+      },
+      "application": {
+        "expectedDOM": [
+          "heading level=1 'Tables'",
+          "button 'Create Table'",
+          "region role=status text='No tables created yet'",
+          "paragraph 'Get started by creating your first table.'"
+        ]
+      }
     },
     {
       "id": "APP-TABLES-002",
-      "given": "the application is running",
-      "when": "I list tables",
-      "then": "it should work correctly"
+      "given": "application with 3 tables (customers, products, orders) and authenticated admin user",
+      "when": "I navigate to /admin/tables and list all tables",
+      "then": "page displays table list with 3 table cards showing table names, field counts, and record counts",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "customers",
+              "fields": [
+                {"id": 1, "name": "email", "type": "email", "required": true},
+                {"id": 2, "name": "name", "type": "single-line-text", "required": true}
+              ]
+            },
+            {
+              "id": "tbl_002",
+              "name": "products",
+              "fields": [
+                {"id": 1, "name": "title", "type": "single-line-text", "required": true},
+                {"id": 2, "name": "price", "type": "currency", "required": true}
+              ]
+            },
+            {
+              "id": "tbl_003",
+              "name": "orders",
+              "fields": [
+                {"id": 1, "name": "order_number", "type": "integer", "required": true}
+              ]
+            }
+          ],
+          "user": {
+            "id": "usr_admin",
+            "email": "admin@example.com",
+            "role": "admin"
+          }
+        },
+        "assertions": []
+      },
+      "application": {
+        "expectedDOM": [
+          "heading level=1 'Tables'",
+          "list role=list",
+          "listitem text='customers' with '2 fields, 0 records'",
+          "listitem text='products' with '2 fields, 0 records'",
+          "listitem text='orders' with '1 field, 0 records'"
+        ]
+      }
     },
     {
       "id": "APP-TABLES-003",
-      "given": "the application is running",
-      "when": "I list table records",
-      "then": "it should work correctly"
+      "given": "table 'customers' with 5 customer records and authenticated admin user",
+      "when": "I navigate to /admin/tables/tbl_001/records and list table records",
+      "then": "page displays data grid with 5 rows showing customer data (email, name) and pagination controls",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "customers",
+              "fields": [
+                {"id": 1, "name": "email", "type": "email", "required": true},
+                {"id": 2, "name": "name", "type": "single-line-text", "required": true}
+              ]
+            }
+          ],
+          "records": {
+            "tbl_001": [
+              {"id": "rec_001", "email": "john@example.com", "name": "John Doe"},
+              {"id": "rec_002", "email": "jane@example.com", "name": "Jane Smith"},
+              {"id": "rec_003", "email": "bob@example.com", "name": "Bob Johnson"},
+              {"id": "rec_004", "email": "alice@example.com", "name": "Alice Brown"},
+              {"id": "rec_005", "email": "charlie@example.com", "name": "Charlie Wilson"}
+            ]
+          },
+          "user": {
+            "id": "usr_admin",
+            "email": "admin@example.com",
+            "role": "admin"
+          }
+        },
+        "assertions": []
+      },
+      "application": {
+        "expectedDOM": [
+          "heading level=1 'customers'",
+          "table role=grid",
+          "row count=5",
+          "cell text='john@example.com'",
+          "cell text='John Doe'",
+          "text 'Showing 1-5 of 5 records'"
+        ]
+      }
     },
     {
       "id": "APP-TABLES-004",
-      "given": "the application is running",
-      "when": "I search table records",
-      "then": "it should work correctly"
+      "given": "table 'customers' with 50 records and search input field",
+      "when": "I enter 'john' in search field and press Enter",
+      "then": "page displays filtered data grid showing only records where name or email contains 'john' (case-insensitive) with result count",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "customers",
+              "fields": [
+                {"id": 1, "name": "email", "type": "email", "required": true},
+                {"id": 2, "name": "name", "type": "single-line-text", "required": true}
+              ]
+            }
+          ],
+          "records": {
+            "tbl_001": [
+              {"id": "rec_001", "email": "john@example.com", "name": "John Doe"},
+              {"id": "rec_002", "email": "johnsmith@example.com", "name": "John Smith"},
+              {"id": "rec_003", "email": "jane@example.com", "name": "Jane Johnson"}
+            ]
+          },
+          "user": {
+            "id": "usr_admin",
+            "email": "admin@example.com",
+            "role": "admin"
+          }
+        },
+        "assertions": []
+      },
+      "application": {
+        "expectedDOM": [
+          "searchbox value='john'",
+          "table role=grid",
+          "row count=3",
+          "text 'Showing 3 results for \"john\"'"
+        ]
+      }
     },
     {
       "id": "APP-TABLES-005",
-      "given": "the application is running",
-      "when": "I open and display a table record",
-      "then": "it should work correctly"
+      "given": "table 'customers' with record rec_001 containing complete customer data",
+      "when": "I click on record row in data grid to open detail view",
+      "then": "record detail modal opens displaying all field values in labeled read-only format with Edit and Delete action buttons",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "customers",
+              "fields": [
+                {"id": 1, "name": "email", "type": "email", "required": true},
+                {"id": 2, "name": "name", "type": "single-line-text", "required": true},
+                {"id": 3, "name": "phone", "type": "phone-number"}
+              ]
+            }
+          ],
+          "records": {
+            "tbl_001": [
+              {"id": "rec_001", "email": "john@example.com", "name": "John Doe", "phone": "+1-555-1234"}
+            ]
+          },
+          "user": {
+            "id": "usr_admin",
+            "email": "admin@example.com",
+            "role": "admin"
+          }
+        },
+        "assertions": []
+      },
+      "application": {
+        "expectedDOM": [
+          "dialog role=dialog heading='John Doe'",
+          "definition term='email' definition='john@example.com'",
+          "definition term='name' definition='John Doe'",
+          "definition term='phone' definition='+1-555-1234'",
+          "button 'Edit'",
+          "button 'Delete'"
+        ]
+      }
     },
     {
       "id": "APP-TABLES-006",
-      "given": "the application is running",
-      "when": "I create a table record",
-      "then": "it should work correctly"
+      "given": "table 'customers' with empty records and create form modal open",
+      "when": "I fill in email='new@example.com' and name='New Customer' and click Create button",
+      "then": "record is created successfully, modal closes, data grid refreshes showing new record with ID rec_001, and success toast appears 'Customer created successfully'",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "customers",
+              "fields": [
+                {"id": 1, "name": "email", "type": "email", "required": true, "unique": true},
+                {"id": 2, "name": "name", "type": "single-line-text", "required": true}
+              ]
+            }
+          ],
+          "records": {
+            "tbl_001": []
+          },
+          "user": {
+            "id": "usr_admin",
+            "email": "admin@example.com",
+            "role": "admin"
+          }
+        },
+        "assertions": [
+          {"field": "email", "type": "email", "required": true, "unique": true},
+          {"field": "name", "type": "single-line-text", "required": true}
+        ]
+      },
+      "application": {
+        "expectedDOM": [
+          "textbox name='email' value='new@example.com'",
+          "textbox name='name' value='New Customer'",
+          "button 'Create' aria-disabled=false",
+          "alert role=status text='Customer created successfully'",
+          "table role=grid row count=1"
+        ]
+      }
     },
     {
       "id": "APP-TABLES-007",
-      "given": "I am working with required fields",
-      "when": "I create a table record",
-      "then": "it should complete successfully"
+      "given": "table 'customers' with required fields (email, name) and create form modal open",
+      "when": "I fill in all required fields (email='test@example.com', name='Test User') and click Create button",
+      "then": "form validation passes, record is created successfully with HTTP 201 response, and data grid displays new record",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "customers",
+              "fields": [
+                {"id": 1, "name": "email", "type": "email", "required": true},
+                {"id": 2, "name": "name", "type": "single-line-text", "required": true},
+                {"id": 3, "name": "phone", "type": "phone-number", "required": false}
+              ]
+            }
+          ],
+          "records": {
+            "tbl_001": []
+          },
+          "user": {
+            "id": "usr_admin",
+            "email": "admin@example.com",
+            "role": "admin"
+          }
+        },
+        "assertions": [
+          {"field": "email", "required": true},
+          {"field": "name", "required": true},
+          {"field": "phone", "required": false}
+        ]
+      },
+      "application": {
+        "behavior": [
+          "form validation passes with all required fields filled",
+          "POST /api/tables/tbl_001/records returns 201 Created",
+          "response includes record ID, email, name fields",
+          "UI refreshes data grid with new record"
+        ]
+      }
     },
     {
       "id": "APP-TABLES-008",
-      "given": "the application is running",
-      "when": "I update a table record",
-      "then": "it should work correctly"
+      "given": "table 'customers' with existing record rec_001 and edit form modal open with pre-filled values",
+      "when": "I update name from 'John Doe' to 'John Smith' and click Save button",
+      "then": "record is updated successfully with HTTP 200 response, modal closes, data grid refreshes showing updated name, and success toast appears 'Customer updated successfully'",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "customers",
+              "fields": [
+                {"id": 1, "name": "email", "type": "email", "required": true},
+                {"id": 2, "name": "name", "type": "single-line-text", "required": true}
+              ]
+            }
+          ],
+          "records": {
+            "tbl_001": [
+              {"id": "rec_001", "email": "john@example.com", "name": "John Doe"}
+            ]
+          },
+          "user": {
+            "id": "usr_admin",
+            "email": "admin@example.com",
+            "role": "admin"
+          }
+        },
+        "assertions": []
+      },
+      "application": {
+        "behavior": [
+          "form pre-fills with existing values email='john@example.com', name='John Doe'",
+          "user updates name field to 'John Smith'",
+          "PATCH /api/tables/tbl_001/records/rec_001 returns 200 OK",
+          "response includes updated record with name='John Smith'",
+          "data grid cell updates to show 'John Smith'"
+        ]
+      }
     },
     {
       "id": "APP-TABLES-009",
-      "given": "the application is running",
-      "when": "I delete a table record",
-      "then": "it should work correctly"
+      "given": "table 'customers' with record rec_001 visible in data grid",
+      "when": "I click Delete button for record rec_001 and confirm deletion in confirmation dialog",
+      "then": "confirmation dialog shows 'Are you sure you want to delete this record?', on confirm DELETE request succeeds with 204 response, record is removed from data grid, and success toast appears 'Customer deleted successfully'",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "customers",
+              "fields": [
+                {"id": 1, "name": "email", "type": "email", "required": true},
+                {"id": 2, "name": "name", "type": "single-line-text", "required": true}
+              ]
+            }
+          ],
+          "records": {
+            "tbl_001": [
+              {"id": "rec_001", "email": "john@example.com", "name": "John Doe"}
+            ]
+          },
+          "user": {
+            "id": "usr_admin",
+            "email": "admin@example.com",
+            "role": "admin"
+          }
+        },
+        "assertions": []
+      },
+      "application": {
+        "behavior": [
+          "dialog shows 'Are you sure you want to delete this record?'",
+          "on confirm: DELETE /api/tables/tbl_001/records/rec_001 returns 204 No Content",
+          "data grid removes deleted row",
+          "record count updates to 0"
+        ]
+      }
     },
     {
       "id": "APP-TABLES-010",
-      "given": "I am working with missing required fields",
-      "when": "I not create a record from a POST request",
-      "then": "it should complete successfully"
+      "given": "table 'customers' with required email field and API endpoint /api/tables/tbl_001/records",
+      "when": "I send POST request with body missing required email field: {\"name\": \"John Doe\"}",
+      "then": "API returns 400 Bad Request with validation error {\"error\": \"ValidationError\", \"message\": \"email is required\", \"field\": \"email\"} and no record is created",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "customers",
+              "fields": [
+                {"id": 1, "name": "email", "type": "email", "required": true},
+                {"id": 2, "name": "name", "type": "single-line-text", "required": true}
+              ]
+            }
+          ],
+          "records": {
+            "tbl_001": []
+          }
+        },
+        "assertions": [
+          {"field": "email", "required": true}
+        ]
+      },
+      "application": {
+        "behavior": [
+          "POST /api/tables/tbl_001/records with body {\"name\": \"John Doe\"}",
+          "returns 400 Bad Request",
+          "response body: {\"error\": \"ValidationError\", \"message\": \"email is required\", \"field\": \"email\"}",
+          "database remains empty (0 records)"
+        ]
+      }
     },
     {
       "id": "APP-TABLES-011",
-      "given": "the application is running",
-      "when": "I create a record from a POST request",
-      "then": "it should work correctly"
+      "given": "table 'customers' with valid schema and API endpoint /api/tables/tbl_001/records",
+      "when": "I send POST request with complete valid data: {\"email\": \"john@example.com\", \"name\": \"John Doe\"}",
+      "then": "API returns 201 Created with response body containing created record ID, email, name, and created_at timestamp",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "customers",
+              "fields": [
+                {"id": 1, "name": "email", "type": "email", "required": true},
+                {"id": 2, "name": "name", "type": "single-line-text", "required": true}
+              ]
+            }
+          ],
+          "records": {
+            "tbl_001": []
+          }
+        },
+        "assertions": [
+          {"field": "email", "type": "email", "required": true},
+          {"field": "name", "type": "single-line-text", "required": true}
+        ]
+      },
+      "application": {
+        "behavior": [
+          "POST /api/tables/tbl_001/records with body {\"email\": \"john@example.com\", \"name\": \"John Doe\"}",
+          "returns 201 Created",
+          "response body: {\"id\": \"rec_001\", \"email\": \"john@example.com\", \"name\": \"John Doe\", \"created_at\": \"2025-01-01T00:00:00Z\"}",
+          "database contains 1 record"
+        ]
+      }
     },
     {
       "id": "APP-TABLES-012",
-      "given": "I am working with missing required fields",
-      "when": "I not create multiple records from a POST request",
-      "then": "it should complete successfully"
+      "given": "table 'customers' with required email field and batch API endpoint /api/tables/tbl_001/records/batch",
+      "when": "I send POST request with array containing invalid record missing email: [{\"name\": \"John\"}, {\"email\": \"jane@example.com\", \"name\": \"Jane\"}]",
+      "then": "API returns 400 Bad Request with BatchValidationError, details array identifying invalid record at index 0, and transaction is rolled back (no records created)",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "customers",
+              "fields": [
+                {"id": 1, "name": "email", "type": "email", "required": true},
+                {"id": 2, "name": "name", "type": "single-line-text", "required": true}
+              ]
+            }
+          ],
+          "records": {
+            "tbl_001": []
+          }
+        },
+        "assertions": [
+          {"field": "email", "required": true}
+        ]
+      },
+      "application": {
+        "behavior": [
+          "POST /api/tables/tbl_001/records/batch with [{\"name\": \"John\"}, {\"email\": \"jane@example.com\", \"name\": \"Jane\"}]",
+          "returns 400 Bad Request",
+          "response: {\"error\": \"BatchValidationError\", \"details\": [{\"index\": 0, \"field\": \"email\", \"message\": \"email is required\"}]}",
+          "transaction rolled back: database contains 0 records"
+        ]
+      }
     },
     {
       "id": "APP-TABLES-013",
-      "given": "the application is running",
-      "when": "I create multiple records from a POST request",
-      "then": "it should work correctly"
+      "given": "table 'customers' with valid schema and batch API endpoint /api/tables/tbl_001/records/batch",
+      "when": "I send POST request with array of 3 valid records",
+      "then": "API returns 201 Created with response {\"created\": 3, \"records\": [array of 3 created records with IDs]}, all 3 records are inserted in database",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "customers",
+              "fields": [
+                {"id": 1, "name": "email", "type": "email", "required": true},
+                {"id": 2, "name": "name", "type": "single-line-text", "required": true}
+              ]
+            }
+          ],
+          "records": {
+            "tbl_001": []
+          }
+        },
+        "assertions": []
+      },
+      "application": {
+        "behavior": [
+          "POST /api/tables/tbl_001/records/batch with [{\"email\": \"john@example.com\", \"name\": \"John\"}, {\"email\": \"jane@example.com\", \"name\": \"Jane\"}, {\"email\": \"bob@example.com\", \"name\": \"Bob\"}]",
+          "returns 201 Created",
+          "response: {\"created\": 3, \"records\": [{\"id\": \"rec_001\", ...}, {\"id\": \"rec_002\", ...}, {\"id\": \"rec_003\", ...}]}",
+          "database contains 3 records"
+        ]
+      }
     },
     {
       "id": "APP-TABLES-014",
-      "given": "the application is running",
-      "when": "I read a record from a GET request",
-      "then": "it should work correctly"
+      "given": "table 'customers' with record rec_001 containing email='john@example.com' and name='John Doe'",
+      "when": "I send GET request to /api/tables/tbl_001/records/rec_001",
+      "then": "API returns 200 OK with response body containing complete record data {\"id\": \"rec_001\", \"email\": \"john@example.com\", \"name\": \"John Doe\", \"created_at\": timestamp}",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "customers",
+              "fields": [
+                {"id": 1, "name": "email", "type": "email", "required": true},
+                {"id": 2, "name": "name", "type": "single-line-text", "required": true}
+              ]
+            }
+          ],
+          "records": {
+            "tbl_001": [
+              {"id": "rec_001", "email": "john@example.com", "name": "John Doe"}
+            ]
+          }
+        },
+        "assertions": []
+      },
+      "application": {
+        "behavior": [
+          "GET /api/tables/tbl_001/records/rec_001",
+          "returns 200 OK",
+          "response body: {\"id\": \"rec_001\", \"email\": \"john@example.com\", \"name\": \"John Doe\", \"created_at\": \"2025-01-01T00:00:00Z\"}"
+        ]
+      }
     },
     {
       "id": "APP-TABLES-015",
-      "given": "the application is running",
-      "when": "I list records from a GET request",
-      "then": "it should work correctly"
+      "given": "table 'customers' with 5 customer records",
+      "when": "I send GET request to /api/tables/tbl_001/records",
+      "then": "API returns 200 OK with response containing data array of 5 records, total=5, limit=20, offset=0",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "customers",
+              "fields": [
+                {"id": 1, "name": "email", "type": "email", "required": true},
+                {"id": 2, "name": "name", "type": "single-line-text", "required": true}
+              ]
+            }
+          ],
+          "records": {
+            "tbl_001": [
+              {"id": "rec_001", "email": "john@example.com", "name": "John Doe"},
+              {"id": "rec_002", "email": "jane@example.com", "name": "Jane Smith"},
+              {"id": "rec_003", "email": "bob@example.com", "name": "Bob Johnson"},
+              {"id": "rec_004", "email": "alice@example.com", "name": "Alice Brown"},
+              {"id": "rec_005", "email": "charlie@example.com", "name": "Charlie Wilson"}
+            ]
+          }
+        },
+        "assertions": []
+      },
+      "application": {
+        "behavior": [
+          "GET /api/tables/tbl_001/records",
+          "returns 200 OK",
+          "response: {\"data\": [array of 5 records], \"total\": 5, \"limit\": 20, \"offset\": 0}"
+        ]
+      }
     },
     {
       "id": "APP-TABLES-016",
-      "given": "the application is running",
-      "when": "I update a record from a PATCH request",
-      "then": "it should work correctly"
+      "given": "table 'customers' with existing record rec_001 where name='John Doe'",
+      "when": "I send PATCH request to /api/tables/tbl_001/records/rec_001 with body {\"name\": \"John Smith\"}",
+      "then": "API returns 200 OK with response containing updated record with name='John Smith', email unchanged, and updated_at timestamp",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "customers",
+              "fields": [
+                {"id": 1, "name": "email", "type": "email", "required": true},
+                {"id": 2, "name": "name", "type": "single-line-text", "required": true}
+              ]
+            }
+          ],
+          "records": {
+            "tbl_001": [
+              {"id": "rec_001", "email": "john@example.com", "name": "John Doe"}
+            ]
+          }
+        },
+        "assertions": []
+      },
+      "application": {
+        "behavior": [
+          "PATCH /api/tables/tbl_001/records/rec_001 with body {\"name\": \"John Smith\"}",
+          "returns 200 OK",
+          "response: {\"id\": \"rec_001\", \"email\": \"john@example.com\", \"name\": \"John Smith\", \"updated_at\": \"2025-01-01T00:01:00Z\"}",
+          "database record updated with new name"
+        ]
+      }
     },
     {
       "id": "APP-TABLES-017",
-      "given": "the application is running",
-      "when": "I update multiple records from a PATCH request",
-      "then": "it should work correctly"
+      "given": "table 'customers' with 3 existing records (rec_001, rec_002, rec_003)",
+      "when": "I send PATCH request to /api/tables/tbl_001/records/batch with array of updates for 2 records: [{\"id\": \"rec_001\", \"name\": \"Updated 1\"}, {\"id\": \"rec_002\", \"name\": \"Updated 2\"}]",
+      "then": "API returns 200 OK with response {\"updated\": 2, \"records\": [array of 2 updated records]}, database reflects changes for rec_001 and rec_002, rec_003 unchanged",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "customers",
+              "fields": [
+                {"id": 1, "name": "email", "type": "email", "required": true},
+                {"id": 2, "name": "name", "type": "single-line-text", "required": true}
+              ]
+            }
+          ],
+          "records": {
+            "tbl_001": [
+              {"id": "rec_001", "email": "john@example.com", "name": "John Doe"},
+              {"id": "rec_002", "email": "jane@example.com", "name": "Jane Smith"},
+              {"id": "rec_003", "email": "bob@example.com", "name": "Bob Johnson"}
+            ]
+          }
+        },
+        "assertions": []
+      },
+      "application": {
+        "behavior": [
+          "PATCH /api/tables/tbl_001/records/batch with [{\"id\": \"rec_001\", \"name\": \"Updated 1\"}, {\"id\": \"rec_002\", \"name\": \"Updated 2\"}]",
+          "returns 200 OK",
+          "response: {\"updated\": 2, \"records\": [{\"id\": \"rec_001\", \"name\": \"Updated 1\", ...}, {\"id\": \"rec_002\", \"name\": \"Updated 2\", ...}]}",
+          "database: rec_001 and rec_002 updated, rec_003 unchanged"
+        ]
+      }
     },
     {
       "id": "APP-TABLES-018",
-      "given": "the application is running",
-      "when": "I delete a record from a DELETE request",
-      "then": "it should work correctly"
+      "given": "table 'customers' with record rec_001",
+      "when": "I send DELETE request to /api/tables/tbl_001/records/rec_001",
+      "then": "API returns 204 No Content, record is permanently removed from database, subsequent GET returns 404 Not Found",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "customers",
+              "fields": [
+                {"id": 1, "name": "email", "type": "email", "required": true},
+                {"id": 2, "name": "name", "type": "single-line-text", "required": true}
+              ]
+            }
+          ],
+          "records": {
+            "tbl_001": [
+              {"id": "rec_001", "email": "john@example.com", "name": "John Doe"}
+            ]
+          }
+        },
+        "assertions": []
+      },
+      "application": {
+        "behavior": [
+          "DELETE /api/tables/tbl_001/records/rec_001",
+          "returns 204 No Content",
+          "record removed from database",
+          "GET /api/tables/tbl_001/records/rec_001 returns 404 Not Found"
+        ]
+      }
     },
     {
       "id": "APP-TABLES-019",
-      "given": "the application is running",
-      "when": "I delete multiple records from a DELETE request",
-      "then": "it should work correctly"
+      "given": "table 'customers' with 5 records (rec_001 through rec_005)",
+      "when": "I send DELETE request to /api/tables/tbl_001/records/batch with body {\"ids\": [\"rec_001\", \"rec_002\", \"rec_003\"]}",
+      "then": "API returns 200 OK with response {\"deleted\": 3}, specified records are removed from database, remaining records (rec_004, rec_005) are untouched",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "customers",
+              "fields": [
+                {"id": 1, "name": "email", "type": "email", "required": true},
+                {"id": 2, "name": "name", "type": "single-line-text", "required": true}
+              ]
+            }
+          ],
+          "records": {
+            "tbl_001": [
+              {"id": "rec_001", "email": "john@example.com", "name": "John Doe"},
+              {"id": "rec_002", "email": "jane@example.com", "name": "Jane Smith"},
+              {"id": "rec_003", "email": "bob@example.com", "name": "Bob Johnson"},
+              {"id": "rec_004", "email": "alice@example.com", "name": "Alice Brown"},
+              {"id": "rec_005", "email": "charlie@example.com", "name": "Charlie Wilson"}
+            ]
+          }
+        },
+        "assertions": []
+      },
+      "application": {
+        "behavior": [
+          "DELETE /api/tables/tbl_001/records/batch with {\"ids\": [\"rec_001\", \"rec_002\", \"rec_003\"]}",
+          "returns 200 OK",
+          "response: {\"deleted\": 3}",
+          "database contains 2 records: rec_004, rec_005"
+        ]
+      }
     },
     {
       "id": "APP-TABLES-020",
       "given": "a table with views configured",
       "when": "I access the table configuration",
-      "then": "all views should be available with their configurations"
+      "then": "all views should be available with their configurations",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "customers",
+              "fields": [
+                {"id": 1, "name": "email", "type": "email", "required": true},
+                {"id": 2, "name": "status", "type": "single-select", "options": ["active", "inactive"]}
+              ],
+              "views": [
+                {"id": "view_001", "name": "All Customers", "type": "grid", "isDefault": true},
+                {"id": "view_002", "name": "Active Only", "type": "grid", "filters": [{"field": "status", "operator": "=", "value": "active"}]},
+                {"id": "view_003", "name": "Board View", "type": "kanban", "groupBy": "status"}
+              ]
+            }
+          ]
+        },
+        "assertions": []
+      },
+      "application": {
+        "behavior": [
+          "GET /api/tables/tbl_001 returns table configuration with views array",
+          "response includes 3 views with id, name, type, filters, groupBy properties",
+          "UI displays view selector dropdown with 3 view options"
+        ]
+      }
     },
     {
       "id": "APP-TABLES-021",
       "given": "a table with a default view",
       "when": "I request table records without specifying a view",
-      "then": "the default view filters and sorts should be applied"
+      "then": "the default view filters and sorts should be applied",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "customers",
+              "fields": [
+                {"id": 1, "name": "email", "type": "email", "required": true},
+                {"id": 2, "name": "status", "type": "single-select", "options": ["active", "inactive"]},
+                {"id": 3, "name": "created_at", "type": "created-at"}
+              ],
+              "views": [
+                {
+                  "id": "view_001",
+                  "name": "Active Customers",
+                  "type": "grid",
+                  "isDefault": true,
+                  "filters": [{"field": "status", "operator": "=", "value": "active"}],
+                  "sorts": [{"field": "created_at", "direction": "desc"}]
+                }
+              ]
+            }
+          ],
+          "records": {
+            "tbl_001": [
+              {"id": "rec_001", "email": "john@example.com", "status": "active", "created_at": "2025-01-01T00:00:00Z"},
+              {"id": "rec_002", "email": "jane@example.com", "status": "inactive", "created_at": "2025-01-02T00:00:00Z"},
+              {"id": "rec_003", "email": "bob@example.com", "status": "active", "created_at": "2025-01-03T00:00:00Z"}
+            ]
+          }
+        },
+        "assertions": []
+      },
+      "application": {
+        "behavior": [
+          "GET /api/tables/tbl_001/records (no view parameter)",
+          "server applies default view filters: status='active'",
+          "server applies default view sorts: created_at desc",
+          "returns 2 records (rec_003, rec_001) sorted by created_at descending",
+          "rec_002 excluded due to status='inactive'"
+        ]
+      }
     },
     {
       "id": "APP-TABLES-022",
       "given": "a table with permissions configured",
       "when": "I access the table with proper authorization",
-      "then": "permissions should be enforced at table, field, and record levels"
+      "then": "permissions should be enforced at table, field, and record levels",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "customers",
+              "fields": [
+                {"id": 1, "name": "email", "type": "email", "required": true},
+                {"id": 2, "name": "name", "type": "single-line-text", "required": true},
+                {"id": 3, "name": "ssn", "type": "single-line-text"}
+              ],
+              "permissions": {
+                "table": {"read": ["admin", "editor"], "write": ["admin"]},
+                "fields": {"ssn": {"read": ["admin"], "write": ["admin"]}},
+                "records": {"customCondition": "userId = createdBy"}
+              }
+            }
+          ],
+          "user": {
+            "id": "usr_editor",
+            "email": "editor@example.com",
+            "role": "editor"
+          }
+        },
+        "assertions": []
+      },
+      "application": {
+        "behavior": [
+          "GET /api/tables/tbl_001/records with role='editor'",
+          "returns 200 OK (table read permission granted)",
+          "response excludes 'ssn' field (field-level read restriction)",
+          "response includes only records where createdBy=usr_editor (record-level filtering)",
+          "POST /api/tables/tbl_001/records returns 403 Forbidden (table write permission denied)"
+        ]
+      }
     },
     {
       "id": "APP-TABLES-023",
       "given": "a table with role-based permissions",
       "when": "I access the table as a user with insufficient role",
-      "then": "access should be denied with 403 Forbidden"
+      "then": "access should be denied with 403 Forbidden",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "customers",
+              "fields": [
+                {"id": 1, "name": "email", "type": "email", "required": true}
+              ],
+              "permissions": {
+                "table": {"read": ["admin", "editor"], "write": ["admin"]}
+              }
+            }
+          ],
+          "user": {
+            "id": "usr_viewer",
+            "email": "viewer@example.com",
+            "role": "viewer"
+          }
+        },
+        "assertions": []
+      },
+      "application": {
+        "behavior": [
+          "GET /api/tables/tbl_001/records with role='viewer'",
+          "returns 403 Forbidden",
+          "response: {\"error\": \"Forbidden\", \"message\": \"Insufficient permissions to read table 'customers'\"}",
+          "no data is returned"
+        ]
+      }
     }
   ]
 }
