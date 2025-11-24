@@ -198,7 +198,7 @@ test.describe('Client Scripts Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SCRIPTS-007: should support flexible client configuration',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
