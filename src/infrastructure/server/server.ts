@@ -13,6 +13,7 @@ import {
   setupAuthMiddleware,
   setupAuthRoutes,
 } from '@/infrastructure/server/route-setup/auth-routes'
+import { setupAuthAliases } from '@/infrastructure/server/route-setup/auth-aliases'
 import { setupOpenApiRoutes } from '@/infrastructure/server/route-setup/openapi-routes'
 import {
   setupPageRoutes,
@@ -60,9 +61,14 @@ export function createHonoApp(config: HonoAppConfig): Readonly<Hono> {
   // Create base Hono app and chain API routes directly
   // This pattern is required for Hono RPC type inference to work correctly
   // Setup all routes by chaining the setup functions
+  // Note: setupAuthAliases must come BEFORE setupAuthRoutes to intercept specific paths
   const honoWithRoutes = setupPageRoutes(
     setupStaticAssets(
-      setupAuthRoutes(setupAuthMiddleware(setupOpenApiRoutes(createApiRoutes(app, new Hono())))),
+      setupAuthRoutes(
+        setupAuthAliases(
+          setupAuthMiddleware(setupOpenApiRoutes(createApiRoutes(app, new Hono())))
+        )
+      ),
       app
     ),
     config

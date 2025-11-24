@@ -5,12 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { generateStatic, type App } from '@/index'
+import { type App } from '@/index'
 import { home } from './pages/home'
 import { privacyPolicy } from './pages/privacy-policy'
 import { termsOfService } from './pages/terms-of-service'
 
-const app: App = {
+export const app: App = {
   name: 'sovrium-website',
   theme: {
     colors: {
@@ -94,12 +94,3 @@ const app: App = {
   blocks: [],
   pages: [home, termsOfService, privacyPolicy],
 }
-
-// eslint-disable-next-line functional/no-expression-statements -- Top-level await for script execution
-await generateStatic(app, {
-  outputDir: './website/build',
-  baseUrl: 'https://sovrium.com',
-  generateSitemap: true,
-  generateRobotsTxt: true,
-  deployment: 'github-pages',
-})

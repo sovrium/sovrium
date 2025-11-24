@@ -9,12 +9,7 @@
 
 import { Hero } from '@/presentation/components/layout/hero'
 import { ResponsiveNavigation } from '@/presentation/components/layout/responsive-navigation'
-import {
-  CardWithHeader,
-  CardHeader,
-  CardBody,
-  CardFooter,
-} from '@/presentation/components/ui/card'
+import { CardWithHeader, CardHeader, CardBody, CardFooter } from '@/presentation/components/ui/card'
 import { SpeechBubble } from '@/presentation/components/ui/speech-bubble'
 import * as Renderers from '../renderers/element-renderers'
 import { convertBadgeProps, parseHTMLContent } from './component-registry-helpers'

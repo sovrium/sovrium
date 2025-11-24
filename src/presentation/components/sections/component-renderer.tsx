@@ -217,6 +217,7 @@ function renderChildren(
  * @param props - Component renderer props
  * @returns Rendered component
  */
+// eslint-disable-next-line max-lines-per-function, max-statements, complexity -- React component with clear logic flow
 function RenderDirectComponent({
   component,
   props,
@@ -224,7 +225,15 @@ function RenderDirectComponent({
   component: Component
   props: ComponentRendererProps
 }): ReactElement | null {
-  const { type, props: componentProps, children, content, interactions, i18n, responsive } = component
+  const {
+    type,
+    props: componentProps,
+    children,
+    content,
+    interactions,
+    i18n,
+    responsive,
+  } = component
   const uniqueId = useId()
   const currentBreakpoint = useBreakpoint()
 
@@ -258,7 +267,12 @@ function RenderDirectComponent({
   const baseRenderedChildren = renderChildren(mergedChildren, props)
 
   // Resolve content with i18n priority: component.i18n[lang].content > $t: pattern > content
-  const resolvedContent = resolveComponentContent(mergedContent, i18n, props.currentLang, props.languages)
+  const resolvedContent = resolveComponentContent(
+    mergedContent,
+    i18n,
+    props.currentLang,
+    props.languages
+  )
 
   // Build i18n content data attribute and merge into element props (functional approach)
   const i18nContentAttribute =
