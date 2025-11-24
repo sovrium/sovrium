@@ -47,11 +47,12 @@ test.describe('Client Scripts Configuration', () => {
 
       // THEN: it should orchestrate client-side script management
       await expect(page.locator('script[src="https://cdn.example.com/lib.js"]')).toBeAttached()
-      const inlineScript = await page
-        .locator('script')
-        .filter({ hasText: 'console.log("ready")' })
-        .textContent()
-      expect(inlineScript).toContain('console.log("ready")')
+      const scriptContent = await page.evaluate(() => {
+        const scripts = Array.from(document.querySelectorAll('script'))
+        const inlineScript = scripts.find((s) => !s.src && s.innerHTML.includes('console.log("ready")'))
+        return inlineScript?.innerHTML
+      })
+      expect(scriptContent).toContain('console.log("ready")')
     }
   )
 
@@ -112,7 +113,7 @@ test.describe('Client Scripts Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SCRIPTS-004: should inject inline JavaScript code',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -134,11 +135,12 @@ test.describe('Client Scripts Configuration', () => {
       await page.goto('/')
 
       // THEN: it should inject inline JavaScript code
-      const inlineScript = await page
-        .locator('script')
-        .filter({ hasText: 'console.log("Hello")' })
-        .textContent()
-      expect(inlineScript).toContain('console.log("Hello")')
+      const scriptContent = await page.evaluate(() => {
+        const scripts = Array.from(document.querySelectorAll('script'))
+        const inlineScript = scripts.find((s) => !s.src && s.innerHTML.includes('console.log("Hello")'))
+        return inlineScript?.innerHTML
+      })
+      expect(scriptContent).toContain('console.log("Hello")')
     }
   )
 
