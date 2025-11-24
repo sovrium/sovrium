@@ -1,30 +1,136 @@
 {
   "$id": "digits.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Number of digits with zero padding",
-  "description": "Number of digits with zero padding",
+  "title": "Autonumber Digits (Zero Padding)",
+  "description": "Number of digits with zero padding for autonumber display. Implemented via PostgreSQL LPAD function in GENERATED ALWAYS AS column. Minimum 1 digit, maximum 10 digits.",
   "type": "integer",
   "default": 3,
   "minimum": 1,
   "maximum": 10,
+  "examples": [1, 3, 5, 10],
   "x-specs": [
     {
       "id": "APP-FIELD-AUTONUMBER-DIGITS-001",
-      "given": "user provides digits between 1 and 10",
-      "when": "validating input",
-      "then": "value should be accepted"
+      "given": "autonumber field with digits=5 (zero-padded to 5 digits)",
+      "when": "generated column formats number with LPAD",
+      "then": "PostgreSQL LPAD pads numbers to 5 digits with leading zeros",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, order_num SERIAL NOT NULL, order_code VARCHAR(50) GENERATED ALWAYS AS (LPAD(order_num::TEXT, 5, '0')) STORED)",
+            "INSERT INTO orders (id) VALUES (DEFAULT), (DEFAULT), (DEFAULT)"
+          ],
+          "fieldConfig": {
+            "name": "order_code",
+            "type": "autonumber",
+            "digits": 5
+          }
+        },
+        "assertions": [
+          {
+            "description": "First number padded to 5 digits",
+            "executeQuery": "SELECT order_code FROM orders WHERE id = 1",
+            "expected": { "order_code": "00001" }
+          },
+          {
+            "description": "Second number padded to 5 digits",
+            "executeQuery": "SELECT order_code FROM orders WHERE id = 2",
+            "expected": { "order_code": "00002" }
+          },
+          {
+            "description": "Third number padded to 5 digits",
+            "executeQuery": "SELECT order_code FROM orders WHERE id = 3",
+            "expected": { "order_code": "00003" }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-AUTONUMBER-DIGITS-002",
-      "given": "user provides digits below 1",
-      "when": "validating input",
-      "then": "error should enforce minimum value"
+      "given": "autonumber field with digits=1 (minimum padding)",
+      "when": "generated column formats number with LPAD",
+      "then": "PostgreSQL LPAD uses 1 digit (no padding for single-digit numbers)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, task_num SERIAL NOT NULL, task_code VARCHAR(50) GENERATED ALWAYS AS (LPAD(task_num::TEXT, 1, '0')) STORED)",
+            "INSERT INTO tasks (id) VALUES (DEFAULT), (DEFAULT), (DEFAULT), (DEFAULT), (DEFAULT), (DEFAULT), (DEFAULT), (DEFAULT), (DEFAULT), (DEFAULT)"
+          ],
+          "fieldConfig": {
+            "name": "task_code",
+            "type": "autonumber",
+            "digits": 1
+          }
+        },
+        "assertions": [
+          {
+            "description": "Single-digit number (5) has no padding",
+            "executeQuery": "SELECT task_code FROM tasks WHERE id = 5",
+            "expected": { "task_code": "5" }
+          },
+          {
+            "description": "Double-digit number (10) exceeds padding but still displayed",
+            "executeQuery": "SELECT task_code FROM tasks WHERE id = 10",
+            "expected": { "task_code": "10" }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-AUTONUMBER-DIGITS-003",
-      "given": "user provides digits above 10",
-      "when": "validating input",
-      "then": "error should enforce maximum value"
+      "given": "autonumber field with digits=10 (maximum padding)",
+      "when": "generated column formats number with LPAD",
+      "then": "PostgreSQL LPAD pads numbers to 10 digits with leading zeros",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE invoices (id SERIAL PRIMARY KEY, invoice_num SERIAL NOT NULL, invoice_code VARCHAR(50) GENERATED ALWAYS AS (LPAD(invoice_num::TEXT, 10, '0')) STORED)",
+            "INSERT INTO invoices (id) VALUES (DEFAULT)"
+          ],
+          "fieldConfig": {
+            "name": "invoice_code",
+            "type": "autonumber",
+            "digits": 10
+          }
+        },
+        "assertions": [
+          {
+            "description": "Number padded to 10 digits (maximum)",
+            "executeQuery": "SELECT invoice_code FROM invoices WHERE id = 1",
+            "expected": { "invoice_code": "0000000001" }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-AUTONUMBER-DIGITS-004",
+      "given": "autonumber field with default digits=3 (not specified)",
+      "when": "generated column formats number with default LPAD",
+      "then": "PostgreSQL LPAD defaults to 3 digits with leading zeros",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tickets (id SERIAL PRIMARY KEY, ticket_num SERIAL NOT NULL, ticket_code VARCHAR(50) GENERATED ALWAYS AS (LPAD(ticket_num::TEXT, 3, '0')) STORED)",
+            "INSERT INTO tickets (id) VALUES (DEFAULT), (DEFAULT)"
+          ],
+          "fieldConfig": {
+            "name": "ticket_code",
+            "type": "autonumber"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Default 3-digit padding applied",
+            "executeQuery": "SELECT ticket_code FROM tickets WHERE id = 1",
+            "expected": { "ticket_code": "001" }
+          },
+          {
+            "description": "Second number with 3-digit padding",
+            "executeQuery": "SELECT ticket_code FROM tickets WHERE id = 2",
+            "expected": { "ticket_code": "002" }
+          }
+        ]
+      }
     }
   ]
 }
