@@ -134,7 +134,7 @@ function hasSectionScrollInteraction(section: SectionItem): boolean {
 
   // Recursively check children if they exist
   if ('children' in section && Array.isArray(section.children)) {
-    return section.children.some((child) => hasSectionScrollInteraction(child))
+    return section.children.some((child: SectionItem) => hasSectionScrollInteraction(child))
   }
 
   return false
