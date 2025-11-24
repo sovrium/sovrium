@@ -209,16 +209,63 @@ function renderChildren(
 }
 
 /**
+ * Map breakpoints to Tailwind visibility classes
+ */
+const BREAKPOINT_VISIBILITY_CLASSES: Record<string, string> = {
+  mobile: 'lg:hidden', // Show only on mobile (hide on lg and above)
+  lg: 'max-lg:hidden', // Show only on desktop lg+ (hide below lg)
+  md: 'max-md:hidden lg:hidden', // Show only on md (hide below md and on lg+)
+  sm: 'max-sm:hidden md:hidden', // Show only on sm (hide below sm and on md+)
+  xl: 'max-xl:hidden', // Show only on xl+ (hide below xl)
+  '2xl': 'max-2xl:hidden', // Show only on 2xl+ (hide below 2xl)
+} as const
+
+/**
+ * Renders a single responsive child with visibility class
+ */
+function renderResponsiveChild(
+  child: Component | string,
+  breakpoint: string,
+  index: number,
+  visibilityClass: string,
+  props: ComponentRendererProps
+): ReactElement {
+  if (typeof child === 'string') {
+    return (
+      <span
+        key={`${breakpoint}-${index}`}
+        className={visibilityClass}
+      >
+        {resolveChildTranslation(child, props.currentLang, props.languages)}
+      </span>
+    )
+  }
+
+  const childWithVisibility: Component = {
+    ...child,
+    props: {
+      ...child.props,
+      className: child.props?.className
+        ? `${child.props.className} ${visibilityClass}`
+        : visibilityClass,
+    },
+  }
+
+  return (
+    <ComponentRenderer
+      key={`${breakpoint}-${index}`}
+      component={childWithVisibility}
+      blocks={props.blocks}
+      theme={props.theme}
+      languages={props.languages}
+      currentLang={props.currentLang}
+      childIndex={index}
+    />
+  )
+}
+
+/**
  * Renders responsive children with CSS-based visibility
- *
- * When a component has responsive.{breakpoint}.children, this function renders
- * all breakpoint children variants and uses Tailwind CSS classes to show/hide them
- * based on viewport. This approach works without JavaScript and is reliable in tests.
- *
- * @param responsive - Responsive configuration with children overrides
- * @param baseChildren - Base children (fallback)
- * @param props - Component renderer props
- * @returns Rendered children with responsive visibility classes
  */
 function renderResponsiveChildren(
   responsive: Responsive | undefined,
@@ -229,7 +276,6 @@ function renderResponsiveChildren(
     return renderChildren(baseChildren, props)
   }
 
-  // Check if any breakpoint has children overrides
   const hasResponsiveChildren = Object.values(responsive).some(
     (overrides) => overrides.children !== undefined
   )
@@ -238,84 +284,25 @@ function renderResponsiveChildren(
     return renderChildren(baseChildren, props)
   }
 
-  // Collect all breakpoint children variants
-  const breakpointChildren: Array<{
-    breakpoint: string
-    children: ReadonlyArray<Component | string>
-  }> = []
+  // Collect breakpoint children with visibility classes
+  const breakpointChildren = Object.entries(responsive)
+    .filter(([, overrides]) => overrides.children !== undefined)
+    .map(([breakpoint, overrides]) => ({
+      breakpoint,
+      children: overrides.children!,
+      visibilityClass: BREAKPOINT_VISIBILITY_CLASSES[breakpoint] || '',
+    }))
 
-  // Map breakpoints to Tailwind visibility classes
-  const breakpointClasses: Record<string, string> = {
-    mobile: 'lg:hidden', // Show only on mobile (hide on lg and above)
-    lg: 'max-lg:hidden', // Show only on desktop lg+ (hide below lg)
-    md: 'max-md:hidden lg:hidden', // Show only on md (hide below md and on lg+)
-    sm: 'max-sm:hidden md:hidden', // Show only on sm (hide below sm and on md+)
-    xl: 'max-xl:hidden', // Show only on xl+ (hide below xl)
-    '2xl': 'max-2xl:hidden', // Show only on 2xl+ (hide below 2xl)
-  }
-
-  // Collect children for each breakpoint
-  for (const [breakpoint, overrides] of Object.entries(responsive)) {
-    if (overrides.children) {
-      breakpointChildren.push({
-        breakpoint,
-        children: overrides.children,
-      })
-    }
-  }
-
-  // If no breakpoint children found, fall back to base children
   if (breakpointChildren.length === 0) {
     return renderChildren(baseChildren, props)
   }
 
-  // Render all breakpoint children with visibility classes
-  const allRenderedChildren: ReactElement[] = []
-
-  for (const { breakpoint, children } of breakpointChildren) {
-    const visibilityClass = breakpointClasses[breakpoint] || ''
-
-    for (let index = 0; index < children.length; index++) {
-      const child = children[index]
-
-      if (typeof child === 'string') {
-        // String children - wrap in span with visibility class
-        allRenderedChildren.push(
-          <span
-            key={`${breakpoint}-${index}`}
-            className={visibilityClass}
-          >
-            {resolveChildTranslation(child, props.currentLang, props.languages)}
-          </span>
-        )
-      } else {
-        // Component children - add visibility class to component props
-        const childWithVisibility: Component = {
-          ...child,
-          props: {
-            ...child.props,
-            className: child.props?.className
-              ? `${child.props.className} ${visibilityClass}`
-              : visibilityClass,
-          },
-        }
-
-        allRenderedChildren.push(
-          <ComponentRenderer
-            key={`${breakpoint}-${index}`}
-            component={childWithVisibility}
-            blocks={props.blocks}
-            theme={props.theme}
-            languages={props.languages}
-            currentLang={props.currentLang}
-            childIndex={index}
-          />
-        )
-      }
-    }
-  }
-
-  return allRenderedChildren
+  // Render all children with visibility classes (functional approach)
+  return breakpointChildren.flatMap(({ breakpoint, children, visibilityClass }) =>
+    children.map((child, index) =>
+      renderResponsiveChild(child, breakpoint, index, visibilityClass, props)
+    )
+  )
 }
 
 /**
