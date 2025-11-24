@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useSyncExternalStore } from 'react'
+import { useState, useEffect } from 'react'
 
 /**
  * Breakpoint type matching responsive schema
@@ -24,27 +24,21 @@ const BREAKPOINTS: Record<Exclude<Breakpoint, 'mobile'>, number> = {
 }
 
 /**
- * Gets current viewport width (works in both normal browsers and test environments)
+ * Gets current viewport width from multiple sources
  *
- * Prioritizes document.documentElement.clientWidth for Playwright compatibility
+ * Playwright's setViewportSize() updates document.documentElement.clientWidth
+ * but may not update window.innerWidth immediately. Try multiple sources.
  *
- * @returns Viewport width in pixels
+ * @returns Current viewport width in pixels
  */
 function getViewportWidth(): number {
-  // Use document.documentElement.clientWidth first (most reliable in Playwright)
-  if (typeof document !== 'undefined' && document.documentElement) {
-    return document.documentElement.clientWidth
-  }
-  // Try visualViewport (reliable in some browsers/test environments)
-  if (typeof window !== 'undefined' && window.visualViewport?.width) {
-    return window.visualViewport.width
-  }
-  // Fallback to innerWidth
-  if (typeof window !== 'undefined' && window.innerWidth) {
-    return window.innerWidth
-  }
-  // Last resort fallback
-  return 0
+  // Try multiple sources for maximum compatibility
+  return (
+    document.documentElement.clientWidth ||
+    document.body.clientWidth ||
+    window.innerWidth ||
+    0
+  )
 }
 
 /**
@@ -63,93 +57,51 @@ function getBreakpoint(width: number): Breakpoint {
 }
 
 /**
- * Subscribe to viewport breakpoint changes
- *
- * @param callback - Callback to invoke when breakpoint changes
- * @returns Unsubscribe function
- */
-function subscribe(callback: () => void): () => void {
-  if (typeof window === 'undefined') return () => {}
-
-  // Call callback immediately to ensure we have the latest viewport state
-  // This is important for detecting viewport changes that happened before subscription
-  callback()
-
-  // Listen to resize events
-  window.addEventListener('resize', callback)
-
-  // Create media query listeners for each breakpoint
-  const mediaQueries = [
-    window.matchMedia(`(min-width: ${BREAKPOINTS.sm}px)`),
-    window.matchMedia(`(min-width: ${BREAKPOINTS.md}px)`),
-    window.matchMedia(`(min-width: ${BREAKPOINTS.lg}px)`),
-    window.matchMedia(`(min-width: ${BREAKPOINTS.xl}px)`),
-    window.matchMedia(`(min-width: ${BREAKPOINTS['2xl']}px)`),
-  ]
-
-  mediaQueries.forEach((mq) => {
-    // Modern API
-    if (mq.addEventListener) {
-      mq.addEventListener('change', callback)
-    } else {
-      // Legacy API fallback
-      mq.addListener(callback)
-    }
-  })
-
-  // Listen to visualViewport resize (more reliable in some environments)
-  window.visualViewport?.addEventListener('resize', callback)
-
-  // Poll for viewport changes (for E2E tests where events might not fire)
-  // This ensures responsive behavior works in automated testing environments
-  // Using 16ms (one frame at 60fps) for fastest possible detection
-  const pollInterval = setInterval(callback, 16)
-
-  return () => {
-    window.removeEventListener('resize', callback)
-    mediaQueries.forEach((mq) => {
-      if (mq.removeEventListener) {
-        mq.removeEventListener('change', callback)
-      } else {
-        mq.removeListener(callback)
-      }
-    })
-    window.visualViewport?.removeEventListener('resize', callback)
-    clearInterval(pollInterval)
-  }
-}
-
-/**
- * Get current breakpoint snapshot
- *
- * @returns Current breakpoint based on viewport width
- */
-function getSnapshot(): Breakpoint {
-  if (typeof window === 'undefined') return 'mobile'
-  return getBreakpoint(getViewportWidth())
-}
-
-/**
- * Get server-side breakpoint (always mobile for SSR)
- *
- * @returns Mobile breakpoint
- */
-function getServerSnapshot(): Breakpoint {
-  return 'mobile'
-}
-
-/**
  * Hook to detect current viewport breakpoint
  *
  * Returns the current breakpoint based on window width.
  * Updates automatically when viewport is resized.
- * Uses useSyncExternalStore for reliable external state synchronization.
  *
- * Uses matchMedia to detect breakpoint changes reliably, which works with
- * both user-initiated resizes and programmatic viewport changes (e.g., Playwright's setViewportSize).
+ * Uses multiple detection methods for maximum compatibility:
+ * 1. ResizeObserver on document.body (works with Playwright setViewportSize)
+ * 2. Window resize events (production fallback)
+ * 3. Polling (final fallback for edge cases)
  *
  * @returns Current breakpoint name
  */
 export function useBreakpoint(): Breakpoint {
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+  const [breakpoint, setBreakpoint] = useState<Breakpoint>(() =>
+    typeof window !== 'undefined' ? getBreakpoint(getViewportWidth()) : 'mobile'
+  )
+
+  useEffect(() => {
+    const updateBreakpoint = () => {
+      const width = getViewportWidth()
+      const newBreakpoint = getBreakpoint(width)
+      setBreakpoint((prev) => (prev !== newBreakpoint ? newBreakpoint : prev))
+    }
+
+    // Initial update
+    updateBreakpoint()
+
+    // Method 1: ResizeObserver on document.documentElement (detects Playwright viewport changes)
+    const resizeObserver = new ResizeObserver(() => {
+      updateBreakpoint()
+    })
+    resizeObserver.observe(document.documentElement)
+
+    // Method 2: Window resize events (production fallback)
+    window.addEventListener('resize', updateBreakpoint)
+
+    // Method 3: Aggressive polling (10ms for Playwright compatibility)
+    const pollInterval = setInterval(updateBreakpoint, 10)
+
+    return () => {
+      resizeObserver.disconnect()
+      window.removeEventListener('resize', updateBreakpoint)
+      clearInterval(pollInterval)
+    }
+  }, [])
+
+  return breakpoint
 }

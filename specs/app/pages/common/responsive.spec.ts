@@ -430,7 +430,7 @@ test.describe('Responsive Variants', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-RESPONSIVE-009: all three override types should apply simultaneously at each breakpoint',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
