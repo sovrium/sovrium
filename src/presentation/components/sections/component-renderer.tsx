@@ -15,8 +15,10 @@ import { extractBlockReference, renderBlockReferenceError } from './blocks/block
 import { resolveBlock } from './blocks/block-resolution'
 import { buildComponentProps } from './props/component-builder'
 import { dispatchComponentType } from './rendering/component-type-dispatcher'
-import { applyResponsiveOverrides, buildResponsiveClasses } from './responsive/responsive-resolver'
-import { buildHoverData } from './styling/hover-interaction-handler'
+import { buildResponsiveContentVariants } from './responsive/responsive-content-builder'
+import { mergeResponsiveProps } from './responsive/responsive-props-merger'
+import { buildInteractionProps } from './styling/interaction-props-builder'
+import { resolveI18nContent } from './translations/i18n-content-resolver'
 import { resolveChildTranslation } from './translations/translation-handler'
 import type {
   BlockReference,
@@ -24,7 +26,7 @@ import type {
 } from '@/domain/models/app/block/common/block-reference'
 import type { Blocks } from '@/domain/models/app/blocks'
 import type { Languages } from '@/domain/models/app/languages'
-import type { Responsive, VariantOverrides } from '@/domain/models/app/page/common/responsive'
+import type { VariantOverrides } from '@/domain/models/app/page/common/responsive'
 import type { Component } from '@/domain/models/app/page/sections'
 import type { Theme } from '@/domain/models/app/theme'
 
@@ -74,111 +76,6 @@ function renderBlockReference(
 }
 
 /**
- * Merges hover attributes into element props
- *
- * @param elementProps - Base element props
- * @param hoverData - Hover data with attributes
- * @returns Element props with hover attributes merged
- */
-function mergeHoverAttributes(
-  elementProps: Record<string, unknown>,
-  hoverData: { readonly attributes: Record<string, string> } | undefined
-): Record<string, unknown> {
-  return hoverData ? { ...elementProps, ...hoverData.attributes } : elementProps
-}
-
-/**
- * Builds i18n content data attribute for client-side language switching (functional approach)
- *
- * Extracts content translations from i18n object and serializes to JSON.
- * Includes default language content as fallback.
- *
- * @param i18n - Component i18n translations object
- * @param defaultContent - Default content for base language
- * @param defaultLang - Default language code
- * @returns JSON-stringified i18n content data or undefined if no translations
- */
-function buildI18nContentAttribute(
-  i18n: Record<string, unknown>,
-  defaultContent: string,
-  defaultLang: string | undefined
-): string | undefined {
-  // Extract content from i18n object using functional approach (reduce instead of for loop)
-  const i18nContentData = Object.entries(i18n).reduce<Record<string, string>>(
-    (acc, [lang, value]) => {
-      if (typeof value === 'object' && value !== null && 'content' in value && value.content) {
-        return { ...acc, [lang]: value.content as string }
-      }
-      return acc
-    },
-    {}
-  )
-
-  // Add default language content if not already present
-  const contentWithDefault =
-    defaultLang && !i18nContentData[defaultLang]
-      ? { ...i18nContentData, [defaultLang]: defaultContent }
-      : i18nContentData
-
-  // Only return attribute if there are translations
-  return Object.keys(contentWithDefault).length > 0 ? JSON.stringify(contentWithDefault) : undefined
-}
-
-/**
- * Resolves component content with i18n priority
- *
- * Priority: component.i18n[lang].content > $t: pattern > content
- *
- * @param content - Base content string
- * @param i18n - Component i18n translations
- * @param currentLang - Current language code
- * @param languages - Languages configuration
- * @returns Resolved content string
- */
-function resolveComponentContent(
-  content: string | Record<string, unknown> | undefined,
-  i18n: Record<string, unknown> | undefined,
-  currentLang: string | undefined,
-  languages: Languages | undefined
-): string | undefined {
-  // If content is an object (structured content like { button: {...} }), return undefined
-  // The component renderer will handle structured content directly
-  if (content && typeof content === 'object') {
-    return undefined
-  }
-
-  if (i18n && currentLang) {
-    const langData = i18n[currentLang]
-    if (
-      langData &&
-      typeof langData === 'object' &&
-      'content' in langData &&
-      typeof langData.content === 'string'
-    ) {
-      return langData.content
-    }
-  }
-  if (content) {
-    return resolveChildTranslation(content, currentLang, languages)
-  }
-  return content
-}
-
-/**
- * Builds final element props with i18n data attribute
- *
- * @param baseProps - Base element props
- * @param i18nAttribute - Optional i18n content JSON string
- * @returns Element props with i18n data merged if present
- */
-function buildFinalElementProps(
-  baseProps: Record<string, unknown>,
-  i18nAttribute: string | undefined
-): Record<string, unknown> {
-  return i18nAttribute ? { ...baseProps, 'data-i18n-content': i18nAttribute } : baseProps
-}
-
-/**
  * Renders children recursively
  *
  * @param children - Child components or strings
@@ -206,96 +103,6 @@ function renderChildren(
       />
     )
   ) as ReactElement[]
-}
-
-/**
- * Breakpoint to Tailwind visibility class mapping
- *
- * Maps each breakpoint to appropriate Tailwind classes for showing/hiding content
- * Uses block display to ensure proper hiding with display: none
- *
- * Strategy: Each breakpoint span is shown ONLY at its specific breakpoint range
- * - mobile: visible <640px, hidden ≥640px
- * - sm: hidden <640px, visible 640-767px, hidden ≥768px
- * - md: hidden <768px, visible 768-1023px, hidden ≥1024px
- * - lg: hidden <1024px, visible 1024-1279px, hidden ≥1280px
- * - xl: hidden <1280px, visible 1280-1535px, hidden ≥1536px
- * - 2xl: hidden <1536px, visible ≥1536px
- */
-const BREAKPOINT_VISIBILITY: Record<string, { show: string; hide: string }> = {
-  mobile: { show: 'block sm:hidden', hide: 'hidden' },
-  sm: { show: 'hidden sm:block md:hidden', hide: 'hidden sm:hidden' },
-  md: { show: 'hidden md:block lg:hidden', hide: 'hidden md:hidden' },
-  lg: { show: 'hidden lg:block xl:hidden', hide: 'hidden lg:hidden' },
-  xl: { show: 'hidden xl:block 2xl:hidden', hide: 'hidden xl:hidden' },
-  '2xl': { show: 'hidden 2xl:block', hide: 'hidden 2xl:hidden' },
-}
-
-/**
- * Builds responsive content variants using CSS-based approach (nested span strategy)
- *
- * Renders a single wrapper element with nested span elements for each breakpoint's content.
- * Each span is shown/hidden via Tailwind visibility classes based on viewport width.
- *
- * This approach works reliably in E2E tests because:
- * - Single parent element (avoids Playwright strict mode violations)
- * - Nested spans with responsive visibility (inline elements for text concatenation)
- * - CSS media queries control visibility (display: none via Tailwind)
- * - Playwright's toHaveText() only reads visible span's textContent
- *
- * Example output:
- * <h1>
- *   <span className="inline sm:hidden">Mobile!</span>
- *   <span className="hidden md:inline lg:hidden">Tablet Welcome</span>
- *   <span className="hidden lg:inline">Desktop Welcome</span>
- * </h1>
- *
- * @param responsive - Responsive configuration
- * @param type - Component type (e.g., 'heading', 'text')
- * @param elementProps - Element props for the wrapper
- * @param elementPropsWithSpacing - Element props with spacing
- * @returns ReactElement with nested responsive content spans
- */
-function buildResponsiveContentVariants(
-  responsive: Responsive,
-  type: string,
-  elementProps: Record<string, unknown>,
-  elementPropsWithSpacing: Record<string, unknown>
-): ReactElement {
-  // Collect all breakpoints with content overrides
-  const breakpointsWithContent = Object.entries(responsive)
-    .filter(([, overrides]) => overrides.content !== undefined)
-    .map(([bp, overrides]) => ({ breakpoint: bp, content: overrides.content! }))
-
-  // Build nested span elements with responsive visibility classes
-  // Each span is hidden/shown using BOTH CSS (Tailwind) and aria-hidden for full compatibility
-  const contentSpans = breakpointsWithContent.map(({ breakpoint, content: variantContent }) => {
-    const visibilityClass = BREAKPOINT_VISIBILITY[breakpoint]?.show || 'inline'
-
-    // Use data attribute to track which breakpoint this span represents
-    // This helps with debugging and ensures each span is uniquely identifiable
-    return (
-      <span
-        key={breakpoint}
-        className={visibilityClass}
-        data-responsive-breakpoint={breakpoint}
-      >
-        {variantContent}
-      </span>
-    )
-  })
-
-  // Dispatch the wrapper component with nested content spans as children
-  return dispatchComponentType({
-    type,
-    elementProps,
-    elementPropsWithSpacing,
-    content: undefined,
-    renderedChildren: contentSpans as readonly ReactElement[],
-    theme: undefined,
-    languages: undefined,
-    interactions: undefined,
-  })
 }
 
 /**
@@ -328,81 +135,18 @@ function RenderDirectComponent({
   const uniqueId = useId()
   const currentBreakpoint = useBreakpoint()
 
-  // Apply responsive overrides for current breakpoint (used for SSR initial render)
-  const responsiveOverrides = applyResponsiveOverrides(responsive, currentBreakpoint)
-
-  // Build CSS-based responsive classes (works without JavaScript via Tailwind media queries)
-  const baseClassName = componentProps?.className as string | undefined
-  const responsiveClassName = buildResponsiveClasses(responsive, baseClassName)
-
-  // Merge responsive overrides with base component values
-  // For className, use CSS-based responsive classes instead of JS-based overrides
-  const mergedPropsWithoutClassName: Record<string, unknown> | undefined =
-    responsiveOverrides?.props
-      ? Object.entries({ ...componentProps, ...responsiveOverrides.props })
-          .filter(([key]) => key !== 'className')
-          .reduce<Record<string, unknown>>((acc, [key, value]) => ({ ...acc, [key]: value }), {})
-      : componentProps
-        ? Object.entries(componentProps)
-            .filter(([key]) => key !== 'className')
-            .reduce<Record<string, unknown>>((acc, [key, value]) => ({ ...acc, [key]: value }), {})
-        : undefined
-
-  const mergedProps: Record<string, unknown> | undefined = responsiveClassName
-    ? { ...mergedPropsWithoutClassName, className: responsiveClassName }
-    : mergedPropsWithoutClassName
-
-  const mergedChildren = responsiveOverrides?.children ?? children
-  const mergedContent = responsiveOverrides?.content ?? content
-
-  // Build CSS classes for responsive visibility using Tailwind breakpoint utilities
-  // This works without JavaScript by using CSS media queries
-  // Strategy: Convert responsive visibility config into appropriate Tailwind classes
-  const responsiveVisibilityClasses = responsive
-    ? (() => {
-        const visibilityConfig = (Object.entries(responsive) as [string, VariantOverrides][])
-          .filter(([, overrides]) => overrides.visible !== undefined)
-          .reduce<Record<string, boolean>>((acc, [bp, overrides]) => {
-            return { ...acc, [bp]: overrides.visible! }
-          }, {})
-
-        // For mobile:false + lg:true pattern, use max-lg:hidden
-        if (visibilityConfig.mobile === false && visibilityConfig.lg === true) {
-          return 'max-lg:hidden'
-        }
-
-        // For mobile:true + lg:false pattern, use lg:hidden
-        if (visibilityConfig.mobile === true && visibilityConfig.lg === false) {
-          return 'lg:hidden'
-        }
-
-        // Default fallback: build individual responsive classes
-        return Object.entries(visibilityConfig)
-          .map(([bp, isVisible]) => {
-            if (bp === 'mobile') {
-              return isVisible ? '' : 'max-sm:hidden'
-            }
-            return isVisible ? `${bp}:inline` : `${bp}:hidden`
-          })
-          .filter(Boolean)
-          .join(' ')
-      })()
-    : undefined
-
-  const mergedPropsWithVisibility = responsiveVisibilityClasses
-    ? {
-        ...mergedProps,
-        className: mergedProps?.className
-          ? `${mergedProps.className} ${responsiveVisibilityClasses}`
-          : responsiveVisibilityClasses,
-      }
-    : mergedProps
+  // Merge responsive props using extracted module
+  const {
+    mergedProps: mergedPropsWithVisibility,
+    mergedChildren,
+    mergedContent,
+  } = mergeResponsiveProps(responsive, componentProps, children, content, currentBreakpoint)
 
   const { elementProps, elementPropsWithSpacing } = buildComponentProps({
     type,
     props: mergedPropsWithVisibility,
     children: mergedChildren,
-    content: mergedContent,
+    content: typeof mergedContent === 'string' ? mergedContent : undefined,
     blockName: props.blockName,
     blockInstanceIndex: props.blockInstanceIndex,
     theme: props.theme,
@@ -412,28 +156,23 @@ function RenderDirectComponent({
     interactions,
   })
 
-  const hoverData = buildHoverData(interactions?.hover, uniqueId)
-  const baseElementProps = mergeHoverAttributes(elementProps, hoverData)
-  const baseElementPropsWithSpacing = mergeHoverAttributes(elementPropsWithSpacing, hoverData)
+  // Build interaction props using extracted module
+  const {
+    finalElementProps: interactionElementProps,
+    finalElementPropsWithSpacing: interactionElementPropsWithSpacing,
+    hoverData,
+  } = buildInteractionProps(interactions, uniqueId, elementProps, elementPropsWithSpacing)
+
   const baseRenderedChildren = renderChildren(mergedChildren, props)
 
-  // Resolve content with i18n priority: component.i18n[lang].content > $t: pattern > content
-  const resolvedContent = resolveComponentContent(
+  // Resolve i18n content using extracted module
+  const { resolvedContent, finalElementProps, finalElementPropsWithSpacing } = resolveI18nContent(
     mergedContent,
     i18n,
     props.currentLang,
-    props.languages
-  )
-
-  // Build i18n content data attribute and merge into element props (functional approach)
-  const i18nContentAttribute =
-    i18n && mergedContent
-      ? buildI18nContentAttribute(i18n, mergedContent, props.languages?.default)
-      : undefined
-  const finalElementProps = buildFinalElementProps(baseElementProps, i18nContentAttribute)
-  const finalElementPropsWithSpacing = buildFinalElementProps(
-    baseElementPropsWithSpacing,
-    i18nContentAttribute
+    props.languages,
+    interactionElementProps,
+    interactionElementPropsWithSpacing
   )
 
   // Check if component has meta property with structured data
@@ -447,7 +186,10 @@ function RenderDirectComponent({
 
   // Check if component has responsive content overrides
   const hasResponsiveContent =
-    responsive && Object.values(responsive).some((override) => override.content !== undefined)
+    responsive &&
+    Object.values(responsive).some(
+      (override) => (override as VariantOverrides).content !== undefined
+    )
 
   // Use CSS-based responsive content variants for SSR compatibility
   if (hasResponsiveContent) {
@@ -475,7 +217,12 @@ function RenderDirectComponent({
     type,
     elementProps: finalElementProps,
     elementPropsWithSpacing: finalElementPropsWithSpacing,
-    content: resolvedContent !== undefined ? resolvedContent : mergedContent,
+    content:
+      resolvedContent !== undefined
+        ? resolvedContent
+        : typeof mergedContent === 'string'
+          ? mergedContent
+          : undefined,
     renderedChildren,
     theme: props.theme,
     languages: props.languages,
