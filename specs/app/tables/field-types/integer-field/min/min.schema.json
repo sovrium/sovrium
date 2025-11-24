@@ -7,15 +7,120 @@
   "x-specs": [
     {
       "id": "APP-FIELD-INTEGER-MIN-001",
-      "given": "user provides min",
-      "when": "validating input",
-      "then": "numeric value should be accepted"
+      "given": "integer field with min: 0",
+      "when": "field migration creates CHECK constraint",
+      "then": "PostgreSQL rejects values below minimum",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, stock INTEGER CHECK (stock >= 0))",
+            "INSERT INTO products (stock) VALUES (0), (10), (100)"
+          ],
+          "fieldConfig": {
+            "name": "stock",
+            "type": "integer",
+            "min": 0
+          }
+        },
+        "assertions": [
+          {
+            "description": "CHECK constraint exists for min value",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%stock%' AND check_clause LIKE '%>= 0%'",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "Value at minimum (0) accepted",
+            "executeQuery": "SELECT stock FROM products WHERE stock = 0",
+            "expected": { "stock": 0 }
+          },
+          {
+            "description": "Value below minimum rejected",
+            "executeQuery": "INSERT INTO products (stock) VALUES (-1)",
+            "expectError": "violates check constraint"
+          },
+          {
+            "description": "Value above minimum accepted",
+            "executeQuery": "INSERT INTO products (stock) VALUES (50) RETURNING stock",
+            "expected": { "stock": 50 }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-INTEGER-MIN-002",
-      "given": "user provides non-numeric min",
-      "when": "validating input",
-      "then": "error should require number"
+      "given": "integer field with min: 18 (age restriction)",
+      "when": "INSERT with value below min",
+      "then": "PostgreSQL CHECK constraint rejects value",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255), age INTEGER CHECK (age >= 18))",
+            "INSERT INTO users (name, age) VALUES ('Alice', 25)"
+          ],
+          "fieldConfig": {
+            "name": "age",
+            "type": "integer",
+            "min": 18
+          }
+        },
+        "assertions": [
+          {
+            "description": "CHECK constraint enforces min age 18",
+            "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%age%'",
+            "expected": { "check_clause": "(age >= 18)" }
+          },
+          {
+            "description": "Age 18 (exact minimum) accepted",
+            "executeQuery": "INSERT INTO users (name, age) VALUES ('Bob', 18) RETURNING age",
+            "expected": { "age": 18 }
+          },
+          {
+            "description": "Age 17 (below minimum) rejected",
+            "executeQuery": "INSERT INTO users (name, age) VALUES ('Charlie', 17)",
+            "expectError": "violates check constraint"
+          },
+          {
+            "description": "Age 65 (above minimum) accepted",
+            "executeQuery": "INSERT INTO users (name, age) VALUES ('Diana', 65) RETURNING age",
+            "expected": { "age": 65 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-INTEGER-MIN-003",
+      "given": "integer field with no min specified",
+      "when": "any integer value inserted",
+      "then": "PostgreSQL accepts all INTEGER range values",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE readings (id SERIAL PRIMARY KEY, temperature INTEGER)",
+            "INSERT INTO readings (temperature) VALUES (-273), (0), (100)"
+          ],
+          "fieldConfig": {
+            "name": "temperature",
+            "type": "integer"
+          }
+        },
+        "assertions": [
+          {
+            "description": "No CHECK constraint for min",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%temperature%'",
+            "expected": { "count": 0 }
+          },
+          {
+            "description": "Negative values accepted",
+            "executeQuery": "SELECT temperature FROM readings WHERE temperature = -273",
+            "expected": { "temperature": -273 }
+          },
+          {
+            "description": "Very low value accepted (within INTEGER range)",
+            "executeQuery": "INSERT INTO readings (temperature) VALUES (-2147483648) RETURNING temperature",
+            "expected": { "temperature": -2147483648 }
+          }
+        ]
+      }
     }
   ]
 }
