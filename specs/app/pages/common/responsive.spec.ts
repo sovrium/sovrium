@@ -377,7 +377,7 @@ test.describe('Responsive Variants', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-RESPONSIVE-008: each breakpoint should override the previous, creating progressive enhancement',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
