@@ -226,7 +226,7 @@ test.describe('Client Scripts Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SCRIPTS-008: should enable feature-driven configuration',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
