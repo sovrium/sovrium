@@ -384,7 +384,7 @@ test.describe('Block Reference', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-BLOCKS-REFERENCE-011: should enable same template to generate different instances',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

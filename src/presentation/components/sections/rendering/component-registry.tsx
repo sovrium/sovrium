@@ -275,6 +275,8 @@ export const COMPONENT_REGISTRY: Partial<Record<Component['type'], ComponentRend
   // Media elements
   image: ({ elementProps }) => Renderers.renderImage(elementProps),
 
+  img: ({ elementProps }) => Renderers.renderImage(elementProps),
+
   avatar: ({ elementProps }) => Renderers.renderAvatar(elementProps),
 
   thumbnail: ({ elementProps }) => Renderers.renderThumbnail(elementProps),
