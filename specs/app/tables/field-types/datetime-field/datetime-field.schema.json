@@ -60,52 +60,171 @@
   "x-specs": [
     {
       "id": "APP-FIELD-DATETIME-001",
-      "title": "Create record with valid datetime field",
-      "given": "a table with a datetime field",
-      "when": "user creates a record with a valid datetime value (ISO 8601)",
-      "then": "the record is created successfully with the datetime stored in UTC"
+      "given": "table configuration with datetime field 'scheduled_at'",
+      "when": "field migration creates column",
+      "then": "PostgreSQL TIMESTAMP WITH TIME ZONE column is created",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE events (id SERIAL PRIMARY KEY)",
+          "fieldConfig": { "id": 1, "name": "scheduled_at", "type": "datetime" }
+        },
+        "assertions": [
+          {
+            "description": "Column created as TIMESTAMP WITH TIME ZONE",
+            "executeQuery": "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='events' AND column_name='scheduled_at'",
+            "expected": {
+              "column_name": "scheduled_at",
+              "data_type": "timestamp with time zone",
+              "is_nullable": "YES"
+            }
+          },
+          {
+            "description": "ISO 8601 timestamp can be inserted",
+            "executeQuery": "INSERT INTO events (scheduled_at) VALUES ('2024-12-31T15:00:00Z') RETURNING scheduled_at",
+            "expected": { "scheduled_at": "2024-12-31T15:00:00+00:00" }
+          },
+          {
+            "description": "Timestamp with timezone offset supported",
+            "executeQuery": "INSERT INTO events (scheduled_at) VALUES ('2024-06-15T14:30:00-05:00') RETURNING scheduled_at",
+            "expected": { "scheduled_at": "2024-06-15T19:30:00+00:00" }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-DATETIME-002",
-      "title": "Reject invalid datetime format",
-      "given": "a table with a datetime field",
-      "when": "user provides a datetime in invalid format (e.g., '2024-12-31 10:30:00')",
-      "then": "validation error is returned with message 'DateTime must be in ISO 8601 format (YYYY-MM-DDTHH:mm:ss.sssZ)'"
+      "given": "table 'appointments' with datetime field 'appointment_time'",
+      "when": "timestamp range queries are performed",
+      "then": "PostgreSQL supports comparison and ordering with timezone awareness",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE appointments (id SERIAL PRIMARY KEY, appointment_time TIMESTAMPTZ)",
+            "INSERT INTO appointments (appointment_time) VALUES ('2024-01-15T09:00:00Z'), ('2024-06-30T14:30:00Z'), ('2024-12-31T23:59:59Z')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Find timestamps after specific datetime",
+            "executeQuery": "SELECT COUNT(*) as count FROM appointments WHERE appointment_time > '2024-06-01T00:00:00Z'",
+            "expected": { "count": 2 }
+          },
+          {
+            "description": "Find timestamps between range",
+            "executeQuery": "SELECT COUNT(*) as count FROM appointments WHERE appointment_time BETWEEN '2024-01-01T00:00:00Z' AND '2024-07-01T00:00:00Z'",
+            "expected": { "count": 2 }
+          },
+          {
+            "description": "Order by timestamp ascending",
+            "executeQuery": "SELECT appointment_time::TEXT FROM appointments ORDER BY appointment_time ASC LIMIT 1",
+            "expected": { "appointment_time": "2024-01-15 09:00:00+00" }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-DATETIME-003",
-      "title": "Display datetime in user timezone",
-      "given": "a datetime field with timezone 'America/New_York'",
-      "when": "user views a record with datetime '2024-12-31T15:00:00.000Z'",
-      "then": "the datetime is displayed as '12/31/2024 10:00 AM' (EST conversion)"
+      "given": "table 'logs' with datetime field 'logged_at' (required, unique)",
+      "when": "constraints are applied",
+      "then": "PostgreSQL enforces NOT NULL and UNIQUE constraints",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE logs (id SERIAL PRIMARY KEY, logged_at TIMESTAMPTZ UNIQUE NOT NULL)",
+            "INSERT INTO logs (logged_at) VALUES ('2024-01-01T10:00:00Z')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "NOT NULL constraint enforced",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='logs' AND column_name='logged_at'",
+            "expected": { "is_nullable": "NO" }
+          },
+          {
+            "description": "UNIQUE constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='logs' AND constraint_type='UNIQUE' AND constraint_name LIKE '%logged_at%'",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "Duplicate timestamp rejected",
+            "executeQuery": "INSERT INTO logs (logged_at) VALUES ('2024-01-01T10:00:00Z')",
+            "expectError": "duplicate key value violates unique constraint"
+          },
+          {
+            "description": "NULL timestamp insertion fails",
+            "executeQuery": "INSERT INTO logs (logged_at) VALUES (NULL)",
+            "expectError": "violates not-null constraint"
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-DATETIME-004",
-      "title": "Apply default value 'now' on record creation",
-      "given": "a datetime field with default value 'now'",
-      "when": "user creates a record without providing a datetime value",
-      "then": "the field is populated with the current UTC timestamp in ISO 8601 format"
+      "given": "table 'notifications' with datetime field 'sent_at' and default value NOW()",
+      "when": "row inserted without providing sent_at value",
+      "then": "PostgreSQL applies DEFAULT value as current timestamp",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE notifications (id SERIAL PRIMARY KEY, sent_at TIMESTAMPTZ DEFAULT NOW())",
+          "fieldConfig": {
+            "id": 1,
+            "name": "sent_at",
+            "type": "datetime",
+            "default": "now"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT value NOW()",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='notifications' AND column_name='sent_at'",
+            "expected": { "column_default": "now()" }
+          },
+          {
+            "description": "INSERT without sent_at uses current timestamp",
+            "executeQuery": "INSERT INTO notifications (id) VALUES (DEFAULT) RETURNING sent_at IS NOT NULL as has_timestamp",
+            "expected": { "has_timestamp": true }
+          },
+          {
+            "description": "Explicit value overrides default",
+            "executeQuery": "INSERT INTO notifications (sent_at) VALUES ('2024-01-01T00:00:00Z') RETURNING sent_at",
+            "expected": { "sent_at": "2024-01-01T00:00:00+00:00" }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-DATETIME-005",
-      "title": "Enforce required validation",
-      "given": "a required datetime field",
-      "when": "user attempts to create a record without providing a datetime value",
-      "then": "validation error is returned with message 'DateTime is required'"
-    },
-    {
-      "id": "APP-FIELD-DATETIME-006",
-      "title": "Handle DST transitions correctly",
-      "given": "a datetime field with timezone 'America/New_York'",
-      "when": "user views datetimes across DST boundary (March/November)",
-      "then": "the datetime is displayed with correct offset (EDT vs EST)"
-    },
-    {
-      "id": "APP-FIELD-DATETIME-007",
-      "title": "Support millisecond precision",
-      "given": "a table with a datetime field",
-      "when": "user creates a record with datetime '2024-12-31T15:00:00.123Z'",
-      "then": "the milliseconds (.123) are preserved in storage and retrieval"
+      "given": "table configuration with datetime field 'published_at', indexed=true",
+      "when": "index is created on the datetime field",
+      "then": "PostgreSQL btree index exists for fast timestamp queries",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE articles (id SERIAL PRIMARY KEY, published_at TIMESTAMPTZ NOT NULL)",
+            "CREATE INDEX idx_articles_published ON articles(published_at)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "published_at",
+            "type": "datetime",
+            "indexed": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists in pg_indexes",
+            "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_articles_published'",
+            "expected": { "indexname": "idx_articles_published", "tablename": "articles" }
+          },
+          {
+            "description": "Index uses btree for timestamp range queries",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_articles_published'",
+            "expected": {
+              "indexdef": "CREATE INDEX idx_articles_published ON public.articles USING btree (published_at)"
+            }
+          }
+        ]
+      }
     }
   ]
 }

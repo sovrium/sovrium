@@ -24,15 +24,172 @@
   "x-specs": [
     {
       "id": "APP-UPDATED-AT-FIELD-001",
-      "given": "entity with type='updated-at'",
-      "when": "processing configuration",
-      "then": "correct handler should be selected"
+      "given": "table configuration with updated-at field 'updated_at'",
+      "when": "field migration creates column with UPDATE trigger",
+      "then": "PostgreSQL TIMESTAMPTZ column with DEFAULT NOW() and trigger function is created",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "ALTER TABLE products ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
+            "CREATE OR REPLACE FUNCTION update_updated_at_column() RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql",
+            "CREATE TRIGGER set_updated_at BEFORE UPDATE ON products FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()"
+          ],
+          "fieldConfig": { "id": 1, "name": "updated_at", "type": "updated-at" }
+        },
+        "assertions": [
+          {
+            "description": "Column created as TIMESTAMPTZ with NOT NULL",
+            "executeQuery": "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='updated_at'",
+            "expected": {
+              "column_name": "updated_at",
+              "data_type": "timestamp with time zone",
+              "is_nullable": "NO"
+            }
+          },
+          {
+            "description": "Column has DEFAULT NOW()",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='products' AND column_name='updated_at'",
+            "expected": { "column_default": "now()" }
+          },
+          {
+            "description": "UPDATE trigger exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.triggers WHERE event_object_table='products' AND trigger_name='set_updated_at'",
+            "expected": { "count": 1 }
+          }
+        ]
+      }
     },
     {
       "id": "APP-UPDATED-AT-FIELD-002",
-      "given": "invalid type value",
-      "when": "validating configuration",
-      "then": "clear error message should identify the issue"
+      "given": "table 'documents' with updated-at field and trigger",
+      "when": "record is updated",
+      "then": "updated_at timestamp is automatically refreshed to current time",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE documents (id SERIAL PRIMARY KEY, title VARCHAR(255), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
+            "CREATE OR REPLACE FUNCTION update_updated_at_column() RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql",
+            "CREATE TRIGGER set_updated_at BEFORE UPDATE ON documents FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+            "INSERT INTO documents (title, updated_at) VALUES ('Initial Title', '2024-01-01T00:00:00Z')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Initial updated_at is set to past date",
+            "executeQuery": "SELECT updated_at FROM documents WHERE id = 1",
+            "expected": { "updated_at": "2024-01-01T00:00:00+00:00" }
+          },
+          {
+            "description": "UPDATE automatically refreshes updated_at to NOW()",
+            "executeQuery": "UPDATE documents SET title = 'Updated Title' WHERE id = 1 RETURNING updated_at > '2024-06-01T00:00:00Z' as is_recent",
+            "expected": { "is_recent": true }
+          },
+          {
+            "description": "updated_at is newer than original timestamp",
+            "executeQuery": "SELECT updated_at > '2024-01-01T00:00:00Z' as was_updated FROM documents WHERE id = 1",
+            "expected": { "was_updated": true }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-UPDATED-AT-FIELD-003",
+      "given": "table configuration with updated-at field, indexed=true",
+      "when": "index is created on the updated_at field",
+      "then": "PostgreSQL btree index exists for fast recency queries",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE pages (id SERIAL PRIMARY KEY, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
+            "CREATE INDEX idx_pages_updated ON pages(updated_at)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "updated_at",
+            "type": "updated-at",
+            "indexed": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists in pg_indexes",
+            "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_pages_updated'",
+            "expected": { "indexname": "idx_pages_updated", "tablename": "pages" }
+          },
+          {
+            "description": "Index uses btree for timestamp sorting",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_pages_updated'",
+            "expected": {
+              "indexdef": "CREATE INDEX idx_pages_updated ON public.pages USING btree (updated_at)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-UPDATED-AT-FIELD-004",
+      "given": "table 'tasks' with updated-at field",
+      "when": "querying recently modified records",
+      "then": "PostgreSQL supports efficient timestamp ordering and filtering",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, status VARCHAR(50), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
+            "INSERT INTO tasks (status, updated_at) VALUES ('pending', '2024-01-15T10:00:00Z'), ('in_progress', '2024-06-30T14:30:00Z'), ('completed', '2024-12-31T23:59:59Z')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Find recently updated records (last 7 days)",
+            "executeQuery": "SELECT COUNT(*) as count FROM tasks WHERE updated_at > NOW() - INTERVAL '7 days'",
+            "expected": { "count": 0 }
+          },
+          {
+            "description": "Order by most recently updated (descending)",
+            "executeQuery": "SELECT id FROM tasks ORDER BY updated_at DESC LIMIT 1",
+            "expected": { "id": 3 }
+          },
+          {
+            "description": "Find records updated after specific date",
+            "executeQuery": "SELECT COUNT(*) as count FROM tasks WHERE updated_at > '2024-06-01T00:00:00Z'",
+            "expected": { "count": 2 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-UPDATED-AT-FIELD-005",
+      "given": "table 'inventory' with updated-at field and trigger",
+      "when": "multiple updates occur on same record",
+      "then": "updated_at reflects the most recent modification timestamp",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE inventory (id SERIAL PRIMARY KEY, quantity INTEGER, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
+            "CREATE OR REPLACE FUNCTION update_updated_at_column() RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql",
+            "CREATE TRIGGER set_updated_at BEFORE UPDATE ON inventory FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+            "INSERT INTO inventory (quantity, updated_at) VALUES (100, '2024-01-01T00:00:00Z')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "First update refreshes timestamp",
+            "executeQuery": "UPDATE inventory SET quantity = 90 WHERE id = 1 RETURNING updated_at > '2024-01-01T00:00:00Z' as was_updated",
+            "expected": { "was_updated": true }
+          },
+          {
+            "description": "Second update refreshes timestamp again",
+            "executeQuery": "UPDATE inventory SET quantity = 80 WHERE id = 1 RETURNING updated_at > (SELECT updated_at FROM inventory WHERE id = 1) as is_newer",
+            "expected": { "is_newer": false }
+          },
+          {
+            "description": "updated_at always reflects most recent modification",
+            "executeQuery": "SELECT updated_at > '2024-06-01T00:00:00Z' as is_recent FROM inventory WHERE id = 1",
+            "expected": { "is_recent": true }
+          }
+        ]
+      }
     }
   ]
 }
