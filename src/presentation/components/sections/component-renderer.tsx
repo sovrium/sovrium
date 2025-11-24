@@ -238,9 +238,24 @@ function RenderDirectComponent({
   const mergedChildren = responsiveOverrides?.children ?? children
   const mergedContent = responsiveOverrides?.content ?? content
 
+  // Apply visibility styling - use display: none instead of returning null to support dynamic breakpoint changes
+  const isHidden = responsiveOverrides?.visible === false
+  const mergedPropsWithVisibility = isHidden
+    ? {
+        ...mergedProps,
+        'aria-hidden': 'true',
+        style: {
+          ...(typeof mergedProps?.style === 'object' && mergedProps?.style !== null
+            ? mergedProps.style
+            : {}),
+          display: 'none',
+        },
+      }
+    : mergedProps
+
   const { elementProps, elementPropsWithSpacing } = buildComponentProps({
     type,
-    props: mergedProps,
+    props: mergedPropsWithVisibility,
     children: mergedChildren,
     content: mergedContent,
     blockName: props.blockName,

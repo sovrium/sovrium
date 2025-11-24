@@ -109,7 +109,7 @@ test.describe('Responsive Variants', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-RESPONSIVE-003: component should be hidden on mobile and shown on large screens',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
