@@ -69,6 +69,9 @@ function getBreakpoint(width: number): Breakpoint {
  * Updates automatically when viewport is resized.
  * Uses multiple detection methods for maximum compatibility (including E2E tests).
  *
+ * Uses matchMedia to detect breakpoint changes reliably, which works with
+ * both user-initiated resizes and programmatic viewport changes (e.g., Playwright's setViewportSize).
+ *
  * @returns Current breakpoint name
  */
 export function useBreakpoint(): Breakpoint {
@@ -82,13 +85,13 @@ export function useBreakpoint(): Breakpoint {
       setBreakpoint((current) => (current !== newBreakpoint ? newBreakpoint : current))
     }
 
-    // Initial update on mount
+    // Force update on mount (fixes SSR hydration mismatch)
     updateBreakpoint()
 
     // Listen to resize events
     window.addEventListener('resize', updateBreakpoint)
 
-    // Also use matchMedia for reliable breakpoint detection
+    // Create media query listeners for each breakpoint
     const mediaQueries = [
       window.matchMedia(`(min-width: ${BREAKPOINTS.sm}px)`),
       window.matchMedia(`(min-width: ${BREAKPOINTS.md}px)`),
@@ -98,11 +101,16 @@ export function useBreakpoint(): Breakpoint {
     ]
 
     mediaQueries.forEach((mq) => {
-      mq.addEventListener('change', updateBreakpoint)
+      // Modern API
+      if (mq.addEventListener) {
+        mq.addEventListener('change', updateBreakpoint)
+      } else {
+        // Legacy API fallback
+        mq.addListener(updateBreakpoint)
+      }
     })
 
     // Listen to visualViewport resize (more reliable in some environments)
-    // Use optional chaining for null safety
     window.visualViewport?.addEventListener('resize', updateBreakpoint)
 
     // Poll for viewport changes (for E2E tests where events might not fire)
@@ -113,9 +121,12 @@ export function useBreakpoint(): Breakpoint {
     return () => {
       window.removeEventListener('resize', updateBreakpoint)
       mediaQueries.forEach((mq) => {
-        mq.removeEventListener('change', updateBreakpoint)
+        if (mq.removeEventListener) {
+          mq.removeEventListener('change', updateBreakpoint)
+        } else {
+          mq.removeListener(updateBreakpoint)
+        }
       })
-      // Use optional chaining for null safety
       window.visualViewport?.removeEventListener('resize', updateBreakpoint)
       clearInterval(pollInterval)
     }
