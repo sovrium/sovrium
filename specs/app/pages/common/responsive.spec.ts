@@ -285,7 +285,7 @@ test.describe('Responsive Variants', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-RESPONSIVE-006: should apply md-specific props',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
