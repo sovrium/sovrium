@@ -32,33 +32,170 @@
   "x-specs": [
     {
       "id": "APP-FIELD-SINGLE-LINE-TEXT-001",
-      "given": "I create a single-line text field",
-      "when": "I add a record",
-      "then": "it should accept text without line breaks"
+      "given": "table 'products' with single-line text field 'title' (not required, not unique)",
+      "when": "I create record with title='MacBook Pro 16-inch' containing no line breaks",
+      "then": "record is created successfully, title value is stored as-is, and displayed in single line format in UI",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "products",
+              "fields": [
+                {"id": 1, "name": "title", "type": "single-line-text", "required": false, "unique": false}
+              ]
+            }
+          ]
+        },
+        "assertions": [
+          {"field": "title", "type": "single-line-text", "required": false, "unique": false}
+        ]
+      },
+      "application": {
+        "expectedDOM": [
+          "textbox name='title' value='MacBook Pro 16-inch'",
+          "no textarea element (single line only)"
+        ],
+        "assertions": [
+          "POST /api/tables/tbl_001/records with {\"title\": \"MacBook Pro 16-inch\"} returns 201 Created",
+          "response includes {\"id\": \"rec_001\", \"title\": \"MacBook Pro 16-inch\"}",
+          "UI renders title as single line text, not multiline"
+        ]
+      }
     },
     {
       "id": "APP-FIELD-SINGLE-LINE-TEXT-002",
-      "given": "I create a single-line text field with unique constraint",
-      "when": "I add duplicate text",
-      "then": "it should reject the input"
+      "given": "table 'users' with single-line text field 'username' having unique constraint, existing record with username='john_doe'",
+      "when": "I attempt to create new record with duplicate username='john_doe'",
+      "then": "API returns 409 Conflict with error message 'username must be unique. Value \"john_doe\" already exists.', no record is created",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "users",
+              "fields": [
+                {"id": 1, "name": "username", "type": "single-line-text", "required": true, "unique": true}
+              ]
+            }
+          ],
+          "records": {
+            "tbl_001": [
+              {"id": "rec_001", "username": "john_doe"}
+            ]
+          }
+        },
+        "assertions": [
+          {"field": "username", "type": "single-line-text", "required": true, "unique": true, "constraint": "unique"}
+        ]
+      },
+      "application": {
+        "expectedDOM": [
+          "textbox name='username' value='john_doe' aria-invalid=true",
+          "alert role=alert text='username must be unique. Value \"john_doe\" already exists.'"
+        ],
+        "assertions": [
+          "POST /api/tables/tbl_001/records with {\"username\": \"john_doe\"} returns 409 Conflict",
+          "response: {\"error\": \"UniqueConstraintViolation\", \"message\": \"username must be unique. Value \\\"john_doe\\\" already exists.\", \"field\": \"username\"}",
+          "database still contains only 1 record (rec_001)"
+        ]
+      }
     },
     {
       "id": "APP-FIELD-SINGLE-LINE-TEXT-003",
-      "given": "I create a required single-line text field",
-      "when": "I submit without value",
-      "then": "it should show validation error"
+      "given": "table 'tasks' with required single-line text field 'title' and create form modal open",
+      "when": "I submit form without entering value for required title field",
+      "then": "form validation prevents submission, displays error message 'title is required' below field, and field is marked invalid with red border",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "tasks",
+              "fields": [
+                {"id": 1, "name": "title", "type": "single-line-text", "required": true}
+              ]
+            }
+          ]
+        },
+        "assertions": [
+          {"field": "title", "type": "single-line-text", "required": true}
+        ]
+      },
+      "application": {
+        "expectedDOM": [
+          "textbox name='title' value='' aria-invalid=true aria-required=true",
+          "text role=alert 'title is required'",
+          "button 'Create' aria-disabled=true"
+        ],
+        "assertions": [
+          "form validation runs on blur or submit attempt",
+          "no API request is sent (client-side validation blocks submission)",
+          "field has red border/styling indicating error state",
+          "focus returns to invalid field after validation"
+        ]
+      }
     },
     {
       "id": "APP-SINGLE-LINE-TEXT-FIELD-004",
-      "given": "a Single Line Text Field is configured",
-      "when": "validating schema",
-      "then": "type must be 'single-line-text'"
+      "given": "JSON schema definition for single-line text field with type property",
+      "when": "validating field configuration against JSON Schema",
+      "then": "type property must have const value 'single-line-text', any other value fails validation",
+      "validation": {
+        "setup": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "type": {"const": "single-line-text"}
+            },
+            "required": ["type"]
+          }
+        },
+        "assertions": [
+          {"property": "type", "const": "single-line-text"}
+        ]
+      },
+      "application": {
+        "assertions": [
+          "valid: {\"type\": \"single-line-text\"} passes validation",
+          "invalid: {\"type\": \"text\"} fails with 'type must be single-line-text'",
+          "invalid: {\"type\": \"string\"} fails with 'type must be single-line-text'",
+          "invalid: missing type property fails with 'type is required'"
+        ]
+      }
     },
     {
       "id": "APP-SINGLE-LINE-TEXT-FIELD-005",
-      "given": "type is set to 'single-line-text'",
-      "when": "processing field",
-      "then": "it should be treated as a Single Line Text Field"
+      "given": "field configuration with type='single-line-text' in table schema",
+      "when": "application processes field to render form input or display record data",
+      "then": "field is rendered as HTML input[type=text] (single line), not textarea (multiline), with appropriate validation and constraints applied",
+      "validation": {
+        "setup": {
+          "tables": [
+            {
+              "id": "tbl_001",
+              "name": "contacts",
+              "fields": [
+                {"id": 1, "name": "first_name", "type": "single-line-text", "required": true},
+                {"id": 2, "name": "notes", "type": "long-text"}
+              ]
+            }
+          ]
+        },
+        "assertions": []
+      },
+      "application": {
+        "expectedDOM": [
+          "textbox name='first_name' (rendered as <input type=\"text\">)",
+          "textbox name='notes' multiline=true (rendered as <textarea>)"
+        ],
+        "assertions": [
+          "first_name field uses <input type=\"text\"> element (single line)",
+          "first_name field prevents line breaks (Enter key does not insert newline)",
+          "first_name field max-height constrains to single line",
+          "notes field uses <textarea> element for comparison (multiline)"
+        ]
+      }
     }
   ]
 }
