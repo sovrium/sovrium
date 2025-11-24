@@ -2,21 +2,202 @@
   "$id": "displayField.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Field from related table to display in UI",
-  "description": "Field from related table to display in UI",
+  "description": "Application-level configuration specifying which column from the related table to display in the UI. Not a database constraint - used by application to JOIN and fetch display values for foreign key relationships.",
   "type": "string",
   "minLength": 1,
   "x-specs": [
     {
       "id": "APP-FIELD-RELATIONSHIP-DISPLAYFIELD-001",
-      "given": "user provides displayField with at least 1 characters",
-      "when": "validating input",
-      "then": "value should be accepted"
+      "given": "relationship field with displayField: 'name' (customers.name)",
+      "when": "application queries relationship data",
+      "then": "application JOINs to fetch display field value instead of showing raw ID",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255))",
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50), customer_id INTEGER REFERENCES customers(id))",
+            "INSERT INTO customers (name, email) VALUES ('Alice Wonder', 'alice@example.com'), ('Bob Builder', 'bob@example.com')",
+            "INSERT INTO orders (order_number, customer_id) VALUES ('ORD-001', 1), ('ORD-002', 2)"
+          ],
+          "fieldConfig": {
+            "name": "customer_id",
+            "type": "relationship",
+            "relatedTable": "customers",
+            "displayField": "name"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Raw foreign key value stored in database",
+            "executeQuery": "SELECT customer_id FROM orders WHERE order_number = 'ORD-001'",
+            "expected": { "customer_id": 1 }
+          },
+          {
+            "description": "Application JOIN fetches display field (customer name)",
+            "executeQuery": "SELECT o.order_number, c.name as customer_name FROM orders o JOIN customers c ON o.customer_id = c.id WHERE o.order_number = 'ORD-001'",
+            "expected": { "order_number": "ORD-001", "customer_name": "Alice Wonder" }
+          },
+          {
+            "description": "Application displays name, not ID (UI representation)",
+            "displayField": "name",
+            "executeQuery": "SELECT o.order_number, c.name as customer_name FROM orders o JOIN customers c ON o.customer_id = c.id WHERE o.order_number = 'ORD-001'",
+            "expectedDisplay": "Alice Wonder"
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-RELATIONSHIP-DISPLAYFIELD-002",
-      "given": "user provides displayField shorter than 1 chars",
-      "when": "validating input",
-      "then": "error should require minimum length"
+      "given": "relationship field with displayField: 'email' (customers.email)",
+      "when": "application queries relationship data",
+      "then": "application JOINs to fetch email as display value",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, username VARCHAR(255), email VARCHAR(255))",
+            "CREATE TABLE comments (id SERIAL PRIMARY KEY, content TEXT, author_id INTEGER REFERENCES users(id))",
+            "INSERT INTO users (username, email) VALUES ('alice_w', 'alice@example.com'), ('bob_b', 'bob@example.com')",
+            "INSERT INTO comments (content, author_id) VALUES ('Great article!', 1), ('Thanks for sharing', 2)"
+          ],
+          "fieldConfig": {
+            "name": "author_id",
+            "type": "relationship",
+            "relatedTable": "users",
+            "displayField": "email"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Raw foreign key stored",
+            "executeQuery": "SELECT author_id FROM comments WHERE content = 'Great article!'",
+            "expected": { "author_id": 1 }
+          },
+          {
+            "description": "Application JOIN fetches email as display field",
+            "executeQuery": "SELECT c.content, u.email as author_email FROM comments c JOIN users u ON c.author_id = u.id WHERE c.content = 'Great article!'",
+            "expected": { "content": "Great article!", "author_email": "alice@example.com" }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-RELATIONSHIP-DISPLAYFIELD-003",
+      "given": "relationship field with displayField referencing non-existent column",
+      "when": "application attempts to JOIN and fetch display field",
+      "then": "PostgreSQL returns error for undefined column",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE departments (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, emp_name VARCHAR(255), department_id INTEGER REFERENCES departments(id))",
+            "INSERT INTO departments (name) VALUES ('Engineering')",
+            "INSERT INTO employees (emp_name, department_id) VALUES ('Alice', 1)"
+          ],
+          "fieldConfig": {
+            "name": "department_id",
+            "type": "relationship",
+            "relatedTable": "departments",
+            "displayField": "nonexistent_column"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Query with non-existent displayField fails",
+            "executeQuery": "SELECT e.emp_name, d.nonexistent_column FROM employees e JOIN departments d ON e.department_id = d.id",
+            "expectError": "column \"nonexistent_column\" does not exist"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-RELATIONSHIP-DISPLAYFIELD-004",
+      "given": "relationship field with empty displayField value",
+      "when": "field configuration validation runs",
+      "then": "error should require minimum length 1 character",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "customer_id",
+            "type": "relationship",
+            "relatedTable": "customers",
+            "displayField": ""
+          }
+        },
+        "assertions": [
+          {
+            "description": "Empty displayField rejected",
+            "validateConfig": true,
+            "expectError": "displayField must have at least 1 character"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-RELATIONSHIP-DISPLAYFIELD-005",
+      "given": "relationship field without displayField specified",
+      "when": "application queries relationship data",
+      "then": "application displays raw foreign key ID (no JOIN for display value)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE categories (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, product_name VARCHAR(255), category_id INTEGER REFERENCES categories(id))",
+            "INSERT INTO categories (name) VALUES ('Electronics')",
+            "INSERT INTO products (product_name, category_id) VALUES ('Laptop', 1)"
+          ],
+          "fieldConfig": {
+            "name": "category_id",
+            "type": "relationship",
+            "relatedTable": "categories"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Without displayField: application shows raw ID",
+            "executeQuery": "SELECT category_id FROM products WHERE product_name = 'Laptop'",
+            "expected": { "category_id": 1 }
+          },
+          {
+            "description": "Application can still manually JOIN if needed",
+            "executeQuery": "SELECT p.product_name, c.name as category_name FROM products p JOIN categories c ON p.category_id = c.id WHERE p.product_name = 'Laptop'",
+            "expected": { "product_name": "Laptop", "category_name": "Electronics" }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-RELATIONSHIP-DISPLAYFIELD-006",
+      "given": "relationship field with displayField: composite display (CONCAT)",
+      "when": "displayField references computed expression",
+      "then": "application uses expression in JOIN to build display value",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE contacts (id SERIAL PRIMARY KEY, first_name VARCHAR(255), last_name VARCHAR(255), email VARCHAR(255))",
+            "CREATE TABLE meetings (id SERIAL PRIMARY KEY, title VARCHAR(255), organizer_id INTEGER REFERENCES contacts(id))",
+            "INSERT INTO contacts (first_name, last_name, email) VALUES ('Alice', 'Wonder', 'alice@example.com'), ('Bob', 'Builder', 'bob@example.com')",
+            "INSERT INTO meetings (title, organizer_id) VALUES ('Sprint Planning', 1), ('Retrospective', 2)"
+          ],
+          "fieldConfig": {
+            "name": "organizer_id",
+            "type": "relationship",
+            "relatedTable": "contacts",
+            "displayField": "CONCAT(first_name, ' ', last_name)"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Raw foreign key stored",
+            "executeQuery": "SELECT organizer_id FROM meetings WHERE title = 'Sprint Planning'",
+            "expected": { "organizer_id": 1 }
+          },
+          {
+            "description": "Application uses expression to build display value",
+            "executeQuery": "SELECT m.title, CONCAT(c.first_name, ' ', c.last_name) as organizer_name FROM meetings m JOIN contacts c ON m.organizer_id = c.id WHERE m.title = 'Sprint Planning'",
+            "expected": { "title": "Sprint Planning", "organizer_name": "Alice Wonder" }
+          }
+        ]
+      }
     }
   ]
 }

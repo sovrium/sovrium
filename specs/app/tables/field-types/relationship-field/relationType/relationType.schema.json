@@ -2,28 +2,206 @@
   "$id": "relationType.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Type of relationship",
-  "description": "Type of relationship",
+  "description": "Type of relationship determines the cardinality and database structure: one-to-many (simple foreign key), one-to-one (foreign key with UNIQUE constraint), many-to-many (junction table with two foreign keys).",
   "type": "string",
   "default": "one-to-many",
   "enum": ["one-to-one", "one-to-many", "many-to-many"],
   "x-specs": [
     {
       "id": "APP-FIELD-RELATIONSHIP-RELATIONTYPE-001",
-      "given": "user selects relationType from valid options",
-      "when": "validating input",
-      "then": "selection should be accepted"
+      "given": "relationship field with relationType: 'one-to-many' (orders → customer)",
+      "when": "field migration creates simple FOREIGN KEY",
+      "then": "PostgreSQL creates foreign key column without uniqueness constraint",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255))",
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50), customer_id INTEGER REFERENCES customers(id))",
+            "INSERT INTO customers (name, email) VALUES ('Alice', 'alice@example.com')",
+            "INSERT INTO orders (order_number, customer_id) VALUES ('ORD-001', 1), ('ORD-002', 1), ('ORD-003', 1)"
+          ],
+          "fieldConfig": {
+            "name": "customer_id",
+            "type": "relationship",
+            "relatedTable": "customers",
+            "relationType": "one-to-many"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Foreign key constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'FOREIGN KEY' AND table_name = 'orders'",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "No unique constraint on foreign key column",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'UNIQUE' AND table_name = 'orders' AND constraint_name LIKE '%customer_id%'",
+            "expected": { "count": 0 }
+          },
+          {
+            "description": "Multiple orders can reference same customer (one-to-many)",
+            "executeQuery": "SELECT COUNT(*) as count FROM orders WHERE customer_id = 1",
+            "expected": { "count": 3 }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-RELATIONSHIP-RELATIONTYPE-002",
-      "given": "user provides invalid relationType value",
-      "when": "validating input",
-      "then": "error should list valid options: one-to-one, one-to-many, many-to-many"
+      "given": "relationship field with relationType: 'one-to-one' (user → profile)",
+      "when": "field migration creates FOREIGN KEY with UNIQUE constraint",
+      "then": "PostgreSQL enforces one-to-one relationship via unique foreign key",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE profiles (id SERIAL PRIMARY KEY, bio TEXT, avatar_url VARCHAR(255))",
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, username VARCHAR(255), profile_id INTEGER UNIQUE REFERENCES profiles(id))",
+            "INSERT INTO profiles (bio, avatar_url) VALUES ('Software engineer', 'https://example.com/avatar1.jpg'), ('Designer', 'https://example.com/avatar2.jpg')",
+            "INSERT INTO users (username, profile_id) VALUES ('alice', 1)"
+          ],
+          "fieldConfig": {
+            "name": "profile_id",
+            "type": "relationship",
+            "relatedTable": "profiles",
+            "relationType": "one-to-one"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Foreign key constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'FOREIGN KEY' AND table_name = 'users'",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "Unique constraint exists on foreign key column",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'UNIQUE' AND table_name = 'users' AND constraint_name LIKE '%profile_id%'",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "First user-profile link succeeds",
+            "executeQuery": "SELECT username FROM users WHERE profile_id = 1",
+            "expected": { "username": "alice" }
+          },
+          {
+            "description": "Duplicate profile_id rejected (violates one-to-one)",
+            "executeQuery": "INSERT INTO users (username, profile_id) VALUES ('bob', 1)",
+            "expectError": "duplicate key value violates unique constraint"
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-RELATIONSHIP-RELATIONTYPE-003",
-      "given": "relationType is set to any valid enum value",
-      "when": "processing entity",
-      "then": "appropriate behavior should execute"
+      "given": "relationship field with relationType: 'many-to-many' (students ↔ courses)",
+      "when": "field migration creates junction table with two foreign keys",
+      "then": "PostgreSQL creates junction table enabling many-to-many relationship",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE students (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255))",
+            "CREATE TABLE courses (id SERIAL PRIMARY KEY, title VARCHAR(255), code VARCHAR(50))",
+            "CREATE TABLE student_courses (student_id INTEGER REFERENCES students(id), course_id INTEGER REFERENCES courses(id), PRIMARY KEY (student_id, course_id))",
+            "INSERT INTO students (name, email) VALUES ('Alice', 'alice@example.com'), ('Bob', 'bob@example.com')",
+            "INSERT INTO courses (title, code) VALUES ('Mathematics', 'MATH101'), ('Physics', 'PHYS101')",
+            "INSERT INTO student_courses (student_id, course_id) VALUES (1, 1), (1, 2), (2, 1)"
+          ],
+          "fieldConfig": {
+            "name": "courses",
+            "type": "relationship",
+            "relatedTable": "courses",
+            "relationType": "many-to-many",
+            "junctionTable": "student_courses"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Junction table has two foreign keys",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'FOREIGN KEY' AND table_name = 'student_courses'",
+            "expected": { "count": 2 }
+          },
+          {
+            "description": "Junction table has composite primary key",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'PRIMARY KEY' AND table_name = 'student_courses'",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "One student can enroll in multiple courses",
+            "executeQuery": "SELECT COUNT(*) as count FROM student_courses WHERE student_id = 1",
+            "expected": { "count": 2 }
+          },
+          {
+            "description": "One course can have multiple students",
+            "executeQuery": "SELECT COUNT(*) as count FROM student_courses WHERE course_id = 1",
+            "expected": { "count": 2 }
+          },
+          {
+            "description": "Duplicate enrollment rejected (composite PK prevents duplicates)",
+            "executeQuery": "INSERT INTO student_courses (student_id, course_id) VALUES (1, 1)",
+            "expectError": "duplicate key value violates unique constraint"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-RELATIONSHIP-RELATIONTYPE-004",
+      "given": "relationship field with invalid relationType value",
+      "when": "field configuration validation runs",
+      "then": "error lists valid options: one-to-one, one-to-many, many-to-many",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "customer_id",
+            "type": "relationship",
+            "relatedTable": "customers",
+            "relationType": "INVALID-TYPE"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Invalid relationType rejected with enum error",
+            "validateConfig": true,
+            "expectError": "relationType must be one of: one-to-one, one-to-many, many-to-many"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-RELATIONSHIP-RELATIONTYPE-005",
+      "given": "relationship field without relationType specified",
+      "when": "field configuration uses default",
+      "then": "PostgreSQL creates one-to-many relationship (default)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE departments (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), department_id INTEGER REFERENCES departments(id))",
+            "INSERT INTO departments (name) VALUES ('Engineering'), ('Sales')",
+            "INSERT INTO employees (name, department_id) VALUES ('Alice', 1), ('Bob', 1), ('Charlie', 2)"
+          ],
+          "fieldConfig": {
+            "name": "department_id",
+            "type": "relationship",
+            "relatedTable": "departments"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Default relationType is one-to-many",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'FOREIGN KEY' AND table_name = 'employees'",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "No unique constraint (confirms one-to-many, not one-to-one)",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'UNIQUE' AND table_name = 'employees' AND constraint_name LIKE '%department_id%'",
+            "expected": { "count": 0 }
+          },
+          {
+            "description": "Multiple employees in same department (one-to-many works)",
+            "executeQuery": "SELECT COUNT(*) as count FROM employees WHERE department_id = 1",
+            "expected": { "count": 2 }
+          }
+        ]
+      }
     }
   ]
 }
