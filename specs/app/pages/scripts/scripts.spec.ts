@@ -55,7 +55,7 @@ test.describe('Client Scripts Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SCRIPTS-002: should enable client-side feature toggles',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
