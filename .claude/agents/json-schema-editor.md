@@ -60,6 +60,325 @@ You are a collaborative JSON Schema Design Guide for the Sovrium project. You he
 
 ---
 
+## Database Testing Architecture (CRITICAL for specs/app/tables/)
+
+### Testing Separation by Domain
+
+**CRITICAL DISTINCTION**: The `specs/app/` directory contains TWO fundamentally different types of tests:
+
+#### 1. Database Schema Testing (`specs/app/tables/`)
+
+**Purpose**: Test PostgreSQL database schema generation from JSON configuration
+
+**What to Test**:
+- ✅ PostgreSQL DDL generation (CREATE TABLE, ALTER TABLE, etc.)
+- ✅ Column type mapping (JSON config → PostgreSQL types)
+- ✅ Constraint enforcement (UNIQUE, NOT NULL, CHECK, FOREIGN KEY)
+- ✅ Schema introspection (information_schema, pg_catalog)
+- ✅ Migration execution and rollback
+- ✅ Index creation and performance
+
+**What NOT to Test**:
+- ❌ UI elements (buttons, modals, forms, DOM)
+- ❌ User navigation (clicking, typing, page routes)
+- ❌ Visual appearance (colors, layouts, styling)
+- ❌ Client-side validation (form errors, field highlighting)
+
+**Testing Method**: Use `executeQuery` fixture for direct PostgreSQL operations
+
+#### 2. UI Testing (`specs/app/pages/`, `specs/app/theme/`, etc.)
+
+**Purpose**: Test user interface rendering and interactions
+
+**What to Test**:
+- ✅ DOM structure and ARIA roles
+- ✅ User interactions (clicks, form submissions)
+- ✅ Visual appearance and theming
+- ✅ Responsive behavior
+- ✅ Client-side validation and error messages
+
+**Testing Method**: Use DOM assertions, ARIA snapshots, visual screenshots
+
+### Architecture Flow
+
+```
+specs/app/tables/        →  Creates PostgreSQL Database
+         ↓
+specs/api/paths/tables/  →  Uses Database (HTTP API)
+         ↓
+specs/app/pages/         →  Displays Data (UI)
+```
+
+### Database Testing Patterns (specs/app/tables/)
+
+#### Pattern 1: Table Creation (tables.schema.json)
+
+**CORRECT** - Database-focused:
+```json
+{
+  "id": "APP-TABLES-SCHEMA-CREATE-001",
+  "given": "empty PostgreSQL database",
+  "when": "table configuration {id: 'tbl_products', name: 'products', fields: [{id: 1, name: 'title', type: 'single-line-text', required: true}]} is applied",
+  "then": "PostgreSQL table 'products' is created with columns: id (SERIAL PRIMARY KEY), title (VARCHAR(255) NOT NULL)",
+  "validation": {
+    "setup": {
+      "tableConfig": {
+        "id": "tbl_products",
+        "name": "products",
+        "fields": [
+          { "id": 1, "name": "title", "type": "single-line-text", "required": true }
+        ]
+      }
+    },
+    "assertions": [
+      {
+        "description": "Table exists in PostgreSQL",
+        "executeQuery": "SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'products')",
+        "expected": { "exists": true }
+      },
+      {
+        "description": "Table has correct columns with correct types",
+        "executeQuery": "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'products' ORDER BY ordinal_position",
+        "expected": [
+          { "column_name": "id", "data_type": "integer", "is_nullable": "NO" },
+          { "column_name": "title", "data_type": "character varying", "is_nullable": "NO" }
+        ]
+      },
+      {
+        "description": "Primary key constraint exists",
+        "executeQuery": "SELECT constraint_name FROM information_schema.table_constraints WHERE table_name = 'products' AND constraint_type = 'PRIMARY KEY'",
+        "expected": { "constraint_name": "products_pkey" }
+      }
+    ]
+  }
+}
+```
+
+**INCORRECT** - UI-focused (AVOID):
+```json
+{
+  "id": "APP-TABLES-001",
+  "given": "application initialized with empty database and authenticated admin user",
+  "when": "I navigate to /admin/tables page",  // ❌ UI NAVIGATION
+  "then": "page displays 'Tables' heading, 'Create Table' button",  // ❌ UI ELEMENTS
+  "application": {
+    "expectedDOM": [  // ❌ DOM ASSERTIONS DON'T BELONG IN DATABASE TESTS
+      "heading level=1 'Tables'",
+      "button 'Create Table'"
+    ]
+  }
+}
+```
+
+#### Pattern 2: Field Type Testing (field-types/)
+
+**CORRECT** - DDL validation:
+```json
+{
+  "id": "APP-FIELD-EMAIL-SCHEMA-001",
+  "given": "table 'users' exists in PostgreSQL, field configuration {id: 1, name: 'email', type: 'email', required: true, unique: true}",
+  "when": "field migration is applied",
+  "then": "PostgreSQL column 'email' is created as VARCHAR(255) with UNIQUE and NOT NULL constraints",
+  "validation": {
+    "setup": {
+      "executeQuery": "CREATE TABLE users (id SERIAL PRIMARY KEY)",
+      "fieldConfig": {
+        "id": 1,
+        "name": "email",
+        "type": "email",
+        "required": true,
+        "unique": true
+      }
+    },
+    "assertions": [
+      {
+        "description": "Column exists with VARCHAR type",
+        "executeQuery": "SELECT column_name, data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='users' AND column_name='email'",
+        "expected": {
+          "column_name": "email",
+          "data_type": "character varying",
+          "character_maximum_length": 255,
+          "is_nullable": "NO"
+        }
+      },
+      {
+        "description": "UNIQUE constraint exists",
+        "executeQuery": "SELECT COUNT(*) FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE' AND constraint_name LIKE '%email%'",
+        "expected": { "count": 1 }
+      },
+      {
+        "description": "Valid email can be inserted",
+        "executeQuery": "INSERT INTO users (email) VALUES ('john@example.com') RETURNING email",
+        "expected": { "email": "john@example.com" }
+      },
+      {
+        "description": "Duplicate email is rejected",
+        "executeQuery": "INSERT INTO users (email) VALUES ('john@example.com')",
+        "expectError": "duplicate key value violates unique constraint"
+      }
+    ]
+  }
+}
+```
+
+**INCORRECT** - UI validation (AVOID IN app/tables/):
+```json
+{
+  "id": "APP-FIELD-EMAIL-001",
+  "given": "table 'users' with email field",
+  "when": "I enter email 'john@example.com'",  // ❌ USER INPUT
+  "then": "email is validated successfully",
+  "application": {
+    "expectedDOM": [  // ❌ UI FOCUS
+      "textbox name='email' type='email' value='john@example.com'"
+    ]
+  }
+}
+```
+
+#### Pattern 3: Constraint Testing
+
+**CORRECT** - Database constraint validation:
+```json
+{
+  "id": "APP-FIELD-INTEGER-CONSTRAINT-001",
+  "given": "table 'products' with integer field 'quantity' (min: 0, max: 10000)",
+  "when": "field migration applies CHECK constraint",
+  "then": "PostgreSQL CHECK constraint enforces range (quantity >= 0 AND quantity <= 10000)",
+  "validation": {
+    "setup": {
+      "executeQuery": [
+        "CREATE TABLE products (id SERIAL PRIMARY KEY)",
+        "ALTER TABLE products ADD COLUMN quantity INTEGER NOT NULL CHECK (quantity >= 0 AND quantity <= 10000)"
+      ],
+      "fieldConfig": {
+        "id": 2,
+        "name": "quantity",
+        "type": "integer",
+        "required": true,
+        "min": 0,
+        "max": 10000
+      }
+    },
+    "assertions": [
+      {
+        "description": "CHECK constraint exists",
+        "executeQuery": "SELECT constraint_name, check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%quantity%'",
+        "expected": { "constraint_name": "products_quantity_check" }
+      },
+      {
+        "description": "Valid value within range accepted",
+        "executeQuery": "INSERT INTO products (quantity) VALUES (5000) RETURNING quantity",
+        "expected": { "quantity": 5000 }
+      },
+      {
+        "description": "Value below min rejected",
+        "executeQuery": "INSERT INTO products (quantity) VALUES (-1)",
+        "expectError": "violates check constraint"
+      },
+      {
+        "description": "Value above max rejected",
+        "executeQuery": "INSERT INTO products (quantity) VALUES (10001)",
+        "expectError": "violates check constraint"
+      }
+    ]
+  }
+}
+```
+
+### executeQuery Fixture Reference
+
+The `executeQuery` fixture is available in all database tests:
+
+```typescript
+executeQuery: async (sql: string) => Promise<{ rows: any[]; rowCount: number }>
+```
+
+**Usage Examples**:
+
+```typescript
+// Table existence check
+await executeQuery("SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = 'products')")
+// Returns: { rows: [{ exists: true }], rowCount: 1 }
+
+// Column introspection
+await executeQuery("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'products'")
+// Returns: { rows: [{ column_name: 'id', data_type: 'integer' }, ...], rowCount: 2 }
+
+// Data insertion with RETURNING
+await executeQuery("INSERT INTO products (title) VALUES ('MacBook') RETURNING id, title")
+// Returns: { rows: [{ id: 1, title: 'MacBook' }], rowCount: 1 }
+
+// Constraint violation (throws error)
+await executeQuery("INSERT INTO products (email) VALUES ('duplicate@email.com')")
+// Throws: Error with message containing "violates unique constraint"
+```
+
+### Quality Gates for Database Testing
+
+Before marking any `specs/app/tables/` spec as complete, verify:
+
+**Database Testing Requirements**:
+- ✅ **Zero UI References**: No mentions of buttons, modals, forms, DOM, navigation, clicking, typing
+- ✅ **executeQuery Usage**: All database operations use `executeQuery` fixture
+- ✅ **DDL Validation**: Specs validate PostgreSQL DDL (CREATE TABLE, ALTER TABLE, constraints)
+- ✅ **Schema Introspection**: Specs query `information_schema` or `pg_catalog` to verify schema
+- ✅ **Constraint Testing**: Specs validate constraints (PRIMARY KEY, UNIQUE, FOREIGN KEY, CHECK)
+- ✅ **Data Type Mapping**: Specs validate JSON field type → PostgreSQL data type mapping
+- ✅ **Error Cases**: Specs include tests for constraint violations with `expectError`
+- ✅ **Setup Clarity**: `validation.setup` describes database state and DDL operations, not UI state
+- ✅ **Assertion Completeness**: Every database operation has corresponding verification query
+
+**Validation Setup Structure** for database tests:
+```json
+"validation": {
+  "setup": {
+    "executeQuery": "CREATE TABLE ...",  // Initial DDL
+    "tableConfig": { /* JSON table configuration */ },
+    "fieldConfig": { /* JSON field configuration */ }
+  },
+  "assertions": [
+    {
+      "description": "Clear assertion description",
+      "executeQuery": "SELECT ...",
+      "expected": { /* Expected result */ }
+    },
+    {
+      "description": "Error case description",
+      "executeQuery": "INSERT ...",
+      "expectError": "constraint violation message pattern"
+    }
+  ]
+}
+```
+
+### Field Type → PostgreSQL Type Mapping
+
+When writing field-type specs, validate correct PostgreSQL type mapping:
+
+| Field Type | PostgreSQL Type | Constraints | Notes |
+|-----------|----------------|-------------|-------|
+| `single-line-text` | `VARCHAR(255)` | UNIQUE, NOT NULL | Standard text |
+| `long-text` | `TEXT` | - | Unlimited length |
+| `email` | `VARCHAR(255)` | UNIQUE, NOT NULL | Lowercase normalized |
+| `url` | `VARCHAR(2048)` | - | Longer for URLs |
+| `phone-number` | `VARCHAR(20)` | - | International formats |
+| `integer` | `INTEGER` | CHECK (min/max) | 32-bit signed |
+| `decimal` | `NUMERIC(precision, scale)` | CHECK (min/max) | Arbitrary precision |
+| `percentage` | `NUMERIC(5, 2)` | CHECK (0-100) | 0.00 to 100.00 |
+| `currency` | `NUMERIC(19, 4)` | - | Standard money type |
+| `date` | `DATE` | - | YYYY-MM-DD |
+| `datetime` | `TIMESTAMP` | - | With/without timezone |
+| `checkbox` | `BOOLEAN` | - | DEFAULT false |
+| `single-select` | `VARCHAR(255)` | CHECK (enum) | Or ENUM type |
+| `multi-select` | `TEXT[]` | - | Array of strings |
+| `relationship` | `INTEGER` | FOREIGN KEY | References other table |
+| `created-at` | `TIMESTAMP` | DEFAULT NOW() | Auto-timestamp |
+| `updated-at` | `TIMESTAMP` | DEFAULT NOW() | With trigger |
+| `autonumber` | `SERIAL` | PRIMARY KEY | Auto-increment |
+
+---
+
 ## JSON Schema Structure (Draft 7)
 
 **Location**: `specs/app/{property}/{property}.schema.json`
