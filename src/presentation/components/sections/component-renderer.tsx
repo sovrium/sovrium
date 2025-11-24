@@ -10,10 +10,12 @@ import {
   StructuredDataFromBlock,
   type BlockMeta,
 } from '@/presentation/components/metadata/structured-data-from-block'
+import { useBreakpoint } from '@/presentation/hooks/use-breakpoint'
 import { extractBlockReference, renderBlockReferenceError } from './blocks/block-reference-handler'
 import { resolveBlock } from './blocks/block-resolution'
 import { buildComponentProps } from './props/component-builder'
 import { dispatchComponentType } from './rendering/component-type-dispatcher'
+import { applyResponsiveOverrides } from './responsive/responsive-resolver'
 import { buildHoverData } from './styling/hover-interaction-handler'
 import { resolveChildTranslation } from './translations/translation-handler'
 import type {
@@ -222,14 +224,25 @@ function RenderDirectComponent({
   component: Component
   props: ComponentRendererProps
 }): ReactElement | null {
-  const { type, props: componentProps, children, content, interactions, i18n } = component
+  const { type, props: componentProps, children, content, interactions, i18n, responsive } = component
   const uniqueId = useId()
+  const currentBreakpoint = useBreakpoint()
+
+  // Apply responsive overrides for current breakpoint
+  const responsiveOverrides = applyResponsiveOverrides(responsive, currentBreakpoint)
+
+  // Merge responsive overrides with base component values
+  const mergedProps = responsiveOverrides?.props
+    ? { ...componentProps, ...responsiveOverrides.props }
+    : componentProps
+  const mergedChildren = responsiveOverrides?.children ?? children
+  const mergedContent = responsiveOverrides?.content ?? content
 
   const { elementProps, elementPropsWithSpacing } = buildComponentProps({
     type,
-    props: componentProps,
-    children,
-    content,
+    props: mergedProps,
+    children: mergedChildren,
+    content: mergedContent,
     blockName: props.blockName,
     blockInstanceIndex: props.blockInstanceIndex,
     theme: props.theme,
@@ -242,14 +255,16 @@ function RenderDirectComponent({
   const hoverData = buildHoverData(interactions?.hover, uniqueId)
   const baseElementProps = mergeHoverAttributes(elementProps, hoverData)
   const baseElementPropsWithSpacing = mergeHoverAttributes(elementPropsWithSpacing, hoverData)
-  const baseRenderedChildren = renderChildren(children, props)
+  const baseRenderedChildren = renderChildren(mergedChildren, props)
 
   // Resolve content with i18n priority: component.i18n[lang].content > $t: pattern > content
-  const resolvedContent = resolveComponentContent(content, i18n, props.currentLang, props.languages)
+  const resolvedContent = resolveComponentContent(mergedContent, i18n, props.currentLang, props.languages)
 
   // Build i18n content data attribute and merge into element props (functional approach)
   const i18nContentAttribute =
-    i18n && content ? buildI18nContentAttribute(i18n, content, props.languages?.default) : undefined
+    i18n && mergedContent
+      ? buildI18nContentAttribute(i18n, mergedContent, props.languages?.default)
+      : undefined
   const finalElementProps = buildFinalElementProps(baseElementProps, i18nContentAttribute)
   const finalElementPropsWithSpacing = buildFinalElementProps(
     baseElementPropsWithSpacing,
@@ -269,7 +284,7 @@ function RenderDirectComponent({
     type,
     elementProps: finalElementProps,
     elementPropsWithSpacing: finalElementPropsWithSpacing,
-    content: resolvedContent !== undefined ? resolvedContent : content,
+    content: resolvedContent !== undefined ? resolvedContent : mergedContent,
     renderedChildren,
     theme: props.theme,
     languages: props.languages,
