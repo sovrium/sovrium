@@ -483,7 +483,7 @@ test.describe('Responsive Variants', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-RESPONSIVE-010: mobile should show hamburger menu, desktop should show full navigation links',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
