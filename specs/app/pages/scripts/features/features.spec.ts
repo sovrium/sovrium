@@ -323,7 +323,7 @@ test.describe('Feature Flags', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SCRIPTS-FEATURES-REGRESSION-001: user can complete full Feature Flags workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {

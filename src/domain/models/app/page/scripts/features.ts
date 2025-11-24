@@ -89,7 +89,7 @@ export const FeatureValueSchema = Schema.Union(
  * - liveChat: Customer support widget
  *
  * Features are:
- * - Accessible in client JavaScript as window.APP_CONFIG.features
+ * - Accessible in client JavaScript as window.FEATURES
  * - Stored in data-* attributes for CSS/JS access
  * - Persisted in localStorage for user preferences
  *
