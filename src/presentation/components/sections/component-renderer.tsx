@@ -228,7 +228,7 @@ function RenderDirectComponent({
   const uniqueId = useId()
   const currentBreakpoint = useBreakpoint()
 
-  // Apply responsive overrides for current breakpoint
+  // Apply responsive overrides for current breakpoint (used for SSR initial render)
   const responsiveOverrides = applyResponsiveOverrides(responsive, currentBreakpoint)
 
   // Merge responsive overrides with base component values
@@ -238,18 +238,46 @@ function RenderDirectComponent({
   const mergedChildren = responsiveOverrides?.children ?? children
   const mergedContent = responsiveOverrides?.content ?? content
 
-  // Apply visibility styling - use display: none instead of returning null to support dynamic breakpoint changes
-  const isHidden = responsiveOverrides?.visible === false
-  const mergedPropsWithVisibility = isHidden
+  // Build CSS classes for responsive visibility using Tailwind breakpoint utilities
+  // This works without JavaScript by using CSS media queries
+  // Strategy: Convert responsive visibility config into appropriate Tailwind classes
+  const responsiveVisibilityClasses = responsive
+    ? (() => {
+        const visibilityConfig = Object.entries(responsive)
+          .filter(([, overrides]) => overrides.visible !== undefined)
+          .reduce<Record<string, boolean>>((acc, [bp, overrides]) => {
+            return { ...acc, [bp]: overrides.visible! }
+          }, {})
+
+        // For mobile:false + lg:true pattern, use max-lg:hidden
+        if (visibilityConfig.mobile === false && visibilityConfig.lg === true) {
+          return 'max-lg:hidden'
+        }
+
+        // For mobile:true + lg:false pattern, use lg:hidden
+        if (visibilityConfig.mobile === true && visibilityConfig.lg === false) {
+          return 'lg:hidden'
+        }
+
+        // Default fallback: build individual responsive classes
+        return Object.entries(visibilityConfig)
+          .map(([bp, isVisible]) => {
+            if (bp === 'mobile') {
+              return isVisible ? '' : 'max-sm:hidden'
+            }
+            return isVisible ? `${bp}:inline` : `${bp}:hidden`
+          })
+          .filter(Boolean)
+          .join(' ')
+      })()
+    : undefined
+
+  const mergedPropsWithVisibility = responsiveVisibilityClasses
     ? {
         ...mergedProps,
-        'aria-hidden': 'true',
-        style: {
-          ...(typeof mergedProps?.style === 'object' && mergedProps?.style !== null
-            ? mergedProps.style
-            : {}),
-          display: 'none',
-        },
+        className: mergedProps?.className
+          ? `${mergedProps.className} ${responsiveVisibilityClasses}`
+          : responsiveVisibilityClasses,
       }
     : mergedProps
 

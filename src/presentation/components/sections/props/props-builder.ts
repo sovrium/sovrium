@@ -34,21 +34,12 @@ function buildTestId(config: TestIdConfig): string | undefined {
     return `child-${childIndex}`
   }
 
-  if (type === 'container') {
-    return 'container'
-  }
-
-  if (type === 'flex') {
-    return 'flex'
-  }
-
-  if (type === 'hero-section') {
-    return 'hero-section'
-  }
-
-  if (type === 'hero') {
-    return 'hero'
-  }
+  // Auto-generate testid for common component types to support testing
+  if (type === 'container') return 'container'
+  if (type === 'flex') return 'flex'
+  if (type === 'hero-section') return 'hero-section'
+  if (type === 'hero') return 'hero'
+  if (type === 'text') return 'text'
 
   return undefined
 }
