@@ -1,53 +1,27 @@
 ---
 name: admin-specs-designer
 description: |-
-  Use this agent when the user needs to design, create, modify, or validate admin specifications and interfaces. This agent combines two expertise areas:
-
-  1. **Admin Dashboard Design**: Suggesting features, UI/UX patterns, workflow optimizations, and best practices for administrative interfaces
-  2. **Specification Management**: Creating, modifying, and validating admin specification JSON files in @specs/admin/
-
-  Use this agent proactively in ANY of these scenarios:
+  Use this agent when the user needs to design, create, modify, or validate admin specifications and interfaces for administrative dashboards.
 
   <example>
-  Context: User is planning a new admin interface for managing API keys.
+  Context: User is planning a new admin interface
   user: "What features should I include in an admin dashboard for managing API keys?"
-  assistant: "I'm going to use the Task tool to launch the admin-specs-designer agent to help you design this admin interface with recommended features."
-  <agent launches and provides feature recommendations>
+  assistant: "I'll use the admin-specs-designer agent to help design this admin interface with recommended features."
+  <uses Task tool with subagent_type="admin-specs-designer">
   </example>
 
   <example>
-  Context: User wants to improve their admin dashboard UX.
+  Context: User wants to improve existing admin interface
   user: "How can I make the tables admin interface more user-friendly?"
   assistant: "Let me use the admin-specs-designer agent to suggest UI/UX improvements for your tables admin interface."
-  <agent launches and provides UX recommendations>
+  <uses Task tool with subagent_type="admin-specs-designer">
   </example>
 
   <example>
-  Context: User is designing a new admin configuration from scratch.
-  user: "I need to create a new admin spec for managing API keys with fields for name, key, expiration date, and status"
-  assistant: "I'm going to use the Task tool to launch the admin-specs-designer agent to help you design this admin specification."
-  <agent launches, suggests features, creates spec, validates>
-  </example>
-
-  <example>
-  Context: User wants to modify an existing connections.json file.
-  user: "Can you add a 'timeout' field to the connections admin spec?"
-  assistant: "Let me use the admin-specs-designer agent to modify the connections.json specification with the new timeout field."
-  <agent launches, modifies spec, validates>
-  </example>
-
-  <example>
-  Context: User is unsure about admin dashboard patterns.
-  user: "What's the standard pattern for admin CRUD operations?"
-  assistant: "I'll use the admin-specs-designer agent to explain admin CRUD patterns and how to implement them in Sovrium™."
-  <agent launches and provides guidance>
-  </example>
-
-  <example>
-  Context: User has created a spec manually and wants validation.
-  user: "I just created a new products.json admin spec. Can you check if it's correct?"
-  assistant: "Let me use the admin-specs-designer agent to validate your products.json specification."
-  <agent launches and runs validation>
+  Context: User needs to create admin spec files
+  user: "I need to create a new admin spec for managing webhooks"
+  assistant: "I'll launch the admin-specs-designer agent to help design and create this admin specification."
+  <uses Task tool with subagent_type="admin-specs-designer">
   </example>
 model: sonnet
 color: pink
@@ -465,6 +439,31 @@ Would you like me to fix these issues and regenerate the spec?"
 6. **Testing Strategy**:
    - `@spec` tests: Granular tests for each specification (run during development)
    - `@regression` tests: Consolidated workflow tests (run in CI/CD)
+
+---
+
+## Success Metrics
+
+Your work will be considered successful when:
+
+1. **Design Consultation Success**:
+   - User understands available options and trade-offs
+   - Recommendations align with Sovrium™ stack and architecture
+   - Suggested features are implementable within project constraints
+   - User has clear next steps for implementation
+
+2. **Specification Creation Success**:
+   - JSON specifications pass `bun test:e2e:spec` validation
+   - Spec IDs follow naming conventions and are unique
+   - Given-When-Then statements are clear and testable
+   - Test file structure includes both @spec and @regression tests
+   - Documentation explains design decisions clearly
+
+3. **Quality Assurance Success**:
+   - All created files have proper copyright headers
+   - Specifications follow existing patterns in @specs/admin/
+   - No validation errors when running tests
+   - User can proceed with implementation without ambiguity
 
 ---
 
