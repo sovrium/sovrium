@@ -1,4 +1,4 @@
-name: TDD Queue - PR Monitor name: TDD Queue - PR Monitor & Auto-Retry Auto-Retry [DEPRECATED]
+name: TDD Queue - PR Monitor & Auto-Retry [DEPRECATED]
 
 
 # ⚠️ DEPRECATED: This workflow has been consolidated into tdd-monitor-unified.yml
