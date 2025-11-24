@@ -30,15 +30,175 @@
   "x-specs": [
     {
       "id": "APP-SINGLE-ATTACHMENT-FIELD-001",
-      "given": "entity with type='single-attachment'",
-      "when": "processing configuration",
-      "then": "correct handler should be selected"
+      "given": "table configuration with single-attachment field 'profile_picture'",
+      "when": "field migration creates JSONB column for file metadata",
+      "then": "PostgreSQL JSONB column stores attachment metadata (path, name, size, mime_type)",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE users (id SERIAL PRIMARY KEY, profile_picture JSONB)",
+          "fieldConfig": {
+            "id": 1,
+            "name": "profile_picture",
+            "type": "single-attachment"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column created as JSONB",
+            "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='users' AND column_name='profile_picture'",
+            "expected": { "column_name": "profile_picture", "data_type": "jsonb" }
+          },
+          {
+            "description": "File metadata can be stored",
+            "executeQuery": "INSERT INTO users (profile_picture) VALUES ('{\"path\": \"/uploads/avatar.jpg\", \"name\": \"avatar.jpg\", \"size\": 102400, \"mime_type\": \"image/jpeg\"}') RETURNING profile_picture",
+            "expected": {
+              "profile_picture": {
+                "path": "/uploads/avatar.jpg",
+                "name": "avatar.jpg",
+                "size": 102400,
+                "mime_type": "image/jpeg"
+              }
+            }
+          },
+          {
+            "description": "Null attachment allowed (no file uploaded)",
+            "executeQuery": "INSERT INTO users (profile_picture) VALUES (NULL) RETURNING profile_picture",
+            "expected": { "profile_picture": null }
+          }
+        ]
+      }
     },
     {
       "id": "APP-SINGLE-ATTACHMENT-FIELD-002",
-      "given": "invalid type value",
-      "when": "validating configuration",
-      "then": "clear error message should identify the issue"
+      "given": "table 'documents' with single-attachment field supporting JSON queries",
+      "when": "querying attachment metadata",
+      "then": "PostgreSQL JSONB operators extract file properties",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE documents (id SERIAL PRIMARY KEY, title VARCHAR(255), file JSONB)",
+            "INSERT INTO documents (title, file) VALUES ('Report 2024', '{\"path\": \"/files/report.pdf\", \"name\": \"report.pdf\", \"size\": 524288, \"mime_type\": \"application/pdf\"}')",
+            "INSERT INTO documents (title, file) VALUES ('Invoice', '{\"path\": \"/files/invoice.pdf\", \"name\": \"invoice.pdf\", \"size\": 204800, \"mime_type\": \"application/pdf\"}')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Extract filename from attachment",
+            "executeQuery": "SELECT title, file ->> 'name' as filename FROM documents WHERE id = 1",
+            "expected": { "title": "Report 2024", "filename": "report.pdf" }
+          },
+          {
+            "description": "Filter by MIME type",
+            "executeQuery": "SELECT COUNT(*) as count FROM documents WHERE file ->> 'mime_type' = 'application/pdf'",
+            "expected": { "count": 2 }
+          },
+          {
+            "description": "Find large attachments (> 300KB)",
+            "executeQuery": "SELECT title FROM documents WHERE (file ->> 'size')::INTEGER > 300000",
+            "expected": { "title": "Report 2024" }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-SINGLE-ATTACHMENT-FIELD-003",
+      "given": "table 'profiles' with single-attachment field and NOT NULL constraint",
+      "when": "required attachment field is enforced",
+      "then": "PostgreSQL NOT NULL constraint requires attachment metadata",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE profiles (id SERIAL PRIMARY KEY, avatar JSONB NOT NULL)",
+            "INSERT INTO profiles (avatar) VALUES ('{\"path\": \"/avatars/user1.png\", \"name\": \"user1.png\", \"size\": 51200, \"mime_type\": \"image/png\"}')"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "avatar",
+            "type": "single-attachment",
+            "required": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "NOT NULL constraint enforced",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='profiles' AND column_name='avatar'",
+            "expected": { "is_nullable": "NO" }
+          },
+          {
+            "description": "INSERT without attachment rejected",
+            "executeQuery": "INSERT INTO profiles (avatar) VALUES (NULL)",
+            "expectError": "violates not-null constraint"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-SINGLE-ATTACHMENT-FIELD-004",
+      "given": "table 'contracts' with single-attachment field and GIN index",
+      "when": "GIN index is created for JSONB queries",
+      "then": "PostgreSQL GIN index optimizes attachment metadata queries",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE contracts (id SERIAL PRIMARY KEY, signed_copy JSONB)",
+            "CREATE INDEX idx_contracts_signed_copy ON contracts USING GIN(signed_copy)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "signed_copy",
+            "type": "single-attachment",
+            "indexed": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists in pg_indexes",
+            "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_contracts_signed_copy'",
+            "expected": { "indexname": "idx_contracts_signed_copy", "tablename": "contracts" }
+          },
+          {
+            "description": "Index uses GIN for JSONB operations",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_contracts_signed_copy'",
+            "expected": {
+              "indexdef": "CREATE INDEX idx_contracts_signed_copy ON public.contracts USING gin (signed_copy)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-SINGLE-ATTACHMENT-FIELD-005",
+      "given": "table 'invoices' with single-attachment field and CHECK constraint for file size",
+      "when": "max file size is enforced",
+      "then": "PostgreSQL CHECK constraint validates file size limit",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE invoices (id SERIAL PRIMARY KEY, pdf_file JSONB CHECK ((pdf_file ->> 'size')::INTEGER <= 10485760))",
+          "fieldConfig": {
+            "id": 1,
+            "name": "pdf_file",
+            "type": "single-attachment",
+            "maxSize": 10485760
+          }
+        },
+        "assertions": [
+          {
+            "description": "File within size limit succeeds",
+            "executeQuery": "INSERT INTO invoices (pdf_file) VALUES ('{\"path\": \"/invoices/inv001.pdf\", \"name\": \"inv001.pdf\", \"size\": 5242880, \"mime_type\": \"application/pdf\"}') RETURNING pdf_file ->> 'size' as size",
+            "expected": { "size": "5242880" }
+          },
+          {
+            "description": "File at maximum size succeeds",
+            "executeQuery": "INSERT INTO invoices (pdf_file) VALUES ('{\"path\": \"/invoices/inv002.pdf\", \"name\": \"inv002.pdf\", \"size\": 10485760, \"mime_type\": \"application/pdf\"}') RETURNING pdf_file ->> 'size' as size",
+            "expected": { "size": "10485760" }
+          },
+          {
+            "description": "File exceeding size limit rejected",
+            "executeQuery": "INSERT INTO invoices (pdf_file) VALUES ('{\"path\": \"/invoices/inv003.pdf\", \"name\": \"inv003.pdf\", \"size\": 10485761, \"mime_type\": \"application/pdf\"}')",
+            "expectError": "violates check constraint"
+          }
+        ]
+      }
     }
   ]
 }
