@@ -51,37 +51,281 @@
       "id": "APP-TABLES-RECORD-PERMISSIONS-001",
       "given": "record-level permission 'read: {userId} = created_by'",
       "when": "user lists records",
-      "then": "only records where created_by equals user's ID should be returned"
+      "then": "PostgreSQL RLS policy filters records to match user's ID",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE documents (id SERIAL PRIMARY KEY, title VARCHAR(255), content TEXT, created_by INTEGER)",
+            "ALTER TABLE documents ENABLE ROW LEVEL SECURITY",
+            "CREATE POLICY user_read_own ON documents FOR SELECT USING (created_by = current_setting('app.user_id')::INTEGER)",
+            "INSERT INTO documents (title, content, created_by) VALUES ('Doc 1', 'Content 1', 1), ('Doc 2', 'Content 2', 2), ('Doc 3', 'Content 3', 1)"
+          ],
+          "permissionConfig": {
+            "records": [
+              {
+                "action": "read",
+                "condition": "{userId} = created_by"
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "RLS policy exists for user_read_own",
+            "executeQuery": "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='documents' AND policyname='user_read_own'",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "User 1 can only SELECT their own records",
+            "executeQuery": "SET LOCAL app.user_id = 1; SELECT COUNT(*) as count FROM documents",
+            "expected": { "count": 2 }
+          },
+          {
+            "description": "User 2 can only SELECT their own records",
+            "executeQuery": "SET LOCAL app.user_id = 2; SELECT COUNT(*) as count FROM documents",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "User 1 sees titles of their documents",
+            "executeQuery": "SET LOCAL app.user_id = 1; SELECT title FROM documents ORDER BY id",
+            "expected": [{ "title": "Doc 1" }, { "title": "Doc 3" }]
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-RECORD-PERMISSIONS-002",
       "given": "record-level permission 'update: {userId} = assigned_to'",
       "when": "user attempts to update record not assigned to them",
-      "then": "update should be rejected with 403 Forbidden"
+      "then": "PostgreSQL RLS policy denies UPDATE",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), status VARCHAR(50), assigned_to INTEGER)",
+            "ALTER TABLE tasks ENABLE ROW LEVEL SECURITY",
+            "CREATE POLICY user_update_assigned ON tasks FOR UPDATE USING (assigned_to = current_setting('app.user_id')::INTEGER)",
+            "INSERT INTO tasks (title, status, assigned_to) VALUES ('Task 1', 'open', 1), ('Task 2', 'open', 2)"
+          ],
+          "permissionConfig": {
+            "records": [
+              {
+                "action": "update",
+                "condition": "{userId} = assigned_to"
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "RLS policy exists for user_update_assigned",
+            "executeQuery": "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='tasks' AND policyname='user_update_assigned'",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "User 1 can UPDATE tasks assigned to them",
+            "executeQuery": "SET LOCAL app.user_id = 1; UPDATE tasks SET status = 'in_progress' WHERE id = 1 RETURNING status",
+            "expected": { "status": "in_progress" }
+          },
+          {
+            "description": "User 1 cannot UPDATE tasks assigned to user 2",
+            "executeQuery": "SET LOCAL app.user_id = 1; UPDATE tasks SET status = 'hacked' WHERE id = 2 RETURNING id",
+            "expected": { "id": null }
+          },
+          {
+            "description": "User 2 can only UPDATE their assigned tasks",
+            "executeQuery": "SET LOCAL app.user_id = 2; UPDATE tasks SET status = 'done' WHERE id = 2 RETURNING status",
+            "expected": { "status": "done" }
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-RECORD-PERMISSIONS-003",
       "given": "record-level permission 'delete: {userId} = created_by AND status = draft'",
       "when": "user attempts to delete published record they created",
-      "then": "delete should be rejected with 403 Forbidden"
+      "then": "PostgreSQL RLS policy denies DELETE (status not draft)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE articles (id SERIAL PRIMARY KEY, title VARCHAR(255), status VARCHAR(50), created_by INTEGER)",
+            "ALTER TABLE articles ENABLE ROW LEVEL SECURITY",
+            "CREATE POLICY user_delete_draft ON articles FOR DELETE USING (created_by = current_setting('app.user_id')::INTEGER AND status = 'draft')",
+            "INSERT INTO articles (title, status, created_by) VALUES ('Draft 1', 'draft', 1), ('Published 1', 'published', 1), ('Draft 2', 'draft', 2)"
+          ],
+          "permissionConfig": {
+            "records": [
+              {
+                "action": "delete",
+                "condition": "{userId} = created_by AND status = 'draft'"
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "RLS policy exists with AND condition",
+            "executeQuery": "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='articles' AND policyname='user_delete_draft'",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "User 1 can DELETE their draft article",
+            "executeQuery": "SET LOCAL app.user_id = 1; DELETE FROM articles WHERE id = 1 RETURNING id",
+            "expected": { "id": 1 }
+          },
+          {
+            "description": "User 1 cannot DELETE their published article (status not draft)",
+            "executeQuery": "SET LOCAL app.user_id = 1; DELETE FROM articles WHERE id = 2 RETURNING id",
+            "expected": { "id": null }
+          },
+          {
+            "description": "User 1 cannot DELETE drafts by user 2 (not their own)",
+            "executeQuery": "SET LOCAL app.user_id = 1; DELETE FROM articles WHERE id = 3 RETURNING id",
+            "expected": { "id": null }
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-RECORD-PERMISSIONS-004",
-      "given": "multiple record-level read conditions",
+      "given": "multiple record-level read conditions with AND logic",
       "when": "user lists records",
-      "then": "records should be filtered to match ALL conditions (AND logic)"
+      "then": "PostgreSQL RLS policy filters records matching ALL conditions",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), department VARCHAR(100), status VARCHAR(50), owner_id INTEGER)",
+            "ALTER TABLE projects ENABLE ROW LEVEL SECURITY",
+            "CREATE POLICY user_read_projects ON projects FOR SELECT USING (department = current_setting('app.user_department')::TEXT AND status = 'active')",
+            "INSERT INTO projects (name, department, status, owner_id) VALUES ('Project A', 'Engineering', 'active', 1), ('Project B', 'Engineering', 'archived', 1), ('Project C', 'Marketing', 'active', 2)"
+          ],
+          "permissionConfig": {
+            "records": [
+              {
+                "action": "read",
+                "condition": "{user.department} = department"
+              },
+              {
+                "action": "read",
+                "condition": "status = 'active'"
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "RLS policy combines conditions with AND",
+            "executeQuery": "SELECT qual FROM pg_policies WHERE tablename='projects' AND policyname='user_read_projects'",
+            "expected": { "qual": "((department = (current_setting('app.user_department'::text))::text) AND (status = 'active'::text))" }
+          },
+          {
+            "description": "Engineering user sees only active Engineering projects",
+            "executeQuery": "SET LOCAL app.user_department = 'Engineering'; SELECT COUNT(*) as count FROM projects",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "Engineering user sees Project A (active)",
+            "executeQuery": "SET LOCAL app.user_department = 'Engineering'; SELECT name FROM projects",
+            "expected": { "name": "Project A" }
+          },
+          {
+            "description": "Marketing user sees only active Marketing projects",
+            "executeQuery": "SET LOCAL app.user_department = 'Marketing'; SELECT name FROM projects",
+            "expected": { "name": "Project C" }
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-RECORD-PERMISSIONS-005",
       "given": "record-level permission '{user.department} = department'",
       "when": "user lists records",
-      "then": "only records matching user's department should be returned"
+      "then": "PostgreSQL RLS policy filters by user's department custom property",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), department VARCHAR(100), email VARCHAR(255))",
+            "ALTER TABLE employees ENABLE ROW LEVEL SECURITY",
+            "CREATE POLICY same_department ON employees FOR SELECT USING (department = current_setting('app.user_department')::TEXT)",
+            "INSERT INTO employees (name, department, email) VALUES ('Alice', 'Engineering', 'alice@example.com'), ('Bob', 'Marketing', 'bob@example.com'), ('Charlie', 'Engineering', 'charlie@example.com')"
+          ],
+          "permissionConfig": {
+            "records": [
+              {
+                "action": "read",
+                "condition": "{user.department} = department"
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "RLS policy uses custom user property",
+            "executeQuery": "SELECT qual FROM pg_policies WHERE tablename='employees' AND policyname='same_department'",
+            "expected": { "qual": "(department = (current_setting('app.user_department'::text))::text)" }
+          },
+          {
+            "description": "Engineering user sees Engineering employees only",
+            "executeQuery": "SET LOCAL app.user_department = 'Engineering'; SELECT COUNT(*) as count FROM employees",
+            "expected": { "count": 2 }
+          },
+          {
+            "description": "Engineering user sees Alice and Charlie",
+            "executeQuery": "SET LOCAL app.user_department = 'Engineering'; SELECT name FROM employees ORDER BY name",
+            "expected": [{ "name": "Alice" }, { "name": "Charlie" }]
+          },
+          {
+            "description": "Marketing user sees Marketing employees only",
+            "executeQuery": "SET LOCAL app.user_department = 'Marketing'; SELECT name FROM employees",
+            "expected": { "name": "Bob" }
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-RECORD-PERMISSIONS-006",
       "given": "record-level permission with complex condition '{userId} = created_by OR {userId} = assigned_to'",
       "when": "user lists records",
-      "then": "records where user is creator OR assignee should be returned"
+      "then": "PostgreSQL RLS policy filters records where user is creator OR assignee",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tickets (id SERIAL PRIMARY KEY, title VARCHAR(255), created_by INTEGER, assigned_to INTEGER)",
+            "ALTER TABLE tickets ENABLE ROW LEVEL SECURITY",
+            "CREATE POLICY user_read_tickets ON tickets FOR SELECT USING (created_by = current_setting('app.user_id')::INTEGER OR assigned_to = current_setting('app.user_id')::INTEGER)",
+            "INSERT INTO tickets (title, created_by, assigned_to) VALUES ('Ticket 1', 1, 2), ('Ticket 2', 2, 1), ('Ticket 3', 1, 1), ('Ticket 4', 3, 3)"
+          ],
+          "permissionConfig": {
+            "records": [
+              {
+                "action": "read",
+                "condition": "{userId} = created_by OR {userId} = assigned_to"
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "RLS policy uses OR condition",
+            "executeQuery": "SELECT qual FROM pg_policies WHERE tablename='tickets' AND policyname='user_read_tickets'",
+            "expected": { "qual": "((created_by = (current_setting('app.user_id'::text))::integer) OR (assigned_to = (current_setting('app.user_id'::text))::integer))" }
+          },
+          {
+            "description": "User 1 sees tickets they created OR are assigned to",
+            "executeQuery": "SET LOCAL app.user_id = 1; SELECT COUNT(*) as count FROM tickets",
+            "expected": { "count": 3 }
+          },
+          {
+            "description": "User 1 sees Ticket 1 (created), Ticket 2 (assigned), Ticket 3 (both)",
+            "executeQuery": "SET LOCAL app.user_id = 1; SELECT title FROM tickets ORDER BY id",
+            "expected": [{ "title": "Ticket 1" }, { "title": "Ticket 2" }, { "title": "Ticket 3" }]
+          },
+          {
+            "description": "User 2 sees tickets they created OR are assigned to",
+            "executeQuery": "SET LOCAL app.user_id = 2; SELECT title FROM tickets ORDER BY id",
+            "expected": [{ "title": "Ticket 1" }, { "title": "Ticket 2" }]
+          }
+        ]
+      }
     }
   ]
 }

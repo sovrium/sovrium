@@ -41,31 +41,214 @@
       "id": "APP-TABLES-TABLE-PERMISSIONS-001",
       "given": "table with role-based read permission for 'member' role",
       "when": "user with 'member' role requests records",
-      "then": "access should be granted"
+      "then": "PostgreSQL RLS policy grants SELECT access",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, title VARCHAR(255), created_by INTEGER)",
+            "ALTER TABLE projects ENABLE ROW LEVEL SECURITY",
+            "CREATE POLICY member_read ON projects FOR SELECT USING (auth.user_has_role('member'))",
+            "INSERT INTO projects (title, created_by) VALUES ('Project 1', 1), ('Project 2', 2)"
+          ],
+          "permissionConfig": {
+            "table": {
+              "read": { "type": "roles", "roles": ["member"] }
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "RLS policy exists for member role",
+            "executeQuery": "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='projects' AND policyname='member_read'",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "Policy uses USING clause for SELECT",
+            "executeQuery": "SELECT cmd, qual FROM pg_policies WHERE tablename='projects' AND policyname='member_read'",
+            "expected": { "cmd": "SELECT", "qual": "auth.user_has_role('member'::text)" }
+          },
+          {
+            "description": "Member user can SELECT records",
+            "executeQuery": "SET ROLE member_user; SELECT COUNT(*) as count FROM projects",
+            "expected": { "count": 2 }
+          },
+          {
+            "description": "Non-member user cannot SELECT records",
+            "executeQuery": "SET ROLE guest_user; SELECT COUNT(*) as count FROM projects",
+            "expectError": "permission denied for table projects"
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-TABLE-PERMISSIONS-002",
       "given": "table with role-based create permission for 'admin' role only",
       "when": "user with 'member' role attempts to create record",
-      "then": "access should be denied with 403 Forbidden"
+      "then": "PostgreSQL RLS policy denies INSERT access",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE documents (id SERIAL PRIMARY KEY, title VARCHAR(255))",
+            "ALTER TABLE documents ENABLE ROW LEVEL SECURITY",
+            "CREATE POLICY admin_create ON documents FOR INSERT WITH CHECK (auth.user_has_role('admin'))"
+          ],
+          "permissionConfig": {
+            "table": {
+              "create": { "type": "roles", "roles": ["admin"] }
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "RLS policy exists for admin create",
+            "executeQuery": "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='documents' AND policyname='admin_create'",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "Policy uses WITH CHECK clause for INSERT",
+            "executeQuery": "SELECT cmd, with_check FROM pg_policies WHERE tablename='documents' AND policyname='admin_create'",
+            "expected": { "cmd": "INSERT", "with_check": "auth.user_has_role('admin'::text)" }
+          },
+          {
+            "description": "Admin user can INSERT records",
+            "executeQuery": "SET ROLE admin_user; INSERT INTO documents (title) VALUES ('Doc 1') RETURNING id",
+            "expected": { "id": 1 }
+          },
+          {
+            "description": "Member user cannot INSERT records",
+            "executeQuery": "SET ROLE member_user; INSERT INTO documents (title) VALUES ('Doc 2')",
+            "expectError": "new row violates row-level security policy"
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-TABLE-PERMISSIONS-003",
       "given": "table with public read permission",
       "when": "unauthenticated user requests records",
-      "then": "access should be granted"
+      "then": "PostgreSQL allows SELECT without RLS policy (public access)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE articles (id SERIAL PRIMARY KEY, title VARCHAR(255), content TEXT)",
+            "INSERT INTO articles (title, content) VALUES ('Article 1', 'Content 1'), ('Article 2', 'Content 2')"
+          ],
+          "permissionConfig": {
+            "table": {
+              "read": { "type": "public" }
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "RLS is not enabled for public tables",
+            "executeQuery": "SELECT relrowsecurity FROM pg_class WHERE relname='articles'",
+            "expected": { "relrowsecurity": false }
+          },
+          {
+            "description": "No RLS policies exist",
+            "executeQuery": "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='articles'",
+            "expected": { "count": 0 }
+          },
+          {
+            "description": "Any user can SELECT records",
+            "executeQuery": "SELECT COUNT(*) as count FROM articles",
+            "expected": { "count": 2 }
+          },
+          {
+            "description": "Unauthenticated session can SELECT records",
+            "executeQuery": "RESET ROLE; SELECT COUNT(*) as count FROM articles",
+            "expected": { "count": 2 }
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-TABLE-PERMISSIONS-004",
       "given": "table with authenticated-only update permission",
       "when": "authenticated user attempts to update record",
-      "then": "access should be granted"
+      "then": "PostgreSQL RLS policy grants UPDATE access to authenticated users",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE profiles (id SERIAL PRIMARY KEY, name VARCHAR(255), bio TEXT)",
+            "ALTER TABLE profiles ENABLE ROW LEVEL SECURITY",
+            "CREATE POLICY authenticated_update ON profiles FOR UPDATE USING (auth.is_authenticated()) WITH CHECK (auth.is_authenticated())",
+            "INSERT INTO profiles (name, bio) VALUES ('Alice', 'Bio 1')"
+          ],
+          "permissionConfig": {
+            "table": {
+              "update": { "type": "authenticated" }
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "RLS policy exists for authenticated update",
+            "executeQuery": "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='profiles' AND policyname='authenticated_update'",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "Policy uses both USING and WITH CHECK",
+            "executeQuery": "SELECT cmd, qual, with_check FROM pg_policies WHERE tablename='profiles' AND policyname='authenticated_update'",
+            "expected": {
+              "cmd": "UPDATE",
+              "qual": "auth.is_authenticated()",
+              "with_check": "auth.is_authenticated()"
+            }
+          },
+          {
+            "description": "Authenticated user can UPDATE records",
+            "executeQuery": "SET ROLE authenticated_user; UPDATE profiles SET bio = 'Updated bio' WHERE id = 1 RETURNING bio",
+            "expected": { "bio": "Updated bio" }
+          },
+          {
+            "description": "Unauthenticated user cannot UPDATE records",
+            "executeQuery": "RESET ROLE; UPDATE profiles SET bio = 'Hacked' WHERE id = 1",
+            "expectError": "new row violates row-level security policy"
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-TABLE-PERMISSIONS-005",
-      "given": "table with no read permission specified",
+      "given": "table with no read permission specified (default deny)",
       "when": "any user attempts to read records",
-      "then": "access should be denied by default"
+      "then": "PostgreSQL RLS policy denies all SELECT access by default",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE secrets (id SERIAL PRIMARY KEY, data TEXT)",
+            "ALTER TABLE secrets ENABLE ROW LEVEL SECURITY",
+            "INSERT INTO secrets (data) VALUES ('Secret 1')"
+          ],
+          "permissionConfig": {
+            "table": {}
+          }
+        },
+        "assertions": [
+          {
+            "description": "RLS is enabled",
+            "executeQuery": "SELECT relrowsecurity FROM pg_class WHERE relname='secrets'",
+            "expected": { "relrowsecurity": true }
+          },
+          {
+            "description": "No SELECT policies exist (default deny)",
+            "executeQuery": "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='secrets' AND cmd='SELECT'",
+            "expected": { "count": 0 }
+          },
+          {
+            "description": "Admin user cannot SELECT (no policy)",
+            "executeQuery": "SET ROLE admin_user; SELECT COUNT(*) as count FROM secrets",
+            "expected": { "count": 0 }
+          },
+          {
+            "description": "Any user gets empty result set (RLS blocks)",
+            "executeQuery": "SET ROLE member_user; SELECT COUNT(*) as count FROM secrets",
+            "expected": { "count": 0 }
+          }
+        ]
+      }
     }
   ]
 }
