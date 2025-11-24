@@ -24,7 +24,7 @@ import type {
 } from '@/domain/models/app/block/common/block-reference'
 import type { Blocks } from '@/domain/models/app/blocks'
 import type { Languages } from '@/domain/models/app/languages'
-import type { VariantOverrides } from '@/domain/models/app/page/common/responsive'
+import type { Responsive, VariantOverrides } from '@/domain/models/app/page/common/responsive'
 import type { Component } from '@/domain/models/app/page/sections'
 import type { Theme } from '@/domain/models/app/theme'
 
@@ -277,7 +277,7 @@ function renderResponsiveChildren(
   }
 
   const hasResponsiveChildren = Object.values(responsive).some(
-    (overrides) => overrides.children !== undefined
+    (overrides: VariantOverrides) => overrides.children !== undefined
   )
 
   if (!hasResponsiveChildren) {
@@ -286,8 +286,8 @@ function renderResponsiveChildren(
 
   // Collect breakpoint children with visibility classes
   const breakpointChildren = Object.entries(responsive)
-    .filter(([, overrides]) => overrides.children !== undefined)
-    .map(([breakpoint, overrides]) => ({
+    .filter(([, overrides]: [string, VariantOverrides]) => overrides.children !== undefined)
+    .map(([breakpoint, overrides]: [string, VariantOverrides]) => ({
       breakpoint,
       children: overrides.children!,
       visibilityClass: BREAKPOINT_VISIBILITY_CLASSES[breakpoint] || '',
@@ -299,7 +299,7 @@ function renderResponsiveChildren(
 
   // Render all children with visibility classes (functional approach)
   return breakpointChildren.flatMap(({ breakpoint, children, visibilityClass }) =>
-    children.map((child, index) =>
+    children.map((child: Component | string, index: number) =>
       renderResponsiveChild(child, breakpoint, index, visibilityClass, props)
     )
   )
