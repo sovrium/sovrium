@@ -349,7 +349,13 @@ function RenderDirectComponent({
     ? { ...mergedPropsWithoutClassName, className: responsiveClassName }
     : mergedPropsWithoutClassName
 
-  const mergedChildren = responsiveOverrides?.children ?? children
+  // For children: Use CSS-based responsive rendering if responsive.children exists
+  // For content: Use JavaScript-based override (content changes are CSS-rendered via data attributes)
+  const hasResponsiveChildren = responsive
+    ? Object.values(responsive).some((override) => override?.children)
+    : false
+
+  const mergedChildren = hasResponsiveChildren ? children : responsiveOverrides?.children ?? children
   const mergedContent = responsiveOverrides?.content ?? content
 
   // Build CSS classes for responsive visibility using Tailwind breakpoint utilities
