@@ -7,15 +7,110 @@
   "x-specs": [
     {
       "id": "APP-FIELD-CURRENCY-DEFAULT-001",
-      "given": "user provides default",
-      "when": "validating input",
-      "then": "numeric value should be accepted"
+      "given": "currency field with default: 0.00",
+      "when": "field migration creates column with DEFAULT constraint",
+      "then": "PostgreSQL automatically sets value to 0.00 when not provided",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE accounts (id SERIAL PRIMARY KEY, name VARCHAR(255), balance DECIMAL(15,2) DEFAULT 0.00)",
+            "INSERT INTO accounts (name) VALUES ('Account 1'), ('Account 2')"
+          ],
+          "fieldConfig": {
+            "name": "balance",
+            "type": "currency",
+            "default": 0.0
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='accounts' AND column_name='balance'",
+            "expected": { "column_default": "0.00" }
+          },
+          {
+            "description": "Default value applied when not provided",
+            "executeQuery": "SELECT balance FROM accounts WHERE name = 'Account 1'",
+            "expected": { "balance": 0.0 }
+          },
+          {
+            "description": "Explicit value overrides default",
+            "executeQuery": "INSERT INTO accounts (name, balance) VALUES ('Account 3', 1500.50) RETURNING balance",
+            "expected": { "balance": 1500.5 }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-CURRENCY-DEFAULT-002",
-      "given": "user provides non-numeric default",
-      "when": "validating input",
-      "then": "error should require number"
+      "given": "currency field with default: 49.99 (subscription price)",
+      "when": "INSERT without value",
+      "then": "PostgreSQL uses default value 49.99",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE subscriptions (id SERIAL PRIMARY KEY, plan_name VARCHAR(255), price DECIMAL(10,2) DEFAULT 49.99)",
+            "INSERT INTO subscriptions (plan_name) VALUES ('Basic Plan')"
+          ],
+          "fieldConfig": {
+            "name": "price",
+            "type": "currency",
+            "default": 49.99
+          }
+        },
+        "assertions": [
+          {
+            "description": "Default value is 49.99",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='subscriptions' AND column_name='price'",
+            "expected": { "column_default": "49.99" }
+          },
+          {
+            "description": "Default applied to inserted record",
+            "executeQuery": "SELECT price FROM subscriptions WHERE plan_name = 'Basic Plan'",
+            "expected": { "price": 49.99 }
+          },
+          {
+            "description": "Explicit 0.00 allowed (overrides default)",
+            "executeQuery": "INSERT INTO subscriptions (plan_name, price) VALUES ('Free Plan', 0.00) RETURNING price",
+            "expected": { "price": 0.0 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-CURRENCY-DEFAULT-003",
+      "given": "currency field with no default specified",
+      "when": "INSERT without value",
+      "then": "PostgreSQL uses NULL (if nullable) or rejects (if required)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE payments (id SERIAL PRIMARY KEY, amount DECIMAL(15,2))",
+            "INSERT INTO payments (id) VALUES (1)"
+          ],
+          "fieldConfig": {
+            "name": "amount",
+            "type": "currency"
+          }
+        },
+        "assertions": [
+          {
+            "description": "No DEFAULT constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='payments' AND column_name='amount'",
+            "expected": { "column_default": null }
+          },
+          {
+            "description": "NULL used when no default and no value",
+            "executeQuery": "SELECT amount FROM payments WHERE id = 1",
+            "expected": { "amount": null }
+          },
+          {
+            "description": "Explicit value succeeds",
+            "executeQuery": "INSERT INTO payments (amount) VALUES (275.00) RETURNING amount",
+            "expected": { "amount": 275.0 }
+          }
+        ]
+      }
     }
   ]
 }

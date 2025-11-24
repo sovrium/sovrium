@@ -1,20 +1,116 @@
 {
   "$id": "default.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "default",
+  "title": "Percentage Field Default Value",
+  "description": "Default numeric value for this percentage field when no value is provided",
   "type": "number",
   "x-specs": [
     {
       "id": "APP-FIELD-PERCENTAGE-DEFAULT-001",
-      "given": "user provides default",
-      "when": "validating input",
-      "then": "numeric value should be accepted"
+      "given": "percentage field with default: 0.0",
+      "when": "field migration creates column with DEFAULT constraint",
+      "then": "PostgreSQL automatically sets value to 0.0 when not provided",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), completion DECIMAL(5,2) DEFAULT 0.0)",
+            "INSERT INTO projects (name) VALUES ('Project Alpha'), ('Project Beta')"
+          ],
+          "fieldConfig": {
+            "name": "completion",
+            "type": "percentage",
+            "default": 0.0
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='projects' AND column_name='completion'",
+            "expected": { "column_default": "0.0" }
+          },
+          {
+            "description": "Default value applied when not provided",
+            "executeQuery": "SELECT completion FROM projects WHERE name = 'Project Alpha'",
+            "expected": { "completion": 0.0 }
+          },
+          {
+            "description": "Explicit value overrides default",
+            "executeQuery": "INSERT INTO projects (name, completion) VALUES ('Project Gamma', 45.5) RETURNING completion",
+            "expected": { "completion": 45.5 }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-PERCENTAGE-DEFAULT-002",
-      "given": "user provides non-numeric default",
-      "when": "validating input",
-      "then": "error should require number"
+      "given": "percentage field with default: 15.0 (sales tax rate)",
+      "when": "INSERT without value",
+      "then": "PostgreSQL uses default value 15.0",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tax_regions (id SERIAL PRIMARY KEY, region_name VARCHAR(255), tax_rate DECIMAL(5,2) DEFAULT 15.0)",
+            "INSERT INTO tax_regions (region_name) VALUES ('Region A')"
+          ],
+          "fieldConfig": {
+            "name": "tax_rate",
+            "type": "percentage",
+            "default": 15.0
+          }
+        },
+        "assertions": [
+          {
+            "description": "Default value is 15.0",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='tax_regions' AND column_name='tax_rate'",
+            "expected": { "column_default": "15.0" }
+          },
+          {
+            "description": "Default applied to inserted record",
+            "executeQuery": "SELECT tax_rate FROM tax_regions WHERE region_name = 'Region A'",
+            "expected": { "tax_rate": 15.0 }
+          },
+          {
+            "description": "Explicit 0.0 allowed (overrides default)",
+            "executeQuery": "INSERT INTO tax_regions (region_name, tax_rate) VALUES ('Tax-Free Zone', 0.0) RETURNING tax_rate",
+            "expected": { "tax_rate": 0.0 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-PERCENTAGE-DEFAULT-003",
+      "given": "percentage field with no default specified",
+      "when": "INSERT without value",
+      "then": "PostgreSQL uses NULL (if nullable) or rejects (if required)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE performance_metrics (id SERIAL PRIMARY KEY, efficiency DECIMAL(5,2))",
+            "INSERT INTO performance_metrics (id) VALUES (1)"
+          ],
+          "fieldConfig": {
+            "name": "efficiency",
+            "type": "percentage"
+          }
+        },
+        "assertions": [
+          {
+            "description": "No DEFAULT constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='performance_metrics' AND column_name='efficiency'",
+            "expected": { "column_default": null }
+          },
+          {
+            "description": "NULL used when no default and no value",
+            "executeQuery": "SELECT efficiency FROM performance_metrics WHERE id = 1",
+            "expected": { "efficiency": null }
+          },
+          {
+            "description": "Explicit value succeeds",
+            "executeQuery": "INSERT INTO performance_metrics (efficiency) VALUES (87.25) RETURNING efficiency",
+            "expected": { "efficiency": 87.25 }
+          }
+        ]
+      }
     }
   ]
 }
