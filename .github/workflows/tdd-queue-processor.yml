@@ -1,9 +1,18 @@
 name: TDD Queue - Processor
 
 on:
-  # Scheduled runs - Every 15 minutes (optimized from 10 min to reduce GitHub Actions usage)
+  # Event-driven triggers (immediate response when work is available)
+  workflow_run:
+    workflows:
+      - 'TDD Queue - Populate' # New specs added to queue
+      - 'Claude Code TDD' # Spec completed, pick next one
+      - 'TDD Monitor (Unified)' # Stuck specs re-queued
+    types: [completed]
+    branches: [main]
+
+  # Scheduled backup (hourly safety net, reduced from every 15 min)
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '0 * * * *' # Every hour (Phase 3: event-driven architecture)
 
   # Manual trigger
   workflow_dispatch:
@@ -33,8 +42,30 @@ jobs:
     name: 🔄 Process TDD Queue
     runs-on: ubuntu-latest
     timeout-minutes: 5 # Quick operation: fetch queue, update labels, post @claude comment
+    # Only process queue if:
+    # 1. Triggered by schedule or manual (always run)
+    # 2. Triggered by workflow_run AND the workflow succeeded
+    if: |
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
 
     steps:
+      - name: Log trigger source
+        run: |
+          echo "🔍 Queue Processor Triggered"
+          echo "=========================="
+          echo "Event: ${{ github.event_name }}"
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "Triggered by: ${{ github.event.workflow_run.name }}"
+            echo "Conclusion: ${{ github.event.workflow_run.conclusion }}"
+            echo "Trigger type: Event-driven (Phase 3)"
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "Trigger type: Scheduled backup (hourly safety net)"
+          else
+            echo "Trigger type: Manual"
+          fi
+          echo ""
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
