@@ -8,21 +8,162 @@
   "x-specs": [
     {
       "id": "APP-FIELD-REQUIRED-001",
-      "given": "required is true",
-      "when": "processing entity",
-      "then": "corresponding behavior should be enforced"
+      "given": "field with required: true",
+      "when": "field migration creates column with NOT NULL constraint",
+      "then": "PostgreSQL rejects NULL values in column",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, email VARCHAR(255))",
+            "INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com')"
+          ],
+          "fieldConfig": {
+            "name": "name",
+            "type": "single-line-text",
+            "required": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has NOT NULL constraint",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='users' AND column_name='name'",
+            "expected": { "is_nullable": "NO" }
+          },
+          {
+            "description": "NULL value rejected",
+            "executeQuery": "INSERT INTO users (name, email) VALUES (NULL, 'null@example.com')",
+            "expectError": "null value in column \"name\" violates not-null constraint"
+          },
+          {
+            "description": "Valid value succeeds",
+            "executeQuery": "INSERT INTO users (name, email) VALUES ('Bob', 'bob@example.com') RETURNING name",
+            "expected": { "name": "Bob" }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-REQUIRED-002",
-      "given": "required is false (default: false)",
-      "when": "processing entity",
-      "then": "corresponding behavior should not be enforced"
+      "given": "field with required: false (default)",
+      "when": "field migration creates column without NOT NULL constraint",
+      "then": "PostgreSQL allows NULL values in column",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT)",
+            "INSERT INTO products (name, description) VALUES ('Product 1', 'Description 1')"
+          ],
+          "fieldConfig": {
+            "name": "description",
+            "type": "long-text",
+            "required": false
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column is nullable",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='description'",
+            "expected": { "is_nullable": "YES" }
+          },
+          {
+            "description": "NULL value allowed",
+            "executeQuery": "INSERT INTO products (name, description) VALUES ('Product 2', NULL) RETURNING id",
+            "expected": { "id": 2 }
+          },
+          {
+            "description": "Non-NULL value also allowed",
+            "executeQuery": "INSERT INTO products (name, description) VALUES ('Product 3', 'Some description') RETURNING description",
+            "expected": { "description": "Some description" }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-REQUIRED-003",
-      "given": "configuration with required",
-      "when": "validating settings",
-      "then": "boolean value should be accepted"
+      "given": "required field with existing NULL values",
+      "when": "attempting to add NOT NULL constraint",
+      "then": "PostgreSQL migration fails if existing NULLs present",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE items (id SERIAL PRIMARY KEY, title VARCHAR(255))",
+            "INSERT INTO items (title) VALUES ('Item 1'), (NULL), ('Item 3')"
+          ],
+          "fieldConfig": {
+            "name": "title",
+            "type": "single-line-text",
+            "required": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column currently allows NULL",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='items' AND column_name='title'",
+            "expected": { "is_nullable": "YES" }
+          },
+          {
+            "description": "NULL values exist in data",
+            "executeQuery": "SELECT COUNT(*) as count FROM items WHERE title IS NULL",
+            "expected": { "count": 1 }
+          },
+          {
+            "description": "Adding NOT NULL constraint fails with existing NULLs",
+            "executeQuery": "ALTER TABLE items ALTER COLUMN title SET NOT NULL",
+            "expectError": "column \"title\" contains null values"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-REQUIRED-004",
+      "given": "multiple required fields in same table",
+      "when": "all required fields must have values",
+      "then": "PostgreSQL rejects INSERT/UPDATE missing any required field",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, first_name VARCHAR(255) NOT NULL, last_name VARCHAR(255) NOT NULL, email VARCHAR(255), phone VARCHAR(50))",
+            "INSERT INTO employees (first_name, last_name, email) VALUES ('Alice', 'Smith', 'alice@example.com')"
+          ],
+          "fieldConfig": [
+            {
+              "name": "first_name",
+              "type": "single-line-text",
+              "required": true
+            },
+            {
+              "name": "last_name",
+              "type": "single-line-text",
+              "required": true
+            }
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Both fields have NOT NULL constraints",
+            "executeQuery": "SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name='employees' AND column_name IN ('first_name', 'last_name') ORDER BY column_name",
+            "expected": [
+              { "column_name": "first_name", "is_nullable": "NO" },
+              { "column_name": "last_name", "is_nullable": "NO" }
+            ]
+          },
+          {
+            "description": "Missing first_name rejected",
+            "executeQuery": "INSERT INTO employees (last_name) VALUES ('Jones')",
+            "expectError": "null value in column \"first_name\" violates not-null constraint"
+          },
+          {
+            "description": "Missing last_name rejected",
+            "executeQuery": "INSERT INTO employees (first_name) VALUES ('Bob')",
+            "expectError": "null value in column \"last_name\" violates not-null constraint"
+          },
+          {
+            "description": "All required fields provided succeeds",
+            "executeQuery": "INSERT INTO employees (first_name, last_name) VALUES ('Bob', 'Jones') RETURNING first_name, last_name",
+            "expected": { "first_name": "Bob", "last_name": "Jones" }
+          }
+        ]
+      }
     }
   ]
 }
