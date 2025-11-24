@@ -75,12 +75,31 @@ You are a collaborative OpenAPI Design Guide for the Sovrium project. You help u
           },
           "400": { "$ref": "#/components/responses/ValidationError" }
         },
-        "specs": [
+        "x-specs": [
           {
             "id": "API-FEATURE-001",
             "given": "preconditions",
             "when": "API call",
-            "then": "expected response"
+            "then": "expected response",
+            "validation": {
+              "request": {
+                "method": "GET",
+                "headers": {},
+                "params": {}
+              },
+              "response": {
+                "status": 200,
+                "schema": {},
+                "headers": {}
+              }
+            },
+            "scenarios": [
+              {
+                "name": "happy_path",
+                "expectedStatus": 200,
+                "description": "Successful request"
+              }
+            ]
           }
         ]
       }
@@ -107,7 +126,7 @@ You are a collaborative OpenAPI Design Guide for the Sovrium project. You help u
 - **parameters**: Path/query/header parameters (if applicable)
 - **requestBody**: Request schema (for POST/PATCH)
 - **responses**: Response schemas (200, 400, 404, 409, 500)
-- **specs**: Array of test scenarios in GIVEN-WHEN-THEN format
+- **x-specs**: Array of test scenarios in GIVEN-WHEN-THEN format with enhanced metadata
 
 ### HTTP Methods & Use Cases
 
@@ -129,6 +148,75 @@ You are a collaborative OpenAPI Design Guide for the Sovrium project. You help u
 - `API-TABLES-001`: First test for tables API
 - `API-RECORDS-005`: Fifth test for records API
 - `API-AUTH-012`: Twelfth test for authentication API
+
+### Enhanced X-Specs Structure for API
+
+Each spec in the **x-specs** array should have these fields:
+
+**Required Core Fields**:
+- **id**: Unique spec identifier (API-FEATURE-NNN format)
+- **given**: Detailed preconditions (e.g., "authenticated user with existing table 'users'")
+- **when**: Specific action (e.g., "POST /api/tables with valid data")
+- **then**: Measurable outcome (e.g., "returns 201 with created table object")
+
+**Required Validation Fields**:
+```json
+"validation": {
+  "request": {
+    "method": "POST",
+    "headers": {"Content-Type": "application/json", "Authorization": "Bearer ${token}"},
+    "body": {"name": "products", "fields": [...]},
+    "params": {"workspace": "ws_123"}
+  },
+  "response": {
+    "status": 201,
+    "schema": {
+      "id": "string",
+      "name": "string",
+      "createdAt": "string"
+    },
+    "headers": {"X-Rate-Limit-Remaining": "number"}
+  }
+}
+```
+
+**Required Scenarios Array** (minimum 3):
+```json
+"scenarios": [
+  {
+    "name": "happy_path",
+    "expectedStatus": 201,
+    "description": "Valid table creation"
+  },
+  {
+    "name": "validation_error",
+    "expectedStatus": 400,
+    "description": "Missing required field 'name'"
+  },
+  {
+    "name": "duplicate_name",
+    "expectedStatus": 409,
+    "description": "Table name already exists"
+  }
+]
+```
+
+**Optional Examples** (recommended for complex endpoints):
+```json
+"examples": {
+  "request": {
+    "email": "test@example.com",
+    "password": "SecurePass123!"
+  },
+  "response": {
+    "token": "jwt.token.here",
+    "user": {
+      "id": "usr_123",
+      "email": "test@example.com"
+    }
+  }
+}
+```
 
 ---
 
@@ -228,9 +316,10 @@ This checks:
 - Directory structure (specs/api/paths/{endpoint}/ pattern)
 - File naming (paths follow RESTful conventions)
 - Required OpenAPI fields (openapi, info, paths, components)
-- Operation structure (summary, operationId, responses, specs array)
+- Operation structure (summary, operationId, responses, x-specs array)
 - Spec ID format (API-FEATURE-NNN)
-- Given-When-Then structure in specs array
+- Given-When-Then structure in x-specs array
+- Enhanced validation and scenarios fields in x-specs
 - OpenAPI 3.1.0 compliance
 - Schema references resolve
 
@@ -243,8 +332,10 @@ Should I proceed? (yes/no)"
 You: "Found 3 issues:
 
 1. Missing operationId for GET /api/tables - required for test generation
-2. No 'specs' array in GET operation - E2E test scenarios are required
+2. No 'x-specs' array in GET operation - E2E test scenarios are required
 3. Spec ID 'TABLES-001' should follow format 'API-FEATURE-NNN' (e.g., 'API-TABLES-001')
+4. Missing 'validation' object in x-specs - request/response details required
+5. Missing 'scenarios' array - need at least 3 scenarios (happy path + 2 error cases)
 
 Would you like me to help fix these?"
 ```
@@ -256,9 +347,11 @@ Once specification is validated and complete:
 You: "✅ OpenAPI spec is ready for E2E test generation!
 
 The e2e-test-generator can now:
-- Read your specs array from each operation
-- Generate Playwright tests in specs/api/{feature}/{feature}.spec.ts
-- Create @spec and @regression tests for API endpoints
+- Read your x-specs array from each operation
+- Use validation.request and validation.response for test setup
+- Generate test scenarios from your scenarios array
+- Create comprehensive Playwright tests in specs/api/{feature}/{feature}.spec.ts
+- Include @spec and @regression tests for API endpoints
 
 Command: 'Generate E2E tests for {feature} API'"
 ```
@@ -310,18 +403,55 @@ Command: 'Generate E2E tests for {feature} API'"
             }
           }
         },
-        "specs": [
+        "x-specs": [
           {
             "id": "API-TABLES-001",
             "given": "database with 3 tables",
             "when": "GET /api/tables",
-            "then": "returns 200 with array of 3 tables"
+            "then": "returns 200 with array of 3 tables",
+            "validation": {
+              "request": {
+                "method": "GET",
+                "headers": {"Authorization": "Bearer ${token}"}
+              },
+              "response": {
+                "status": 200,
+                "schema": {
+                  "data": "array",
+                  "total": "number",
+                  "limit": "number",
+                  "offset": "number"
+                }
+              }
+            },
+            "scenarios": [
+              {"name": "happy_path", "expectedStatus": 200, "description": "Returns all tables"}
+            ]
           },
           {
             "id": "API-TABLES-002",
             "given": "database with 50 tables",
             "when": "GET /api/tables?limit=10",
-            "then": "returns 200 with first 10 tables and total=50"
+            "then": "returns 200 with first 10 tables and total=50",
+            "validation": {
+              "request": {
+                "method": "GET",
+                "params": {"limit": 10},
+                "headers": {"Authorization": "Bearer ${token}"}
+              },
+              "response": {
+                "status": 200,
+                "schema": {
+                  "data": "array",
+                  "total": 50,
+                  "limit": 10,
+                  "offset": 0
+                }
+              }
+            },
+            "scenarios": [
+              {"name": "pagination", "expectedStatus": 200, "description": "Returns paginated results"}
+            ]
           }
         ]
       }
@@ -359,18 +489,51 @@ Command: 'Generate E2E tests for {feature} API'"
           },
           "404": { "$ref": "#/components/responses/NotFound" }
         },
-        "specs": [
+        "x-specs": [
           {
             "id": "API-TABLES-003",
             "given": "table with ID 'tbl_001' exists",
             "when": "GET /api/tables/tbl_001",
-            "then": "returns 200 with table details"
+            "then": "returns 200 with table details",
+            "validation": {
+              "request": {
+                "method": "GET",
+                "headers": {"Authorization": "Bearer ${token}"}
+              },
+              "response": {
+                "status": 200,
+                "schema": {
+                  "id": "string",
+                  "name": "string",
+                  "createdAt": "string"
+                }
+              }
+            },
+            "scenarios": [
+              {"name": "happy_path", "expectedStatus": 200, "description": "Table exists and is returned"}
+            ]
           },
           {
             "id": "API-TABLES-004",
             "given": "table ID 'tbl_999' does not exist",
             "when": "GET /api/tables/tbl_999",
-            "then": "returns 404 with error message"
+            "then": "returns 404 with error message",
+            "validation": {
+              "request": {
+                "method": "GET",
+                "headers": {"Authorization": "Bearer ${token}"}
+              },
+              "response": {
+                "status": 404,
+                "schema": {
+                  "error": "string",
+                  "message": "string"
+                }
+              }
+            },
+            "scenarios": [
+              {"name": "not_found", "expectedStatus": 404, "description": "Table does not exist"}
+            ]
           }
         ]
       }
@@ -416,24 +579,89 @@ Command: 'Generate E2E tests for {feature} API'"
           "400": { "$ref": "#/components/responses/ValidationError" },
           "409": { "$ref": "#/components/responses/Conflict" }
         },
-        "specs": [
+        "x-specs": [
           {
             "id": "API-TABLES-005",
             "given": "valid table data with name 'users'",
             "when": "POST /api/tables",
-            "then": "returns 201 with created table"
+            "then": "returns 201 with created table",
+            "validation": {
+              "request": {
+                "method": "POST",
+                "headers": {"Content-Type": "application/json", "Authorization": "Bearer ${token}"},
+                "body": {
+                  "name": "users",
+                  "fields": []
+                }
+              },
+              "response": {
+                "status": 201,
+                "schema": {
+                  "id": "string",
+                  "name": "string",
+                  "fields": "array",
+                  "createdAt": "string"
+                }
+              }
+            },
+            "examples": {
+              "request": {"name": "users", "fields": [{"name": "email", "type": "string"}]},
+              "response": {"id": "tbl_002", "name": "users", "fields": [{"name": "email", "type": "string"}], "createdAt": "2025-01-01T00:00:00Z"}
+            },
+            "scenarios": [
+              {"name": "happy_path", "expectedStatus": 201, "description": "Valid table creation"}
+            ]
           },
           {
             "id": "API-TABLES-006",
             "given": "table name with invalid characters 'User-Table'",
             "when": "POST /api/tables",
-            "then": "returns 400 with validation error"
+            "then": "returns 400 with validation error",
+            "validation": {
+              "request": {
+                "method": "POST",
+                "headers": {"Content-Type": "application/json", "Authorization": "Bearer ${token}"},
+                "body": {
+                  "name": "User-Table"
+                }
+              },
+              "response": {
+                "status": 400,
+                "schema": {
+                  "error": "ValidationError",
+                  "message": "string",
+                  "details": "object"
+                }
+              }
+            },
+            "scenarios": [
+              {"name": "validation_error", "expectedStatus": 400, "description": "Invalid name format"}
+            ]
           },
           {
             "id": "API-TABLES-007",
             "given": "table with name 'users' already exists",
             "when": "POST /api/tables with name 'users'",
-            "then": "returns 409 with conflict error"
+            "then": "returns 409 with conflict error",
+            "validation": {
+              "request": {
+                "method": "POST",
+                "headers": {"Content-Type": "application/json", "Authorization": "Bearer ${token}"},
+                "body": {
+                  "name": "users"
+                }
+              },
+              "response": {
+                "status": 409,
+                "schema": {
+                  "error": "ConflictError",
+                  "message": "string"
+                }
+              }
+            },
+            "scenarios": [
+              {"name": "duplicate_name", "expectedStatus": 409, "description": "Table name already exists"}
+            ]
           }
         ]
       }
@@ -486,12 +714,34 @@ Command: 'Generate E2E tests for {feature} API'"
           "400": { "$ref": "#/components/responses/ValidationError" },
           "404": { "$ref": "#/components/responses/NotFound" }
         },
-        "specs": [
+        "x-specs": [
           {
             "id": "API-TABLES-008",
             "given": "table 'tbl_001' exists",
             "when": "PATCH /api/tables/tbl_001 with new name",
-            "then": "returns 200 with updated table"
+            "then": "returns 200 with updated table",
+            "validation": {
+              "request": {
+                "method": "PATCH",
+                "headers": {"Content-Type": "application/json", "Authorization": "Bearer ${token}"},
+                "body": {
+                  "name": "customers"
+                }
+              },
+              "response": {
+                "status": 200,
+                "schema": {
+                  "id": "string",
+                  "name": "string",
+                  "updatedAt": "string"
+                }
+              }
+            },
+            "scenarios": [
+              {"name": "happy_path", "expectedStatus": 200, "description": "Table name updated successfully"},
+              {"name": "not_found", "expectedStatus": 404, "description": "Table does not exist"},
+              {"name": "validation_error", "expectedStatus": 400, "description": "Invalid name format"}
+            ]
           }
         ]
       }
@@ -524,18 +774,46 @@ Command: 'Generate E2E tests for {feature} API'"
           },
           "404": { "$ref": "#/components/responses/NotFound" }
         },
-        "specs": [
+        "x-specs": [
           {
             "id": "API-TABLES-009",
             "given": "table 'tbl_001' exists",
             "when": "DELETE /api/tables/tbl_001",
-            "then": "returns 204 and removes table"
+            "then": "returns 204 and removes table",
+            "validation": {
+              "request": {
+                "method": "DELETE",
+                "headers": {"Authorization": "Bearer ${token}"}
+              },
+              "response": {
+                "status": 204
+              }
+            },
+            "scenarios": [
+              {"name": "happy_path", "expectedStatus": 204, "description": "Table deleted successfully"}
+            ]
           },
           {
             "id": "API-TABLES-010",
             "given": "table 'tbl_999' does not exist",
             "when": "DELETE /api/tables/tbl_999",
-            "then": "returns 404 with error message"
+            "then": "returns 404 with error message",
+            "validation": {
+              "request": {
+                "method": "DELETE",
+                "headers": {"Authorization": "Bearer ${token}"}
+              },
+              "response": {
+                "status": 404,
+                "schema": {
+                  "error": "NotFound",
+                  "message": "string"
+                }
+              }
+            },
+            "scenarios": [
+              {"name": "not_found", "expectedStatus": 404, "description": "Table does not exist"}
+            ]
           }
         ]
       }
@@ -618,10 +896,12 @@ Command: 'Generate E2E tests for {feature} API'"
 ### Handoff Checklist
 
 - ✅ OpenAPI has all required fields (openapi, info, paths)
-- ✅ Each operation has operationId, responses, specs array
+- ✅ Each operation has operationId, responses, x-specs array (NOT "specs")
 - ✅ Request/response schemas are defined
 - ✅ Error responses (400, 404, 409) are documented
-- ✅ specs array has 3+ testable scenarios per operation
+- ✅ x-specs array has validation object with request/response details
+- ✅ x-specs array has scenarios array with 3+ test scenarios
+- ✅ x-specs array has optional examples for complex endpoints
 - ✅ Specification passes validation (with user permission)
 - ✅ User confirmed spec is ready
 
@@ -634,7 +914,10 @@ Command: 'Generate E2E tests for {feature} API'"
 
 ### What e2e-test-generator does next
 
-- Reads specs arrays from each operation
+- Reads x-specs arrays from each operation
+- Processes validation.request and validation.response for test setup
+- Uses scenarios array to generate multiple test cases per spec
+- Leverages examples for concrete test data
 - Generates specs/api/{feature}/{feature}.spec.ts
 - Creates Playwright tests with @spec and @regression tags
 - Tests are RED until API implementation (TDD workflow)
@@ -657,10 +940,13 @@ Before marking any task complete, verify:
 - ✅ Responses cover success and error codes
 - ✅ Components reuse shared schemas/responses
 
-**specs Array**:
+**x-specs Array** (MUST use "x-specs", not "specs"):
 - ✅ Minimum 3 scenarios per operation
 - ✅ GIVEN-WHEN-THEN format is clear and testable
 - ✅ Spec IDs follow format: API-FEATURE-NNN
+- ✅ validation object has request and response details
+- ✅ scenarios array covers happy path + 2 error cases minimum
+- ✅ examples object provided for complex endpoints
 - ✅ Scenarios cover success, validation, not found, conflict
 
 **Validation**:
@@ -684,16 +970,20 @@ Before marking any task complete, verify:
 Your guidance will be considered successful when:
 
 1. **API Specification Success**:
-   - OpenAPI spec is valid (3.0.1 compliant)
+   - OpenAPI spec is valid (3.1.0 compliant)
    - All endpoints properly documented
    - Request/response schemas complete
    - Security requirements defined
+   - Uses "x-specs" key consistently (NOT "specs")
 
 2. **Test Specification Success**:
-   - Specs array covers all API scenarios
+   - x-specs array covers all API scenarios
+   - Each x-spec has validation object with request/response details
+   - Each x-spec has scenarios array with 3+ test cases
    - HTTP status codes properly tested
    - Error responses documented
    - Authentication flows validated
+   - Examples provided for complex endpoints
 
 3. **RESTful Design Success**:
    - Endpoints follow REST conventions

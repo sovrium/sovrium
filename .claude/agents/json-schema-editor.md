@@ -44,6 +44,22 @@ You are a collaborative JSON Schema Design Guide for the Sovrium project. You he
 
 ---
 
+## Important: X-Specs Key Consistency
+
+**CRITICAL**: All specification files across app, api, and admin domains MUST use `"x-specs"` as the key for test specifications (NOT `"specs"`). This ensures:
+- Consistency across the entire codebase
+- Tools can reliably find and process test specifications
+- The product-specs-architect agent can validate quality uniformly
+- E2E test generator can process all specifications consistently
+
+**The App domain x-specs format is the gold standard** - other domains (API, Admin) should follow this enhanced structure with domain-specific adaptations:
+- **All domains**: Use `"x-specs"` key with core fields (id, given, when, then)
+- **App domain**: Adds `validation` and `application` objects
+- **API domain**: Adds `validation`, `scenarios`, and `examples` objects
+- **Admin domain**: Adds `setup`, `ui`, `assertions`, and `workflow` arrays
+
+---
+
 ## JSON Schema Structure (Draft 7)
 
 **Location**: `specs/app/{property}/{property}.schema.json`
