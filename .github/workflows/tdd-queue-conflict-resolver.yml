@@ -1,12 +1,7 @@
-name: TDD Queue - Conflict Resolver
+name: TDD Queue - Conflict Resolver [DEPRECATED]
 
-# This workflow automatically resolves merge conflicts in tdd-automation PRs
-# by triggering Claude Code to rebase the PR branch onto the latest main.
-#
-# Triggers:
-# - When main branch is updated (push event)
-# - Every 15 minutes (schedule)
-# - Manual trigger (workflow_dispatch)
+# ⚠️ DEPRECATED: This workflow has been consolidated into tdd-monitor-unified.yml
+# Kept for reference only. Will be removed after successful migration.
 
 on:
   push:
@@ -14,7 +9,7 @@ on:
       - main
   schedule:
     # Run every 15 minutes to catch any conflicts
-    - cron: '*/30 * * * *'  # Optimized from 15 min to reduce GitHub Actions usage
+    - cron: '*/30 * * * *' # Optimized from 15 min to reduce GitHub Actions usage
   workflow_dispatch: # Allow manual triggering
 
 concurrency:
@@ -23,8 +18,9 @@ concurrency:
 
 jobs:
   resolve-conflicts:
-    name: Detect and Resolve Conflicts
+    name: Detect and Resolve Conflicts [DEPRECATED]
     runs-on: ubuntu-latest
+    if: false # DISABLED - consolidated into tdd-monitor-unified.yml
     permissions:
       contents: write
       pull-requests: write
