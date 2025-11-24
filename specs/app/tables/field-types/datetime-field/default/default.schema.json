@@ -2,37 +2,101 @@
   "$id": "default.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Default DateTime Value",
-  "description": "Default value for datetime field when no value is provided. Can be an ISO 8601 datetime string (YYYY-MM-DDTHH:mm:ss.sssZ) or a special keyword like 'now'. Applied automatically when creating new records. Useful for timestamps like created_at, updated_at.",
+  "description": "Default value for datetime field when no value is provided. Can be a static ISO 8601 datetime or dynamic keyword 'now' (PostgreSQL CURRENT_TIMESTAMP). Commonly used for created_at, updated_at timestamps.",
   "type": "string",
   "examples": ["2024-12-31T15:00:00.000Z", "now", "2025-01-01T00:00:00.000Z"],
   "x-specs": [
     {
       "id": "APP-FIELD-DATETIME-DEFAULT-001",
-      "title": "Apply static default datetime",
-      "given": "a datetime field with default value '2025-01-01T00:00:00.000Z'",
-      "when": "user creates a record without providing a datetime value",
-      "then": "the field is populated with '2025-01-01T00:00:00.000Z'"
+      "given": "datetime field with static default: '2025-01-01 00:00:00'",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL DEFAULT constraint provides specific timestamp",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE milestones (id SERIAL PRIMARY KEY, name VARCHAR(255), milestone_at TIMESTAMP DEFAULT '2025-01-01 00:00:00')",
+            "INSERT INTO milestones (name) VALUES ('Launch Date')"
+          ],
+          "fieldConfig": {
+            "name": "milestone_at",
+            "type": "datetime",
+            "default": "2025-01-01T00:00:00.000Z"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT constraint with timestamp",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='milestones' AND column_name='milestone_at'",
+            "expected": { "column_default": "'2025-01-01 00:00:00'::timestamp without time zone" }
+          },
+          {
+            "description": "INSERT without value uses default timestamp",
+            "executeQuery": "SELECT milestone_at FROM milestones WHERE name = 'Launch Date'",
+            "expected": { "milestone_at": "2025-01-01T00:00:00.000Z" }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-DATETIME-DEFAULT-002",
-      "title": "Apply dynamic 'now' default",
-      "given": "a datetime field with default value 'now'",
-      "when": "user creates a record at 2024-12-31T15:30:45.123Z without providing a datetime value",
-      "then": "the field is populated with the current UTC timestamp"
+      "given": "datetime field with dynamic default: 'now' (CURRENT_TIMESTAMP)",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL DEFAULT CURRENT_TIMESTAMP provides current timestamp",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE posts (id SERIAL PRIMARY KEY, title VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+            "INSERT INTO posts (title) VALUES ('Hello World')"
+          ],
+          "fieldConfig": {
+            "name": "created_at",
+            "type": "datetime",
+            "default": "now"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT CURRENT_TIMESTAMP constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='posts' AND column_name='created_at'",
+            "expected": { "column_default": "CURRENT_TIMESTAMP" }
+          },
+          {
+            "description": "INSERT without value uses current timestamp (dynamic)",
+            "executeQuery": "SELECT (created_at BETWEEN CURRENT_TIMESTAMP - INTERVAL '5 seconds' AND CURRENT_TIMESTAMP) as is_recent FROM posts WHERE title = 'Hello World'",
+            "expected": { "is_recent": true }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-DATETIME-DEFAULT-003",
-      "title": "User value overrides default",
-      "given": "a datetime field with default value 'now'",
-      "when": "user creates a record and provides datetime value '2025-06-15T10:00:00.000Z'",
-      "then": "the field is populated with user-provided value (default ignored)"
-    },
-    {
-      "id": "APP-FIELD-DATETIME-DEFAULT-004",
-      "title": "Reject invalid default datetime format",
-      "given": "a datetime field configuration",
-      "when": "user sets default to '2024-12-31 15:00:00' (invalid format)",
-      "then": "validation error is returned with message 'Default must be ISO 8601 datetime or keyword (now)'"
+      "given": "datetime field without default specified",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL inserts NULL",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE drafts (id SERIAL PRIMARY KEY, content TEXT, published_at TIMESTAMP)",
+            "INSERT INTO drafts (content) VALUES ('Draft content')"
+          ],
+          "fieldConfig": {
+            "name": "published_at",
+            "type": "datetime"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has no DEFAULT constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='drafts' AND column_name='published_at'",
+            "expected": { "column_default": null }
+          },
+          {
+            "description": "INSERT without value results in NULL",
+            "executeQuery": "SELECT published_at FROM drafts WHERE content = 'Draft content'",
+            "expected": { "published_at": null }
+          }
+        ]
+      }
     }
   ]
 }

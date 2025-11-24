@@ -2,37 +2,101 @@
   "$id": "default.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Default Time Value",
-  "description": "Default value for time field when no value is provided. Can be an ISO 8601 time string (HH:mm:ss or HH:mm:ss.sss) or a special keyword like 'now'. Applied automatically when creating new records. Useful for appointment slots, business hours, recurring schedules.",
+  "description": "Default value for time field when no value is provided. Can be a static ISO 8601 time (HH:mm:ss) or dynamic keyword 'now' (PostgreSQL CURRENT_TIME). Used for business hours, recurring schedules, appointment slots.",
   "type": "string",
   "examples": ["09:00:00", "14:30:00", "now", "00:00:00", "23:59:59"],
   "x-specs": [
     {
       "id": "APP-FIELD-TIME-DEFAULT-001",
-      "title": "Apply static default time",
-      "given": "a time field with default value '09:00:00'",
-      "when": "user creates a record without providing a time value",
-      "then": "the field is populated with '09:00:00'"
+      "given": "time field with static default: '09:00:00'",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL DEFAULT constraint provides '09:00:00'",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE appointments (id SERIAL PRIMARY KEY, client VARCHAR(255), start_time TIME DEFAULT '09:00:00')",
+            "INSERT INTO appointments (client) VALUES ('John Doe')"
+          ],
+          "fieldConfig": {
+            "name": "start_time",
+            "type": "time",
+            "default": "09:00:00"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT constraint with time",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='appointments' AND column_name='start_time'",
+            "expected": { "column_default": "'09:00:00'::time without time zone" }
+          },
+          {
+            "description": "INSERT without value uses default time",
+            "executeQuery": "SELECT start_time FROM appointments WHERE client = 'John Doe'",
+            "expected": { "start_time": "09:00:00" }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-TIME-DEFAULT-002",
-      "title": "Apply dynamic 'now' default",
-      "given": "a time field with default value 'now'",
-      "when": "user creates a record at 15:30:45 without providing a time value",
-      "then": "the field is populated with the current time (e.g., '15:30:45')"
+      "given": "time field with dynamic default: 'now' (CURRENT_TIME)",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL DEFAULT CURRENT_TIME provides current time",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE check_ins (id SERIAL PRIMARY KEY, employee VARCHAR(255), check_in_time TIME DEFAULT CURRENT_TIME)",
+            "INSERT INTO check_ins (employee) VALUES ('Alice')"
+          ],
+          "fieldConfig": {
+            "name": "check_in_time",
+            "type": "time",
+            "default": "now"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT CURRENT_TIME constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='check_ins' AND column_name='check_in_time'",
+            "expected": { "column_default": "CURRENT_TIME" }
+          },
+          {
+            "description": "INSERT without value uses current time (dynamic)",
+            "executeQuery": "SELECT check_in_time IS NOT NULL as has_time FROM check_ins WHERE employee = 'Alice'",
+            "expected": { "has_time": true }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-TIME-DEFAULT-003",
-      "title": "User value overrides default",
-      "given": "a time field with default value '09:00:00'",
-      "when": "user creates a record and provides time value '14:30:00'",
-      "then": "the field is populated with user-provided value '14:30:00' (default ignored)"
-    },
-    {
-      "id": "APP-FIELD-TIME-DEFAULT-004",
-      "title": "Reject invalid default time format",
-      "given": "a time field configuration",
-      "when": "user sets default to '2:30 PM' (invalid format)",
-      "then": "validation error is returned with message 'Default must be ISO 8601 time (HH:mm:ss) or keyword (now)'"
+      "given": "time field without default specified",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL inserts NULL",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE events (id SERIAL PRIMARY KEY, title VARCHAR(255), event_time TIME)",
+            "INSERT INTO events (title) VALUES ('Meeting')"
+          ],
+          "fieldConfig": {
+            "name": "event_time",
+            "type": "time"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has no DEFAULT constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='events' AND column_name='event_time'",
+            "expected": { "column_default": null }
+          },
+          {
+            "description": "INSERT without value results in NULL",
+            "executeQuery": "SELECT event_time FROM events WHERE title = 'Meeting'",
+            "expected": { "event_time": null }
+          }
+        ]
+      }
     }
   ]
 }

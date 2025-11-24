@@ -1,20 +1,101 @@
 {
   "$id": "default.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "default",
+  "title": "Long Text Field Default Value",
+  "description": "Default value for long-text field when no value is provided during INSERT. PostgreSQL DEFAULT constraint with TEXT type for multi-line content.",
   "type": "string",
   "x-specs": [
     {
       "id": "APP-FIELD-LONG-TEXT-DEFAULT-001",
-      "given": "user provides default",
-      "when": "validating input",
-      "then": "string value should be accepted"
+      "given": "long-text field with default: multiline template",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL DEFAULT constraint provides template as value",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE articles (id SERIAL PRIMARY KEY, title VARCHAR(255), body TEXT DEFAULT E'# New Article\\n\\nStart writing here...')",
+            "INSERT INTO articles (title) VALUES ('My First Post')"
+          ],
+          "fieldConfig": {
+            "name": "body",
+            "type": "long-text",
+            "default": "# New Article\n\nStart writing here..."
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT constraint with multiline text",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='articles' AND column_name='body'",
+            "expected": { "column_default": "'# New Article\\n\\nStart writing here...'::text" }
+          },
+          {
+            "description": "INSERT without value uses multiline default",
+            "executeQuery": "SELECT body FROM articles WHERE title = 'My First Post'",
+            "expected": { "body": "# New Article\n\nStart writing here..." }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-LONG-TEXT-DEFAULT-002",
-      "given": "default is empty string",
-      "when": "validating input",
-      "then": "behavior should follow optional/required rules"
+      "given": "long-text field with default: empty string",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL inserts empty string (not NULL)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE notes (id SERIAL PRIMARY KEY, title VARCHAR(255), content TEXT DEFAULT '')",
+            "INSERT INTO notes (title) VALUES ('Quick Note')"
+          ],
+          "fieldConfig": {
+            "name": "content",
+            "type": "long-text",
+            "default": ""
+          }
+        },
+        "assertions": [
+          {
+            "description": "INSERT without value uses empty string",
+            "executeQuery": "SELECT content FROM notes WHERE title = 'Quick Note'",
+            "expected": { "content": "" }
+          },
+          {
+            "description": "Empty string vs NULL distinction",
+            "executeQuery": "SELECT content IS NULL as is_null, LENGTH(content) as length FROM notes WHERE title = 'Quick Note'",
+            "expected": { "is_null": false, "length": 0 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-LONG-TEXT-DEFAULT-003",
+      "given": "long-text field without default specified",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL inserts NULL",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE comments (id SERIAL PRIMARY KEY, post_id INTEGER, text TEXT)",
+            "INSERT INTO comments (post_id) VALUES (1)"
+          ],
+          "fieldConfig": {
+            "name": "text",
+            "type": "long-text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has no DEFAULT constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='comments' AND column_name='text'",
+            "expected": { "column_default": null }
+          },
+          {
+            "description": "INSERT without value results in NULL",
+            "executeQuery": "SELECT text FROM comments WHERE post_id = 1",
+            "expected": { "text": null }
+          }
+        ]
+      }
     }
   ]
 }
