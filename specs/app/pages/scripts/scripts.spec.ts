@@ -82,7 +82,7 @@ test.describe('Client Scripts Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SCRIPTS-003: should include external JavaScript dependencies',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
