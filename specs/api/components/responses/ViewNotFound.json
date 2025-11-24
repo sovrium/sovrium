@@ -1,0 +1,18 @@
+{
+  "description": "View not found",
+  "content": {
+    "application/json": {
+      "schema": {
+        "$ref": "../schemas/Error.json"
+      },
+      "examples": {
+        "notFound": {
+          "value": {
+            "error": "View not found",
+            "code": "VIEW_NOT_FOUND"
+          }
+        }
+      }
+    }
+  }
+}

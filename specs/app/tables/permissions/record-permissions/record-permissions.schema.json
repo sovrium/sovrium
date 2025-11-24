@@ -1,0 +1,87 @@
+{
+  "$id": "record-permissions.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Record-Level Permissions",
+  "description": "Row-level security rules that filter records based on user and record properties. Multiple conditions for the same action are combined with AND logic. Only evaluated if table-level permissions grant access. Examples: 'users can only see their own records', 'users can only update records in their department'.",
+  "type": "array",
+  "default": [],
+  "items": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": ["read", "update", "delete"],
+        "description": "The action this rule applies to (create not supported - use table-level)"
+      },
+      "condition": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^.*\\{(userId|userEmail|userRole|user\\.[a-zA-Z0-9_]+)\\}.*$",
+        "description": "Expression with placeholders: {userId}, {userEmail}, {userRole}, {user.customField}. Example: '{userId} = created_by', '{user.department} = department'"
+      }
+    },
+    "required": ["action", "condition"],
+    "additionalProperties": false
+  },
+  "examples": [
+    [
+      {
+        "action": "read",
+        "condition": "{userId} = created_by"
+      },
+      {
+        "action": "update",
+        "condition": "{userId} = assigned_to"
+      },
+      {
+        "action": "delete",
+        "condition": "{userId} = created_by AND status = 'draft'"
+      }
+    ],
+    [
+      {
+        "action": "read",
+        "condition": "{user.department} = department"
+      }
+    ],
+    []
+  ],
+  "x-specs": [
+    {
+      "id": "APP-TABLES-RECORD-PERMISSIONS-001",
+      "given": "record-level permission 'read: {userId} = created_by'",
+      "when": "user lists records",
+      "then": "only records where created_by equals user's ID should be returned"
+    },
+    {
+      "id": "APP-TABLES-RECORD-PERMISSIONS-002",
+      "given": "record-level permission 'update: {userId} = assigned_to'",
+      "when": "user attempts to update record not assigned to them",
+      "then": "update should be rejected with 403 Forbidden"
+    },
+    {
+      "id": "APP-TABLES-RECORD-PERMISSIONS-003",
+      "given": "record-level permission 'delete: {userId} = created_by AND status = draft'",
+      "when": "user attempts to delete published record they created",
+      "then": "delete should be rejected with 403 Forbidden"
+    },
+    {
+      "id": "APP-TABLES-RECORD-PERMISSIONS-004",
+      "given": "multiple record-level read conditions",
+      "when": "user lists records",
+      "then": "records should be filtered to match ALL conditions (AND logic)"
+    },
+    {
+      "id": "APP-TABLES-RECORD-PERMISSIONS-005",
+      "given": "record-level permission '{user.department} = department'",
+      "when": "user lists records",
+      "then": "only records matching user's department should be returned"
+    },
+    {
+      "id": "APP-TABLES-RECORD-PERMISSIONS-006",
+      "given": "record-level permission with complex condition '{userId} = created_by OR {userId} = assigned_to'",
+      "when": "user lists records",
+      "then": "records where user is creator OR assignee should be returned"
+    }
+  ]
+}

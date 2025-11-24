@@ -1,0 +1,124 @@
+{
+  "summary": "List table views",
+  "description": "Returns all configured views for a table. Views are predefined in the table schema and are read-only via the API.",
+  "operationId": "listTableViews",
+  "tags": ["views"],
+  "parameters": [
+    {
+      "name": "tableId",
+      "in": "path",
+      "required": true,
+      "description": "The ID of the table",
+      "schema": {
+        "type": "integer",
+        "minimum": 1
+      }
+    }
+  ],
+  "responses": {
+    "200": {
+      "description": "List of views",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "array",
+            "items": {
+              "$ref": "../../../../components/schemas/View.json"
+            }
+          },
+          "examples": {
+            "multipleViews": {
+              "summary": "Table with multiple views",
+              "value": [
+                {
+                  "id": "all_projects",
+                  "name": "All Projects",
+                  "type": "grid",
+                  "isDefault": true,
+                  "sorts": [
+                    {
+                      "field": "created_at",
+                      "direction": "desc"
+                    }
+                  ]
+                },
+                {
+                  "id": "active_projects",
+                  "name": "Active Projects",
+                  "type": "grid",
+                  "filters": {
+                    "operator": "OR",
+                    "conditions": [
+                      {
+                        "field": "status",
+                        "operator": "equals",
+                        "value": "planning"
+                      },
+                      {
+                        "field": "status",
+                        "operator": "equals",
+                        "value": "in-progress"
+                      }
+                    ]
+                  },
+                  "sorts": [
+                    {
+                      "field": "priority",
+                      "direction": "desc"
+                    }
+                  ]
+                },
+                {
+                  "id": "high_priority",
+                  "name": "High Priority",
+                  "type": "kanban",
+                  "filters": {
+                    "operator": "AND",
+                    "conditions": [
+                      {
+                        "field": "priority",
+                        "operator": "greaterThanOrEqual",
+                        "value": 4
+                      }
+                    ]
+                  },
+                  "groupBy": {
+                    "field": "status",
+                    "direction": "asc"
+                  }
+                }
+              ]
+            },
+            "emptyViews": {
+              "summary": "Table with no views configured",
+              "value": []
+            }
+          }
+        }
+      }
+    },
+    "404": {
+      "$ref": "../../../../components/responses/TableNotFound.json"
+    }
+  },
+  "x-specs": [
+    {
+      "id": "API-TABLES-VIEWS-LIST-001",
+      "given": "A table with configured views",
+      "when": "User requests list of views",
+      "then": "All views should be returned with complete configurations"
+    },
+    {
+      "id": "API-TABLES-VIEWS-LIST-002",
+      "given": "A table with no views configured",
+      "when": "User requests list of views",
+      "then": "An empty array should be returned"
+    },
+    {
+      "id": "API-TABLES-VIEWS-LIST-003",
+      "given": "A non-existent table ID",
+      "when": "User requests list of views",
+      "then": "404 Not Found error should be returned"
+    }
+  ]
+}

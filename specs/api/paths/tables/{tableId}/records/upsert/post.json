@@ -1,0 +1,205 @@
+{
+  "summary": "Upsert records (create or update)",
+  "description": "Create or update multiple records in a single transaction based on merge fields. If a record matching the specified fields exists, it is updated; otherwise, it is created. All records are validated before upsert. If any validation fails, the entire operation is rolled back. Maximum 1000 records per request.",
+  "operationId": "upsertRecords",
+  "tags": ["Records"],
+  "parameters": [
+    {
+      "name": "tableId",
+      "in": "path",
+      "required": true,
+      "description": "Table identifier (tbl_XXXXX)",
+      "schema": {
+        "type": "string",
+        "pattern": "^tbl_[a-zA-Z0-9]+$"
+      }
+    }
+  ],
+  "requestBody": {
+    "required": true,
+    "content": {
+      "application/json": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "records": {
+              "type": "array",
+              "description": "Array of records to upsert (max 1000)",
+              "minItems": 1,
+              "maxItems": 1000,
+              "items": {
+                "type": "object",
+                "description": "Record data (dynamic schema based on table fields)",
+                "additionalProperties": true
+              }
+            },
+            "fieldsToMergeOn": {
+              "type": "array",
+              "description": "Field names to match existing records (e.g., ['email'] or ['email', 'externalId']). REQUIRED - no defaults.",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              }
+            },
+            "returnRecords": {
+              "type": "boolean",
+              "description": "If true, return created/updated records in response. If false, only return count metadata.",
+              "default": true
+            }
+          },
+          "required": ["records", "fieldsToMergeOn"]
+        },
+        "example": {
+          "records": [
+            {
+              "email": "john@example.com",
+              "name": "John Doe",
+              "status": "active"
+            },
+            {
+              "email": "jane@example.com",
+              "name": "Jane Smith",
+              "status": "active"
+            }
+          ],
+          "fieldsToMergeOn": ["email"],
+          "returnRecords": true
+        }
+      }
+    }
+  },
+  "responses": {
+    "200": {
+      "description": "Records upserted successfully",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "created": {
+                "type": "integer",
+                "description": "Number of new records created"
+              },
+              "updated": {
+                "type": "integer",
+                "description": "Number of existing records updated"
+              },
+              "records": {
+                "type": "array",
+                "description": "Created/updated records (only if returnRecords=true)",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^rec_[a-zA-Z0-9]+$"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            },
+            "required": ["created", "updated"]
+          },
+          "examples": {
+            "withRecords": {
+              "summary": "Response with records (returnRecords=true)",
+              "value": {
+                "created": 1,
+                "updated": 1,
+                "records": [
+                  {
+                    "id": "rec_001",
+                    "email": "john@example.com",
+                    "name": "John Doe",
+                    "status": "active",
+                    "createdAt": "2025-11-24T10:00:00Z",
+                    "updatedAt": "2025-11-24T10:00:00Z"
+                  },
+                  {
+                    "id": "rec_002",
+                    "email": "jane@example.com",
+                    "name": "Jane Smith",
+                    "status": "active",
+                    "createdAt": "2025-11-23T09:00:00Z",
+                    "updatedAt": "2025-11-24T10:00:00Z"
+                  }
+                ]
+              }
+            },
+            "withoutRecords": {
+              "summary": "Response without records (returnRecords=false)",
+              "value": {
+                "created": 1,
+                "updated": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "400": {
+      "$ref": "../../../../../../components/responses/BatchValidationError.json"
+    },
+    "403": {
+      "$ref": "../../../../../../components/responses/PermissionDenied.json"
+    },
+    "404": {
+      "$ref": "../../../../../../components/responses/NotFound.json"
+    },
+    "413": {
+      "description": "Payload too large - Exceeds 1000 record limit",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string",
+                "enum": ["PayloadTooLarge"]
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          },
+          "example": {
+            "error": "PayloadTooLarge",
+            "message": "Batch size exceeds maximum of 1000 records"
+          }
+        }
+      }
+    },
+    "500": {
+      "$ref": "../../../../../../components/responses/InternalError.json"
+    }
+  },
+  "x-specs": [
+    {
+      "id": "API-RECORDS-UPSERT-001",
+      "given": "table 'tbl_001' with existing record (email='john@example.com')",
+      "when": "POST /api/tables/tbl_001/records/upsert with fieldsToMergeOn=['email'] and 2 records (1 matching, 1 new)",
+      "then": "returns 200 with created=1, updated=1, and records array"
+    },
+    {
+      "id": "API-RECORDS-UPSERT-002",
+      "given": "table 'tbl_001' with 0 records",
+      "when": "POST /api/tables/tbl_001/records/upsert with fieldsToMergeOn=['email'] and 2 new records",
+      "then": "returns 200 with created=2, updated=0, and records array"
+    },
+    {
+      "id": "API-RECORDS-UPSERT-003",
+      "given": "table 'tbl_001' with email validation",
+      "when": "POST /api/tables/tbl_001/records/upsert with 1 valid and 1 invalid email",
+      "then": "returns 400 BatchValidationError with details array, no records created or updated (transaction rolled back)"
+    }
+  ]
+}

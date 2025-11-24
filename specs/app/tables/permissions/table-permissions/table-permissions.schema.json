@@ -1,0 +1,71 @@
+{
+  "$id": "table-permissions.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Table-Level Permissions",
+  "description": "Permissions controlling access to table operations (CRUD operations on the table as a whole). Evaluated first in the permission hierarchy.",
+  "type": "object",
+  "properties": {
+    "read": {
+      "$ref": "../permission-rule/permission-rule.schema.json",
+      "description": "Permission to read/list records from the table"
+    },
+    "create": {
+      "$ref": "../permission-rule/permission-rule.schema.json",
+      "description": "Permission to create new records in the table"
+    },
+    "update": {
+      "$ref": "../permission-rule/permission-rule.schema.json",
+      "description": "Permission to update existing records in the table"
+    },
+    "delete": {
+      "$ref": "../permission-rule/permission-rule.schema.json",
+      "description": "Permission to delete records from the table"
+    }
+  },
+  "required": [],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "read": { "type": "public" },
+      "create": { "type": "authenticated" },
+      "update": { "type": "roles", "roles": ["admin", "editor"] },
+      "delete": { "type": "roles", "roles": ["admin"] }
+    },
+    {
+      "read": { "type": "authenticated" },
+      "create": { "type": "roles", "roles": ["admin"] }
+    }
+  ],
+  "x-specs": [
+    {
+      "id": "APP-TABLES-TABLE-PERMISSIONS-001",
+      "given": "table with role-based read permission for 'member' role",
+      "when": "user with 'member' role requests records",
+      "then": "access should be granted"
+    },
+    {
+      "id": "APP-TABLES-TABLE-PERMISSIONS-002",
+      "given": "table with role-based create permission for 'admin' role only",
+      "when": "user with 'member' role attempts to create record",
+      "then": "access should be denied with 403 Forbidden"
+    },
+    {
+      "id": "APP-TABLES-TABLE-PERMISSIONS-003",
+      "given": "table with public read permission",
+      "when": "unauthenticated user requests records",
+      "then": "access should be granted"
+    },
+    {
+      "id": "APP-TABLES-TABLE-PERMISSIONS-004",
+      "given": "table with authenticated-only update permission",
+      "when": "authenticated user attempts to update record",
+      "then": "access should be granted"
+    },
+    {
+      "id": "APP-TABLES-TABLE-PERMISSIONS-005",
+      "given": "table with no read permission specified",
+      "when": "any user attempts to read records",
+      "then": "access should be denied by default"
+    }
+  ]
+}

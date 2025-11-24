@@ -1,0 +1,196 @@
+{
+  "summary": "Batch create records",
+  "description": "Create multiple records in a single transaction. All records are validated before creation. If any validation fails, the entire operation is rolled back. Maximum 1000 records per request.",
+  "operationId": "batchCreateRecords",
+  "tags": ["Records"],
+  "parameters": [
+    {
+      "name": "tableId",
+      "in": "path",
+      "required": true,
+      "description": "Table identifier (tbl_XXXXX)",
+      "schema": {
+        "type": "string",
+        "pattern": "^tbl_[a-zA-Z0-9]+$"
+      }
+    }
+  ],
+  "requestBody": {
+    "required": true,
+    "content": {
+      "application/json": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "records": {
+              "type": "array",
+              "description": "Array of records to create (max 1000)",
+              "minItems": 1,
+              "maxItems": 1000,
+              "items": {
+                "type": "object",
+                "description": "Record data (dynamic schema based on table fields)",
+                "additionalProperties": true
+              }
+            },
+            "returnRecords": {
+              "type": "boolean",
+              "description": "If true, return created records in response. If false, only return count metadata.",
+              "default": true
+            }
+          },
+          "required": ["records"]
+        },
+        "example": {
+          "records": [
+            {
+              "name": "John Doe",
+              "email": "john@example.com",
+              "status": "active"
+            },
+            {
+              "name": "Jane Smith",
+              "email": "jane@example.com",
+              "status": "active"
+            }
+          ],
+          "returnRecords": true
+        }
+      }
+    }
+  },
+  "responses": {
+    "201": {
+      "description": "Records created successfully",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "created": {
+                "type": "integer",
+                "description": "Number of records successfully created"
+              },
+              "records": {
+                "type": "array",
+                "description": "Created records (only if returnRecords=true)",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^rec_[a-zA-Z0-9]+$"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            },
+            "required": ["created"]
+          },
+          "examples": {
+            "withRecords": {
+              "summary": "Response with records (returnRecords=true)",
+              "value": {
+                "created": 2,
+                "records": [
+                  {
+                    "id": "rec_001",
+                    "name": "John Doe",
+                    "email": "john@example.com",
+                    "status": "active",
+                    "createdAt": "2025-11-24T10:00:00Z",
+                    "updatedAt": "2025-11-24T10:00:00Z"
+                  },
+                  {
+                    "id": "rec_002",
+                    "name": "Jane Smith",
+                    "email": "jane@example.com",
+                    "status": "active",
+                    "createdAt": "2025-11-24T10:00:00Z",
+                    "updatedAt": "2025-11-24T10:00:00Z"
+                  }
+                ]
+              }
+            },
+            "withoutRecords": {
+              "summary": "Response without records (returnRecords=false)",
+              "value": {
+                "created": 2
+              }
+            }
+          }
+        }
+      }
+    },
+    "400": {
+      "$ref": "../../../../../../components/responses/BatchValidationError.json"
+    },
+    "403": {
+      "$ref": "../../../../../../components/responses/PermissionDenied.json"
+    },
+    "404": {
+      "$ref": "../../../../../../components/responses/NotFound.json"
+    },
+    "413": {
+      "description": "Payload too large - Exceeds 1000 record limit",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string",
+                "enum": ["PayloadTooLarge"]
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          },
+          "example": {
+            "error": "PayloadTooLarge",
+            "message": "Batch size exceeds maximum of 1000 records"
+          }
+        }
+      }
+    },
+    "500": {
+      "$ref": "../../../../../../components/responses/InternalError.json"
+    }
+  },
+  "x-specs": [
+    {
+      "id": "API-RECORDS-BATCH-001",
+      "given": "table 'tbl_001' exists with 0 records",
+      "when": "POST /api/tables/tbl_001/records/batch with 2 valid records",
+      "then": "returns 201 with created=2 and records array"
+    },
+    {
+      "id": "API-RECORDS-BATCH-002",
+      "given": "table 'tbl_001' exists",
+      "when": "POST /api/tables/tbl_001/records/batch with returnRecords=false",
+      "then": "returns 201 with created=2 and no records array"
+    },
+    {
+      "id": "API-RECORDS-BATCH-003",
+      "given": "table 'tbl_001' with required email field",
+      "when": "POST /api/tables/tbl_001/records/batch with 1 valid and 1 missing email",
+      "then": "returns 400 BatchValidationError with details array, no records created (transaction rolled back)"
+    },
+    {
+      "id": "API-RECORDS-BATCH-004",
+      "given": "table 'tbl_001' exists",
+      "when": "POST /api/tables/tbl_001/records/batch with 1001 records",
+      "then": "returns 413 PayloadTooLarge"
+    }
+  ]
+}

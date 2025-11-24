@@ -1,0 +1,78 @@
+{
+  "$id": "permissions.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Table Permissions",
+  "description": "Access control rules for tables integrated with Better Auth. Defines who can perform operations at table, field, and record levels. Permissions are evaluated hierarchically: Table → Field → Record. If no permission is specified, access is denied by default.",
+  "type": "object",
+  "properties": {
+    "table": {
+      "$ref": "./table-permissions/table-permissions.schema.json",
+      "description": "Table-level permissions (read, create, update, delete). Evaluated first - if denied here, request is rejected."
+    },
+    "fields": {
+      "$ref": "./field-permissions/field-permissions.schema.json",
+      "description": "Field-level permissions (per-field read/write access). Filters which fields are visible/editable."
+    },
+    "records": {
+      "$ref": "./record-permissions/record-permissions.schema.json",
+      "description": "Record-level permissions (row-level security). Filters which records are accessible based on user and record properties."
+    }
+  },
+  "required": [],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "table": {
+        "read": { "type": "authenticated" },
+        "create": { "type": "authenticated" },
+        "update": { "type": "authenticated" },
+        "delete": { "type": "roles", "roles": ["admin"] }
+      },
+      "fields": [
+        {
+          "field": "email",
+          "read": { "type": "authenticated" },
+          "write": { "type": "custom", "condition": "{userId} = id" }
+        }
+      ],
+      "records": [
+        {
+          "action": "read",
+          "condition": "{userId} = created_by"
+        }
+      ]
+    },
+    {
+      "table": {
+        "read": { "type": "public" },
+        "create": { "type": "roles", "roles": ["admin", "editor"] }
+      }
+    }
+  ],
+  "x-specs": [
+    {
+      "id": "APP-TABLES-PERMISSIONS-001",
+      "given": "a user without read permission on table",
+      "when": "user attempts to list records",
+      "then": "access should be denied with 403 Forbidden"
+    },
+    {
+      "id": "APP-TABLES-PERMISSIONS-002",
+      "given": "a user with read permission but not write permission",
+      "when": "user attempts to create a record",
+      "then": "access should be denied with 403 Forbidden"
+    },
+    {
+      "id": "APP-TABLES-PERMISSIONS-003",
+      "given": "a user with permissions configured at all three levels",
+      "when": "user accesses table",
+      "then": "all permission checks should be applied hierarchically (table, then field, then record)"
+    },
+    {
+      "id": "APP-TABLES-PERMISSIONS-004",
+      "given": "a table with no permissions configured",
+      "when": "any user attempts to access the table",
+      "then": "access should be denied by default"
+    }
+  ]
+}

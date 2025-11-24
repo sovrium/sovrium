@@ -1,0 +1,81 @@
+{
+  "$id": "field-permissions.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Field-Level Permissions",
+  "description": "Permissions for individual fields. Controls field visibility (read) and editability (write) based on user permissions. Only evaluated if table-level permissions grant access.",
+  "type": "array",
+  "default": [],
+  "items": {
+    "type": "object",
+    "properties": {
+      "field": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Name of the field to apply permissions to"
+      },
+      "read": {
+        "$ref": "../permission-rule/permission-rule.schema.json",
+        "description": "Permission to view this field's value. If denied, field is excluded from responses."
+      },
+      "write": {
+        "$ref": "../permission-rule/permission-rule.schema.json",
+        "description": "Permission to modify this field's value. If denied, updates to this field are rejected."
+      }
+    },
+    "required": ["field"],
+    "additionalProperties": false
+  },
+  "examples": [
+    [
+      {
+        "field": "email",
+        "read": { "type": "authenticated" },
+        "write": { "type": "custom", "condition": "{userId} = id" }
+      },
+      {
+        "field": "salary",
+        "read": { "type": "roles", "roles": ["admin", "hr"] },
+        "write": { "type": "roles", "roles": ["admin"] }
+      }
+    ],
+    []
+  ],
+  "x-specs": [
+    {
+      "id": "APP-TABLES-FIELD-PERMISSIONS-001",
+      "given": "field with read permission restricted to 'admin' role",
+      "when": "user with 'member' role requests records",
+      "then": "field should be excluded from response"
+    },
+    {
+      "id": "APP-TABLES-FIELD-PERMISSIONS-002",
+      "given": "field with write permission restricted to 'admin' role",
+      "when": "user with 'member' role attempts to update field",
+      "then": "update should be rejected with 403 Forbidden"
+    },
+    {
+      "id": "APP-TABLES-FIELD-PERMISSIONS-003",
+      "given": "multiple fields with different read permissions",
+      "when": "user requests records",
+      "then": "only fields user has read permission for should be included in response"
+    },
+    {
+      "id": "APP-TABLES-FIELD-PERMISSIONS-004",
+      "given": "field with public read but restricted write permission",
+      "when": "unauthenticated user views records",
+      "then": "field should be visible in response"
+    },
+    {
+      "id": "APP-TABLES-FIELD-PERMISSIONS-005",
+      "given": "field with public read but restricted write permission",
+      "when": "unauthenticated user attempts to update field",
+      "then": "update should be rejected with 401 Unauthorized"
+    },
+    {
+      "id": "APP-TABLES-FIELD-PERMISSIONS-006",
+      "given": "field with no read permission specified",
+      "when": "any user requests records",
+      "then": "field should be visible by default (inherit from table permissions)"
+    }
+  ]
+}

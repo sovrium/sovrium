@@ -1,6 +1,6 @@
 {
   "summary": "List records in table",
-  "description": "Returns paginated list of records from the specified table.",
+  "description": "Returns paginated list of records from the specified table with advanced filtering, sorting, field selection, grouping, and aggregation capabilities.",
   "operationId": "listRecords",
   "tags": ["records"],
   "parameters": [
@@ -11,19 +11,343 @@
       "schema": {
         "type": "integer",
         "minimum": 1
-      }
+      },
+      "description": "Unique identifier of the table"
+    },
+    {
+      "name": "view",
+      "in": "query",
+      "required": false,
+      "schema": {
+        "type": "string"
+      },
+      "description": "Apply predefined view ID (applies view's filters, sorts, and field visibility)",
+      "example": "active_projects"
+    },
+    {
+      "name": "filter",
+      "in": "query",
+      "required": false,
+      "schema": {
+        "type": "string"
+      },
+      "description": "JSON filter expression with AND/OR logic. Example: {\"operator\":\"AND\",\"conditions\":[{\"field\":\"status\",\"operator\":\"equals\",\"value\":\"active\"},{\"field\":\"priority\",\"operator\":\"greaterThanOrEqual\",\"value\":3}]}",
+      "example": "{\"operator\":\"AND\",\"conditions\":[{\"field\":\"status\",\"operator\":\"equals\",\"value\":\"active\"}]}"
+    },
+    {
+      "name": "filterByFormula",
+      "in": "query",
+      "required": false,
+      "schema": {
+        "type": "string"
+      },
+      "description": "Airtable-style formula filtering. Example: AND({status}='active', {priority}>=3)",
+      "example": "AND({status}='active', {priority}>=3)"
+    },
+    {
+      "name": "sort",
+      "in": "query",
+      "required": false,
+      "schema": {
+        "type": "string"
+      },
+      "description": "Comma-separated field:direction pairs. Direction can be 'asc' or 'desc'. Example: priority:desc,created_at:desc",
+      "example": "priority:desc,created_at:desc"
+    },
+    {
+      "name": "fields",
+      "in": "query",
+      "required": false,
+      "schema": {
+        "type": "string"
+      },
+      "description": "Comma-separated field names to include in response (projection). Only specified fields will be returned.",
+      "example": "id,name,status,created_at"
+    },
+    {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1000,
+        "default": 100
+      },
+      "description": "Maximum number of records to return per request (offset-based pagination)"
+    },
+    {
+      "name": "offset",
+      "in": "query",
+      "required": false,
+      "schema": {
+        "type": "integer",
+        "minimum": 0,
+        "default": 0
+      },
+      "description": "Number of records to skip (offset-based pagination)"
+    },
+    {
+      "name": "pageSize",
+      "in": "query",
+      "required": false,
+      "schema": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1000
+      },
+      "description": "Records per page (token-based pagination). Use with pageToken for cursor-based navigation."
+    },
+    {
+      "name": "pageToken",
+      "in": "query",
+      "required": false,
+      "schema": {
+        "type": "string"
+      },
+      "description": "Continuation token for next page (token-based pagination). Obtained from previous response."
+    },
+    {
+      "name": "groupBy",
+      "in": "query",
+      "required": false,
+      "schema": {
+        "type": "string"
+      },
+      "description": "Field name to group records by. Returns records grouped by distinct values of this field.",
+      "example": "status"
+    },
+    {
+      "name": "aggregate",
+      "in": "query",
+      "required": false,
+      "schema": {
+        "type": "string"
+      },
+      "description": "JSON object specifying aggregation functions. Supported: count, sum, avg, min, max. Example: {\"count\":true,\"sum\":[\"budget\"],\"avg\":[\"priority\"]}",
+      "example": "{\"count\":true,\"sum\":[\"budget\",\"amount\"],\"avg\":[\"priority\",\"rating\"]}"
     }
   ],
   "responses": {
     "200": {
-      "description": "List of records",
+      "description": "List of records with pagination and optional aggregations",
       "content": {
         "application/json": {
           "schema": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "additionalProperties": true
+            "type": "object",
+            "properties": {
+              "records": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "description": "Array of record objects matching the query"
+              },
+              "pagination": {
+                "type": "object",
+                "properties": {
+                  "total": {
+                    "type": "integer",
+                    "description": "Total number of records matching the query"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "description": "Current limit (max records per page)"
+                  },
+                  "offset": {
+                    "type": "integer",
+                    "description": "Current offset (records skipped)"
+                  },
+                  "nextPageToken": {
+                    "type": "string",
+                    "description": "Token for fetching next page (token-based pagination)"
+                  }
+                },
+                "required": ["total"]
+              },
+              "aggregations": {
+                "type": "object",
+                "description": "Aggregation results (only included if aggregate parameter provided)",
+                "properties": {
+                  "count": {
+                    "type": "integer",
+                    "description": "Total count of records"
+                  },
+                  "sum": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "number"
+                    },
+                    "description": "Sum aggregations by field"
+                  },
+                  "avg": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "number"
+                    },
+                    "description": "Average aggregations by field"
+                  },
+                  "min": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "number"
+                    },
+                    "description": "Minimum values by field"
+                  },
+                  "max": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "number"
+                    },
+                    "description": "Maximum values by field"
+                  }
+                }
+              }
+            },
+            "required": ["records", "pagination"]
+          },
+          "examples": {
+            "basicList": {
+              "summary": "Basic list without filters",
+              "value": {
+                "records": [
+                  {
+                    "id": 1,
+                    "name": "Project Alpha",
+                    "status": "active",
+                    "priority": 5,
+                    "created_at": "2025-01-15T10:30:00Z"
+                  },
+                  {
+                    "id": 2,
+                    "name": "Project Beta",
+                    "status": "completed",
+                    "priority": 3,
+                    "created_at": "2025-01-20T14:00:00Z"
+                  }
+                ],
+                "pagination": {
+                  "total": 150,
+                  "limit": 100,
+                  "offset": 0
+                }
+              }
+            },
+            "filteredAndSorted": {
+              "summary": "Filtered and sorted records",
+              "value": {
+                "records": [
+                  {
+                    "id": 5,
+                    "name": "High Priority Task",
+                    "status": "active",
+                    "priority": 5,
+                    "created_at": "2025-01-22T09:00:00Z"
+                  },
+                  {
+                    "id": 3,
+                    "name": "Important Project",
+                    "status": "active",
+                    "priority": 4,
+                    "created_at": "2025-01-18T11:30:00Z"
+                  }
+                ],
+                "pagination": {
+                  "total": 45,
+                  "limit": 100,
+                  "offset": 0
+                }
+              }
+            },
+            "withAggregations": {
+              "summary": "Records with aggregation results",
+              "value": {
+                "records": [
+                  {
+                    "id": 1,
+                    "name": "Project Alpha",
+                    "budget": 50000,
+                    "priority": 5
+                  }
+                ],
+                "pagination": {
+                  "total": 150,
+                  "limit": 100,
+                  "offset": 0
+                },
+                "aggregations": {
+                  "count": 150,
+                  "sum": {
+                    "budget": 1500000
+                  },
+                  "avg": {
+                    "priority": 4.2
+                  },
+                  "min": {
+                    "budget": 1000
+                  },
+                  "max": {
+                    "budget": 100000
+                  }
+                }
+              }
+            },
+            "fieldProjection": {
+              "summary": "Records with selected fields only",
+              "value": {
+                "records": [
+                  {
+                    "id": 1,
+                    "name": "Project Alpha",
+                    "status": "active"
+                  },
+                  {
+                    "id": 2,
+                    "name": "Project Beta",
+                    "status": "completed"
+                  }
+                ],
+                "pagination": {
+                  "total": 150,
+                  "limit": 100,
+                  "offset": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "400": {
+      "description": "Invalid query parameters",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          },
+          "examples": {
+            "invalidFilter": {
+              "summary": "Invalid filter JSON",
+              "value": {
+                "error": "ValidationError",
+                "message": "Invalid filter parameter: malformed JSON"
+              }
+            },
+            "invalidSort": {
+              "summary": "Invalid sort format",
+              "value": {
+                "error": "ValidationError",
+                "message": "Invalid sort parameter: expected format 'field:direction'"
+              }
             }
           }
         }
@@ -45,6 +369,66 @@
       "given": "A running server",
       "when": "User requests records from non-existent table",
       "then": "Response should be 404 Not Found"
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-003",
+      "given": "A table with records matching filter criteria",
+      "when": "User requests records with filter parameter",
+      "then": "Only matching records should be returned"
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-004",
+      "given": "A table with unsorted records",
+      "when": "User requests records with sort parameter",
+      "then": "Records should be sorted correctly by specified fields"
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-005",
+      "given": "A table with records containing many fields",
+      "when": "User requests specific fields only via fields parameter",
+      "then": "Response should include only requested fields"
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-006",
+      "given": "A table with 200 records",
+      "when": "User requests records with limit=50 and offset=100",
+      "then": "Records 101-150 should be returned with pagination metadata"
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-007",
+      "given": "A table with a predefined view configured",
+      "when": "User requests records with view parameter",
+      "then": "View filters and sorts should be applied to results"
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-008",
+      "given": "A table with records of different statuses",
+      "when": "User requests records with groupBy parameter",
+      "then": "Records should be grouped by specified field"
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-009",
+      "given": "A table with numeric fields",
+      "when": "User requests records with aggregate parameter",
+      "then": "Aggregation results should be included in response"
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-010",
+      "given": "A table with records",
+      "when": "User requests records with filterByFormula parameter",
+      "then": "Records matching the formula should be returned"
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-011",
+      "given": "A table with multi-field sorting",
+      "when": "User requests records sorted by multiple fields",
+      "then": "Records should be sorted by first field, then second for ties"
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-012",
+      "given": "A table with view and explicit filters",
+      "when": "User combines view and filter parameters",
+      "then": "Both view filters and explicit filters should be applied (AND logic)"
     }
   ]
 }

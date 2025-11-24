@@ -1,0 +1,182 @@
+{
+  "summary": "Check table permissions",
+  "description": "Returns the current authenticated user's effective permissions for the specified table. Includes table-level operations (read, create, update, delete) and field-level permissions (read/write for each field). Requires authentication.",
+  "operationId": "checkTablePermissions",
+  "tags": ["permissions"],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "parameters": [
+    {
+      "name": "tableId",
+      "in": "path",
+      "required": true,
+      "description": "The ID of the table",
+      "schema": {
+        "type": "integer",
+        "minimum": 1
+      }
+    }
+  ],
+  "responses": {
+    "200": {
+      "description": "User's permissions for the table",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "table": {
+                "type": "object",
+                "description": "Table-level permissions",
+                "properties": {
+                  "read": {
+                    "type": "boolean",
+                    "description": "Can list/read records from table"
+                  },
+                  "create": {
+                    "type": "boolean",
+                    "description": "Can create new records in table"
+                  },
+                  "update": {
+                    "type": "boolean",
+                    "description": "Can update records in table"
+                  },
+                  "delete": {
+                    "type": "boolean",
+                    "description": "Can delete records from table"
+                  }
+                },
+                "required": ["read", "create", "update", "delete"]
+              },
+              "fields": {
+                "type": "object",
+                "description": "Field-level permissions (per field name)",
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "read": {
+                      "type": "boolean",
+                      "description": "Can view this field's value"
+                    },
+                    "write": {
+                      "type": "boolean",
+                      "description": "Can modify this field's value"
+                    }
+                  },
+                  "required": ["read", "write"]
+                }
+              }
+            },
+            "required": ["table", "fields"]
+          },
+          "examples": {
+            "adminPermissions": {
+              "summary": "Admin user with full permissions",
+              "value": {
+                "table": {
+                  "read": true,
+                  "create": true,
+                  "update": true,
+                  "delete": true
+                },
+                "fields": {
+                  "id": { "read": true, "write": false },
+                  "name": { "read": true, "write": true },
+                  "email": { "read": true, "write": true },
+                  "salary": { "read": true, "write": true },
+                  "created_at": { "read": true, "write": false },
+                  "updated_at": { "read": true, "write": false }
+                }
+              }
+            },
+            "memberPermissions": {
+              "summary": "Member user with limited permissions",
+              "value": {
+                "table": {
+                  "read": true,
+                  "create": false,
+                  "update": true,
+                  "delete": false
+                },
+                "fields": {
+                  "id": { "read": true, "write": false },
+                  "name": { "read": true, "write": true },
+                  "email": { "read": true, "write": true },
+                  "salary": { "read": false, "write": false },
+                  "created_at": { "read": true, "write": false },
+                  "updated_at": { "read": true, "write": false }
+                }
+              }
+            },
+            "viewerPermissions": {
+              "summary": "Viewer with read-only access",
+              "value": {
+                "table": {
+                  "read": true,
+                  "create": false,
+                  "update": false,
+                  "delete": false
+                },
+                "fields": {
+                  "id": { "read": true, "write": false },
+                  "name": { "read": true, "write": false },
+                  "email": { "read": true, "write": false },
+                  "salary": { "read": false, "write": false },
+                  "created_at": { "read": true, "write": false },
+                  "updated_at": { "read": true, "write": false }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "401": {
+      "$ref": "../../../../components/responses/Unauthorized.json"
+    },
+    "404": {
+      "$ref": "../../../../components/responses/TableNotFound.json"
+    }
+  },
+  "x-specs": [
+    {
+      "id": "API-TABLES-PERMISSIONS-CHECK-001",
+      "given": "An authenticated admin user",
+      "when": "User checks permissions for a table",
+      "then": "All table and field permissions should be returned as true"
+    },
+    {
+      "id": "API-TABLES-PERMISSIONS-CHECK-002",
+      "given": "An authenticated member user with limited permissions",
+      "when": "User checks permissions for a table",
+      "then": "Permissions should reflect user's role restrictions"
+    },
+    {
+      "id": "API-TABLES-PERMISSIONS-CHECK-003",
+      "given": "An unauthenticated user",
+      "when": "User attempts to check permissions",
+      "then": "401 Unauthorized error should be returned"
+    },
+    {
+      "id": "API-TABLES-PERMISSIONS-CHECK-004",
+      "given": "An authenticated user checking a non-existent table",
+      "when": "User checks permissions for invalid table ID",
+      "then": "404 Not Found error should be returned"
+    },
+    {
+      "id": "API-TABLES-PERMISSIONS-CHECK-005",
+      "given": "A table with field-level permission restrictions",
+      "when": "User checks permissions",
+      "then": "Sensitive fields should show read: false and write: false"
+    },
+    {
+      "id": "API-TABLES-PERMISSIONS-CHECK-006",
+      "given": "A viewer user with read-only access",
+      "when": "User checks permissions",
+      "then": "All write operations should be false (create, update, delete)"
+    }
+  ]
+}

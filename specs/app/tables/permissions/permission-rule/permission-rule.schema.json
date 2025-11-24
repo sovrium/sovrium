@@ -1,0 +1,135 @@
+{
+  "$id": "permission-rule.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Permission Rule",
+  "description": "Defines who can perform an action. Integrates with Better Auth for user identity and roles. Supports public access, authenticated-only, role-based, and custom conditions.",
+  "oneOf": [
+    {
+      "type": "object",
+      "title": "Public Access",
+      "description": "Allow access to anyone (authenticated or not)",
+      "properties": {
+        "type": {
+          "const": "public",
+          "description": "Grant public access"
+        }
+      },
+      "required": ["type"],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "title": "Authenticated Access",
+      "description": "Allow access to any authenticated user",
+      "properties": {
+        "type": {
+          "const": "authenticated",
+          "description": "Require authentication (any role)"
+        }
+      },
+      "required": ["type"],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "title": "Role-Based Access",
+      "description": "Allow access to users with specific roles. Better Auth stores user role in 'role' field (single role per user). Check succeeds if user's role matches ANY role in the list.",
+      "properties": {
+        "type": {
+          "const": "roles",
+          "description": "Require specific role(s)"
+        },
+        "roles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "enum": ["admin", "editor", "member", "viewer", "guest"],
+            "description": "Role name from Better Auth"
+          },
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "List of allowed roles (OR logic: user.role must match any)"
+        }
+      },
+      "required": ["type", "roles"],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "title": "Custom Condition",
+      "description": "Allow access based on custom expression using placeholder syntax. Supports {userId}, {userEmail}, {userRole}, and custom user properties. Combine multiple conditions with AND/OR.",
+      "properties": {
+        "type": {
+          "const": "custom",
+          "description": "Use custom condition expression"
+        },
+        "condition": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^.*\\{(userId|userEmail|userRole|user\\.[a-zA-Z0-9_]+)\\}.*$",
+          "description": "Expression with placeholders: {userId}, {userEmail}, {userRole}, {user.customField}. Example: '{userId} = created_by AND status = active'"
+        }
+      },
+      "required": ["type", "condition"],
+      "additionalProperties": false
+    }
+  ],
+  "examples": [
+    { "type": "public" },
+    { "type": "authenticated" },
+    { "type": "roles", "roles": ["admin", "editor"] },
+    { "type": "custom", "condition": "{userId} = created_by" },
+    { "type": "custom", "condition": "{user.department} = department AND status = 'active'" }
+  ],
+  "x-specs": [
+    {
+      "id": "APP-TABLES-PERMISSION-RULE-001",
+      "given": "permission rule with type 'public'",
+      "when": "any user accesses resource",
+      "then": "access should be granted without authentication check"
+    },
+    {
+      "id": "APP-TABLES-PERMISSION-RULE-002",
+      "given": "permission rule with type 'authenticated'",
+      "when": "unauthenticated user accesses resource",
+      "then": "access should be denied with 401 Unauthorized"
+    },
+    {
+      "id": "APP-TABLES-PERMISSION-RULE-003",
+      "given": "permission rule with type 'authenticated'",
+      "when": "authenticated user accesses resource",
+      "then": "access should be granted"
+    },
+    {
+      "id": "APP-TABLES-PERMISSION-RULE-004",
+      "given": "permission rule with type 'roles' and roles ['admin', 'editor']",
+      "when": "user with 'admin' role accesses resource",
+      "then": "access should be granted"
+    },
+    {
+      "id": "APP-TABLES-PERMISSION-RULE-005",
+      "given": "permission rule with type 'roles' and roles ['admin']",
+      "when": "user with 'member' role accesses resource",
+      "then": "access should be denied with 403 Forbidden"
+    },
+    {
+      "id": "APP-TABLES-PERMISSION-RULE-006",
+      "given": "permission rule with type 'custom' and condition '{user.department} = department'",
+      "when": "user with matching department accesses resource",
+      "then": "access should be granted"
+    },
+    {
+      "id": "APP-TABLES-PERMISSION-RULE-007",
+      "given": "permission rule with type 'custom' and condition '{userId} = created_by'",
+      "when": "user who is not the creator accesses resource",
+      "then": "access should be denied with 403 Forbidden"
+    },
+    {
+      "id": "APP-TABLES-PERMISSION-RULE-008",
+      "given": "permission rule with multiple roles ['admin', 'editor', 'member']",
+      "when": "user with 'editor' role accesses resource",
+      "then": "access should be granted (OR logic)"
+    }
+  ]
+}

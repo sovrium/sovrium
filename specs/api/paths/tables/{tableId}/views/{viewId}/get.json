@@ -1,0 +1,188 @@
+{
+  "summary": "Get view details",
+  "description": "Returns the configuration for a specific view. Views are predefined in the table schema and are read-only via the API.",
+  "operationId": "getTableView",
+  "tags": ["views"],
+  "parameters": [
+    {
+      "name": "tableId",
+      "in": "path",
+      "required": true,
+      "description": "The ID of the table",
+      "schema": {
+        "type": "integer",
+        "minimum": 1
+      }
+    },
+    {
+      "name": "viewId",
+      "in": "path",
+      "required": true,
+      "description": "The ID of the view",
+      "schema": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      }
+    }
+  ],
+  "responses": {
+    "200": {
+      "description": "View details",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../../components/schemas/View.json"
+          },
+          "examples": {
+            "gridView": {
+              "summary": "Simple grid view with filters",
+              "value": {
+                "id": "active_projects",
+                "name": "Active Projects",
+                "type": "grid",
+                "filters": {
+                  "operator": "OR",
+                  "conditions": [
+                    {
+                      "field": "status",
+                      "operator": "equals",
+                      "value": "planning"
+                    },
+                    {
+                      "field": "status",
+                      "operator": "equals",
+                      "value": "in-progress"
+                    }
+                  ]
+                },
+                "sorts": [
+                  {
+                    "field": "priority",
+                    "direction": "desc"
+                  },
+                  {
+                    "field": "created_at",
+                    "direction": "desc"
+                  }
+                ],
+                "isDefault": false
+              }
+            },
+            "kanbanView": {
+              "summary": "Kanban view with grouping",
+              "value": {
+                "id": "status_board",
+                "name": "Status Board",
+                "type": "kanban",
+                "groupBy": {
+                  "field": "status",
+                  "direction": "asc"
+                },
+                "filters": {
+                  "operator": "AND",
+                  "conditions": [
+                    {
+                      "field": "archived",
+                      "operator": "isFalse"
+                    }
+                  ]
+                },
+                "isDefault": false
+              }
+            },
+            "calendarView": {
+              "summary": "Calendar view with date field",
+              "value": {
+                "id": "project_timeline",
+                "name": "Project Timeline",
+                "type": "calendar",
+                "fields": [
+                  {
+                    "name": "name",
+                    "visible": true,
+                    "order": 1
+                  },
+                  {
+                    "name": "start_date",
+                    "visible": true,
+                    "order": 2
+                  },
+                  {
+                    "name": "end_date",
+                    "visible": true,
+                    "order": 3
+                  }
+                ],
+                "sorts": [
+                  {
+                    "field": "start_date",
+                    "direction": "asc"
+                  }
+                ],
+                "isDefault": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "404": {
+      "description": "Table or view not found",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../../components/schemas/Error.json"
+          },
+          "examples": {
+            "tableNotFound": {
+              "summary": "Table not found",
+              "value": {
+                "error": "Table not found",
+                "code": "TABLE_NOT_FOUND"
+              }
+            },
+            "viewNotFound": {
+              "summary": "View not found",
+              "value": {
+                "error": "View not found",
+                "code": "VIEW_NOT_FOUND"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-specs": [
+    {
+      "id": "API-TABLES-VIEWS-GET-001",
+      "given": "A table with a specific view configured",
+      "when": "User requests view details by viewId",
+      "then": "View configuration should be returned with all properties"
+    },
+    {
+      "id": "API-TABLES-VIEWS-GET-002",
+      "given": "A table without the requested view",
+      "when": "User requests non-existent view",
+      "then": "404 Not Found error should be returned with 'View not found' message"
+    },
+    {
+      "id": "API-TABLES-VIEWS-GET-003",
+      "given": "A non-existent table ID",
+      "when": "User requests view details",
+      "then": "404 Not Found error should be returned with 'Table not found' message"
+    },
+    {
+      "id": "API-TABLES-VIEWS-GET-004",
+      "given": "A view with filters, sorts, and groupBy configured",
+      "when": "User requests view details",
+      "then": "All view properties including filters, sorts, and groupBy should be included in response"
+    },
+    {
+      "id": "API-TABLES-VIEWS-GET-005",
+      "given": "A calendar view with field configurations",
+      "when": "User requests view details",
+      "then": "Fields array with visibility and order should be included in response"
+    }
+  ]
+}

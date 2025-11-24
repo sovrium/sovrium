@@ -30,6 +30,9 @@
       },
       "views": {
         "$ref": "./views/views.schema.json"
+      },
+      "permissions": {
+        "$ref": "./permissions/permissions.schema.json"
       }
     },
     "required": ["id", "name", "fields"],
@@ -161,6 +164,18 @@
       "given": "a table with a default view",
       "when": "I request table records without specifying a view",
       "then": "the default view filters and sorts should be applied"
+    },
+    {
+      "id": "APP-TABLES-022",
+      "given": "a table with permissions configured",
+      "when": "I access the table with proper authorization",
+      "then": "permissions should be enforced at table, field, and record levels"
+    },
+    {
+      "id": "APP-TABLES-023",
+      "given": "a table with role-based permissions",
+      "when": "I access the table as a user with insufficient role",
+      "then": "access should be denied with 403 Forbidden"
     }
   ]
 }
