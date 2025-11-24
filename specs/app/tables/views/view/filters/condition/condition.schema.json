@@ -1,0 +1,99 @@
+{
+  "$id": "condition.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Filter Condition",
+  "description": "A single filter condition comparing a field to a value using an operator",
+  "type": "object",
+  "properties": {
+    "field": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Name of the field to filter on"
+    },
+    "operator": {
+      "type": "string",
+      "enum": [
+        "equals",
+        "notEquals",
+        "contains",
+        "notContains",
+        "startsWith",
+        "endsWith",
+        "greaterThan",
+        "lessThan",
+        "greaterThanOrEqual",
+        "lessThanOrEqual",
+        "isEmpty",
+        "isNotEmpty",
+        "in",
+        "notIn",
+        "isTrue",
+        "isFalse"
+      ],
+      "description": "Comparison operator to use"
+    },
+    "value": {
+      "description": "Value to compare against (optional for isEmpty/isNotEmpty operators)"
+    }
+  },
+  "required": ["field", "operator"],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "field": "status",
+      "operator": "equals",
+      "value": "active"
+    },
+    {
+      "field": "name",
+      "operator": "contains",
+      "value": "test"
+    },
+    {
+      "field": "age",
+      "operator": "greaterThan",
+      "value": 18
+    },
+    {
+      "field": "email",
+      "operator": "isEmpty"
+    },
+    {
+      "field": "category",
+      "operator": "in",
+      "value": ["electronics", "computers", "phones"]
+    }
+  ],
+  "x-specs": [
+    {
+      "id": "APP-TABLES-VIEW-CONDITION-001",
+      "given": "a condition with equals operator and matching value",
+      "when": "filtering records",
+      "then": "only records with exact field value match should pass the filter"
+    },
+    {
+      "id": "APP-TABLES-VIEW-CONDITION-002",
+      "given": "a condition with contains operator on text field",
+      "when": "filtering records",
+      "then": "records with substring match should pass the filter"
+    },
+    {
+      "id": "APP-TABLES-VIEW-CONDITION-003",
+      "given": "a condition with greaterThan operator on numeric field",
+      "when": "filtering records",
+      "then": "only records with field value greater than specified value should pass"
+    },
+    {
+      "id": "APP-TABLES-VIEW-CONDITION-004",
+      "given": "a condition with isEmpty operator",
+      "when": "filtering records",
+      "then": "only records where field is null or empty should pass"
+    },
+    {
+      "id": "APP-TABLES-VIEW-CONDITION-005",
+      "given": "a condition with in operator and array of values",
+      "when": "filtering records",
+      "then": "records where field matches any value in the array should pass"
+    }
+  ]
+}

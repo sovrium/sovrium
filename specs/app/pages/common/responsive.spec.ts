@@ -97,15 +97,15 @@ test.describe('Responsive Variants', () => {
       // WHEN: viewport changes from mobile to tablet to desktop
       await page.setViewportSize({ width: 375, height: 667 })
       await page.goto('/')
-      await expect(page.locator('h1')).toHaveText('Mobile!')
+      await expect(page.locator('h1')).toHaveText('Mobile!', { useInnerText: true })
 
       await page.setViewportSize({ width: 768, height: 1024 })
-      await expect(page.locator('h1')).toHaveText('Tablet Welcome')
+      await expect(page.locator('h1')).toHaveText('Tablet Welcome', { useInnerText: true })
 
       await page.setViewportSize({ width: 1024, height: 768 })
 
       // THEN: content should update to match each breakpoint
-      await expect(page.locator('h1')).toHaveText('Desktop Welcome')
+      await expect(page.locator('h1')).toHaveText('Desktop Welcome', { useInnerText: true })
     }
   )
 

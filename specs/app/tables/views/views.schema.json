@@ -1,0 +1,74 @@
+{
+  "$id": "views.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Table Views",
+  "description": "Predefined views for organizing and displaying table data. Views define filters, sorting, field visibility, and grouping options.",
+  "type": "array",
+  "default": [],
+  "items": {
+    "$ref": "./view/view.schema.json"
+  },
+  "examples": [
+    [],
+    [
+      {
+        "id": "all_records",
+        "name": "All Records",
+        "type": "grid",
+        "isDefault": true
+      }
+    ],
+    [
+      {
+        "id": "active_users",
+        "name": "Active Users",
+        "type": "grid",
+        "filters": {
+          "operator": "AND",
+          "conditions": [
+            {
+              "field": "status",
+              "operator": "equals",
+              "value": "active"
+            },
+            {
+              "field": "last_login",
+              "operator": "greaterThan",
+              "value": "2024-01-01"
+            }
+          ]
+        },
+        "sorts": [
+          {
+            "field": "last_login",
+            "direction": "desc"
+          }
+        ],
+        "isDefault": true
+      },
+      {
+        "id": "by_department",
+        "name": "By Department",
+        "type": "kanban",
+        "groupBy": {
+          "field": "department",
+          "direction": "asc"
+        }
+      }
+    ]
+  ],
+  "x-specs": [
+    {
+      "id": "APP-TABLES-VIEWS-001",
+      "given": "a table with multiple views configured",
+      "when": "the table configuration is loaded",
+      "then": "all views should be available with their complete configurations"
+    },
+    {
+      "id": "APP-TABLES-VIEWS-002",
+      "given": "a table with a default view configured",
+      "when": "no specific view is requested",
+      "then": "the default view configuration should be applied"
+    }
+  ]
+}

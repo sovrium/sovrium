@@ -27,6 +27,9 @@
       },
       "indexes": {
         "$ref": "./indexes/indexes.schema.json"
+      },
+      "views": {
+        "$ref": "./views/views.schema.json"
       }
     },
     "required": ["id", "name", "fields"],
@@ -146,6 +149,18 @@
       "given": "the application is running",
       "when": "I delete multiple records from a DELETE request",
       "then": "it should work correctly"
+    },
+    {
+      "id": "APP-TABLES-020",
+      "given": "a table with views configured",
+      "when": "I access the table configuration",
+      "then": "all views should be available with their configurations"
+    },
+    {
+      "id": "APP-TABLES-021",
+      "given": "a table with a default view",
+      "when": "I request table records without specifying a view",
+      "then": "the default view filters and sorts should be applied"
     }
   ]
 }

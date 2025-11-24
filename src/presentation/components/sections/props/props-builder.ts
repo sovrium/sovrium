@@ -17,6 +17,7 @@ const CONTAINER_TYPES = ['div', 'container', 'flex', 'grid', 'card', 'badge'] as
 /**
  * Build test ID for component using config object
  */
+// eslint-disable-next-line complexity -- Sequential checks for test ID generation
 function buildTestId(config: TestIdConfig): string | undefined {
   const { type, blockName, blockInstanceIndex, substitutedProps, childIndex } = config
 
