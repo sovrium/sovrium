@@ -24,6 +24,24 @@ const BREAKPOINTS: Record<Exclude<Breakpoint, 'mobile'>, number> = {
 }
 
 /**
+ * Gets current viewport width from multiple sources
+ *
+ * Playwright's setViewportSize() updates document.documentElement.clientWidth
+ * but may not update window.innerWidth immediately. Try multiple sources.
+ *
+ * @returns Current viewport width in pixels
+ */
+function getViewportWidth(): number {
+  // Try multiple sources for maximum compatibility
+  return (
+    document.documentElement.clientWidth ||
+    document.body.clientWidth ||
+    window.innerWidth ||
+    0
+  )
+}
+
+/**
  * Determines current breakpoint from window width
  *
  * @param width - Window width in pixels
@@ -44,20 +62,45 @@ function getBreakpoint(width: number): Breakpoint {
  * Returns the current breakpoint based on window width.
  * Updates automatically when viewport is resized.
  *
+ * Uses multiple detection methods for maximum compatibility:
+ * 1. ResizeObserver on document.body (works with Playwright setViewportSize)
+ * 2. Window resize events (production fallback)
+ * 3. Polling (final fallback for edge cases)
+ *
  * @returns Current breakpoint name
  */
 export function useBreakpoint(): Breakpoint {
   const [breakpoint, setBreakpoint] = useState<Breakpoint>(() =>
-    typeof window !== 'undefined' ? getBreakpoint(window.innerWidth) : 'mobile'
+    typeof window !== 'undefined' ? getBreakpoint(getViewportWidth()) : 'mobile'
   )
 
   useEffect(() => {
-    const handleResize = () => {
-      setBreakpoint(getBreakpoint(window.innerWidth))
+    const updateBreakpoint = () => {
+      const width = getViewportWidth()
+      const newBreakpoint = getBreakpoint(width)
+      setBreakpoint((prev) => (prev !== newBreakpoint ? newBreakpoint : prev))
     }
 
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    // Initial update
+    updateBreakpoint()
+
+    // Method 1: ResizeObserver on document.documentElement (detects Playwright viewport changes)
+    const resizeObserver = new ResizeObserver(() => {
+      updateBreakpoint()
+    })
+    resizeObserver.observe(document.documentElement)
+
+    // Method 2: Window resize events (production fallback)
+    window.addEventListener('resize', updateBreakpoint)
+
+    // Method 3: Aggressive polling (10ms for Playwright compatibility)
+    const pollInterval = setInterval(updateBreakpoint, 10)
+
+    return () => {
+      resizeObserver.disconnect()
+      window.removeEventListener('resize', updateBreakpoint)
+      clearInterval(pollInterval)
+    }
   }, [])
 
   return breakpoint

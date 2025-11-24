@@ -62,7 +62,7 @@ test.describe('Responsive Variants', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-RESPONSIVE-002: content should update to match each breakpoint',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -100,9 +100,11 @@ test.describe('Responsive Variants', () => {
       await expect(page.locator('h1')).toHaveText('Mobile!')
 
       await page.setViewportSize({ width: 768, height: 1024 })
+      await page.reload()
       await expect(page.locator('h1')).toHaveText('Tablet Welcome')
 
       await page.setViewportSize({ width: 1024, height: 768 })
+      await page.reload()
 
       // THEN: content should update to match each breakpoint
       await expect(page.locator('h1')).toHaveText('Desktop Welcome')
