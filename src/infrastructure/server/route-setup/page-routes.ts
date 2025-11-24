@@ -6,7 +6,7 @@
  */
 
 import { Console, Effect } from 'effect'
-import { type Hono } from 'hono'
+import { type Context, type Hono } from 'hono'
 import {
   detectLanguageIfEnabled,
   validateLanguageSubdirectory,
@@ -20,8 +20,8 @@ export interface HonoAppConfig {
   readonly app: App
   readonly renderHomePage: (app: App, detectedLanguage?: string) => string
   readonly renderPage: (app: App, path: string, detectedLanguage?: string) => string | undefined
-  readonly renderNotFoundPage: () => string
-  readonly renderErrorPage: () => string
+  readonly renderNotFoundPage: (app?: App, detectedLanguage?: string) => string
+  readonly renderErrorPage: (app?: App, detectedLanguage?: string) => string
 }
 
 /**
@@ -67,9 +67,67 @@ export function setupHomepageRoute(honoApp: Readonly<Hono>, config: HonoAppConfi
       return c.html(html)
     } catch (error) {
       Effect.runSync(Console.error('Error rendering homepage:', error))
-      return c.html(renderErrorPage(), 500)
+      return c.html(renderErrorPage(app), 500)
     }
   })
+}
+
+/**
+ * Handle /:lang/ route (homepage in specific language)
+ */
+function handleLanguageHomepageRoute(config: HonoAppConfig) {
+  const { app, renderHomePage, renderPage, renderNotFoundPage, renderErrorPage } = config
+  return (c: Readonly<Context>) => {
+    try {
+      const { path } = c.req
+      const detectedLanguage = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
+      const exactPageMatch = renderPage(app, path, detectedLanguage)
+      if (exactPageMatch) {
+        return c.html(exactPageMatch)
+      }
+      const urlLanguage = validateLanguageSubdirectory(app, path)
+      if (!urlLanguage) {
+        const detectedLang = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
+        return c.html(renderNotFoundPage(app, detectedLang), 404)
+      }
+      const html = renderHomePage(app, urlLanguage)
+      return c.html(html)
+    } catch (error) {
+      Effect.runSync(Console.error('Error rendering homepage:', error))
+      const detectedLang = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
+      return c.html(renderErrorPage(app, detectedLang), 500)
+    }
+  }
+}
+
+/**
+ * Handle /:lang/* route (pages in specific language)
+ */
+function handleLanguagePageRoute(config: HonoAppConfig) {
+  const { app, renderPage, renderNotFoundPage, renderErrorPage } = config
+  return (c: Readonly<Context>) => {
+    const { path } = c.req
+    const detectedLanguage = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
+    try {
+      const exactPageMatch = renderPage(app, path, detectedLanguage)
+      if (exactPageMatch) {
+        return c.html(exactPageMatch)
+      }
+      const urlLanguage = validateLanguageSubdirectory(app, path)
+      if (!urlLanguage) {
+        return c.html(renderNotFoundPage(app, detectedLanguage), 404)
+      }
+      const pathWithoutLang = path.replace(`/${urlLanguage}`, '') || '/'
+      const html = renderPage(app, pathWithoutLang, urlLanguage)
+      if (!html) {
+        return c.html(renderNotFoundPage(app, urlLanguage), 404)
+      }
+      return c.html(html)
+    } catch (error) {
+      Effect.runSync(Console.error('Error rendering page:', error))
+      return c.html(renderErrorPage(app, detectedLanguage), 500)
+    }
+  }
 }
 
 /**
@@ -87,60 +145,9 @@ export function setupLanguageRoutes(
   honoApp: Readonly<Hono>,
   config: HonoAppConfig
 ): Readonly<Hono> {
-  const { app, renderHomePage, renderPage, renderNotFoundPage, renderErrorPage } = config
-
   return honoApp
-    .get('/:lang/', (c) => {
-      try {
-        const { path } = c.req
-
-        // Check if there's an exact page match first (pages take priority over language subdirectories)
-        const detectedLanguage = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
-        const exactPageMatch = renderPage(app, path, detectedLanguage)
-        if (exactPageMatch) {
-          return c.html(exactPageMatch)
-        }
-
-        // No exact page match - try language subdirectory
-        const urlLanguage = validateLanguageSubdirectory(app, path)
-        if (!urlLanguage) {
-          return c.html(renderNotFoundPage(), 404)
-        }
-        const html = renderHomePage(app, urlLanguage)
-        return c.html(html)
-      } catch (error) {
-        Effect.runSync(Console.error('Error rendering homepage:', error))
-        return c.html(renderErrorPage(), 500)
-      }
-    })
-    .get('/:lang/*', (c) => {
-      try {
-        const { path } = c.req
-        const detectedLanguage = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
-
-        // Check if there's an exact page match first (pages take priority over language subdirectories)
-        const exactPageMatch = renderPage(app, path, detectedLanguage)
-        if (exactPageMatch) {
-          return c.html(exactPageMatch)
-        }
-
-        // No exact page match - try language subdirectory pattern
-        const urlLanguage = validateLanguageSubdirectory(app, path)
-        if (!urlLanguage) {
-          return c.html(renderNotFoundPage(), 404)
-        }
-
-        const pathWithoutLang = path.replace(`/${urlLanguage}`, '') || '/'
-        const html = renderPage(app, pathWithoutLang, urlLanguage)
-        if (!html) {
-          return c.html(renderNotFoundPage(), 404)
-        }
-        return c.html(html)
-      } catch (error) {
-        Effect.runSync(Console.error('Error rendering page:', error))
-        return c.html(renderErrorPage(), 500)
-      }
-    })
+    .get('/:lang/', handleLanguageHomepageRoute(config))
+    .get('/:lang/*', handleLanguagePageRoute(config))
 }
 
 /**
@@ -163,7 +170,7 @@ export function setupDynamicPageRoutes(
     const detectedLanguage = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
     const html = renderPage(app, path, detectedLanguage)
     if (!html) {
-      return c.html(renderNotFoundPage(), 404)
+      return c.html(renderNotFoundPage(app, detectedLanguage), 404)
     }
     return c.html(html)
   })
@@ -182,11 +189,12 @@ export function setupTestErrorRoute(
   honoApp: Readonly<Hono>,
   config: HonoAppConfig
 ): Readonly<Hono> {
-  const { renderNotFoundPage } = config
+  const { app, renderNotFoundPage } = config
 
   return honoApp.get('/test/error', (c) => {
     if (process.env.NODE_ENV === 'production') {
-      return c.html(renderNotFoundPage(), 404)
+      const detectedLanguage = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
+      return c.html(renderNotFoundPage(app, detectedLanguage), 404)
     }
     // eslint-disable-next-line functional/no-throw-statements
     throw new Error('Test error')

@@ -36,8 +36,8 @@ function createMockConfig(overrides?: Partial<HonoAppConfig>): HonoAppConfig {
     app: createMockApp(),
     renderHomePage: mock(() => '<html>Home</html>'),
     renderPage: mock(() => '<html>Page</html>'),
-    renderNotFoundPage: mock(() => '<html>404</html>'),
-    renderErrorPage: mock(() => '<html>500</html>'),
+    renderNotFoundPage: mock((_app?: App, _detectedLanguage?: string) => '<html>404</html>'),
+    renderErrorPage: mock((_app?: App, _detectedLanguage?: string) => '<html>500</html>'),
     ...overrides,
   }
 }

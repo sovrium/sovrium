@@ -685,6 +685,180 @@
       }
     },
     {
+      "id": "APP-PAGES-PATH-016",
+      "given": "app with custom 404 page at path '/404'",
+      "when": "user navigates to non-existent page",
+      "then": "custom 404 page renders (NOT default NotFoundPage)",
+      "validation": {
+        "setup": {
+          "app": {
+            "name": "My App",
+            "pages": [
+              {
+                "name": "Home",
+                "path": "/",
+                "meta": { "lang": "en-US", "title": "Home" },
+                "sections": []
+              },
+              {
+                "name": "Custom404",
+                "path": "/404",
+                "meta": { "lang": "en-US", "title": "Custom Not Found" },
+                "sections": [
+                  {
+                    "type": "section",
+                    "children": [{ "type": "heading", "content": "Custom 404 Page" }]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "assertions": [
+          "Custom 404 page defined at path '/404'",
+          "User navigates to non-existent page",
+          "Custom 404 page renders instead of default NotFoundPage",
+          "Page title shows custom meta.title"
+        ]
+      },
+      "application": {
+        "expectedDOM": "Custom 404 page with h1 'Custom 404 Page'",
+        "behavior": "Custom error pages override default error pages",
+        "useCases": ["Branded 404 page", "Custom error handling"],
+        "assertions": [
+          "URL: /nonexistent → 404 status",
+          "Page title: 'Custom Not Found'",
+          "Custom sections rendered",
+          "Default NotFoundPage NOT rendered"
+        ]
+      }
+    },
+    {
+      "id": "APP-PAGES-PATH-017",
+      "given": "app WITHOUT custom 404 page",
+      "when": "user navigates to non-existent page",
+      "then": "default NotFoundPage renders",
+      "validation": {
+        "setup": {
+          "app": {
+            "name": "My App",
+            "pages": [
+              {
+                "name": "Home",
+                "path": "/",
+                "meta": { "lang": "en-US", "title": "Home" },
+                "sections": []
+              }
+            ]
+          }
+        },
+        "assertions": [
+          "No custom 404 page defined",
+          "User navigates to non-existent page",
+          "Default NotFoundPage renders",
+          "Page title shows '404 - Not Found'"
+        ]
+      },
+      "application": {
+        "expectedDOM": "Default NotFoundPage with h1 '404'",
+        "behavior": "Default error pages serve as fallback",
+        "useCases": ["Minimal app without custom error pages"],
+        "assertions": [
+          "URL: /nonexistent → 404 status",
+          "Page title: '404 - Not Found'",
+          "Default NotFoundPage rendered",
+          "Standard error messaging"
+        ]
+      }
+    },
+    {
+      "id": "APP-PAGES-PATH-018",
+      "given": "app with custom 500 page at path '/500'",
+      "when": "user navigates to custom error page directly",
+      "then": "custom 500 page renders",
+      "validation": {
+        "setup": {
+          "app": {
+            "name": "My App",
+            "pages": [
+              {
+                "name": "Home",
+                "path": "/",
+                "meta": { "lang": "en-US", "title": "Home" },
+                "sections": []
+              },
+              {
+                "name": "Custom500",
+                "path": "/500",
+                "meta": { "lang": "en-US", "title": "Custom Server Error" },
+                "sections": [
+                  {
+                    "type": "section",
+                    "children": [{ "type": "heading", "content": "Custom 500 Page" }]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "assertions": [
+          "Custom 500 page defined at path '/500'",
+          "User navigates to /500 directly",
+          "Custom 500 page renders",
+          "Page title shows custom meta.title"
+        ]
+      },
+      "application": {
+        "expectedDOM": "Custom 500 page with h1 'Custom 500 Page'",
+        "behavior": "Custom error pages can be accessed directly",
+        "useCases": ["Branded server error page", "Custom maintenance page"],
+        "assertions": [
+          "URL: /500 → 200 status (direct access)",
+          "Page title: 'Custom Server Error'",
+          "Custom sections rendered",
+          "Works like any other custom page"
+        ]
+      }
+    },
+    {
+      "id": "APP-PAGES-PATH-019",
+      "given": "app WITHOUT custom 500 page",
+      "when": "server error occurs",
+      "then": "default ErrorPage renders",
+      "validation": {
+        "setup": {
+          "app": {
+            "name": "My App",
+            "pages": [
+              {
+                "name": "Home",
+                "path": "/",
+                "meta": { "lang": "en-US", "title": "Home" },
+                "sections": []
+              }
+            ]
+          }
+        },
+        "assertions": [
+          "No custom 500 page defined",
+          "Server error occurs (test error endpoint)",
+          "Default ErrorPage renders",
+          "Page title shows '500 - Internal Server Error'"
+        ]
+      },
+      "application": {
+        "expectedDOM": "Default ErrorPage with h1 '500'",
+        "behavior": "Default error pages handle runtime errors",
+        "useCases": ["Minimal app without custom error pages", "Development error handling"],
+        "assertions": [
+          "URL: /test/error → 500 status",
+          "Page title: '500 - Internal Server Error'",
+          "Default ErrorPage rendered",
+          "Standard error messaging"
+        ]
+      }
+    },
+    {
       "id": "APP-PAGES-PATH-REGRESSION-001",
       "given": "complete application configuration with all features",
       "when": "user completes full workflow",
