@@ -42,9 +42,9 @@
         "$ref": "./paths/auth/get-session/get.json"
       }
     },
-    "/api/auth/forget-password": {
+    "/api/auth/request-password-reset": {
       "post": {
-        "$ref": "./paths/auth/forget-password/post.json"
+        "$ref": "./paths/auth/request-password-reset/post.json"
       }
     },
     "/api/auth/reset-password": {

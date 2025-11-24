@@ -8,10 +8,10 @@
 import { test, expect } from '@/specs/fixtures'
 
 /**
- * E2E Tests for POST /api/auth/forget-password
+ * E2E Tests for POST /api/auth/request-password-reset
  *
  * Specification:
- * - Forget password endpoint must send password reset email
+ * - Request password reset endpoint must send password reset email
  * - Must validate email format
  * - Must return success even for non-existent emails (security: don't leak user existence)
  * - Email should contain reset token and redirect URL
@@ -19,6 +19,8 @@ import { test, expect } from '@/specs/fixtures'
  * Reference Implementation:
  * - Better Auth: src/infrastructure/auth/better-auth/auth.ts
  * - OpenAPI Spec: specs/api/paths/auth/forget-password/post.json
+ *
+ * Note: Better Auth v1.4.0+ uses /api/auth/request-password-reset endpoint
  */
 
 const generateTestUser = () => ({
@@ -61,7 +63,7 @@ test(
     })
 
     // WHEN: User requests password reset
-    const response = await page.request.post('/api/auth/forget-password', {
+    const response = await page.request.post('/api/auth/request-password-reset', {
       data: {
         email: testUser.email,
         redirectTo: 'https://app.example.com/reset-password',
@@ -99,7 +101,7 @@ test(
     )
 
     // WHEN: User requests password reset with invalid email
-    const response = await page.request.post('/api/auth/forget-password', {
+    const response = await page.request.post('/api/auth/request-password-reset', {
       data: {
         email: 'not-an-email',
         redirectTo: 'https://app.example.com/reset-password',
