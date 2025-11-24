@@ -344,6 +344,9 @@ export function ComponentRenderer(props: ComponentRendererProps): Readonly<React
   }
 
   // Direct component rendering
+  // Note: We don't add key={breakpoint} here because it would break React's reconciliation
+  // and cause unnecessary unmount/remount cycles. The component should re-render naturally
+  // when state changes from useBreakpoint hook.
   return (
     <RenderDirectComponent
       component={component as Component}
