@@ -1,27 +1,98 @@
 {
   "$id": "default.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "default",
+  "title": "Color Field Default Value",
+  "description": "Default hex color value when no value is provided during INSERT. PostgreSQL DEFAULT constraint with VARCHAR type for hex color format (#RRGGBB).",
   "type": "string",
   "pattern": "^#[0-9a-fA-F]{6}$",
+  "examples": ["#FF0000", "#00FF00", "#0000FF", "#FFFFFF", "#000000"],
   "x-specs": [
     {
       "id": "APP-FIELD-COLOR-DEFAULT-001",
-      "given": "user provides default matching pattern",
-      "when": "validating input",
-      "then": "value should be accepted"
+      "given": "color field with default: '#FF0000' (red)",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL DEFAULT constraint provides default color",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE themes (id SERIAL PRIMARY KEY, name VARCHAR(255), primary_color VARCHAR(7) DEFAULT '#FF0000')",
+            "INSERT INTO themes (name) VALUES ('Default Theme')"
+          ],
+          "fieldConfig": {
+            "name": "primary_color",
+            "type": "color",
+            "default": "#FF0000"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT constraint with hex color",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='themes' AND column_name='primary_color'",
+            "expected": { "column_default": "'#FF0000'::character varying" }
+          },
+          {
+            "description": "INSERT without value uses default color",
+            "executeQuery": "SELECT primary_color FROM themes WHERE name = 'Default Theme'",
+            "expected": { "primary_color": "#FF0000" }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-COLOR-DEFAULT-002",
-      "given": "user provides default not matching pattern",
-      "when": "validating input",
-      "then": "clear error message should explain format requirement"
+      "given": "color field without default specified",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL inserts NULL",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE brands (id SERIAL PRIMARY KEY, name VARCHAR(255), accent_color VARCHAR(7))",
+            "INSERT INTO brands (name) VALUES ('Brand A')"
+          ],
+          "fieldConfig": {
+            "name": "accent_color",
+            "type": "color"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has no DEFAULT constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='brands' AND column_name='accent_color'",
+            "expected": { "column_default": null }
+          },
+          {
+            "description": "INSERT without value results in NULL",
+            "executeQuery": "SELECT accent_color FROM brands WHERE name = 'Brand A'",
+            "expected": { "accent_color": null }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-COLOR-DEFAULT-003",
-      "given": "default is stored",
-      "when": "retrieved later",
-      "then": "original format should be preserved"
+      "given": "color field with default and explicit value",
+      "when": "INSERT with specific hex color",
+      "then": "PostgreSQL uses explicit value, ignoring default, preserving format",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE labels (id SERIAL PRIMARY KEY, name VARCHAR(255), color VARCHAR(7) DEFAULT '#CCCCCC')",
+            "INSERT INTO labels (name, color) VALUES ('Important', '#FF5733')"
+          ],
+          "fieldConfig": {
+            "name": "color",
+            "type": "color",
+            "default": "#CCCCCC"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Explicit value overrides default and preserves format",
+            "executeQuery": "SELECT color FROM labels WHERE name = 'Important'",
+            "expected": { "color": "#FF5733" }
+          }
+        ]
+      }
     }
   ]
 }
