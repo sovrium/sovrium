@@ -24,7 +24,7 @@ test.describe('Responsive Variants', () => {
   // One test per spec in schema - defines EXHAUSTIVE acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-PAGES-RESPONSIVE-001: should apply mobile className and styles',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
