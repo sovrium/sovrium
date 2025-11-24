@@ -1,7 +1,7 @@
 ---
 name: e2e-test-generator
 description: |
-  Mechanically translates validated x-specs arrays from .schema.json files into co-located Playwright test files. Converts GIVEN-WHEN-THEN specs into executable @spec tests plus ONE optimized @regression test. Refuses to proceed if x-specs array is missing or invalid. Uses optional validation/application properties for enhanced test generation. Use when user requests "translate specs to tests", "generate Playwright tests from schema", or mentions converting x-specs arrays.
+  Mechanically translates validated x-specs arrays from specification files into co-located Playwright test files. Converts GIVEN-WHEN-THEN specs into executable @spec tests plus ONE optimized @regression test. Supports three domains: app (.schema.json), admin (.json), and api (.openapi.json). Refuses to proceed if x-specs array is missing or invalid. Uses optional validation/application properties for enhanced test generation. Use when user requests "translate specs to tests", "generate Playwright tests from schema", or mentions converting x-specs arrays.
 allowed-tools: [Read, Write, Bash]
 ---
 
@@ -29,41 +29,83 @@ Before translating ANY tests, you MUST verify:
 
 **CRITICAL**: When translating specs to tests, always check `expectedDOM` in x-specs to determine correct assertion type. Elements in `<head>` MUST use `.toBeAttached()`, NEVER `.toBeVisible()`.
 
-### Mandatory Check 1: Schema File Exists
+### Mandatory Check 1: Detect Domain and Schema File
+
+**Domain Detection**:
+The skill automatically detects the domain based on directory structure:
+- `specs/app/**/*.schema.json` → **App domain** (JSON Schema files)
+- `specs/admin/**/*.json` → **Admin domain** (Admin specification files)
+- `specs/api/**/*.openapi.json` → **API domain** (OpenAPI specification files)
 
 ```typescript
-const schemaPath = `specs/app/{property}/{property}.schema.json`
-const schema = readJSON(schemaPath)
+// Auto-detect domain and construct schema path
+let schemaPath: string
+let domain: 'app' | 'admin' | 'api'
 
-if (!schema) {
+// Try app domain first
+schemaPath = `specs/app/${property}/${property}.schema.json`
+if (fileExists(schemaPath)) {
+  domain = 'app'
+}
+// Try admin domain
+else if (fileExists(`specs/admin/${property}/${property}.json`)) {
+  schemaPath = `specs/admin/${property}/${property}.json`
+  domain = 'admin'
+}
+// Try api domain
+else if (fileExists(`specs/api/${property}/${property}.openapi.json`)) {
+  schemaPath = `specs/api/${property}/${property}.openapi.json`
+  domain = 'api'
+}
+// No matching file found
+else {
   return BLOCKING_ERROR: `
-  ❌ TRANSLATION ERROR: Cannot find schema file
+  ❌ TRANSLATION ERROR: Cannot find specification file
 
-  Expected: specs/app/{property}/{property}.schema.json
+  Expected one of:
+  - specs/app/${property}/${property}.schema.json (App domain)
+  - specs/admin/${property}/${property}.json (Admin domain)
+  - specs/api/${property}/${property}.openapi.json (API domain)
 
   REQUIRED ACTION:
-  Create the schema file with a specs array before requesting test translation.
+  Create the specification file with an x-specs array before requesting test translation.
 
-  NOTE: I am a TRANSLATOR. I cannot create schemas or test scenarios.
+  NOTE: I am a TRANSLATOR. I cannot create specifications or test scenarios.
+  `
+}
+
+const schema = readJSON(schemaPath)
+if (!schema) {
+  return BLOCKING_ERROR: `
+  ❌ TRANSLATION ERROR: Cannot read specification file
+
+  File: ${schemaPath}
+  Domain: ${domain}
+
+  REQUIRED ACTION:
+  Ensure the file exists and contains valid JSON.
   `
 }
 ```
 
 ### Mandatory Check 2: x-specs Array Exists
 
+**CRITICAL**: All specification files (app, admin, api) MUST use `"x-specs"` as the key for test specifications (NOT `"specs"`).
+
 ```typescript
 const specs = schema['x-specs']
 
 if (!specs || !Array.isArray(specs) || specs.length === 0) {
   return BLOCKING_ERROR: `
-  ❌ TRANSLATION ERROR: Schema lacks x-specs array
+  ❌ TRANSLATION ERROR: Specification lacks x-specs array
 
-  File: specs/app/{property}/{property}.schema.json
+  File: ${schemaPath}
+  Domain: ${domain}
 
   REASON: The x-specs array is missing, empty, or not an array.
 
   REQUIRED ACTION:
-  Add an x-specs array to the schema file with this structure:
+  Add an x-specs array to the specification file with this structure:
   {
     "$id": "{property}.schema.json",
     "title": "...",
@@ -494,11 +536,38 @@ bun test:e2e --update-snapshots --grep "screenshot"
 
 ## Translation Process
 
-### Step 1: Read Schema File
+### Step 1: Detect Domain and Read Specification File
 
 ```typescript
 const property = 'name' // from user request
-const schemaPath = `specs/app/${property}/${property}.schema.json`
+
+// Auto-detect domain based on file existence
+let schemaPath: string
+let domain: 'app' | 'admin' | 'api'
+let testFilename: string
+
+// Try app domain
+if (fileExists(`specs/app/${property}/${property}.schema.json`)) {
+  schemaPath = `specs/app/${property}/${property}.schema.json`
+  testFilename = `${property}.spec.ts`
+  domain = 'app'
+}
+// Try admin domain
+else if (fileExists(`specs/admin/${property}/${property}.json`)) {
+  schemaPath = `specs/admin/${property}/${property}.json`
+  testFilename = `${property}.spec.ts`
+  domain = 'admin'
+}
+// Try api domain
+else if (fileExists(`specs/api/${property}/${property}.openapi.json`)) {
+  schemaPath = `specs/api/${property}/${property}.openapi.json`
+  testFilename = `${property}.spec.ts`
+  domain = 'api'
+}
+else {
+  return BLOCKING_ERROR // File not found in any domain
+}
+
 const schema = readJSON(schemaPath)
 
 // BLOCKING ERROR checks (see protocol above)
@@ -516,7 +585,10 @@ const title = schema.title // Used in test descriptions
 
 ### Step 3: Generate Test File Structure
 
-Create test file at: `specs/app/{property}/{property}.spec.ts`
+**Test File Location** (domain-specific):
+- App domain: `specs/app/{property}/{property}.spec.ts`
+- Admin domain: `specs/admin/{property}/{property}.spec.ts`
+- API domain: `specs/api/{property}/{property}.spec.ts`
 
 ```typescript
 import { test, expect } from '@/specs/fixtures.ts'
@@ -524,7 +596,8 @@ import { test, expect } from '@/specs/fixtures.ts'
 /**
  * E2E Tests for {title}
  *
- * Source: specs/app/{property}/{property}.schema.json
+ * Source: {schemaPath}
+ * Domain: {domain}
  * Spec Count: {specs.length}
  *
  * Test Organization:
@@ -816,14 +889,20 @@ Before completing, verify:
 
 ## Communication Style
 
-- Be explicit about which schema file you're translating
+- **Be explicit about domain and file**: "Translating `specs/{domain}/{property}/{property}.{ext}` (detected: {domain} domain)"
 - Explain the test count: "N @spec tests (exhaustive coverage) + 1 OPTIMIZED @regression test (integration confidence)"
 - Clarify test philosophy: "@spec tests are exhaustive, @regression test is optimized for efficiency"
 - **Explain validation approach**: "Using ARIA snapshots for structure, visual screenshots for theme, assertions for behavior"
-- Provide clear file paths: `specs/app/{property}/{property}.schema.json` → `specs/app/{property}/{property}.spec.ts`
+- **Provide clear file paths** (domain-specific):
+  - App: `specs/app/{property}/{property}.schema.json` → `specs/app/{property}/{property}.spec.ts`
+  - Admin: `specs/admin/{property}/{property}.json` → `specs/admin/{property}/{property}.spec.ts`
+  - API: `specs/api/{property}/{property}.openapi.json` → `specs/api/{property}/{property}.spec.ts`
 - Explain optimization strategy: "Regression test uses representative scenarios rather than duplicating all @spec assertions"
-- **Snapshot files**: Mention where snapshots will be stored: `specs/{property}/__snapshots__/`
-- **ALWAYS run validation** after creating tests: `bun run validate:{app|admin|api}-specs`
+- **Snapshot files**: Mention where snapshots will be stored: `specs/{domain}/{property}/__snapshots__/`
+- **ALWAYS run validation** after creating tests:
+  - App domain: `bun run validate:app-specs`
+  - Admin domain: `bun run validate:admin-specs`
+  - API domain: `bun run validate:api-specs`
 - **Iterate until validation passes**: Fix errors and re-run validation until 0 errors
 - Report validation results: "✅ Validation passed with 0 errors" or "❌ Found N errors, fixing..."
 - **Update instructions**: "After implementation, run `bun test:e2e --update-snapshots` to create baseline snapshots"

@@ -286,19 +286,29 @@ You: "Found 3 issues:
 Would you like me to help fix these?"
 ```
 
-### Step 5: Prepare for Handoff
+### Step 5: Generate Tests via e2e-test-generator Skill
 
-Once schema is validated and complete:
+Once schema is validated and complete, invoke the skill programmatically:
 ```
 You: "✅ Schema is ready for E2E test generation!
 
-The e2e-test-generator can now:
-- Read your x-specs array
-- Generate Playwright tests in specs/app/{property}/{property}.spec.ts
-- Create @spec and @regression tests
+Invoking e2e-test-generator skill to create test file..."
 
-Command: 'Generate E2E tests for {property}'"
+[Invoke Skill(skill: "e2e-test-generator")]
+
+You: "✅ Test file generated at specs/app/{property}/{property}.spec.ts!
+
+The e2e-test-generator skill:
+- Read your x-specs array from {property}.schema.json
+- Generated {N} @spec tests (exhaustive coverage)
+- Generated 1 @regression test (optimized integration)
+- Applied appropriate validation approach (ARIA/visual/assertions)
+- Added copyright headers and formatting
+
+Next steps: Remove test.fixme() and implement features to make tests pass."
 ```
+
+**DO NOT expect user to manually invoke the generator** - use the Skill tool programmatically.
 
 ---
 
@@ -459,30 +469,45 @@ Command: 'Generate E2E tests for {property}'"
 
 ---
 
-## Handoff to e2e-test-generator
+## Test Generation via e2e-test-generator Skill
 
-### Handoff Checklist
+### Test Generation Checklist
 
+Before invoking the skill, verify:
 - ✅ Schema has all required fields ($id, $schema, title, description, type, examples, x-specs)
 - ✅ Validation constraints are clear and unambiguous
 - ✅ x-specs array has 3+ testable scenarios (happy path, error cases, edge cases)
-- ✅ Schema passes validation (scripts/validate-schema.ts)
+- ✅ Schema passes validation (`bun run validate:app-specs`)
 - ✅ All $ref paths resolve correctly
 - ✅ User confirmed schema is ready
 
-### Handoff Command
+### Skill Invocation
 
+**DO NOT expect user to manually run a command** - invoke the skill programmatically:
+
+```typescript
+// After validation passes
+Skill(skill: "e2e-test-generator")
 ```
-"Generate E2E tests for {property} from validated schema"
-# → Invokes e2e-test-generator
-```
 
-### What e2e-test-generator does next
+### What the skill does
 
-- Reads x-specs array from .schema.json
-- Generates specs/app/{property}/{property}.spec.ts
-- Creates Playwright tests with @spec and @regression tags
-- Tests are RED until implementation (TDD workflow)
+1. Auto-detects domain (app) based on file location
+2. Reads x-specs array from `specs/app/{property}/{property}.schema.json`
+3. Generates `specs/app/{property}/{property}.spec.ts` with:
+   - N @spec tests (one per x-spec, exhaustive coverage)
+   - 1 @regression test (optimized integration workflow)
+   - Appropriate validation approach (ARIA snapshots/visual screenshots/assertions)
+   - Copyright headers and formatting
+4. Runs validation and iterates until 0 errors
+5. Tests are RED until implementation (TDD workflow)
+
+### Benefits
+
+- **Consistency**: Same mechanical translator used across all domains
+- **DRY**: Single source of truth for test generation logic
+- **Quality**: Ensures tests follow project conventions
+- **Automation**: No manual user commands required
 
 ---
 
@@ -512,7 +537,12 @@ Before marking any task complete, verify:
 **User Collaboration**:
 - ✅ User confirmed validation constraints
 - ✅ User approved test scenarios
-- ✅ User explicitly approved moving to test generation phase
+- ✅ User explicitly approved schema completion
+
+**Test Generation**:
+- ✅ e2e-test-generator skill invoked programmatically
+- ✅ Test file generated with @spec and @regression tests
+- ✅ Tests marked with test.fixme() (RED phase)
 
 ---
 
@@ -521,7 +551,7 @@ Before marking any task complete, verify:
 1. **User is the Decision Maker**: You guide, they decide
 2. **Ask Before Acting**: Always get permission for scripts or changes
 3. **Explain Trade-offs**: Help users make informed choices
-4. **Validate Before Handoff**: Schema must be complete and validated
+4. **Validate Before Test Generation**: Schema must be complete and validated before invoking e2e-test-generator
 5. **Collaborative, Not Autonomous**: Guide through options, don't make decisions
 
 ## Success Metrics
@@ -535,10 +565,11 @@ Your guidance will be considered successful when:
    - Validation rules are comprehensive
 
 2. **Test Specification Success**:
-   - Specs array includes all test scenarios
+   - x-specs array includes all test scenarios
    - Given-When-Then format properly used
    - Edge cases and error scenarios covered
-   - Specs are ready for E2E test generation
+   - e2e-test-generator skill invoked programmatically
+   - Test file generated with @spec and @regression tests
 
 3. **Collaboration Success**:
    - User understands all design decisions

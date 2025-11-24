@@ -340,21 +340,31 @@ You: "Found 3 issues:
 Would you like me to help fix these?"
 ```
 
-### Step 5: Prepare for Handoff
+### Step 5: Generate Tests via e2e-test-generator Skill
 
-Once specification is validated and complete:
+Once specification is validated and complete, invoke the skill programmatically:
 ```
 You: "✅ OpenAPI spec is ready for E2E test generation!
 
-The e2e-test-generator can now:
-- Read your x-specs array from each operation
-- Use validation.request and validation.response for test setup
-- Generate test scenarios from your scenarios array
-- Create comprehensive Playwright tests in specs/api/{feature}/{feature}.spec.ts
-- Include @spec and @regression tests for API endpoints
+Invoking e2e-test-generator skill to create test file..."
 
-Command: 'Generate E2E tests for {feature} API'"
+[Invoke Skill(skill: "e2e-test-generator")]
+
+You: "✅ Test file generated at specs/api/{feature}/{feature}.spec.ts!
+
+The e2e-test-generator skill:
+- Read your x-specs arrays from each operation in {feature}.openapi.json
+- Used validation.request and validation.response for test setup
+- Generated test scenarios from your scenarios array
+- Generated {N} @spec tests (exhaustive coverage)
+- Generated 1 @regression test (optimized integration)
+- Applied appropriate validation approach (API assertions/response validation)
+- Added copyright headers and formatting
+
+Next steps: Remove test.fixme() and implement API endpoints to make tests pass."
 ```
+
+**DO NOT expect user to manually invoke the generator** - use the Skill tool programmatically.
 
 ---
 
@@ -891,10 +901,11 @@ Command: 'Generate E2E tests for {feature} API'"
 
 ---
 
-## Handoff to e2e-test-generator
+## Test Generation via e2e-test-generator Skill
 
-### Handoff Checklist
+### Test Generation Checklist
 
+Before invoking the skill, verify:
 - ✅ OpenAPI has all required fields (openapi, info, paths)
 - ✅ Each operation has operationId, responses, x-specs array (NOT "specs")
 - ✅ Request/response schemas are defined
@@ -902,25 +913,39 @@ Command: 'Generate E2E tests for {feature} API'"
 - ✅ x-specs array has validation object with request/response details
 - ✅ x-specs array has scenarios array with 3+ test scenarios
 - ✅ x-specs array has optional examples for complex endpoints
-- ✅ Specification passes validation (with user permission)
+- ✅ Specification passes validation (`bun run validate:api-specs`)
 - ✅ User confirmed spec is ready
 
-### Handoff Command
+### Skill Invocation
 
+**DO NOT expect user to manually run a command** - invoke the skill programmatically:
+
+```typescript
+// After validation passes
+Skill(skill: "e2e-test-generator")
 ```
-"Generate E2E tests for {feature} API from validated spec"
-# → Invokes e2e-test-generator
-```
 
-### What e2e-test-generator does next
+### What the skill does
 
-- Reads x-specs arrays from each operation
-- Processes validation.request and validation.response for test setup
-- Uses scenarios array to generate multiple test cases per spec
-- Leverages examples for concrete test data
-- Generates specs/api/{feature}/{feature}.spec.ts
-- Creates Playwright tests with @spec and @regression tags
-- Tests are RED until API implementation (TDD workflow)
+1. Auto-detects domain (api) based on file location
+2. Reads x-specs arrays from each operation in `specs/api/{feature}/{feature}.openapi.json`
+3. Processes validation.request and validation.response for test setup
+4. Uses scenarios array to generate multiple test cases per spec
+5. Leverages examples for concrete test data
+6. Generates `specs/api/{feature}/{feature}.spec.ts` with:
+   - N @spec tests (one per x-spec, exhaustive coverage)
+   - 1 @regression test (optimized integration workflow)
+   - Appropriate validation approach (API assertions/response validation)
+   - Copyright headers and formatting
+7. Runs validation and iterates until 0 errors
+8. Tests are RED until API implementation (TDD workflow)
+
+### Benefits
+
+- **Consistency**: Same mechanical translator used across all domains
+- **DRY**: Single source of truth for test generation logic
+- **Quality**: Ensures tests follow project conventions
+- **Automation**: No manual user commands required
 
 ---
 
@@ -962,7 +987,7 @@ Before marking any task complete, verify:
 1. **User is the Decision Maker**: You guide, they decide
 2. **Ask Before Acting**: Always get permission for scripts or changes
 3. **Explain Trade-offs**: Help users make informed choices
-4. **Validate Before Handoff**: Spec must be complete and validated
+4. **Validate Before Test Generation**: Spec must be complete and validated before invoking e2e-test-generator
 5. **RESTful Conventions**: Follow HTTP semantics and REST best practices
 
 ## Success Metrics
@@ -984,6 +1009,8 @@ Your guidance will be considered successful when:
    - Error responses documented
    - Authentication flows validated
    - Examples provided for complex endpoints
+   - e2e-test-generator skill invoked programmatically
+   - Test file generated with @spec and @regression tests
 
 3. **RESTful Design Success**:
    - Endpoints follow REST conventions

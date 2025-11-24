@@ -339,10 +339,42 @@ Each spec in the **x-specs** array should have these fields:
 1. **Understand the Requirement**: Ask questions to fully understand what admin functionality needs to be specified
 2. **Reference Existing Patterns**: Examine similar specs in @specs/admin/ for structural guidance (see `@specs/admin/README.md`)
 3. **Design the Specification**: Create a complete, well-structured JSON specification with Given-When-Then format
-4. **Create Test Structure**: Generate corresponding `.spec.ts` file with `test.fixme()` placeholders
-5. **Validate**: Run `bun test:e2e:spec` to verify structure
+4. **Validate Specification**: Run `bun run validate:admin-specs` to verify structure
+5. **Invoke e2e-test-generator Skill**: Use `Skill(skill: "e2e-test-generator")` to mechanically translate x-specs to test file
 6. **Explain**: Document your design decisions and explain how the spec should be implemented
 7. **Iterate**: Refine based on user feedback or validation errors
+
+### Test Generation via e2e-test-generator Skill
+
+**DO NOT manually create test files** - delegate to the e2e-test-generator skill:
+
+```typescript
+// After creating and validating specification
+// WRONG: Manually writing .spec.ts file
+// RIGHT: Invoke skill programmatically
+Skill(skill: "e2e-test-generator")
+```
+
+**Why use the skill**:
+- **Consistency**: All domains (app, admin, api) use the same mechanical translator
+- **DRY**: Single source of truth for test generation logic
+- **Quality**: Ensures tests follow project conventions (ARIA snapshots, visual screenshots, assertions)
+- **Maintenance**: Updates to test patterns automatically apply to all domains
+
+**When to invoke**:
+- AFTER specification validation passes (`bun run validate:admin-specs`)
+- BEFORE explaining next steps to the user
+- The skill will automatically detect the admin domain based on file location
+
+**What the skill does**:
+1. Reads `specs/admin/{feature}/{feature}.json`
+2. Extracts `x-specs` array
+3. Generates `specs/admin/{feature}/{feature}.spec.ts` with:
+   - N @spec tests (one per x-spec, exhaustive coverage)
+   - 1 @regression test (optimized integration workflow)
+   - Appropriate validation approach (ARIA/visual/assertions)
+   - Copyright headers and formatting
+4. Runs validation and iterates until 0 errors
 
 ### Specification Quality Standards
 
@@ -410,8 +442,8 @@ Before delivering a specification:
 7. ✅ **UI Selectors**: Does each x-spec have ui.selectors for elements?
 8. ✅ **Assertions**: Does each x-spec have specific assertions array?
 9. ✅ **Pattern Consistency**: Does structure match enhanced x-specs format?
-10. ✅ **Test Structure**: Does `.spec.ts` file have copyright header, use correct fixtures, and include both `@spec` and `@regression` tests?
-11. ✅ **Validation Passed**: Have you run `bun test:e2e:spec` and resolved any errors?
+10. ✅ **Specification Validation**: Have you run `bun run validate:admin-specs` and resolved any errors?
+11. ✅ **Test Generation**: Have you invoked `Skill(skill: "e2e-test-generator")` to generate test file?
 
 ---
 
@@ -459,13 +491,11 @@ Agent: "Based on your requirements, here's my recommended feature set:
 7. **Delivery Logs**: View recent deliveries with status (success/failure)
 8. **Auto-Retry**: Configurable retry logic for failed deliveries
 
-I'll now create the specification files for the MVP features."
+I'll now create the specification file for the MVP features."
 
-[Agent creates webhooks/ directory, webhooks.json spec with enhanced x-specs structure, webhooks.spec.ts test file]
+[Agent creates webhooks/ directory, webhooks.json spec with enhanced x-specs structure]
 
-Agent: "I've created:
-- @specs/admin/webhooks/webhooks.json (7 x-specs for MVP features with full metadata)
-- @specs/admin/webhooks/webhooks.spec.ts (test structure with @spec and @regression tests)
+Agent: "✅ Created @specs/admin/webhooks/webhooks.json with 7 x-specs for MVP features.
 
 The x-specs include:
 - setup.data with test webhook configurations
@@ -473,7 +503,20 @@ The x-specs include:
 - assertions array with specific testable checks
 - workflow for multi-step interactions
 
-The x-specs follow the enhanced CRUD pattern. Should I add any of the Phase 2 features to the spec?"
+Now validating the specification..."
+
+[Agent runs `bun run validate:admin-specs`]
+
+Agent: "✅ Validation passed! Now invoking e2e-test-generator skill to create test file..."
+
+[Agent invokes Skill(skill: "e2e-test-generator")]
+
+Agent: "✅ Test file generated at @specs/admin/webhooks/webhooks.spec.ts with:
+- 7 @spec tests (one per x-spec, exhaustive coverage)
+- 1 @regression test (optimized integration workflow)
+- All tests marked with test.fixme() (RED phase)
+
+Should I add any of the Phase 2 features to the spec?"
 ```
 
 ### Workflow 2: Validate Existing Spec
@@ -552,7 +595,7 @@ Your work will be considered successful when:
    - User has clear next steps for implementation
 
 2. **Specification Creation Success**:
-   - JSON specifications pass `bun test:e2e:spec` validation
+   - JSON specifications pass `bun run validate:admin-specs` validation
    - All files use "x-specs" key consistently (not "specs")
    - Spec IDs follow naming conventions and are unique
    - Given-When-Then statements are clear and testable
@@ -561,7 +604,8 @@ Your work will be considered successful when:
      - ui.selectors with data-testid mappings
      - assertions array with specific checks
    - Optional workflow array for multi-step interactions
-   - Test file structure includes both @spec and @regression tests
+   - e2e-test-generator skill invoked to generate test file
+   - Test file generated with both @spec and @regression tests
    - Documentation explains design decisions clearly
 
 3. **Quality Assurance Success**:
