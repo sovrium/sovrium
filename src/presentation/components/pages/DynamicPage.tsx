@@ -248,16 +248,11 @@ export function DynamicPage({
   const scripts = groupScriptsByPosition(page)
   const pageWithMeta = mergeBlockMetaIntoPage(page, blocks)
 
-  // Build data-features attribute if features are configured
-  const dataFeaturesAttr = page.scripts?.features
-    ? { 'data-features': JSON.stringify(page.scripts.features) }
-    : {}
-
   return (
     <html
       lang={langConfig.lang}
       dir={langConfig.direction}
-      {...dataFeaturesAttr}
+      {...(page.scripts?.features && { 'data-features': JSON.stringify(page.scripts.features) })}
     >
       <DynamicPageHead
         mergedPage={pageWithMeta}
