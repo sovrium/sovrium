@@ -290,7 +290,7 @@ test.describe('Client Scripts Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SCRIPTS-010: should compose scripts from modular schemas',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
