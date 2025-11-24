@@ -19,7 +19,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Client Scripts Configuration', () => {
-  test.fixme(
+  test(
     'APP-PAGES-SCRIPTS-001: should orchestrate client-side script management',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
