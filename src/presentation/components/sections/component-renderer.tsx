@@ -273,6 +273,27 @@ function RenderDirectComponent({
       })()
     : undefined
 
+  // Build CSS classes for responsive props (className overrides) using Tailwind breakpoint prefixes
+  // This works without JavaScript by using CSS media queries
+  // Strategy: Convert responsive.{breakpoint}.props.className into prefixed classes (e.g., md:p-8)
+  const responsivePropsClasses = responsive
+    ? (() => {
+        const breakpointClasses = (Object.entries(responsive) as [string, VariantOverrides][])
+          .filter(([, overrides]) => overrides.props?.className)
+          .flatMap(([bp, overrides]) => {
+            const className = overrides.props!.className!
+            // Split className into individual classes and prefix each with breakpoint
+            return className
+              .split(' ')
+              .filter(Boolean)
+              .map((cls) => `${bp}:${cls}`)
+          })
+          .join(' ')
+
+        return breakpointClasses || undefined
+      })()
+    : undefined
+
   const mergedPropsWithVisibility = responsiveVisibilityClasses
     ? {
         ...mergedProps,
@@ -282,9 +303,18 @@ function RenderDirectComponent({
       }
     : mergedProps
 
+  const mergedPropsWithResponsive = responsivePropsClasses
+    ? {
+        ...mergedPropsWithVisibility,
+        className: mergedPropsWithVisibility?.className
+          ? `${mergedPropsWithVisibility.className} ${responsivePropsClasses}`
+          : responsivePropsClasses,
+      }
+    : mergedPropsWithVisibility
+
   const { elementProps, elementPropsWithSpacing } = buildComponentProps({
     type,
-    props: mergedPropsWithVisibility,
+    props: mergedPropsWithResponsive,
     children: mergedChildren,
     content: mergedContent,
     blockName: props.blockName,
