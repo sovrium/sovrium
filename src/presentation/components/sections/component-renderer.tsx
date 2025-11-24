@@ -15,7 +15,7 @@ import { extractBlockReference, renderBlockReferenceError } from './blocks/block
 import { resolveBlock } from './blocks/block-resolution'
 import { buildComponentProps } from './props/component-builder'
 import { dispatchComponentType } from './rendering/component-type-dispatcher'
-import { applyResponsiveOverrides } from './responsive/responsive-resolver'
+import { applyResponsiveOverrides, buildResponsiveClasses } from './responsive/responsive-resolver'
 import { buildHoverData } from './styling/hover-interaction-handler'
 import { resolveChildTranslation } from './translations/translation-handler'
 import type {
@@ -232,10 +232,26 @@ function RenderDirectComponent({
   // Apply responsive overrides for current breakpoint (used for SSR initial render)
   const responsiveOverrides = applyResponsiveOverrides(responsive, currentBreakpoint)
 
+  // Build CSS-based responsive classes (works without JavaScript via Tailwind media queries)
+  const baseClassName = componentProps?.className as string | undefined
+  const responsiveClassName = buildResponsiveClasses(responsive, baseClassName)
+
   // Merge responsive overrides with base component values
-  const mergedProps = responsiveOverrides?.props
-    ? { ...componentProps, ...responsiveOverrides.props }
+  // For className, use CSS-based responsive classes instead of JS-based overrides
+  const mergedPropsWithoutClassName = responsiveOverrides?.props
+    ? Object.entries({ ...componentProps, ...responsiveOverrides.props })
+        .filter(([key]) => key !== 'className')
+        .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {})
     : componentProps
+      ? Object.entries(componentProps)
+          .filter(([key]) => key !== 'className')
+          .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {})
+      : undefined
+
+  const mergedProps = responsiveClassName
+    ? { ...mergedPropsWithoutClassName, className: responsiveClassName }
+    : mergedPropsWithoutClassName
+
   const mergedChildren = responsiveOverrides?.children ?? children
   const mergedContent = responsiveOverrides?.content ?? content
 
