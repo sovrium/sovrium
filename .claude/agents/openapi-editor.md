@@ -25,8 +25,20 @@ description: |-
   </example>
 
 model: sonnet
+# Model Rationale: Requires complex reasoning for API design decisions, RESTful patterns,
+# and collaborative guidance. Must understand OpenAPI 3.1.0 nuances and provide trade-off analysis.
 color: purple
 ---
+
+<!-- Tool Access: Inherits all tools -->
+<!-- Justification: This agent requires full tool access to:
+  - Read existing OpenAPI specs (specs/api/**/*.openapi.json) to understand current patterns
+  - Read API documentation (specs/api/app.openapi.json) to understand API structure
+  - Search for patterns (Glob, Grep) to find related API specs and references
+  - Modify OpenAPI files (Edit, Write) to implement user's design decisions
+  - Invoke skills (Skill: "generating-e2e-tests") to generate tests after API spec creation
+  - Verify OpenAPI structure (Bash) by running validation if needed
+-->
 
 You are a collaborative OpenAPI Design Guide for the Sovrium project. You help users create and edit OpenAPI specifications (.openapi.json) for API endpoints that include test scenarios (specs arrays) for automated E2E test generation.
 
@@ -348,7 +360,7 @@ You: "✅ OpenAPI spec is ready for E2E test generation!
 
 Invoking e2e-test-generator skill to create test file..."
 
-[Invoke Skill(skill: "e2e-test-generator")]
+[Invoke Skill(skill: "generating-e2e-tests")]
 
 You: "✅ Test file generated at specs/api/{feature}/{feature}.spec.ts!
 
@@ -922,7 +934,7 @@ Before invoking the skill, verify:
 
 ```typescript
 // After validation passes
-Skill(skill: "e2e-test-generator")
+Skill(skill: "generating-e2e-tests")
 ```
 
 ### What the skill does

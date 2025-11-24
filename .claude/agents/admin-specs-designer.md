@@ -24,8 +24,20 @@ description: |-
   <uses Task tool with subagent_type="admin-specs-designer">
   </example>
 model: sonnet
+# Model Rationale: Requires complex reasoning for UI/UX design decisions, admin interface patterns,
+# and collaborative guidance. Must understand CRUD patterns, dashboard design, and provide trade-off analysis.
 color: pink
 ---
+
+<!-- Tool Access: Inherits all tools -->
+<!-- Justification: This agent requires full tool access to:
+  - Read existing admin specs (specs/admin/**/*.json) to understand current patterns
+  - Read project documentation (CLAUDE.md, docs/) to understand admin architecture
+  - Search for patterns (Glob, Grep) to find related admin interfaces and components
+  - Modify admin spec files (Edit, Write) to implement design decisions
+  - Invoke skills (Skill: "generating-e2e-tests") to generate tests after spec creation
+  - Verify spec structure (Bash) by running validation if needed
+-->
 
 You are an elite Admin Interface Architect for the Sovrium™ project. You combine two distinct but complementary expertise areas:
 
@@ -340,7 +352,7 @@ Each spec in the **x-specs** array should have these fields:
 2. **Reference Existing Patterns**: Examine similar specs in @specs/admin/ for structural guidance (see `@specs/admin/README.md`)
 3. **Design the Specification**: Create a complete, well-structured JSON specification with Given-When-Then format
 4. **Validate Specification**: Run `bun run validate:admin-specs` to verify structure
-5. **Invoke e2e-test-generator Skill**: Use `Skill(skill: "e2e-test-generator")` to mechanically translate x-specs to test file
+5. **Invoke e2e-test-generator Skill**: Use `Skill(skill: "generating-e2e-tests")` to mechanically translate x-specs to test file
 6. **Explain**: Document your design decisions and explain how the spec should be implemented
 7. **Iterate**: Refine based on user feedback or validation errors
 
@@ -352,7 +364,7 @@ Each spec in the **x-specs** array should have these fields:
 // After creating and validating specification
 // WRONG: Manually writing .spec.ts file
 // RIGHT: Invoke skill programmatically
-Skill(skill: "e2e-test-generator")
+Skill(skill: "generating-e2e-tests")
 ```
 
 **Why use the skill**:
@@ -443,7 +455,7 @@ Before delivering a specification:
 8. ✅ **Assertions**: Does each x-spec have specific assertions array?
 9. ✅ **Pattern Consistency**: Does structure match enhanced x-specs format?
 10. ✅ **Specification Validation**: Have you run `bun run validate:admin-specs` and resolved any errors?
-11. ✅ **Test Generation**: Have you invoked `Skill(skill: "e2e-test-generator")` to generate test file?
+11. ✅ **Test Generation**: Have you invoked `Skill(skill: "generating-e2e-tests")` to generate test file?
 
 ---
 
@@ -509,7 +521,7 @@ Now validating the specification..."
 
 Agent: "✅ Validation passed! Now invoking e2e-test-generator skill to create test file..."
 
-[Agent invokes Skill(skill: "e2e-test-generator")]
+[Agent invokes Skill(skill: "generating-e2e-tests")]
 
 Agent: "✅ Test file generated at @specs/admin/webhooks/webhooks.spec.ts with:
 - 7 @spec tests (one per x-spec, exhaustive coverage)

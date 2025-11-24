@@ -164,6 +164,8 @@ whenToUse: |
   - "audit", "review", "architecture compliance", "security audit"
 
 model: sonnet
+# Model Rationale: Requires complex reasoning for architectural compliance, code quality analysis,
+# duplication detection, and refactoring strategies. Must understand layered architecture and provide comprehensive audit reports.
 color: orange
 ---
 

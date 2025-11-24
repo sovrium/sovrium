@@ -25,6 +25,8 @@ description: |-
   </example>
 
 model: sonnet
+# Model Rationale: Requires complex reasoning for TDD implementation, understanding test expectations,
+# making architectural decisions, and collaborating with user on implementation approach. Haiku lacks TDD reasoning depth.
 color: green
 ---
 
