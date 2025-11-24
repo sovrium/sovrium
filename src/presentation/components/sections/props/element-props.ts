@@ -30,7 +30,12 @@ export function buildTestId(
     return dataTestId
   }
 
-  return type === 'container' ? 'container' : type === 'flex' ? 'flex' : undefined
+  // Auto-generate testid for common component types to support testing
+  if (type === 'container') return 'container'
+  if (type === 'flex') return 'flex'
+  if (type === 'text') return 'text'
+
+  return undefined
 }
 
 /**
