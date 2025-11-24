@@ -1,7 +1,8 @@
 {
   "$id": "options.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "options",
+  "title": "Single Select Field Options",
+  "description": "Array of selectable string options for this field (minimum 1 item required)",
   "type": "array",
   "default": [],
   "items": {
@@ -10,15 +11,143 @@
   "x-specs": [
     {
       "id": "APP-FIELD-SINGLE-SELECT-OPTIONS-001",
-      "given": "user provides options with at least 1 items",
-      "when": "validating input",
-      "then": "array should be accepted"
+      "given": "single-select field with options: ['Low', 'Medium', 'High']",
+      "when": "field migration creates CHECK constraint enforcing allowed values",
+      "then": "PostgreSQL accepts only values from options array",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), priority VARCHAR(50) CHECK (priority IN ('Low', 'Medium', 'High')))",
+            "INSERT INTO tasks (title, priority) VALUES ('Task 1', 'Low'), ('Task 2', 'High')"
+          ],
+          "fieldConfig": {
+            "name": "priority",
+            "type": "single-select",
+            "options": ["Low", "Medium", "High"]
+          }
+        },
+        "assertions": [
+          {
+            "description": "CHECK constraint enforces allowed values",
+            "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%priority%'",
+            "expected": { "check_clause": "(priority IN ('Low', 'Medium', 'High'))" }
+          },
+          {
+            "description": "Valid option 'Low' accepted",
+            "executeQuery": "SELECT priority FROM tasks WHERE priority = 'Low'",
+            "expected": { "priority": "Low" }
+          },
+          {
+            "description": "Invalid option rejected",
+            "executeQuery": "INSERT INTO tasks (title, priority) VALUES ('Task 3', 'Urgent')",
+            "expectError": "violates check constraint"
+          },
+          {
+            "description": "All valid options accepted",
+            "executeQuery": "INSERT INTO tasks (title, priority) VALUES ('Task 4', 'Medium') RETURNING priority",
+            "expected": { "priority": "Medium" }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-SINGLE-SELECT-OPTIONS-002",
-      "given": "user provides options with fewer than 1 items",
-      "when": "validating input",
-      "then": "error should enforce minimum items"
+      "given": "single-select field with options: ['Active', 'Inactive']",
+      "when": "NULL value inserted",
+      "then": "PostgreSQL accepts NULL (if nullable) or rejects (if required)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255), status VARCHAR(50) CHECK (status IN ('Active', 'Inactive') OR status IS NULL))",
+            "INSERT INTO users (name, status) VALUES ('Alice', 'Active'), ('Bob', NULL)"
+          ],
+          "fieldConfig": {
+            "name": "status",
+            "type": "single-select",
+            "options": ["Active", "Inactive"],
+            "required": false
+          }
+        },
+        "assertions": [
+          {
+            "description": "NULL accepted when field is nullable",
+            "executeQuery": "SELECT status FROM users WHERE name = 'Bob'",
+            "expected": { "status": null }
+          },
+          {
+            "description": "Valid option 'Active' accepted",
+            "executeQuery": "SELECT status FROM users WHERE name = 'Alice'",
+            "expected": { "status": "Active" }
+          },
+          {
+            "description": "Invalid option still rejected",
+            "executeQuery": "INSERT INTO users (name, status) VALUES ('Charlie', 'Pending')",
+            "expectError": "violates check constraint"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-SELECT-OPTIONS-003",
+      "given": "single-select field with empty options array",
+      "when": "field configuration validation runs",
+      "then": "error should enforce minimum 1 option required",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "category",
+            "type": "single-select",
+            "options": []
+          }
+        },
+        "assertions": [
+          {
+            "description": "Configuration with empty options array rejected",
+            "validateConfig": true,
+            "expectError": "options array must have at least 1 item"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-SELECT-OPTIONS-004",
+      "given": "single-select field with options: ['Draft', 'Published', 'Archived']",
+      "when": "option value modified in configuration",
+      "then": "PostgreSQL ALTER TABLE updates CHECK constraint with new options",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE posts (id SERIAL PRIMARY KEY, title VARCHAR(255), status VARCHAR(50) CHECK (status IN ('Draft', 'Published', 'Archived')))",
+            "INSERT INTO posts (title, status) VALUES ('Post 1', 'Draft'), ('Post 2', 'Published')"
+          ],
+          "fieldConfig": {
+            "name": "status",
+            "type": "single-select",
+            "options": ["Draft", "Published", "Archived"]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Original CHECK constraint enforces original options",
+            "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%status%'",
+            "expected": { "check_clause": "(status IN ('Draft', 'Published', 'Archived'))" }
+          },
+          {
+            "description": "After migration: new option 'Scheduled' allowed",
+            "executeQuery": [
+              "ALTER TABLE posts DROP CONSTRAINT IF EXISTS posts_status_check",
+              "ALTER TABLE posts ADD CONSTRAINT posts_status_check CHECK (status IN ('Draft', 'Scheduled', 'Published', 'Archived'))",
+              "INSERT INTO posts (title, status) VALUES ('Post 3', 'Scheduled') RETURNING status"
+            ],
+            "expected": { "status": "Scheduled" }
+          },
+          {
+            "description": "Existing data preserved after constraint update",
+            "executeQuery": "SELECT COUNT(*) as count FROM posts WHERE status IN ('Draft', 'Published')",
+            "expected": { "count": 2 }
+          }
+        ]
+      }
     }
   ]
 }
