@@ -238,17 +238,17 @@ function RenderDirectComponent({
 
   // Merge responsive overrides with base component values
   // For className, use CSS-based responsive classes instead of JS-based overrides
-  const mergedPropsWithoutClassName = responsiveOverrides?.props
+  const mergedPropsWithoutClassName: Record<string, unknown> | undefined = responsiveOverrides?.props
     ? Object.entries({ ...componentProps, ...responsiveOverrides.props })
         .filter(([key]) => key !== 'className')
-        .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {})
+        .reduce<Record<string, unknown>>((acc, [key, value]) => ({ ...acc, [key]: value }), {})
     : componentProps
       ? Object.entries(componentProps)
           .filter(([key]) => key !== 'className')
-          .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {})
+          .reduce<Record<string, unknown>>((acc, [key, value]) => ({ ...acc, [key]: value }), {})
       : undefined
 
-  const mergedProps = responsiveClassName
+  const mergedProps: Record<string, unknown> | undefined = responsiveClassName
     ? { ...mergedPropsWithoutClassName, className: responsiveClassName }
     : mergedPropsWithoutClassName
 
