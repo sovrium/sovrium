@@ -62,7 +62,7 @@ test.describe('Responsive Variants', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-RESPONSIVE-002: content should update to match each breakpoint',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
