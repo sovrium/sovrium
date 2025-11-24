@@ -6,7 +6,11 @@
  */
 
 import { type ReactElement } from 'react'
-import { renderInlineScriptTag, renderScriptTag } from '@/presentation/scripts/script-renderers'
+import {
+  renderInlineScriptTag,
+  renderScriptTag,
+  renderWindowConfig,
+} from '@/presentation/scripts/script-renderers'
 import { buildPageMetadataI18n } from './PageMetadataI18n'
 import type { GroupedScripts } from './PageScripts'
 import type { Languages } from '@/domain/models/app/languages'
@@ -86,40 +90,24 @@ function LanguageSwitcherScripts({
         data-page-meta={JSON.stringify(enrichedMeta)}
         style={{ display: 'none' }}
       />
-      {/*
-        SECURITY: Safe use of dangerouslySetInnerHTML
-        - Content: Build-time generated configuration data (JSON.stringify)
-        - Source: Validated Languages schema from app configuration
-        - Risk: None - no user input, server-controlled data only
-        - Purpose: Expose language config for client-side language switcher
-        - CSP: Compatible - inline script with deterministic content
-      */}
       {/* Expose languages config to window for testing/debugging - fallback defaults to default language */}
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `window.APP_LANGUAGES = ${JSON.stringify({
-            ...languages,
-            fallback: languages.fallback ?? languages.default,
-          })};`,
-        }}
-      />
-      {/*
-        SECURITY: Safe use of dangerouslySetInnerHTML
-        - Content: Build-time generated configuration data (JSON.stringify)
-        - Source: Validated Theme schema from app configuration + computed direction
-        - Risk: None - no user input, server-controlled data only
-        - Purpose: Expose theme config with RTL direction for client-side usage
-        - CSP: Compatible - inline script with deterministic content
-      */}
+      {renderWindowConfig({
+        windowKey: 'APP_LANGUAGES',
+        data: {
+          ...languages,
+          fallback: languages.fallback ?? languages.default,
+        },
+        reactKey: 'window-app-languages',
+      })}
       {/* Expose theme config with RTL-aware direction to window for testing/debugging */}
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `window.APP_THEME = ${JSON.stringify({
-            ...(theme || {}),
-            direction: direction,
-          })};`,
-        }}
-      />
+      {renderWindowConfig({
+        windowKey: 'APP_THEME',
+        data: {
+          ...(theme || {}),
+          direction: direction,
+        },
+        reactKey: 'window-app-theme',
+      })}
       {/* External script file loaded only when needed (defer ensures DOM is ready) */}
       <script
         src="/assets/language-switcher.js"
@@ -162,22 +150,13 @@ function renderConditionalScripts(config: {
           direction={direction}
         />
       )}
-      {/*
-        SECURITY: Safe use of dangerouslySetInnerHTML
-        - Content: Build-time generated feature flags (JSON.stringify)
-        - Source: Validated page.scripts.features from page configuration
-        - Risk: None - no user input, server-controlled data only
-        - Purpose: Expose feature flags for client-side feature detection
-        - CSP: Compatible - inline script with deterministic content
-      */}
       {/* Client-side feature flags - inject when features configured */}
-      {page.scripts?.features && (
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `window.FEATURES = ${JSON.stringify(page.scripts.features)};`,
-          }}
-        />
-      )}
+      {page.scripts?.features &&
+        renderWindowConfig({
+          windowKey: 'FEATURES',
+          data: page.scripts.features,
+          reactKey: 'window-features',
+        })}
     </>
   )
 }

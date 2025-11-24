@@ -144,7 +144,7 @@ test.describe('Client Scripts Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SCRIPTS-005: should provide client-side configuration data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
