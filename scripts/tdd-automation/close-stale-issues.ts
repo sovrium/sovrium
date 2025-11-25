@@ -33,11 +33,9 @@ import {
   success,
   logInfo,
   logWarn,
-  logError,
-  skip,
 } from '../lib/effect'
-import { scanForFixmeSpecs } from './services/spec-scanner'
 import { getQueuedSpecs, getInProgressSpecs } from './services/queue-operations'
+import { scanForFixmeSpecs } from './services/spec-scanner'
 import type { SpecIssue } from './services/types'
 
 /**
