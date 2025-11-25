@@ -377,6 +377,62 @@ jobs:
             echo "✅ All PRs have auto-merge enabled"
           fi
 
+      - name: Update outdated PR branches
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+        run: |
+          echo "🔍 Checking for PRs with outdated branches..."
+
+          PRS=$(gh pr list \
+            --repo ${{ github.repository }} \
+            --label "tdd-automation" \
+            --state open \
+            --json number,title,headRefName,mergeable,mergeStateStatus,baseRefName \
+            --limit 50)
+
+          UPDATED_COUNT=0
+
+          echo "$PRS" | jq -r '.[] | @json' | while read -r pr; do
+            PR_NUMBER=$(echo "$pr" | jq -r '.number')
+            HEAD_REF=$(echo "$pr" | jq -r '.headRefName')
+            MERGEABLE=$(echo "$pr" | jq -r '.mergeable')
+            MERGE_STATE=$(echo "$pr" | jq -r '.mergeStateStatus')
+
+            # Check if branch is behind (but not conflicted)
+            if [ "$MERGE_STATE" = "BEHIND" ] || [ "$MERGEABLE" = "UNKNOWN" ]; then
+              echo ""
+              echo "⚠️  PR #$PR_NUMBER branch is behind main"
+              echo "   Triggering branch update..."
+
+              # Post @claude comment to update branch
+              gh pr comment "$PR_NUMBER" --repo ${{ github.repository }} \
+                --body "@claude update branch
+
+              This PR branch is behind main. Please update it:
+
+              \`\`\`bash
+              git fetch origin main:main
+              git checkout $HEAD_REF
+              git merge origin/main
+              git push
+              \`\`\`
+
+              Auto-merge will proceed once branch is updated.
+
+              ---
+              *🤖 TDD Monitor (Unified)*"
+
+              UPDATED_COUNT=$((UPDATED_COUNT + 1))
+            fi
+          done
+
+          if [ "$UPDATED_COUNT" -gt 0 ]; then
+            echo ""
+            echo "✅ Triggered branch update for $UPDATED_COUNT PR(s)"
+          else
+            echo "✅ All PR branches are up-to-date"
+          fi
+
       - name: Detect stuck PRs
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
