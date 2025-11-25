@@ -532,7 +532,7 @@ test.fixme(
 | **Interactive widgets** | Combined | - | All three approaches needed |
 | **Animations** | Visual Screenshot | Assertions | Before/after states + timing |
 | **API integration** | Assertions | - | Data validation only |
-| **API endpoints (API domain)** | Assertions + DB validation | - | HTTP status, response schema, database state - uses page.request |
+| **API endpoints (API domain)** | Assertions + DB validation | - | HTTP status, response schema, database state - uses request + executeQuery fixtures (Pattern E) |
 | **Routing/URLs** | Assertions | - | URL changes and params |
 | **Accessibility** | ARIA Snapshot | - | Purpose-built for a11y |
 | **Responsive design** | Visual Screenshot | ARIA | Visual at breakpoints + structure |
@@ -761,54 +761,99 @@ test.fixme(
 ```
 
 #### Pattern E: API Endpoint Testing (for API domain specs)
+
+**CRITICAL REQUIREMENTS FOR API DOMAIN**:
+- ✅ **ALWAYS include `executeQuery` fixture**: `async ({ request, executeQuery }) =>`
+- ✅ **NEVER use TODO comments**: All database operations must use real `executeQuery` calls
+- ✅ **Database setup REQUIRED**: Use `executeQuery` to create tables and insert test data
+- ✅ **Database verification REQUIRED**: Use `executeQuery` to verify state changes after operations
+- ✅ **Use `request` fixture**: For HTTP calls (NOT `page.request` - that's for Pattern with page context)
+
 ```typescript
 test.fixme(
   '{spec.id}: should {extract from "then" clause}',
   { tag: '@spec' },
-  async ({ page, startServerWithSchema, executeQuery }) => {
+  async ({ request, executeQuery }) => {
     // GIVEN: {spec.given}
-    await startServerWithSchema({
-      name: 'test-app',
-      // TODO: Configure server schema based on test requirements
-    })
+    // Database schema setup (extract table structure from spec)
+    await executeQuery(`
+      CREATE TABLE users (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        name VARCHAR(255),
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `)
 
-    // Database setup (from validation.setup.executeQuery)
-    await executeQuery(
-      `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at)
-       VALUES (1, 'test@example.com', '\\$2a\\$10\\$Hash', 'Test User', true, NOW(), NOW())`
-    )
-    await executeQuery(
-      `INSERT INTO sessions (id, user_id, token, expires_at, created_at)
-       VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())`
-    )
+    // Test data insertion (if spec requires existing data)
+    await executeQuery(`
+      INSERT INTO users (id, email, name)
+      VALUES (1, 'test@example.com', 'Test User')
+    `)
 
-    // WHEN: {spec.when} - Use page.request for API calls
-    const response = await page.request.post('/api/auth/change-email', {
+    // WHEN: {spec.when} - Use request fixture for API calls
+    const response = await request.post('/api/tables/1/records', {
       headers: {
-        'Authorization': 'Bearer valid_token',
+        'Authorization': 'Bearer test_token',
         'Content-Type': 'application/json',
       },
       data: {
-        newEmail: 'new@example.com',
+        email: 'new@example.com',
+        name: 'New User',
       },
     })
 
     // THEN: {spec.then}
     // HTTP status validation
-    expect(response.status).toBe(200)
+    expect(response.status()).toBe(201)
 
     // Response schema validation
     const data = await response.json()
-    expect(data).toMatchObject({}) // TODO: Add schema validation
+    expect(data).toHaveProperty('id')
+    expect(data.email).toBe('new@example.com')
+    expect(data.name).toBe('New User')
 
-    // Database state validation (if specified in assertions)
-    const updatedUser = await executeQuery(
-      `SELECT email FROM users WHERE id = 1`
-    )
-    expect(updatedUser.rows[0].email).toBe('new@example.com')
+    // Database state validation (verify record was created)
+    const result = await executeQuery(`
+      SELECT * FROM users WHERE email = 'new@example.com'
+    `)
+    expect(result.rows).toHaveLength(1)
+    expect(result.rows[0].name).toBe('New User')
   }
 )
 ```
+
+**API Domain Test Generation Rules**:
+1. **Fixture requirement**: `async ({ request, executeQuery }) =>` (BOTH required)
+2. **No TODOs allowed**: All database operations must be real `executeQuery` calls
+3. **Database setup pattern**:
+   ```typescript
+   // Create table first
+   await executeQuery(`CREATE TABLE...`)
+
+   // Insert test data if needed
+   await executeQuery(`INSERT INTO...`)
+   ```
+4. **HTTP request pattern**:
+   ```typescript
+   const response = await request.METHOD('/api/path', {
+     headers: { Authorization: 'Bearer token' },
+     data: { ...requestBody }
+   })
+   ```
+5. **Validation pattern**:
+   ```typescript
+   // Status code
+   expect(response.status()).toBe(expectedCode)
+
+   // Response body
+   const data = await response.json()
+   expect(data).toHaveProperty('field')
+
+   // Database state
+   const result = await executeQuery(`SELECT...`)
+   expect(result.rows[0].field).toBe(expectedValue)
+   ```
 
 **Key Rules**:
 - Test name: `'{spec.id}: should {extract from "then" clause}'` - MUST start with spec ID followed by colon
@@ -817,7 +862,7 @@ test.fixme(
 - Tag: `{ tag: '@spec' }`
 - Modifier: `test.fixme()` (RED phase)
 - **Validation approach**: Choose based on spec type (see Decision Matrix)
-  - **API domain**: ALWAYS use Pattern E (page.request + assertions + DB validation)
+  - **API domain**: ALWAYS use Pattern E (request + executeQuery fixtures, NO TODOs)
 
 ### Step 5: Create ONE OPTIMIZED @regression Test
 
