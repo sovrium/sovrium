@@ -27,10 +27,22 @@ test.describe('Batch update records', () => {
   test.fixme(
     'API-RECORDS-BATCH-005: should return 200 with updated=2 and records array',
     { tag: '@spec' },
-    async ({ request }) => {
+    async ({ request, executeQuery }) => {
       // GIVEN: Table 'users' with records ID=1 and ID=2
-      // TODO: CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, name VARCHAR(255), status VARCHAR(50), updated_at TIMESTAMP DEFAULT NOW())
-      // TODO: INSERT INTO users (id, email, name, status) VALUES (1, 'john@example.com', 'John', 'active'), (2, 'jane@example.com', 'Jane', 'active')
+      await executeQuery(`
+        CREATE TABLE users (
+          id SERIAL PRIMARY KEY,
+          email VARCHAR(255) UNIQUE NOT NULL,
+          name VARCHAR(255),
+          status VARCHAR(50),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO users (id, email, name, status) VALUES
+          (1, 'john@example.com', 'John', 'active'),
+          (2, 'jane@example.com', 'Jane', 'active')
+      `)
 
       // WHEN: Batch update both records with returnRecords=true
       const response = await request.patch('/api/tables/1/records/batch', {
@@ -53,7 +65,7 @@ test.describe('Batch update records', () => {
         },
       })
 
-      // THEN: Returns 200 with updated=2 and updated records array
+      // THEN: Returns 200 with updated=2 and records array
       expect(response.status()).toBe(200)
 
       const data = await response.json()
@@ -62,18 +74,32 @@ test.describe('Batch update records', () => {
       expect(data.updated).toBe(2)
       expect(data.records).toHaveLength(2)
 
-      // TODO: Verify database reflects updated values
-      // SELECT status FROM users WHERE id=1 → status='inactive'
+      // Verify database reflects updates
+      const result = await executeQuery(`
+        SELECT id, status, email FROM users ORDER BY id
+      `)
+      expect(result.rows[0].status).toBe('inactive')
+      expect(result.rows[1].email).toBe('jane.smith@example.com')
     }
   )
 
   test.fixme(
     'API-RECORDS-BATCH-006: should return 200 with updated=2 and no records array',
     { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: Table 'users' with records ID=1 and ID=2
-      // TODO: CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL, name VARCHAR(255))
-      // TODO: INSERT INTO users (id, email, name) VALUES (1, 'user1@example.com', 'User One'), (2, 'user2@example.com', 'User Two')
+    async ({ request, executeQuery }) => {
+      // GIVEN: Table 'users' with records
+      await executeQuery(`
+        CREATE TABLE users (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          status VARCHAR(50)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO users (id, name, status) VALUES
+          (1, 'User One', 'active'),
+          (2, 'User Two', 'active')
+      `)
 
       // WHEN: Batch update with returnRecords=false
       const response = await request.patch('/api/tables/1/records/batch', {
@@ -83,20 +109,14 @@ test.describe('Batch update records', () => {
         },
         data: {
           records: [
-            {
-              id: 1,
-              name: 'Updated One',
-            },
-            {
-              id: 2,
-              name: 'Updated Two',
-            },
+            { id: 1, status: 'inactive' },
+            { id: 2, status: 'inactive' },
           ],
           returnRecords: false,
         },
       })
 
-      // THEN: Returns 200 with updated=2 and no records array
+      // THEN: Returns 200 with updated count only
       expect(response.status()).toBe(200)
 
       const data = await response.json()
@@ -107,14 +127,24 @@ test.describe('Batch update records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-007: should return 400 with rollback on constraint violation',
+    'API-RECORDS-BATCH-007: should return 400 with rollback on validation error',
     { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: Table 'users' with email UNIQUE constraint and records ID=1, ID=2
-      // TODO: CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, name VARCHAR(255))
-      // TODO: INSERT INTO users (id, email, name) VALUES (1, 'john@example.com', 'John'), (2, 'jane@example.com', 'Jane')
+    async ({ request, executeQuery }) => {
+      // GIVEN: Table with NOT NULL constraint
+      await executeQuery(`
+        CREATE TABLE users (
+          id SERIAL PRIMARY KEY,
+          email VARCHAR(255) NOT NULL,
+          name VARCHAR(255)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO users (id, email, name) VALUES
+          (1, 'user1@example.com', 'User One'),
+          (2, 'user2@example.com', 'User Two')
+      `)
 
-      // WHEN: Batch update with duplicate email (constraint violation)
+      // WHEN: Batch update with invalid data (setting email to NULL)
       const response = await request.patch('/api/tables/1/records/batch', {
         headers: {
           Authorization: 'Bearer test_token',
@@ -122,76 +152,41 @@ test.describe('Batch update records', () => {
         },
         data: {
           records: [
-            {
-              id: 1,
-              name: 'Valid Update',
-            },
-            {
-              id: 2,
-              email: 'john@example.com',
-            },
+            { id: 1, name: 'Updated One' },
+            { id: 2, email: null },
           ],
         },
       })
 
-      // THEN: Returns 400 BatchValidationError, no records updated (rollback)
+      // THEN: Returns 400 with rollback
       expect(response.status()).toBe(400)
 
       const data = await response.json()
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('details')
 
-      // TODO: Verify no records updated due to transaction rollback
-      // SELECT name FROM users WHERE id=1 → name='John'
+      // Verify no updates applied (rollback)
+      const result = await executeQuery(`SELECT name FROM users WHERE id=1`)
+      expect(result.rows[0].name).toBe('User One')
     }
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-008: should return 404 with rollback when record not found',
+    'API-RECORDS-BATCH-PERMISSIONS-UNAUTHORIZED-002: should return 401 Unauthorized',
     { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: Table 'users' with record ID=1 only
-      // TODO: CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL, name VARCHAR(255))
-      // TODO: INSERT INTO users (id, email, name) VALUES (1, 'john@example.com', 'John')
-
-      // WHEN: Batch update includes ID=1 (exists) and ID=9999 (not found)
-      const response = await request.patch('/api/tables/1/records/batch', {
-        headers: {
-          Authorization: 'Bearer test_token',
-          'Content-Type': 'application/json',
-        },
-        data: {
-          records: [
-            {
-              id: 1,
-              name: 'Updated John',
-            },
-            {
-              id: 9999,
-              name: 'Nonexistent User',
-            },
-          ],
-        },
-      })
-
-      // THEN: Returns 404 NotFound, no records updated (rollback)
-      expect(response.status()).toBe(404)
-
-      const data = await response.json()
-      expect(data).toHaveProperty('error')
-
-      // TODO: Verify no records updated due to transaction rollback
-      // SELECT name FROM users WHERE id=1 → name='John'
-    }
-  )
-
-  test.fixme(
-    'API-RECORDS-BATCH-UPDATE-PERMISSIONS-UNAUTHORIZED-001: should return 401 Unauthorized',
-    { tag: '@spec' },
-    async ({ request }) => {
+    async ({ request, executeQuery }) => {
       // GIVEN: An unauthenticated user
-      // TODO: CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), organization_id VARCHAR(255))
-      // TODO: INSERT INTO employees (id, name, email, organization_id) VALUES (1, 'Alice Cooper', 'alice@example.com', 'org_123')
+      await executeQuery(`
+        CREATE TABLE employees (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          organization_id VARCHAR(255)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO employees (id, name, organization_id) VALUES
+          (1, 'Alice', 'org_123')
+      `)
 
       // WHEN: User attempts batch update without auth token
       const response = await request.patch('/api/tables/1/records/batch', {
@@ -199,30 +194,39 @@ test.describe('Batch update records', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          records: [{ id: 1, name: 'Updated Name' }],
+          records: [{ id: 1, name: 'Updated Alice' }],
         },
       })
 
-      // THEN: Returns 401 Unauthorized error
+      // THEN: Returns 401 Unauthorized
       expect(response.status()).toBe(401)
 
       const data = await response.json()
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
 
-      // TODO: Verify no records updated in database
-      // SELECT name FROM employees WHERE id=1 → name='Alice Cooper'
+      // Verify no updates applied
+      const result = await executeQuery(`SELECT name FROM employees WHERE id=1`)
+      expect(result.rows[0].name).toBe('Alice')
     }
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-UPDATE-PERMISSIONS-FORBIDDEN-MEMBER-001: should return 403 when member lacks update permission',
+    'API-RECORDS-BATCH-PERMISSIONS-FORBIDDEN-MEMBER-002: should return 403 for member without update permission',
     { tag: '@spec' },
-    async ({ request }) => {
+    async ({ request, executeQuery }) => {
       // GIVEN: A member user without update permission
-      // TODO: CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))
-      // TODO: INSERT INTO employees (id, name, organization_id) VALUES (1, 'Alice Cooper', 'org_123'), (2, 'Bob Smith', 'org_123')
-      // TODO: Setup member role with permissions: read=true, create=true, update=false, delete=false
+      await executeQuery(`
+        CREATE TABLE projects (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          organization_id VARCHAR(255)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO projects (id, name, organization_id) VALUES
+          (1, 'Project Alpha', 'org_123')
+      `)
 
       // WHEN: Member attempts batch update
       const response = await request.patch('/api/tables/1/records/batch', {
@@ -231,33 +235,37 @@ test.describe('Batch update records', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          records: [
-            { id: 1, name: 'Updated Alice' },
-            { id: 2, name: 'Updated Bob' },
-          ],
+          records: [{ id: 1, name: 'Updated Project' }],
         },
       })
 
-      // THEN: Returns 403 Forbidden error
+      // THEN: Returns 403 Forbidden
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('message')
       expect(data.error).toBe('Forbidden')
       expect(data.message).toBe('You do not have permission to update records in this table')
-
-      // TODO: Verify no records updated
-      // SELECT name FROM employees WHERE id=1 → name='Alice Cooper'
     }
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-UPDATE-PERMISSIONS-FORBIDDEN-VIEWER-001: should return 403 for viewer',
+    'API-RECORDS-BATCH-PERMISSIONS-FORBIDDEN-VIEWER-002: should return 403 for viewer',
     { tag: '@spec' },
-    async ({ request }) => {
+    async ({ request, executeQuery }) => {
       // GIVEN: A viewer user with read-only access
-      // TODO: CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))
-      // TODO: INSERT INTO projects (id, name, organization_id) VALUES (1, 'Project Alpha', 'org_456')
-      // TODO: Setup viewer role with permissions: read=true, all others=false
+      await executeQuery(`
+        CREATE TABLE documents (
+          id SERIAL PRIMARY KEY,
+          title VARCHAR(255),
+          organization_id VARCHAR(255)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO documents (id, title, organization_id) VALUES
+          (1, 'Doc 1', 'org_456')
+      `)
 
       // WHEN: Viewer attempts batch update
       const response = await request.patch('/api/tables/1/records/batch', {
@@ -266,241 +274,41 @@ test.describe('Batch update records', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          records: [{ id: 1, name: 'Updated Project' }],
+          records: [{ id: 1, title: 'Updated Doc' }],
         },
       })
 
-      // THEN: Returns 403 Forbidden error
+      // THEN: Returns 403 Forbidden
       expect(response.status()).toBe(403)
-
-      const data = await response.json()
-      expect(data.error).toBe('Forbidden')
-      expect(data.message).toBe('You do not have permission to update records in this table')
-    }
-  )
-
-  test.fixme(
-    'API-RECORDS-BATCH-UPDATE-PERMISSIONS-ORG-ISOLATION-001: should return 404 for cross-org access',
-    { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: An admin user from org_123 with records from org_456
-      // TODO: CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), organization_id VARCHAR(255))
-      // TODO: INSERT INTO employees (id, name, email, organization_id) VALUES (1, 'Alice Cooper', 'alice@example.com', 'org_456'), (2, 'Bob Smith', 'bob@example.com', 'org_456')
-      // TODO: Setup admin user with organizationId='org_123'
-
-      // WHEN: Admin attempts to batch update records from different organization
-      const response = await request.patch('/api/tables/1/records/batch', {
-        headers: {
-          Authorization: 'Bearer admin_token',
-          'Content-Type': 'application/json',
-        },
-        data: {
-          records: [
-            { id: 1, name: 'Updated Alice' },
-            { id: 2, name: 'Updated Bob' },
-          ],
-        },
-      })
-
-      // THEN: Returns 404 Not Found (organization isolation)
-      expect(response.status()).toBe(404)
 
       const data = await response.json()
       expect(data).toHaveProperty('error')
-      expect(data.error).toBe('Record not found')
-
-      // TODO: Verify no records updated (original values preserved)
-      // SELECT name FROM employees WHERE id=1 → name='Alice Cooper'
-    }
-  )
-
-  test.fixme(
-    'API-RECORDS-BATCH-UPDATE-PERMISSIONS-FIELD-WRITE-FORBIDDEN-001: should return 403 when any record has protected field',
-    { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: A member user with field-level write restrictions (salary protected)
-      // TODO: CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))
-      // TODO: INSERT INTO employees (id, name, email, salary, organization_id) VALUES (1, 'Alice Cooper', 'alice@example.com', 75000, 'org_123'), (2, 'Bob Smith', 'bob@example.com', 85000, 'org_123')
-      // TODO: Setup member permissions: salary.read=false, salary.write=false
-
-      // WHEN: Member attempts to batch update with protected field in any record
-      const response = await request.patch('/api/tables/1/records/batch', {
-        headers: {
-          Authorization: 'Bearer member_token',
-          'Content-Type': 'application/json',
-        },
-        data: {
-          records: [
-            { id: 1, name: 'Updated Alice' },
-            { id: 2, email: 'bob.updated@example.com', salary: 95000 },
-          ],
-        },
-      })
-
-      // THEN: Returns 403 Forbidden error
-      expect(response.status()).toBe(403)
-
-      const data = await response.json()
       expect(data.error).toBe('Forbidden')
-      expect(data.message).toBe('You do not have permission to write to field: salary')
-
-      // TODO: Verify no records updated (transaction rollback)
-      // SELECT name FROM employees WHERE id=1 → name='Alice Cooper'
     }
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-UPDATE-PERMISSIONS-READONLY-FIELD-001: should return 403 for readonly fields',
+    'API-RECORDS-BATCH-PERMISSIONS-ORG-ISOLATION-002: should return 404 for cross-org update',
     { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: An admin user attempting to update readonly fields
-      // TODO: CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), created_at TIMESTAMP DEFAULT NOW(), organization_id VARCHAR(255))
-      // TODO: INSERT INTO employees (id, name, organization_id) VALUES (1, 'Alice Cooper', 'org_123')
-      // TODO: Setup admin user with organizationId='org_123'
+    async ({ request, executeQuery }) => {
+      // GIVEN: Records from different organization
+      await executeQuery(`
+        CREATE TABLE employees (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          organization_id VARCHAR(255)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO employees (id, name, organization_id) VALUES
+          (1, 'Alice', 'org_456'),
+          (2, 'Bob', 'org_123')
+      `)
 
-      // WHEN: Admin batch updates with id or created_at in payload
+      // WHEN: Admin from org_123 attempts to update record from org_456
       const response = await request.patch('/api/tables/1/records/batch', {
         headers: {
           Authorization: 'Bearer admin_token',
-          'Content-Type': 'application/json',
-        },
-        data: {
-          records: [{ id: 1, created_at: '2020-01-01T00:00:00Z' }],
-        },
-      })
-
-      // THEN: Returns 403 Forbidden error
-      expect(response.status()).toBe(403)
-
-      const data = await response.json()
-      expect(data.error).toBe('Forbidden')
-      expect(data.message).toBe('Cannot update readonly field: created_at')
-    }
-  )
-
-  test.fixme(
-    'API-RECORDS-BATCH-UPDATE-PERMISSIONS-ORG-OVERRIDE-PREVENTED-001: should return 403 when changing organization_id',
-    { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: A member user attempting to change organization_id
-      // TODO: CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))
-      // TODO: INSERT INTO employees (id, name, organization_id) VALUES (1, 'Alice Cooper', 'org_123'), (2, 'Bob Smith', 'org_123')
-      // TODO: Setup member user with organizationId='org_123'
-
-      // WHEN: Member batch updates with organization_id='org_456' in payload
-      const response = await request.patch('/api/tables/1/records/batch', {
-        headers: {
-          Authorization: 'Bearer member_token',
-          'Content-Type': 'application/json',
-        },
-        data: {
-          records: [
-            { id: 1, name: 'Updated Alice' },
-            { id: 2, organization_id: 'org_456' },
-          ],
-        },
-      })
-
-      // THEN: Returns 403 Forbidden error
-      expect(response.status()).toBe(403)
-
-      const data = await response.json()
-      expect(data.error).toBe('Forbidden')
-      expect(data.message).toBe('Cannot change organization_id')
-
-      // TODO: Verify no records updated
-      // SELECT name FROM employees WHERE id=1 → name='Alice Cooper'
-    }
-  )
-
-  test.fixme(
-    'API-RECORDS-BATCH-UPDATE-PERMISSIONS-PARTIAL-FIELD-FILTERING-001: should filter protected fields from response',
-    { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: A member user with field-level read restrictions
-      // TODO: CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))
-      // TODO: INSERT INTO employees (id, name, email, salary, organization_id) VALUES (1, 'Alice Cooper', 'alice@example.com', 75000, 'org_123'), (2, 'Bob Smith', 'bob@example.com', 85000, 'org_123')
-      // TODO: Setup member permissions: salary.read=false, salary.write=true
-
-      // WHEN: Member batch updates records successfully
-      const response = await request.patch('/api/tables/1/records/batch', {
-        headers: {
-          Authorization: 'Bearer member_token',
-          'Content-Type': 'application/json',
-        },
-        data: {
-          records: [
-            { id: 1, name: 'Updated Alice', salary: 80000 },
-            { id: 2, name: 'Updated Bob', salary: 90000 },
-          ],
-        },
-      })
-
-      // THEN: Returns 200 with protected fields filtered from response
-      expect(response.status()).toBe(200)
-
-      const data = await response.json()
-      expect(data.updated).toBe(2)
-      expect(data.records[0].name).toBe('Updated Alice')
-      expect(data.records[1].name).toBe('Updated Bob')
-
-      // Salary field not in response
-      expect(data.records[0]).not.toHaveProperty('salary')
-      expect(data.records[1]).not.toHaveProperty('salary')
-
-      // TODO: Verify salary values updated in database
-      // SELECT salary FROM employees WHERE id=1 → salary=80000
-    }
-  )
-
-  test.fixme(
-    'API-RECORDS-BATCH-UPDATE-PERMISSIONS-ADMIN-FULL-ACCESS-001: should return 200 with all fields for admin',
-    { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: An admin user with full permissions
-      // TODO: CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))
-      // TODO: INSERT INTO employees (id, name, email, salary, organization_id) VALUES (1, 'Charlie Davis', 'charlie@example.com', 120000, 'org_789'), (2, 'Diana Prince', 'diana@example.com', 95000, 'org_789')
-      // TODO: Setup admin permissions: salary.read=true, salary.write=true
-
-      // WHEN: Admin batch updates records with all fields
-      const response = await request.patch('/api/tables/1/records/batch', {
-        headers: {
-          Authorization: 'Bearer admin_token',
-          'Content-Type': 'application/json',
-        },
-        data: {
-          records: [
-            { id: 1, name: 'Updated Charlie', salary: 130000 },
-            { id: 2, email: 'diana.updated@example.com', salary: 105000 },
-          ],
-        },
-      })
-
-      // THEN: Returns 200 with all fields visible in response
-      expect(response.status()).toBe(200)
-
-      const data = await response.json()
-      expect(data.updated).toBe(2)
-      expect(data.records[0].name).toBe('Updated Charlie')
-      expect(data.records[0].salary).toBe(130000)
-      expect(data.records[1].email).toBe('diana.updated@example.com')
-      expect(data.records[1].salary).toBe(105000)
-    }
-  )
-
-  test.fixme(
-    'API-RECORDS-BATCH-UPDATE-PERMISSIONS-CROSS-ORG-PREVENTION-001: should return 404 to prevent cross-org updates',
-    { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: A member from org_123 with records from different org
-      // TODO: CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))
-      // TODO: INSERT INTO employees (id, name, organization_id) VALUES (1, 'Alice Cooper', 'org_456')
-      // TODO: Setup member user with organizationId='org_123'
-
-      // WHEN: Member attempts to batch update records from org_456
-      const response = await request.patch('/api/tables/1/records/batch', {
-        headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -508,22 +316,39 @@ test.describe('Batch update records', () => {
         },
       })
 
-      // THEN: Returns 404 Not Found (prevents cross-org updates)
+      // THEN: Returns 404 (organization isolation)
       expect(response.status()).toBe(404)
 
       const data = await response.json()
+      expect(data).toHaveProperty('error')
       expect(data.error).toBe('Record not found')
+
+      // Verify no updates applied
+      const result = await executeQuery(`
+        SELECT name FROM employees WHERE id=1 AND organization_id='org_456'
+      `)
+      expect(result.rows[0].name).toBe('Alice')
     }
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-UPDATE-PERMISSIONS-COMBINED-SCENARIO-001: should check table permission first',
+    'API-RECORDS-BATCH-PERMISSIONS-FIELD-WRITE-FORBIDDEN-002: should return 403 when updating protected field',
     { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: A member without update permission and field restrictions
-      // TODO: CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))
-      // TODO: INSERT INTO employees (id, name, salary, organization_id) VALUES (1, 'Alice Cooper', 75000, 'org_123')
-      // TODO: Setup member permissions: table.update=false, salary.write=false
+    async ({ request, executeQuery }) => {
+      // GIVEN: A member user with field-level write restrictions
+      await executeQuery(`
+        CREATE TABLE employees (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          salary DECIMAL(10,2),
+          organization_id VARCHAR(255)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO employees (id, name, salary, organization_id) VALUES
+          (1, 'Alice', 75000, 'org_123'),
+          (2, 'Bob', 80000, 'org_123')
+      `)
 
       // WHEN: Member attempts batch update with protected field
       const response = await request.patch('/api/tables/1/records/batch', {
@@ -532,29 +357,122 @@ test.describe('Batch update records', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          records: [{ id: 1, name: 'Updated Alice', salary: 85000 }],
+          records: [
+            { id: 1, salary: 85_000 },
+            { id: 2, salary: 90_000 },
+          ],
         },
       })
 
-      // THEN: Returns 403 Forbidden (table-level permission checked first)
+      // THEN: Returns 403 Forbidden
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('message')
       expect(data.error).toBe('Forbidden')
-      expect(data.message).toBe('You do not have permission to update records in this table')
+      expect(data.message).toBe('You do not have permission to write to field: salary')
     }
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-UPDATE-PERMISSIONS-COMBINED-SCENARIO-002: should enforce field filtering across all records',
+    'API-RECORDS-BATCH-PERMISSIONS-READONLY-FIELD-002: should return 403 for readonly fields',
     { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: A member with update permission but field restrictions
-      // TODO: CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))
-      // TODO: INSERT INTO employees (id, name, email, salary, organization_id) VALUES (1, 'Alice Cooper', 'alice@example.com', 75000, 'org_123'), (2, 'Bob Smith', 'bob@example.com', 85000, 'org_123'), (3, 'Charlie Davis', 'charlie@example.com', 95000, 'org_123')
-      // TODO: Setup member permissions: table.update=true, salary.read=false, salary.write=true
+    async ({ request, executeQuery }) => {
+      // GIVEN: Table with readonly fields
+      await executeQuery(`
+        CREATE TABLE tasks (
+          id SERIAL PRIMARY KEY,
+          title VARCHAR(255),
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO tasks (id, title) VALUES (1, 'Task 1')
+      `)
 
-      // WHEN: Member batch updates records with only permitted fields
+      // WHEN: Admin attempts to update readonly field
+      const response = await request.patch('/api/tables/1/records/batch', {
+        headers: {
+          Authorization: 'Bearer admin_token',
+          'Content-Type': 'application/json',
+        },
+        data: {
+          records: [{ id: 1, created_at: '2025-01-01T00:00:00Z' }],
+        },
+      })
+
+      // THEN: Returns 403 Forbidden
+      expect(response.status()).toBe(403)
+
+      const data = await response.json()
+      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('message')
+      expect(data.error).toBe('Forbidden')
+      expect(data.message).toBe("Cannot write to readonly field 'created_at'")
+    }
+  )
+
+  test.fixme(
+    'API-RECORDS-BATCH-PERMISSIONS-ORG-OVERRIDE-PREVENTED-002: should return 403 when changing organization_id',
+    { tag: '@spec' },
+    async ({ request, executeQuery }) => {
+      // GIVEN: Member attempts to change organization_id
+      await executeQuery(`
+        CREATE TABLE employees (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          organization_id VARCHAR(255)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO employees (id, name, organization_id) VALUES
+          (1, 'Alice', 'org_123')
+      `)
+
+      // WHEN: Member updates with different organization_id
+      const response = await request.patch('/api/tables/1/records/batch', {
+        headers: {
+          Authorization: 'Bearer member_token',
+          'Content-Type': 'application/json',
+        },
+        data: {
+          records: [{ id: 1, organization_id: 'org_456' }],
+        },
+      })
+
+      // THEN: Returns 403 Forbidden
+      expect(response.status()).toBe(403)
+
+      const data = await response.json()
+      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('message')
+      expect(data.error).toBe('Forbidden')
+      expect(data.message).toBe('Cannot change record ownership to a different organization')
+    }
+  )
+
+  test.fixme(
+    'API-RECORDS-BATCH-PERMISSIONS-PARTIAL-FIELD-FILTERING-002: should filter protected fields from response',
+    { tag: '@spec' },
+    async ({ request, executeQuery }) => {
+      // GIVEN: A member user with field-level read restrictions
+      await executeQuery(`
+        CREATE TABLE employees (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          email VARCHAR(255),
+          salary DECIMAL(10,2),
+          organization_id VARCHAR(255)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO employees (id, name, email, salary, organization_id) VALUES
+          (1, 'Alice', 'alice@example.com', 75000, 'org_123'),
+          (2, 'Bob', 'bob@example.com', 80000, 'org_123')
+      `)
+
+      // WHEN: Member batch updates successfully
       const response = await request.patch('/api/tables/1/records/batch', {
         headers: {
           Authorization: 'Bearer member_token',
@@ -562,23 +480,197 @@ test.describe('Batch update records', () => {
         },
         data: {
           records: [
-            { id: 1, name: 'Updated Alice', salary: 80000 },
-            { id: 2, email: 'bob.updated@example.com', salary: 90000 },
-            { id: 3, name: 'Updated Charlie', salary: 100000 },
+            { id: 1, name: 'Alice Updated', salary: 80_000 },
+            { id: 2, name: 'Bob Updated', salary: 85_000 },
+          ],
+          returnRecords: true,
+        },
+      })
+
+      // THEN: Returns 200 with protected fields filtered from response
+      expect(response.status()).toBe(200)
+
+      const data = await response.json()
+      expect(data.updated).toBe(2)
+      expect(data.records[0].name).toBe('Alice Updated')
+      expect(data.records[1].name).toBe('Bob Updated')
+
+      // Salary field not in response
+      expect(data.records[0]).not.toHaveProperty('salary')
+      expect(data.records[1]).not.toHaveProperty('salary')
+    }
+  )
+
+  test.fixme(
+    'API-RECORDS-BATCH-PERMISSIONS-ADMIN-FULL-ACCESS-002: should return 200 with all fields for admin',
+    { tag: '@spec' },
+    async ({ request, executeQuery }) => {
+      // GIVEN: An admin user with full permissions
+      await executeQuery(`
+        CREATE TABLE employees (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          salary DECIMAL(10,2),
+          organization_id VARCHAR(255)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO employees (id, name, salary, organization_id) VALUES
+          (1, 'Charlie', 120000, 'org_789'),
+          (2, 'Diana', 95000, 'org_789')
+      `)
+
+      // WHEN: Admin batch updates with all fields
+      const response = await request.patch('/api/tables/1/records/batch', {
+        headers: {
+          Authorization: 'Bearer admin_token',
+          'Content-Type': 'application/json',
+        },
+        data: {
+          records: [
+            { id: 1, salary: 130_000 },
+            { id: 2, salary: 100_000 },
+          ],
+          returnRecords: true,
+        },
+      })
+
+      // THEN: Returns 200 with all fields visible
+      expect(response.status()).toBe(200)
+
+      const data = await response.json()
+      expect(data.updated).toBe(2)
+      expect(data.records[0].salary).toBe(130_000)
+      expect(data.records[1].salary).toBe(100_000)
+    }
+  )
+
+  test.fixme(
+    'API-RECORDS-BATCH-PERMISSIONS-COMBINED-SCENARIO-002: should enforce combined permissions',
+    { tag: '@spec' },
+    async ({ request, executeQuery }) => {
+      // GIVEN: A member with update permission but field restrictions
+      await executeQuery(`
+        CREATE TABLE employees (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          email VARCHAR(255),
+          salary DECIMAL(10,2),
+          organization_id VARCHAR(255)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO employees (id, name, email, salary, organization_id) VALUES
+          (1, 'Alice', 'alice@example.com', 75000, 'org_123'),
+          (2, 'Bob', 'bob@example.com', 80000, 'org_123')
+      `)
+
+      // WHEN: Member batch updates with only permitted fields
+      const response = await request.patch('/api/tables/1/records/batch', {
+        headers: {
+          Authorization: 'Bearer member_token',
+          'Content-Type': 'application/json',
+        },
+        data: {
+          records: [
+            { id: 1, name: 'Alice Updated', salary: 80_000 },
+            { id: 2, email: 'bob.updated@example.com', salary: 85_000 },
+          ],
+          returnRecords: true,
+        },
+      })
+
+      // THEN: Returns 200 with field filtering applied
+      expect(response.status()).toBe(200)
+
+      const data = await response.json()
+      expect(data.updated).toBe(2)
+
+      // Salary field not in response
+      expect(data.records[0]).not.toHaveProperty('salary')
+      expect(data.records[1]).not.toHaveProperty('salary')
+    }
+  )
+
+  test.fixme(
+    'API-RECORDS-BATCH-PERMISSIONS-PARTIAL-UPDATE-SUCCESS-001: should update only found records',
+    { tag: '@spec' },
+    async ({ request, executeQuery }) => {
+      // GIVEN: Some records exist, others don't
+      await executeQuery(`
+        CREATE TABLE users (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO users (id, name) VALUES (1, 'User One')
+      `)
+
+      // WHEN: Batch update includes existing and non-existing IDs
+      const response = await request.patch('/api/tables/1/records/batch', {
+        headers: {
+          Authorization: 'Bearer test_token',
+          'Content-Type': 'application/json',
+        },
+        data: {
+          records: [
+            { id: 1, name: 'Updated One' },
+            { id: 999, name: 'Non-existent' },
           ],
         },
       })
 
-      // THEN: Returns 200 with field filtering applied across all records
+      // THEN: Returns 200 with partial success
       expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data.updated).toBe(3)
+      expect(data).toHaveProperty('updated')
+      expect(data.updated).toBe(1)
 
-      // Salary field not in response for all records
+      // Verify only existing record was updated
+      const result = await executeQuery(`SELECT name FROM users WHERE id=1`)
+      expect(result.rows[0].name).toBe('Updated One')
+    }
+  )
+
+  test.fixme(
+    'API-RECORDS-BATCH-PERMISSIONS-FIELD-RESPONSE-FILTER-001: should exclude unreadable fields from response',
+    { tag: '@spec' },
+    async ({ request, executeQuery }) => {
+      // GIVEN: Member updates with field-level read restrictions
+      await executeQuery(`
+        CREATE TABLE employees (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          salary DECIMAL(10,2),
+          organization_id VARCHAR(255)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO employees (id, name, salary, organization_id) VALUES
+          (1, 'David', 72000, 'org_123')
+      `)
+
+      // WHEN: Update is successful
+      const response = await request.patch('/api/tables/1/records/batch', {
+        headers: {
+          Authorization: 'Bearer member_token',
+          'Content-Type': 'application/json',
+        },
+        data: {
+          records: [{ id: 1, name: 'David Updated' }],
+          returnRecords: true,
+        },
+      })
+
+      // THEN: Response excludes unreadable fields
+      expect(response.status()).toBe(200)
+
+      const data = await response.json()
+      expect(data.updated).toBe(1)
+      expect(data.records[0].name).toBe('David Updated')
       expect(data.records[0]).not.toHaveProperty('salary')
-      expect(data.records[1]).not.toHaveProperty('salary')
-      expect(data.records[2]).not.toHaveProperty('salary')
     }
   )
 
@@ -589,11 +681,26 @@ test.describe('Batch update records', () => {
   test.fixme(
     'user can complete full batch update workflow',
     { tag: '@regression' },
-    async ({ request }) => {
+    async ({ request, executeQuery }) => {
       // GIVEN: Application with representative table and permission configuration
-      // TODO: Setup employees table with various roles, field restrictions, org isolation
+      await executeQuery(`
+        CREATE TABLE employees (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          email VARCHAR(255) UNIQUE NOT NULL,
+          salary DECIMAL(10,2),
+          organization_id VARCHAR(255)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO employees (id, name, email, salary, organization_id) VALUES
+          (1, 'John Doe', 'john@example.com', 75000, 'org_123'),
+          (2, 'Jane Smith', 'jane@example.com', 80000, 'org_123'),
+          (3, 'Bob Johnson', 'bob@example.com', 70000, 'org_123')
+      `)
 
       // WHEN/THEN: Streamlined workflow testing integration points
+
       // Test successful batch update (admin with full access)
       const successResponse = await request.patch('/api/tables/1/records/batch', {
         headers: {
@@ -602,8 +709,8 @@ test.describe('Batch update records', () => {
         },
         data: {
           records: [
-            { id: 1, name: 'Updated Name 1' },
-            { id: 2, email: 'updated2@example.com' },
+            { id: 1, name: 'John Updated' },
+            { id: 2, email: 'jane.updated@example.com' },
           ],
           returnRecords: true,
         },
@@ -611,22 +718,10 @@ test.describe('Batch update records', () => {
       expect(successResponse.status()).toBe(200)
       const result = await successResponse.json()
       expect(result.updated).toBe(2)
-      expect(result.records).toHaveLength(2)
 
-      // Test record not found with rollback
-      const notFoundResponse = await request.patch('/api/tables/1/records/batch', {
-        headers: {
-          Authorization: 'Bearer admin_token',
-          'Content-Type': 'application/json',
-        },
-        data: {
-          records: [
-            { id: 1, name: 'Valid' },
-            { id: 9999, name: 'Nonexistent' },
-          ],
-        },
-      })
-      expect(notFoundResponse.status()).toBe(404)
+      // Verify updates in database
+      const verifyUpdate = await executeQuery(`SELECT name FROM employees WHERE id=1`)
+      expect(verifyUpdate.rows[0].name).toBe('John Updated')
 
       // Test validation error with rollback
       const validationResponse = await request.patch('/api/tables/1/records/batch', {
@@ -637,7 +732,7 @@ test.describe('Batch update records', () => {
         data: {
           records: [
             { id: 1, name: 'Valid' },
-            { id: 2, email: 'invalid-email' },
+            { id: 2, email: null }, // Invalid
           ],
         },
       })
@@ -650,7 +745,7 @@ test.describe('Batch update records', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          records: [{ id: 1, name: 'Test' }],
+          records: [{ id: 3, name: 'Test' }],
         },
       })
       expect(forbiddenResponse.status()).toBe(403)
@@ -665,6 +760,18 @@ test.describe('Batch update records', () => {
         },
       })
       expect(unauthorizedResponse.status()).toBe(401)
+
+      // Test field-level write restriction
+      const fieldForbiddenResponse = await request.patch('/api/tables/1/records/batch', {
+        headers: {
+          Authorization: 'Bearer member_token',
+          'Content-Type': 'application/json',
+        },
+        data: {
+          records: [{ id: 3, salary: 99_999 }],
+        },
+      })
+      expect(fieldForbiddenResponse.status()).toBe(403)
     }
   )
 })

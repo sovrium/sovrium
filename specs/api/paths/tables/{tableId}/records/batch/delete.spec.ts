@@ -27,12 +27,23 @@ test.describe('Batch delete records', () => {
   test.fixme(
     'API-RECORDS-BATCH-009: should return 200 with deleted count',
     { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: Table 'tasks' with records ID=1 and ID=2
-      // TODO: CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255))
-      // TODO: INSERT INTO tasks (id, title) VALUES (1, 'Task 1'), (2, 'Task 2'), (3, 'Task 3')
+    async ({ request, executeQuery }) => {
+      // GIVEN: Table 'users' with 3 records (ID=1, ID=2, ID=3)
+      await executeQuery(`
+        CREATE TABLE users (
+          id SERIAL PRIMARY KEY,
+          email VARCHAR(255) NOT NULL,
+          name VARCHAR(255)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO users (id, email, name) VALUES
+          (1, 'user1@example.com', 'User One'),
+          (2, 'user2@example.com', 'User Two'),
+          (3, 'user3@example.com', 'User Three')
+      `)
 
-      // WHEN: User deletes multiple records by IDs
+      // WHEN: Batch delete IDs [1, 2]
       const response = await request.delete('/api/tables/1/records/batch', {
         headers: {
           Authorization: 'Bearer test_token',
@@ -47,23 +58,39 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data).toHaveProperty('deleted')
       expect(data.deleted).toBe(2)
 
-      // TODO: Verify records removed: SELECT COUNT(*) FROM tasks WHERE id IN (1,2) → 0
-      // TODO: Verify other record remains: SELECT COUNT(*) FROM tasks WHERE id=3 → 1
+      // Verify deleted records no longer exist
+      const deletedCheck = await executeQuery(`
+        SELECT COUNT(*) as count FROM users WHERE id IN (1, 2)
+      `)
+      expect(deletedCheck.rows[0].count).toBe(0)
+
+      // Verify remaining record still exists
+      const remainingCheck = await executeQuery(`
+        SELECT COUNT(*) as count FROM users WHERE id=3
+      `)
+      expect(remainingCheck.rows[0].count).toBe(1)
     }
   )
 
   test.fixme(
     'API-RECORDS-BATCH-010: should return 404 and rollback transaction',
     { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: Table 'tasks' with only record ID=1 exists
-      // TODO: CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255))
-      // TODO: INSERT INTO tasks (id, title) VALUES (1, 'Task 1')
+    async ({ request, executeQuery }) => {
+      // GIVEN: Table 'users' with record ID=1 only
+      await executeQuery(`
+        CREATE TABLE users (
+          id SERIAL PRIMARY KEY,
+          email VARCHAR(255) NOT NULL,
+          name VARCHAR(255)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO users (id, email, name) VALUES (1, 'john@example.com', 'John')
+      `)
 
-      // WHEN: User attempts batch delete including non-existent ID
+      // WHEN: Batch delete includes ID=1 (exists) and ID=9999 (not found)
       const response = await request.delete('/api/tables/1/records/batch', {
         headers: {
           Authorization: 'Bearer test_token',
@@ -78,21 +105,29 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
-      expect(data).toHaveProperty('error')
-      expect(data.error).toContain('Record')
+      expect(data.error).toBeDefined()
 
-      // TODO: Verify transaction rollback: SELECT COUNT(*) FROM tasks WHERE id=1 → 1
+      // Verify no records deleted due to transaction rollback
+      const rollbackCheck = await executeQuery(`
+        SELECT COUNT(*) as count FROM users WHERE id=1
+      `)
+      expect(rollbackCheck.rows[0].count).toBe(1)
     }
   )
 
   test.fixme(
     'API-RECORDS-BATCH-011: should return 413 Payload Too Large',
     { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: Table 'tasks' exists
-      // TODO: CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255))
+    async ({ request, executeQuery }) => {
+      // GIVEN: Table 'users' exists
+      await executeQuery(`
+        CREATE TABLE users (
+          id SERIAL PRIMARY KEY,
+          email VARCHAR(255) NOT NULL
+        )
+      `)
 
-      // WHEN: User attempts to delete more than 1000 records in one batch
+      // WHEN: Batch delete request exceeds 1000 ID limit
       const ids = Array.from({ length: 1001 }, (_, i) => i + 1)
       const response = await request.delete('/api/tables/1/records/batch', {
         headers: {
@@ -108,19 +143,27 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(413)
 
       const data = await response.json()
-      expect(data).toHaveProperty('error')
-      expect(data.error).toContain('maximum')
-      expect(data.error).toContain('1000')
+      expect(data.error).toBe('PayloadTooLarge')
     }
   )
 
   test.fixme(
     'API-RECORDS-BATCH-DELETE-PERMISSIONS-UNAUTHORIZED-001: should return 401 Unauthorized',
     { tag: '@spec' },
-    async ({ request }) => {
+    async ({ request, executeQuery }) => {
       // GIVEN: An unauthenticated user
-      // TODO: CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255))
-      // TODO: INSERT INTO tasks (id, title) VALUES (1, 'Task 1'), (2, 'Task 2')
+      await executeQuery(`
+        CREATE TABLE employees (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          organization_id VARCHAR(255)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO employees (id, name, organization_id) VALUES
+          (1, 'Alice Cooper', 'org_123'),
+          (2, 'Bob Smith', 'org_123')
+      `)
 
       // WHEN: User attempts batch delete without auth token
       const response = await request.delete('/api/tables/1/records/batch', {
@@ -135,22 +178,31 @@ test.describe('Batch delete records', () => {
       // THEN: Returns 401 Unauthorized error
       expect(response.status()).toBe(401)
 
-      const data = await response.json()
-      expect(data).toHaveProperty('error')
-      expect(data).toHaveProperty('message')
-
-      // TODO: Verify no records deleted: SELECT COUNT(*) FROM tasks → 2
+      // Verify no records deleted in database
+      const result = await executeQuery(`
+        SELECT COUNT(*) as count FROM employees
+      `)
+      expect(result.rows[0].count).toBe(2)
     }
   )
 
   test.fixme(
     'API-RECORDS-BATCH-DELETE-PERMISSIONS-FORBIDDEN-MEMBER-001: should return 403 for member without delete permission',
     { tag: '@spec' },
-    async ({ request }) => {
+    async ({ request, executeQuery }) => {
       // GIVEN: A member user without delete permission
-      // TODO: CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))
-      // TODO: INSERT INTO employees VALUES (1, 'Alice', 'org_123'), (2, 'Bob', 'org_123')
-      // TODO: Setup member role with delete=false
+      await executeQuery(`
+        CREATE TABLE employees (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          organization_id VARCHAR(255)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO employees (id, name, organization_id) VALUES
+          (1, 'Alice Cooper', 'org_123'),
+          (2, 'Bob Smith', 'org_123')
+      `)
 
       // WHEN: Member attempts batch delete
       const response = await request.delete('/api/tables/1/records/batch', {
@@ -167,23 +219,34 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
-      expect(data).toHaveProperty('error')
-      expect(data).toHaveProperty('message')
       expect(data.error).toBe('Forbidden')
       expect(data.message).toBe('You do not have permission to delete records in this table')
 
-      // TODO: Verify no records deleted: SELECT COUNT(*) FROM employees → 2
+      // Verify no records deleted
+      const result = await executeQuery(`
+        SELECT COUNT(*) as count FROM employees
+      `)
+      expect(result.rows[0].count).toBe(2)
     }
   )
 
   test.fixme(
     'API-RECORDS-BATCH-DELETE-PERMISSIONS-FORBIDDEN-VIEWER-001: should return 403 for viewer',
     { tag: '@spec' },
-    async ({ request }) => {
+    async ({ request, executeQuery }) => {
       // GIVEN: A viewer user with read-only access
-      // TODO: CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))
-      // TODO: INSERT INTO projects VALUES (1, 'Project A', 'org_456'), (2, 'Project B', 'org_456')
-      // TODO: Setup viewer role with all write operations=false
+      await executeQuery(`
+        CREATE TABLE projects (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          organization_id VARCHAR(255)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO projects (id, name, organization_id) VALUES
+          (1, 'Project Alpha', 'org_456'),
+          (2, 'Project Beta', 'org_456')
+      `)
 
       // WHEN: Viewer attempts batch delete
       const response = await request.delete('/api/tables/1/records/batch', {
@@ -200,8 +263,6 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
-      expect(data).toHaveProperty('error')
-      expect(data).toHaveProperty('message')
       expect(data.error).toBe('Forbidden')
       expect(data.message).toBe('You do not have permission to delete records in this table')
     }
@@ -210,13 +271,22 @@ test.describe('Batch delete records', () => {
   test.fixme(
     'API-RECORDS-BATCH-DELETE-PERMISSIONS-ORG-ISOLATION-001: should return 404 for cross-org records',
     { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: Admin from org_123, records belong to org_456
-      // TODO: CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))
-      // TODO: INSERT INTO employees VALUES (1, 'Alice', 'org_456'), (2, 'Bob', 'org_456')
-      // TODO: Setup admin user with organizationId='org_123'
+    async ({ request, executeQuery }) => {
+      // GIVEN: An admin user from org_123 with records from org_456
+      await executeQuery(`
+        CREATE TABLE employees (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          organization_id VARCHAR(255)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO employees (id, name, organization_id) VALUES
+          (1, 'Alice Cooper', 'org_456'),
+          (2, 'Bob Smith', 'org_456')
+      `)
 
-      // WHEN: Admin attempts to delete records from different organization
+      // WHEN: Admin attempts to batch delete records from different organization
       const response = await request.delete('/api/tables/1/records/batch', {
         headers: {
           Authorization: 'Bearer admin_token',
@@ -231,23 +301,37 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
-      expect(data).toHaveProperty('error')
-      expect(data.error).toContain('Record')
+      expect(data.error).toBe('Record not found')
 
-      // TODO: Verify no records deleted: SELECT COUNT(*) FROM employees WHERE organization_id='org_456' → 2
+      // Verify no records deleted (original values preserved)
+      const result = await executeQuery(`
+        SELECT COUNT(*) as count FROM employees WHERE organization_id='org_456'
+      `)
+      expect(result.rows[0].count).toBe(2)
     }
   )
 
   test.fixme(
     'API-RECORDS-BATCH-DELETE-PERMISSIONS-ADMIN-FULL-ACCESS-001: should return 200 for admin with full access',
     { tag: '@spec' },
-    async ({ request }) => {
+    async ({ request, executeQuery }) => {
       // GIVEN: An admin user with full delete permissions
-      // TODO: CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))
-      // TODO: INSERT INTO employees VALUES (1, 'Alice', 'org_123'), (2, 'Bob', 'org_123')
-      // TODO: Setup admin role with full permissions in org_123
+      await executeQuery(`
+        CREATE TABLE employees (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          email VARCHAR(255),
+          organization_id VARCHAR(255)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO employees (id, name, email, organization_id) VALUES
+          (1, 'Alice Cooper', 'alice@example.com', 'org_123'),
+          (2, 'Bob Smith', 'bob@example.com', 'org_123'),
+          (3, 'Charlie Davis', 'charlie@example.com', 'org_123')
+      `)
 
-      // WHEN: Admin deletes multiple records from their organization
+      // WHEN: Admin batch deletes records from their organization
       const response = await request.delete('/api/tables/1/records/batch', {
         headers: {
           Authorization: 'Bearer admin_token',
@@ -262,23 +346,43 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data).toHaveProperty('deleted')
       expect(data.deleted).toBe(2)
 
-      // TODO: Verify records deleted: SELECT COUNT(*) FROM employees WHERE id IN (1,2) → 0
+      // Verify records are deleted from database
+      const deletedCheck = await executeQuery(`
+        SELECT COUNT(*) as count FROM employees WHERE id IN (1, 2)
+      `)
+      expect(deletedCheck.rows[0].count).toBe(0)
+
+      // Verify remaining record still exists
+      const remainingCheck = await executeQuery(`
+        SELECT COUNT(*) as count FROM employees WHERE id=3
+      `)
+      expect(remainingCheck.rows[0].count).toBe(1)
     }
   )
 
   test.fixme(
     'API-RECORDS-BATCH-DELETE-PERMISSIONS-OWNER-FULL-ACCESS-001: should return 200 for owner',
     { tag: '@spec' },
-    async ({ request }) => {
+    async ({ request, executeQuery }) => {
       // GIVEN: An owner user with full delete permissions
-      // TODO: CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))
-      // TODO: INSERT INTO projects VALUES (1, 'Project A', 'org_789'), (2, 'Project B', 'org_789')
-      // TODO: Setup owner role with full permissions in org_789
+      await executeQuery(`
+        CREATE TABLE projects (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          status VARCHAR(50),
+          organization_id VARCHAR(255)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO projects (id, name, status, organization_id) VALUES
+          (1, 'Project Alpha', 'active', 'org_789'),
+          (2, 'Project Beta', 'active', 'org_789'),
+          (3, 'Project Gamma', 'active', 'org_789')
+      `)
 
-      // WHEN: Owner deletes multiple records from their organization
+      // WHEN: Owner batch deletes records from their organization
       const response = await request.delete('/api/tables/1/records/batch', {
         headers: {
           Authorization: 'Bearer owner_token',
@@ -293,26 +397,38 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data).toHaveProperty('deleted')
       expect(data.deleted).toBe(2)
 
-      // TODO: Verify records deleted: SELECT COUNT(*) FROM projects WHERE id IN (1,2) → 0
+      // Verify records are deleted from database
+      const result = await executeQuery(`
+        SELECT COUNT(*) as count FROM projects WHERE id IN (1, 2)
+      `)
+      expect(result.rows[0].count).toBe(0)
     }
   )
 
   test.fixme(
     'API-RECORDS-BATCH-DELETE-PERMISSIONS-CROSS-ORG-PREVENTION-001: should return 404 to prevent cross-org deletes',
     { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: Admin from org_123, trying to delete records from org_456
-      // TODO: CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))
-      // TODO: INSERT INTO employees VALUES (1, 'Alice', 'org_456'), (2, 'Bob', 'org_456')
-      // TODO: Setup admin from org_123 with full permissions
+    async ({ request, executeQuery }) => {
+      // GIVEN: A member from org_123 with records from different org
+      await executeQuery(`
+        CREATE TABLE employees (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          organization_id VARCHAR(255)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO employees (id, name, organization_id) VALUES
+          (1, 'Alice Cooper', 'org_456'),
+          (2, 'Bob Smith', 'org_456')
+      `)
 
-      // WHEN: Admin attempts to delete records from different organization
+      // WHEN: Member attempts to batch delete records from org_456
       const response = await request.delete('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer admin_token',
+          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -324,23 +440,29 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
-      expect(data).toHaveProperty('error')
-      expect(data.error).toContain('Record')
-
-      // TODO: Verify no records deleted: SELECT COUNT(*) FROM employees WHERE organization_id='org_456' → 2
+      expect(data.error).toBe('Record not found')
     }
   )
 
   test.fixme(
     'API-RECORDS-BATCH-DELETE-PERMISSIONS-COMBINED-SCENARIO-001: should return 404 when both org and permission violations exist',
     { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: Member without delete permission from org_123, records belong to org_456
-      // TODO: CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))
-      // TODO: INSERT INTO employees VALUES (1, 'Alice', 'org_456'), (2, 'Bob', 'org_456')
-      // TODO: Setup member from org_123 with delete=false
+    async ({ request, executeQuery }) => {
+      // GIVEN: A member without delete permission tries to delete records from different org
+      await executeQuery(`
+        CREATE TABLE employees (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          organization_id VARCHAR(255)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO employees (id, name, organization_id) VALUES
+          (1, 'Alice Cooper', 'org_456'),
+          (2, 'Bob Smith', 'org_456')
+      `)
 
-      // WHEN: Member attempts batch delete with both violations
+      // WHEN: Member attempts batch delete with both permission and org violations
       const response = await request.delete('/api/tables/1/records/batch', {
         headers: {
           Authorization: 'Bearer member_token',
@@ -355,8 +477,7 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
-      expect(data).toHaveProperty('error')
-      expect(data.error).toContain('Record')
+      expect(data.error).toBe('Record not found')
     }
   )
 
@@ -367,12 +488,27 @@ test.describe('Batch delete records', () => {
   test.fixme(
     'user can complete full batch delete workflow',
     { tag: '@regression' },
-    async ({ request }) => {
-      // GIVEN: Application with representative table and multiple records
-      // TODO: Setup tasks table with 10 records, various roles and permissions
+    async ({ request, executeQuery }) => {
+      // GIVEN: Table with multiple records
+      await executeQuery(`
+        CREATE TABLE tasks (
+          id SERIAL PRIMARY KEY,
+          title VARCHAR(255) NOT NULL,
+          status VARCHAR(50)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO tasks (id, title, status) VALUES
+          (1, 'Task 1', 'pending'),
+          (2, 'Task 2', 'pending'),
+          (3, 'Task 3', 'pending'),
+          (4, 'Task 4', 'pending'),
+          (5, 'Task 5', 'pending')
+      `)
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      // Test successful batch delete
+      // WHEN/THEN: Execute representative batch delete workflow
+
+      // 1. Successful batch delete
       const successResponse = await request.delete('/api/tables/1/records/batch', {
         headers: {
           Authorization: 'Bearer admin_token',
@@ -386,7 +522,13 @@ test.describe('Batch delete records', () => {
       const result = await successResponse.json()
       expect(result.deleted).toBe(3)
 
-      // Test transaction rollback on partial failure
+      // Verify deletion
+      const afterDelete = await executeQuery(`
+        SELECT COUNT(*) as count FROM tasks WHERE id IN (1, 2, 3)
+      `)
+      expect(afterDelete.rows[0].count).toBe(0)
+
+      // 2. Transaction rollback on partial failure
       const rollbackResponse = await request.delete('/api/tables/1/records/batch', {
         headers: {
           Authorization: 'Bearer admin_token',
@@ -398,7 +540,13 @@ test.describe('Batch delete records', () => {
       })
       expect(rollbackResponse.status()).toBe(404)
 
-      // Test payload size limit
+      // Verify rollback - record 4 should still exist
+      const afterRollback = await executeQuery(`
+        SELECT COUNT(*) as count FROM tasks WHERE id=4
+      `)
+      expect(afterRollback.rows[0].count).toBe(1)
+
+      // 3. Test payload size limit
       const tooLargeResponse = await request.delete('/api/tables/1/records/batch', {
         headers: {
           Authorization: 'Bearer admin_token',
@@ -409,6 +557,8 @@ test.describe('Batch delete records', () => {
         },
       })
       expect(tooLargeResponse.status()).toBe(413)
+
+      // Workflow completes successfully
     }
   )
 })

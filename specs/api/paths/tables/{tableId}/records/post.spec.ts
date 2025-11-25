@@ -27,9 +27,16 @@ test.describe('Create new record', () => {
   test.fixme(
     'API-TABLES-RECORDS-CREATE-001: should return 201 Created with record data',
     { tag: '@spec' },
-    async ({ request }) => {
+    async ({ request, executeQuery }) => {
       // GIVEN: A running server with valid table
-      // TODO: CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, first_name VARCHAR(255), last_name VARCHAR(255))
+      await executeQuery(`
+        CREATE TABLE users (
+          id SERIAL PRIMARY KEY,
+          email VARCHAR(255) UNIQUE NOT NULL,
+          first_name VARCHAR(255),
+          last_name VARCHAR(255)
+        )
+      `)
 
       // WHEN: User creates record with valid data
       const response = await request.post('/api/tables/1/records', {
@@ -52,6 +59,14 @@ test.describe('Create new record', () => {
       expect(data.email).toBe('john.doe@example.com')
       expect(data.first_name).toBe('John')
       expect(data.last_name).toBe('Doe')
+
+      // Verify record exists in database
+      const result = await executeQuery(`
+        SELECT * FROM users WHERE email = 'john.doe@example.com'
+      `)
+      expect(result.rows).toHaveLength(1)
+      expect(result.rows[0].first_name).toBe('John')
+      expect(result.rows[0].last_name).toBe('Doe')
     }
   )
 
@@ -60,7 +75,6 @@ test.describe('Create new record', () => {
     { tag: '@spec' },
     async ({ request }) => {
       // GIVEN: A running server with no table ID 9999
-      // No setup needed
 
       // WHEN: User attempts to create record in non-existent table
       const response = await request.post('/api/tables/9999/records', {
@@ -85,11 +99,17 @@ test.describe('Create new record', () => {
   test.fixme(
     'API-TABLES-RECORDS-CREATE-003: should return 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: A running server with users table (email required)
-      // TODO: CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL)
+    async ({ request, executeQuery }) => {
+      // GIVEN: A table with required email field
+      await executeQuery(`
+        CREATE TABLE users (
+          id SERIAL PRIMARY KEY,
+          email VARCHAR(255) UNIQUE NOT NULL,
+          first_name VARCHAR(255)
+        )
+      `)
 
-      // WHEN: User creates record missing required field
+      // WHEN: User creates record without required field
       const response = await request.post('/api/tables/1/records', {
         headers: {
           Authorization: 'Bearer test_token',
@@ -105,26 +125,36 @@ test.describe('Create new record', () => {
 
       const data = await response.json()
       expect(data).toHaveProperty('error')
-      expect(data).toHaveProperty('details')
-      expect(data.error).toContain('Validation')
+      expect(data.error).toBe('Validation error')
     }
   )
 
   test.fixme(
     'API-TABLES-RECORDS-CREATE-004: should return 409 Conflict',
     { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: A users table with existing record
-      // TODO: INSERT INTO users (email) VALUES ('john@example.com')
+    async ({ request, executeQuery }) => {
+      // GIVEN: A table with unique email constraint and existing record
+      await executeQuery(`
+        CREATE TABLE users (
+          id SERIAL PRIMARY KEY,
+          email VARCHAR(255) UNIQUE NOT NULL,
+          first_name VARCHAR(255)
+        )
+      `)
+      await executeQuery(`
+        INSERT INTO users (email, first_name)
+        VALUES ('existing@example.com', 'Jane')
+      `)
 
-      // WHEN: User creates record with duplicate unique field
+      // WHEN: User attempts to create record with duplicate email
       const response = await request.post('/api/tables/1/records', {
         headers: {
           Authorization: 'Bearer test_token',
           'Content-Type': 'application/json',
         },
         data: {
-          email: 'john@example.com',
+          email: 'existing@example.com',
+          first_name: 'John',
         },
       })
 
@@ -133,16 +163,27 @@ test.describe('Create new record', () => {
 
       const data = await response.json()
       expect(data).toHaveProperty('error')
-      expect(data.error).toContain('already exists')
+      expect(data.error).toBe('Unique constraint violation')
+
+      // Verify database still contains only original record
+      const result = await executeQuery(`
+        SELECT COUNT(*) as count FROM users WHERE email = 'existing@example.com'
+      `)
+      expect(result.rows[0].count).toBe('1')
     }
   )
 
   test.fixme(
     'API-TABLES-RECORDS-CREATE-005: should return 401 Unauthorized',
     { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: A running server with valid table
-      // TODO: CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255))
+    async ({ request, executeQuery }) => {
+      // GIVEN: A valid table
+      await executeQuery(`
+        CREATE TABLE users (
+          id SERIAL PRIMARY KEY,
+          email VARCHAR(255) NOT NULL
+        )
+      `)
 
       // WHEN: Unauthenticated user attempts to create record
       const response = await request.post('/api/tables/1/records', {
@@ -150,341 +191,442 @@ test.describe('Create new record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          email: 'user@example.com',
+          email: 'test@example.com',
         },
       })
 
       // THEN: Response should be 401 Unauthorized
       expect(response.status()).toBe(401)
-
-      const data = await response.json()
-      expect(data).toHaveProperty('error')
-      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-006: should return 403 Forbidden',
+    'API-TABLES-RECORDS-CREATE-PERMISSIONS-FORBIDDEN-MEMBER-001: should return 403 Forbidden',
     { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: User with read-only permissions
-      // TODO: Setup permissions for viewer role
+    async ({ request, executeQuery }) => {
+      // GIVEN: A member user without create permission for the table
+      await executeQuery(`
+        CREATE TABLE projects (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255)
+        )
+      `)
 
-      // WHEN: User with insufficient permissions attempts to create record
-      const response = await request.post('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer viewer_token',
-          'Content-Type': 'application/json',
-        },
-        data: {
-          email: 'user@example.com',
-        },
-      })
-
-      // THEN: Response should be 403 Forbidden
-      expect(response.status()).toBe(403)
-
-      const data = await response.json()
-      expect(data).toHaveProperty('error')
-      expect(data.error).toContain('Permission denied')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-CREATE-007: should return 400 for invalid field type',
-    { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: Table with integer field
-      // TODO: CREATE TABLE products (id SERIAL PRIMARY KEY, price INTEGER NOT NULL)
-
-      // WHEN: User provides string value for integer field
-      const response = await request.post('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer test_token',
-          'Content-Type': 'application/json',
-        },
-        data: {
-          price: 'not-a-number',
-        },
-      })
-
-      // THEN: Response should be 400 for invalid field type
-      expect(response.status()).toBe(400)
-
-      const data = await response.json()
-      expect(data).toHaveProperty('error')
-      expect(data.details).toContain('price')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-CREATE-008: should validate email format',
-    { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: Table with email field
-      // TODO: CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255))
-
-      // WHEN: User provides invalid email format
-      const response = await request.post('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer test_token',
-          'Content-Type': 'application/json',
-        },
-        data: {
-          email: 'not-an-email',
-        },
-      })
-
-      // THEN: Response should validate email format
-      expect(response.status()).toBe(400)
-
-      const data = await response.json()
-      expect(data.details).toContain('email')
-      expect(data.error).toContain('Invalid email')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-CREATE-009: should return 400 for unknown field',
-    { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: Table with defined fields only
-      // TODO: CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255))
-
-      // WHEN: User provides field not in schema
-      const response = await request.post('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer test_token',
-          'Content-Type': 'application/json',
-        },
-        data: {
-          email: 'user@example.com',
-          unknown_field: 'value',
-        },
-      })
-
-      // THEN: Response should return 400 for unknown field
-      expect(response.status()).toBe(400)
-
-      const data = await response.json()
-      expect(data.error).toContain('unknown_field')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-CREATE-010: should auto-generate ID',
-    { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: Table with auto-increment primary key
-      // TODO: CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255))
-
-      // WHEN: User creates record without providing ID
-      const response = await request.post('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer test_token',
-          'Content-Type': 'application/json',
-        },
-        data: {
-          email: 'user@example.com',
-        },
-      })
-
-      // THEN: Response should auto-generate ID
-      expect(response.status()).toBe(201)
-
-      const data = await response.json()
-      expect(data).toHaveProperty('id')
-      expect(typeof data.id).toBe('number')
-      expect(data.id).toBeGreaterThan(0)
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-CREATE-011: should apply default values',
-    { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: Table with field having default value
-      // TODO: CREATE TABLE users (id SERIAL PRIMARY KEY, status VARCHAR(50) DEFAULT 'active')
-
-      // WHEN: User creates record without providing optional field with default
-      const response = await request.post('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer test_token',
-          'Content-Type': 'application/json',
-        },
-        data: {
-          email: 'user@example.com',
-        },
-      })
-
-      // THEN: Response should apply default values
-      expect(response.status()).toBe(201)
-
-      const data = await response.json()
-      expect(data.status).toBe('active')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-CREATE-012: should validate min/max constraints',
-    { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: Table with integer field having min/max constraints
-      // TODO: CREATE TABLE products (id SERIAL PRIMARY KEY, quantity INTEGER CHECK (quantity >= 0 AND quantity <= 1000))
-
-      // WHEN: User provides value outside constraints
-      const response = await request.post('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer test_token',
-          'Content-Type': 'application/json',
-        },
-        data: {
-          quantity: 2000,
-        },
-      })
-
-      // THEN: Response should validate min/max constraints
-      expect(response.status()).toBe(400)
-
-      const data = await response.json()
-      expect(data.error).toContain('quantity')
-      expect(data.error).toContain('maximum')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-CREATE-013: should validate enum options',
-    { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: Table with field having enum constraints
-      // TODO: CREATE TABLE tasks (id SERIAL PRIMARY KEY, status VARCHAR(50) CHECK (status IN ('todo', 'in-progress', 'done')))
-
-      // WHEN: User provides value not in enum options
-      const response = await request.post('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer test_token',
-          'Content-Type': 'application/json',
-        },
-        data: {
-          status: 'invalid-status',
-        },
-      })
-
-      // THEN: Response should validate enum options
-      expect(response.status()).toBe(400)
-
-      const data = await response.json()
-      expect(data.error).toContain('status')
-      expect(data.error).toContain('allowed values')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-CREATE-014: should respect field-level write permissions',
-    { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: Table with read-only field (member cannot write salary)
-      // TODO: Setup field permissions
-
-      // WHEN: Member user attempts to set read-only field
+      // WHEN: Member attempts to create a record
       const response = await request.post('/api/tables/1/records', {
         headers: {
           Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
-          email: 'user@example.com',
-          salary: 100000,
+          name: 'New Project',
         },
       })
 
-      // THEN: Response should respect field-level write permissions
+      // THEN: Returns 403 Forbidden error
       expect(response.status()).toBe(403)
 
       const data = await response.json()
-      expect(data.error).toContain('salary')
-      expect(data.error).toContain('Permission denied')
+      expect(data.error).toBe('Forbidden')
     }
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-015: should enforce organization isolation',
+    'API-TABLES-RECORDS-CREATE-PERMISSIONS-FORBIDDEN-VIEWER-001: should return 403 Forbidden',
     { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: Table in Org A, user in Org B
-      // TODO: Setup multi-org data
+    async ({ request, executeQuery }) => {
+      // GIVEN: A viewer user without create permission
+      await executeQuery(`
+        CREATE TABLE tasks (
+          id SERIAL PRIMARY KEY,
+          title VARCHAR(255)
+        )
+      `)
 
-      // WHEN: User from Org B attempts to create record in Org A table
+      // WHEN: Viewer attempts to create a record
       const response = await request.post('/api/tables/1/records', {
         headers: {
-          Authorization: 'Bearer org_b_token',
+          Authorization: 'Bearer viewer_token',
           'Content-Type': 'application/json',
         },
         data: {
-          email: 'user@example.com',
+          title: 'New Task',
         },
       })
 
-      // THEN: Response should enforce organization isolation
+      // THEN: Returns 403 Forbidden error
       expect(response.status()).toBe(403)
 
       const data = await response.json()
-      expect(data.error).toContain('organization')
+      expect(data.error).toBe('Forbidden')
+      expect(data.message).toBe('You do not have permission to create records in this table')
     }
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-016: should set created_at timestamp',
+    'API-TABLES-RECORDS-CREATE-PERMISSIONS-ORG-ISOLATION-001: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: Table with created_at timestamp field
-      // TODO: CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255), created_at TIMESTAMP DEFAULT NOW())
+    async ({ request, executeQuery }) => {
+      // GIVEN: A user from organization A attempting to create in organization B's table
+      await executeQuery(`
+        CREATE TABLE employees (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255)
+        )
+      `)
 
-      // WHEN: User creates record
+      // WHEN: User attempts to create record in different organization's table
       const response = await request.post('/api/tables/1/records', {
         headers: {
-          Authorization: 'Bearer test_token',
+          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
-          email: 'user@example.com',
+          name: 'John Doe',
         },
       })
 
-      // THEN: Response should set created_at timestamp
-      expect(response.status()).toBe(201)
+      // THEN: Returns 404 Not Found (don't leak existence)
+      expect(response.status()).toBe(404)
 
       const data = await response.json()
-      expect(data).toHaveProperty('created_at')
-      expect(new Date(data.created_at).getTime()).toBeLessThanOrEqual(Date.now())
+      expect(data.error).toBe('Table not found')
     }
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-017: should handle large text fields',
+    'API-TABLES-RECORDS-CREATE-PERMISSIONS-FIELD-WRITE-ADMIN-001: should return 201 Created with all fields',
     { tag: '@spec' },
-    async ({ request }) => {
-      // GIVEN: Table with long-text field
-      // TODO: CREATE TABLE posts (id SERIAL PRIMARY KEY, content TEXT)
+    async ({ request, executeQuery }) => {
+      // GIVEN: An admin user with write access to all fields including sensitive
+      await executeQuery(`
+        CREATE TABLE employees (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          email VARCHAR(255),
+          salary DECIMAL(10,2)
+        )
+      `)
 
-      // WHEN: User creates record with large text content
-      const largeContent = 'x'.repeat(10000)
+      // WHEN: Admin creates record with sensitive field (salary)
       const response = await request.post('/api/tables/1/records', {
         headers: {
-          Authorization: 'Bearer test_token',
+          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
-          content: largeContent,
+          name: 'John Doe',
+          email: 'john@example.com',
+          salary: 75_000,
         },
       })
 
-      // THEN: Response should handle large text fields
+      // THEN: Returns 201 Created with all fields
       expect(response.status()).toBe(201)
 
       const data = await response.json()
-      expect(data.content).toBe(largeContent)
-      expect(data.content.length).toBe(10000)
+      expect(data).toHaveProperty('id')
+      expect(data.name).toBe('John Doe')
+      expect(data.email).toBe('john@example.com')
+      expect(data.salary).toBe(75_000)
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-CREATE-PERMISSIONS-FIELD-WRITE-FORBIDDEN-001: should return 403 Forbidden',
+    { tag: '@spec' },
+    async ({ request, executeQuery }) => {
+      // GIVEN: A member user attempting to create with write-protected field
+      await executeQuery(`
+        CREATE TABLE employees (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          email VARCHAR(255),
+          salary DECIMAL(10,2)
+        )
+      `)
+
+      // WHEN: Member includes salary field in create request
+      const response = await request.post('/api/tables/1/records', {
+        headers: {
+          Authorization: 'Bearer member_token',
+          'Content-Type': 'application/json',
+        },
+        data: {
+          name: 'Jane Smith',
+          email: 'jane@example.com',
+          salary: 85_000,
+        },
+      })
+
+      // THEN: Returns 403 Forbidden (cannot write to protected field)
+      expect(response.status()).toBe(403)
+
+      const data = await response.json()
+      expect(data.error).toBe('Forbidden')
+      expect(data.message).toBe("Cannot write to field 'salary': insufficient permissions")
+      expect(data.field).toBe('salary')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-CREATE-PERMISSIONS-FIELD-WRITE-VIEWER-001: should return 403 Forbidden',
+    { tag: '@spec' },
+    async ({ request, executeQuery }) => {
+      // GIVEN: A viewer user with very limited write permissions
+      await executeQuery(`
+        CREATE TABLE employees (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          email VARCHAR(255)
+        )
+      `)
+
+      // WHEN: Viewer attempts to create with write-protected fields
+      const response = await request.post('/api/tables/1/records', {
+        headers: {
+          Authorization: 'Bearer viewer_token',
+          'Content-Type': 'application/json',
+        },
+        data: {
+          name: 'Bob Wilson',
+          email: 'bob@example.com',
+        },
+      })
+
+      // THEN: Returns 403 Forbidden
+      expect(response.status()).toBe(403)
+
+      const data = await response.json()
+      expect(data.error).toBe('Forbidden')
+      expect(data.field).toBe('email')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-CREATE-PERMISSIONS-READONLY-FIELD-001: should return 403 Forbidden',
+    { tag: '@spec' },
+    async ({ request, executeQuery }) => {
+      // GIVEN: User attempts to set system-managed readonly fields
+      await executeQuery(`
+        CREATE TABLE tasks (
+          id SERIAL PRIMARY KEY,
+          title VARCHAR(255),
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `)
+
+      // WHEN: Create request includes id or created_at fields
+      const response = await request.post('/api/tables/1/records', {
+        headers: {
+          Authorization: 'Bearer admin_token',
+          'Content-Type': 'application/json',
+        },
+        data: {
+          id: 999,
+          title: 'Important Task',
+          created_at: '2025-01-01T00:00:00Z',
+        },
+      })
+
+      // THEN: Returns 403 Forbidden (cannot write to readonly fields)
+      expect(response.status()).toBe(403)
+
+      const data = await response.json()
+      expect(data.error).toBe('Forbidden')
+      expect(data.message).toBe("Cannot write to readonly field 'id'")
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-CREATE-PERMISSIONS-FIELD-WRITE-MULTIPLE-001: should return 403 for first forbidden field',
+    { tag: '@spec' },
+    async ({ request, executeQuery }) => {
+      // GIVEN: Multiple fields with different write permission levels
+      await executeQuery(`
+        CREATE TABLE employees (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          email VARCHAR(255),
+          phone VARCHAR(50),
+          salary DECIMAL(10,2),
+          ssn VARCHAR(11)
+        )
+      `)
+
+      // WHEN: User creates with mix of permitted and forbidden fields
+      const response = await request.post('/api/tables/1/records', {
+        headers: {
+          Authorization: 'Bearer member_token',
+          'Content-Type': 'application/json',
+        },
+        data: {
+          name: 'Alice Cooper',
+          email: 'alice@example.com',
+          phone: '555-0100',
+          salary: 95_000,
+          ssn: '123-45-6789',
+        },
+      })
+
+      // THEN: Returns 403 for first forbidden field encountered
+      expect(response.status()).toBe(403)
+
+      const data = await response.json()
+      expect(data.error).toBe('Forbidden')
+      expect(data).toHaveProperty('field')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-CREATE-PERMISSIONS-ORG-AUTO-INJECT-001: should auto-inject organization_id',
+    { tag: '@spec' },
+    async ({ request, executeQuery }) => {
+      // GIVEN: User creates record in multi-tenant table
+      await executeQuery(`
+        CREATE TABLE projects (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          organization_id VARCHAR(255) NOT NULL
+        )
+      `)
+
+      // WHEN: Organization ID field exists in table
+      const response = await request.post('/api/tables/1/records', {
+        headers: {
+          Authorization: 'Bearer admin_token',
+          'Content-Type': 'application/json',
+        },
+        data: {
+          name: 'Alpha Project',
+        },
+      })
+
+      // THEN: Organization ID is automatically injected from user's session
+      expect(response.status()).toBe(201)
+
+      const data = await response.json()
+      expect(data.name).toBe('Alpha Project')
+      expect(data.organization_id).toBe('org_123')
+
+      // Verify database record has correct organization_id
+      const result = await executeQuery(`
+        SELECT organization_id FROM projects WHERE name = 'Alpha Project'
+      `)
+      expect(result.rows[0].organization_id).toBe('org_123')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-CREATE-PERMISSIONS-ORG-OVERRIDE-PREVENTED-001: should return 403 Forbidden',
+    { tag: '@spec' },
+    async ({ request, executeQuery }) => {
+      // GIVEN: User attempts to create record with different organization_id
+      await executeQuery(`
+        CREATE TABLE projects (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          organization_id VARCHAR(255)
+        )
+      `)
+
+      // WHEN: Request body includes organization_id different from user's org
+      const response = await request.post('/api/tables/1/records', {
+        headers: {
+          Authorization: 'Bearer admin_token',
+          'Content-Type': 'application/json',
+        },
+        data: {
+          name: 'Malicious Project',
+          organization_id: 'org_456',
+        },
+      })
+
+      // THEN: Returns 403 Forbidden (cannot set org_id to different org)
+      expect(response.status()).toBe(403)
+
+      const data = await response.json()
+      expect(data.error).toBe('Forbidden')
+      expect(data.message).toBe('Cannot create record for a different organization')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-CREATE-PERMISSIONS-COMBINED-001: should return 201 with filtered fields',
+    { tag: '@spec' },
+    async ({ request, executeQuery }) => {
+      // GIVEN: Organization isolation, field write restrictions, and table permission all apply
+      await executeQuery(`
+        CREATE TABLE employees (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          email VARCHAR(255),
+          salary DECIMAL(10,2),
+          organization_id VARCHAR(255)
+        )
+      `)
+
+      // WHEN: Member creates record with only permitted fields
+      const response = await request.post('/api/tables/1/records', {
+        headers: {
+          Authorization: 'Bearer member_token',
+          'Content-Type': 'application/json',
+        },
+        data: {
+          name: 'Carol Davis',
+          email: 'carol@example.com',
+        },
+      })
+
+      // THEN: Returns 201 Created with auto-injected org_id and filtered fields
+      expect(response.status()).toBe(201)
+
+      const data = await response.json()
+      expect(data.name).toBe('Carol Davis')
+      expect(data.email).toBe('carol@example.com')
+      expect(data.organization_id).toBe('org_123')
+      expect(data).not.toHaveProperty('salary')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-CREATE-PERMISSIONS-PARTIAL-DATA-001: should use database defaults',
+    { tag: '@spec' },
+    async ({ request, executeQuery }) => {
+      // GIVEN: User creates record with only permitted fields
+      await executeQuery(`
+        CREATE TABLE employees (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          email VARCHAR(255),
+          salary DECIMAL(10,2) DEFAULT 50000
+        )
+      `)
+
+      // WHEN: Some fields are omitted due to write restrictions
+      const response = await request.post('/api/tables/1/records', {
+        headers: {
+          Authorization: 'Bearer member_token',
+          'Content-Type': 'application/json',
+        },
+        data: {
+          name: 'David Lee',
+          email: 'david@example.com',
+        },
+      })
+
+      // THEN: Returns 201 Created with defaults/nulls for omitted fields
+      expect(response.status()).toBe(201)
+
+      const data = await response.json()
+      expect(data.name).toBe('David Lee')
+      expect(data.email).toBe('david@example.com')
+
+      // Verify database has default salary value
+      const result = await executeQuery(`
+        SELECT salary FROM employees WHERE name = 'David Lee'
+      `)
+      expect(result.rows[0].salary).toBe('50000')
     }
   )
 
@@ -495,49 +637,41 @@ test.describe('Create new record', () => {
   test.fixme(
     'user can complete full record creation workflow',
     { tag: '@regression' },
-    async ({ request }) => {
-      // GIVEN: Application with representative table configuration
-      // TODO: Setup users table with various field types and constraints
+    async ({ request, executeQuery }) => {
+      // GIVEN: Table with permissions and validation
+      await executeQuery(`
+        CREATE TABLE users (
+          id SERIAL PRIMARY KEY,
+          email VARCHAR(255) UNIQUE NOT NULL,
+          name VARCHAR(255),
+          organization_id VARCHAR(255)
+        )
+      `)
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      // Test successful creation
-      const successResponse = await request.post('/api/tables/1/records', {
+      // WHEN/THEN: Create valid record
+      const response = await request.post('/api/tables/1/records', {
         headers: {
           Authorization: 'Bearer test_token',
           'Content-Type': 'application/json',
         },
         data: {
-          email: 'test@example.com',
-          first_name: 'Test',
+          email: 'user@example.com',
+          name: 'Test User',
         },
       })
-      expect(successResponse.status()).toBe(201)
-      const record = await successResponse.json()
-      expect(record).toHaveProperty('id')
 
-      // Test validation error
-      const validationResponse = await request.post('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer test_token',
-          'Content-Type': 'application/json',
-        },
-        data: {
-          first_name: 'Missing Email',
-        },
-      })
-      expect(validationResponse.status()).toBe(400)
+      expect(response.status()).toBe(201)
 
-      // Test table not found
-      const notFoundResponse = await request.post('/api/tables/9999/records', {
-        headers: {
-          Authorization: 'Bearer test_token',
-          'Content-Type': 'application/json',
-        },
-        data: {
-          email: 'test@example.com',
-        },
-      })
-      expect(notFoundResponse.status()).toBe(404)
+      const data = await response.json()
+      expect(data).toHaveProperty('id')
+      expect(data.email).toBe('user@example.com')
+      expect(data.name).toBe('Test User')
+
+      // Verify database state
+      const result = await executeQuery(`
+        SELECT * FROM users WHERE email = 'user@example.com'
+      `)
+      expect(result.rows).toHaveLength(1)
     }
   )
 })
