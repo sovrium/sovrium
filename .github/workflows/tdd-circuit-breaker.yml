@@ -1,7 +1,4 @@
-name: TDD Circuit Breaker [DEPRECATED]
-
-# ⚠️ DEPRECATED: This workflow has been consolidated into tdd-monitor-unified.yml
-# Kept for reference only. Will be removed after successful migration.
+name: TDD Circuit Breaker
 
 on:
   # Check health every 30 minutes (optimized from 15 min to reduce GitHub Actions usage)
@@ -25,10 +22,9 @@ permissions:
 
 jobs:
   check-health:
-    name: 🔍 Check TDD Pipeline Health [DEPRECATED]
+    name: 🔍 Check TDD Pipeline Health
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    if: false # DISABLED - consolidated into tdd-monitor-unified.yml
 
     steps:
       - name: Analyze recent workflow runs

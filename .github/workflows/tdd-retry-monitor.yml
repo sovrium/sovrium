@@ -1,7 +1,4 @@
-name: TDD Retry Monitor [DEPRECATED]
-
-# ⚠️ DEPRECATED: This workflow has been consolidated into tdd-monitor-unified.yml
-# Kept for reference only. Will be removed after successful migration.
+name: TDD Retry Monitor
 
 # This workflow monitors for retry attempts that fail to start properly
 # It detects when workflow_dispatch retries silently fail and recovers them
@@ -23,7 +20,6 @@ jobs:
   check-stuck-retries:
     name: 🔍 Monitor Stuck Retries
     runs-on: ubuntu-latest
-    if: false # DISABLED - consolidated into tdd-monitor-unified.yml
     timeout-minutes: 5
 
     steps:

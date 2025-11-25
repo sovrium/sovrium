@@ -1,7 +1,4 @@
-name: TDD Queue - Conflict Resolver [DEPRECATED]
-
-# ⚠️ DEPRECATED: This workflow has been consolidated into tdd-monitor-unified.yml
-# Kept for reference only. Will be removed after successful migration.
+name: TDD Queue - Conflict Resolver
 
 on:
   push:
@@ -18,9 +15,8 @@ concurrency:
 
 jobs:
   resolve-conflicts:
-    name: Detect and Resolve Conflicts [DEPRECATED]
+    name: Detect and Resolve Conflicts
     runs-on: ubuntu-latest
-    if: false # DISABLED - consolidated into tdd-monitor-unified.yml
     permissions:
       contents: write
       pull-requests: write
