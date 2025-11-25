@@ -365,7 +365,7 @@ test.describe('Page Sections', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SECTIONS-011: should build complex layouts through component composition',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
