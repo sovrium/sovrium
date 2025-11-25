@@ -425,7 +425,7 @@ test.describe('Page Sections', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SECTIONS-012: should combine interactive and responsive features',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
