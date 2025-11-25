@@ -607,19 +607,19 @@ jobs:
                 --repo "$REPO" \
                 --title "🚨 TDD Automation: High Failure Rate ($FAILED_COUNT specs failed in 24h)" \
                 --label "incident,high-failure-rate,tdd-automation,priority:high" \
-                --body "$(cat <<'EOF'
+                --body "$(cat <<EOF
 ## 🚨 High TDD Spec Failure Rate
 
-Failed Specs (24h): ${FAILED_COUNT}
+Failed Specs (24h): $FAILED_COUNT
 Threshold: 5
 
 ### Recent Failures
-${FAILED_SPECS}
+$FAILED_SPECS
 
 ### Investigation Steps
-1. Check for common error patterns: \`gh issue list --label tdd-spec:failed --limit 20\`
+1. Check for common error patterns: \\\`gh issue list --label tdd-spec:failed --limit 20\\\`
 2. Review claude-tdd.yml runs: [Workflow History](https://github.com/$REPO/actions/workflows/claude-tdd.yml)
-3. Check infrastructure health: \`gh run list --workflow tdd-monitor-unified.yml\`
+3. Check infrastructure health: \\\`gh run list --workflow tdd-monitor-unified.yml\\\`
 
 ### Possible Causes
 - Systemic test issues (flaky tests, environment problems)
@@ -629,7 +629,7 @@ ${FAILED_SPECS}
 
 ### Resolution
 Once root cause identified and fixed:
-1. Re-queue failed specs: \`gh issue edit ISSUE_NUMBER --remove-label tdd-spec:failed --add-label tdd-spec:queued\`
+1. Re-queue failed specs: \\\`gh issue edit ISSUE_NUMBER --remove-label tdd-spec:failed --add-label tdd-spec:queued\\\`
 2. Close this incident
 3. Document in TDD-TROUBLESHOOTING.md
 
