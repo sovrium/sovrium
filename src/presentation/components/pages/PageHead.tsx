@@ -18,11 +18,7 @@ import {
   StructuredDataScript,
   TwitterCardMeta,
 } from '@/presentation/components/metadata'
-import {
-  renderInlineScriptTag,
-  renderScriptTag,
-  renderWindowConfig,
-} from '@/presentation/scripts/script-renderers'
+import { renderInlineScriptTag, renderScriptTag } from '@/presentation/scripts/script-renderers'
 import { resolveTranslationPattern } from '@/presentation/translations/translation-resolver'
 import type { GroupedScripts } from './PageScripts'
 import type { Languages } from '@/domain/models/app/languages'
