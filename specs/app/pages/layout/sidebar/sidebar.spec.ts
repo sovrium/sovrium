@@ -50,7 +50,7 @@ test.describe('Sidebar Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SIDEBAR-002: should render sidebar on left side',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

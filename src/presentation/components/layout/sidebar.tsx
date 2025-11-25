@@ -132,7 +132,7 @@ function generateSidebarScript(collapsible: boolean, width: string): string {
 
   return `
               (function() {
-                const sidebar = document.querySelector('[data-testid="sidebar"]');
+                const sidebar = document.querySelector('[data-testid*="sidebar"]');
 
                 // Handle collapsible toggle
                 ${toggleScript}
@@ -237,7 +237,7 @@ export function Sidebar(
   return (
     <>
       <aside
-        data-testid="sidebar"
+        data-testid={`sidebar${props.position !== undefined ? `-${config.position}` : ''}`}
         data-position={config.position}
         className={sidebarClass}
         style={{ width: config.width, height: '100vh' }}
