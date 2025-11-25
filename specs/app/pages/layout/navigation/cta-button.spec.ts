@@ -45,7 +45,7 @@ test.describe('CTA Button', () => {
   test(
     'APP-PAGES-CTA-001: should render call-to-action button',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a CTA button with text and href
       await startServerWithSchema({
         name: 'test-app',
@@ -75,7 +75,7 @@ test.describe('CTA Button', () => {
   test(
     'APP-PAGES-CTA-002: should apply primary button styling',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a CTA button with variant 'primary'
       await startServerWithSchema({
         name: 'test-app',
@@ -106,7 +106,7 @@ test.describe('CTA Button', () => {
   test(
     'APP-PAGES-CTA-003: should support all button style variants',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a CTA button with 5 variant options
       const variants = ['primary', 'secondary', 'outline', 'ghost', 'link']
       for (const variant of variants) {
@@ -135,7 +135,7 @@ test.describe('CTA Button', () => {
   test(
     'APP-PAGES-CTA-004: should apply size styling',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a CTA button with size
       const sizes = ['sm', 'md', 'lg', 'xl']
       for (const size of sizes) {
@@ -162,7 +162,7 @@ test.describe('CTA Button', () => {
   test(
     'APP-PAGES-CTA-005: should apply theme-based color',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a CTA button with theme color
       await startServerWithSchema({
         name: 'test-app',
@@ -195,7 +195,7 @@ test.describe('CTA Button', () => {
   test(
     'APP-PAGES-CTA-006: should display icon on right side of text',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a CTA button with icon
       await startServerWithSchema({
         name: 'test-app',
@@ -235,7 +235,7 @@ test.describe('CTA Button', () => {
   test(
     'APP-PAGES-CTA-007: should display icon on left side of text',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a CTA button with icon on left
       await startServerWithSchema({
         name: 'test-app',
@@ -270,7 +270,7 @@ test.describe('CTA Button', () => {
   test(
     'APP-PAGES-CTA-008: should serve as prominent call-to-action in header',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a CTA button in navigation
       await startServerWithSchema({
         name: 'test-app',
@@ -305,7 +305,7 @@ test.describe('CTA Button', () => {
   test(
     'APP-PAGES-CTA-009: should validate as complete CTA configuration',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a CTA button with required text and href
       await startServerWithSchema({
         name: 'test-app',
@@ -335,7 +335,7 @@ test.describe('CTA Button', () => {
   test(
     'APP-PAGES-CTA-010: should support fully customized button appearance',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a CTA button with all optional properties
       await startServerWithSchema({
         name: 'test-app',
@@ -383,7 +383,7 @@ test.describe('CTA Button', () => {
   test(
     'APP-PAGES-LAYOUT-NAVIGATION-CTA-BUTTON-REGRESSION-001: user can complete full CTA button workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [

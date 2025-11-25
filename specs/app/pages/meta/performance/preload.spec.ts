@@ -22,7 +22,7 @@ test.describe('Resource Preloading', () => {
   test(
     'APP-PAGES-PRELOAD-001: should preload critical resource',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: preload resource with href and as
       await startServerWithSchema({
         name: 'test-app',
@@ -54,7 +54,7 @@ test.describe('Resource Preloading', () => {
   test(
     'APP-PAGES-PRELOAD-002: should preload critical stylesheet',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: preload with as='style'
       await startServerWithSchema({
         name: 'test-app',
@@ -84,7 +84,7 @@ test.describe('Resource Preloading', () => {
   test(
     'APP-PAGES-PRELOAD-003: should preload critical scripts',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: preload with as='script'
       await startServerWithSchema({
         name: 'test-app',
@@ -114,7 +114,7 @@ test.describe('Resource Preloading', () => {
   test(
     'APP-PAGES-PRELOAD-004: should preload web fonts',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: preload with as='font'
       await startServerWithSchema({
         name: 'test-app',
@@ -148,7 +148,7 @@ test.describe('Resource Preloading', () => {
   test(
     'APP-PAGES-PRELOAD-005: should preload hero images',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: preload with as='image'
       await startServerWithSchema({
         name: 'test-app',
@@ -178,7 +178,7 @@ test.describe('Resource Preloading', () => {
   test(
     'APP-PAGES-PRELOAD-006: should prefetch critical API responses',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: preload with as='fetch'
       await startServerWithSchema({
         name: 'test-app',
@@ -208,7 +208,7 @@ test.describe('Resource Preloading', () => {
   test(
     'APP-PAGES-PRELOAD-007: should set CORS for cross-origin fonts',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: preload with crossorigin for fonts
       await startServerWithSchema({
         name: 'test-app',
@@ -248,7 +248,7 @@ test.describe('Resource Preloading', () => {
   test(
     'APP-PAGES-PRELOAD-008: should help browser prioritize resource',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: preload with type attribute
       await startServerWithSchema({
         name: 'test-app',
@@ -278,7 +278,7 @@ test.describe('Resource Preloading', () => {
   test(
     'APP-PAGES-PRELOAD-009: should preload only when media query matches',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: preload with media query
       await startServerWithSchema({
         name: 'test-app',
@@ -310,7 +310,7 @@ test.describe('Resource Preloading', () => {
   test(
     'APP-PAGES-PRELOAD-010: should optimize First Contentful Paint (FCP)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: preload for critical rendering path
       await startServerWithSchema({
         name: 'test-app',
@@ -344,7 +344,7 @@ test.describe('Resource Preloading', () => {
   test(
     'APP-PAGES-META-PERFORMANCE-PRELOAD-REGRESSION-001: user can complete full preload workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [

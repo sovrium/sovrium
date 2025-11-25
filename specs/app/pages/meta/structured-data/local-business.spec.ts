@@ -22,7 +22,7 @@ test.describe('Local Business Schema', () => {
   test(
     'APP-PAGES-LOCALBUSINESS-001: should validate minimal LocalBusiness structured data',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: LocalBusiness with required properties
       await startServerWithSchema({
         name: 'test_app',
@@ -60,7 +60,7 @@ test.describe('Local Business Schema', () => {
   test(
     'APP-PAGES-LOCALBUSINESS-002: should provide business identity',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: LocalBusiness with name and description
       await startServerWithSchema({
         name: 'test-app',
@@ -99,7 +99,7 @@ test.describe('Local Business Schema', () => {
   test(
     'APP-PAGES-LOCALBUSINESS-003: should provide business branding',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: LocalBusiness with url and logo
       await startServerWithSchema({
         name: 'test-app',
@@ -139,7 +139,7 @@ test.describe('Local Business Schema', () => {
   test(
     'APP-PAGES-LOCALBUSINESS-004: should support single or multiple business images',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: LocalBusiness with image
       await startServerWithSchema({
         name: 'test-app',
@@ -178,7 +178,7 @@ test.describe('Local Business Schema', () => {
   test(
     'APP-PAGES-LOCALBUSINESS-005: should provide business contact information',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: LocalBusiness with contact info
       await startServerWithSchema({
         name: 'test-app',
@@ -218,7 +218,7 @@ test.describe('Local Business Schema', () => {
   test(
     'APP-PAGES-LOCALBUSINESS-006: should indicate business price level',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: LocalBusiness with priceRange
       const priceRanges = ['$', '$$', '$$$', '$$$$']
       for (const priceRange of priceRanges) {
@@ -255,7 +255,7 @@ test.describe('Local Business Schema', () => {
   test(
     'APP-PAGES-LOCALBUSINESS-007: should include physical address for maps',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: LocalBusiness with address
       await startServerWithSchema({
         name: 'test-app',
@@ -299,7 +299,7 @@ test.describe('Local Business Schema', () => {
   test(
     'APP-PAGES-LOCALBUSINESS-008: should provide precise map location',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: LocalBusiness with geo coordinates
       await startServerWithSchema({
         name: 'test-app',
@@ -339,7 +339,7 @@ test.describe('Local Business Schema', () => {
   test(
     'APP-PAGES-LOCALBUSINESS-009: should link business to social profiles',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: LocalBusiness with social profiles
       await startServerWithSchema({
         name: 'test-app',
@@ -382,7 +382,7 @@ test.describe('Local Business Schema', () => {
   test(
     'APP-PAGES-LOCALBUSINESS-010: should provide business hours for each day',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: LocalBusiness with opening hours
       await startServerWithSchema({
         name: 'test-app',
@@ -429,7 +429,7 @@ test.describe('Local Business Schema', () => {
   test(
     'APP-PAGES-LOCALBUSINESS-011: should specify which days hours apply to',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: LocalBusiness with dayOfWeek enum
       await startServerWithSchema({
         name: 'test-app',
@@ -476,7 +476,7 @@ test.describe('Local Business Schema', () => {
   test(
     'APP-PAGES-LOCALBUSINESS-012: should specify daily operating hours',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: LocalBusiness with opens/closes times
       await startServerWithSchema({
         name: 'test-app',
@@ -522,7 +522,7 @@ test.describe('Local Business Schema', () => {
   test(
     'APP-PAGES-LOCALBUSINESS-013: should enable Google Business Profile rich results',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: LocalBusiness for local SEO
       await startServerWithSchema({
         name: 'test-app',
@@ -568,7 +568,7 @@ test.describe('Local Business Schema', () => {
   test(
     'APP-PAGES-LOCALBUSINESS-014: should enable map pin and directions in search results',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: LocalBusiness for map display
       await startServerWithSchema({
         name: 'test-app',
@@ -612,7 +612,7 @@ test.describe('Local Business Schema', () => {
   test(
     'APP-PAGES-META-STRUCTURED-DATA-LOCAL-BUSINESS-REGRESSION-001: user can complete full Local Business workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [

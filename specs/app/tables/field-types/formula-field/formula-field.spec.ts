@@ -23,7 +23,11 @@ test.describe('Formula Field', () => {
   test.fixme(
     'APP-FORMULA-FIELD-001: should create GENERATED ALWAYS AS column for arithmetic formula',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE line_items (id SERIAL PRIMARY KEY, quantity INTEGER NOT NULL, unit_price DECIMAL(10,2) NOT NULL, total DECIMAL(10,2) GENERATED ALWAYS AS (quantity * unit_price) STORED)',
         'INSERT INTO line_items (quantity, unit_price) VALUES (5, 19.99), (10, 9.50)',
@@ -54,7 +58,11 @@ test.describe('Formula Field', () => {
   test.fixme(
     'APP-FORMULA-FIELD-002: should perform text concatenation with GENERATED column',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         "CREATE TABLE contacts (id SERIAL PRIMARY KEY, first_name VARCHAR(100) NOT NULL, last_name VARCHAR(100) NOT NULL, full_name VARCHAR(255) GENERATED ALWAYS AS (first_name || ' ' || last_name) STORED)",
         "INSERT INTO contacts (first_name, last_name) VALUES ('John', 'Doe'), ('Jane', 'Smith')",
@@ -84,7 +92,11 @@ test.describe('Formula Field', () => {
   test.fixme(
     'APP-FORMULA-FIELD-003: should support conditional expressions with CASE WHEN',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE products (id SERIAL PRIMARY KEY, price DECIMAL(10,2) NOT NULL, on_sale BOOLEAN NOT NULL, discount_price DECIMAL(10,2) GENERATED ALWAYS AS (CASE WHEN on_sale THEN price * 0.80 ELSE price END) STORED)',
         'INSERT INTO products (price, on_sale) VALUES (100.00, true), (50.00, false)',
@@ -114,7 +126,11 @@ test.describe('Formula Field', () => {
   test.fixme(
     'APP-FORMULA-FIELD-004: should apply mathematical functions like ROUND',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE measurements (id SERIAL PRIMARY KEY, raw_value DECIMAL(10,4) NOT NULL, rounded_value DECIMAL(10,2) GENERATED ALWAYS AS (ROUND(raw_value, 2)) STORED)',
         'INSERT INTO measurements (raw_value) VALUES (19.9567), (49.1234), (-15.6789)',
@@ -143,7 +159,11 @@ test.describe('Formula Field', () => {
   test.fixme(
     'APP-FORMULA-FIELD-005: should evaluate boolean date logic for overdue detection',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE invoices (id SERIAL PRIMARY KEY, due_date DATE NOT NULL, paid BOOLEAN NOT NULL DEFAULT false, is_overdue BOOLEAN GENERATED ALWAYS AS (NOT paid AND due_date < CURRENT_DATE) STORED)',
         "INSERT INTO invoices (due_date, paid) VALUES ('2024-01-15', false), ('2025-12-31', false), ('2024-06-01', true)",
@@ -175,7 +195,11 @@ test.describe('Formula Field', () => {
   test.fixme(
     'user can complete full formula-field workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [

@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
- 
 
 /**
  * E2E Tests for List user sessions
@@ -33,7 +32,11 @@ test.describe('List user sessions', () => {
   test.fixme(
     'API-AUTH-LIST-SESSIONS-SUCCESS-001: should returns 200 OK with all active sessions and metadata',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated user with multiple active sessions
       await startServerWithSchema({
         name: 'test-app',
@@ -74,7 +77,11 @@ test.describe('List user sessions', () => {
   test.fixme(
     'API-AUTH-LIST-SESSIONS-SUCCESS-SINGLE-SESSION-001: should returns 200 OK with single session marked as current',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated user with only current session
       await startServerWithSchema({
         name: 'test-app',
@@ -107,7 +114,11 @@ test.describe('List user sessions', () => {
   test.fixme(
     'API-AUTH-LIST-SESSIONS-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -131,7 +142,11 @@ test.describe('List user sessions', () => {
   test.fixme(
     'API-AUTH-LIST-SESSIONS-SECURITY-FILTERING-EXPIRED-001: should returns 200 OK with only active sessions (expired sessions filtered out)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated user with active and expired sessions
       await startServerWithSchema({
         name: 'test-app',
@@ -167,7 +182,11 @@ test.describe('List user sessions', () => {
   test.fixme(
     'API-AUTH-LIST-SESSIONS-SECURITY-FILTERING-REVOKED-001: should returns 200 OK with only active sessions (revoked sessions filtered out)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated user with active and revoked sessions
       await startServerWithSchema({
         name: 'test-app',
@@ -203,7 +222,11 @@ test.describe('List user sessions', () => {
   test.fixme(
     "API-AUTH-LIST-SESSIONS-SECURITY-ISOLATION-001: should returns 200 OK with only User A's sessions (User B's sessions not visible)",
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Two users with their own sessions
       await startServerWithSchema({
         name: 'test-app',
@@ -244,7 +267,11 @@ test.describe('List user sessions', () => {
   test.fixme(
     'API-AUTH-LIST-SESSIONS-SUCCESS-MULTIPLE-DEVICES-001: should returns 200 OK with all sessions showing device metadata',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated user with sessions across multiple devices
       await startServerWithSchema({
         name: 'test-app',
@@ -292,7 +319,11 @@ test.describe('List user sessions', () => {
   test.fixme(
     'user can complete full listSessions workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

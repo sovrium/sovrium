@@ -23,7 +23,11 @@ test.describe('JSON Field', () => {
   test.fixme(
     'APP-JSON-FIELD-001: should create PostgreSQL JSONB column for structured JSON data',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery('CREATE TABLE products (id SERIAL PRIMARY KEY, metadata JSONB)')
 
       const columnInfo = await executeQuery(
@@ -47,7 +51,11 @@ test.describe('JSON Field', () => {
   test.fixme(
     'APP-JSON-FIELD-002: should support -> and ->> operators for field extraction',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE settings (id SERIAL PRIMARY KEY, config JSONB)',
         'INSERT INTO settings (config) VALUES (\'{"theme": "dark", "notifications": {"email": true, "sms": false}}\')',
@@ -73,7 +81,11 @@ test.describe('JSON Field', () => {
   test.fixme(
     'APP-JSON-FIELD-003: should support containment and existence operators',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, preferences JSONB)',
         'INSERT INTO users (preferences) VALUES (\'{"language": "en", "timezone": "UTC"}\')',
@@ -100,7 +112,11 @@ test.describe('JSON Field', () => {
   test.fixme(
     'APP-JSON-FIELD-004: should create GIN index for efficient JSON queries',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE documents (id SERIAL PRIMARY KEY, data JSONB)',
         'CREATE INDEX idx_documents_data ON documents USING GIN(data)',
@@ -124,7 +140,11 @@ test.describe('JSON Field', () => {
   test.fixme(
     'APP-JSON-FIELD-005: should support in-place JSON field updates',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE events (id SERIAL PRIMARY KEY, payload JSONB)',
         'INSERT INTO events (payload) VALUES (\'{"type": "click", "count": 1}\')',
@@ -148,7 +168,11 @@ test.describe('JSON Field', () => {
   test.fixme(
     'user can complete full json-field workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [

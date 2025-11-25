@@ -23,7 +23,11 @@ test.describe('Progress Field', () => {
   test.fixme(
     'APP-PROGRESS-FIELD-001: should create PostgreSQL INTEGER column for progress percentage storage',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -54,7 +58,11 @@ test.describe('Progress Field', () => {
   test.fixme(
     'APP-PROGRESS-FIELD-002: should enforce 0-100 range constraint for progress values',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -87,7 +95,11 @@ test.describe('Progress Field', () => {
   test.fixme(
     'user can complete full progress-field workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [

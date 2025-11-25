@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
- 
 
 /**
  * E2E Tests for Admin: Set user password
@@ -33,7 +32,11 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-ADMIN-SET-USER-PASSWORD-SUCCESS-001: should returns 200 OK and updates user password',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
@@ -82,7 +85,11 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-ADMIN-SET-USER-PASSWORD-SUCCESS-REVOKE-SESSIONS-001: should returns 200 OK and revokes all user sessions',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated admin user and a user with multiple sessions
       await startServerWithSchema({
         name: 'test-app',
@@ -133,7 +140,11 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-ADMIN-SET-USER-PASSWORD-VALIDATION-REQUIRED-FIELDS-001: should returns 400 Bad Request with validation errors',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -167,7 +178,11 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-ADMIN-SET-USER-PASSWORD-VALIDATION-PASSWORD-LENGTH-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -208,7 +223,11 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-ADMIN-SET-USER-PASSWORD-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -238,7 +257,11 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-ADMIN-SET-USER-PASSWORD-PERMISSIONS-FORBIDDEN-NON-ADMIN-001: should returns 403 Forbidden',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -279,7 +302,11 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-ADMIN-SET-USER-PASSWORD-NOT-FOUND-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -321,7 +348,11 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'user can complete full adminSetUserPassword workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

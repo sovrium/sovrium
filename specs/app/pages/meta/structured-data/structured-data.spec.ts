@@ -22,7 +22,7 @@ test.describe('Structured Data', () => {
   test(
     'APP-PAGES-STRUCTUREDDATA-001: should include Organization structured data',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: structured data with organization
       await startServerWithSchema({
         name: 'test-app',
@@ -60,7 +60,7 @@ test.describe('Structured Data', () => {
   test(
     'APP-PAGES-STRUCTUREDDATA-002: should include Person structured data',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: structured data with person
       await startServerWithSchema({
         name: 'test-app',
@@ -97,7 +97,7 @@ test.describe('Structured Data', () => {
   test(
     'APP-PAGES-STRUCTUREDDATA-003: should include LocalBusiness structured data',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: structured data with localBusiness
       await startServerWithSchema({
         name: 'test-app',
@@ -134,7 +134,7 @@ test.describe('Structured Data', () => {
   test(
     'APP-PAGES-STRUCTUREDDATA-004: should include Product structured data',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: structured data with product
       await startServerWithSchema({
         name: 'test-app',
@@ -171,7 +171,7 @@ test.describe('Structured Data', () => {
   test(
     'APP-PAGES-STRUCTUREDDATA-005: should include Article structured data',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: structured data with article
       await startServerWithSchema({
         name: 'test-app',
@@ -208,7 +208,7 @@ test.describe('Structured Data', () => {
   test(
     'APP-PAGES-STRUCTUREDDATA-006: should include BreadcrumbList structured data',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: structured data with breadcrumb
       await startServerWithSchema({
         name: 'test-app',
@@ -252,7 +252,7 @@ test.describe('Structured Data', () => {
   test(
     'APP-PAGES-STRUCTUREDDATA-007: should include FAQPage structured data',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: structured data with faqPage
       await startServerWithSchema({
         name: 'test-app',
@@ -289,7 +289,7 @@ test.describe('Structured Data', () => {
   test(
     'APP-PAGES-STRUCTUREDDATA-008: should include EducationEvent structured data',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: structured data with educationEvent
       await startServerWithSchema({
         name: 'test-app',
@@ -326,7 +326,7 @@ test.describe('Structured Data', () => {
   test(
     'APP-PAGES-STRUCTUREDDATA-009: should support multiple Schema.org types on same page',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: structured data combining multiple types
       await startServerWithSchema({
         name: 'test-app',
@@ -374,7 +374,7 @@ test.describe('Structured Data', () => {
   test(
     'APP-PAGES-STRUCTUREDDATA-010: should enable rich search results and enhanced SERP display',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: structured data for search engine understanding
       await startServerWithSchema({
         name: 'test-app',
@@ -412,7 +412,7 @@ test.describe('Structured Data', () => {
   test(
     'APP-PAGES-META-STRUCTURED-DATA-REGRESSION-001: user can complete full structured data workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [

@@ -16,7 +16,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
- 
 
 /**
  * E2E Tests for Table Views
@@ -38,7 +37,11 @@ test.describe('Table Views', () => {
   test.fixme(
     'APP-TABLES-VIEWS-001: should filter records by condition when view has filter configuration (status = active)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: view with filter configuration (status = 'active')
       await startServerWithSchema({
         name: 'test-app',
@@ -103,7 +106,11 @@ test.describe('Table Views', () => {
   test.fixme(
     'APP-TABLES-VIEWS-002: should combine conditions with AND operator when view has multiple AND conditions (status = active AND priority > 2)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: view with multiple AND conditions (status = 'active' AND priority > 2)
       await startServerWithSchema({
         name: 'test-app',
@@ -173,7 +180,11 @@ test.describe('Table Views', () => {
   test.fixme(
     'APP-TABLES-VIEWS-003: should sort records accordingly when view has sort configuration (ORDER BY created_at DESC)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: view with sort configuration (ORDER BY created_at DESC)
       await startServerWithSchema({
         name: 'test-app',
@@ -237,7 +248,11 @@ test.describe('Table Views', () => {
   test.fixme(
     'APP-TABLES-VIEWS-004: should aggregate records by field when view has groupBy configuration (GROUP BY department)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: view with groupBy configuration (GROUP BY department)
       await startServerWithSchema({
         name: 'test-app',
@@ -302,7 +317,11 @@ test.describe('Table Views', () => {
   test.fixme(
     'APP-TABLES-VIEWS-005: should include only specified columns when view has field visibility configuration (only name, email visible)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: view with field visibility configuration (only name, email visible)
       await startServerWithSchema({
         name: 'test-app',
@@ -360,7 +379,11 @@ test.describe('Table Views', () => {
   test.fixme(
     'APP-TABLES-VIEWS-006: should apply default view configuration to query when default view configured (isDefault: true)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: default view configured (isDefault: true)
       await startServerWithSchema({
         name: 'test-app',
@@ -436,7 +459,11 @@ test.describe('Table Views', () => {
   test.fixme(
     'user can complete full views workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Application configured with representative view
       await startServerWithSchema({
         name: 'test-app',

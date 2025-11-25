@@ -11,7 +11,11 @@ test.describe('Color Field', () => {
   test.fixme(
     'APP-COLOR-FIELD-001: should create VARCHAR(7) column for hex color storage',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery('CREATE TABLE themes (id SERIAL PRIMARY KEY, primary_color VARCHAR(7))')
       const column = await executeQuery(
         "SELECT character_maximum_length FROM information_schema.columns WHERE table_name='themes' AND column_name='primary_color'"
@@ -23,7 +27,11 @@ test.describe('Color Field', () => {
   test.fixme(
     'APP-COLOR-FIELD-002: should enforce hex color format via CHECK constraint',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery(
         "CREATE TABLE colors (id SERIAL PRIMARY KEY, value VARCHAR(7) CHECK (value ~ '^#[0-9A-Fa-f]{6}$'))"
       )
@@ -36,7 +44,11 @@ test.describe('Color Field', () => {
   test.fixme(
     'APP-COLOR-FIELD-003: should store valid hex color values',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE palettes (id SERIAL PRIMARY KEY, color VARCHAR(7))',
         "INSERT INTO palettes (color) VALUES ('#FF5733'), ('#3498DB')",
@@ -49,7 +61,11 @@ test.describe('Color Field', () => {
   test.fixme(
     'APP-COLOR-FIELD-004: should support NULL for optional colors',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE items (id SERIAL PRIMARY KEY, accent_color VARCHAR(7))',
         'INSERT INTO items (accent_color) VALUES (NULL)',
@@ -62,7 +78,11 @@ test.describe('Color Field', () => {
   test.fixme(
     'APP-COLOR-FIELD-005: should require NOT NULL when color is required',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery(
         'CREATE TABLE brands (id SERIAL PRIMARY KEY, brand_color VARCHAR(7) NOT NULL)'
       )
@@ -75,7 +95,11 @@ test.describe('Color Field', () => {
   test.fixme(
     'user can complete full color-field workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE data (id SERIAL PRIMARY KEY, color VARCHAR(7))',
         "INSERT INTO data (color) VALUES ('#ABCDEF')",

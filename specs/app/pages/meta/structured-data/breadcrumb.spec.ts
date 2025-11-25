@@ -22,7 +22,7 @@ test.describe('Breadcrumb Schema', () => {
   test(
     'APP-PAGES-BREADCRUMB-001: should validate minimal BreadcrumbList structured data',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: BreadcrumbList with required properties
       await startServerWithSchema({
         name: 'test-app',
@@ -59,7 +59,7 @@ test.describe('Breadcrumb Schema', () => {
   test(
     'APP-PAGES-BREADCRUMB-002: should define navigation path',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: BreadcrumbList with itemListElement array
       await startServerWithSchema({
         name: 'test-app',
@@ -99,7 +99,7 @@ test.describe('Breadcrumb Schema', () => {
   test(
     'APP-PAGES-BREADCRUMB-003: should define breadcrumb item structure',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: BreadcrumbList with ListItem
       await startServerWithSchema({
         name: 'test-app',
@@ -138,7 +138,7 @@ test.describe('Breadcrumb Schema', () => {
   test(
     'APP-PAGES-BREADCRUMB-004: should order breadcrumb trail',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: BreadcrumbList with position
       await startServerWithSchema({
         name: 'test-app',
@@ -181,7 +181,7 @@ test.describe('Breadcrumb Schema', () => {
   test(
     'APP-PAGES-BREADCRUMB-005: should provide human-readable breadcrumb label',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: BreadcrumbList with name
       await startServerWithSchema({
         name: 'test-app',
@@ -224,7 +224,7 @@ test.describe('Breadcrumb Schema', () => {
   test(
     'APP-PAGES-BREADCRUMB-006: should provide clickable breadcrumb link',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: BreadcrumbList with item URL
       await startServerWithSchema({
         name: 'test-app',
@@ -269,7 +269,7 @@ test.describe('Breadcrumb Schema', () => {
   test(
     'APP-PAGES-BREADCRUMB-007: should represent multi-level navigation path',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: BreadcrumbList with multiple levels
       await startServerWithSchema({
         name: 'test-app',
@@ -327,7 +327,7 @@ test.describe('Breadcrumb Schema', () => {
   test(
     'APP-PAGES-BREADCRUMB-008: should help search engines understand site architecture',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: BreadcrumbList for site hierarchy
       await startServerWithSchema({
         name: 'test-app',
@@ -371,7 +371,7 @@ test.describe('Breadcrumb Schema', () => {
   test(
     'APP-PAGES-BREADCRUMB-009: should display breadcrumb trail in Google search results',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: BreadcrumbList for rich results
       await startServerWithSchema({
         name: 'test-app',
@@ -416,7 +416,7 @@ test.describe('Breadcrumb Schema', () => {
   test(
     'APP-PAGES-BREADCRUMB-010: should improve navigation and reduce bounce rate',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: BreadcrumbList for navigation UX
       await startServerWithSchema({
         name: 'test-app',
@@ -455,7 +455,7 @@ test.describe('Breadcrumb Schema', () => {
   test(
     'APP-PAGES-META-STRUCTURED-DATA-BREADCRUMB-REGRESSION-001: user can complete full Breadcrumb workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [

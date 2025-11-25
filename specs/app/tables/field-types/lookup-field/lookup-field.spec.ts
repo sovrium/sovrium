@@ -23,7 +23,11 @@ test.describe('Lookup Field', () => {
   test.fixme(
     'APP-LOOKUP-FIELD-001: should retrieve related field via JOIN',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255))',
         "INSERT INTO customers (name, email) VALUES ('Alice Johnson', 'alice@example.com'), ('Bob Smith', 'bob@example.com')",
@@ -55,7 +59,11 @@ test.describe('Lookup Field', () => {
   test.fixme(
     'APP-LOOKUP-FIELD-002: should support multiple lookup fields through same relationship',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), department VARCHAR(100))',
         "INSERT INTO users (name, email, department) VALUES ('John Doe', 'john@company.com', 'Engineering')",
@@ -78,7 +86,11 @@ test.describe('Lookup Field', () => {
   test.fixme(
     'APP-LOOKUP-FIELD-003: should create VIEW to encapsulate lookup logic',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE categories (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO categories (name) VALUES ('Electronics'), ('Clothing')",
@@ -107,7 +119,11 @@ test.describe('Lookup Field', () => {
   test.fixme(
     'APP-LOOKUP-FIELD-004: should return NULL when relationship is NULL via LEFT JOIN',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE companies (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO companies (name) VALUES ('Acme Corp')",
@@ -135,7 +151,11 @@ test.describe('Lookup Field', () => {
   test.fixme(
     'APP-LOOKUP-FIELD-005: should reflect updated values immediately when related record changes',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255), price DECIMAL(10,2))',
         "INSERT INTO products (name, price) VALUES ('Widget', 19.99)",
@@ -160,7 +180,11 @@ test.describe('Lookup Field', () => {
   test.fixme(
     'user can complete full lookup-field workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE categories (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO categories (name) VALUES ('Books')",

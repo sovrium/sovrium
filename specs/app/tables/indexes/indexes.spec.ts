@@ -518,7 +518,7 @@ test.describe('Database Indexes', () => {
   test.fixme(
     'APP-TABLES-INDEXES-008: should enable efficient text search queries with GIN index for full-text search',
     { tag: '@spec' },
-    async ({ executeQuery: _executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: table with text search index using GIN (for full-text search)
       // WHEN: index is created with to_tsvector
       await executeQuery(

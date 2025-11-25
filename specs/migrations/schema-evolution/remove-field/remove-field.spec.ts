@@ -7,8 +7,6 @@
 
 import { test, expect } from '@/specs/fixtures'
 
- 
-
 /**
  * E2E Tests for Remove Field Migration
  *
@@ -29,7 +27,11 @@ test.describe('Remove Field Migration', () => {
   test.fixme(
     'MIG-ALTER-REMOVE-001: should remove phone column and preserve other columns when runtime migration generates ALTER TABLE DROP COLUMN',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'users' with email and phone fields, phone field is removed from schema
       await executeQuery([
         `CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL UNIQUE, phone VARCHAR(20))`,
@@ -78,7 +80,11 @@ test.describe('Remove Field Migration', () => {
   test.fixme(
     'MIG-ALTER-REMOVE-002: should drop column and preserve column order for remaining fields when ALTER TABLE removes column from middle of schema',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'products' with multiple fields, middle field is removed
       await executeQuery([
         `CREATE TABLE products (id SERIAL PRIMARY KEY, title VARCHAR(255), description TEXT, price NUMERIC(10,2))`,
@@ -129,7 +135,11 @@ test.describe('Remove Field Migration', () => {
   test.fixme(
     'MIG-ALTER-REMOVE-003: should automatically drop associated index when ALTER TABLE drops column with index',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'tasks' with indexed field, indexed field is removed
       await executeQuery([
         `CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), status VARCHAR(50))`,
@@ -178,7 +188,11 @@ test.describe('Remove Field Migration', () => {
   test.fixme(
     'MIG-ALTER-REMOVE-004: should remove column and CASCADE drop foreign key constraint when ALTER TABLE drops column with foreign key constraint',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'orders' with foreign key field, relationship field is removed
       await executeQuery([
         `CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255))`,
@@ -251,7 +265,11 @@ test.describe('Remove Field Migration', () => {
   test.fixme(
     'user can complete full remove-field-migration workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Application configured with representative remove field scenarios
       await executeQuery([
         `CREATE TABLE data (id SERIAL PRIMARY KEY, title VARCHAR(255), description TEXT, status VARCHAR(50))`,

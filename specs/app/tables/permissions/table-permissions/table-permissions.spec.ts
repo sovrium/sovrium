@@ -16,7 +16,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
- 
 
 /**
  * E2E Tests for Table-Level Permissions
@@ -38,7 +37,11 @@ test.describe('Table-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-TABLE-PERMISSIONS-001: should grant SELECT access to user with member role when table has role-based read permission',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table with role-based read permission for 'member' role
       await startServerWithSchema({
         name: 'test-app',
@@ -103,7 +106,11 @@ test.describe('Table-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-TABLE-PERMISSIONS-002: should deny INSERT access when user with member role attempts to create record with admin-only create permission',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table with role-based create permission for 'admin' role only
       await startServerWithSchema({
         name: 'test-app',
@@ -166,7 +173,11 @@ test.describe('Table-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-TABLE-PERMISSIONS-003: should allow SELECT without RLS policy when table has public read permission',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table with public read permission
       await startServerWithSchema({
         name: 'test-app',
@@ -222,7 +233,11 @@ test.describe('Table-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-TABLE-PERMISSIONS-004: should grant UPDATE access to authenticated users when table has authenticated-only update permission',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table with authenticated-only update permission
       await startServerWithSchema({
         name: 'test-app',
@@ -287,7 +302,11 @@ test.describe('Table-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-TABLE-PERMISSIONS-005: should deny all SELECT access by default when table has no read permission specified',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table with no read permission specified (default deny)
       await startServerWithSchema({
         name: 'test-app',
@@ -347,7 +366,11 @@ test.describe('Table-Level Permissions', () => {
   test.fixme(
     'user can complete full table-permissions workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Application configured with representative table-level permissions
       await startServerWithSchema({
         name: 'test-app',

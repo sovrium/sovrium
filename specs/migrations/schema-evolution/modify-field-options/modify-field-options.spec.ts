@@ -7,8 +7,6 @@
 
 import { test, expect } from '@/specs/fixtures'
 
- 
-
 /**
  * E2E Tests for Modify Field Options Migration
  *
@@ -29,7 +27,11 @@ test.describe('Modify Field Options Migration', () => {
   test.fixme(
     'MIG-MODIFY-OPTIONS-001: should drop check constraint, add new check with additional value',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'tasks' with status field (enum: 'pending', 'in_progress', 'completed')
       // WHEN: new option 'archived' added to enum
       // THEN: DROP CHECK constraint, ADD new CHECK with additional value
@@ -42,7 +44,11 @@ test.describe('Modify Field Options Migration', () => {
   test.fixme(
     'MIG-MODIFY-OPTIONS-002: should drop check constraint, add new check without removed value',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'products' with category field (enum: 'electronics', 'clothing', 'books', 'furniture'), no rows use 'furniture'
       // WHEN: option 'furniture' removed from enum
       // THEN: DROP CHECK constraint, ADD new CHECK without removed value
@@ -55,7 +61,11 @@ test.describe('Modify Field Options Migration', () => {
   test.fixme(
     'MIG-MODIFY-OPTIONS-003: should migration fails with data validation error (existing data uses removed option)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'orders' with priority field (enum: 'low', 'medium', 'high'), existing rows use 'medium'
       // WHEN: attempting to remove option 'medium' from enum
       // THEN: Migration fails with data validation error (existing data uses removed option)
@@ -68,7 +78,11 @@ test.describe('Modify Field Options Migration', () => {
   test.fixme(
     'MIG-MODIFY-OPTIONS-004: should add check constraint with jsonb validation expression',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'preferences' with tags field (JSONB array)
       // WHEN: validation rule added requiring each tag to match pattern ^[a-z]+$
       // THEN: ADD CHECK constraint with JSONB validation expression
@@ -85,7 +99,11 @@ test.describe('Modify Field Options Migration', () => {
   test.fixme(
     'user can complete full modify-field-options workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Application configured with representative modify-field-options scenarios
       // WHEN/THEN: Streamlined workflow testing integration points
 

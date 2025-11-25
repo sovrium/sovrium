@@ -22,7 +22,7 @@ test.describe('Inline Scripts', () => {
   test(
     'APP-PAGES-INLINE-001: should inject inline JavaScript code',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: an inline script with code
       await startServerWithSchema({
         name: 'test-app',
@@ -54,7 +54,7 @@ test.describe('Inline Scripts', () => {
   test(
     'APP-PAGES-INLINE-002: should insert code at end of body',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: an inline script with position 'body-end'
       await startServerWithSchema({
         name: 'test-app',
@@ -87,7 +87,7 @@ test.describe('Inline Scripts', () => {
   test(
     'APP-PAGES-INLINE-003: should insert code in document head',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: an inline script with position 'head'
       await startServerWithSchema({
         name: 'test-app',
@@ -118,7 +118,7 @@ test.describe('Inline Scripts', () => {
   test(
     'APP-PAGES-INLINE-004: should insert code at start of body',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: an inline script with position 'body-start'
       await startServerWithSchema({
         name: 'test-app',
@@ -151,7 +151,7 @@ test.describe('Inline Scripts', () => {
   test(
     'APP-PAGES-INLINE-005: should wrap code in async IIFE (async function)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: an inline script with async true
       await startServerWithSchema({
         name: 'test-app',
@@ -180,7 +180,7 @@ test.describe('Inline Scripts', () => {
   test(
     'APP-PAGES-INLINE-006: should inject global configuration',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: an inline script setting window config
       await startServerWithSchema({
         name: 'test-app',
@@ -209,7 +209,7 @@ test.describe('Inline Scripts', () => {
   test(
     'APP-PAGES-INLINE-007: should inject multiple inline scripts in order',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: inline scripts array with multiple snippets
       await startServerWithSchema({
         name: 'test-app',
@@ -247,7 +247,7 @@ test.describe('Inline Scripts', () => {
   test(
     'APP-PAGES-INLINE-008: should inject code with default settings (body-end, sync)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: an inline script with required code only
       await startServerWithSchema({
         name: 'test-app',
@@ -278,7 +278,7 @@ test.describe('Inline Scripts', () => {
   test(
     'APP-PAGES-INLINE-009: should enable custom tracking code',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: inline scripts for analytics tracking
       await startServerWithSchema({
         name: 'test-app',
@@ -311,7 +311,7 @@ test.describe('Inline Scripts', () => {
   test(
     'APP-PAGES-INLINE-010: should execute scripts in document order',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: inline scripts execution order
       await startServerWithSchema({
         name: 'test-app',
@@ -344,7 +344,7 @@ test.describe('Inline Scripts', () => {
   test(
     'APP-PAGES-SCRIPTS-INLINE-REGRESSION-001: user can complete full Inline Scripts workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [

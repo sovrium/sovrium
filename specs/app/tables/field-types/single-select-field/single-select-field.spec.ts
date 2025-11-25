@@ -23,7 +23,11 @@ test.describe('Single Select Field', () => {
   test.fixme(
     'APP-SINGLE-SELECT-FIELD-001: should create PostgreSQL VARCHAR column for single select storage',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -58,7 +62,11 @@ test.describe('Single Select Field', () => {
   test.fixme(
     'APP-SINGLE-SELECT-FIELD-002: should enforce CHECK constraint to allow only predefined options',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -91,7 +99,11 @@ test.describe('Single Select Field', () => {
   test.fixme(
     'APP-SINGLE-SELECT-FIELD-003: should reject NULL value when single-select field is required',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -125,7 +137,11 @@ test.describe('Single Select Field', () => {
   test.fixme(
     'APP-SINGLE-SELECT-FIELD-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -155,7 +171,11 @@ test.describe('Single Select Field', () => {
   test.fixme(
     'APP-SINGLE-SELECT-FIELD-005: should create btree index for fast queries when single-select field has indexed=true',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -186,7 +206,11 @@ test.describe('Single Select Field', () => {
   test.fixme(
     'user can complete full single-select-field workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [

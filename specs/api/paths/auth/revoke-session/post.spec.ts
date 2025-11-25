@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
- 
 
 /**
  * E2E Tests for Revoke specific session
@@ -33,7 +32,11 @@ test.describe('Revoke specific session', () => {
   test.fixme(
     'API-AUTH-REVOKE-SESSION-SUCCESS-001: should returns 200 OK and revokes the specified session',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated user with multiple active sessions
       await startServerWithSchema({
         name: 'test-app',
@@ -81,7 +84,11 @@ test.describe('Revoke specific session', () => {
   test.fixme(
     'API-AUTH-REVOKE-SESSION-VALIDATION-REQUIRED-SESSION-ID-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -115,7 +122,11 @@ test.describe('Revoke specific session', () => {
   test.fixme(
     'API-AUTH-REVOKE-SESSION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -144,7 +155,11 @@ test.describe('Revoke specific session', () => {
   test.fixme(
     'API-AUTH-REVOKE-SESSION-PERMISSIONS-NOT-FOUND-NONEXISTENT-SESSION-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -181,7 +196,11 @@ test.describe('Revoke specific session', () => {
   test.fixme(
     'API-AUTH-REVOKE-SESSION-PERMISSIONS-FORBIDDEN-OTHER-USER-SESSION-001: should returns 404 Not Found (not 403 to prevent session enumeration)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Two users with their own sessions
       await startServerWithSchema({
         name: 'test-app',
@@ -223,7 +242,11 @@ test.describe('Revoke specific session', () => {
   test.fixme(
     'API-AUTH-REVOKE-SESSION-EDGE-CASE-REVOKE-CURRENT-SESSION-001: should returns 200 OK and revokes current session',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated user with current session
       await startServerWithSchema({
         name: 'test-app',
@@ -263,7 +286,11 @@ test.describe('Revoke specific session', () => {
   test.fixme(
     'user can complete full revokeSession workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

@@ -7,8 +7,6 @@
 
 import { test, expect } from '@/specs/fixtures'
 
- 
-
 /**
  * E2E Tests for Row-Level Security Policies Migration
  *
@@ -29,7 +27,11 @@ test.describe('Row-Level Security Policies Migration', () => {
   test.fixme(
     'MIG-RLS-001: should enable rls + create select policy',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'documents' exists without RLS
       // WHEN: RLS enabled with SELECT policy (user_id = current_user_id())
       // THEN: Enable RLS + CREATE SELECT policy
@@ -42,7 +44,11 @@ test.describe('Row-Level Security Policies Migration', () => {
   test.fixme(
     'MIG-RLS-002: should create insert policy',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'posts' with RLS enabled and SELECT policy
       // WHEN: INSERT policy added (user_id = current_user_id())
       // THEN: CREATE INSERT policy
@@ -55,7 +61,11 @@ test.describe('Row-Level Security Policies Migration', () => {
   test.fixme(
     'MIG-RLS-003: should create update policy',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'comments' with RLS and SELECT/INSERT policies
       // WHEN: UPDATE policy added (user_id = current_user_id())
       // THEN: CREATE UPDATE policy
@@ -68,7 +78,11 @@ test.describe('Row-Level Security Policies Migration', () => {
   test.fixme(
     'MIG-RLS-004: should drop rls policy',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'tasks' with RLS and multiple policies
       // WHEN: SELECT policy removed from schema
       // THEN: DROP RLS policy
@@ -81,7 +95,11 @@ test.describe('Row-Level Security Policies Migration', () => {
   test.fixme(
     'MIG-RLS-005: should alter policy via drop and create',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'projects' with RLS policy using old expression
       // WHEN: policy expression modified (owner_id changed to user_id)
       // THEN: Alter policy via DROP and CREATE
@@ -94,7 +112,11 @@ test.describe('Row-Level Security Policies Migration', () => {
   test.fixme(
     'MIG-RLS-006: should disable rls on table',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'logs' with RLS enabled and policies
       // WHEN: RLS disabled in schema
       // THEN: Disable RLS on table
@@ -111,7 +133,11 @@ test.describe('Row-Level Security Policies Migration', () => {
   test.fixme(
     'user can complete full rls-policies workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Application configured with representative rls-policies scenarios
       // WHEN/THEN: Streamlined workflow testing integration points
 

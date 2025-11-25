@@ -27,7 +27,7 @@ test.describe('Page Metadata', () => {
   test(
     'APP-PAGES-META-001: should validate minimal metadata configuration',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: page metadata with required properties
       await startServerWithSchema({
         name: 'test_app',
@@ -57,7 +57,7 @@ test.describe('Page Metadata', () => {
   test(
     'APP-PAGES-META-002: should enforce title length constraint',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: page metadata with title maxLength
       await startServerWithSchema({
         name: 'test-app',
@@ -87,7 +87,7 @@ test.describe('Page Metadata', () => {
   test(
     'APP-PAGES-META-003: should enforce description length constraint',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: page metadata with description maxLength
       await startServerWithSchema({
         name: 'test-app',
@@ -118,7 +118,7 @@ test.describe('Page Metadata', () => {
   test(
     'APP-PAGES-META-004: should accept keyword string',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: page metadata with keywords
       await startServerWithSchema({
         name: 'test-app',
@@ -151,7 +151,7 @@ test.describe('Page Metadata', () => {
   test(
     'APP-PAGES-META-005: should define canonical URL',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: page metadata with canonical URL
       await startServerWithSchema({
         name: 'test-app',
@@ -184,7 +184,7 @@ test.describe('Page Metadata', () => {
   test(
     'APP-PAGES-META-006: should support both single and multi-favicon configurations',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: page metadata with favicon and favicons
       await startServerWithSchema({
         name: 'test-app',
@@ -225,7 +225,7 @@ test.describe('Page Metadata', () => {
   test(
     'APP-PAGES-META-007: should include CSS and font resources',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: page metadata with stylesheet and googleFonts
       await startServerWithSchema({
         name: 'test-app',
@@ -260,7 +260,7 @@ test.describe('Page Metadata', () => {
   test(
     'APP-PAGES-META-008: should enable rich social sharing',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: page metadata with social media integration
       await startServerWithSchema({
         name: 'test-app',
@@ -308,7 +308,7 @@ test.describe('Page Metadata', () => {
   test(
     'APP-PAGES-META-009: should provide search engine understanding',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: page metadata with structured data
       await startServerWithSchema({
         name: 'test-app',
@@ -346,7 +346,7 @@ test.describe('Page Metadata', () => {
   test(
     'APP-PAGES-META-010: should optimize page load performance',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: page metadata with performance optimizations
       await startServerWithSchema({
         name: 'test-app',
@@ -387,7 +387,7 @@ test.describe('Page Metadata', () => {
   test(
     'APP-PAGES-META-011: should enable visitor analytics',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: page metadata with analytics
       await startServerWithSchema({
         name: 'test-app',
@@ -436,7 +436,7 @@ test.describe('Page Metadata', () => {
   test(
     'APP-PAGES-META-012: should provide comprehensive page metadata management',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: page metadata orchestrating all sub-schemas
       await startServerWithSchema({
         name: 'test-app',
@@ -502,7 +502,7 @@ test.describe('Page Metadata', () => {
   test(
     'APP-PAGES-META-REGRESSION-001: user can complete full metadata workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [

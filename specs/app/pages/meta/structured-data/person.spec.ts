@@ -22,7 +22,7 @@ test.describe('Person Schema', () => {
   test(
     'APP-PAGES-PERSON-001: should validate minimal Person structured data',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Person with required properties
       await startServerWithSchema({
         name: 'test-app',
@@ -56,7 +56,7 @@ test.describe('Person Schema', () => {
   test(
     "APP-PAGES-PERSON-002: should provide person's full name",
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -84,7 +84,7 @@ test.describe('Person Schema', () => {
   test(
     'APP-PAGES-PERSON-003: should provide structured first and last names',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Person with split name
       await startServerWithSchema({
         name: 'test-app',
@@ -126,7 +126,7 @@ test.describe('Person Schema', () => {
   test(
     'APP-PAGES-PERSON-004: should provide person contact information',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Person with contact info
       await startServerWithSchema({
         name: 'test-app',
@@ -166,7 +166,7 @@ test.describe('Person Schema', () => {
   test(
     "APP-PAGES-PERSON-005: should link to person's web presence",
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -199,7 +199,7 @@ test.describe('Person Schema', () => {
   test(
     'APP-PAGES-PERSON-006: should provide visual representation',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Person with image
       await startServerWithSchema({
         name: 'test-app',
@@ -237,7 +237,7 @@ test.describe('Person Schema', () => {
   test(
     "APP-PAGES-PERSON-007: should indicate person's professional role",
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       const jobTitles = ['CEO', 'Software Engineer', 'Product Manager', 'Designer']
       for (const jobTitle of jobTitles) {
         await startServerWithSchema({
@@ -273,7 +273,7 @@ test.describe('Person Schema', () => {
   test(
     'APP-PAGES-PERSON-008: should link person to their employer',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Person with worksFor
       await startServerWithSchema({
         name: 'test-app',
@@ -312,7 +312,7 @@ test.describe('Person Schema', () => {
   test(
     'APP-PAGES-PERSON-009: should link person to their social profiles',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Person with social profiles
       await startServerWithSchema({
         name: 'test-app',
@@ -356,7 +356,7 @@ test.describe('Person Schema', () => {
   test(
     'APP-PAGES-PERSON-010: should include PostalAddress structured data',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Person with address
       await startServerWithSchema({
         name: 'test-app',
@@ -400,7 +400,7 @@ test.describe('Person Schema', () => {
   test(
     'APP-PAGES-PERSON-011: should attribute content to specific author',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Person for author attribution
       await startServerWithSchema({
         name: 'test-app',
@@ -440,7 +440,7 @@ test.describe('Person Schema', () => {
   test(
     'APP-PAGES-PERSON-012: should enable Google Knowledge Graph panel for notable persons',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Person for knowledge graph
       await startServerWithSchema({
         name: 'test-app',
@@ -480,7 +480,7 @@ test.describe('Person Schema', () => {
   test(
     'APP-PAGES-META-STRUCTURED-DATA-PERSON-REGRESSION-001: user can complete full Person workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [

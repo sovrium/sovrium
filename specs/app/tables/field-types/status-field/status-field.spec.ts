@@ -23,7 +23,11 @@ test.describe('Status Field', () => {
   test.fixme(
     'APP-STATUS-FIELD-001: should create PostgreSQL VARCHAR column with CHECK constraint for status values',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery('CREATE TABLE documents (id SERIAL PRIMARY KEY)')
 
       await startServerWithSchema({
@@ -70,7 +74,11 @@ test.describe('Status Field', () => {
   test.fixme(
     'APP-STATUS-FIELD-002: should reject value not in status options via CHECK constraint',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery(
         "CREATE TABLE projects (id SERIAL PRIMARY KEY, project_status VARCHAR(50) CHECK (project_status IN ('Planning', 'Active', 'On Hold', 'Completed', 'Cancelled')))"
       )
@@ -94,7 +102,11 @@ test.describe('Status Field', () => {
   test.fixme(
     'APP-STATUS-FIELD-003: should enforce NOT NULL and UNIQUE constraints when required/unique',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         "CREATE TABLE tasks (id SERIAL PRIMARY KEY, task_status VARCHAR(50) UNIQUE NOT NULL CHECK (task_status IN ('Todo', 'In Progress', 'Blocked', 'Done')))",
         "INSERT INTO tasks (task_status) VALUES ('Todo')",
@@ -123,7 +135,11 @@ test.describe('Status Field', () => {
   test.fixme(
     'APP-STATUS-FIELD-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery(
         "CREATE TABLE orders (id SERIAL PRIMARY KEY, order_status VARCHAR(50) DEFAULT 'Pending' CHECK (order_status IN ('Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled')))"
       )
@@ -148,7 +164,11 @@ test.describe('Status Field', () => {
   test.fixme(
     'APP-STATUS-FIELD-005: should create btree index for fast status filtering when indexed=true',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         "CREATE TABLE requests (id SERIAL PRIMARY KEY, approval_status VARCHAR(50) NOT NULL CHECK (approval_status IN ('Submitted', 'Under Review', 'Approved', 'Rejected')))",
         'CREATE INDEX idx_requests_status ON requests(approval_status)',
@@ -172,7 +192,11 @@ test.describe('Status Field', () => {
   test.fixme(
     'user can complete full status-field workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [

@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
- 
 
 /**
  * E2E Tests for Admin: Unban user
@@ -33,7 +32,11 @@ test.describe('Admin: Unban user', () => {
   test.fixme(
     'API-ADMIN-UNBAN-USER-SUCCESS-001: should returns 200 OK and removes ban, allowing user to sign in',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated admin user and a banned user
       await startServerWithSchema({
         name: 'test-app',
@@ -81,7 +84,11 @@ test.describe('Admin: Unban user', () => {
   test.fixme(
     'API-ADMIN-UNBAN-USER-VALIDATION-REQUIRED-USER-ID-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -115,7 +122,11 @@ test.describe('Admin: Unban user', () => {
   test.fixme(
     'API-ADMIN-UNBAN-USER-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -144,7 +155,11 @@ test.describe('Admin: Unban user', () => {
   test.fixme(
     'API-ADMIN-UNBAN-USER-PERMISSIONS-FORBIDDEN-NON-ADMIN-001: should returns 403 Forbidden',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -184,7 +199,11 @@ test.describe('Admin: Unban user', () => {
   test.fixme(
     'API-ADMIN-UNBAN-USER-NOT-FOUND-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -221,7 +240,11 @@ test.describe('Admin: Unban user', () => {
   test.fixme(
     'API-ADMIN-UNBAN-USER-EDGE-CASE-ALREADY-UNBANNED-001: should returns 200 OK (idempotent operation)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated admin user and an already active user
       await startServerWithSchema({
         name: 'test-app',
@@ -264,7 +287,11 @@ test.describe('Admin: Unban user', () => {
   test.fixme(
     'user can complete full adminUnbanUser workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

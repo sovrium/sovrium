@@ -23,7 +23,11 @@ test.describe('Geolocation Field', () => {
   test.fixme(
     'APP-GEOLOCATION-FIELD-001: should create PostgreSQL POINT type for latitude/longitude storage',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery('CREATE TABLE locations (id SERIAL PRIMARY KEY, coordinates POINT)')
 
       const columnInfo = await executeQuery(
@@ -48,7 +52,11 @@ test.describe('Geolocation Field', () => {
   test.fixme(
     'APP-GEOLOCATION-FIELD-002: should support distance calculations with <-> operator',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE stores (id SERIAL PRIMARY KEY, name VARCHAR(255), location POINT)',
         "INSERT INTO stores (name, location) VALUES ('Store A', POINT(40.7128, -74.0060))",
@@ -77,7 +85,11 @@ test.describe('Geolocation Field', () => {
   test.fixme(
     'APP-GEOLOCATION-FIELD-003: should create GiST index for spatial queries',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE places (id SERIAL PRIMARY KEY, position POINT)',
         'CREATE INDEX idx_places_position ON places USING GIST(position)',
@@ -101,7 +113,11 @@ test.describe('Geolocation Field', () => {
   test.fixme(
     'APP-GEOLOCATION-FIELD-004: should support bounding box queries with box containment',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE venues (id SERIAL PRIMARY KEY, name VARCHAR(255), coords POINT)',
         "INSERT INTO venues (name, coords) VALUES ('Venue 1', POINT(40.7128, -74.0060))",
@@ -124,7 +140,11 @@ test.describe('Geolocation Field', () => {
   test.fixme(
     'APP-GEOLOCATION-FIELD-005: should enforce NOT NULL and UNIQUE constraints on POINT column',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE addresses (id SERIAL PRIMARY KEY, location POINT UNIQUE NOT NULL)',
         'INSERT INTO addresses (location) VALUES (POINT(40.7128, -74.0060))',
@@ -149,7 +169,11 @@ test.describe('Geolocation Field', () => {
   test.fixme(
     'user can complete full geolocation-field workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [

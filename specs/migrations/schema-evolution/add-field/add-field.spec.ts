@@ -7,8 +7,6 @@
 
 import { test, expect } from '@/specs/fixtures'
 
- 
-
 /**
  * E2E Tests for Add Field Migration
  *
@@ -29,7 +27,11 @@ test.describe('Add Field Migration', () => {
   test.fixme(
     'MIG-ALTER-ADD-001: should add TEXT NOT NULL column to existing table when runtime migration generates ALTER TABLE ADD COLUMN',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'users' with email field exists, new field 'name' (single-line-text, required) is added to schema
       await executeQuery([
         `CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL UNIQUE, created_at TIMESTAMPTZ DEFAULT NOW())`,
@@ -85,7 +87,11 @@ test.describe('Add Field Migration', () => {
   test.fixme(
     'MIG-ALTER-ADD-002: should add TEXT column without NOT NULL constraint when ALTER TABLE adds nullable column',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'products' with title field, new optional field 'description' (long-text) is added
       await executeQuery([
         `CREATE TABLE products (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL)`,
@@ -139,7 +145,11 @@ test.describe('Add Field Migration', () => {
   test.fixme(
     'MIG-ALTER-ADD-003: should add TEXT column with CHECK constraint for enum values when ALTER TABLE adds column with CHECK constraint',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'tasks' exists, new field 'priority' (single-select with options) is added
       await executeQuery([
         `CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL)`,
@@ -193,7 +203,11 @@ test.describe('Add Field Migration', () => {
   test.fixme(
     'MIG-ALTER-ADD-004: should add column with default value applied to existing rows when ALTER TABLE adds column with DEFAULT',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'orders' exists, new field 'total' (decimal) with default value is added
       await executeQuery([
         `CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50) NOT NULL)`,
@@ -253,7 +267,11 @@ test.describe('Add Field Migration', () => {
   test.fixme(
     'user can complete full add-field-migration workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Application configured with representative add field scenarios
       await executeQuery([
         `CREATE TABLE data (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL)`,

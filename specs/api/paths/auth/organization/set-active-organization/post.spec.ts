@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
- 
 
 /**
  * E2E Tests for Set active organization
@@ -33,7 +32,11 @@ test.describe('Set active organization', () => {
   test.fixme(
     'API-ORG-SET-ACTIVE-ORGANIZATION-SUCCESS-001: should returns 200 OK and updates session with active organization',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated user who is member of multiple organizations
       await startServerWithSchema({
         name: 'test-app',
@@ -86,7 +89,11 @@ test.describe('Set active organization', () => {
   test.fixme(
     'API-ORG-SET-ACTIVE-ORGANIZATION-VALIDATION-REQUIRED-ORGANIZATION-ID-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -120,7 +127,11 @@ test.describe('Set active organization', () => {
   test.fixme(
     'API-ORG-SET-ACTIVE-ORGANIZATION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -149,7 +160,11 @@ test.describe('Set active organization', () => {
   test.fixme(
     'API-ORG-SET-ACTIVE-ORGANIZATION-NOT-FOUND-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -186,7 +201,11 @@ test.describe('Set active organization', () => {
   test.fixme(
     'API-ORG-SET-ACTIVE-ORGANIZATION-SECURITY-NON-MEMBER-ACCESS-001: should returns 404 Not Found (not 403 to prevent organization enumeration)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated user who is not member of an organization
       await startServerWithSchema({
         name: 'test-app',
@@ -236,7 +255,11 @@ test.describe('Set active organization', () => {
   test.fixme(
     'user can complete full setActiveOrganization workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

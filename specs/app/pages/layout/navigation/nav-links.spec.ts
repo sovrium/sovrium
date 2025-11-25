@@ -27,7 +27,7 @@ test.describe('Navigation Links', () => {
   test(
     'APP-PAGES-NAVLINKS-001: should render navigation link',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a nav link with label and href
       await startServerWithSchema({
         name: 'test-app',
@@ -60,7 +60,7 @@ test.describe('Navigation Links', () => {
   test(
     'APP-PAGES-NAVLINKS-002: should open link in new tab',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a nav link with target _blank
       await startServerWithSchema({
         name: 'test-app',
@@ -94,7 +94,7 @@ test.describe('Navigation Links', () => {
   test(
     'APP-PAGES-NAVLINKS-003: should display icon alongside label',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a nav link with icon
       await startServerWithSchema({
         name: 'test-app',
@@ -127,7 +127,7 @@ test.describe('Navigation Links', () => {
   test(
     'APP-PAGES-NAVLINKS-004: should display badge to highlight link',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a nav link with badge
       await startServerWithSchema({
         name: 'test-app',
@@ -159,7 +159,7 @@ test.describe('Navigation Links', () => {
   test(
     'APP-PAGES-NAVLINKS-005: should render dropdown menu on hover/click',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a nav link with children (dropdown/submenu)
       await startServerWithSchema({
         name: 'test-app',
@@ -205,7 +205,7 @@ test.describe('Navigation Links', () => {
   test(
     'APP-PAGES-NAVLINKS-006: should scroll to anchor on same page',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a nav link with anchor href
       await startServerWithSchema({
         name: 'test-app',
@@ -240,7 +240,7 @@ test.describe('Navigation Links', () => {
   test(
     'APP-PAGES-NAVLINKS-007: should render horizontal navigation menu',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: nav links array with 4+ links
       await startServerWithSchema({
         name: 'test-app',
@@ -281,7 +281,7 @@ test.describe('Navigation Links', () => {
   test(
     'APP-PAGES-NAVLINKS-008: should support unlimited nesting depth for menus',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: nav links with recursive children
       await startServerWithSchema({
         name: 'test-app',
@@ -331,7 +331,7 @@ test.describe('Navigation Links', () => {
   test(
     'APP-PAGES-NAVLINKS-009: should support all standard HTML link targets',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: nav links with all 4 target options
       const targets = ['_self', '_blank', '_parent', '_top']
       for (const target of targets) {
@@ -364,7 +364,7 @@ test.describe('Navigation Links', () => {
   test(
     'APP-PAGES-NAVLINKS-010: should enforce required properties for valid links',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: nav links with label and href as required
       await startServerWithSchema({
         name: 'test-app',
@@ -402,7 +402,7 @@ test.describe('Navigation Links', () => {
   test(
     'APP-PAGES-LAYOUT-NAVIGATION-NAV-LINKS-REGRESSION-001: user can complete full nav links workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [

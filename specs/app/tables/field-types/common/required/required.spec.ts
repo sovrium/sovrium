@@ -27,7 +27,11 @@ test.describe('Required Field Property', () => {
   test.fixme(
     'APP-FIELD-REQUIRED-001: should reject NULL values when field has required: true',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: field with required: true
       await startServerWithSchema({
         name: 'test-app',
@@ -69,7 +73,11 @@ test.describe('Required Field Property', () => {
   test.fixme(
     'APP-FIELD-REQUIRED-002: should allow NULL values when field has required: false (default)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: field with required: false (default)
       await startServerWithSchema({
         name: 'test-app',
@@ -114,7 +122,11 @@ test.describe('Required Field Property', () => {
   test.fixme(
     'APP-FIELD-REQUIRED-003: should fail migration when attempting to add NOT NULL constraint with existing NULL values',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: required field with existing NULL values
       await executeQuery([
         'CREATE TABLE items (id SERIAL PRIMARY KEY, title VARCHAR(255))',
@@ -142,7 +154,11 @@ test.describe('Required Field Property', () => {
   test.fixme(
     'APP-FIELD-REQUIRED-004: should reject INSERT/UPDATE missing any required field when multiple required fields in same table',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: multiple required fields in same table
       await startServerWithSchema({
         name: 'test-app',
@@ -200,7 +216,11 @@ test.describe('Required Field Property', () => {
   test.fixme(
     'user can complete full required-field workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Application configured with representative required fields
       await startServerWithSchema({
         name: 'test-app',

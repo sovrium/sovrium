@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
- 
 
 /**
  * E2E Tests for Refresh session token
@@ -33,7 +32,11 @@ test.describe('Refresh session token', () => {
   test.fixme(
     'API-AUTH-REFRESH-SESSION-SUCCESS-001: should returns 200 OK with new token and extended expiration',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated user with valid session token
       await startServerWithSchema({
         name: 'test-app',
@@ -73,7 +76,11 @@ test.describe('Refresh session token', () => {
   test.fixme(
     'API-AUTH-REFRESH-SESSION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -99,7 +106,11 @@ test.describe('Refresh session token', () => {
   test.fixme(
     'API-AUTH-REFRESH-SESSION-PERMISSIONS-UNAUTHORIZED-INVALID-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -125,7 +136,11 @@ test.describe('Refresh session token', () => {
   test.fixme(
     'API-AUTH-REFRESH-SESSION-PERMISSIONS-UNAUTHORIZED-EXPIRED-TOKEN-001: should returns 401 Unauthorized (cannot refresh expired session)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: A user with expired session token
       await startServerWithSchema({
         name: 'test-app',
@@ -159,7 +174,11 @@ test.describe('Refresh session token', () => {
   test.fixme(
     'API-AUTH-REFRESH-SESSION-EDGE-CASE-OLD-TOKEN-INVALIDATION-001: should returns 401 Unauthorized (old token is invalidated)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: A user who has refreshed their session
       await startServerWithSchema({
         name: 'test-app',
@@ -197,7 +216,11 @@ test.describe('Refresh session token', () => {
   test.fixme(
     'user can complete full refreshSession workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

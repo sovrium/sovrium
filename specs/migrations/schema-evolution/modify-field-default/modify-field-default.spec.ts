@@ -7,8 +7,6 @@
 
 import { test, expect } from '@/specs/fixtures'
 
- 
-
 /**
  * E2E Tests for Modify Field Default Migration
  *
@@ -29,11 +27,15 @@ test.describe('Modify Field Default Migration', () => {
   test.fixme(
     "MIG-MODIFY-DEFAULT-001: should alter table alter column set default 'medium'",
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'tasks' with priority field (TEXT), no default value
       // WHEN: default value 'medium' added to schema
       // THEN: ALTER TABLE ALTER COLUMN SET DEFAULT 'medium'
-      
+
       // TODO: Implement test based on validation assertions
       expect(true).toBe(false)
     }
@@ -42,11 +44,15 @@ test.describe('Modify Field Default Migration', () => {
   test.fixme(
     "MIG-MODIFY-DEFAULT-002: should alter table alter column set default 'pending' (replaces old default)",
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'products' with status field, existing default 'draft'
       // WHEN: default value changed from 'draft' to 'pending'
       // THEN: ALTER TABLE ALTER COLUMN SET DEFAULT 'pending' (replaces old default)
-      
+
       // TODO: Implement test based on validation assertions
       expect(true).toBe(false)
     }
@@ -55,11 +61,15 @@ test.describe('Modify Field Default Migration', () => {
   test.fixme(
     'MIG-MODIFY-DEFAULT-003: should alter table alter column drop default',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'orders' with created_at field, existing default NOW()
       // WHEN: default value removed from schema
       // THEN: ALTER TABLE ALTER COLUMN DROP DEFAULT
-      
+
       // TODO: Implement test based on validation assertions
       expect(true).toBe(false)
     }
@@ -72,13 +82,16 @@ test.describe('Modify Field Default Migration', () => {
   test.fixme(
     'user can complete full modify-field-default workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Application configured with representative modify-field-default scenarios
       // WHEN/THEN: Streamlined workflow testing integration points
-      
+
       // Focus on workflow continuity, not exhaustive coverage
       expect(true).toBe(false)
     }
   )
-
 })

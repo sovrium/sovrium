@@ -27,7 +27,7 @@ test.describe('Sidebar Configuration', () => {
   test(
     'APP-PAGES-SIDEBAR-001: should display sidebar navigation',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a sidebar with enabled set to true
       await startServerWithSchema({
         name: 'test-app',
@@ -53,7 +53,7 @@ test.describe('Sidebar Configuration', () => {
   test(
     'APP-PAGES-SIDEBAR-002: should render sidebar on left side',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a sidebar with position 'left'
       await startServerWithSchema({
         name: 'test-app',
@@ -80,7 +80,7 @@ test.describe('Sidebar Configuration', () => {
   test(
     'APP-PAGES-SIDEBAR-003: should render sidebar on right side',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a sidebar with position 'right'
       await startServerWithSchema({
         name: 'test-app',
@@ -107,7 +107,7 @@ test.describe('Sidebar Configuration', () => {
   test(
     'APP-PAGES-SIDEBAR-004: should apply custom sidebar width',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a sidebar with custom width
       await startServerWithSchema({
         name: 'test-app',
@@ -134,7 +134,7 @@ test.describe('Sidebar Configuration', () => {
   test(
     'APP-PAGES-SIDEBAR-005: should allow users to collapse/expand sidebar',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a collapsible sidebar
       await startServerWithSchema({
         name: 'test-app',
@@ -171,7 +171,7 @@ test.describe('Sidebar Configuration', () => {
   test(
     'APP-PAGES-SIDEBAR-006: should start in collapsed state',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a sidebar defaulting to collapsed
       await startServerWithSchema({
         name: 'test-app',
@@ -207,7 +207,7 @@ test.describe('Sidebar Configuration', () => {
   test(
     'APP-PAGES-SIDEBAR-007: should stick during page scroll',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a sticky sidebar
       await startServerWithSchema({
         name: 'test-app',
@@ -244,7 +244,7 @@ test.describe('Sidebar Configuration', () => {
   test(
     'APP-PAGES-SIDEBAR-008: should render clickable sidebar link',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a sidebar with link item
       await startServerWithSchema({
         name: 'test-app',
@@ -281,7 +281,7 @@ test.describe('Sidebar Configuration', () => {
   test(
     'APP-PAGES-SIDEBAR-009: should render collapsible group with nested items',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a sidebar with group item
       await startServerWithSchema({
         name: 'test-app',
@@ -327,7 +327,7 @@ test.describe('Sidebar Configuration', () => {
   test(
     'APP-PAGES-SIDEBAR-010: should render visual separator between sections',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a sidebar with divider item
       await startServerWithSchema({
         name: 'test-app',
@@ -363,7 +363,7 @@ test.describe('Sidebar Configuration', () => {
   test(
     'APP-PAGES-SIDEBAR-011: should support unlimited nesting for sidebar hierarchy',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a sidebar with recursive children
       await startServerWithSchema({
         name: 'test-app',
@@ -413,7 +413,7 @@ test.describe('Sidebar Configuration', () => {
   test(
     'APP-PAGES-SIDEBAR-012: should enable documentation and admin-style layouts',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a sidebar for docs/dashboard layouts
       await startServerWithSchema({
         name: 'test-app',
@@ -454,7 +454,7 @@ test.describe('Sidebar Configuration', () => {
   test(
     'APP-PAGES-LAYOUT-SIDEBAR-REGRESSION-001: user can complete full sidebar workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [

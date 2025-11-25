@@ -27,7 +27,11 @@ test.describe('View Fields', () => {
   test.fixme(
     'APP-TABLES-VIEW-FIELDS-001: should show only configured visible fields when a view has specific fields configured as visible',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: a view with specific fields configured as visible
       await startServerWithSchema({
         name: 'test-app',
@@ -72,7 +76,11 @@ test.describe('View Fields', () => {
   test.fixme(
     'APP-TABLES-VIEW-FIELDS-002: should display fields in the specified order when a view has fields configured with custom order',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: a view with fields configured with custom order
       await startServerWithSchema({
         name: 'test-app',
@@ -118,7 +126,11 @@ test.describe('View Fields', () => {
   test.fixme(
     'APP-TABLES-VIEW-FIELDS-003: should not show field when a view has a field marked as visible: false',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: a view with a field marked as visible: false
       await startServerWithSchema({
         name: 'test-app',
@@ -164,7 +176,11 @@ test.describe('View Fields', () => {
   test.fixme(
     'user can complete full view-fields workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Application configured with representative field configuration
       await startServerWithSchema({
         name: 'test-app',

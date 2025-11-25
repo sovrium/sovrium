@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
- 
 
 /**
  * E2E Tests for Change password
@@ -32,7 +31,11 @@ test.describe('Change password', () => {
   test.fixme(
     'API-AUTH-CHANGE-PASSWORD-SUCCESS-001: should  password is updated',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated user with valid current password
       await startServerWithSchema({
         name: 'test-app',
@@ -74,7 +77,11 @@ test.describe('Change password', () => {
   test.fixme(
     'API-AUTH-CHANGE-PASSWORD-SUCCESS-REVOKE-SESSIONS-001: should  with new token and revokes all other sessions',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated user with multiple active sessions
       await startServerWithSchema({
         name: 'test-app',
@@ -123,7 +130,11 @@ test.describe('Change password', () => {
   test.fixme(
     'API-AUTH-CHANGE-PASSWORD-VALIDATION-REQUIRED-NEW-PASSWORD-001: should  request with validation error',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -163,7 +174,11 @@ test.describe('Change password', () => {
   test.fixme(
     'API-AUTH-CHANGE-PASSWORD-VALIDATION-REQUIRED-CURRENT-PASSWORD-001: should  request with validation error',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -203,7 +218,11 @@ test.describe('Change password', () => {
   test.fixme(
     'API-AUTH-CHANGE-PASSWORD-VALIDATION-PASSWORD-TOO-SHORT-001: should  request with validation error',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -244,7 +263,11 @@ test.describe('Change password', () => {
   test.fixme(
     'API-AUTH-CHANGE-PASSWORD-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -276,7 +299,11 @@ test.describe('Change password', () => {
   test.fixme(
     'API-AUTH-CHANGE-PASSWORD-PERMISSIONS-UNAUTHORIZED-WRONG-PASSWORD-001: should  (or 400 bad request depending on better auth version)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -316,7 +343,11 @@ test.describe('Change password', () => {
   test.fixme(
     'API-AUTH-CHANGE-PASSWORD-EDGE-CASE-SAME-PASSWORD-001: should  (same password allowed) or 400 (rejected)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -359,7 +390,11 @@ test.describe('Change password', () => {
   test.fixme(
     'user can complete full Changepassword workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

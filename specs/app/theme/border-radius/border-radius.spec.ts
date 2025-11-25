@@ -27,7 +27,7 @@ test.describe('Border Radius', () => {
   test(
     'APP-THEME-RADIUS-001: should validate radius tokens from 0 to 1.5rem',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: border-radius scale from none to 3xl
       await startServerWithSchema({
         name: 'test-app',
@@ -133,7 +133,7 @@ test.describe('Border Radius', () => {
   test(
     'APP-THEME-RADIUS-002: should validate no rounding',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: border-radius 'none' with value '0'
       await startServerWithSchema({
         name: 'test-app',
@@ -172,7 +172,7 @@ test.describe('Border Radius', () => {
   test(
     'APP-THEME-RADIUS-003: should validate fully rounded elements',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: border-radius 'full' with value '9999px'
       await startServerWithSchema({
         name: 'test-app',
@@ -211,7 +211,7 @@ test.describe('Border Radius', () => {
   test(
     'APP-THEME-RADIUS-004: should validate rem-based radius values',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: border-radius using rem units
       await startServerWithSchema({
         name: 'test-app',
@@ -291,7 +291,7 @@ test.describe('Border Radius', () => {
   test(
     'APP-THEME-RADIUS-005: should validate kebab-case convention',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: border-radius with kebab-case naming
       await startServerWithSchema({
         name: 'test-app',
@@ -349,7 +349,7 @@ test.describe('Border Radius', () => {
   test(
     'APP-THEME-RADIUS-006: should validate complete rounding system',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: complete radius system (none, sm, md, lg, xl, 2xl, 3xl, full)
       await startServerWithSchema({
         name: 'test-app',
@@ -402,7 +402,7 @@ test.describe('Border Radius', () => {
   test(
     'APP-THEME-RADIUS-APPLICATION-001: should render button with 0.375rem border-radius creating soft corners',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: md radius applied to button component
       await startServerWithSchema({
         name: 'test-app',
@@ -451,7 +451,7 @@ test.describe('Border Radius', () => {
   test(
     'APP-THEME-RADIUS-APPLICATION-002: should render image as circle with 9999px border-radius',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: full radius applied to avatar image
       await startServerWithSchema({
         name: 'test-app',
@@ -490,7 +490,7 @@ test.describe('Border Radius', () => {
   test(
     'APP-THEME-RADIUS-APPLICATION-003: should render card with 0.5rem border-radius creating soft edges',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: lg radius applied to card component
       await startServerWithSchema({
         name: 'test-app',
@@ -539,7 +539,7 @@ test.describe('Border Radius', () => {
   test(
     'APP-THEME-RADIUS-APPLICATION-004: should apply smaller radius on mobile for better touch targets and larger radius on desktop for visual polish',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: responsive border-radius varying by breakpoint
       await startServerWithSchema({
         name: 'test-app',
@@ -590,7 +590,7 @@ test.describe('Border Radius', () => {
   test(
     'APP-THEME-RADIUS-APPLICATION-005: should render element with custom radius on each corner creating arrow-like shape',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: per-corner border-radius for complex shapes
       await startServerWithSchema({
         name: 'test-app',
@@ -632,7 +632,7 @@ test.describe('Border Radius', () => {
   test(
     'APP-THEME-RADIUS-APPLICATION-006: should render badge as pill with fully rounded left and right edges',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: full radius for badge and pill-shaped components
       await startServerWithSchema({
         name: 'test-app',
@@ -681,7 +681,7 @@ test.describe('Border Radius', () => {
   test(
     'APP-THEME-RADIUS-APPLICATION-007: should apply appropriate radius for each image context',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: radius patterns for image components (avatar vs thumbnail vs hero)
       await startServerWithSchema({
         name: 'test-app',
@@ -752,7 +752,7 @@ test.describe('Border Radius', () => {
   test(
     'APP-THEME-RADIUS-APPLICATION-008: should apply radius to create cohesive nested component design',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: card component hierarchy with coordinated border-radius across parent and children
       await startServerWithSchema({
         name: 'test-app',
@@ -827,7 +827,7 @@ test.describe('Border Radius', () => {
   test(
     'APP-THEME-BORDER-RADIUS-REGRESSION-001: user can complete full border-radius workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Application with comprehensive border-radius system
       await startServerWithSchema({
         name: 'test-app',

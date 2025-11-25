@@ -16,7 +16,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
- 
 
 /**
  * E2E Tests for Table View
@@ -38,7 +37,7 @@ test.describe('Table View', () => {
   test.fixme(
     'APP-TABLES-VIEW-001: should be valid when validating view schema with id, name, and type properties',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a view with id, name, and type properties
       await startServerWithSchema({
         name: 'test-app',
@@ -73,7 +72,7 @@ test.describe('Table View', () => {
   test.fixme(
     'APP-TABLES-VIEW-002: should fail with pattern mismatch error when validating view schema with invalid id format (contains uppercase or spaces)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a view with invalid id format (contains uppercase or spaces)
       // WHEN: validating the view schema
       // THEN: validation should fail with pattern mismatch error
@@ -108,7 +107,11 @@ test.describe('Table View', () => {
   test.fixme(
     'APP-TABLES-VIEW-003: should be applied automatically when view marked as isDefault: true and no specific view is requested via API',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: a view marked as isDefault: true
       await startServerWithSchema({
         name: 'test-app',
@@ -165,7 +168,11 @@ test.describe('Table View', () => {
   test.fixme(
     'user can complete full view workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Application configured with representative view
       await startServerWithSchema({
         name: 'test-app',

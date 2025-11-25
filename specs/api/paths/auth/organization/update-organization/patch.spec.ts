@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
- 
 
 /**
  * E2E Tests for Update organization
@@ -33,7 +32,11 @@ test.describe('Update organization', () => {
   test.fixme(
     'API-ORG-UPDATE-ORGANIZATION-SUCCESS-001: should returns 200 OK with updated organization data',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -82,7 +85,11 @@ test.describe('Update organization', () => {
   test.fixme(
     'API-ORG-UPDATE-ORGANIZATION-SUCCESS-PARTIAL-UPDATE-001: should returns 200 OK with name updated, slug unchanged',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -125,7 +132,11 @@ test.describe('Update organization', () => {
   test.fixme(
     'API-ORG-UPDATE-ORGANIZATION-VALIDATION-REQUIRED-ORGANIZATION-ID-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -162,7 +173,11 @@ test.describe('Update organization', () => {
   test.fixme(
     'API-ORG-UPDATE-ORGANIZATION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -192,7 +207,11 @@ test.describe('Update organization', () => {
   test.fixme(
     'API-ORG-UPDATE-ORGANIZATION-PERMISSIONS-FORBIDDEN-NON-OWNER-001: should returns 403 Forbidden',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated organization member (non-owner)
       await startServerWithSchema({
         name: 'test-app',
@@ -236,7 +255,11 @@ test.describe('Update organization', () => {
   test.fixme(
     'API-ORG-UPDATE-ORGANIZATION-NOT-FOUND-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -274,7 +297,11 @@ test.describe('Update organization', () => {
   test.fixme(
     'API-ORG-UPDATE-ORGANIZATION-CONFLICT-DUPLICATE-SLUG-001: should returns 409 Conflict error',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated organization owner and another existing organization
       await startServerWithSchema({
         name: 'test-app',
@@ -325,7 +352,11 @@ test.describe('Update organization', () => {
   test.fixme(
     'user can complete full updateOrganization workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

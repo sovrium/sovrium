@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
- 
 
 /**
  * E2E Tests for Admin: Revoke user session
@@ -33,7 +32,11 @@ test.describe('Admin: Revoke user session', () => {
   test.fixme(
     'API-ADMIN-REVOKE-USER-SESSION-SUCCESS-001: should returns 200 OK and revokes the session',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated admin user and a user with active session
       await startServerWithSchema({
         name: 'test-app',
@@ -81,7 +84,11 @@ test.describe('Admin: Revoke user session', () => {
   test.fixme(
     'API-ADMIN-REVOKE-USER-SESSION-VALIDATION-REQUIRED-FIELDS-001: should returns 400 Bad Request with validation errors',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -115,7 +122,11 @@ test.describe('Admin: Revoke user session', () => {
   test.fixme(
     'API-ADMIN-REVOKE-USER-SESSION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -145,7 +156,11 @@ test.describe('Admin: Revoke user session', () => {
   test.fixme(
     'API-ADMIN-REVOKE-USER-SESSION-PERMISSIONS-FORBIDDEN-NON-ADMIN-001: should returns 403 Forbidden',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -189,7 +204,11 @@ test.describe('Admin: Revoke user session', () => {
   test.fixme(
     'API-ADMIN-REVOKE-USER-SESSION-NOT-FOUND-USER-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -227,7 +246,11 @@ test.describe('Admin: Revoke user session', () => {
   test.fixme(
     'API-ADMIN-REVOKE-USER-SESSION-NOT-FOUND-SESSION-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
@@ -268,7 +291,11 @@ test.describe('Admin: Revoke user session', () => {
   test.fixme(
     'API-ADMIN-REVOKE-USER-SESSION-SECURITY-SESSION-OWNERSHIP-001: should returns 404 Not Found (session ownership validation)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated admin user with two users and sessions
       await startServerWithSchema({
         name: 'test-app',
@@ -317,7 +344,11 @@ test.describe('Admin: Revoke user session', () => {
   test.fixme(
     'API-ADMIN-REVOKE-USER-SESSION-EDGE-CASE-ALREADY-REVOKED-001: should returns 200 OK (idempotent operation)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated admin user and an already revoked session
       await startServerWithSchema({
         name: 'test-app',
@@ -364,7 +395,11 @@ test.describe('Admin: Revoke user session', () => {
   test.fixme(
     'user can complete full adminRevokeUserSession workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

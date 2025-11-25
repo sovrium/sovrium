@@ -22,7 +22,7 @@ test.describe('FAQ Page Schema', () => {
   test(
     'APP-PAGES-FAQPAGE-001: should validate minimal FAQPage structured data',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: FAQPage with required properties
       await startServerWithSchema({
         name: 'test-app',
@@ -55,7 +55,7 @@ test.describe('FAQ Page Schema', () => {
   test(
     'APP-PAGES-FAQPAGE-002: should contain list of Q&A pairs',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: FAQPage with mainEntity array
       await startServerWithSchema({
         name: 'test-app',
@@ -98,7 +98,7 @@ test.describe('FAQ Page Schema', () => {
   test(
     'APP-PAGES-FAQPAGE-003: should define question structure',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: FAQPage with Question
       await startServerWithSchema({
         name: 'test-app',
@@ -143,7 +143,7 @@ test.describe('FAQ Page Schema', () => {
   test(
     'APP-PAGES-FAQPAGE-004: should provide question text',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: FAQPage with Question name
       await startServerWithSchema({
         name: 'test-app',
@@ -186,7 +186,7 @@ test.describe('FAQ Page Schema', () => {
   test(
     'APP-PAGES-FAQPAGE-005: should provide answer structure',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: FAQPage with acceptedAnswer
       await startServerWithSchema({
         name: 'test-app',
@@ -230,7 +230,7 @@ test.describe('FAQ Page Schema', () => {
   test(
     'APP-PAGES-FAQPAGE-006: should provide answer content',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: FAQPage with Answer text
       await startServerWithSchema({
         name: 'test-app',
@@ -276,7 +276,7 @@ test.describe('FAQ Page Schema', () => {
   test(
     'APP-PAGES-FAQPAGE-007: should support comprehensive FAQ section',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: FAQPage with multiple Q&A pairs
       await startServerWithSchema({
         name: 'test-app',
@@ -340,7 +340,7 @@ test.describe('FAQ Page Schema', () => {
   test(
     'APP-PAGES-FAQPAGE-008: should display expandable Q&A in Google search results',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: FAQPage for rich results
       await startServerWithSchema({
         name: 'test-app',
@@ -385,7 +385,7 @@ test.describe('FAQ Page Schema', () => {
   test(
     'APP-PAGES-FAQPAGE-009: should reduce support load by surfacing answers in search',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: FAQPage for support content
       await startServerWithSchema({
         name: 'test-app',
@@ -430,7 +430,7 @@ test.describe('FAQ Page Schema', () => {
   test(
     'APP-PAGES-FAQPAGE-010: should increase click-through rate from search results',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: FAQPage for SERP visibility
       await startServerWithSchema({
         name: 'test-app',
@@ -476,7 +476,7 @@ test.describe('FAQ Page Schema', () => {
   test(
     'APP-PAGES-META-STRUCTURED-DATA-FAQ-PAGE-REGRESSION-001: user can complete full FAQ Page workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [

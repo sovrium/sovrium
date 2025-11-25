@@ -27,7 +27,11 @@ test.describe('Decimal Field', () => {
   test.fixme(
     'APP-DECIMAL-FIELD-001: should create PostgreSQL DECIMAL column when table configuration has decimal field',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table configuration with decimal field 'price'
       await startServerWithSchema({
         name: 'test-app',
@@ -62,7 +66,11 @@ test.describe('Decimal Field', () => {
   test.fixme(
     'APP-DECIMAL-FIELD-002: should reject values outside min/max range when CHECK constraint enforces range validation',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table with decimal field 'amount' (min=0, max=1000)
       await startServerWithSchema({
         name: 'test-app',
@@ -98,7 +106,11 @@ test.describe('Decimal Field', () => {
   test.fixme(
     'APP-DECIMAL-FIELD-003: should enforce NOT NULL and UNIQUE constraints when decimal field is required and unique',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table with decimal field 'value' (required, unique)
       await startServerWithSchema({
         name: 'test-app',
@@ -136,7 +148,11 @@ test.describe('Decimal Field', () => {
   test.fixme(
     'APP-DECIMAL-FIELD-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table with decimal field 'rate' and default value 1.5
       await startServerWithSchema({
         name: 'test-app',
@@ -169,7 +185,11 @@ test.describe('Decimal Field', () => {
   test.fixme(
     'APP-DECIMAL-FIELD-005: should create btree index for fast numerical queries when decimal field has indexed=true',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table configuration with decimal field 'score', indexed=true
       await startServerWithSchema({
         name: 'test-app',
@@ -204,7 +224,11 @@ test.describe('Decimal Field', () => {
   test.fixme(
     'user can complete full decimal-field workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Application configured with representative decimal field
       await startServerWithSchema({
         name: 'test-app',

@@ -23,7 +23,11 @@ test.describe('Created By Field', () => {
   test.fixme(
     'APP-CREATED-BY-FIELD-001: should create PostgreSQL INTEGER NOT NULL column with FOREIGN KEY to users',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery(['CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))'])
 
       await startServerWithSchema({
@@ -63,7 +67,11 @@ test.describe('Created By Field', () => {
   test.fixme(
     'APP-CREATED-BY-FIELD-002: should store the creator user reference permanently',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO users (name) VALUES ('Alice'), ('Bob')",
@@ -105,7 +113,11 @@ test.describe('Created By Field', () => {
   test.fixme(
     'APP-CREATED-BY-FIELD-003: should enforce immutability via application (no UPDATE trigger)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO users (name) VALUES ('John'), ('Jane')",
@@ -146,7 +158,11 @@ test.describe('Created By Field', () => {
   test.fixme(
     'APP-CREATED-BY-FIELD-004: should support efficient filtering by creator',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO users (name) VALUES ('Alice'), ('Bob'), ('Charlie')",
@@ -196,7 +212,11 @@ test.describe('Created By Field', () => {
   test.fixme(
     'APP-CREATED-BY-FIELD-005: should create btree index for fast creator filtering when indexed=true',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         'CREATE TABLE comments (id SERIAL PRIMARY KEY, content TEXT, created_by INTEGER NOT NULL REFERENCES users(id))',
@@ -221,7 +241,11 @@ test.describe('Created By Field', () => {
   test.fixme(
     'user can complete full created-by-field workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO users (name) VALUES ('Alice', 'alice@example.com')",

@@ -27,7 +27,11 @@ test.describe('Currency Field', () => {
   test.fixme(
     'APP-CURRENCY-FIELD-001: should create PostgreSQL DECIMAL column for currency storage when table configuration has currency field',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table configuration with currency field 'price'
       await startServerWithSchema({
         name: 'test-app',
@@ -62,7 +66,11 @@ test.describe('Currency Field', () => {
   test.fixme(
     'APP-CURRENCY-FIELD-002: should reject values outside min/max range when CHECK constraint enforces range validation',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table with currency field 'budget' (min=0, max=10000)
       await startServerWithSchema({
         name: 'test-app',
@@ -98,7 +106,11 @@ test.describe('Currency Field', () => {
   test.fixme(
     'APP-CURRENCY-FIELD-003: should enforce NOT NULL and UNIQUE constraints when currency field is required and unique',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table with currency field 'transaction_id' (required, unique)
       await startServerWithSchema({
         name: 'test-app',
@@ -136,7 +148,11 @@ test.describe('Currency Field', () => {
   test.fixme(
     'APP-CURRENCY-FIELD-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table with currency field 'fee' and default value 9.99
       await startServerWithSchema({
         name: 'test-app',
@@ -169,7 +185,11 @@ test.describe('Currency Field', () => {
   test.fixme(
     'APP-CURRENCY-FIELD-005: should create btree index for fast queries when currency field has indexed=true',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table configuration with currency field 'total', indexed=true
       await startServerWithSchema({
         name: 'test-app',
@@ -204,7 +224,11 @@ test.describe('Currency Field', () => {
   test.fixme(
     'user can complete full currency-field workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Application configured with representative currency field
       await startServerWithSchema({
         name: 'test-app',

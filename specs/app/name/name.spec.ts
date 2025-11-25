@@ -31,7 +31,7 @@ import { test, expect } from '@/specs/fixtures'
 test(
   'APP-NAME-001: should display app name in h1 heading',
   { tag: '@spec' },
-  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+  async ({ page, startServerWithSchema }) => {
     // GIVEN: server with app name 'test-app'
     await startServerWithSchema({ name: 'test-app' }, { useDatabase: false })
 
@@ -47,7 +47,7 @@ test(
 test(
   'APP-NAME-002: should show app name in page title with Sovrium branding',
   { tag: '@spec' },
-  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+  async ({ page, startServerWithSchema }) => {
     // GIVEN: server with app name 'my-dashboard'
     await startServerWithSchema({ name: 'my-dashboard' }, { useDatabase: false })
 
@@ -62,7 +62,7 @@ test(
 test(
   'APP-NAME-003: should display single-character name in heading',
   { tag: '@spec' },
-  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+  async ({ page, startServerWithSchema }) => {
     // GIVEN: server with single-character name 'a'
     await startServerWithSchema({ name: 'a' }, { useDatabase: false })
 
@@ -78,7 +78,7 @@ test(
 test(
   'APP-NAME-004: should display 214-character name without truncation',
   { tag: '@spec' },
-  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+  async ({ page, startServerWithSchema }) => {
     // GIVEN: server with 214-character name (maximum length)
     const maxLengthName =
       'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
@@ -97,7 +97,7 @@ test(
 test(
   'APP-NAME-005: should have exactly one h1 element on page',
   { tag: '@spec' },
-  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+  async ({ page, startServerWithSchema }) => {
     // GIVEN: server with app name 'accessibility-test'
     await startServerWithSchema({ name: 'accessibility-test' }, { useDatabase: false })
 
@@ -113,7 +113,7 @@ test(
 test(
   'APP-NAME-006: should have h1 as the first heading level on page',
   { tag: '@spec' },
-  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+  async ({ page, startServerWithSchema }) => {
     // GIVEN: server with app name 'semantic-html-test'
     await startServerWithSchema({ name: 'semantic-html-test' }, { useDatabase: false })
 
@@ -131,7 +131,7 @@ test(
 test(
   'APP-NAME-007: should center h1 heading horizontally',
   { tag: '@spec' },
-  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+  async ({ page, startServerWithSchema }) => {
     // GIVEN: server with app name 'layout-test'
     await startServerWithSchema({ name: 'layout-test' }, { useDatabase: false })
 
@@ -148,7 +148,7 @@ test(
 test(
   'APP-NAME-008: should ensure h1 heading is visible and not hidden',
   { tag: '@spec' },
-  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+  async ({ page, startServerWithSchema }) => {
     // GIVEN: server with app name 'visibility-test'
     await startServerWithSchema({ name: 'visibility-test' }, { useDatabase: false })
 
@@ -171,7 +171,7 @@ test(
 test(
   'APP-NAME-009: should display text content that exactly matches input',
   { tag: '@spec' },
-  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+  async ({ page, startServerWithSchema }) => {
     // GIVEN: server with app name 'my-app-2024'
     await startServerWithSchema({ name: 'my-app-2024' }, { useDatabase: false })
 
@@ -188,7 +188,7 @@ test(
 test(
   'APP-NAME-010: should use TypographyH1 component styling with large font size',
   { tag: '@spec' },
-  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+  async ({ page, startServerWithSchema }) => {
     // GIVEN: server with app name 'typography-test'
     await startServerWithSchema({ name: 'typography-test' }, { useDatabase: false })
 
@@ -209,7 +209,7 @@ test(
 test(
   'APP-NAME-011: should display different app names in independent test runs',
   { tag: '@spec' },
-  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+  async ({ page, startServerWithSchema }) => {
     // GIVEN: two different test runs with app names 'first-app' and 'second-app'
 
     // First test run: 'first-app'
@@ -239,7 +239,7 @@ test(
 test(
   'APP-NAME-012: should meet all name display requirements with complex name',
   { tag: '@spec' },
-  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+  async ({ page, startServerWithSchema }) => {
     // GIVEN: server with complex app name containing special characters allowed by npm
     const complexName = '@myorg-team.test/dashboard_v2.beta-prod'
     await startServerWithSchema({ name: complexName }, { useDatabase: false })
@@ -287,7 +287,7 @@ test(
 test(
   'APP-NAME-REGRESSION-001: user can view app name with all display requirements across different configurations',
   { tag: '@regression' },
-  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+  async ({ page, startServerWithSchema }) => {
     // OPTIMIZED REGRESSION TEST
     // This test focuses on end-to-end integration rather than duplicating @spec tests.
     // Strategy: Use ONE representative scenario (complex name) to verify all components

@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
- 
 
 /**
  * E2E Tests for Admin: Get user by ID
@@ -33,7 +32,11 @@ test.describe('Admin: Get user by ID', () => {
   test.fixme(
     'API-ADMIN-GET-USER-SUCCESS-001: should returns 200 OK with user details',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
@@ -72,7 +75,11 @@ test.describe('Admin: Get user by ID', () => {
   test.fixme(
     'API-ADMIN-GET-USER-VALIDATION-REQUIRED-USER-ID-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -106,7 +113,11 @@ test.describe('Admin: Get user by ID', () => {
   test.fixme(
     'API-ADMIN-GET-USER-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -130,7 +141,11 @@ test.describe('Admin: Get user by ID', () => {
   test.fixme(
     'API-ADMIN-GET-USER-PERMISSIONS-FORBIDDEN-NON-ADMIN-001: should returns 403 Forbidden',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -167,7 +182,11 @@ test.describe('Admin: Get user by ID', () => {
   test.fixme(
     'API-ADMIN-GET-USER-NOT-FOUND-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -201,7 +220,11 @@ test.describe('Admin: Get user by ID', () => {
   test.fixme(
     'API-ADMIN-GET-USER-SECURITY-PASSWORD-EXCLUSION-001: should returns 200 OK with user details but password field excluded for security',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
@@ -239,7 +262,11 @@ test.describe('Admin: Get user by ID', () => {
   test.fixme(
     'user can complete full adminGetUser workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

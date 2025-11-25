@@ -27,7 +27,11 @@ test.describe('URL Field', () => {
   test.fixme(
     'APP-FIELD-URL-001: should create PostgreSQL VARCHAR(255) column for URL storage when table configuration has url field',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table configuration with url field 'website'
       await startServerWithSchema({
         name: 'test-app',
@@ -65,7 +69,11 @@ test.describe('URL Field', () => {
   test.fixme(
     'APP-FIELD-URL-002: should store both protocols correctly when inserting URLs with different protocols',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'products' with url field 'product_url'
       await startServerWithSchema({
         name: 'test-app',
@@ -103,7 +111,11 @@ test.describe('URL Field', () => {
   test.fixme(
     'APP-FIELD-URL-003: should reject duplicate URL when table has url field with unique constraint',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'links' with url field 'url' (required, unique), existing row url='https://example.com'
       await startServerWithSchema({
         name: 'test-app',
@@ -140,7 +152,11 @@ test.describe('URL Field', () => {
   test.fixme(
     'APP-URL-FIELD-004: should reject NULL value when table has required url field',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'resources' with required url field 'resource_url'
       await startServerWithSchema({
         name: 'test-app',
@@ -177,7 +193,11 @@ test.describe('URL Field', () => {
   test.fixme(
     'APP-URL-FIELD-005: should create btree index for fast URL lookups when url field has indexed=true',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table configuration with url field, indexed=true
       await startServerWithSchema({
         name: 'test-app',
@@ -219,7 +239,11 @@ test.describe('URL Field', () => {
   test.fixme(
     'user can complete full url-field workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Application configured with representative url field
       await startServerWithSchema({
         name: 'test-app',

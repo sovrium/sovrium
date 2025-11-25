@@ -11,7 +11,11 @@ test.describe('Multiple Attachments Field', () => {
   test.fixme(
     'APP-MULTIPLE-ATTACHMENTS-FIELD-001: should create JSONB ARRAY column for multiple file storage',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery('CREATE TABLE posts (id SERIAL PRIMARY KEY, attachments JSONB)')
       const column = await executeQuery(
         "SELECT data_type FROM information_schema.columns WHERE table_name='posts' AND column_name='attachments'"
@@ -23,7 +27,11 @@ test.describe('Multiple Attachments Field', () => {
   test.fixme(
     'APP-MULTIPLE-ATTACHMENTS-FIELD-002: should store array of file metadata objects',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE messages (id SERIAL PRIMARY KEY, files JSONB)',
         'INSERT INTO messages (files) VALUES (\'[{"url": "file1.pdf", "size": 100}, {"url": "file2.jpg", "size": 200}]\')',
@@ -36,7 +44,11 @@ test.describe('Multiple Attachments Field', () => {
   test.fixme(
     'APP-MULTIPLE-ATTACHMENTS-FIELD-003: should enforce maximum attachment count via CHECK constraint',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery(
         'CREATE TABLE records (id SERIAL PRIMARY KEY, attachments JSONB CHECK (jsonb_array_length(attachments) <= 5))'
       )
@@ -49,7 +61,11 @@ test.describe('Multiple Attachments Field', () => {
   test.fixme(
     'APP-MULTIPLE-ATTACHMENTS-FIELD-004: should support querying by attachment properties',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE docs (id SERIAL PRIMARY KEY, files JSONB)',
         'INSERT INTO docs (files) VALUES (\'[{"type": "pdf"}]\')',
@@ -64,7 +80,11 @@ test.describe('Multiple Attachments Field', () => {
   test.fixme(
     'APP-MULTIPLE-ATTACHMENTS-FIELD-005: should create GIN index for efficient JSON queries',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE items (id SERIAL PRIMARY KEY, attachments JSONB)',
         'CREATE INDEX idx_items_attachments ON items USING GIN(attachments)',
@@ -79,7 +99,11 @@ test.describe('Multiple Attachments Field', () => {
   test.fixme(
     'user can complete full multiple-attachments-field workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       await executeQuery([
         'CREATE TABLE data (id SERIAL PRIMARY KEY, files JSONB)',
         'INSERT INTO data (files) VALUES (\'[{"url": "a.pdf"}, {"url": "b.jpg"}]\')',

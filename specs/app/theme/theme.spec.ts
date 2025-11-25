@@ -27,7 +27,7 @@ test.describe('Theme Configuration', () => {
   test(
     'APP-THEME-001: should validate theme with colors as the only design token category',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a theme with only colors defined
       await startServerWithSchema({
         name: 'test-app',
@@ -92,7 +92,7 @@ test.describe('Theme Configuration', () => {
   test(
     'APP-THEME-002: should validate color palette and typography system',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a theme with colors and fonts configured
       await startServerWithSchema({
         name: 'test-app',
@@ -142,7 +142,7 @@ test.describe('Theme Configuration', () => {
   test(
     'APP-THEME-003: should validate visual identity, typography, and layout tokens',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a theme with colors, fonts, and spacing
       await startServerWithSchema({
         name: 'test-app',
@@ -183,7 +183,7 @@ test.describe('Theme Configuration', () => {
   test(
     'APP-THEME-004: should validate and orchestrate all design token categories',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a complete theme with all 7 design token categories
       await startServerWithSchema({
         name: 'test-app',
@@ -302,7 +302,7 @@ test.describe('Theme Configuration', () => {
   test(
     'APP-THEME-005: should ensure consistency between theme.breakpoints and responsive variants',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a theme with breakpoints matching responsive system
       await startServerWithSchema({
         name: 'test-app',
@@ -340,7 +340,7 @@ test.describe('Theme Configuration', () => {
   test(
     'APP-THEME-006: should provide animations reusable in interactions.schema.json',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a theme with animations matching interaction system
       await startServerWithSchema({
         name: 'test-app',
@@ -391,7 +391,7 @@ test.describe('Theme Configuration', () => {
   test(
     'APP-THEME-007: should enable consistent UI across entire application',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a theme following design system best practices
       await startServerWithSchema({
         name: 'test-app',
@@ -455,7 +455,7 @@ test.describe('Theme Configuration', () => {
   test(
     'APP-THEME-008: should integrate seamlessly with Tailwind CSS',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a theme with Tailwind-compatible tokens
       await startServerWithSchema({
         name: 'test-app',
@@ -492,7 +492,7 @@ test.describe('Theme Configuration', () => {
   test(
     'APP-THEME-INTEGRATION-001: should render cohesive UI with all theme tokens applied together',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a complete theme with multiple design tokens used in page component
       await startServerWithSchema({
         name: 'test-app',
@@ -563,7 +563,7 @@ test.describe('Theme Configuration', () => {
   test(
     'APP-THEME-INTEGRATION-002: should maintain visual consistency across entire page layout',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a theme used across multiple page sections
       await startServerWithSchema({
         name: 'test-app',
@@ -616,7 +616,7 @@ test.describe('Theme Configuration', () => {
   test(
     'APP-THEME-INTEGRATION-003: should render adaptive layouts that respond to screen size',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a theme with responsive breakpoints integrated with component layouts
       await startServerWithSchema({
         name: 'test-app',
@@ -671,7 +671,7 @@ test.describe('Theme Configuration', () => {
   test(
     'APP-THEME-INTEGRATION-004: should create cohesive branded motion with theme-aware animations',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: theme with animations that use theme color tokens for motion design
       await startServerWithSchema({
         name: 'test-app',
@@ -768,7 +768,7 @@ test.describe('Theme Configuration', () => {
   test(
     'APP-THEME-REGRESSION-001: user can complete full theme workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Application configured with comprehensive theme system
       await startServerWithSchema({
         name: 'test-app',

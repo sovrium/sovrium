@@ -27,7 +27,7 @@ test.describe('Favicon', () => {
   test(
     'APP-PAGES-FAVICON-001: should reference default favicon file',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a favicon path string
       await startServerWithSchema({
         name: 'test-app',
@@ -57,7 +57,7 @@ test.describe('Favicon', () => {
   test(
     'APP-PAGES-FAVICON-002: should support legacy ICO format',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a favicon with .ico extension
       await startServerWithSchema({
         name: 'test-app',
@@ -83,7 +83,7 @@ test.describe('Favicon', () => {
   test(
     'APP-PAGES-FAVICON-003: should support PNG format',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a favicon with .png extension
       await startServerWithSchema({
         name: 'test-app',
@@ -109,7 +109,7 @@ test.describe('Favicon', () => {
   test(
     'APP-PAGES-FAVICON-004: should support modern SVG format',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a favicon with .svg extension
       await startServerWithSchema({
         name: 'test-app',
@@ -140,7 +140,7 @@ test.describe('Favicon', () => {
   test(
     'APP-PAGES-FAVICON-005: should use relative file paths',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a favicon path starting with ./
       await startServerWithSchema({
         name: 'test-app',
@@ -171,7 +171,7 @@ test.describe('Favicon', () => {
   test(
     'APP-PAGES-FAVICON-006: should enable quick favicon setup',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a simple favicon configuration
       await startServerWithSchema({
         name: 'test-app',
@@ -196,7 +196,7 @@ test.describe('Favicon', () => {
   test(
     'APP-PAGES-FAVICON-007: should provide site branding in tabs',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a favicon for browser tab
       await startServerWithSchema({
         name: 'test-app',
@@ -226,7 +226,7 @@ test.describe('Favicon', () => {
   test(
     'APP-PAGES-FAVICON-008: should support both simple and complete configurations',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a favicon versus favicons property
       await startServerWithSchema({
         name: 'test-app',
@@ -257,7 +257,7 @@ test.describe('Favicon', () => {
   test(
     'APP-PAGES-META-FAVICONS-FAVICON-REGRESSION-001: user can complete full favicon workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [

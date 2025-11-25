@@ -7,8 +7,6 @@
 
 import { test, expect } from '@/specs/fixtures'
 
- 
-
 /**
  * E2E Tests for Modify Field Unique Migration
  *
@@ -29,7 +27,11 @@ test.describe('Modify Field Unique Migration', () => {
   test.fixme(
     'MIG-MODIFY-UNIQUE-001: should alter table add constraint unique_users_username unique (username)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'users' with field 'username' (TEXT) containing unique values
       // WHEN: unique constraint added to schema
       // THEN: ALTER TABLE ADD CONSTRAINT unique_users_username UNIQUE (username)
@@ -42,7 +44,11 @@ test.describe('Modify Field Unique Migration', () => {
   test.fixme(
     'MIG-MODIFY-UNIQUE-002: should migration fails with unique violation error, transaction rolled back',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'products' with field 'sku' containing duplicate values
       // WHEN: unique constraint added to 'sku'
       // THEN: Migration fails with unique violation error, transaction rolled back
@@ -55,7 +61,11 @@ test.describe('Modify Field Unique Migration', () => {
   test.fixme(
     'MIG-MODIFY-UNIQUE-003: should alter table drop constraint unique_orders_order_number',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'orders' with field 'order_number' having UNIQUE constraint
       // WHEN: unique constraint removed from schema
       // THEN: ALTER TABLE DROP CONSTRAINT unique_orders_order_number
@@ -72,7 +82,11 @@ test.describe('Modify Field Unique Migration', () => {
   test.fixme(
     'user can complete full modify-field-unique workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Application configured with representative modify-field-unique scenarios
       // WHEN/THEN: Streamlined workflow testing integration points
 

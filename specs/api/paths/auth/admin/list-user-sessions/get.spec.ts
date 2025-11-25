@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
- 
 
 /**
  * E2E Tests for Admin: List user sessions
@@ -33,7 +32,11 @@ test.describe('Admin: List user sessions', () => {
   test.fixme(
     'API-ADMIN-LIST-USER-SESSIONS-SUCCESS-001: should returns 200 OK with all active user sessions',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated admin user and a user with multiple sessions
       await startServerWithSchema({
         name: 'test-app',
@@ -78,7 +81,11 @@ test.describe('Admin: List user sessions', () => {
   test.fixme(
     'API-ADMIN-LIST-USER-SESSIONS-VALIDATION-REQUIRED-USER-ID-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -112,7 +119,11 @@ test.describe('Admin: List user sessions', () => {
   test.fixme(
     'API-ADMIN-LIST-USER-SESSIONS-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -136,7 +147,11 @@ test.describe('Admin: List user sessions', () => {
   test.fixme(
     'API-ADMIN-LIST-USER-SESSIONS-PERMISSIONS-FORBIDDEN-NON-ADMIN-001: should returns 403 Forbidden',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -173,7 +188,11 @@ test.describe('Admin: List user sessions', () => {
   test.fixme(
     'API-ADMIN-LIST-USER-SESSIONS-NOT-FOUND-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -207,7 +226,11 @@ test.describe('Admin: List user sessions', () => {
   test.fixme(
     'API-ADMIN-LIST-USER-SESSIONS-EDGE-CASE-NO-SESSIONS-001: should returns 200 OK with empty sessions array',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated admin user and a user with no active sessions
       await startServerWithSchema({
         name: 'test-app',
@@ -241,7 +264,11 @@ test.describe('Admin: List user sessions', () => {
   test.fixme(
     'API-ADMIN-LIST-USER-SESSIONS-SECURITY-FILTERING-EXPIRED-001: should returns 200 OK with only active sessions (expired filtered out)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: An authenticated admin user and a user with active and expired sessions
       await startServerWithSchema({
         name: 'test-app',
@@ -285,7 +312,11 @@ test.describe('Admin: List user sessions', () => {
   test.fixme(
     'user can complete full adminListUserSessions workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

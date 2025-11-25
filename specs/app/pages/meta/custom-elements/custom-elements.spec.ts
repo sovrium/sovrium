@@ -27,7 +27,7 @@ test.describe('Custom Head Elements', () => {
   test(
     'APP-PAGES-CUSTOM-001: should add custom meta tag to head',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: custom element with type meta
       await startServerWithSchema({
         name: 'test_app',
@@ -59,7 +59,7 @@ test.describe('Custom Head Elements', () => {
   test(
     'APP-PAGES-CUSTOM-002: should add custom link element to head',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: custom element with type link
       await startServerWithSchema({
         name: 'test_app',
@@ -93,7 +93,7 @@ test.describe('Custom Head Elements', () => {
   test(
     'APP-PAGES-CUSTOM-003: should add custom script to head',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: custom element with type script
       await startServerWithSchema({
         name: 'test_app',
@@ -125,7 +125,7 @@ test.describe('Custom Head Elements', () => {
   test(
     'APP-PAGES-CUSTOM-004: should add inline style to head',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: custom element with type style
       await startServerWithSchema({
         name: 'test_app',
@@ -156,7 +156,7 @@ test.describe('Custom Head Elements', () => {
   test(
     'APP-PAGES-CUSTOM-005: should apply attributes to element',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: custom element with attrs object
       await startServerWithSchema({
         name: 'test_app',
@@ -199,7 +199,7 @@ test.describe('Custom Head Elements', () => {
   test(
     'APP-PAGES-CUSTOM-006: should set element inner content',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: custom element with content property
       await startServerWithSchema({
         name: 'test-app',
@@ -232,7 +232,7 @@ test.describe('Custom Head Elements', () => {
   test(
     'APP-PAGES-CUSTOM-007: should customize browser chrome color',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: custom elements for theme-color meta
       await startServerWithSchema({
         name: 'test_app',
@@ -264,7 +264,7 @@ test.describe('Custom Head Elements', () => {
   test(
     'APP-PAGES-CUSTOM-008: should configure mobile viewport',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: custom elements for viewport meta
       await startServerWithSchema({
         name: 'test_app',
@@ -307,7 +307,7 @@ test.describe('Custom Head Elements', () => {
   test(
     'APP-PAGES-META-CUSTOM-ELEMENTS-REGRESSION-001: user can complete full custom elements workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [

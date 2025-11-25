@@ -27,7 +27,11 @@ test.describe('Long Text Field', () => {
   test.fixme(
     'APP-FIELD-LONG-TEXT-001: should create PostgreSQL TEXT column with unlimited length when table configuration has long-text field',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table configuration with long-text field 'description'
       await startServerWithSchema({
         name: 'test-app',
@@ -65,7 +69,11 @@ test.describe('Long Text Field', () => {
   test.fixme(
     'APP-FIELD-LONG-TEXT-002: should accept unlimited length without truncation when inserting text exceeding VARCHAR(255) limit',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'posts' with long-text field 'content'
       await startServerWithSchema({
         name: 'test-app',
@@ -101,7 +109,11 @@ test.describe('Long Text Field', () => {
   test.fixme(
     'APP-FIELD-LONG-TEXT-003: should reject NULL value when table has required long-text field',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'comments' with required long-text field 'body'
       await startServerWithSchema({
         name: 'test-app',
@@ -138,7 +150,11 @@ test.describe('Long Text Field', () => {
   test.fixme(
     'APP-LONG-TEXT-FIELD-004: should create btree index for text search performance when long-text field has indexed=true',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table configuration with long-text field, indexed=true
       await startServerWithSchema({
         name: 'test-app',
@@ -176,7 +192,11 @@ test.describe('Long Text Field', () => {
   test.fixme(
     'APP-LONG-TEXT-FIELD-005: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table with long-text field 'notes' and default value 'No notes'
       await startServerWithSchema({
         name: 'test-app',
@@ -218,7 +238,11 @@ test.describe('Long Text Field', () => {
   test.fixme(
     'user can complete full long-text-field workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Application configured with representative long-text field
       await startServerWithSchema({
         name: 'test-app',

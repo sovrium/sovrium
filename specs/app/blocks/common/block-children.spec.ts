@@ -27,7 +27,7 @@ test.describe('Block Children', () => {
   test(
     'APP-BLOCKS-CHILDREN-001: should render nested component structure in DOM',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: children array for block templates
       await startServerWithSchema({
         name: 'test-app',
@@ -57,7 +57,7 @@ test.describe('Block Children', () => {
   test(
     'APP-BLOCKS-CHILDREN-002: should render child element based on type',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: child with required type
       await startServerWithSchema({
         name: 'test-app',
@@ -86,7 +86,7 @@ test.describe('Block Children', () => {
   test(
     'APP-BLOCKS-CHILDREN-003: should render child with specified properties and attributes',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: child with props
       await startServerWithSchema({
         name: 'test-app',
@@ -119,7 +119,7 @@ test.describe('Block Children', () => {
   test(
     'APP-BLOCKS-CHILDREN-004: should render unlimited nesting depth in DOM tree',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: child with recursive children
       await startServerWithSchema({
         name: 'test-app',
@@ -169,7 +169,7 @@ test.describe('Block Children', () => {
   test(
     'APP-BLOCKS-CHILDREN-005: should render child with substituted text content',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: child with content
       await startServerWithSchema({
         name: 'test-app',
@@ -209,7 +209,7 @@ test.describe('Block Children', () => {
   test(
     'APP-BLOCKS-CHILDREN-006: should render composite UI pattern with all child elements',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: children for component composition
       await startServerWithSchema({
         name: 'test-app',
@@ -279,7 +279,7 @@ test.describe('Block Children', () => {
   test(
     'APP-BLOCKS-CHILDREN-007: should render SVG icon with substituted name and color',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: icon child example
       await startServerWithSchema({
         name: 'test-app',
@@ -316,7 +316,7 @@ test.describe('Block Children', () => {
   test(
     'APP-BLOCKS-CHILDREN-008: should render text element with substituted content',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: text child example
       await startServerWithSchema({
         name: 'test-app',
@@ -349,7 +349,7 @@ test.describe('Block Children', () => {
   test(
     'APP-BLOCKS-CHILDREN-009: should render all children with substituted values throughout tree',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: children with variable references
       await startServerWithSchema({
         name: 'test-app',
@@ -411,7 +411,7 @@ test.describe('Block Children', () => {
   test(
     'APP-BLOCKS-CHILDREN-010: should render hierarchical DOM tree with proper nesting',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: children for UI tree structure
       await startServerWithSchema({
         name: 'test-app',
@@ -466,7 +466,7 @@ test.describe('Block Children', () => {
   test(
     'APP-BLOCKS-BLOCK-CHILDREN-REGRESSION-001: user can complete full children workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Application with complex nested children
       await startServerWithSchema({
         name: 'test-app',

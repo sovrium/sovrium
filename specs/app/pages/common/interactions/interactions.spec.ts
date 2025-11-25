@@ -27,7 +27,7 @@ test.describe('Component Interactions', () => {
   test(
     'APP-PAGES-INTERACTION-MAIN-001: should support hover effects without other interaction types',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a component with only hover interactions
       await startServerWithSchema({
         name: 'test-app',
@@ -62,7 +62,7 @@ test.describe('Component Interactions', () => {
   test(
     'APP-PAGES-INTERACTION-MAIN-002: should support click actions without other interaction types',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a component with only click interactions
       await startServerWithSchema({
         name: 'test-app',
@@ -96,7 +96,7 @@ test.describe('Component Interactions', () => {
   test(
     'APP-PAGES-INTERACTION-MAIN-003: should support scroll animations without other interaction types',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a component with only scroll interactions
       await startServerWithSchema({
         name: 'test-app',
@@ -130,7 +130,7 @@ test.describe('Component Interactions', () => {
   test(
     'APP-PAGES-INTERACTION-MAIN-004: should support entrance animations without other interaction types',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a component with only entrance interactions
       await startServerWithSchema({
         name: 'test-app',
@@ -163,7 +163,7 @@ test.describe('Component Interactions', () => {
   test(
     'APP-PAGES-INTERACTION-MAIN-005: should support both hover effects and click actions',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a button with hover and click interactions
       await startServerWithSchema({
         name: 'test-app',
@@ -203,7 +203,7 @@ test.describe('Component Interactions', () => {
   test(
     'APP-PAGES-INTERACTION-MAIN-006: should play entrance animation on load and scroll animation on viewport entry',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a component with entrance and scroll interactions
       await startServerWithSchema({
         name: 'test-app',
@@ -241,7 +241,7 @@ test.describe('Component Interactions', () => {
   test(
     'APP-PAGES-INTERACTION-MAIN-007: all interactions should work independently and not interfere with each other',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a component with all four interaction types (hover, click, scroll, entrance)
       await startServerWithSchema({
         name: 'test-app',
@@ -284,7 +284,7 @@ test.describe('Component Interactions', () => {
   test(
     'APP-PAGES-INTERACTION-MAIN-008: hover effect should apply immediately and click should navigate after animation',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a button with hover transform and click navigation
       await startServerWithSchema({
         name: 'test-app',
@@ -330,7 +330,7 @@ test.describe('Component Interactions', () => {
   test(
     'APP-PAGES-INTERACTIONS-REGRESSION-001: user can complete full interactions workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Application with comprehensive interaction system
       await startServerWithSchema({
         name: 'test-app',

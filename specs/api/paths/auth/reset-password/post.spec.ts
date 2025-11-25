@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
- 
 
 /**
  * E2E Tests for Reset password
@@ -32,7 +31,11 @@ test.describe('Reset password', () => {
   test.fixme(
     'API-AUTH-RESET-PASSWORD-SUCCESS-001: should  password is updated',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: A user with valid reset token
       await startServerWithSchema({
         name: 'test-app',
@@ -74,7 +77,11 @@ test.describe('Reset password', () => {
   test.fixme(
     'API-AUTH-RESET-PASSWORD-VALIDATION-REQUIRED-NEW-PASSWORD-001: should  request with validation error',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: A user with valid reset token
       await startServerWithSchema({
         name: 'test-app',
@@ -113,7 +120,11 @@ test.describe('Reset password', () => {
   test.fixme(
     'API-AUTH-RESET-PASSWORD-VALIDATION-PASSWORD-TOO-SHORT-001: should  request with validation error',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: A user with valid reset token
       await startServerWithSchema({
         name: 'test-app',
@@ -153,7 +164,11 @@ test.describe('Reset password', () => {
   test.fixme(
     'API-AUTH-RESET-PASSWORD-PERMISSIONS-INVALID-TOKEN-001: should  (or 400 depending on better auth version)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -184,7 +199,11 @@ test.describe('Reset password', () => {
   test.fixme(
     'API-AUTH-RESET-PASSWORD-PERMISSIONS-EXPIRED-TOKEN-001: should  (or 400 depending on better auth version)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: A user with expired reset token
       await startServerWithSchema({
         name: 'test-app',
@@ -223,7 +242,11 @@ test.describe('Reset password', () => {
   test.fixme(
     'API-AUTH-RESET-PASSWORD-SECURITY-TOKEN-REUSE-PREVENTION-001: should  (token already used)',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: A user who has already used their reset token
       await startServerWithSchema({
         name: 'test-app',
@@ -262,7 +285,11 @@ test.describe('Reset password', () => {
   test.fixme(
     'API-AUTH-RESET-PASSWORD-EDGE-CASE-MISSING-TOKEN-001: should  request with validation error',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -293,7 +320,11 @@ test.describe('Reset password', () => {
   test.fixme(
     'API-AUTH-RESET-PASSWORD-EDGE-CASE-REVOKE-ALL-SESSIONS-001: should  all active sessions are revoked',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: A user with active sessions and valid reset token
       await startServerWithSchema({
         name: 'test-app',
@@ -343,7 +374,11 @@ test.describe('Reset password', () => {
   test.fixme(
     'user can complete full Resetpassword workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

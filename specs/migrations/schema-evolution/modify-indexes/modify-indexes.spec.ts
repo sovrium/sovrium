@@ -7,8 +7,6 @@
 
 import { test, expect } from '@/specs/fixtures'
 
- 
-
 /**
  * E2E Tests for Modify Indexes Migration
  *
@@ -29,7 +27,11 @@ test.describe('Modify Indexes Migration', () => {
   test.fixme(
     'MIG-MODIFY-INDEX-001: should create index creates btree index on specified field',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'products' with no custom indexes
       // WHEN: new single-column index added to 'indexes' property
       // THEN: CREATE INDEX creates btree index on specified field
@@ -42,7 +44,11 @@ test.describe('Modify Indexes Migration', () => {
   test.fixme(
     'MIG-MODIFY-INDEX-002: should create index creates multi-column btree index',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'contacts' with no indexes
       // WHEN: composite index on (last_name, first_name) added
       // THEN: CREATE INDEX creates multi-column btree index
@@ -55,7 +61,11 @@ test.describe('Modify Indexes Migration', () => {
   test.fixme(
     'MIG-MODIFY-INDEX-003: should drop index removes index from table',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'users' with existing index idx_users_email
       // WHEN: index removed from 'indexes' property
       // THEN: DROP INDEX removes index from table
@@ -68,7 +78,11 @@ test.describe('Modify Indexes Migration', () => {
   test.fixme(
     'MIG-MODIFY-INDEX-004: should drop old index and create new composite index',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'orders' with index on single field 'customer_id'
       // WHEN: index modified to be composite (customer_id, created_at)
       // THEN: DROP old index and CREATE new composite index
@@ -81,7 +95,11 @@ test.describe('Modify Indexes Migration', () => {
   test.fixme(
     'MIG-MODIFY-INDEX-005: should drop regular index and create unique index',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: table 'accounts' with regular index on username
       // WHEN: index modified to UNIQUE
       // THEN: DROP regular index and CREATE UNIQUE INDEX
@@ -94,7 +112,11 @@ test.describe('Modify Indexes Migration', () => {
   test.fixme(
     'MIG-MODIFY-INDEX-006: should create index concurrently allows reads/writes during creation',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: large table 'events' requiring non-blocking index creation
       // WHEN: new index added with concurrent option
       // THEN: CREATE INDEX CONCURRENTLY allows reads/writes during creation
@@ -111,7 +133,11 @@ test.describe('Modify Indexes Migration', () => {
   test.fixme(
     'user can complete full modify-indexes workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Application configured with representative modify-indexes scenarios
       // WHEN/THEN: Streamlined workflow testing integration points
 

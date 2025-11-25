@@ -16,7 +16,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
- 
 
 /**
  * E2E Tests for Record-Level Permissions
@@ -38,7 +37,11 @@ test.describe('Record-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-RECORD-PERMISSIONS-001: should filter records to match user ID when record-level permission is read: {userId} = created_by',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: record-level permission 'read: {userId} = created_by'
       await startServerWithSchema({
         name: 'test-app',
@@ -102,7 +105,11 @@ test.describe('Record-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-RECORD-PERMISSIONS-002: should deny UPDATE when user attempts to update record not assigned to them',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: record-level permission 'update: {userId} = assigned_to'
       await startServerWithSchema({
         name: 'test-app',
@@ -166,7 +173,11 @@ test.describe('Record-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-RECORD-PERMISSIONS-003: should deny DELETE when user attempts to delete published record they created',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: record-level permission 'delete: {userId} = created_by AND status = draft'
       await startServerWithSchema({
         name: 'test-app',
@@ -230,7 +241,11 @@ test.describe('Record-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-RECORD-PERMISSIONS-004: should filter records matching ALL conditions when multiple record-level read conditions with AND logic',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: multiple record-level read conditions with AND logic
       await startServerWithSchema({
         name: 'test-app',
@@ -301,7 +316,11 @@ test.describe('Record-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-RECORD-PERMISSIONS-005: should filter by user department custom property when record-level permission is {user.department} = department',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: record-level permission '{user.department} = department'
       await startServerWithSchema({
         name: 'test-app',
@@ -367,7 +386,11 @@ test.describe('Record-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-RECORD-PERMISSIONS-006: should filter records where user is creator OR assignee when record-level permission has complex OR condition',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: record-level permission with complex condition '{userId} = created_by OR {userId} = assigned_to'
       await startServerWithSchema({
         name: 'test-app',
@@ -441,7 +464,11 @@ test.describe('Record-Level Permissions', () => {
   test.fixme(
     'user can complete full record-permissions workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
+    async ({
+      page,
+      startServerWithSchema,
+      executeQuery,
+    }) => {
       // GIVEN: Application configured with representative record-level permissions
       await startServerWithSchema({
         name: 'test-app',
