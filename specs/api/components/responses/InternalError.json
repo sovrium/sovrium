@@ -1,0 +1,25 @@
+{
+  "description": "Internal server error",
+  "content": {
+    "application/json": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "const": "INTERNAL_ERROR"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable error message"
+          },
+          "requestId": {
+            "type": "string",
+            "description": "Unique request identifier for tracking"
+          }
+        },
+        "required": ["error", "message"]
+      }
+    }
+  }
+}

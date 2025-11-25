@@ -1,0 +1,35 @@
+{
+  "description": "Resource not found",
+  "content": {
+    "application/json": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "const": "NOT_FOUND"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable error message"
+          },
+          "details": {
+            "type": "object",
+            "description": "Additional context about the missing resource",
+            "properties": {
+              "resource": {
+                "type": "string",
+                "description": "Type of resource that was not found"
+              },
+              "identifier": {
+                "type": "string",
+                "description": "ID or identifier used in the request"
+              }
+            }
+          }
+        },
+        "required": ["error", "message"]
+      }
+    }
+  }
+}

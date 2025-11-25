@@ -105,6 +105,12 @@ export function TwitterCardMeta({
     { key: 'player', value: twitterCard.player },
     { key: 'player:width', value: twitterCard.playerWidth },
     { key: 'player:height', value: twitterCard.playerHeight },
+    { key: 'app:name:iphone', value: twitterCard.appName?.iPhone },
+    { key: 'app:name:ipad', value: twitterCard.appName?.iPad },
+    { key: 'app:name:googleplay', value: twitterCard.appName?.googlePlay },
+    { key: 'app:id:iphone', value: twitterCard.appId?.iPhone },
+    { key: 'app:id:ipad', value: twitterCard.appId?.iPad },
+    { key: 'app:id:googleplay', value: twitterCard.appId?.googlePlay },
   ]
 
   return (

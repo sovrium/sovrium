@@ -1,0 +1,363 @@
+/**
+ * Copyright (c) 2025 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { test, expect } from '@/specs/fixtures.ts'
+
+/**
+ * E2E Tests for Reject organization invitation
+ *
+ * Source: specs/api/paths/auth/organization/reject-invitation/post.json
+ * Domain: api
+ * Spec Count: 7
+ *
+ * Test Organization:
+ * 1. @spec tests - One per spec in schema (7 tests) - Exhaustive acceptance criteria
+ * 2. @regression test - ONE optimized integration test - Efficient workflow validation
+ *
+ * Validation Approach:
+ * - API response assertions (status codes, response schemas)
+ * - Database state validation (executeQuery fixture)
+ * - Authentication/authorization checks
+ */
+
+test.describe('Reject organization invitation', () => {
+  // ============================================================================
+  // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
+  // ============================================================================
+
+  test.fixme(
+    'API-ORG-REJECT-INVITATION-SUCCESS-001: should returns 200 OK and invitation status updated to rejected',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: An authenticated user and a valid pending invitation
+      await startServerWithSchema({
+        name: 'test-app',
+        // TODO: Configure server schema based on test requirements
+      })
+
+      // Database setup
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'owner@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 2, 'owner', NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organization_invitations (id, organization_id, email, role, token, status, expires_at, created_at) VALUES (1, 1, 'user@example.com', 'member', 'invite_token_123', 'pending', NOW() + INTERVAL '7 days', NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
+      )
+
+      // WHEN: User rejects the invitation
+      const response = await page.request.post('/api/auth/organization/reject-invitation', {
+        headers: {},
+        data: {
+          invitationId: '1',
+        },
+      })
+
+      // THEN: Returns 200 OK and invitation status updated to rejected
+      // Returns 200 OK
+      expect(response.status).toBe(200)
+
+      // Response contains success flag
+      const data = await response.json()
+      // Validate response schema
+      expect(data).toMatchObject({}) // TODO: Add schema validation
+
+      // Invitation status updated to rejected
+      // Validate database state
+      // TODO: Add database state validation
+
+      // User is NOT added to organization
+      // Validate database state
+      // TODO: Add database state validation
+    }
+  )
+
+  test.fixme(
+    'API-ORG-REJECT-INVITATION-VALIDATION-REQUIRED-INVITATION-ID-001: should returns 400 Bad Request with validation error',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: An authenticated user
+      await startServerWithSchema({
+        name: 'test-app',
+        // TODO: Configure server schema based on test requirements
+      })
+
+      // Database setup
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
+      )
+
+      // WHEN: User submits request without invitationId
+      const response = await page.request.post('/api/auth/organization/reject-invitation', {
+        headers: {},
+      })
+
+      // THEN: Returns 400 Bad Request with validation error
+      // Returns 400 Bad Request
+      expect(response.status).toBe(400)
+
+      // Response contains validation error for invitationId field
+      const data = await response.json()
+      // Validate response schema
+      expect(data).toMatchObject({}) // TODO: Add schema validation
+    }
+  )
+
+  test.fixme(
+    'API-ORG-REJECT-INVITATION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: A running server
+      await startServerWithSchema({
+        name: 'test-app',
+        // TODO: Configure server schema based on test requirements
+      })
+
+      // WHEN: Unauthenticated user attempts to reject invitation
+      const response = await page.request.post('/api/auth/organization/reject-invitation', {
+        headers: {},
+        data: {
+          invitationId: '1',
+        },
+      })
+
+      // THEN: Returns 401 Unauthorized
+      // Returns 401 Unauthorized
+      expect(response.status).toBe(401)
+
+      // Response contains error about missing authentication
+      const data = await response.json()
+      // Validate response schema
+      expect(data).toMatchObject({}) // TODO: Add schema validation
+    }
+  )
+
+  test.fixme(
+    'API-ORG-REJECT-INVITATION-NOT-FOUND-001: should returns 404 Not Found',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: An authenticated user
+      await startServerWithSchema({
+        name: 'test-app',
+        // TODO: Configure server schema based on test requirements
+      })
+
+      // Database setup
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
+      )
+
+      // WHEN: User attempts to reject non-existent invitation
+      const response = await page.request.post('/api/auth/organization/reject-invitation', {
+        headers: {},
+        data: {
+          invitationId: '999',
+        },
+      })
+
+      // THEN: Returns 404 Not Found
+      // Returns 404 Not Found
+      expect(response.status).toBe(404)
+
+      // Response contains error about invitation not found
+      const data = await response.json()
+      // Validate response schema
+      expect(data).toMatchObject({}) // TODO: Add schema validation
+    }
+  )
+
+  test.fixme(
+    'API-ORG-REJECT-INVITATION-EDGE-CASE-EXPIRED-INVITATION-001: should returns 410 Gone',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: An authenticated user and an expired invitation
+      await startServerWithSchema({
+        name: 'test-app',
+        // TODO: Configure server schema based on test requirements
+      })
+
+      // Database setup
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'owner@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 2, 'owner', NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organization_invitations (id, organization_id, email, role, token, status, expires_at, created_at) VALUES (1, 1, 'user@example.com', 'member', 'invite_token_123', 'pending', NOW() - INTERVAL '1 day', NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
+      )
+
+      // WHEN: User attempts to reject expired invitation
+      const response = await page.request.post('/api/auth/organization/reject-invitation', {
+        headers: {},
+        data: {
+          invitationId: '1',
+        },
+      })
+
+      // THEN: Returns 410 Gone
+      // Returns 410 Gone
+      expect(response.status).toBe(410)
+
+      // Response contains error about expired invitation
+      const data = await response.json()
+      // Validate response schema
+      expect(data).toMatchObject({}) // TODO: Add schema validation
+    }
+  )
+
+  test.fixme(
+    'API-ORG-REJECT-INVITATION-SECURITY-EMAIL-MISMATCH-001: should returns 404 Not Found (prevent invitation enumeration)',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: An authenticated user and an invitation for different email
+      await startServerWithSchema({
+        name: 'test-app',
+        // TODO: Configure server schema based on test requirements
+      })
+
+      // Database setup
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user1@example.com', '\$2a\$10\$YourHashedPasswordHere', 'User 1', true, NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'owner@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 2, 'owner', NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organization_invitations (id, organization_id, email, role, token, status, expires_at, created_at) VALUES (1, 1, 'user2@example.com', 'member', 'invite_token_123', 'pending', NOW() + INTERVAL '7 days', NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user1_token', NOW() + INTERVAL '7 days', NOW())`
+      )
+
+      // WHEN: User attempts to reject invitation not addressed to them
+      const response = await page.request.post('/api/auth/organization/reject-invitation', {
+        headers: {},
+        data: {
+          invitationId: '1',
+        },
+      })
+
+      // THEN: Returns 404 Not Found (prevent invitation enumeration)
+      // Returns 404 Not Found (prevent invitation enumeration)
+      expect(response.status).toBe(404)
+
+      // Response contains error about invitation not found
+      const data = await response.json()
+      // Validate response schema
+      expect(data).toMatchObject({}) // TODO: Add schema validation
+
+      // Invitation remains pending
+      // Validate database state
+      // TODO: Add database state validation
+    }
+  )
+
+  test.fixme(
+    'API-ORG-REJECT-INVITATION-EDGE-CASE-ALREADY-REJECTED-001: should returns 409 Conflict',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: An authenticated user and an invitation already rejected
+      await startServerWithSchema({
+        name: 'test-app',
+        // TODO: Configure server schema based on test requirements
+      })
+
+      // Database setup
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'owner@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 2, 'owner', NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organization_invitations (id, organization_id, email, role, token, status, expires_at, created_at) VALUES (1, 1, 'user@example.com', 'member', 'invite_token_123', 'rejected', NOW() + INTERVAL '7 days', NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
+      )
+
+      // WHEN: User attempts to reject the same invitation again
+      const response = await page.request.post('/api/auth/organization/reject-invitation', {
+        headers: {},
+        data: {
+          invitationId: '1',
+        },
+      })
+
+      // THEN: Returns 409 Conflict
+      // Returns 409 Conflict
+      expect(response.status).toBe(409)
+
+      // Response contains error about invitation already rejected
+      const data = await response.json()
+      // Validate response schema
+      expect(data).toMatchObject({}) // TODO: Add schema validation
+    }
+  )
+
+  // ============================================================================
+  // @regression test - OPTIMIZED integration confidence check
+  // ============================================================================
+
+  test.fixme(
+    'user can complete full rejectInvitation workflow',
+    { tag: '@regression' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: Representative test scenario
+      await startServerWithSchema({
+        name: 'test-app',
+        // TODO: Configure server schema for integration test
+      })
+
+      // WHEN: Execute workflow
+      // TODO: Add representative API workflow
+      const response = await page.request.get('/api/endpoint')
+
+      // THEN: Verify integration
+      expect(response.ok()).toBeTruthy()
+      // TODO: Add integration assertions
+    }
+  )
+})
