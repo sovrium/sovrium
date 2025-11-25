@@ -1,0 +1,522 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rls-policies.schema.json",
+  "title": "Row-Level Security Policies Migration",
+  "description": "Runtime SQL migration scenarios for enabling RLS and managing policies (SELECT, INSERT, UPDATE, DELETE)",
+  "type": "object",
+  "properties": {
+    "previousSchema": {
+      "type": "object",
+      "description": "Schema before RLS policy modification"
+    },
+    "newSchema": {
+      "type": "object",
+      "description": "Schema after RLS policy modification"
+    },
+    "rlsChange": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "enum": ["enable-rls", "disable-rls", "create-policy", "drop-policy", "alter-policy"],
+          "description": "Type of RLS operation"
+        },
+        "policyType": {
+          "enum": ["SELECT", "INSERT", "UPDATE", "DELETE", "ALL"],
+          "description": "Policy command type"
+        }
+      }
+    }
+  },
+  "required": ["previousSchema", "newSchema"],
+  "x-specs": [
+    {
+      "id": "MIG-RLS-001",
+      "given": "table 'documents' exists without RLS",
+      "when": "RLS enabled with SELECT policy (user_id = current_user_id())",
+      "then": "Enable RLS + CREATE SELECT policy",
+      "validation": {
+        "setup": {
+          "previousSchema": {
+            "id": "tbl_documents",
+            "name": "documents",
+            "fields": [
+              { "id": 1, "name": "title", "type": "single-line-text" },
+              { "id": 2, "name": "user_id", "type": "integer" }
+            ],
+            "rls": {
+              "enabled": false,
+              "policies": []
+            }
+          },
+          "newSchema": {
+            "id": "tbl_documents",
+            "name": "documents",
+            "fields": [
+              { "id": 1, "name": "title", "type": "single-line-text" },
+              { "id": 2, "name": "user_id", "type": "integer" }
+            ],
+            "rls": {
+              "enabled": true,
+              "policies": [
+                {
+                  "name": "documents_select_policy",
+                  "command": "SELECT",
+                  "using": "user_id = current_user_id()"
+                }
+              ]
+            }
+          },
+          "executeQuery": [
+            "CREATE TABLE documents (id SERIAL PRIMARY KEY, title VARCHAR(255), user_id INTEGER)",
+            "CREATE FUNCTION current_user_id() RETURNS INTEGER AS $$ SELECT 1 $$ LANGUAGE SQL",
+            "INSERT INTO documents (title, user_id) VALUES ('Doc 1', 1), ('Doc 2', 2), ('Doc 3', 1)"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "SQL contains ALTER TABLE ENABLE ROW LEVEL SECURITY",
+            "sqlGeneration": {
+              "contains": ["ALTER TABLE \"documents\" ENABLE ROW LEVEL SECURITY"]
+            }
+          },
+          {
+            "description": "SQL contains CREATE POLICY",
+            "sqlGeneration": {
+              "contains": [
+                "CREATE POLICY documents_select_policy ON \"documents\" FOR SELECT USING (user_id = current_user_id())"
+              ]
+            }
+          },
+          {
+            "description": "RLS enabled on table",
+            "executeQuery": "SELECT relrowsecurity FROM pg_class WHERE relname = 'documents'",
+            "expected": {
+              "relrowsecurity": true
+            }
+          },
+          {
+            "description": "Policy exists in pg_policies",
+            "executeQuery": "SELECT policyname, cmd FROM pg_policies WHERE tablename = 'documents' AND policyname = 'documents_select_policy'",
+            "expected": {
+              "policyname": "documents_select_policy",
+              "cmd": "SELECT"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "MIG-RLS-002",
+      "given": "table 'posts' with RLS enabled and SELECT policy",
+      "when": "INSERT policy added (user_id = current_user_id())",
+      "then": "CREATE INSERT policy",
+      "validation": {
+        "setup": {
+          "previousSchema": {
+            "id": "tbl_posts",
+            "name": "posts",
+            "fields": [
+              { "id": 1, "name": "content", "type": "long-text" },
+              { "id": 2, "name": "user_id", "type": "integer" }
+            ],
+            "rls": {
+              "enabled": true,
+              "policies": [
+                {
+                  "name": "posts_select_policy",
+                  "command": "SELECT",
+                  "using": "user_id = current_user_id()"
+                }
+              ]
+            }
+          },
+          "newSchema": {
+            "id": "tbl_posts",
+            "name": "posts",
+            "fields": [
+              { "id": 1, "name": "content", "type": "long-text" },
+              { "id": 2, "name": "user_id", "type": "integer" }
+            ],
+            "rls": {
+              "enabled": true,
+              "policies": [
+                {
+                  "name": "posts_select_policy",
+                  "command": "SELECT",
+                  "using": "user_id = current_user_id()"
+                },
+                {
+                  "name": "posts_insert_policy",
+                  "command": "INSERT",
+                  "withCheck": "user_id = current_user_id()"
+                }
+              ]
+            }
+          },
+          "executeQuery": [
+            "CREATE TABLE posts (id SERIAL PRIMARY KEY, content TEXT, user_id INTEGER)",
+            "CREATE FUNCTION current_user_id() RETURNS INTEGER AS $$ SELECT 1 $$ LANGUAGE SQL",
+            "ALTER TABLE posts ENABLE ROW LEVEL SECURITY",
+            "CREATE POLICY posts_select_policy ON posts FOR SELECT USING (user_id = current_user_id())",
+            "INSERT INTO posts (content, user_id) VALUES ('Post 1', 1), ('Post 2', 2)"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "SQL contains CREATE POLICY for INSERT",
+            "sqlGeneration": {
+              "contains": [
+                "CREATE POLICY posts_insert_policy ON \"posts\" FOR INSERT WITH CHECK (user_id = current_user_id())"
+              ]
+            }
+          },
+          {
+            "description": "INSERT policy exists",
+            "executeQuery": "SELECT policyname, cmd FROM pg_policies WHERE tablename = 'posts' AND policyname = 'posts_insert_policy'",
+            "expected": {
+              "policyname": "posts_insert_policy",
+              "cmd": "INSERT"
+            }
+          },
+          {
+            "description": "Both policies active",
+            "executeQuery": "SELECT COUNT(*) as count FROM pg_policies WHERE tablename = 'posts'",
+            "expected": {
+              "count": 2
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "MIG-RLS-003",
+      "given": "table 'comments' with RLS and SELECT/INSERT policies",
+      "when": "UPDATE policy added (user_id = current_user_id())",
+      "then": "CREATE UPDATE policy",
+      "validation": {
+        "setup": {
+          "previousSchema": {
+            "id": "tbl_comments",
+            "name": "comments",
+            "fields": [
+              { "id": 1, "name": "text", "type": "long-text" },
+              { "id": 2, "name": "user_id", "type": "integer" }
+            ],
+            "rls": {
+              "enabled": true,
+              "policies": [
+                {
+                  "name": "comments_select_policy",
+                  "command": "SELECT",
+                  "using": "true"
+                },
+                {
+                  "name": "comments_insert_policy",
+                  "command": "INSERT",
+                  "withCheck": "user_id = current_user_id()"
+                }
+              ]
+            }
+          },
+          "newSchema": {
+            "id": "tbl_comments",
+            "name": "comments",
+            "fields": [
+              { "id": 1, "name": "text", "type": "long-text" },
+              { "id": 2, "name": "user_id", "type": "integer" }
+            ],
+            "rls": {
+              "enabled": true,
+              "policies": [
+                {
+                  "name": "comments_select_policy",
+                  "command": "SELECT",
+                  "using": "true"
+                },
+                {
+                  "name": "comments_insert_policy",
+                  "command": "INSERT",
+                  "withCheck": "user_id = current_user_id()"
+                },
+                {
+                  "name": "comments_update_policy",
+                  "command": "UPDATE",
+                  "using": "user_id = current_user_id()",
+                  "withCheck": "user_id = current_user_id()"
+                }
+              ]
+            }
+          },
+          "executeQuery": [
+            "CREATE TABLE comments (id SERIAL PRIMARY KEY, text TEXT, user_id INTEGER)",
+            "CREATE FUNCTION current_user_id() RETURNS INTEGER AS $$ SELECT 1 $$ LANGUAGE SQL",
+            "ALTER TABLE comments ENABLE ROW LEVEL SECURITY",
+            "CREATE POLICY comments_select_policy ON comments FOR SELECT USING (true)",
+            "CREATE POLICY comments_insert_policy ON comments FOR INSERT WITH CHECK (user_id = current_user_id())",
+            "INSERT INTO comments (text, user_id) VALUES ('Comment 1', 1), ('Comment 2', 2)"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "SQL contains CREATE POLICY for UPDATE",
+            "sqlGeneration": {
+              "contains": [
+                "CREATE POLICY comments_update_policy ON \"comments\" FOR UPDATE USING (user_id = current_user_id()) WITH CHECK (user_id = current_user_id())"
+              ]
+            }
+          },
+          {
+            "description": "UPDATE policy exists",
+            "executeQuery": "SELECT policyname, cmd FROM pg_policies WHERE tablename = 'comments' AND policyname = 'comments_update_policy'",
+            "expected": {
+              "policyname": "comments_update_policy",
+              "cmd": "UPDATE"
+            }
+          },
+          {
+            "description": "All 3 policies active",
+            "executeQuery": "SELECT COUNT(*) as count FROM pg_policies WHERE tablename = 'comments'",
+            "expected": {
+              "count": 3
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "MIG-RLS-004",
+      "given": "table 'tasks' with RLS and multiple policies",
+      "when": "SELECT policy removed from schema",
+      "then": "DROP RLS policy",
+      "validation": {
+        "setup": {
+          "previousSchema": {
+            "id": "tbl_tasks",
+            "name": "tasks",
+            "fields": [
+              { "id": 1, "name": "title", "type": "single-line-text" },
+              { "id": 2, "name": "user_id", "type": "integer" }
+            ],
+            "rls": {
+              "enabled": true,
+              "policies": [
+                {
+                  "name": "tasks_select_policy",
+                  "command": "SELECT",
+                  "using": "user_id = current_user_id()"
+                },
+                {
+                  "name": "tasks_insert_policy",
+                  "command": "INSERT",
+                  "withCheck": "user_id = current_user_id()"
+                }
+              ]
+            }
+          },
+          "newSchema": {
+            "id": "tbl_tasks",
+            "name": "tasks",
+            "fields": [
+              { "id": 1, "name": "title", "type": "single-line-text" },
+              { "id": 2, "name": "user_id", "type": "integer" }
+            ],
+            "rls": {
+              "enabled": true,
+              "policies": [
+                {
+                  "name": "tasks_insert_policy",
+                  "command": "INSERT",
+                  "withCheck": "user_id = current_user_id()"
+                }
+              ]
+            }
+          },
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), user_id INTEGER)",
+            "CREATE FUNCTION current_user_id() RETURNS INTEGER AS $$ SELECT 1 $$ LANGUAGE SQL",
+            "ALTER TABLE tasks ENABLE ROW LEVEL SECURITY",
+            "CREATE POLICY tasks_select_policy ON tasks FOR SELECT USING (user_id = current_user_id())",
+            "CREATE POLICY tasks_insert_policy ON tasks FOR INSERT WITH CHECK (user_id = current_user_id())",
+            "INSERT INTO tasks (title, user_id) VALUES ('Task 1', 1)"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "SQL contains DROP POLICY",
+            "sqlGeneration": {
+              "contains": ["DROP POLICY tasks_select_policy ON \"tasks\""]
+            }
+          },
+          {
+            "description": "SELECT policy removed",
+            "executeQuery": "SELECT COUNT(*) as count FROM pg_policies WHERE tablename = 'tasks' AND policyname = 'tasks_select_policy'",
+            "expected": {
+              "count": 0
+            }
+          },
+          {
+            "description": "INSERT policy remains",
+            "executeQuery": "SELECT COUNT(*) as count FROM pg_policies WHERE tablename = 'tasks' AND policyname = 'tasks_insert_policy'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "RLS still enabled",
+            "executeQuery": "SELECT relrowsecurity FROM pg_class WHERE relname = 'tasks'",
+            "expected": {
+              "relrowsecurity": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "MIG-RLS-005",
+      "given": "table 'projects' with RLS policy using old expression",
+      "when": "policy expression modified (owner_id changed to user_id)",
+      "then": "Alter policy via DROP and CREATE",
+      "validation": {
+        "setup": {
+          "previousSchema": {
+            "id": "tbl_projects",
+            "name": "projects",
+            "fields": [
+              { "id": 1, "name": "name", "type": "single-line-text" },
+              { "id": 2, "name": "owner_id", "type": "integer" }
+            ],
+            "rls": {
+              "enabled": true,
+              "policies": [
+                {
+                  "name": "projects_select_policy",
+                  "command": "SELECT",
+                  "using": "owner_id = current_user_id()"
+                }
+              ]
+            }
+          },
+          "newSchema": {
+            "id": "tbl_projects",
+            "name": "projects",
+            "fields": [
+              { "id": 1, "name": "name", "type": "single-line-text" },
+              { "id": 2, "name": "user_id", "type": "integer" }
+            ],
+            "rls": {
+              "enabled": true,
+              "policies": [
+                {
+                  "name": "projects_select_policy",
+                  "command": "SELECT",
+                  "using": "user_id = current_user_id()"
+                }
+              ]
+            }
+          },
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), owner_id INTEGER)",
+            "CREATE FUNCTION current_user_id() RETURNS INTEGER AS $$ SELECT 1 $$ LANGUAGE SQL",
+            "ALTER TABLE projects ENABLE ROW LEVEL SECURITY",
+            "CREATE POLICY projects_select_policy ON projects FOR SELECT USING (owner_id = current_user_id())",
+            "ALTER TABLE projects RENAME COLUMN owner_id TO user_id",
+            "INSERT INTO projects (name, user_id) VALUES ('Project 1', 1)"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "SQL contains DROP POLICY and CREATE POLICY",
+            "sqlGeneration": {
+              "contains": [
+                "DROP POLICY projects_select_policy ON \"projects\"",
+                "CREATE POLICY projects_select_policy ON \"projects\" FOR SELECT USING (user_id = current_user_id())"
+              ]
+            }
+          },
+          {
+            "description": "Policy recreated with new expression",
+            "executeQuery": "SELECT qual FROM pg_policies WHERE tablename = 'projects' AND policyname = 'projects_select_policy'",
+            "expected": {
+              "qual": "(user_id = current_user_id())"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "MIG-RLS-006",
+      "given": "table 'logs' with RLS enabled and policies",
+      "when": "RLS disabled in schema",
+      "then": "Disable RLS on table",
+      "validation": {
+        "setup": {
+          "previousSchema": {
+            "id": "tbl_logs",
+            "name": "logs",
+            "fields": [
+              { "id": 1, "name": "message", "type": "long-text" },
+              { "id": 2, "name": "user_id", "type": "integer" }
+            ],
+            "rls": {
+              "enabled": true,
+              "policies": [
+                {
+                  "name": "logs_select_policy",
+                  "command": "SELECT",
+                  "using": "user_id = current_user_id()"
+                }
+              ]
+            }
+          },
+          "newSchema": {
+            "id": "tbl_logs",
+            "name": "logs",
+            "fields": [
+              { "id": 1, "name": "message", "type": "long-text" },
+              { "id": 2, "name": "user_id", "type": "integer" }
+            ],
+            "rls": {
+              "enabled": false,
+              "policies": []
+            }
+          },
+          "executeQuery": [
+            "CREATE TABLE logs (id SERIAL PRIMARY KEY, message TEXT, user_id INTEGER)",
+            "CREATE FUNCTION current_user_id() RETURNS INTEGER AS $$ SELECT 1 $$ LANGUAGE SQL",
+            "ALTER TABLE logs ENABLE ROW LEVEL SECURITY",
+            "CREATE POLICY logs_select_policy ON logs FOR SELECT USING (user_id = current_user_id())",
+            "INSERT INTO logs (message, user_id) VALUES ('Log 1', 1), ('Log 2', 2)"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "SQL contains DROP POLICY",
+            "sqlGeneration": {
+              "contains": ["DROP POLICY logs_select_policy ON \"logs\""]
+            }
+          },
+          {
+            "description": "SQL contains ALTER TABLE DISABLE ROW LEVEL SECURITY",
+            "sqlGeneration": {
+              "contains": ["ALTER TABLE \"logs\" DISABLE ROW LEVEL SECURITY"]
+            }
+          },
+          {
+            "description": "RLS disabled on table",
+            "executeQuery": "SELECT relrowsecurity FROM pg_class WHERE relname = 'logs'",
+            "expected": {
+              "relrowsecurity": false
+            }
+          },
+          {
+            "description": "Policies removed",
+            "executeQuery": "SELECT COUNT(*) as count FROM pg_policies WHERE tablename = 'logs'",
+            "expected": {
+              "count": 0
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

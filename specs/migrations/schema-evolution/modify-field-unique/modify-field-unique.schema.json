@@ -1,0 +1,266 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "modify-field-unique.schema.json",
+  "title": "Modify Field Unique Migration",
+  "description": "Runtime SQL migration scenarios for adding and removing UNIQUE constraints on individual fields via ALTER TABLE ADD/DROP CONSTRAINT",
+  "type": "object",
+  "properties": {
+    "previousSchema": {
+      "type": "object",
+      "description": "Table schema before unique constraint modification"
+    },
+    "newSchema": {
+      "type": "object",
+      "description": "Table schema after unique constraint modification"
+    }
+  },
+  "required": ["previousSchema", "newSchema"],
+  "x-specs": [
+    {
+      "id": "MIG-MODIFY-UNIQUE-001",
+      "given": "table 'users' with field 'username' (TEXT) containing unique values",
+      "when": "unique constraint added to schema",
+      "then": "ALTER TABLE ADD CONSTRAINT unique_users_username UNIQUE (username)",
+      "validation": {
+        "setup": {
+          "previousSchema": {
+            "id": "tbl_users",
+            "name": "users",
+            "fields": [
+              {
+                "id": 1,
+                "name": "email",
+                "type": "email",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "username",
+                "type": "single-line-text",
+                "required": true,
+                "unique": false
+              }
+            ]
+          },
+          "newSchema": {
+            "id": "tbl_users",
+            "name": "users",
+            "fields": [
+              {
+                "id": 1,
+                "name": "email",
+                "type": "email",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "username",
+                "type": "single-line-text",
+                "required": true,
+                "unique": true
+              }
+            ]
+          },
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL, username VARCHAR(100) NOT NULL)",
+            "INSERT INTO users (email, username) VALUES ('alice@example.com', 'alice'), ('bob@example.com', 'bob')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "SQL migration contains ADD CONSTRAINT UNIQUE",
+            "sqlGeneration": {
+              "contains": [
+                "ALTER TABLE \"users\" ADD CONSTRAINT unique_users_username UNIQUE (username)"
+              ]
+            }
+          },
+          {
+            "description": "Constraint exists in pg_constraint",
+            "executeQuery": "SELECT conname, contype FROM pg_constraint WHERE conrelid = 'users'::regclass AND conname = 'unique_users_username'",
+            "expected": {
+              "conname": "unique_users_username",
+              "contype": "u"
+            }
+          },
+          {
+            "description": "Duplicate username now rejected",
+            "executeQuery": "INSERT INTO users (email, username) VALUES ('charlie@example.com', 'alice')",
+            "expectError": "duplicate key value violates unique constraint"
+          },
+          {
+            "description": "Unique username succeeds",
+            "executeQuery": "INSERT INTO users (email, username) VALUES ('charlie@example.com', 'charlie') RETURNING username",
+            "expected": {
+              "username": "charlie"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "MIG-MODIFY-UNIQUE-002",
+      "given": "table 'products' with field 'sku' containing duplicate values",
+      "when": "unique constraint added to 'sku'",
+      "then": "Migration fails with unique violation error, transaction rolled back",
+      "validation": {
+        "setup": {
+          "previousSchema": {
+            "id": "tbl_products",
+            "name": "products",
+            "fields": [
+              {
+                "id": 1,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "sku",
+                "type": "single-line-text",
+                "required": true,
+                "unique": false
+              }
+            ]
+          },
+          "newSchema": {
+            "id": "tbl_products",
+            "name": "products",
+            "fields": [
+              {
+                "id": 1,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "sku",
+                "type": "single-line-text",
+                "required": true,
+                "unique": true
+              }
+            ]
+          },
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, sku VARCHAR(100) NOT NULL)",
+            "INSERT INTO products (name, sku) VALUES ('Product 1', 'SKU-001'), ('Product 2', 'SKU-001'), ('Product 3', 'SKU-002')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Migration fails due to duplicate data",
+            "migrationStatus": "failed",
+            "errorPattern": "could not create unique index|duplicate key value"
+          },
+          {
+            "description": "Constraint NOT created",
+            "executeQuery": "SELECT COUNT(*) as count FROM pg_constraint WHERE conrelid = 'products'::regclass AND conname = 'unique_products_sku'",
+            "expected": {
+              "count": 0
+            }
+          },
+          {
+            "description": "Duplicate data still exists (no cleanup)",
+            "executeQuery": "SELECT COUNT(*) as count FROM products WHERE sku = 'SKU-001'",
+            "expected": {
+              "count": 2
+            }
+          },
+          {
+            "description": "All data preserved after failed migration",
+            "executeQuery": "SELECT COUNT(*) as total FROM products",
+            "expected": {
+              "total": 3
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "MIG-MODIFY-UNIQUE-003",
+      "given": "table 'orders' with field 'order_number' having UNIQUE constraint",
+      "when": "unique constraint removed from schema",
+      "then": "ALTER TABLE DROP CONSTRAINT unique_orders_order_number",
+      "validation": {
+        "setup": {
+          "previousSchema": {
+            "id": "tbl_orders",
+            "name": "orders",
+            "fields": [
+              {
+                "id": 1,
+                "name": "customer_id",
+                "type": "integer",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "order_number",
+                "type": "single-line-text",
+                "required": true,
+                "unique": true
+              }
+            ]
+          },
+          "newSchema": {
+            "id": "tbl_orders",
+            "name": "orders",
+            "fields": [
+              {
+                "id": 1,
+                "name": "customer_id",
+                "type": "integer",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "order_number",
+                "type": "single-line-text",
+                "required": true,
+                "unique": false
+              }
+            ]
+          },
+          "executeQuery": [
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER NOT NULL, order_number VARCHAR(50) NOT NULL)",
+            "ALTER TABLE orders ADD CONSTRAINT unique_orders_order_number UNIQUE (order_number)",
+            "INSERT INTO orders (customer_id, order_number) VALUES (1, 'ORD-001')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "SQL migration contains DROP CONSTRAINT",
+            "sqlGeneration": {
+              "contains": [
+                "ALTER TABLE \"orders\" DROP CONSTRAINT unique_orders_order_number"
+              ]
+            }
+          },
+          {
+            "description": "Constraint no longer exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM pg_constraint WHERE conrelid = 'orders'::regclass AND conname = 'unique_orders_order_number'",
+            "expected": {
+              "count": 0
+            }
+          },
+          {
+            "description": "Duplicate order_number now allowed",
+            "executeQuery": "INSERT INTO orders (customer_id, order_number) VALUES (2, 'ORD-001') RETURNING order_number",
+            "expected": {
+              "order_number": "ORD-001"
+            }
+          },
+          {
+            "description": "Multiple duplicates allowed",
+            "executeQuery": "SELECT COUNT(*) as count FROM orders WHERE order_number = 'ORD-001'",
+            "expected": {
+              "count": 2
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

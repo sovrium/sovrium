@@ -1,0 +1,289 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "modify-field-required.schema.json",
+  "title": "Modify Field Required Migration",
+  "description": "Runtime SQL migration scenarios for adding and removing NOT NULL constraints via ALTER TABLE ALTER COLUMN",
+  "type": "object",
+  "properties": {
+    "previousSchema": {
+      "type": "object",
+      "description": "Table schema before required field modification"
+    },
+    "newSchema": {
+      "type": "object",
+      "description": "Table schema after required field modification"
+    },
+    "fieldChange": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "enum": ["add-required", "remove-required"],
+          "description": "Type of required constraint operation"
+        },
+        "fieldName": {
+          "type": "string",
+          "description": "Name of the field being modified"
+        }
+      }
+    }
+  },
+  "required": ["previousSchema", "newSchema"],
+  "x-specs": [
+    {
+      "id": "MIG-MODIFY-REQUIRED-001",
+      "given": "table 'users' with optional field 'phone' (TEXT NULL), no rows exist",
+      "when": "field marked as required in schema",
+      "then": "ALTER TABLE ALTER COLUMN SET NOT NULL",
+      "validation": {
+        "setup": {
+          "previousSchema": {
+            "id": "tbl_users",
+            "name": "users",
+            "fields": [
+              { "id": 1, "name": "email", "type": "email", "required": true },
+              { "id": 2, "name": "phone", "type": "phone-number", "required": false }
+            ]
+          },
+          "newSchema": {
+            "id": "tbl_users",
+            "name": "users",
+            "fields": [
+              { "id": 1, "name": "email", "type": "email", "required": true },
+              { "id": 2, "name": "phone", "type": "phone-number", "required": true }
+            ]
+          },
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL, phone VARCHAR(20) NULL)"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "SQL migration contains ALTER COLUMN SET NOT NULL",
+            "sqlGeneration": {
+              "contains": ["ALTER TABLE \"users\" ALTER COLUMN \"phone\" SET NOT NULL"]
+            }
+          },
+          {
+            "description": "Column is now NOT NULL in information_schema",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='users' AND column_name='phone'",
+            "expected": {
+              "is_nullable": "NO"
+            }
+          },
+          {
+            "description": "NULL insert now rejected",
+            "executeQuery": "INSERT INTO users (email, phone) VALUES ('test@example.com', NULL)",
+            "expectError": "violates not-null constraint"
+          },
+          {
+            "description": "Non-NULL insert succeeds",
+            "executeQuery": "INSERT INTO users (email, phone) VALUES ('test@example.com', '+1234567890') RETURNING phone",
+            "expected": {
+              "phone": "+1234567890"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "MIG-MODIFY-REQUIRED-002",
+      "given": "table 'products' with optional field 'category' (TEXT NULL), existing rows present",
+      "when": "field marked as required without default value",
+      "then": "Migration fails with error (cannot add NOT NULL without default when data exists)",
+      "validation": {
+        "setup": {
+          "previousSchema": {
+            "id": "tbl_products",
+            "name": "products",
+            "fields": [
+              { "id": 1, "name": "name", "type": "single-line-text", "required": true },
+              { "id": 2, "name": "category", "type": "single-line-text", "required": false }
+            ]
+          },
+          "newSchema": {
+            "id": "tbl_products",
+            "name": "products",
+            "fields": [
+              { "id": 1, "name": "name", "type": "single-line-text", "required": true },
+              { "id": 2, "name": "category", "type": "single-line-text", "required": true }
+            ]
+          },
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, category VARCHAR(100) NULL)",
+            "INSERT INTO products (name, category) VALUES ('Product 1', NULL), ('Product 2', 'Electronics'), ('Product 3', NULL)"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Migration fails due to NULL values",
+            "migrationStatus": "failed",
+            "errorPattern": "violates not-null constraint|column contains null values"
+          },
+          {
+            "description": "Column remains nullable",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='category'",
+            "expected": {
+              "is_nullable": "YES"
+            }
+          },
+          {
+            "description": "NULL values still exist (no cleanup)",
+            "executeQuery": "SELECT COUNT(*) as count FROM products WHERE category IS NULL",
+            "expected": {
+              "count": 2
+            }
+          },
+          {
+            "description": "All data preserved after failed migration",
+            "executeQuery": "SELECT COUNT(*) as total FROM products",
+            "expected": {
+              "total": 3
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "MIG-MODIFY-REQUIRED-003",
+      "given": "table 'orders' with optional field 'status', existing rows present",
+      "when": "field marked as required with default value 'pending'",
+      "then": "ALTER TABLE SET DEFAULT, backfill NULL values, then SET NOT NULL",
+      "validation": {
+        "setup": {
+          "previousSchema": {
+            "id": "tbl_orders",
+            "name": "orders",
+            "fields": [
+              { "id": 1, "name": "order_number", "type": "single-line-text", "required": true },
+              { "id": 2, "name": "status", "type": "single-line-text", "required": false }
+            ]
+          },
+          "newSchema": {
+            "id": "tbl_orders",
+            "name": "orders",
+            "fields": [
+              { "id": 1, "name": "order_number", "type": "single-line-text", "required": true },
+              {
+                "id": 2,
+                "name": "status",
+                "type": "single-line-text",
+                "required": true,
+                "default": "pending"
+              }
+            ]
+          },
+          "executeQuery": [
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50) NOT NULL, status VARCHAR(50) NULL)",
+            "INSERT INTO orders (order_number, status) VALUES ('ORD-001', NULL), ('ORD-002', 'shipped'), ('ORD-003', NULL)"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "SQL migration contains SET DEFAULT, UPDATE, SET NOT NULL",
+            "sqlGeneration": {
+              "contains": [
+                "ALTER TABLE \"orders\" ALTER COLUMN \"status\" SET DEFAULT 'pending'",
+                "UPDATE \"orders\" SET \"status\" = 'pending' WHERE \"status\" IS NULL",
+                "ALTER TABLE \"orders\" ALTER COLUMN \"status\" SET NOT NULL"
+              ]
+            }
+          },
+          {
+            "description": "Column is now NOT NULL",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='orders' AND column_name='status'",
+            "expected": {
+              "is_nullable": "NO"
+            }
+          },
+          {
+            "description": "Previously NULL values backfilled with default",
+            "executeQuery": "SELECT status FROM orders WHERE order_number = 'ORD-001'",
+            "expected": {
+              "status": "pending"
+            }
+          },
+          {
+            "description": "No NULL values remain",
+            "executeQuery": "SELECT COUNT(*) as count FROM orders WHERE status IS NULL",
+            "expected": {
+              "count": 0
+            }
+          },
+          {
+            "description": "New rows get default value",
+            "executeQuery": "INSERT INTO orders (order_number) VALUES ('ORD-004') RETURNING status",
+            "expected": {
+              "status": "pending"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "MIG-MODIFY-REQUIRED-004",
+      "given": "table 'tasks' with required field 'priority' (TEXT NOT NULL)",
+      "when": "field marked as optional in schema",
+      "then": "ALTER TABLE ALTER COLUMN DROP NOT NULL",
+      "validation": {
+        "setup": {
+          "previousSchema": {
+            "id": "tbl_tasks",
+            "name": "tasks",
+            "fields": [
+              { "id": 1, "name": "title", "type": "single-line-text", "required": true },
+              { "id": 2, "name": "priority", "type": "single-line-text", "required": true }
+            ]
+          },
+          "newSchema": {
+            "id": "tbl_tasks",
+            "name": "tasks",
+            "fields": [
+              { "id": 1, "name": "title", "type": "single-line-text", "required": true },
+              { "id": 2, "name": "priority", "type": "single-line-text", "required": false }
+            ]
+          },
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL, priority VARCHAR(50) NOT NULL)",
+            "INSERT INTO tasks (title, priority) VALUES ('Task 1', 'high'), ('Task 2', 'medium')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "SQL migration contains DROP NOT NULL",
+            "sqlGeneration": {
+              "contains": ["ALTER TABLE \"tasks\" ALTER COLUMN \"priority\" DROP NOT NULL"]
+            }
+          },
+          {
+            "description": "Column is now nullable",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='tasks' AND column_name='priority'",
+            "expected": {
+              "is_nullable": "YES"
+            }
+          },
+          {
+            "description": "Existing data unchanged",
+            "executeQuery": "SELECT COUNT(*) as count FROM tasks WHERE priority IS NOT NULL",
+            "expected": {
+              "count": 2
+            }
+          },
+          {
+            "description": "NULL insert now allowed",
+            "executeQuery": "INSERT INTO tasks (title, priority) VALUES ('Task 3', NULL) RETURNING title",
+            "expected": {
+              "title": "Task 3"
+            }
+          },
+          {
+            "description": "NULL value stored successfully",
+            "executeQuery": "SELECT priority FROM tasks WHERE title = 'Task 3'",
+            "expected": {
+              "priority": null
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,319 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "modify-field-options.schema.json",
+  "title": "Modify Field Options Migration",
+  "description": "Runtime SQL migration scenarios for managing enum options and JSONB validation via CHECK constraints",
+  "type": "object",
+  "properties": {
+    "previousSchema": {
+      "type": "object",
+      "description": "Table schema before options modification"
+    },
+    "newSchema": {
+      "type": "object",
+      "description": "Table schema after options modification"
+    },
+    "optionsChange": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "enum": ["add-option", "remove-option", "modify-validation"],
+          "description": "Type of options operation"
+        },
+        "fieldName": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "required": ["previousSchema", "newSchema"],
+  "x-specs": [
+    {
+      "id": "MIG-MODIFY-OPTIONS-001",
+      "given": "table 'tasks' with status field (enum: 'pending', 'in_progress', 'completed')",
+      "when": "new option 'archived' added to enum",
+      "then": "DROP CHECK constraint, ADD new CHECK with additional value",
+      "validation": {
+        "setup": {
+          "previousSchema": {
+            "id": "tbl_tasks",
+            "name": "tasks",
+            "fields": [
+              { "id": 1, "name": "title", "type": "single-line-text", "required": true },
+              {
+                "id": 2,
+                "name": "status",
+                "type": "single-select",
+                "options": ["pending", "in_progress", "completed"],
+                "required": true
+              }
+            ]
+          },
+          "newSchema": {
+            "id": "tbl_tasks",
+            "name": "tasks",
+            "fields": [
+              { "id": 1, "name": "title", "type": "single-line-text", "required": true },
+              {
+                "id": 2,
+                "name": "status",
+                "type": "single-select",
+                "options": ["pending", "in_progress", "completed", "archived"],
+                "required": true
+              }
+            ]
+          },
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL, status VARCHAR(50) NOT NULL)",
+            "ALTER TABLE tasks ADD CONSTRAINT chk_tasks_status CHECK (status IN ('pending', 'in_progress', 'completed'))",
+            "INSERT INTO tasks (title, status) VALUES ('Task 1', 'pending'), ('Task 2', 'completed')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "SQL contains DROP and ADD CHECK constraint",
+            "sqlGeneration": {
+              "contains": [
+                "ALTER TABLE \"tasks\" DROP CONSTRAINT chk_tasks_status",
+                "ALTER TABLE \"tasks\" ADD CONSTRAINT chk_tasks_status CHECK (status IN ('pending', 'in_progress', 'completed', 'archived'))"
+              ]
+            }
+          },
+          {
+            "description": "New option 'archived' is now valid",
+            "executeQuery": "INSERT INTO tasks (title, status) VALUES ('Task 3', 'archived') RETURNING status",
+            "expected": {
+              "status": "archived"
+            }
+          },
+          {
+            "description": "Existing data preserved",
+            "executeQuery": "SELECT COUNT(*) as count FROM tasks",
+            "expected": {
+              "count": 3
+            }
+          },
+          {
+            "description": "Invalid option still rejected",
+            "executeQuery": "INSERT INTO tasks (title, status) VALUES ('Task 4', 'invalid')",
+            "expectError": "violates check constraint \"chk_tasks_status\""
+          }
+        ]
+      }
+    },
+    {
+      "id": "MIG-MODIFY-OPTIONS-002",
+      "given": "table 'products' with category field (enum: 'electronics', 'clothing', 'books', 'furniture'), no rows use 'furniture'",
+      "when": "option 'furniture' removed from enum",
+      "then": "DROP CHECK constraint, ADD new CHECK without removed value",
+      "validation": {
+        "setup": {
+          "previousSchema": {
+            "id": "tbl_products",
+            "name": "products",
+            "fields": [
+              { "id": 1, "name": "name", "type": "single-line-text", "required": true },
+              {
+                "id": 2,
+                "name": "category",
+                "type": "single-select",
+                "options": ["electronics", "clothing", "books", "furniture"],
+                "required": true
+              }
+            ]
+          },
+          "newSchema": {
+            "id": "tbl_products",
+            "name": "products",
+            "fields": [
+              { "id": 1, "name": "name", "type": "single-line-text", "required": true },
+              {
+                "id": 2,
+                "name": "category",
+                "type": "single-select",
+                "options": ["electronics", "clothing", "books"],
+                "required": true
+              }
+            ]
+          },
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, category VARCHAR(50) NOT NULL)",
+            "ALTER TABLE products ADD CONSTRAINT chk_products_category CHECK (category IN ('electronics', 'clothing', 'books', 'furniture'))",
+            "INSERT INTO products (name, category) VALUES ('Laptop', 'electronics'), ('Shirt', 'clothing'), ('Novel', 'books')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "SQL contains DROP and ADD CHECK without removed option",
+            "sqlGeneration": {
+              "contains": [
+                "ALTER TABLE \"products\" DROP CONSTRAINT chk_products_category",
+                "ALTER TABLE \"products\" ADD CONSTRAINT chk_products_category CHECK (category IN ('electronics', 'clothing', 'books'))"
+              ]
+            }
+          },
+          {
+            "description": "Removed option 'furniture' now rejected",
+            "executeQuery": "INSERT INTO products (name, category) VALUES ('Chair', 'furniture')",
+            "expectError": "violates check constraint \"chk_products_category\""
+          },
+          {
+            "description": "Existing data preserved",
+            "executeQuery": "SELECT COUNT(*) as count FROM products",
+            "expected": {
+              "count": 3
+            }
+          },
+          {
+            "description": "Valid options still work",
+            "executeQuery": "INSERT INTO products (name, category) VALUES ('Headphones', 'electronics') RETURNING category",
+            "expected": {
+              "category": "electronics"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "MIG-MODIFY-OPTIONS-003",
+      "given": "table 'orders' with priority field (enum: 'low', 'medium', 'high'), existing rows use 'medium'",
+      "when": "attempting to remove option 'medium' from enum",
+      "then": "Migration fails with data validation error (existing data uses removed option)",
+      "validation": {
+        "setup": {
+          "previousSchema": {
+            "id": "tbl_orders",
+            "name": "orders",
+            "fields": [
+              { "id": 1, "name": "order_number", "type": "single-line-text", "required": true },
+              {
+                "id": 2,
+                "name": "priority",
+                "type": "single-select",
+                "options": ["low", "medium", "high"],
+                "required": true
+              }
+            ]
+          },
+          "newSchema": {
+            "id": "tbl_orders",
+            "name": "orders",
+            "fields": [
+              { "id": 1, "name": "order_number", "type": "single-line-text", "required": true },
+              {
+                "id": 2,
+                "name": "priority",
+                "type": "single-select",
+                "options": ["low", "high"],
+                "required": true
+              }
+            ]
+          },
+          "executeQuery": [
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50) NOT NULL, priority VARCHAR(20) NOT NULL)",
+            "ALTER TABLE orders ADD CONSTRAINT chk_orders_priority CHECK (priority IN ('low', 'medium', 'high'))",
+            "INSERT INTO orders (order_number, priority) VALUES ('ORD-001', 'medium'), ('ORD-002', 'high'), ('ORD-003', 'medium')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Migration fails due to existing data using removed option",
+            "migrationStatus": "failed",
+            "errorPattern": "violates check constraint|constraint would be violated"
+          },
+          {
+            "description": "Old constraint still exists",
+            "executeQuery": "SELECT conname FROM pg_constraint WHERE conrelid = 'orders'::regclass AND conname = 'chk_orders_priority'",
+            "expected": {
+              "conname": "chk_orders_priority"
+            }
+          },
+          {
+            "description": "Data with 'medium' still exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM orders WHERE priority = 'medium'",
+            "expected": {
+              "count": 2
+            }
+          },
+          {
+            "description": "All data preserved after failed migration",
+            "executeQuery": "SELECT COUNT(*) as total FROM orders",
+            "expected": {
+              "total": 3
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "MIG-MODIFY-OPTIONS-004",
+      "given": "table 'preferences' with tags field (JSONB array)",
+      "when": "validation rule added requiring each tag to match pattern ^[a-z]+$",
+      "then": "ADD CHECK constraint with JSONB validation expression",
+      "validation": {
+        "setup": {
+          "previousSchema": {
+            "id": "tbl_preferences",
+            "name": "preferences",
+            "fields": [
+              { "id": 1, "name": "user_id", "type": "integer", "required": true },
+              { "id": 2, "name": "tags", "type": "multi-select", "required": false }
+            ]
+          },
+          "newSchema": {
+            "id": "tbl_preferences",
+            "name": "preferences",
+            "fields": [
+              { "id": 1, "name": "user_id", "type": "integer", "required": true },
+              {
+                "id": 2,
+                "name": "tags",
+                "type": "multi-select",
+                "required": false,
+                "validation": {
+                  "pattern": "^[a-z]+$"
+                }
+              }
+            ]
+          },
+          "executeQuery": [
+            "CREATE TABLE preferences (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL, tags JSONB)",
+            "INSERT INTO preferences (user_id, tags) VALUES (1, '[\"valid\", \"lowercase\"]'::JSONB), (2, NULL)"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "SQL contains ADD CHECK with JSONB validation",
+            "sqlGeneration": {
+              "contains": ["ALTER TABLE \"preferences\" ADD CONSTRAINT chk_preferences_tags CHECK"]
+            }
+          },
+          {
+            "description": "Valid lowercase tags accepted",
+            "executeQuery": "INSERT INTO preferences (user_id, tags) VALUES (3, '[\"another\", \"tag\"]'::JSONB) RETURNING user_id",
+            "expected": {
+              "user_id": 3
+            }
+          },
+          {
+            "description": "Invalid tag with uppercase rejected",
+            "executeQuery": "INSERT INTO preferences (user_id, tags) VALUES (4, '[\"Invalid\"]'::JSONB)",
+            "expectError": "violates check constraint \"chk_preferences_tags\""
+          },
+          {
+            "description": "Invalid tag with numbers rejected",
+            "executeQuery": "INSERT INTO preferences (user_id, tags) VALUES (5, '[\"tag123\"]'::JSONB)",
+            "expectError": "violates check constraint \"chk_preferences_tags\""
+          },
+          {
+            "description": "NULL tags still allowed",
+            "executeQuery": "INSERT INTO preferences (user_id, tags) VALUES (6, NULL) RETURNING user_id",
+            "expected": {
+              "user_id": 6
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
