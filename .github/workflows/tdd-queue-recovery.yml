@@ -1,0 +1,219 @@
+name: TDD Queue - Recovery [DEPRECATED]
+
+# ⚠️ DEPRECATED: This workflow has been consolidated into tdd-monitor-unified.yml
+# Kept for reference only. Will be removed after successful migration.
+
+on:
+  # Run every 30 minutes to detect and recover stuck specs
+  schedule:
+    - cron: '*/30 * * * *'
+
+  # Manual trigger for testing
+  workflow_dispatch:
+
+# Security: Define minimal required permissions
+permissions:
+  contents: read
+  issues: write
+
+env:
+  TIMEOUT_MINUTES: 90 # Consider spec stuck if no activity for 90 minutes (Claude timeout 60 min + buffer)
+
+jobs:
+  recover-stuck-specs:
+    name: 🔄 Recover Stuck Specs
+    runs-on: ubuntu-latest
+    if: false # DISABLED - consolidated into tdd-monitor-unified.yml
+    timeout-minutes: 5 # Quick operation: find stuck specs, re-queue them
+
+    steps:
+      - name: Find stuck specs
+        id: stuck
+        run: |
+          echo "🔍 Looking for specs stuck in-progress > 90 minutes..."
+
+          # Get all in-progress specs (including labels to detect retries)
+          ISSUES=$(gh issue list \
+            --repo ${{ github.repository }} \
+            --label "tdd-spec:in-progress" \
+            --json number,title,updatedAt,labels \
+            --limit 100)
+
+          echo "Found in-progress specs:"
+          echo "$ISSUES" | jq -r '.[] | "\(.number): \(.title)"'
+
+          # Also check for stuck retries specifically
+          echo ""
+          echo "🔍 Checking for stuck retry attempts..."
+          RETRY_ISSUES=$(echo "$ISSUES" | jq -r '.[] | select(.labels[].name | contains("infrastructure-retry:"))')
+
+          if [ -n "$RETRY_ISSUES" ]; then
+            echo "Found specs with retry labels:"
+            echo "$RETRY_ISSUES" | jq -r '.number as $num | .title as $title | .labels[].name | select(contains("infrastructure-retry:")) as $label | "\($num): \($title) [\($label)]"'
+          fi
+
+          # Current time (epoch seconds)
+          NOW=$(date +%s)
+          TIMEOUT_SECONDS=$((TIMEOUT_MINUTES * 60))
+
+          STUCK_ISSUES=""
+          STUCK_COUNT=0
+
+          # Check each issue for timeout
+          echo "$ISSUES" | jq -r '.[] | @json' | while read -r issue; do
+            ISSUE_NUMBER=$(echo "$issue" | jq -r '.number')
+            TITLE=$(echo "$issue" | jq -r '.title')
+            UPDATED_AT=$(echo "$issue" | jq -r '.updatedAt')
+
+            # Convert ISO timestamp to epoch (handle both Linux and macOS date)
+            UPDATED_EPOCH=$(date -d "$UPDATED_AT" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$UPDATED_AT" +%s 2>/dev/null || echo "0")
+
+            # Calculate age in seconds
+            AGE=$((NOW - UPDATED_EPOCH))
+            AGE_HOURS=$((AGE / 3600))
+
+            echo "  Issue #$ISSUE_NUMBER: age ${AGE_HOURS}h"
+
+            if [ "$AGE" -gt "$TIMEOUT_SECONDS" ]; then
+              echo "  ⏱️  STUCK: Issue #$ISSUE_NUMBER (${AGE_HOURS}h old)"
+              STUCK_ISSUES="$STUCK_ISSUES $ISSUE_NUMBER"
+              STUCK_COUNT=$((STUCK_COUNT + 1))
+            fi
+          done
+
+          echo ""
+          if [ "$STUCK_COUNT" -eq 0 ]; then
+            echo "✅ No stuck specs found"
+            echo "has_stuck=false" >> $GITHUB_OUTPUT
+            echo "count=0" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️  Found $STUCK_COUNT stuck spec(s)"
+            echo "has_stuck=true" >> $GITHUB_OUTPUT
+            echo "count=$STUCK_COUNT" >> $GITHUB_OUTPUT
+            echo "stuck_issues=$STUCK_ISSUES" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+
+      - name: Re-queue stuck specs
+        if: steps.stuck.outputs.has_stuck == 'true'
+        run: |
+          STUCK_ISSUES="${{ steps.stuck.outputs.stuck_issues }}"
+          COUNT="${{ steps.stuck.outputs.count }}"
+
+          echo "🔄 Re-queueing $COUNT stuck spec(s)..."
+
+          for ISSUE_NUMBER in $STUCK_ISSUES; do
+            echo ""
+            echo "Processing issue #$ISSUE_NUMBER..."
+
+            # Get current labels to check retry status
+            LABELS=$(gh issue view "$ISSUE_NUMBER" --json labels --jq '.labels[].name' || echo "")
+            RETRY_LABEL=$(echo "$LABELS" | grep "infrastructure-retry:" || echo "")
+
+            echo "  Current labels: $LABELS"
+            echo "  Retry label: $RETRY_LABEL"
+
+            # Special handling for retry attempts
+            if [ -n "$RETRY_LABEL" ]; then
+              RETRY_NUM=$(echo "$RETRY_LABEL" | sed 's/infrastructure-retry://')
+              echo "  ⚠️  This is a stuck retry attempt #$RETRY_NUM"
+
+              # Check if we've hit max retries
+              if [ "$RETRY_NUM" -ge 3 ]; then
+                echo "  ❌ Max retries reached, marking as failed..."
+
+                # Remove all retry and progress labels, mark as failed
+                gh issue edit "$ISSUE_NUMBER" \
+                  --remove-label "tdd-spec:in-progress" \
+                  --remove-label "$RETRY_LABEL" \
+                  --add-label "tdd-spec:failed"
+
+                gh issue comment "$ISSUE_NUMBER" --body "❌ **Retry Exhausted After Timeout**
+
+                This spec was stuck in retry attempt #$RETRY_NUM for > $TIMEOUT_MINUTES minutes.
+
+                **All retry attempts exhausted** - manual intervention required.
+
+                **Next steps:**
+                1. Review the workflow logs for errors
+                2. Check if Claude Code service is operational
+                3. Consider manually implementing the spec
+                4. Or add \`skip-automated\` label to skip this spec
+
+                ---
+                *🤖 Automated Recovery Workflow*"
+              else
+                # Trigger next retry attempt
+                NEXT_RETRY=$((RETRY_NUM + 1))
+                echo "  🔄 Triggering retry attempt $NEXT_RETRY of 3..."
+
+                # Remove old retry label, add new one
+                gh issue edit "$ISSUE_NUMBER" \
+                  --remove-label "$RETRY_LABEL" \
+                  --add-label "infrastructure-retry:$NEXT_RETRY"
+
+                # Keep in-progress for retry monitor to pick up
+                gh issue comment "$ISSUE_NUMBER" --body "🔄 **Stuck Retry Recovery**
+
+                Retry attempt #$RETRY_NUM was stuck for > $TIMEOUT_MINUTES minutes.
+
+                **Triggering retry attempt $NEXT_RETRY of 3**
+
+                The retry monitor will pick this up and attempt to restart the workflow.
+
+                @claude retry implementation (recovery from stuck retry)
+
+                ---
+                *🤖 Automated Recovery Workflow*"
+              fi
+            else
+              # Regular stuck spec (not a retry)
+              echo "  📋 Regular spec stuck without retries"
+
+              # Reset to queued state
+              gh issue edit "$ISSUE_NUMBER" --remove-label "tdd-spec:in-progress"
+              gh issue edit "$ISSUE_NUMBER" --add-label "tdd-spec:queued"
+
+              # Add timeout recovery comment
+              gh issue comment "$ISSUE_NUMBER" --body "⏱️ **Timeout Recovery**
+
+              This spec was stuck in-progress for > $TIMEOUT_MINUTES minutes with no activity.
+
+              **Automatically re-queued** - the spec will be retried by the queue processor.
+
+              If this spec continues to timeout repeatedly:
+              - It may be too complex for automation
+              - Consider adding \`skip-automated\` label
+              - Or manually implement and push to the branch
+
+              The queue will continue processing other specs.
+
+              ---
+              *🤖 Automated Recovery Workflow*"
+            fi
+
+            echo "  ✅ Processed issue #$ISSUE_NUMBER"
+          done
+
+          echo ""
+          echo "✅ Successfully recovered $COUNT stuck spec(s)"
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ "${{ steps.stuck.outputs.has_stuck }}" == "true" ]; then
+            COUNT="${{ steps.stuck.outputs.count }}"
+            echo "📊 Recovery Summary: Re-queued $COUNT stuck spec(s)"
+
+            # Health alert: High recovery rate may indicate issues
+            if [ "$COUNT" -gt 5 ]; then
+              echo "::warning::High recovery rate: $COUNT specs recovered"
+              echo "::warning::This may indicate Claude Code or validation issues"
+              echo "::warning::Consider checking recent workflow runs for patterns"
+            fi
+          else
+            echo "📊 Recovery Summary: No action needed, all specs progressing normally"
+          fi

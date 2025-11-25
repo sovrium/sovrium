@@ -1,0 +1,213 @@
+name: TDD Queue - Processor
+
+on:
+  # Event-driven triggers (immediate response when work is available)
+  workflow_run:
+    workflows:
+      - 'TDD Queue - Populate' # New specs added to queue
+      - 'Claude Code TDD' # Spec completed, pick next one
+      - 'TDD Monitor (Unified)' # Stuck specs re-queued
+    types: [completed]
+    branches: [main]
+
+  # Scheduled backup (hourly safety net, reduced from every 15 min)
+  schedule:
+    - cron: '0 * * * *' # Every hour (Phase 3: event-driven architecture)
+
+  # Manual trigger
+  workflow_dispatch:
+
+# Security: Define minimal required permissions
+# NOTE: Requires GH_PAT_WORKFLOW secret with 'repo' scope to post @claude mentions
+# Comments posted with PAT appear from token owner's account (not github-actions bot)
+# This triggers Claude Code workflow via issue_comment event
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  actions: write
+
+# Prevent concurrent processing (strict serial: one spec at a time)
+# IMPORTANT: Shares concurrency group with tdd-daily-refactor.yml
+# This ensures queue processor waits when daily refactor is running
+concurrency:
+  group: tdd-queue
+  cancel-in-progress: false
+
+env:
+  BUN_VERSION: '1.3.2'
+
+jobs:
+  process-queue:
+    name: 🔄 Process TDD Queue
+    runs-on: ubuntu-latest
+    timeout-minutes: 5 # Quick operation: fetch queue, update labels, post @claude comment
+    # Only process queue if:
+    # 1. Triggered by schedule or manual (always run)
+    # 2. Triggered by workflow_run AND the workflow succeeded
+    if: |
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - name: Log trigger source
+        run: |
+          echo "🔍 Queue Processor Triggered"
+          echo "=========================="
+          echo "Event: ${{ github.event_name }}"
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "Triggered by: ${{ github.event.workflow_run.name }}"
+            echo "Conclusion: ${{ github.event.workflow_run.conclusion }}"
+            echo "Trigger type: Event-driven (Phase 3)"
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "Trigger type: Scheduled backup (hourly safety net)"
+          else
+            echo "Trigger type: Manual"
+          fi
+          echo ""
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Need full history for git operations
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Configure git with token user
+        run: |
+          USER_NAME=$(gh api user --jq '.login')
+          USER_EMAIL=$(gh api user --jq '.email')
+          git config user.name "$USER_NAME"
+          git config user.email "$USER_EMAIL"
+          echo "✅ Git configured as $USER_NAME <$USER_EMAIL>"
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+
+      - name: Get next spec from queue
+        id: next
+        run: |
+          echo "🔍 Looking for next spec to process..."
+          bun run scripts/tdd-automation/queue-manager.ts next
+        env:
+          GITHUB_OUTPUT: ${{ github.output }}
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+
+      - name: Check if spec available
+        id: check
+        run: |
+          if [ "${{ steps.next.outputs.has_next }}" != "true" ]; then
+            echo "📭 No specs available to process"
+            echo "should_process=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Found spec to process: ${{ steps.next.outputs.spec_id }}"
+            echo "should_process=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate issue state and check for duplicates
+        if: steps.check.outputs.should_process == 'true'
+        id: validate
+        run: |
+          ISSUE_NUMBER="${{ steps.next.outputs.issue_number }}"
+          SPEC_ID="${{ steps.next.outputs.spec_id }}"
+
+          echo "🔍 Validating issue #$ISSUE_NUMBER before processing..."
+
+          # Check if issue is still open
+          ISSUE_STATE=$(gh issue view "$ISSUE_NUMBER" --json state --jq '.state')
+
+          if [ "$ISSUE_STATE" = "CLOSED" ]; then
+            echo "⚠️  Issue #$ISSUE_NUMBER is already CLOSED"
+            echo "   Skipping processing (likely already completed by another PR)"
+
+            # Update the issue to remove in-progress label if present
+            gh issue edit "$ISSUE_NUMBER" --remove-label "tdd-spec:in-progress" || true
+
+            echo "should_process=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Check for existing open PRs for this issue
+          EXISTING_PRS=$(gh pr list \
+            --label tdd-automation \
+            --state open \
+            --json number,body \
+            --jq ".[] | select(.body | contains(\"Closes #$ISSUE_NUMBER\")) | .number")
+
+          if [ -n "$EXISTING_PRS" ]; then
+            echo "⚠️  Found existing open PR(s) for issue #$ISSUE_NUMBER: $EXISTING_PRS"
+            echo "   Skipping processing to avoid duplicate PRs"
+
+            # Add a comment to the issue explaining the skip
+            gh issue comment "$ISSUE_NUMBER" --body "🤖 Duplicate PR Prevention - Skipping processing because an open PR already exists for this issue (#$EXISTING_PRS). The existing PR will be processed to completion. If the PR is stuck or invalid, please close it manually and the queue will retry this spec."
+
+            echo "should_process=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "✅ Issue is open and no duplicate PRs found"
+          echo "should_process=true" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+
+      - name: Mark spec as in-progress and trigger Claude Code workflow
+        if: steps.check.outputs.should_process == 'true' && steps.validate.outputs.should_process == 'true'
+        run: |
+          ISSUE_NUMBER="${{ steps.next.outputs.issue_number }}"
+          SPEC_ID="${{ steps.next.outputs.spec_id }}"
+          TEST_FILE="${{ steps.next.outputs.test_file }}"
+
+          echo "🏃 Marking issue #$ISSUE_NUMBER as in-progress..."
+
+          # Update labels
+          gh issue edit "$ISSUE_NUMBER" --remove-label "tdd-spec:queued"
+          gh issue edit "$ISSUE_NUMBER" --add-label "tdd-spec:in-progress"
+
+          # Trigger Claude Code workflow with retry support
+          echo "🤖 Triggering Claude Code workflow with infrastructure retry support..."
+          gh workflow run claude-tdd.yml \
+            --field issue_number="$ISSUE_NUMBER" \
+            --field retry_attempt=1
+
+          # Add initial comment with workflow instructions
+          gh issue comment "$ISSUE_NUMBER" --body "@claude implement this spec using the TDD automation workflow.
+
+          ## 📋 Spec Details
+
+          - **Test File**: \`$TEST_FILE\`
+          - **Spec ID**: \`$SPEC_ID\`
+          - **Issue**: #$ISSUE_NUMBER
+
+          ## 🤖 Automation Mode
+
+          **You are in pipeline/automation mode**:
+          - ✅ Make autonomous decisions following Sovrium patterns
+          - ✅ Implement minimal code to pass the test
+          - ❌ DO NOT ask questions - proceed with best judgment
+
+          ## ✅ Critical Steps (ALL REQUIRED)
+
+          1. **Invoke e2e-test-fixer agent** - Remove \`.fixme()\` from \`$SPEC_ID\`, implement code
+          2. **Invoke codebase-refactor-auditor agent** - Review and optimize (MANDATORY)
+          3. **Commit changes** - Run \`bun run license\`, commit as \`fix: implement $SPEC_ID\`, push
+          4. **⚠️ CREATE PR** - \`gh pr create --title \"fix: implement $SPEC_ID\" --body \"Closes #$ISSUE_NUMBER\" --label \"tdd-automation\"\`
+          5. **⚠️ ENABLE AUTO-MERGE** - \`gh pr merge \$PR_NUMBER --auto --squash\` + VERIFY with \`gh pr view\`
+
+          **MOST COMMON FAILURES**:
+          - Missing PR creation (issue #1319) → spec marked failed
+          - Missing auto-merge (PRs #1541, #1546) → pipeline blocked for hours
+          - Auto-merge not verified → may silently fail
+
+          **Complete workflow documentation**: \`@docs/development/tdd-automation-pipeline.md\`
+
+          ---
+          *🤖 Automated via [Queue Processor](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*"
+
+          echo "✅ Issue updated and @claude mentioned - Claude Code will trigger automatically"
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}

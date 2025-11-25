@@ -1,0 +1,148 @@
+name: TDD Queue - Conflict Resolver [DEPRECATED]
+
+# ⚠️ DEPRECATED: This workflow has been consolidated into tdd-monitor-unified.yml
+# Kept for reference only. Will be removed after successful migration.
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    # Run every 15 minutes to catch any conflicts
+    - cron: '*/30 * * * *' # Optimized from 15 min to reduce GitHub Actions usage
+  workflow_dispatch: # Allow manual triggering
+
+concurrency:
+  group: tdd-conflict-resolver
+  cancel-in-progress: false
+
+jobs:
+  resolve-conflicts:
+    name: Detect and Resolve Conflicts [DEPRECATED]
+    runs-on: ubuntu-latest
+    if: false # DISABLED - consolidated into tdd-monitor-unified.yml
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Ensure labels exist
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+        run: |
+          echo "🏷️  Ensuring required labels exist..."
+
+          # Create conflict-resolution:attempted label if it doesn't exist
+          gh label create "conflict-resolution:attempted" \
+            --description "Automatic conflict resolution was attempted" \
+            --color "FFA500" \
+            --repo sovrium/sovrium \
+            --force || true
+
+          # Create needs-manual-resolution label if it doesn't exist
+          gh label create "needs-manual-resolution" \
+            --description "Requires manual conflict resolution" \
+            --color "D93F0B" \
+            --repo sovrium/sovrium \
+            --force || true
+
+          echo "✅ Labels ready"
+
+      - name: Find conflicted PRs
+        id: find-conflicts
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+        run: |
+          echo "🔍 Scanning for conflicted PRs..."
+
+          # Get all open tdd-automation PRs
+          CONFLICTED_PRS=$(gh pr list \
+            --repo sovrium/sovrium \
+            --label tdd-automation \
+            --state open \
+            --json number,mergeable,mergeStateStatus,headRefName,body \
+            --jq '.[] | select(.mergeable == "CONFLICTING" or .mergeStateStatus == "DIRTY") | .number' || echo "")
+
+          if [ -z "$CONFLICTED_PRS" ]; then
+            echo "✅ No conflicted PRs found"
+            echo "has_conflicts=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "⚠️  Found conflicted PRs: $CONFLICTED_PRS"
+          echo "has_conflicts=true" >> $GITHUB_OUTPUT
+          echo "$CONFLICTED_PRS" > conflicted_prs.txt
+
+      - name: Resolve conflicts with Claude Code
+        if: steps.find-conflicts.outputs.has_conflicts == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+        run: |
+          echo "🤖 Triggering Claude Code to resolve conflicts..."
+
+          while IFS= read -r PR_NUMBER; do
+            [ -z "$PR_NUMBER" ] && continue
+
+            echo ""
+            echo "📋 Processing PR #$PR_NUMBER"
+
+            # Get PR details using REST API (avoids read:org scope requirement)
+            PR_DATA=$(gh api "repos/sovrium/sovrium/pulls/$PR_NUMBER")
+            HEAD_REF=$(echo "$PR_DATA" | jq -r '.head.ref')
+            PR_BODY=$(echo "$PR_DATA" | jq -r '.body')
+
+            # Check if we've already tried to resolve conflicts (check for conflict-resolution label)
+            HAS_RETRY_LABEL=$(echo "$PR_DATA" | jq -r '.labels[]? | select(.name == "conflict-resolution:attempted") | .name')
+
+            if [ -n "$HAS_RETRY_LABEL" ]; then
+              echo "⚠️  Already attempted conflict resolution for PR #$PR_NUMBER"
+              echo "   Marking for manual review..."
+
+              gh pr edit "$PR_NUMBER" --repo sovrium/sovrium --add-label "needs-manual-resolution"
+
+              gh pr comment "$PR_NUMBER" --repo sovrium/sovrium --body "🤖 Conflict Resolution Failed - This PR has merge conflicts that could not be automatically resolved. Manual intervention needed. Steps: 1) Checkout branch: git checkout $HEAD_REF, 2) Rebase: git rebase origin/main, 3) Resolve conflicts, 4) Force push: git push --force-with-lease. The TDD automation pipeline will continue with other specs."
+
+              # Remove from queue to unblock pipeline
+              ISSUE_NUMBER=$(echo "$PR_BODY" | grep -oP 'Closes #\K\d+' | head -1)
+              if [ -n "$ISSUE_NUMBER" ]; then
+                gh issue edit "$ISSUE_NUMBER" --repo sovrium/sovrium \
+                  --remove-label "tdd-spec:in-progress" \
+                  --add-label "tdd-spec:failed"
+              fi
+
+              continue
+            fi
+
+            # Add label to track that we're attempting resolution
+            gh pr edit "$PR_NUMBER" --repo sovrium/sovrium --add-label "conflict-resolution:attempted"
+
+            # Post @claude mention to trigger conflict resolution
+
+            gh pr comment "$PR_NUMBER" --repo sovrium/sovrium --body "@claude - Automatic Conflict Resolution Required: This PR has merge conflicts. Please resolve them automatically. Steps: 1) Fetch main: git fetch origin main:main, 2) Checkout and rebase: git checkout $HEAD_REF && git rebase origin/main, 3) Resolve conflicts (prioritize main, keep both in tests), 4) Verify: bun run lint && typecheck && test:unit, 5) Force push: git push --force-with-lease, 6) Check auto-merge: gh pr view $PR_NUMBER --json autoMergeRequest, 7) Re-enable if needed: gh pr merge $PR_NUMBER --auto --squash. Note: This is the only automatic attempt. Mark PR for manual review if it fails."
+
+            echo "✅ Posted conflict resolution request for PR #$PR_NUMBER"
+
+          done < conflicted_prs.txt
+
+          echo ""
+          echo "✅ Conflict resolution requests posted"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "📊 Conflict Resolution Summary"
+          echo "=============================="
+
+          if [ -f conflicted_prs.txt ]; then
+            PR_COUNT=$(wc -l < conflicted_prs.txt | xargs)
+            echo "Conflicted PRs processed: $PR_COUNT"
+          else
+            echo "No conflicts detected"
+          fi
