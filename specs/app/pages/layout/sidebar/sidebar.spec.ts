@@ -24,7 +24,7 @@ test.describe('Sidebar Configuration', () => {
   // One test per spec in schema - defines EXHAUSTIVE acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-PAGES-SIDEBAR-001: should display sidebar navigation',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

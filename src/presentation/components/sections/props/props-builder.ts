@@ -15,16 +15,37 @@ import type { ElementPropsConfig, TestIdConfig } from './props-builder-config'
 const CONTAINER_TYPES = ['div', 'container', 'flex', 'grid', 'card', 'badge'] as const
 
 /**
+ * Builds test ID for block components
+ */
+function buildBlockTestId(blockName: string, blockInstanceIndex: number | undefined): string {
+  return blockInstanceIndex !== undefined
+    ? `block-${blockName}-${blockInstanceIndex}`
+    : `block-${blockName}`
+}
+
+/**
+ * Auto-generates test ID for common component types
+ */
+function buildDefaultTestId(type: string): string | undefined {
+  const typeMap: Record<string, string> = {
+    container: 'container',
+    flex: 'flex',
+    'hero-section': 'hero-section',
+    hero: 'hero',
+    text: 'text',
+  }
+  return typeMap[type]
+}
+
+/**
  * Build test ID for component using config object
  */
-// eslint-disable-next-line complexity -- Sequential checks for test ID generation
+ 
 function buildTestId(config: TestIdConfig): string | undefined {
   const { type, blockName, blockInstanceIndex, substitutedProps, childIndex } = config
 
   if (blockName) {
-    return blockInstanceIndex !== undefined
-      ? `block-${blockName}-${blockInstanceIndex}`
-      : `block-${blockName}`
+    return buildBlockTestId(blockName, blockInstanceIndex)
   }
 
   if (substitutedProps?.['data-testid']) {
@@ -35,14 +56,7 @@ function buildTestId(config: TestIdConfig): string | undefined {
     return `child-${childIndex}`
   }
 
-  // Auto-generate testid for common component types to support testing
-  if (type === 'container') return 'container'
-  if (type === 'flex') return 'flex'
-  if (type === 'hero-section') return 'hero-section'
-  if (type === 'hero') return 'hero'
-  if (type === 'text') return 'text'
-
-  return undefined
+  return buildDefaultTestId(type)
 }
 
 /**
@@ -114,7 +128,7 @@ function buildElementPropsFromConfig(config: ElementPropsConfig): Record<string,
 }
 
 /**
- * Build core props (className, style, data-testid)
+ * Build core props (className, style, data-testid, data-component-type)
  * Handles animation prop by extracting it from substitutedProps and merging into style
  */
 function buildCoreProps(
@@ -134,6 +148,7 @@ function buildCoreProps(
     className: config.finalClassName,
     ...(styleWithAnimation && { style: styleWithAnimation }),
     ...(testId && { 'data-testid': testId }),
+    'data-component-type': config.type,
   }
 }
 

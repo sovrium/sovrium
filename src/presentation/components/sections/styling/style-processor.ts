@@ -109,7 +109,6 @@ function buildEntranceAnimationClass(interactions: Interactions | undefined): st
 type BuildClassNameConfig = {
   readonly type: Component['type']
   readonly className: unknown
-  readonly theme: Theme | undefined
   readonly substitutedProps: Record<string, unknown> | undefined
   readonly interactions: Interactions | undefined
 }
@@ -118,12 +117,12 @@ type BuildClassNameConfig = {
  * Build final className based on component type
  */
 export function buildFinalClassName(config: BuildClassNameConfig): string | undefined {
-  const { type, className, theme, substitutedProps, interactions } = config
+  const { type, className, substitutedProps, interactions } = config
 
   // Build classes array immutably
   const typeClass = COMPONENT_TYPE_CLASSES.has(type) ? type : undefined
   const flexClass = type === 'flex' ? buildFlexClasses(substitutedProps) : undefined
-  const gridClass = type === 'grid' ? buildGridClasses(theme) : undefined
+  const gridClass = type === 'grid' ? buildGridClasses(substitutedProps) : undefined
   const customClass = className as string | undefined
   const entranceClass = buildEntranceAnimationClass(interactions)
   // Don't add scroll animation class to initial className - it will be added by scroll-animation.js

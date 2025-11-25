@@ -53,7 +53,7 @@ test.describe('Page Sections', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SECTIONS-002: should support all component types for page building',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -102,7 +102,7 @@ test.describe('Page Sections', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SECTIONS-003: should accept generic component properties via props.schema.json',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -139,7 +139,7 @@ test.describe('Page Sections', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SECTIONS-004: should support unlimited nesting depth for component tree',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -184,7 +184,7 @@ test.describe('Page Sections', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SECTIONS-005: should render text content',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -217,7 +217,7 @@ test.describe('Page Sections', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SECTIONS-006: should apply interactive behaviors from interactions.schema.json',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -236,7 +236,7 @@ test.describe('Page Sections', () => {
                 interactions: {
                   hover: { scale: 1.05 },
                   click: { action: 'navigate', url: '/contact' },
-                  entrance: { animation: 'fade-in', duration: '500ms' },
+                  entrance: { animation: 'fadeIn', duration: '500ms' },
                 },
               },
             ],
@@ -291,7 +291,7 @@ test.describe('Page Sections', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SECTIONS-009: should reference and instantiate reusable block with variables',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -300,11 +300,9 @@ test.describe('Page Sections', () => {
         name: 'test-app',
         blocks: [
           {
-            id: 'section-header',
-            structure: {
-              type: 'section',
-              children: [{ type: 'text', props: { level: 'h2' }, content: '$title' }],
-            },
+            name: 'section-header',
+            type: 'section',
+            children: [{ type: 'text', props: { level: 'h2' }, content: '$title' }],
           },
         ],
         pages: [
@@ -325,7 +323,7 @@ test.describe('Page Sections', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SECTIONS-010: should support hybrid section composition',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -334,11 +332,9 @@ test.describe('Page Sections', () => {
         name: 'test-app',
         blocks: [
           {
-            id: 'cta-section',
-            structure: {
-              type: 'section',
-              children: [{ type: 'button', content: '$buttonLabel' }],
-            },
+            name: 'cta-section',
+            type: 'section',
+            children: [{ type: 'button', content: '$buttonLabel' }],
           },
         ],
         pages: [
@@ -369,7 +365,7 @@ test.describe('Page Sections', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SECTIONS-011: should build complex layouts through component composition',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -429,7 +425,7 @@ test.describe('Page Sections', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SECTIONS-012: should combine interactive and responsive features',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -462,7 +458,7 @@ test.describe('Page Sections', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SECTIONS-013: should support form building capabilities',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -512,7 +508,7 @@ test.describe('Page Sections', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SECTIONS-014: should support rich media content',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -555,7 +551,7 @@ test.describe('Page Sections', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SECTIONS-REGRESSION-001: user can complete full Page Sections workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
@@ -563,15 +559,13 @@ test.describe('Page Sections', () => {
         name: 'test-app',
         blocks: [
           {
-            id: 'feature-card',
-            structure: {
-              type: 'card',
-              children: [
-                { type: 'icon', props: { name: '$iconName' } },
-                { type: 'text', props: { level: 'h3' }, content: '$title' },
-                { type: 'text', content: '$description' },
-              ],
-            },
+            name: 'feature-card',
+            type: 'card',
+            children: [
+              { type: 'icon', props: { name: '$iconName' } },
+              { type: 'text', props: { level: 'h3' }, content: '$title' },
+              { type: 'text', content: '$description' },
+            ],
           },
         ],
         pages: [

@@ -7,7 +7,6 @@
 
 import { describe, expect, test } from 'bun:test'
 import { buildFlexClasses, buildGridClasses } from './class-builders'
-import type { Theme } from '@/domain/models/app/theme'
 
 describe('Class Builders', () => {
   describe('buildFlexClasses', () => {
@@ -82,58 +81,34 @@ describe('Class Builders', () => {
   })
 
   describe('buildGridClasses', () => {
-    test('returns base grid class when no theme provided', () => {
+    test('returns base grid class with default columns when no props provided', () => {
       const result = buildGridClasses()
-      expect(result).toBe('grid')
+      expect(result).toBe('grid grid-cols-1')
     })
 
-    test('returns base grid class when theme has no breakpoints', () => {
-      const theme: Theme = {}
-      const result = buildGridClasses(theme)
-      expect(result).toBe('grid')
+    test('returns base grid class with specified columns', () => {
+      const result = buildGridClasses({ columns: 3 })
+      expect(result).toBe('grid grid-cols-3')
     })
 
-    test('returns base grid class when breakpoints exist but no md', () => {
-      const theme: Theme = {
-        breakpoints: {
-          sm: '640px',
-          lg: '1024px',
-        },
-      }
-      const result = buildGridClasses(theme)
-      expect(result).toBe('grid')
+    test('returns base grid class when no responsive breakpoints provided', () => {
+      const result = buildGridClasses({ columns: 2 })
+      expect(result).toBe('grid grid-cols-2')
     })
 
-    test('adds md:grid-cols-2 class when md breakpoint exists', () => {
-      const theme: Theme = {
-        breakpoints: {
-          md: '768px',
-        },
-      }
-      const result = buildGridClasses(theme)
-      expect(result).toBe('grid md:grid-cols-2')
+    test('adds md responsive class when md breakpoint provided', () => {
+      const result = buildGridClasses({ columns: 1, responsive: { md: 2 } })
+      expect(result).toBe('grid grid-cols-1 md:grid-cols-2')
     })
 
-    test('adds md:grid-cols-2 class when multiple breakpoints exist', () => {
-      const theme: Theme = {
-        breakpoints: {
-          sm: '640px',
-          md: '768px',
-          lg: '1024px',
-          xl: '1280px',
-        },
-      }
-      const result = buildGridClasses(theme)
-      expect(result).toBe('grid md:grid-cols-2')
+    test('adds both md and lg responsive classes when provided', () => {
+      const result = buildGridClasses({ columns: 1, responsive: { md: 2, lg: 3 } })
+      expect(result).toBe('grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3')
     })
 
-    test('handles md breakpoint with any truthy value', () => {
-      // Any truthy value for md should work
-      const theme1: Theme = { breakpoints: { md: '768px' } }
-      expect(buildGridClasses(theme1)).toBe('grid md:grid-cols-2')
-
-      const theme2: Theme = { breakpoints: { md: '1px' } }
-      expect(buildGridClasses(theme2)).toBe('grid md:grid-cols-2')
+    test('handles only lg breakpoint without md', () => {
+      const result = buildGridClasses({ columns: 2, responsive: { lg: 4 } })
+      expect(result).toBe('grid grid-cols-2 lg:grid-cols-4')
     })
   })
 })

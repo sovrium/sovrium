@@ -105,7 +105,6 @@ function prepareProcessedValues(config: ComponentPropsConfig) {
   const finalClassName = buildFinalClassName({
     type,
     className: substitutedProps?.className,
-    theme,
     substitutedProps,
     interactions,
   })

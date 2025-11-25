@@ -63,6 +63,7 @@ export const DurationSchema = Schema.String.pipe(
  * Visual changes when user hovers over component
  *
  * Supports CSS properties for hover effects (all optional):
+ * - scale: Scale factor (e.g., 1.05 for 5% larger) - shorthand for transform: scale(X)
  * - transform: CSS transforms (scale, rotate, translate)
  * - opacity: Opacity value (0-1)
  * - backgroundColor: Background color
@@ -77,7 +78,7 @@ export const DurationSchema = Schema.String.pipe(
  * @example
  * ```typescript
  * const hoverEffect = {
- *   transform: 'scale(1.05)',
+ *   scale: 1.05,
  *   shadow: '0 10px 25px rgba(0,0,0,0.15)',
  *   duration: '200ms',
  *   easing: 'ease-out'
@@ -93,6 +94,12 @@ export const DurationSchema = Schema.String.pipe(
  * @see specs/app/pages/common/interactions/hover-interaction.schema.json
  */
 export const HoverInteractionSchema = Schema.Struct({
+  scale: Schema.optional(
+    Schema.Number.annotations({
+      description: 'Scale factor (e.g., 1.05 for 5% larger)',
+      examples: [1.05, 1.1, 0.95],
+    })
+  ),
   transform: Schema.optional(
     Schema.String.annotations({
       description: 'CSS transform (scale, rotate, translate)',
