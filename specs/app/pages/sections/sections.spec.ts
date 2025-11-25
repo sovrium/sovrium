@@ -559,15 +559,13 @@ test.describe('Page Sections', () => {
         name: 'test-app',
         blocks: [
           {
-            id: 'feature-card',
-            structure: {
-              type: 'card',
-              children: [
-                { type: 'icon', props: { name: '$iconName' } },
-                { type: 'text', props: { level: 'h3' }, content: '$title' },
-                { type: 'text', content: '$description' },
-              ],
-            },
+            name: 'feature-card',
+            type: 'card',
+            children: [
+              { type: 'icon', props: { name: '$iconName' } },
+              { type: 'text', props: { level: 'h3' }, content: '$title' },
+              { type: 'text', content: '$description' },
+            ],
           },
         ],
         pages: [
