@@ -10,7 +10,7 @@ import {
   StructuredDataFromBlock,
   type BlockMeta,
 } from '@/presentation/components/metadata/structured-data-from-block'
-import { useBreakpoint } from '@/presentation/hooks/use-breakpoint'
+import { useBreakpoint, type Breakpoint } from '@/presentation/hooks/use-breakpoint'
 import { extractBlockReference, renderBlockReferenceError } from './blocks/block-reference-handler'
 import { resolveBlock } from './blocks/block-resolution'
 import { buildComponentProps } from './props/component-builder'
@@ -221,15 +221,24 @@ const BREAKPOINT_VISIBILITY_CLASSES: Record<string, string> = {
 } as const
 
 /**
+ * Config for rendering responsive child
+ */
+type ResponsiveChildConfig = {
+  readonly child: Component | string
+  readonly breakpoint: string
+  readonly index: number
+  readonly visibilityClass: string
+}
+
+/**
  * Renders a single responsive child with visibility class
  */
 function renderResponsiveChild(
-  child: Component | string,
-  breakpoint: string,
-  index: number,
-  visibilityClass: string,
+  config: ResponsiveChildConfig,
   props: ComponentRendererProps
 ): ReactElement {
+  const { child, breakpoint, index, visibilityClass } = config
+
   if (typeof child === 'string') {
     return (
       <span
@@ -300,9 +309,231 @@ function renderResponsiveChildren(
   // Render all children with visibility classes (functional approach)
   return breakpointChildren.flatMap(({ breakpoint, children, visibilityClass }) =>
     children.map((child: Component | string, index: number) =>
-      renderResponsiveChild(child, breakpoint, index, visibilityClass, props)
+      renderResponsiveChild({ child, breakpoint, index, visibilityClass }, props)
     )
   )
+}
+
+/**
+ * Merges responsive props without className
+ */
+function mergeResponsivePropsWithoutClassName(
+  componentProps: Record<string, unknown> | undefined,
+  responsiveOverrides: VariantOverrides | undefined
+): Record<string, unknown> | undefined {
+  const propsToMerge = responsiveOverrides?.props
+    ? { ...componentProps, ...responsiveOverrides.props }
+    : componentProps
+
+  if (!propsToMerge) {
+    return undefined
+  }
+
+  return Object.entries(propsToMerge)
+    .filter(([key]) => key !== 'className')
+    .reduce<Record<string, unknown>>((acc, [key, value]) => ({ ...acc, [key]: value }), {})
+}
+
+/**
+ * Builds responsive visibility classes from responsive config
+ */
+function buildResponsiveVisibilityClasses(
+  responsive: Responsive | undefined
+): string | undefined {
+  if (!responsive) {
+    return undefined
+  }
+
+  const visibilityConfig = (Object.entries(responsive) as [string, VariantOverrides][])
+    .filter(([, overrides]) => overrides.visible !== undefined)
+    .reduce<Record<string, boolean>>((acc, [bp, overrides]) => {
+      return { ...acc, [bp]: overrides.visible! }
+    }, {})
+
+  // For mobile:false + lg:true pattern, use max-lg:hidden
+  if (visibilityConfig.mobile === false && visibilityConfig.lg === true) {
+    return 'max-lg:hidden'
+  }
+
+  // For mobile:true + lg:false pattern, use lg:hidden
+  if (visibilityConfig.mobile === true && visibilityConfig.lg === false) {
+    return 'lg:hidden'
+  }
+
+  // Default fallback: build individual responsive classes
+  return Object.entries(visibilityConfig)
+    .map(([bp, isVisible]) => {
+      if (bp === 'mobile') {
+        return isVisible ? '' : 'max-sm:hidden'
+      }
+      return isVisible ? `${bp}:inline` : `${bp}:hidden`
+    })
+    .filter(Boolean)
+    .join(' ')
+}
+
+/**
+ * Checks if responsive children should be used
+ */
+function hasResponsiveChildren(responsive: Responsive | undefined): boolean {
+  if (!responsive) {
+    return false
+  }
+  return (Object.values(responsive) as VariantOverrides[]).some(
+    (override) => override.children !== undefined
+  )
+}
+
+/**
+ * Merges responsive props with visibility classes
+ */
+function mergePropsWithResponsiveVisibility(
+  mergedProps: Record<string, unknown> | undefined,
+  responsiveClassName: string | undefined,
+  responsiveVisibilityClasses: string | undefined
+): Record<string, unknown> | undefined {
+  // First add responsive className if present
+  const propsWithClassName = responsiveClassName
+    ? { ...mergedProps, className: responsiveClassName }
+    : mergedProps
+
+  // Then add visibility classes if present
+  if (!responsiveVisibilityClasses) {
+    return propsWithClassName
+  }
+
+  return {
+    ...propsWithClassName,
+    className: propsWithClassName?.className
+      ? `${propsWithClassName.className} ${responsiveVisibilityClasses}`
+      : responsiveVisibilityClasses,
+  }
+}
+
+/**
+ * Builds final rendered children with structured data
+ */
+function buildFinalRenderedChildren(
+  structuredDataScript: ReactElement | undefined,
+  baseRenderedChildren: readonly ReactElement[]
+): readonly ReactElement[] {
+  if (!structuredDataScript) {
+    return baseRenderedChildren
+  }
+  return [structuredDataScript, ...baseRenderedChildren] as readonly ReactElement[]
+}
+
+/**
+ * Wraps component with hover styles if needed
+ */
+function wrapWithHoverStyles(
+  hoverData: { readonly styleContent: string } | undefined,
+  renderedComponent: ReactElement | null
+): ReactElement | null {
+  if (!hoverData) {
+    return renderedComponent
+  }
+
+  return (
+    <Fragment>
+      <style>{hoverData.styleContent}</style>
+      {renderedComponent}
+    </Fragment>
+  )
+}
+
+/**
+ * Config for preparing responsive data
+ */
+type PrepareResponsiveDataConfig = {
+  readonly responsive: Responsive | undefined
+  readonly currentBreakpoint: Breakpoint
+  readonly componentProps: Record<string, unknown> | undefined
+  readonly children: ReadonlyArray<Component | string> | undefined
+  readonly content: string | Record<string, unknown> | undefined
+}
+
+/**
+ * Prepares responsive data for component rendering
+ */
+function prepareResponsiveData(config: PrepareResponsiveDataConfig) {
+  const { responsive, currentBreakpoint, componentProps, children, content } = config
+
+  const responsiveOverrides = applyResponsiveOverrides(responsive, currentBreakpoint)
+  const baseClassName = componentProps?.className as string | undefined
+  const responsiveClassName = buildResponsiveClasses(responsive, baseClassName)
+  const mergedPropsWithoutClassName = mergeResponsivePropsWithoutClassName(
+    componentProps,
+    responsiveOverrides
+  )
+
+  const useResponsiveChildren = hasResponsiveChildren(responsive)
+  const mergedChildren = useResponsiveChildren ? children : responsiveOverrides?.children ?? children
+  const mergedContent = responsiveOverrides?.content ?? content
+
+  const responsiveVisibilityClasses = buildResponsiveVisibilityClasses(responsive)
+  const mergedPropsWithVisibility = mergePropsWithResponsiveVisibility(
+    mergedPropsWithoutClassName,
+    responsiveClassName,
+    responsiveVisibilityClasses
+  )
+
+  return {
+    mergedPropsWithVisibility,
+    mergedChildren,
+    mergedContent,
+  }
+}
+
+/**
+ * Config for preparing element props
+ */
+type PrepareElementPropsConfig = {
+  readonly elementProps: Record<string, unknown>
+  readonly elementPropsWithSpacing: Record<string, unknown>
+  readonly hoverData: { readonly attributes: Record<string, string> } | undefined
+  readonly i18n: Record<string, unknown> | undefined
+  readonly mergedContent: string | Record<string, unknown> | undefined
+  readonly languages: Languages | undefined
+  readonly componentProps: Record<string, unknown> | undefined
+}
+
+/**
+ * Prepares element props with i18n and structured data
+ */
+function prepareElementProps(config: PrepareElementPropsConfig) {
+  const {
+    elementProps,
+    elementPropsWithSpacing,
+    hoverData,
+    i18n,
+    mergedContent,
+    languages,
+    componentProps,
+  } = config
+
+  const baseElementProps = mergeHoverAttributes(elementProps, hoverData)
+  const baseElementPropsWithSpacing = mergeHoverAttributes(elementPropsWithSpacing, hoverData)
+
+  const i18nContentAttribute =
+    i18n && typeof mergedContent === 'string'
+      ? buildI18nContentAttribute(i18n, mergedContent, languages?.default)
+      : undefined
+
+  const finalElementProps = buildFinalElementProps(baseElementProps, i18nContentAttribute)
+  const finalElementPropsWithSpacing = buildFinalElementProps(
+    baseElementPropsWithSpacing,
+    i18nContentAttribute
+  )
+
+  const meta = componentProps?.meta as BlockMeta | undefined
+  const structuredDataScript = meta ? <StructuredDataFromBlock meta={meta} /> : undefined
+
+  return {
+    finalElementProps,
+    finalElementPropsWithSpacing,
+    structuredDataScript,
+  }
 }
 
 /**
@@ -326,88 +557,21 @@ function RenderDirectComponent({
   const uniqueId = useId()
   const currentBreakpoint = useBreakpoint()
 
-  // Apply responsive overrides for current breakpoint (used for SSR initial render)
-  const responsiveOverrides = applyResponsiveOverrides(responsive, currentBreakpoint)
+  // Prepare responsive data (overrides, merged props, children, content)
+  const { mergedPropsWithVisibility, mergedChildren, mergedContent } = prepareResponsiveData({
+    responsive,
+    currentBreakpoint,
+    componentProps,
+    children,
+    content,
+  })
 
-  // Build CSS-based responsive classes (works without JavaScript via Tailwind media queries)
-  const baseClassName = componentProps?.className as string | undefined
-  const responsiveClassName = buildResponsiveClasses(responsive, baseClassName)
-
-  // Merge responsive overrides with base component values
-  // For className, use CSS-based responsive classes instead of JS-based overrides
-  const mergedPropsWithoutClassName: Record<string, unknown> | undefined = responsiveOverrides?.props
-    ? Object.entries({ ...componentProps, ...responsiveOverrides.props })
-        .filter(([key]) => key !== 'className')
-        .reduce<Record<string, unknown>>((acc, [key, value]) => ({ ...acc, [key]: value }), {})
-    : componentProps
-      ? Object.entries(componentProps)
-          .filter(([key]) => key !== 'className')
-          .reduce<Record<string, unknown>>((acc, [key, value]) => ({ ...acc, [key]: value }), {})
-      : undefined
-
-  const mergedProps: Record<string, unknown> | undefined = responsiveClassName
-    ? { ...mergedPropsWithoutClassName, className: responsiveClassName }
-    : mergedPropsWithoutClassName
-
-  // For children: Use CSS-based responsive rendering if responsive.children exists
-  // For content: Use JavaScript-based override (content changes are CSS-rendered via data attributes)
-  const hasResponsiveChildren = responsive
-    ? (Object.values(responsive) as VariantOverrides[]).some(
-        (override) => override.children !== undefined
-      )
-    : false
-
-  const mergedChildren = hasResponsiveChildren ? children : responsiveOverrides?.children ?? children
-  const mergedContent = responsiveOverrides?.content ?? content
-
-  // Build CSS classes for responsive visibility using Tailwind breakpoint utilities
-  // This works without JavaScript by using CSS media queries
-  // Strategy: Convert responsive visibility config into appropriate Tailwind classes
-  const responsiveVisibilityClasses = responsive
-    ? (() => {
-        const visibilityConfig = (Object.entries(responsive) as [string, VariantOverrides][])
-          .filter(([, overrides]) => overrides.visible !== undefined)
-          .reduce<Record<string, boolean>>((acc, [bp, overrides]) => {
-            return { ...acc, [bp]: overrides.visible! }
-          }, {})
-
-        // For mobile:false + lg:true pattern, use max-lg:hidden
-        if (visibilityConfig.mobile === false && visibilityConfig.lg === true) {
-          return 'max-lg:hidden'
-        }
-
-        // For mobile:true + lg:false pattern, use lg:hidden
-        if (visibilityConfig.mobile === true && visibilityConfig.lg === false) {
-          return 'lg:hidden'
-        }
-
-        // Default fallback: build individual responsive classes
-        return Object.entries(visibilityConfig)
-          .map(([bp, isVisible]) => {
-            if (bp === 'mobile') {
-              return isVisible ? '' : 'max-sm:hidden'
-            }
-            return isVisible ? `${bp}:inline` : `${bp}:hidden`
-          })
-          .filter(Boolean)
-          .join(' ')
-      })()
-    : undefined
-
-  const mergedPropsWithVisibility = responsiveVisibilityClasses
-    ? {
-        ...mergedProps,
-        className: mergedProps?.className
-          ? `${mergedProps.className} ${responsiveVisibilityClasses}`
-          : responsiveVisibilityClasses,
-      }
-    : mergedProps
-
+  // Build component props with all attributes
   const { elementProps, elementPropsWithSpacing } = buildComponentProps({
     type,
     props: mergedPropsWithVisibility,
     children: mergedChildren,
-    content: mergedContent,
+    content: typeof mergedContent === 'string' ? mergedContent : undefined,
     blockName: props.blockName,
     blockInstanceIndex: props.blockInstanceIndex,
     theme: props.theme,
@@ -417,55 +581,38 @@ function RenderDirectComponent({
     interactions,
   })
 
+  // Prepare final element props with hover, i18n, and structured data
   const hoverData = buildHoverData(interactions?.hover, uniqueId)
-  const baseElementProps = mergeHoverAttributes(elementProps, hoverData)
-  const baseElementPropsWithSpacing = mergeHoverAttributes(elementPropsWithSpacing, hoverData)
+  const { finalElementProps, finalElementPropsWithSpacing, structuredDataScript } = prepareElementProps({
+    elementProps,
+    elementPropsWithSpacing,
+    hoverData,
+    i18n,
+    mergedContent,
+    languages: props.languages,
+    componentProps,
+  })
+
+  // Render children and inject structured data script if present
   const baseRenderedChildren = renderResponsiveChildren(responsive, children, props)
+  const renderedChildren = buildFinalRenderedChildren(structuredDataScript, baseRenderedChildren)
 
   // Resolve content with i18n priority: component.i18n[lang].content > $t: pattern > content
   const resolvedContent = resolveComponentContent(mergedContent, i18n, props.currentLang, props.languages)
 
-  // Build i18n content data attribute and merge into element props (functional approach)
-  const i18nContentAttribute =
-    i18n && mergedContent
-      ? buildI18nContentAttribute(i18n, mergedContent, props.languages?.default)
-      : undefined
-  const finalElementProps = buildFinalElementProps(baseElementProps, i18nContentAttribute)
-  const finalElementPropsWithSpacing = buildFinalElementProps(
-    baseElementPropsWithSpacing,
-    i18nContentAttribute
-  )
-
-  // Check if component has meta property with structured data
-  const meta = componentProps?.meta as BlockMeta | undefined
-  const structuredDataScript = meta ? <StructuredDataFromBlock meta={meta} /> : undefined
-
-  // Inject structured data script as first child if it exists (functional approach)
-  const renderedChildren = structuredDataScript
-    ? ([structuredDataScript, ...baseRenderedChildren] as readonly ReactElement[])
-    : baseRenderedChildren
-
+  // Dispatch to appropriate component renderer
   const renderedComponent = dispatchComponentType({
     type,
     elementProps: finalElementProps,
     elementPropsWithSpacing: finalElementPropsWithSpacing,
-    content: resolvedContent !== undefined ? resolvedContent : mergedContent,
+    content: resolvedContent !== undefined ? resolvedContent : (typeof mergedContent === 'string' ? mergedContent : undefined),
     renderedChildren,
     theme: props.theme,
     languages: props.languages,
     interactions,
   })
 
-  if (hoverData) {
-    return (
-      <Fragment>
-        <style>{hoverData.styleContent}</style>
-        {renderedComponent}
-      </Fragment>
-    )
-  }
-
-  return renderedComponent
+  return wrapWithHoverStyles(hoverData, renderedComponent)
 }
 
 /**
