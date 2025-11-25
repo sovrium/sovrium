@@ -1,7 +1,7 @@
 ---
 name: e2e-test-generator
 description: |
-  Mechanically translates validated x-specs arrays from specification files into co-located Playwright test files. Converts GIVEN-WHEN-THEN specs into executable @spec tests plus ONE optimized @regression test. Supports three domains: app (.schema.json), admin (.json), and api (.json in paths/). Refuses to proceed if x-specs array is missing or invalid. Uses optional validation/application properties for enhanced test generation. Use when user requests "translate specs to tests", "generate Playwright tests from schema", or mentions converting x-specs arrays.
+  Mechanically translates validated x-specs arrays from specification files into co-located Playwright test files. Converts GIVEN-WHEN-THEN specs into executable @spec tests plus ONE optimized @regression test. Supports five domains: app (.schema.json), admin (.json), api (.json in paths/), static (.json), and migrations (.json). Refuses to proceed if x-specs array is missing or invalid. Uses optional validation/application properties for enhanced test generation. Use when user requests "translate specs to tests", "generate Playwright tests from schema", or mentions converting x-specs arrays.
 allowed-tools: [Read, Write, Bash]
 ---
 
@@ -33,14 +33,16 @@ Before translating ANY tests, you MUST verify:
 
 **Domain Detection**:
 The skill automatically detects the domain based on directory structure:
-- `specs/app/**/*.schema.json` → **App domain** (JSON Schema files)
-- `specs/admin/**/*.json` → **Admin domain** (Admin specification files)
-- `specs/api/paths/**/*.json` → **API domain** (OpenAPI endpoint files with x-specs)
+- `specs/app/**/*.schema.json` → **App domain** (JSON Schema files with APP- prefix)
+- `specs/admin/**/*.json` → **Admin domain** (Admin specification files with ADMIN- prefix)
+- `specs/api/paths/**/*.json` → **API domain** (OpenAPI endpoint files with API- prefix)
+- `specs/static/**/*.json` → **Static domain** (Static site generation specs with STATIC- prefix)
+- `specs/migrations/**/*.json` → **Migrations domain** (Database migration specs with MIG- prefix)
 
 ```typescript
 // Auto-detect domain and construct schema path
 let schemaPath: string
-let domain: 'app' | 'admin' | 'api'
+let domain: 'app' | 'admin' | 'api' | 'static' | 'migrations'
 
 // Note: For API domain, user provides FULL path from specs/api/
 // Example: "paths/auth/sign-up/email/post" → specs/api/paths/auth/sign-up/email/post.json
@@ -60,15 +62,32 @@ else if (fileExists(`specs/api/${property}.json`)) {
   schemaPath = `specs/api/${property}.json`
   domain = 'api'
 }
+// Try static domain
+else if (fileExists(`specs/static/${property}.json`)) {
+  schemaPath = `specs/static/${property}.json`
+  domain = 'static'
+}
+// Try migrations domain (check both migration-system and schema-evolution subdirectories)
+else if (fileExists(`specs/migrations/migration-system/${property}/${property}.json`)) {
+  schemaPath = `specs/migrations/migration-system/${property}/${property}.json`
+  domain = 'migrations'
+}
+else if (fileExists(`specs/migrations/schema-evolution/${property}/${property}.json`)) {
+  schemaPath = `specs/migrations/schema-evolution/${property}/${property}.json`
+  domain = 'migrations'
+}
 // No matching file found
 else {
   return BLOCKING_ERROR: `
   ❌ TRANSLATION ERROR: Cannot find specification file
 
   Expected one of:
-  - specs/app/${property}/${property}.schema.json (App domain)
-  - specs/admin/${property}/${property}.json (Admin domain)
-  - specs/api/${property}.json (API domain - provide full path from specs/api/)
+  - specs/app/${property}/${property}.schema.json (App domain - APP- prefix)
+  - specs/admin/${property}/${property}.json (Admin domain - ADMIN- prefix)
+  - specs/api/${property}.json (API domain - API- prefix, provide full path from specs/api/)
+  - specs/static/${property}.json (Static domain - STATIC- prefix)
+  - specs/migrations/migration-system/${property}/${property}.json (Migrations - MIG- prefix)
+  - specs/migrations/schema-evolution/${property}/${property}.json (Migrations - MIG- prefix)
 
   REQUIRED ACTION:
   Create the specification file with an x-specs array before requesting test translation.
@@ -136,8 +155,8 @@ if (!specs || !Array.isArray(specs) || specs.length === 0) {
   }
 
   WHERE:
-  - PREFIX = APP (specs/app/*), ADMIN (specs/admin/*), or API (specs/api/*)
-  - ENTITY = Property/entity name in UPPERCASE (e.g., NAME, FIELD-TYPE, I18N, L10N)
+  - PREFIX = APP (specs/app/*), ADMIN (specs/admin/*), API (specs/api/*), STATIC (specs/static/*), or MIG (specs/migrations/*)
+  - ENTITY = Property/entity name in UPPERCASE (e.g., NAME, FIELD-TYPE, I18N, L10N, ASSETS, CHECKSUM)
     - Supports alphanumeric characters (A-Z, 0-9) with hyphens
     - Must start with a letter
   - NNN = 3+ digit number (001, 002, ..., 123)
@@ -184,6 +203,12 @@ for (const [index, spec] of specs.entries()) {
   } else if (filePath.includes('/api/')) {
     requiredPrefix = 'API'
     pattern = /^API-[A-Z][A-Z0-9-]*-\d{3,}$/
+  } else if (filePath.includes('/static/')) {
+    requiredPrefix = 'STATIC'
+    pattern = /^STATIC-[A-Z][A-Z0-9-]*-\d{3,}$/
+  } else if (filePath.includes('/migrations/')) {
+    requiredPrefix = 'MIG'
+    pattern = /^MIG-[A-Z][A-Z0-9-]*-\d{3,}$/
   }
 
   if (!pattern.test(spec.id)) {
@@ -855,14 +880,204 @@ test.fixme(
    expect(result.rows[0].field).toBe(expectedValue)
    ```
 
+#### Pattern F: Static Site Generation (for Static domain specs)
+
+**CRITICAL REQUIREMENTS FOR STATIC DOMAIN**:
+- ✅ **Use `generateStaticSite` fixture**: For generating static HTML/CSS/assets
+- ✅ **Use Node.js fs/promises**: For file system operations (readFile, readdir, stat)
+- ✅ **Test output directory**: Verify generated files in output directory
+- ✅ **Validate file content**: Use readFile to check HTML/CSS/asset content
+- ✅ **Validate file structure**: Use readdir to verify directory structure
+
+```typescript
+test.fixme(
+  '{spec.id}: should {extract from "then" clause}',
+  { tag: '@spec' },
+  async ({ generateStaticSite }) => {
+    // GIVEN: {spec.given}
+    // Setup test files/directories if needed (using Node.js fs/promises)
+    const tempPublicDir = await mkdtemp(join(tmpdir(), 'sovrium-public-'))
+    await writeFile(join(tempPublicDir, 'favicon.ico'), Buffer.from('fake-ico'))
+
+    // WHEN: {spec.when} - Generate static site
+    const outputDir = await generateStaticSite(
+      {
+        name: 'test-app',
+        pages: [
+          {
+            name: 'home',
+            path: '/',
+            meta: { lang: 'en', title: 'Home', description: 'Home' },
+            sections: [],
+          },
+        ],
+      },
+      {
+        publicDir: tempPublicDir,  // Optional: provide custom public directory
+      }
+    )
+
+    // THEN: {spec.then}
+    // File existence validation
+    const files = await readdir(outputDir, { recursive: true })
+    expect(files).toContain('favicon.ico')
+    expect(files).toContain('index.html')
+
+    // File content validation
+    const htmlContent = await readFile(join(outputDir, 'index.html'), 'utf-8')
+    expect(htmlContent).toContain('<title>Home</title>')
+
+    // File integrity validation (for binary files)
+    const faviconStats = await stat(join(outputDir, 'favicon.ico'))
+    expect(faviconStats.size).toBeGreaterThan(0)
+  }
+)
+```
+
+**Static Domain Test Generation Rules**:
+1. **Fixture requirement**: `async ({ generateStaticSite }) =>`
+2. **Import Node.js modules**: `import { readFile, readdir, stat, mkdir, writeFile, mkdtemp } from 'node:fs/promises'`
+3. **File system setup pattern**:
+   ```typescript
+   const tempDir = await mkdtemp(join(tmpdir(), 'sovrium-test-'))
+   await writeFile(join(tempDir, 'file.txt'), 'content')
+   ```
+4. **Static generation pattern**:
+   ```typescript
+   const outputDir = await generateStaticSite(schemaConfig, options)
+   ```
+5. **Validation pattern**:
+   ```typescript
+   // List files
+   const files = await readdir(outputDir, { recursive: true })
+   expect(files).toContain('expected-file.html')
+
+   // Read content
+   const content = await readFile(join(outputDir, 'file.html'), 'utf-8')
+   expect(content).toContain('expected content')
+
+   // Check stats
+   const stats = await stat(join(outputDir, 'file.png'))
+   expect(stats.size).toBeGreaterThan(0)
+   ```
+
+#### Pattern G: Database Migrations (for Migrations domain specs)
+
+**CRITICAL REQUIREMENTS FOR MIGRATIONS DOMAIN**:
+- ✅ **Use `executeQuery` fixture**: For database operations
+- ✅ **Use `startServerWithSchema` fixture**: For triggering runtime migrations
+- ✅ **Test database state**: Verify tables, columns, indexes created correctly
+- ✅ **Test migration SQL**: Verify ALTER TABLE, CREATE INDEX statements
+- ✅ **Test checksum system**: Verify _sovrium_schema_checksum table updates
+
+```typescript
+test.fixme(
+  '{spec.id}: should {extract from "then" clause}',
+  { tag: '@spec' },
+  async ({ startServerWithSchema, executeQuery }) => {
+    // GIVEN: {spec.given}
+    // Database setup (create tables, insert checksum, etc.)
+    await executeQuery(`
+      CREATE TABLE IF NOT EXISTS _sovrium_schema_checksum (
+        id VARCHAR(50) PRIMARY KEY,
+        checksum VARCHAR(64) NOT NULL,
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `)
+
+    await executeQuery(`
+      CREATE TABLE users (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255)
+      )
+    `)
+
+    // WHEN: {spec.when} - Trigger runtime migration
+    await startServerWithSchema({
+      name: 'test-app',
+      tables: [
+        {
+          id: 'tbl_users',
+          name: 'users',
+          fields: [
+            { id: 1, name: 'email', type: 'email', required: true, unique: true },
+            { id: 2, name: 'name', type: 'single-line-text' },  // New field - triggers migration
+          ],
+        },
+      ],
+    })
+
+    // THEN: {spec.then}
+    // Verify table structure updated
+    const columns = await executeQuery(`
+      SELECT column_name, data_type, is_nullable
+      FROM information_schema.columns
+      WHERE table_name = 'users'
+      ORDER BY ordinal_position
+    `)
+    expect(columns.rows).toHaveLength(3)  // id, email, name
+    expect(columns.rows[2].column_name).toBe('name')
+
+    // Verify checksum updated
+    const checksum = await executeQuery(`
+      SELECT checksum, updated_at > (NOW() - INTERVAL '5 seconds') as recently_updated
+      FROM _sovrium_schema_checksum
+      WHERE id = 'singleton'
+    `)
+    expect(checksum.rows[0].recently_updated).toBe(true)
+
+    // Verify index created (if applicable)
+    const indexes = await executeQuery(`
+      SELECT indexname FROM pg_indexes
+      WHERE tablename = 'users' AND indexname = 'idx_users_email'
+    `)
+    expect(indexes.rows).toHaveLength(1)
+  }
+)
+```
+
+**Migrations Domain Test Generation Rules**:
+1. **Fixture requirement**: `async ({ startServerWithSchema, executeQuery }) =>` (BOTH required)
+2. **Database setup pattern**:
+   ```typescript
+   // Create checksum table
+   await executeQuery(`CREATE TABLE IF NOT EXISTS _sovrium_schema_checksum...`)
+
+   // Create initial table structure
+   await executeQuery(`CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255))`)
+   ```
+3. **Migration trigger pattern**:
+   ```typescript
+   await startServerWithSchema({
+     name: 'test-app',
+     tables: [/* new schema that differs from current database */]
+   })
+   ```
+4. **Validation pattern**:
+   ```typescript
+   // Verify table structure
+   const columns = await executeQuery(`SELECT * FROM information_schema.columns WHERE table_name = 'users'`)
+   expect(columns.rows).toHaveLength(expectedColumnCount)
+
+   // Verify checksum
+   const checksum = await executeQuery(`SELECT * FROM _sovrium_schema_checksum WHERE id = 'singleton'`)
+   expect(checksum.rows[0].checksum).toMatch(/^[0-9a-f]{64}$/)
+
+   // Verify indexes
+   const indexes = await executeQuery(`SELECT * FROM pg_indexes WHERE tablename = 'users'`)
+   expect(indexes.rows).toContainEqual(expect.objectContaining({ indexname: 'idx_name' }))
+   ```
+
 **Key Rules**:
 - Test name: `'{spec.id}: should {extract from "then" clause}'` - MUST start with spec ID followed by colon
-- Format: `APP-NAME-001: should validate name` (NO square brackets, colon after ID) or `API-AUTH-SIGN-UP-001: should...`
+- Format: `APP-NAME-001: should validate name` (NO square brackets, colon after ID), `API-AUTH-SIGN-UP-001: should...`, `STATIC-ASSETS-001: should...`, or `MIG-CHECKSUM-001: should...`
 - Test body: Follow GIVEN-WHEN-THEN structure
 - Tag: `{ tag: '@spec' }`
 - Modifier: `test.fixme()` (RED phase)
 - **Validation approach**: Choose based on spec type (see Decision Matrix)
   - **API domain**: ALWAYS use Pattern E (request + executeQuery fixtures, NO TODOs)
+  - **Static domain**: ALWAYS use Pattern F (generateStaticSite + Node.js fs/promises)
+  - **Migrations domain**: ALWAYS use Pattern G (startServerWithSchema + executeQuery)
 
 ### Step 5: Create ONE OPTIMIZED @regression Test
 
@@ -1008,11 +1223,15 @@ Before completing, verify:
   - [ ] Combined approach where appropriate
 
 **Code Quality**:
-- [ ] Test titles start with spec ID and colon (e.g., `APP-NAME-001: should...`)
+- [ ] Test titles start with spec ID and colon (e.g., `APP-NAME-001: should...`, `STATIC-ASSETS-001: should...`, `MIG-CHECKSUM-001: should...`)
 - [ ] GIVEN-WHEN-THEN structure in test comments
 - [ ] Prettier formatting rules followed
-- [ ] Uses `startServerWithSchema` fixture
-- [ ] Uses semantic selectors
+- [ ] Uses correct fixture for domain:
+  - [ ] App/Admin domains: `startServerWithSchema` fixture
+  - [ ] API domain: `request` + `executeQuery` fixtures
+  - [ ] Static domain: `generateStaticSite` fixture + Node.js fs/promises imports
+  - [ ] Migrations domain: `startServerWithSchema` + `executeQuery` fixtures
+- [ ] Uses semantic selectors (for app/admin domains)
 - [ ] Copyright headers added (run `bun run license`)
 - [ ] Validation script passed with 0 errors (run `bun run validate:{app|admin|api}-specs`)
 
@@ -1025,9 +1244,16 @@ Before completing, verify:
 - **Provide clear file paths** (domain-specific):
   - App: `specs/app/{property}/{property}.schema.json` → `specs/app/{property}/{property}.spec.ts`
   - Admin: `specs/admin/{property}/{property}.json` → `specs/admin/{property}/{property}.spec.ts`
-  - API: `specs/api/{property}/{property}.openapi.json` → `specs/api/{property}/{property}.spec.ts`
+  - API: `specs/api/{property}.json` → `specs/api/{property}.spec.ts`
+  - Static: `specs/static/{property}.json` → `specs/static/{property}.spec.ts`
+  - Migrations: `specs/migrations/{category}/{property}/{property}.json` → `specs/migrations/{category}/{property}/{property}.spec.ts`
 - Explain optimization strategy: "Regression test uses representative scenarios rather than duplicating all @spec assertions"
 - **Snapshot files**: Mention where snapshots will be stored: `specs/{domain}/{property}/__snapshots__/`
+- **Domain-specific fixtures**:
+  - App/Admin: Uses `startServerWithSchema` for page rendering
+  - API: Uses `request` + `executeQuery` for HTTP endpoint testing
+  - Static: Uses `generateStaticSite` + Node.js fs/promises for static file generation
+  - Migrations: Uses `startServerWithSchema` + `executeQuery` for database migration testing
 - **ALWAYS run validation** after creating tests:
   - App domain: `bun run validate:app-specs`
   - Admin domain: `bun run validate:admin-specs`
