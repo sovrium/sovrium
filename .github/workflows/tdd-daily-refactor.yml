@@ -8,7 +8,7 @@ name: TDD Queue - Daily Refactor
 # - Sunday: Full codebase audit
 
 on:
-  # Scheduled runs - Daily at 2 AM UTC
+  # Scheduled runs - Daily at 2:00 AM UTC (runs before populate to refactor on clean queue)
   schedule:
     - cron: '0 2 * * *'
 
