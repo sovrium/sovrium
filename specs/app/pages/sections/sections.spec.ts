@@ -217,7 +217,7 @@ test.describe('Page Sections', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SECTIONS-006: should apply interactive behaviors from interactions.schema.json',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -236,7 +236,7 @@ test.describe('Page Sections', () => {
                 interactions: {
                   hover: { scale: 1.05 },
                   click: { action: 'navigate', url: '/contact' },
-                  entrance: { animation: 'fade-in', duration: '500ms' },
+                  entrance: { animation: 'fadeIn', duration: '500ms' },
                 },
               },
             ],
