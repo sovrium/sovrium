@@ -23,16 +23,17 @@
       "then": "the datetime is displayed as '2024-12-31 10:00' (EST, UTC-5)",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
-          }
+          "executeQuery": [
+            "SELECT '2024-12-31 15:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'America/New_York' AS displayed_time"
+          ]
         },
         "assertions": [
           {
-            "description": "the datetime is displayed as '2024-12-31 10:00' (EST, UTC-5)",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Timezone conversion displays correct local time (EST -5)",
+            "executeQuery": "SELECT '2024-12-31 15:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'America/New_York' AS displayed_time",
+            "expected": {
+              "displayed_time": "2024-12-31 10:00:00"
+            }
           }
         ]
       }
@@ -45,16 +46,15 @@
       "then": "validation error is returned with message 'Invalid IANA timezone identifier'",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
-          }
+          "executeQuery": [
+            "SELECT '2024-01-01 00:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'Invalid/Timezone' AS result"
+          ]
         },
         "assertions": [
           {
-            "description": "validation error is returned with message 'Invalid IANA timezone identifier'",
-            "validateConfig": true,
-            "expectError": null
+            "description": "PostgreSQL rejects invalid timezone identifier",
+            "executeQuery": "SELECT '2024-01-01 00:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'Invalid/Timezone' AS result",
+            "expectError": "time zone \"Invalid/Timezone\" not recognized"
           }
         ]
       }
@@ -67,16 +67,25 @@
       "then": "the datetime is displayed with correct offset (EST -5 or EDT -4)",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
-          }
+          "executeQuery": [
+            "SELECT '2024-01-15 12:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'America/New_York' AS winter_time",
+            "SELECT '2024-07-15 12:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'America/New_York' AS summer_time"
+          ]
         },
         "assertions": [
           {
-            "description": "the datetime is displayed with correct offset (EST -5 or EDT -4)",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Winter time uses EST offset (UTC-5)",
+            "executeQuery": "SELECT '2024-01-15 12:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'America/New_York' AS winter_time",
+            "expected": {
+              "winter_time": "2024-01-15 07:00:00"
+            }
+          },
+          {
+            "description": "Summer time uses EDT offset (UTC-4)",
+            "executeQuery": "SELECT '2024-07-15 12:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'America/New_York' AS summer_time",
+            "expected": {
+              "summer_time": "2024-07-15 08:00:00"
+            }
           }
         ]
       }
@@ -89,16 +98,17 @@
       "then": "the datetime is displayed in UTC timezone (no conversion)",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
-          }
+          "executeQuery": [
+            "SELECT '2024-12-31 15:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'UTC' AS utc_time"
+          ]
         },
         "assertions": [
           {
-            "description": "the datetime is displayed in UTC timezone (no conversion)",
-            "validateConfig": true,
-            "expectError": null
+            "description": "UTC timezone displays time without conversion",
+            "executeQuery": "SELECT '2024-12-31 15:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'UTC' AS utc_time",
+            "expected": {
+              "utc_time": "2024-12-31 15:00:00"
+            }
           }
         ]
       }
