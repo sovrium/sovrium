@@ -5,7 +5,13 @@
   "description": "Display format for date values. Controls how dates are presented to users, not how they are stored. Storage always uses ISO 8601 (YYYY-MM-DD). Common formats: YYYY-MM-DD (ISO), MM/DD/YYYY (US), DD-MM-YYYY (European).",
   "type": "string",
   "default": "YYYY-MM-DD",
-  "examples": ["YYYY-MM-DD", "MM/DD/YYYY", "DD-MM-YYYY", "DD/MM/YYYY", "YYYY/MM/DD"],
+  "examples": [
+    "YYYY-MM-DD",
+    "MM/DD/YYYY",
+    "DD-MM-YYYY",
+    "DD/MM/YYYY",
+    "YYYY/MM/DD"
+  ],
   "x-specs": [
     {
       "id": "APP-FIELD-DATE-FORMAT-001",
@@ -29,18 +35,23 @@
           {
             "description": "Column uses DATE type (ISO 8601 storage)",
             "executeQuery": "SELECT data_type FROM information_schema.columns WHERE table_name='events' AND column_name='event_date'",
-            "expected": { "data_type": "date" }
+            "expected": {
+              "data_type": "date"
+            }
           },
           {
             "description": "Date stored in ISO format (YYYY-MM-DD)",
             "executeQuery": "SELECT event_date FROM events WHERE name = 'Launch'",
-            "expected": { "event_date": "2024-12-31" }
+            "expected": {
+              "event_date": "2024-12-31"
+            }
           },
           {
             "description": "Application transforms to display format (MM/DD/YYYY)",
             "displayFormat": "MM/DD/YYYY",
             "executeQuery": "SELECT event_date FROM events WHERE name = 'Launch'",
-            "expectedDisplay": "12/31/2024"
+            "expectedDisplay": "12/31/2024",
+            "expectError": "validation error"
           }
         ]
       }
@@ -66,13 +77,16 @@
           {
             "description": "Default format is YYYY-MM-DD",
             "executeQuery": "SELECT due_date FROM tasks WHERE title = 'Task 1'",
-            "expected": { "due_date": "2024-06-15" }
+            "expected": {
+              "due_date": "2024-06-15"
+            }
           },
           {
             "description": "Display format defaults to YYYY-MM-DD (same as storage)",
             "displayFormat": "YYYY-MM-DD",
             "executeQuery": "SELECT due_date FROM tasks WHERE title = 'Task 1'",
-            "expectedDisplay": "2024-06-15"
+            "expectedDisplay": "2024-06-15",
+            "expectError": "validation error"
           }
         ]
       }
@@ -122,13 +136,16 @@
           {
             "description": "Storage remains ISO format",
             "executeQuery": "SELECT holiday_date FROM holidays WHERE name = 'Christmas'",
-            "expected": { "holiday_date": "2024-12-25" }
+            "expected": {
+              "holiday_date": "2024-12-25"
+            }
           },
           {
             "description": "Display uses European format (DD-MM-YYYY)",
             "displayFormat": "DD-MM-YYYY",
             "executeQuery": "SELECT holiday_date FROM holidays WHERE name = 'Christmas'",
-            "expectedDisplay": "25-12-2024"
+            "expectedDisplay": "25-12-2024",
+            "expectError": "validation error"
           }
         ]
       }

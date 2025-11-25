@@ -14,12 +14,18 @@
       },
       "direction": {
         "type": "string",
-        "enum": ["asc", "desc"],
+        "enum": [
+          "asc",
+          "desc"
+        ],
         "default": "asc",
         "description": "Sort direction: ascending or descending"
       }
     },
-    "required": ["field", "direction"],
+    "required": [
+      "field",
+      "direction"
+    ],
     "additionalProperties": false
   },
   "examples": [
@@ -63,7 +69,7 @@
           {
             "description": "records should be ordered from lowest to highest by that field",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -84,7 +90,7 @@
           {
             "description": "records should be ordered from highest to lowest by that field",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -105,7 +111,7 @@
           {
             "description": "records should be ordered by first field, then second field breaks ties, and so on",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }

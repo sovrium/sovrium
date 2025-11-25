@@ -25,7 +25,12 @@
     }
   },
   "description": "Computed field that automatically calculates values using formula expressions. Formulas can reference other fields, use operators (+, -, *, /, =, >, <), and call functions (CONCAT, IF, ROUND, SUM, etc.). Specify resultType (text, number, boolean, date) for proper type handling. Optionally set display format (currency, percentage, decimal, date). Formulas are read-only and recalculate when dependent fields change. Useful for totals, concatenations, conditional logic, and derived values.",
-  "required": ["id", "name", "type", "formula"],
+  "required": [
+    "id",
+    "name",
+    "type",
+    "formula"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -51,17 +56,28 @@
           {
             "description": "Column is a generated column",
             "executeQuery": "SELECT column_name, is_generated FROM information_schema.columns WHERE table_name='line_items' AND column_name='total'",
-            "expected": { "column_name": "total", "is_generated": "ALWAYS" }
+            "expected": {
+              "column_name": "total",
+              "is_generated": "ALWAYS"
+            }
           },
           {
             "description": "Formula computes correct total for first record",
             "executeQuery": "SELECT quantity, unit_price, total FROM line_items WHERE id = 1",
-            "expected": { "quantity": 5, "unit_price": "19.99", "total": "99.95" }
+            "expected": {
+              "quantity": 5,
+              "unit_price": "19.99",
+              "total": "99.95"
+            }
           },
           {
             "description": "Formula computes correct total for second record",
             "executeQuery": "SELECT quantity, unit_price, total FROM line_items WHERE id = 2",
-            "expected": { "quantity": 10, "unit_price": "9.50", "total": "95.00" }
+            "expected": {
+              "quantity": 10,
+              "unit_price": "9.50",
+              "total": "95.00"
+            }
           }
         ]
       }
@@ -89,17 +105,27 @@
           {
             "description": "Formula concatenates names for first contact",
             "executeQuery": "SELECT first_name, last_name, full_name FROM contacts WHERE id = 1",
-            "expected": { "first_name": "John", "last_name": "Doe", "full_name": "John Doe" }
+            "expected": {
+              "first_name": "John",
+              "last_name": "Doe",
+              "full_name": "John Doe"
+            }
           },
           {
             "description": "Formula concatenates names for second contact",
             "executeQuery": "SELECT first_name, last_name, full_name FROM contacts WHERE id = 2",
-            "expected": { "first_name": "Jane", "last_name": "Smith", "full_name": "Jane Smith" }
+            "expected": {
+              "first_name": "Jane",
+              "last_name": "Smith",
+              "full_name": "Jane Smith"
+            }
           },
           {
             "description": "Generated column automatically updates when source fields change",
             "executeQuery": "UPDATE contacts SET first_name = 'Janet' WHERE id = 2 RETURNING full_name",
-            "expected": { "full_name": "Janet Smith" }
+            "expected": {
+              "full_name": "Janet Smith"
+            }
           }
         ]
       }
@@ -127,17 +153,27 @@
           {
             "description": "Product on sale gets 20% discount",
             "executeQuery": "SELECT price, on_sale, discount_price FROM products WHERE id = 1",
-            "expected": { "price": "100.00", "on_sale": true, "discount_price": "80.00" }
+            "expected": {
+              "price": "100.00",
+              "on_sale": true,
+              "discount_price": "80.00"
+            }
           },
           {
             "description": "Product not on sale has no discount",
             "executeQuery": "SELECT price, on_sale, discount_price FROM products WHERE id = 2",
-            "expected": { "price": "50.00", "on_sale": false, "discount_price": "50.00" }
+            "expected": {
+              "price": "50.00",
+              "on_sale": false,
+              "discount_price": "50.00"
+            }
           },
           {
             "description": "Formula updates when on_sale changes",
             "executeQuery": "UPDATE products SET on_sale = true WHERE id = 2 RETURNING discount_price",
-            "expected": { "discount_price": "40.00" }
+            "expected": {
+              "discount_price": "40.00"
+            }
           }
         ]
       }
@@ -165,17 +201,26 @@
           {
             "description": "ROUND function rounds to 2 decimal places",
             "executeQuery": "SELECT raw_value, rounded_value FROM measurements WHERE id = 1",
-            "expected": { "raw_value": "19.9567", "rounded_value": "19.96" }
+            "expected": {
+              "raw_value": "19.9567",
+              "rounded_value": "19.96"
+            }
           },
           {
             "description": "Second record rounded correctly",
             "executeQuery": "SELECT raw_value, rounded_value FROM measurements WHERE id = 2",
-            "expected": { "raw_value": "49.1234", "rounded_value": "49.12" }
+            "expected": {
+              "raw_value": "49.1234",
+              "rounded_value": "49.12"
+            }
           },
           {
             "description": "Negative value rounded correctly",
             "executeQuery": "SELECT raw_value, rounded_value FROM measurements WHERE id = 3",
-            "expected": { "raw_value": "-15.6789", "rounded_value": "-15.68" }
+            "expected": {
+              "raw_value": "-15.6789",
+              "rounded_value": "-15.68"
+            }
           }
         ]
       }
@@ -203,17 +248,29 @@
           {
             "description": "Unpaid invoice with past due date is overdue",
             "executeQuery": "SELECT due_date, paid, is_overdue FROM invoices WHERE id = 1",
-            "expected": { "due_date": "2024-01-15", "paid": false, "is_overdue": true }
+            "expected": {
+              "due_date": "2024-01-15",
+              "paid": false,
+              "is_overdue": true
+            }
           },
           {
             "description": "Unpaid invoice with future due date is not overdue",
             "executeQuery": "SELECT due_date, paid, is_overdue FROM invoices WHERE id = 2",
-            "expected": { "due_date": "2025-12-31", "paid": false, "is_overdue": false }
+            "expected": {
+              "due_date": "2025-12-31",
+              "paid": false,
+              "is_overdue": false
+            }
           },
           {
             "description": "Paid invoice is never overdue regardless of date",
             "executeQuery": "SELECT due_date, paid, is_overdue FROM invoices WHERE id = 3",
-            "expected": { "due_date": "2024-06-01", "paid": true, "is_overdue": false }
+            "expected": {
+              "due_date": "2024-06-01",
+              "paid": true,
+              "is_overdue": false
+            }
           }
         ]
       }

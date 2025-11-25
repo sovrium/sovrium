@@ -14,7 +14,9 @@
           "description": "Grant public access"
         }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
     {
@@ -27,7 +29,9 @@
           "description": "Require authentication (any role)"
         }
       },
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "additionalProperties": false
     },
     {
@@ -44,7 +48,13 @@
           "items": {
             "type": "string",
             "minLength": 1,
-            "enum": ["admin", "editor", "member", "viewer", "guest"],
+            "enum": [
+              "admin",
+              "editor",
+              "member",
+              "viewer",
+              "guest"
+            ],
             "description": "Role name from Better Auth"
           },
           "minItems": 1,
@@ -52,7 +62,10 @@
           "description": "List of allowed roles (OR logic: user.role must match any)"
         }
       },
-      "required": ["type", "roles"],
+      "required": [
+        "type",
+        "roles"
+      ],
       "additionalProperties": false
     },
     {
@@ -71,7 +84,10 @@
           "description": "Expression with placeholders: {userId}, {userEmail}, {userRole}, {user.customField}. Example: '{userId} = created_by AND status = active'"
         }
       },
-      "required": ["type", "condition"],
+      "required": [
+        "type",
+        "condition"
+      ],
       "additionalProperties": false
     }
   ],
@@ -84,7 +100,10 @@
     },
     {
       "type": "roles",
-      "roles": ["admin", "editor"]
+      "roles": [
+        "admin",
+        "editor"
+      ]
     },
     {
       "type": "custom",
@@ -112,7 +131,7 @@
           {
             "description": "access should be granted without authentication check",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -133,7 +152,7 @@
           {
             "description": "access should be denied with 401 Unauthorized",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -154,7 +173,7 @@
           {
             "description": "access should be granted",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -175,7 +194,7 @@
           {
             "description": "access should be granted",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -196,7 +215,7 @@
           {
             "description": "access should be denied with 403 Forbidden",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -217,7 +236,7 @@
           {
             "description": "access should be granted",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -238,7 +257,7 @@
           {
             "description": "access should be denied with 403 Forbidden",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -259,7 +278,7 @@
           {
             "description": "access should be granted (OR logic)",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }

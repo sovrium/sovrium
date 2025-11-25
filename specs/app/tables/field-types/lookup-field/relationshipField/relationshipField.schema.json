@@ -31,17 +31,24 @@
           {
             "description": "Base table has foreign key relationship",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'FOREIGN KEY' AND table_name = 'orders'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "VIEW exists with lookup field",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.views WHERE table_name = 'orders_with_lookup'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Lookup field fetches value through relationship",
             "executeQuery": "SELECT order_number, customer_email FROM orders_with_lookup WHERE order_number = 'ORD-001'",
-            "expected": { "order_number": "ORD-001", "customer_email": "alice@example.com" }
+            "expected": {
+              "order_number": "ORD-001",
+              "customer_email": "alice@example.com"
+            }
           },
           {
             "description": "Lookup field updates when related record changes",
@@ -49,7 +56,9 @@
               "UPDATE customers SET email = 'alice.new@example.com' WHERE id = 1",
               "SELECT customer_email FROM orders_with_lookup WHERE order_number = 'ORD-001'"
             ],
-            "expected": { "customer_email": "alice.new@example.com" }
+            "expected": {
+              "customer_email": "alice.new@example.com"
+            }
           }
         ]
       }
@@ -130,17 +139,26 @@
           {
             "description": "First product shows correct tax rate",
             "executeQuery": "SELECT product_name, category_tax_rate FROM products_with_lookup WHERE product_name = 'Laptop'",
-            "expected": { "product_name": "Laptop", "category_tax_rate": 0.2 }
+            "expected": {
+              "product_name": "Laptop",
+              "category_tax_rate": 0.2
+            }
           },
           {
             "description": "Second product in same category shows same tax rate",
             "executeQuery": "SELECT product_name, category_tax_rate FROM products_with_lookup WHERE product_name = 'Smartphone'",
-            "expected": { "product_name": "Smartphone", "category_tax_rate": 0.2 }
+            "expected": {
+              "product_name": "Smartphone",
+              "category_tax_rate": 0.2
+            }
           },
           {
             "description": "Product in different category shows different tax rate",
             "executeQuery": "SELECT product_name, category_tax_rate FROM products_with_lookup WHERE product_name = 'T-Shirt'",
-            "expected": { "product_name": "T-Shirt", "category_tax_rate": 0.1 }
+            "expected": {
+              "product_name": "T-Shirt",
+              "category_tax_rate": 0.1
+            }
           }
         ]
       }
@@ -170,12 +188,18 @@
           {
             "description": "Task with assigned manager shows lookup value",
             "executeQuery": "SELECT title, manager_department FROM tasks_with_lookup WHERE title = 'Assigned Task'",
-            "expected": { "title": "Assigned Task", "manager_department": "Engineering" }
+            "expected": {
+              "title": "Assigned Task",
+              "manager_department": "Engineering"
+            }
           },
           {
             "description": "Task without assigned manager shows NULL lookup value",
             "executeQuery": "SELECT title, manager_department FROM tasks_with_lookup WHERE title = 'Unassigned Task'",
-            "expected": { "title": "Unassigned Task", "manager_department": null }
+            "expected": {
+              "title": "Unassigned Task",
+              "manager_department": null
+            }
           }
         ]
       }

@@ -23,19 +23,27 @@
           "fieldConfig": {
             "name": "priority",
             "type": "single-select",
-            "options": ["Low", "Medium", "High"]
+            "options": [
+              "Low",
+              "Medium",
+              "High"
+            ]
           }
         },
         "assertions": [
           {
             "description": "CHECK constraint enforces allowed values",
             "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%priority%'",
-            "expected": { "check_clause": "(priority IN ('Low', 'Medium', 'High'))" }
+            "expected": {
+              "check_clause": "(priority IN ('Low', 'Medium', 'High'))"
+            }
           },
           {
             "description": "Valid option 'Low' accepted",
             "executeQuery": "SELECT priority FROM tasks WHERE priority = 'Low'",
-            "expected": { "priority": "Low" }
+            "expected": {
+              "priority": "Low"
+            }
           },
           {
             "description": "Invalid option rejected",
@@ -45,7 +53,9 @@
           {
             "description": "All valid options accepted",
             "executeQuery": "INSERT INTO tasks (title, priority) VALUES ('Task 4', 'Medium') RETURNING priority",
-            "expected": { "priority": "Medium" }
+            "expected": {
+              "priority": "Medium"
+            }
           }
         ]
       }
@@ -64,7 +74,10 @@
           "fieldConfig": {
             "name": "status",
             "type": "single-select",
-            "options": ["Active", "Inactive"],
+            "options": [
+              "Active",
+              "Inactive"
+            ],
             "required": false
           }
         },
@@ -72,12 +85,16 @@
           {
             "description": "NULL accepted when field is nullable",
             "executeQuery": "SELECT status FROM users WHERE name = 'Bob'",
-            "expected": { "status": null }
+            "expected": {
+              "status": null
+            }
           },
           {
             "description": "Valid option 'Active' accepted",
             "executeQuery": "SELECT status FROM users WHERE name = 'Alice'",
-            "expected": { "status": "Active" }
+            "expected": {
+              "status": "Active"
+            }
           },
           {
             "description": "Invalid option still rejected",
@@ -123,14 +140,20 @@
           "fieldConfig": {
             "name": "status",
             "type": "single-select",
-            "options": ["Draft", "Published", "Archived"]
+            "options": [
+              "Draft",
+              "Published",
+              "Archived"
+            ]
           }
         },
         "assertions": [
           {
             "description": "Original CHECK constraint enforces original options",
             "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%status%'",
-            "expected": { "check_clause": "(status IN ('Draft', 'Published', 'Archived'))" }
+            "expected": {
+              "check_clause": "(status IN ('Draft', 'Published', 'Archived'))"
+            }
           },
           {
             "description": "After migration: new option 'Scheduled' allowed",
@@ -139,12 +162,16 @@
               "ALTER TABLE posts ADD CONSTRAINT posts_status_check CHECK (status IN ('Draft', 'Scheduled', 'Published', 'Archived'))",
               "INSERT INTO posts (title, status) VALUES ('Post 3', 'Scheduled') RETURNING status"
             ],
-            "expected": { "status": "Scheduled" }
+            "expected": {
+              "status": "Scheduled"
+            }
           },
           {
             "description": "Existing data preserved after constraint update",
             "executeQuery": "SELECT COUNT(*) as count FROM posts WHERE status IN ('Draft', 'Published')",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           }
         ]
       }

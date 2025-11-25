@@ -5,7 +5,11 @@
   "description": "Type of relationship determines the cardinality and database structure: one-to-many (simple foreign key), one-to-one (foreign key with UNIQUE constraint), many-to-many (junction table with two foreign keys).",
   "type": "string",
   "default": "one-to-many",
-  "enum": ["one-to-one", "one-to-many", "many-to-many"],
+  "enum": [
+    "one-to-one",
+    "one-to-many",
+    "many-to-many"
+  ],
   "x-specs": [
     {
       "id": "APP-FIELD-RELATIONSHIP-RELATIONTYPE-001",
@@ -31,17 +35,23 @@
           {
             "description": "Foreign key constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'FOREIGN KEY' AND table_name = 'orders'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "No unique constraint on foreign key column",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'UNIQUE' AND table_name = 'orders' AND constraint_name LIKE '%customer_id%'",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           },
           {
             "description": "Multiple orders can reference same customer (one-to-many)",
             "executeQuery": "SELECT COUNT(*) as count FROM orders WHERE customer_id = 1",
-            "expected": { "count": 3 }
+            "expected": {
+              "count": 3
+            }
           }
         ]
       }
@@ -70,17 +80,23 @@
           {
             "description": "Foreign key constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'FOREIGN KEY' AND table_name = 'users'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Unique constraint exists on foreign key column",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'UNIQUE' AND table_name = 'users' AND constraint_name LIKE '%profile_id%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "First user-profile link succeeds",
             "executeQuery": "SELECT username FROM users WHERE profile_id = 1",
-            "expected": { "username": "alice" }
+            "expected": {
+              "username": "alice"
+            }
           },
           {
             "description": "Duplicate profile_id rejected (violates one-to-one)",
@@ -117,22 +133,30 @@
           {
             "description": "Junction table has two foreign keys",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'FOREIGN KEY' AND table_name = 'student_courses'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Junction table has composite primary key",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'PRIMARY KEY' AND table_name = 'student_courses'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "One student can enroll in multiple courses",
             "executeQuery": "SELECT COUNT(*) as count FROM student_courses WHERE student_id = 1",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "One course can have multiple students",
             "executeQuery": "SELECT COUNT(*) as count FROM student_courses WHERE course_id = 1",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Duplicate enrollment rejected (composite PK prevents duplicates)",
@@ -188,17 +212,23 @@
           {
             "description": "Default relationType is one-to-many",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'FOREIGN KEY' AND table_name = 'employees'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "No unique constraint (confirms one-to-many, not one-to-one)",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'UNIQUE' AND table_name = 'employees' AND constraint_name LIKE '%department_id%'",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           },
           {
             "description": "Multiple employees in same department (one-to-many works)",
             "executeQuery": "SELECT COUNT(*) as count FROM employees WHERE department_id = 1",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           }
         ]
       }

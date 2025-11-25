@@ -4,7 +4,13 @@
   "title": "Default Time Value",
   "description": "Default value for time field when no value is provided. Can be a static ISO 8601 time (HH:mm:ss) or dynamic keyword 'now' (PostgreSQL CURRENT_TIME). Used for business hours, recurring schedules, appointment slots.",
   "type": "string",
-  "examples": ["09:00:00", "14:30:00", "now", "00:00:00", "23:59:59"],
+  "examples": [
+    "09:00:00",
+    "14:30:00",
+    "now",
+    "00:00:00",
+    "23:59:59"
+  ],
   "x-specs": [
     {
       "id": "APP-FIELD-TIME-DEFAULT-001",
@@ -27,12 +33,16 @@
           {
             "description": "Column has DEFAULT constraint with time",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='appointments' AND column_name='start_time'",
-            "expected": { "column_default": "'09:00:00'::time without time zone" }
+            "expected": {
+              "column_default": "'09:00:00'::time without time zone"
+            }
           },
           {
             "description": "INSERT without value uses default time",
             "executeQuery": "SELECT start_time FROM appointments WHERE client = 'John Doe'",
-            "expected": { "start_time": "09:00:00" }
+            "expected": {
+              "start_time": "09:00:00"
+            }
           }
         ]
       }
@@ -58,12 +68,16 @@
           {
             "description": "Column has DEFAULT CURRENT_TIME constraint",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='check_ins' AND column_name='check_in_time'",
-            "expected": { "column_default": "CURRENT_TIME" }
+            "expected": {
+              "column_default": "CURRENT_TIME"
+            }
           },
           {
             "description": "INSERT without value uses current time (dynamic)",
             "executeQuery": "SELECT check_in_time IS NOT NULL as has_time FROM check_ins WHERE employee = 'Alice'",
-            "expected": { "has_time": true }
+            "expected": {
+              "has_time": true
+            }
           }
         ]
       }
@@ -88,12 +102,16 @@
           {
             "description": "Column has no DEFAULT constraint",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='events' AND column_name='event_time'",
-            "expected": { "column_default": null }
+            "expected": {
+              "column_default": null
+            }
           },
           {
             "description": "INSERT without value results in NULL",
             "executeQuery": "SELECT event_time FROM events WHERE title = 'Meeting'",
-            "expected": { "event_time": null }
+            "expected": {
+              "event_time": null
+            }
           }
         ]
       }

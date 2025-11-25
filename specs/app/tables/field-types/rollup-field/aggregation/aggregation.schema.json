@@ -4,7 +4,16 @@
   "title": "Aggregation function to apply",
   "description": "Aggregation function to compute across related records. Rollup fields aggregate values from child records in one-to-many relationships. Implemented via PostgreSQL aggregate functions: SUM, COUNT, AVG, MIN, MAX, PERCENTILE_CONT (median), STRING_AGG (concat), ARRAY_AGG + DISTINCT (unique).",
   "type": "string",
-  "enum": ["sum", "count", "average", "min", "max", "median", "concat", "unique"],
+  "enum": [
+    "sum",
+    "count",
+    "average",
+    "min",
+    "max",
+    "median",
+    "concat",
+    "unique"
+  ],
   "x-specs": [
     {
       "id": "APP-FIELD-ROLLUP-AGGREGATION-001",
@@ -33,17 +42,25 @@
           {
             "description": "Trigger function exists for aggregation",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.triggers WHERE trigger_name = 'orders_update_total'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "SUM aggregation computes total (100 + 250.50)",
             "executeQuery": "SELECT name, total_spent FROM customers WHERE name = 'Alice'",
-            "expected": { "name": "Alice", "total_spent": 350.5 }
+            "expected": {
+              "name": "Alice",
+              "total_spent": 350.5
+            }
           },
           {
             "description": "Different customer has different sum",
             "executeQuery": "SELECT name, total_spent FROM customers WHERE name = 'Bob'",
-            "expected": { "name": "Bob", "total_spent": 75.0 }
+            "expected": {
+              "name": "Bob",
+              "total_spent": 75.0
+            }
           }
         ]
       }
@@ -74,12 +91,18 @@
           {
             "description": "COUNT aggregation shows 3 tasks for first project",
             "executeQuery": "SELECT name, task_count FROM projects WHERE name = 'Website'",
-            "expected": { "name": "Website", "task_count": 3 }
+            "expected": {
+              "name": "Website",
+              "task_count": 3
+            }
           },
           {
             "description": "COUNT aggregation shows 1 task for second project",
             "executeQuery": "SELECT name, task_count FROM projects WHERE name = 'Mobile App'",
-            "expected": { "name": "Mobile App", "task_count": 1 }
+            "expected": {
+              "name": "Mobile App",
+              "task_count": 1
+            }
           }
         ]
       }
@@ -110,12 +133,18 @@
           {
             "description": "AVG aggregation computes mean rating (5+4+5)/3 = 4.67",
             "executeQuery": "SELECT name, avg_rating FROM products WHERE name = 'Laptop'",
-            "expected": { "name": "Laptop", "avg_rating": 4.67 }
+            "expected": {
+              "name": "Laptop",
+              "avg_rating": 4.67
+            }
           },
           {
             "description": "AVG aggregation for different product (3+4)/2 = 3.50",
             "executeQuery": "SELECT name, avg_rating FROM products WHERE name = 'Mouse'",
-            "expected": { "name": "Mouse", "avg_rating": 3.5 }
+            "expected": {
+              "name": "Mouse",
+              "avg_rating": 3.5
+            }
           }
         ]
       }
@@ -146,7 +175,10 @@
           {
             "description": "MIN aggregation finds earliest publication date",
             "executeQuery": "SELECT name, first_publication FROM authors WHERE name = 'Jane Austen'",
-            "expected": { "name": "Jane Austen", "first_publication": "1811-10-30" }
+            "expected": {
+              "name": "Jane Austen",
+              "first_publication": "1811-10-30"
+            }
           }
         ]
       }
@@ -177,7 +209,10 @@
           {
             "description": "MAX aggregation finds highest price",
             "executeQuery": "SELECT name, max_price FROM categories WHERE name = 'Electronics'",
-            "expected": { "name": "Electronics", "max_price": 1299.99 }
+            "expected": {
+              "name": "Electronics",
+              "max_price": 1299.99
+            }
           }
         ]
       }
@@ -208,7 +243,10 @@
           {
             "description": "CONCAT (STRING_AGG) joins tags with comma delimiter",
             "executeQuery": "SELECT title, all_tags FROM articles WHERE title = 'PostgreSQL Guide'",
-            "expected": { "title": "PostgreSQL Guide", "all_tags": "database, sql, tutorial" }
+            "expected": {
+              "title": "PostgreSQL Guide",
+              "all_tags": "database, sql, tutorial"
+            }
           }
         ]
       }
@@ -239,7 +277,10 @@
           {
             "description": "UNIQUE (COUNT DISTINCT) counts 3 unique emails from 4 purchases",
             "executeQuery": "SELECT name, unique_customers FROM stores WHERE name = 'Store A'",
-            "expected": { "name": "Store A", "unique_customers": 3 }
+            "expected": {
+              "name": "Store A",
+              "unique_customers": 3
+            }
           }
         ]
       }

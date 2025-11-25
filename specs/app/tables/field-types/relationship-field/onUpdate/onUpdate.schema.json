@@ -5,7 +5,12 @@
   "description": "PostgreSQL referential action for ON UPDATE: cascade (update child foreign keys), set-null (set foreign key to NULL), restrict (prevent update if children exist), no-action (similar to restrict with deferred check).",
   "type": "string",
   "default": "cascade",
-  "enum": ["cascade", "set-null", "restrict", "no-action"],
+  "enum": [
+    "cascade",
+    "set-null",
+    "restrict",
+    "no-action"
+  ],
   "x-specs": [
     {
       "id": "APP-FIELD-RELATIONSHIP-ONUPDATE-001",
@@ -31,32 +36,44 @@
           {
             "description": "Foreign key has ON UPDATE CASCADE",
             "executeQuery": "SELECT rc.update_rule FROM information_schema.referential_constraints rc JOIN information_schema.table_constraints tc ON rc.constraint_name = tc.constraint_name WHERE tc.table_name = 'orders' AND tc.constraint_type = 'FOREIGN KEY'",
-            "expected": { "update_rule": "CASCADE" }
+            "expected": {
+              "update_rule": "CASCADE"
+            }
           },
           {
             "description": "Before update: customer 1 has 2 orders",
             "executeQuery": "SELECT COUNT(*) as count FROM orders WHERE customer_id = 1",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Update parent customer's ID",
             "executeQuery": "UPDATE customers SET id = 100 WHERE id = 1 RETURNING name",
-            "expected": { "name": "Alice" }
+            "expected": {
+              "name": "Alice"
+            }
           },
           {
             "description": "After update: child orders' customer_id automatically updated (CASCADE)",
             "executeQuery": "SELECT COUNT(*) as count FROM orders WHERE customer_id = 100",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Old customer_id no longer exists in child records",
             "executeQuery": "SELECT COUNT(*) as count FROM orders WHERE customer_id = 1",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           },
           {
             "description": "Other customer's orders unaffected",
             "executeQuery": "SELECT COUNT(*) as count FROM orders WHERE customer_id = 2",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -85,27 +102,47 @@
           {
             "description": "Foreign key has ON UPDATE SET NULL",
             "executeQuery": "SELECT rc.update_rule FROM information_schema.referential_constraints rc JOIN information_schema.table_constraints tc ON rc.constraint_name = tc.constraint_name WHERE tc.table_name = 'employees' AND tc.constraint_type = 'FOREIGN KEY'",
-            "expected": { "update_rule": "SET NULL" }
+            "expected": {
+              "update_rule": "SET NULL"
+            }
           },
           {
             "description": "Before update: employees have department_id",
             "executeQuery": "SELECT name FROM employees WHERE department_id = 1 ORDER BY name",
-            "expected": [{ "name": "Alice" }, { "name": "Bob" }]
+            "expected": [
+              {
+                "name": "Alice"
+              },
+              {
+                "name": "Bob"
+              }
+            ]
           },
           {
             "description": "Update parent department's ID",
             "executeQuery": "UPDATE departments SET id = 100 WHERE id = 1 RETURNING name",
-            "expected": { "name": "Engineering" }
+            "expected": {
+              "name": "Engineering"
+            }
           },
           {
             "description": "After update: employees' department_id set to NULL",
             "executeQuery": "SELECT name FROM employees WHERE department_id IS NULL ORDER BY name",
-            "expected": [{ "name": "Alice" }, { "name": "Bob" }]
+            "expected": [
+              {
+                "name": "Alice"
+              },
+              {
+                "name": "Bob"
+              }
+            ]
           },
           {
             "description": "Employees still exist (not deleted, just orphaned)",
             "executeQuery": "SELECT COUNT(*) as count FROM employees",
-            "expected": { "count": 3 }
+            "expected": {
+              "count": 3
+            }
           }
         ]
       }
@@ -134,12 +171,16 @@
           {
             "description": "Foreign key has ON UPDATE RESTRICT",
             "executeQuery": "SELECT rc.update_rule FROM information_schema.referential_constraints rc JOIN information_schema.table_constraints tc ON rc.constraint_name = tc.constraint_name WHERE tc.table_name = 'products' AND tc.constraint_type = 'FOREIGN KEY'",
-            "expected": { "update_rule": "RESTRICT" }
+            "expected": {
+              "update_rule": "RESTRICT"
+            }
           },
           {
             "description": "Category 1 has 2 products",
             "executeQuery": "SELECT COUNT(*) as count FROM products WHERE category_id = 1",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Cannot update category ID with existing products",
@@ -149,12 +190,16 @@
           {
             "description": "After failed update: category ID unchanged",
             "executeQuery": "SELECT name FROM categories WHERE id = 1",
-            "expected": { "name": "Electronics" }
+            "expected": {
+              "name": "Electronics"
+            }
           },
           {
             "description": "After failed update: products still reference old ID",
             "executeQuery": "SELECT COUNT(*) as count FROM products WHERE category_id = 1",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           }
         ]
       }
@@ -183,7 +228,9 @@
           {
             "description": "Foreign key has ON UPDATE NO ACTION",
             "executeQuery": "SELECT rc.update_rule FROM information_schema.referential_constraints rc JOIN information_schema.table_constraints tc ON rc.constraint_name = tc.constraint_name WHERE tc.table_name = 'tasks' AND tc.constraint_type = 'FOREIGN KEY'",
-            "expected": { "update_rule": "NO ACTION" }
+            "expected": {
+              "update_rule": "NO ACTION"
+            }
           },
           {
             "description": "Cannot update project ID with existing tasks",
@@ -193,7 +240,9 @@
           {
             "description": "After failed update: project ID unchanged",
             "executeQuery": "SELECT name FROM projects WHERE id = 1",
-            "expected": { "name": "Website Redesign" }
+            "expected": {
+              "name": "Website Redesign"
+            }
           }
         ]
       }
@@ -244,7 +293,9 @@
           {
             "description": "Default onUpdate is CASCADE (or NO ACTION depending on PostgreSQL version)",
             "executeQuery": "SELECT rc.update_rule FROM information_schema.referential_constraints rc JOIN information_schema.table_constraints tc ON rc.constraint_name = tc.constraint_name WHERE tc.table_name = 'books' AND tc.constraint_type = 'FOREIGN KEY'",
-            "expected": { "update_rule": "NO ACTION" }
+            "expected": {
+              "update_rule": "NO ACTION"
+            }
           },
           {
             "description": "With default NO ACTION: cannot update author ID with existing books",

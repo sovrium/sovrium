@@ -19,7 +19,11 @@
     }
   },
   "description": "Automatically updated timestamp whenever record is modified. Read-only field that updates to current server time on every save operation. Always uses UTC. Automatically indexed for sorting by recency. Useful for audit trails, showing last modification time, and detecting stale data. Displays as formatted datetime in UI.",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -35,7 +39,11 @@
             "CREATE OR REPLACE FUNCTION update_updated_at_column() RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql",
             "CREATE TRIGGER set_updated_at BEFORE UPDATE ON products FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()"
           ],
-          "fieldConfig": { "id": 1, "name": "updated_at", "type": "updated-at" }
+          "fieldConfig": {
+            "id": 1,
+            "name": "updated_at",
+            "type": "updated-at"
+          }
         },
         "assertions": [
           {
@@ -50,12 +58,16 @@
           {
             "description": "Column has DEFAULT NOW()",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='products' AND column_name='updated_at'",
-            "expected": { "column_default": "now()" }
+            "expected": {
+              "column_default": "now()"
+            }
           },
           {
             "description": "UPDATE trigger exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.triggers WHERE event_object_table='products' AND trigger_name='set_updated_at'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -78,17 +90,23 @@
           {
             "description": "Initial updated_at is set to past date",
             "executeQuery": "SELECT updated_at FROM documents WHERE id = 1",
-            "expected": { "updated_at": "2024-01-01T00:00:00+00:00" }
+            "expected": {
+              "updated_at": "2024-01-01T00:00:00+00:00"
+            }
           },
           {
             "description": "UPDATE automatically refreshes updated_at to NOW()",
             "executeQuery": "UPDATE documents SET title = 'Updated Title' WHERE id = 1 RETURNING updated_at > '2024-06-01T00:00:00Z' as is_recent",
-            "expected": { "is_recent": true }
+            "expected": {
+              "is_recent": true
+            }
           },
           {
             "description": "updated_at is newer than original timestamp",
             "executeQuery": "SELECT updated_at > '2024-01-01T00:00:00Z' as was_updated FROM documents WHERE id = 1",
-            "expected": { "was_updated": true }
+            "expected": {
+              "was_updated": true
+            }
           }
         ]
       }
@@ -115,7 +133,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_pages_updated'",
-            "expected": { "indexname": "idx_pages_updated", "tablename": "pages" }
+            "expected": {
+              "indexname": "idx_pages_updated",
+              "tablename": "pages"
+            }
           },
           {
             "description": "Index uses btree for timestamp sorting",
@@ -143,17 +164,23 @@
           {
             "description": "Find recently updated records (last 7 days)",
             "executeQuery": "SELECT COUNT(*) as count FROM tasks WHERE updated_at > NOW() - INTERVAL '7 days'",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           },
           {
             "description": "Order by most recently updated (descending)",
             "executeQuery": "SELECT id FROM tasks ORDER BY updated_at DESC LIMIT 1",
-            "expected": { "id": 3 }
+            "expected": {
+              "id": 3
+            }
           },
           {
             "description": "Find records updated after specific date",
             "executeQuery": "SELECT COUNT(*) as count FROM tasks WHERE updated_at > '2024-06-01T00:00:00Z'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           }
         ]
       }
@@ -176,17 +203,23 @@
           {
             "description": "First update refreshes timestamp",
             "executeQuery": "UPDATE inventory SET quantity = 90 WHERE id = 1 RETURNING updated_at > '2024-01-01T00:00:00Z' as was_updated",
-            "expected": { "was_updated": true }
+            "expected": {
+              "was_updated": true
+            }
           },
           {
             "description": "Second update refreshes timestamp again",
             "executeQuery": "UPDATE inventory SET quantity = 80 WHERE id = 1 RETURNING updated_at > (SELECT updated_at FROM inventory WHERE id = 1) as is_newer",
-            "expected": { "is_newer": false }
+            "expected": {
+              "is_newer": false
+            }
           },
           {
             "description": "updated_at always reflects most recent modification",
             "executeQuery": "SELECT updated_at > '2024-06-01T00:00:00Z' as is_recent FROM inventory WHERE id = 1",
-            "expected": { "is_recent": true }
+            "expected": {
+              "is_recent": true
+            }
           }
         ]
       }

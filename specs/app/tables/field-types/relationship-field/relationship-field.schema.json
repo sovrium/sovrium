@@ -37,7 +37,13 @@
     }
   },
   "description": "Foreign key relationship to another table creating associations between entities. Supports three relationship types: one-to-one (single unique reference), one-to-many (single reference to many records), many-to-many (junction table for bidirectional references). Configure onDelete behavior (cascade deletes related, set-null clears reference, restrict prevents deletion, no-action does nothing). Configure onUpdate behavior for key changes. Specify displayField to show human-readable value from related table. Automatically indexed for query performance.",
-  "required": ["id", "name", "type", "relatedTable", "relationType"],
+  "required": [
+    "id",
+    "name",
+    "type",
+    "relatedTable",
+    "relationType"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -71,12 +77,16 @@
           {
             "description": "FOREIGN KEY constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='posts' AND constraint_type='FOREIGN KEY' AND constraint_name LIKE '%author_id%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Foreign key references users table",
             "executeQuery": "SELECT ccu.table_name as referenced_table FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name WHERE tc.table_name='posts' AND tc.constraint_type='FOREIGN KEY'",
-            "expected": { "referenced_table": "users" }
+            "expected": {
+              "referenced_table": "users"
+            }
           }
         ]
       }
@@ -98,7 +108,9 @@
           {
             "description": "Valid foreign key succeeds",
             "executeQuery": "INSERT INTO orders (customer_id) VALUES (1) RETURNING customer_id",
-            "expected": { "customer_id": 1 }
+            "expected": {
+              "customer_id": 1
+            }
           },
           {
             "description": "Invalid foreign key rejected by constraint",
@@ -108,7 +120,9 @@
           {
             "description": "NULL foreign key allowed (optional relationship)",
             "executeQuery": "INSERT INTO orders (customer_id) VALUES (NULL) RETURNING customer_id IS NULL as is_null",
-            "expected": { "is_null": true }
+            "expected": {
+              "is_null": true
+            }
           }
         ]
       }
@@ -137,7 +151,9 @@
           {
             "description": "Comments exist for post 1",
             "executeQuery": "SELECT COUNT(*) as count FROM comments WHERE post_id = 1",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Deleting post cascades to comments",
@@ -147,12 +163,16 @@
           {
             "description": "Cascaded comments are deleted",
             "executeQuery": "SELECT COUNT(*) as count FROM comments WHERE post_id = 1",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           },
           {
             "description": "Other comments remain intact",
             "executeQuery": "SELECT COUNT(*) as count FROM comments WHERE post_id = 2",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -181,7 +201,9 @@
           {
             "description": "Tasks assigned to user 1",
             "executeQuery": "SELECT COUNT(*) as count FROM tasks WHERE assigned_to = 1",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Deleting user sets foreign key to NULL",
@@ -191,12 +213,16 @@
           {
             "description": "Previously assigned tasks now NULL",
             "executeQuery": "SELECT COUNT(*) as count FROM tasks WHERE assigned_to IS NULL",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Other assignments remain intact",
             "executeQuery": "SELECT COUNT(*) as count FROM tasks WHERE assigned_to = 2",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -224,13 +250,282 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_products_category'",
-            "expected": { "indexname": "idx_products_category", "tablename": "products" }
+            "expected": {
+              "indexname": "idx_products_category",
+              "tablename": "products"
+            }
           },
           {
             "description": "Index uses btree for foreign key lookups",
             "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_products_category'",
             "expected": {
               "indexdef": "CREATE INDEX idx_products_category ON public.products USING btree (category_id)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-RELATIONSHIP-FIELD-006",
+      "given": "self-referential relationship for hierarchical data (employees with manager_id)",
+      "when": "creating foreign key to same table",
+      "then": "PostgreSQL allows self-referencing foreign key for tree structures",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), manager_id INTEGER REFERENCES employees(id) ON DELETE SET NULL)",
+            "INSERT INTO employees (id, name, manager_id) VALUES (1, 'CEO', NULL), (2, 'VP Sales', 1), (3, 'Sales Rep', 2), (4, 'VP Engineering', 1), (5, 'Engineer', 4)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "manager_id",
+            "type": "relationship",
+            "relatedTable": "employees",
+            "relationType": "one-to-many",
+            "onDelete": "set-null"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Self-referential foreign key constraint exists",
+            "executeQuery": "SELECT conname, conrelid::regclass, confrelid::regclass FROM pg_constraint WHERE conrelid = 'employees'::regclass AND confrelid = 'employees'::regclass AND contype = 'f'",
+            "expected": {
+              "conname": "employees_manager_id_fkey",
+              "conrelid": "employees",
+              "confrelid": "employees"
+            }
+          },
+          {
+            "description": "Can query hierarchical structure (get direct reports)",
+            "executeQuery": "SELECT COUNT(*) as direct_reports FROM employees WHERE manager_id = 1",
+            "expected": {
+              "direct_reports": 2
+            }
+          },
+          {
+            "description": "Can insert employee with manager in same table",
+            "executeQuery": "INSERT INTO employees (name, manager_id) VALUES ('New Hire', 2) RETURNING id, manager_id",
+            "expected": {
+              "id": 6,
+              "manager_id": 2
+            }
+          },
+          {
+            "description": "Cannot reference non-existent manager",
+            "executeQuery": "INSERT INTO employees (name, manager_id) VALUES ('Invalid', 999)",
+            "expectError": "violates foreign key constraint"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-RELATIONSHIP-FIELD-007",
+      "given": "self-referential relationship for categories with parent_id (nested categories)",
+      "when": "querying category tree depth",
+      "then": "PostgreSQL recursive CTE traverses parent-child relationships",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE categories (id SERIAL PRIMARY KEY, name VARCHAR(255), parent_id INTEGER REFERENCES categories(id) ON DELETE CASCADE)",
+            "INSERT INTO categories (id, name, parent_id) VALUES (1, 'Electronics', NULL), (2, 'Computers', 1), (3, 'Laptops', 2), (4, 'Gaming Laptops', 3), (5, 'Home & Garden', NULL), (6, 'Furniture', 5)"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Recursive query finds all descendants of Electronics",
+            "executeQuery": "WITH RECURSIVE subcategories AS (SELECT id, name, parent_id, 0 as depth FROM categories WHERE id = 1 UNION ALL SELECT c.id, c.name, c.parent_id, s.depth + 1 FROM categories c INNER JOIN subcategories s ON c.parent_id = s.id) SELECT COUNT(*) as total_descendants FROM subcategories WHERE id != 1",
+            "expected": {
+              "total_descendants": 3
+            }
+          },
+          {
+            "description": "Query finds maximum depth of category tree",
+            "executeQuery": "WITH RECURSIVE subcategories AS (SELECT id, name, parent_id, 0 as depth FROM categories WHERE parent_id IS NULL UNION ALL SELECT c.id, c.name, c.parent_id, s.depth + 1 FROM categories c INNER JOIN subcategories s ON c.parent_id = s.id) SELECT MAX(depth) as max_depth FROM subcategories",
+            "expected": {
+              "max_depth": 3
+            }
+          },
+          {
+            "description": "Deleting parent cascades to all descendants",
+            "executeQuery": "DELETE FROM categories WHERE id = 1",
+            "expected": {}
+          },
+          {
+            "description": "All descendants deleted via CASCADE",
+            "executeQuery": "SELECT COUNT(*) as remaining FROM categories",
+            "expected": {
+              "remaining": 2
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-RELATIONSHIP-FIELD-008",
+      "given": "bi-directional many-to-many relationship (students ↔ courses via enrollments junction table)",
+      "when": "creating junction table with dual foreign keys",
+      "then": "PostgreSQL junction table links both directions with composite primary key",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE students (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "CREATE TABLE courses (id SERIAL PRIMARY KEY, title VARCHAR(255))",
+            "CREATE TABLE enrollments (student_id INTEGER REFERENCES students(id) ON DELETE CASCADE, course_id INTEGER REFERENCES courses(id) ON DELETE CASCADE, enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (student_id, course_id))",
+            "INSERT INTO students (id, name) VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Charlie')",
+            "INSERT INTO courses (id, title) VALUES (1, 'Math 101'), (2, 'Physics 201'), (3, 'Chemistry 301')",
+            "INSERT INTO enrollments (student_id, course_id) VALUES (1, 1), (1, 2), (2, 1), (2, 3), (3, 2)"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Junction table has composite primary key",
+            "executeQuery": "SELECT COUNT(*) as pk_columns FROM information_schema.key_column_usage WHERE table_name = 'enrollments' AND constraint_name = 'enrollments_pkey'",
+            "expected": {
+              "pk_columns": 2
+            }
+          },
+          {
+            "description": "Query students enrolled in Math 101",
+            "executeQuery": "SELECT COUNT(*) as student_count FROM enrollments WHERE course_id = 1",
+            "expected": {
+              "student_count": 2
+            }
+          },
+          {
+            "description": "Query courses taken by Alice",
+            "executeQuery": "SELECT COUNT(*) as course_count FROM enrollments WHERE student_id = 1",
+            "expected": {
+              "course_count": 2
+            }
+          },
+          {
+            "description": "Composite primary key prevents duplicate enrollments",
+            "executeQuery": "INSERT INTO enrollments (student_id, course_id) VALUES (1, 1)",
+            "expectError": "duplicate key value violates unique constraint"
+          },
+          {
+            "description": "Deleting student cascades to enrollments",
+            "executeQuery": "DELETE FROM students WHERE id = 1",
+            "expected": {}
+          },
+          {
+            "description": "Student's enrollments removed",
+            "executeQuery": "SELECT COUNT(*) as remaining FROM enrollments WHERE student_id = 1",
+            "expected": {
+              "remaining": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-RELATIONSHIP-FIELD-009",
+      "given": "bi-directional relationship with inverse field tracking (post has author, author has posts)",
+      "when": "creating inverse relationship fields",
+      "then": "Both directions queryable without junction table (one-to-many)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE authors (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "CREATE TABLE posts (id SERIAL PRIMARY KEY, title VARCHAR(255), author_id INTEGER REFERENCES authors(id) ON DELETE CASCADE)",
+            "INSERT INTO authors (id, name) VALUES (1, 'John Doe'), (2, 'Jane Smith')",
+            "INSERT INTO posts (title, author_id) VALUES ('Post 1', 1), ('Post 2', 1), ('Post 3', 2), ('Post 4', 1)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "author_id",
+            "type": "relationship",
+            "relatedTable": "authors",
+            "relationType": "one-to-many",
+            "inverseField": "posts"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Query from post to author (forward direction)",
+            "executeQuery": "SELECT a.name FROM posts p JOIN authors a ON p.author_id = a.id WHERE p.id = 1",
+            "expected": {
+              "name": "John Doe"
+            }
+          },
+          {
+            "description": "Query from author to posts (inverse direction)",
+            "executeQuery": "SELECT COUNT(*) as post_count FROM posts WHERE author_id = 1",
+            "expected": {
+              "post_count": 3
+            }
+          },
+          {
+            "description": "Aggregate posts per author",
+            "executeQuery": "SELECT author_id, COUNT(*) as count FROM posts GROUP BY author_id ORDER BY author_id",
+            "expected": [
+              {
+                "author_id": 1,
+                "count": 3
+              },
+              {
+                "author_id": 2,
+                "count": 1
+              }
+            ]
+          },
+          {
+            "description": "Deleting author cascades to all their posts",
+            "executeQuery": "DELETE FROM authors WHERE id = 1",
+            "expected": {}
+          },
+          {
+            "description": "Author's posts deleted via CASCADE",
+            "executeQuery": "SELECT COUNT(*) as remaining FROM posts",
+            "expected": {
+              "remaining": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-RELATIONSHIP-FIELD-010",
+      "given": "polymorphic relationship pattern (comments can belong to posts OR videos)",
+      "when": "using discriminator column to identify parent type",
+      "then": "PostgreSQL CHECK constraint validates commentable_type and foreign key logic",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE posts (id SERIAL PRIMARY KEY, title VARCHAR(255))",
+            "CREATE TABLE videos (id SERIAL PRIMARY KEY, title VARCHAR(255))",
+            "CREATE TABLE comments (id SERIAL PRIMARY KEY, content TEXT, commentable_type VARCHAR(50) CHECK (commentable_type IN ('post', 'video')), commentable_id INTEGER NOT NULL)",
+            "INSERT INTO posts (id, title) VALUES (1, 'Blog Post')",
+            "INSERT INTO videos (id, title) VALUES (1, 'Tutorial Video')",
+            "INSERT INTO comments (content, commentable_type, commentable_id) VALUES ('Nice post!', 'post', 1), ('Great video!', 'video', 1)"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "CHECK constraint enforces valid commentable_type",
+            "executeQuery": "INSERT INTO comments (content, commentable_type, commentable_id) VALUES ('Invalid', 'invalid_type', 1)",
+            "expectError": "violates check constraint"
+          },
+          {
+            "description": "Query comments for post",
+            "executeQuery": "SELECT COUNT(*) as count FROM comments WHERE commentable_type = 'post' AND commentable_id = 1",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Query comments for video",
+            "executeQuery": "SELECT COUNT(*) as count FROM comments WHERE commentable_type = 'video' AND commentable_id = 1",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Can join to posts using discriminator",
+            "executeQuery": "SELECT c.content, p.title FROM comments c JOIN posts p ON c.commentable_id = p.id WHERE c.commentable_type = 'post'",
+            "expected": {
+              "content": "Nice post!",
+              "title": "Blog Post"
             }
           }
         ]

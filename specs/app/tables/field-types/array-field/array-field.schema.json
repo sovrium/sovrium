@@ -25,7 +25,11 @@
     }
   },
   "description": "List of values (tags, keywords)",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -47,17 +51,28 @@
           {
             "description": "Column created as TEXT array",
             "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='articles' AND column_name='tags'",
-            "expected": { "column_name": "tags", "data_type": "ARRAY" }
+            "expected": {
+              "column_name": "tags",
+              "data_type": "ARRAY"
+            }
           },
           {
             "description": "Empty array can be inserted",
             "executeQuery": "INSERT INTO articles (tags) VALUES (ARRAY[]::TEXT[]) RETURNING tags",
-            "expected": { "tags": [] }
+            "expected": {
+              "tags": []
+            }
           },
           {
             "description": "Array with multiple items can be inserted",
             "executeQuery": "INSERT INTO articles (tags) VALUES (ARRAY['javascript', 'react', 'typescript']) RETURNING tags",
-            "expected": { "tags": ["javascript", "react", "typescript"] }
+            "expected": {
+              "tags": [
+                "javascript",
+                "react",
+                "typescript"
+              ]
+            }
           }
         ]
       }
@@ -78,17 +93,23 @@
           {
             "description": "Find records containing specific value",
             "executeQuery": "SELECT COUNT(*) as count FROM posts WHERE 'nodejs' = ANY(keywords)",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Find records with array overlap",
             "executeQuery": "SELECT COUNT(*) as count FROM posts WHERE keywords && ARRAY['nodejs', 'python']",
-            "expected": { "count": 3 }
+            "expected": {
+              "count": 3
+            }
           },
           {
             "description": "Get array length",
             "executeQuery": "SELECT array_length(keywords, 1) as length FROM posts WHERE id = 1",
-            "expected": { "length": 2 }
+            "expected": {
+              "length": 2
+            }
           }
         ]
       }
@@ -113,7 +134,9 @@
           {
             "description": "Array with 10 items succeeds",
             "executeQuery": "INSERT INTO datasets (numbers) VALUES (ARRAY[1,2,3,4,5,6,7,8,9,10]) RETURNING array_length(numbers, 1) as length",
-            "expected": { "length": 10 }
+            "expected": {
+              "length": 10
+            }
           },
           {
             "description": "Array exceeding maxItems rejected",
@@ -123,7 +146,9 @@
           {
             "description": "Empty array allowed",
             "executeQuery": "INSERT INTO datasets (numbers) VALUES (ARRAY[]::INTEGER[]) RETURNING numbers",
-            "expected": { "numbers": [] }
+            "expected": {
+              "numbers": []
+            }
           }
         ]
       }
@@ -150,7 +175,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_documents_categories'",
-            "expected": { "indexname": "idx_documents_categories", "tablename": "documents" }
+            "expected": {
+              "indexname": "idx_documents_categories",
+              "tablename": "documents"
+            }
           },
           {
             "description": "Index uses GIN for array operations",
@@ -178,17 +206,32 @@
           {
             "description": "array_append adds element to array",
             "executeQuery": "UPDATE recipes SET ingredients = array_append(ingredients, 'butter') WHERE id = 1 RETURNING ingredients",
-            "expected": { "ingredients": ["flour", "sugar", "eggs", "butter"] }
+            "expected": {
+              "ingredients": [
+                "flour",
+                "sugar",
+                "eggs",
+                "butter"
+              ]
+            }
           },
           {
             "description": "array_remove removes element from array",
             "executeQuery": "UPDATE recipes SET ingredients = array_remove(ingredients, 'sugar') WHERE id = 1 RETURNING ingredients",
-            "expected": { "ingredients": ["flour", "eggs", "butter"] }
+            "expected": {
+              "ingredients": [
+                "flour",
+                "eggs",
+                "butter"
+              ]
+            }
           },
           {
             "description": "Array element access by index",
             "executeQuery": "SELECT ingredients[1] as first_ingredient FROM recipes WHERE id = 1",
-            "expected": { "first_ingredient": "flour" }
+            "expected": {
+              "first_ingredient": "flour"
+            }
           }
         ]
       }

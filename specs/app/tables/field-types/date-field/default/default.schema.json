@@ -4,7 +4,11 @@
   "title": "Default Date Value",
   "description": "Default value for date field when no value is provided. Can be a static ISO 8601 date (YYYY-MM-DD) or dynamic keyword 'today' (PostgreSQL CURRENT_DATE). Applied automatically via DEFAULT constraint.",
   "type": "string",
-  "examples": ["2024-12-31", "today", "2025-01-01"],
+  "examples": [
+    "2024-12-31",
+    "today",
+    "2025-01-01"
+  ],
   "x-specs": [
     {
       "id": "APP-FIELD-DATE-DEFAULT-001",
@@ -27,12 +31,16 @@
           {
             "description": "Column has DEFAULT constraint with date",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='events' AND column_name='event_date'",
-            "expected": { "column_default": "'2025-01-01'::date" }
+            "expected": {
+              "column_default": "'2025-01-01'::date"
+            }
           },
           {
             "description": "INSERT without value uses default date",
             "executeQuery": "SELECT event_date FROM events WHERE title = 'New Year Party'",
-            "expected": { "event_date": "2025-01-01" }
+            "expected": {
+              "event_date": "2025-01-01"
+            }
           }
         ]
       }
@@ -58,12 +66,16 @@
           {
             "description": "Column has DEFAULT CURRENT_DATE constraint",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='logs' AND column_name='log_date'",
-            "expected": { "column_default": "CURRENT_DATE" }
+            "expected": {
+              "column_default": "CURRENT_DATE"
+            }
           },
           {
             "description": "INSERT without value uses current date (dynamic)",
             "executeQuery": "SELECT log_date = CURRENT_DATE as is_today FROM logs WHERE message = 'System started'",
-            "expected": { "is_today": true }
+            "expected": {
+              "is_today": true
+            }
           }
         ]
       }
@@ -88,12 +100,16 @@
           {
             "description": "Column has no DEFAULT constraint",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='tasks' AND column_name='due_date'",
-            "expected": { "column_default": null }
+            "expected": {
+              "column_default": null
+            }
           },
           {
             "description": "INSERT without value results in NULL",
             "executeQuery": "SELECT due_date FROM tasks WHERE title = 'Todo item'",
-            "expected": { "due_date": null }
+            "expected": {
+              "due_date": null
+            }
           }
         ]
       }
@@ -119,7 +135,9 @@
           {
             "description": "Explicit value overrides default",
             "executeQuery": "SELECT appointment_date FROM appointments WHERE client = 'Alice'",
-            "expected": { "appointment_date": "2025-06-15" }
+            "expected": {
+              "appointment_date": "2025-06-15"
+            }
           }
         ]
       }

@@ -26,12 +26,16 @@
           {
             "description": "CHECK constraint exists for min value",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%completion%' AND check_clause LIKE '%>= 0.0%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Zero percentage accepted",
             "executeQuery": "SELECT completion FROM tasks WHERE completion = 0.0",
-            "expected": { "completion": 0.0 }
+            "expected": {
+              "completion": 0.0
+            }
           },
           {
             "description": "Negative percentage rejected",
@@ -41,7 +45,9 @@
           {
             "description": "Positive percentage accepted",
             "executeQuery": "INSERT INTO tasks (title, completion) VALUES ('Task 5', 75.5) RETURNING completion",
-            "expected": { "completion": 75.5 }
+            "expected": {
+              "completion": 75.5
+            }
           }
         ]
       }
@@ -67,12 +73,16 @@
           {
             "description": "CHECK constraint enforces min 10.0",
             "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%discount_rate%'",
-            "expected": { "check_clause": "(discount_rate >= 10.0)" }
+            "expected": {
+              "check_clause": "(discount_rate >= 10.0)"
+            }
           },
           {
             "description": "Exact minimum (10.0) accepted",
             "executeQuery": "INSERT INTO promotions (name, discount_rate) VALUES ('Spring Sale', 10.0) RETURNING discount_rate",
-            "expected": { "discount_rate": 10.0 }
+            "expected": {
+              "discount_rate": 10.0
+            }
           },
           {
             "description": "Below minimum rejected",
@@ -82,7 +92,9 @@
           {
             "description": "Above minimum accepted",
             "executeQuery": "INSERT INTO promotions (name, discount_rate) VALUES ('Mega Sale', 25.0) RETURNING discount_rate",
-            "expected": { "discount_rate": 25.0 }
+            "expected": {
+              "discount_rate": 25.0
+            }
           }
         ]
       }
@@ -107,17 +119,23 @@
           {
             "description": "No CHECK constraint for min",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%adjustment_rate%'",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           },
           {
             "description": "Negative percentages accepted (adjustments)",
             "executeQuery": "SELECT adjustment_rate FROM financial_adjustments WHERE adjustment_rate = -15.0",
-            "expected": { "adjustment_rate": -15.0 }
+            "expected": {
+              "adjustment_rate": -15.0
+            }
           },
           {
             "description": "Large negative adjustment accepted",
             "executeQuery": "INSERT INTO financial_adjustments (adjustment_rate) VALUES (-50.0) RETURNING adjustment_rate",
-            "expected": { "adjustment_rate": -50.0 }
+            "expected": {
+              "adjustment_rate": -50.0
+            }
           }
         ]
       }

@@ -31,7 +31,12 @@
     }
   },
   "description": "Multiple selection field allowing users to choose zero or more options from a predefined list. Displays as checkboxes or multi-select dropdown. Useful for tags, categories, features, skills, and attributes that can have multiple values. Supports maxSelections constraint to limit number of choices. Requires at least one option. Stores values as an array.",
-  "required": ["id", "name", "type", "options"],
+  "required": [
+    "id",
+    "name",
+    "type",
+    "options"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -47,10 +52,18 @@
             "name": "tags",
             "type": "multi-select",
             "options": [
-              { "value": "Feature" },
-              { "value": "Bug" },
-              { "value": "Enhancement" },
-              { "value": "Documentation" }
+              {
+                "value": "Feature"
+              },
+              {
+                "value": "Bug"
+              },
+              {
+                "value": "Enhancement"
+              },
+              {
+                "value": "Documentation"
+              }
             ]
           }
         },
@@ -66,12 +79,21 @@
           {
             "description": "Single value can be inserted as array",
             "executeQuery": "INSERT INTO issues (tags) VALUES (ARRAY['Feature']) RETURNING tags",
-            "expected": { "tags": ["Feature"] }
+            "expected": {
+              "tags": [
+                "Feature"
+              ]
+            }
           },
           {
             "description": "Multiple values can be inserted",
             "executeQuery": "INSERT INTO issues (tags) VALUES (ARRAY['Bug', 'Enhancement']) RETURNING tags",
-            "expected": { "tags": ["Bug", "Enhancement"] }
+            "expected": {
+              "tags": [
+                "Bug",
+                "Enhancement"
+              ]
+            }
           }
         ]
       }
@@ -92,17 +114,23 @@
           {
             "description": "Find records containing specific value",
             "executeQuery": "SELECT COUNT(*) as count FROM products WHERE 'WiFi' = ANY(features)",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Find records with array overlap",
             "executeQuery": "SELECT COUNT(*) as count FROM products WHERE features && ARRAY['Bluetooth', 'NFC']",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Count array elements",
             "executeQuery": "SELECT array_length(features, 1) as length FROM products WHERE id = 1",
-            "expected": { "length": 2 }
+            "expected": {
+              "length": 2
+            }
           }
         ]
       }
@@ -120,12 +148,16 @@
           {
             "description": "CHECK constraint exists for maxSelections",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%categories%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Array with 3 items succeeds",
             "executeQuery": "INSERT INTO articles (categories) VALUES (ARRAY['Tech', 'Business', 'Lifestyle']) RETURNING array_length(categories, 1) as length",
-            "expected": { "length": 3 }
+            "expected": {
+              "length": 3
+            }
           },
           {
             "description": "Array exceeding limit rejected",
@@ -154,17 +186,26 @@
           {
             "description": "Column has DEFAULT empty array",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='projects' AND column_name='stakeholders'",
-            "expected": { "column_default": "ARRAY[]::text[]" }
+            "expected": {
+              "column_default": "ARRAY[]::text[]"
+            }
           },
           {
             "description": "INSERT without stakeholders uses default empty array",
             "executeQuery": "INSERT INTO projects (id) VALUES (DEFAULT) RETURNING stakeholders",
-            "expected": { "stakeholders": [] }
+            "expected": {
+              "stakeholders": []
+            }
           },
           {
             "description": "Explicit values override default",
             "executeQuery": "INSERT INTO projects (stakeholders) VALUES (ARRAY['Manager', 'Developer']) RETURNING stakeholders",
-            "expected": { "stakeholders": ["Manager", "Developer"] }
+            "expected": {
+              "stakeholders": [
+                "Manager",
+                "Developer"
+              ]
+            }
           }
         ]
       }
@@ -191,7 +232,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_candidates_skills'",
-            "expected": { "indexname": "idx_candidates_skills", "tablename": "candidates" }
+            "expected": {
+              "indexname": "idx_candidates_skills",
+              "tablename": "candidates"
+            }
           },
           {
             "description": "Index uses GIN for array operations",

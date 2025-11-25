@@ -27,7 +27,11 @@
     }
   },
   "description": "Text field for web links with URL format validation (http:// or https://). Validates URL structure and protocol without checking if the link is reachable. Stores full URL including protocol. Display shows clickable link in the UI. Required flag makes the field mandatory. Unique constraint ensures no duplicate URLs.",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -38,7 +42,11 @@
       "validation": {
         "setup": {
           "executeQuery": "CREATE TABLE companies (id SERIAL PRIMARY KEY)",
-          "fieldConfig": { "id": 1, "name": "website", "type": "url" }
+          "fieldConfig": {
+            "id": 1,
+            "name": "website",
+            "type": "url"
+          }
         },
         "assertions": [
           {
@@ -54,7 +62,9 @@
           {
             "description": "Valid URL with protocol can be inserted",
             "executeQuery": "INSERT INTO companies (website) VALUES ('https://example.com') RETURNING website",
-            "expected": { "website": "https://example.com" }
+            "expected": {
+              "website": "https://example.com"
+            }
           }
         ]
       }
@@ -72,17 +82,23 @@
           {
             "description": "HTTPS URL insertion succeeds",
             "executeQuery": "INSERT INTO products (product_url) VALUES ('https://secure.example.com/product/123') RETURNING product_url",
-            "expected": { "product_url": "https://secure.example.com/product/123" }
+            "expected": {
+              "product_url": "https://secure.example.com/product/123"
+            }
           },
           {
             "description": "HTTP URL insertion succeeds",
             "executeQuery": "INSERT INTO products (product_url) VALUES ('http://legacy.example.com/item') RETURNING product_url",
-            "expected": { "product_url": "http://legacy.example.com/item" }
+            "expected": {
+              "product_url": "http://legacy.example.com/item"
+            }
           },
           {
             "description": "Both URLs stored correctly",
             "executeQuery": "SELECT COUNT(*) as count FROM products WHERE product_url LIKE 'http%://%'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           }
         ]
       }
@@ -103,7 +119,9 @@
           {
             "description": "UNIQUE constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='links' AND constraint_type='UNIQUE' AND constraint_name LIKE '%url%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Duplicate URL rejected",
@@ -113,7 +131,9 @@
           {
             "description": "Database still contains only 1 row",
             "executeQuery": "SELECT COUNT(*) as count FROM links",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -131,12 +151,16 @@
           {
             "description": "NOT NULL constraint enforced",
             "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='resources' AND column_name='resource_url'",
-            "expected": { "is_nullable": "NO" }
+            "expected": {
+              "is_nullable": "NO"
+            }
           },
           {
             "description": "Valid URL insertion succeeds",
             "executeQuery": "INSERT INTO resources (resource_url) VALUES ('https://cdn.example.com/file.pdf') RETURNING resource_url",
-            "expected": { "resource_url": "https://cdn.example.com/file.pdf" }
+            "expected": {
+              "resource_url": "https://cdn.example.com/file.pdf"
+            }
           },
           {
             "description": "NULL URL insertion fails",
@@ -169,7 +193,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_bookmarks_url'",
-            "expected": { "indexname": "idx_bookmarks_url", "tablename": "bookmarks" }
+            "expected": {
+              "indexname": "idx_bookmarks_url",
+              "tablename": "bookmarks"
+            }
           },
           {
             "description": "Index uses btree for URL searching",

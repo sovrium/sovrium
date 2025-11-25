@@ -19,7 +19,11 @@
     }
   },
   "description": "Automatically set reference to the user who created the record. Read-only field that links to user account. Set only once when record is created and never changes. Automatically indexed for filtering by creator. Useful for audit trails, ownership tracking, and permissions. Displays user profile information (name, avatar) in UI.",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -33,7 +37,11 @@
             "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))",
             "CREATE TABLE posts (id SERIAL PRIMARY KEY, title VARCHAR(255))"
           ],
-          "fieldConfig": { "id": 1, "name": "created_by", "type": "created-by" }
+          "fieldConfig": {
+            "id": 1,
+            "name": "created_by",
+            "type": "created-by"
+          }
         },
         "assertions": [
           {
@@ -48,12 +56,16 @@
           {
             "description": "FOREIGN KEY constraint references users table",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='posts' AND constraint_type='FOREIGN KEY' AND constraint_name LIKE '%created_by%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Foreign key references users table",
             "executeQuery": "SELECT ccu.table_name as referenced_table FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name WHERE tc.table_name='posts' AND tc.constraint_type='FOREIGN KEY' AND tc.constraint_name LIKE '%created_by%'",
-            "expected": { "referenced_table": "users" }
+            "expected": {
+              "referenced_table": "users"
+            }
           }
         ]
       }
@@ -75,17 +87,24 @@
           {
             "description": "INSERT with explicit creator succeeds",
             "executeQuery": "INSERT INTO documents (title, created_by) VALUES ('First Doc', 1) RETURNING created_by",
-            "expected": { "created_by": 1 }
+            "expected": {
+              "created_by": 1
+            }
           },
           {
             "description": "Multiple records by same creator",
             "executeQuery": "INSERT INTO documents (title, created_by) VALUES ('Second Doc', 1), ('Third Doc', 1) RETURNING (SELECT COUNT(*) FROM documents WHERE created_by = 1) as count",
-            "expected": { "count": 3 }
+            "expected": {
+              "count": 3
+            }
           },
           {
             "description": "Creator user can be queried via JOIN",
             "executeQuery": "SELECT d.title, u.name as creator_name FROM documents d JOIN users u ON d.created_by = u.id WHERE d.id = 1",
-            "expected": { "title": "First Doc", "creator_name": "Alice" }
+            "expected": {
+              "title": "First Doc",
+              "creator_name": "Alice"
+            }
           }
         ]
       }
@@ -103,23 +122,33 @@
             "CREATE TABLE issues (id SERIAL PRIMARY KEY, title VARCHAR(255), created_by INTEGER NOT NULL REFERENCES users(id))",
             "INSERT INTO issues (title, created_by) VALUES ('Bug #1', 1)"
           ],
-          "fieldConfig": { "id": 1, "name": "created_by", "type": "created-by" }
+          "fieldConfig": {
+            "id": 1,
+            "name": "created_by",
+            "type": "created-by"
+          }
         },
         "assertions": [
           {
             "description": "Original creator is John (user 1)",
             "executeQuery": "SELECT created_by FROM issues WHERE id = 1",
-            "expected": { "created_by": 1 }
+            "expected": {
+              "created_by": 1
+            }
           },
           {
             "description": "Update creator (application should prevent, but DB allows)",
             "executeQuery": "UPDATE issues SET created_by = 2 WHERE id = 1 RETURNING created_by",
-            "expected": { "created_by": 2 }
+            "expected": {
+              "created_by": 2
+            }
           },
           {
             "description": "No UPDATE trigger exists (immutability enforced by app)",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.triggers WHERE event_object_table='issues' AND trigger_name LIKE '%created_by%'",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           }
         ]
       }
@@ -142,21 +171,37 @@
           {
             "description": "Filter tasks created by Alice",
             "executeQuery": "SELECT COUNT(*) as count FROM tasks WHERE created_by = 1",
-            "expected": { "count": 3 }
+            "expected": {
+              "count": 3
+            }
           },
           {
             "description": "Filter tasks created by Bob",
             "executeQuery": "SELECT COUNT(*) as count FROM tasks WHERE created_by = 2",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Join with users to get creator names",
             "executeQuery": "SELECT t.title, u.name as creator FROM tasks t JOIN users u ON t.created_by = u.id WHERE t.created_by IN (1, 3) ORDER BY t.id",
             "expected": [
-              { "title": "Task 1", "creator": "Alice" },
-              { "title": "Task 3", "creator": "Alice" },
-              { "title": "Task 4", "creator": "Charlie" },
-              { "title": "Task 5", "creator": "Alice" }
+              {
+                "title": "Task 1",
+                "creator": "Alice"
+              },
+              {
+                "title": "Task 3",
+                "creator": "Alice"
+              },
+              {
+                "title": "Task 4",
+                "creator": "Charlie"
+              },
+              {
+                "title": "Task 5",
+                "creator": "Alice"
+              }
             ]
           }
         ]
@@ -185,7 +230,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_comments_created_by'",
-            "expected": { "indexname": "idx_comments_created_by", "tablename": "comments" }
+            "expected": {
+              "indexname": "idx_comments_created_by",
+              "tablename": "comments"
+            }
           },
           {
             "description": "Index uses btree for creator filtering",

@@ -12,12 +12,17 @@
     },
     "direction": {
       "type": "string",
-      "enum": ["asc", "desc"],
+      "enum": [
+        "asc",
+        "desc"
+      ],
       "default": "asc",
       "description": "Sort direction for group values"
     }
   },
-  "required": ["field"],
+  "required": [
+    "field"
+  ],
   "additionalProperties": false,
   "examples": [
     {
@@ -49,7 +54,7 @@
           {
             "description": "records should be organized into groups by status values",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -70,7 +75,7 @@
           {
             "description": "groups should be ordered alphabetically/numerically from lowest to highest",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -91,7 +96,7 @@
           {
             "description": "groups should be ordered from highest to lowest",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }

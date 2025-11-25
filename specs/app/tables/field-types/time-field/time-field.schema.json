@@ -23,7 +23,9 @@
       "type": "string",
       "const": "time",
       "description": "Field type discriminator for time-only fields without date component",
-      "examples": ["time"]
+      "examples": [
+        "time"
+      ]
     },
     "format": {
       "$ref": "./format/format.schema.json"
@@ -50,7 +52,11 @@
       "default": "00:30:00"
     }
   ],
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -61,7 +67,11 @@
       "validation": {
         "setup": {
           "executeQuery": "CREATE TABLE stores (id SERIAL PRIMARY KEY)",
-          "fieldConfig": { "id": 1, "name": "opening_time", "type": "time" }
+          "fieldConfig": {
+            "id": 1,
+            "name": "opening_time",
+            "type": "time"
+          }
         },
         "assertions": [
           {
@@ -76,12 +86,16 @@
           {
             "description": "Valid time can be inserted",
             "executeQuery": "INSERT INTO stores (opening_time) VALUES ('09:00:00') RETURNING opening_time",
-            "expected": { "opening_time": "09:00:00" }
+            "expected": {
+              "opening_time": "09:00:00"
+            }
           },
           {
             "description": "24-hour format supported",
             "executeQuery": "INSERT INTO stores (opening_time) VALUES ('14:30:45') RETURNING opening_time",
-            "expected": { "opening_time": "14:30:45" }
+            "expected": {
+              "opening_time": "14:30:45"
+            }
           }
         ]
       }
@@ -102,17 +116,23 @@
           {
             "description": "Find times after specific time",
             "executeQuery": "SELECT COUNT(*) as count FROM appointments WHERE slot_time > '12:00:00'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Find times between range",
             "executeQuery": "SELECT COUNT(*) as count FROM appointments WHERE slot_time BETWEEN '08:00:00' AND '13:00:00'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Order by time ascending",
             "executeQuery": "SELECT slot_time::TEXT FROM appointments ORDER BY slot_time ASC LIMIT 1",
-            "expected": { "slot_time": "08:00:00" }
+            "expected": {
+              "slot_time": "08:00:00"
+            }
           }
         ]
       }
@@ -133,12 +153,16 @@
           {
             "description": "NOT NULL constraint enforced",
             "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='schedules' AND column_name='start_time'",
-            "expected": { "is_nullable": "NO" }
+            "expected": {
+              "is_nullable": "NO"
+            }
           },
           {
             "description": "UNIQUE constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='schedules' AND constraint_type='UNIQUE' AND constraint_name LIKE '%start_time%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Duplicate time rejected",
@@ -172,17 +196,23 @@
           {
             "description": "Column has DEFAULT value",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='meetings' AND column_name='default_time'",
-            "expected": { "column_default": "'09:00:00'::time without time zone" }
+            "expected": {
+              "column_default": "'09:00:00'::time without time zone"
+            }
           },
           {
             "description": "INSERT without default_time uses default",
             "executeQuery": "INSERT INTO meetings (id) VALUES (DEFAULT) RETURNING default_time",
-            "expected": { "default_time": "09:00:00" }
+            "expected": {
+              "default_time": "09:00:00"
+            }
           },
           {
             "description": "Explicit value overrides default",
             "executeQuery": "INSERT INTO meetings (default_time) VALUES ('15:30:00') RETURNING default_time",
-            "expected": { "default_time": "15:30:00" }
+            "expected": {
+              "default_time": "15:30:00"
+            }
           }
         ]
       }
@@ -209,7 +239,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_shifts_start'",
-            "expected": { "indexname": "idx_shifts_start", "tablename": "shifts" }
+            "expected": {
+              "indexname": "idx_shifts_start",
+              "tablename": "shifts"
+            }
           },
           {
             "description": "Index uses btree for time range queries",

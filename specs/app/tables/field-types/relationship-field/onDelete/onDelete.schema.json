@@ -5,7 +5,12 @@
   "description": "PostgreSQL referential action for ON DELETE: cascade (delete child records), set-null (set foreign key to NULL), restrict (prevent deletion if children exist), no-action (similar to restrict with deferred check).",
   "type": "string",
   "default": "restrict",
-  "enum": ["cascade", "set-null", "restrict", "no-action"],
+  "enum": [
+    "cascade",
+    "set-null",
+    "restrict",
+    "no-action"
+  ],
   "x-specs": [
     {
       "id": "APP-FIELD-RELATIONSHIP-ONDELETE-001",
@@ -31,27 +36,37 @@
           {
             "description": "Foreign key has ON DELETE CASCADE",
             "executeQuery": "SELECT rc.delete_rule FROM information_schema.referential_constraints rc JOIN information_schema.table_constraints tc ON rc.constraint_name = tc.constraint_name WHERE tc.table_name = 'orders' AND tc.constraint_type = 'FOREIGN KEY'",
-            "expected": { "delete_rule": "CASCADE" }
+            "expected": {
+              "delete_rule": "CASCADE"
+            }
           },
           {
             "description": "Before deletion: customer 1 has 2 orders",
             "executeQuery": "SELECT COUNT(*) as count FROM orders WHERE customer_id = 1",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Delete parent customer",
             "executeQuery": "DELETE FROM customers WHERE id = 1 RETURNING name",
-            "expected": { "name": "Alice" }
+            "expected": {
+              "name": "Alice"
+            }
           },
           {
             "description": "After deletion: child orders automatically deleted (CASCADE)",
             "executeQuery": "SELECT COUNT(*) as count FROM orders WHERE customer_id = 1",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           },
           {
             "description": "Other customer's orders unaffected",
             "executeQuery": "SELECT COUNT(*) as count FROM orders WHERE customer_id = 2",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -80,27 +95,47 @@
           {
             "description": "Foreign key has ON DELETE SET NULL",
             "executeQuery": "SELECT rc.delete_rule FROM information_schema.referential_constraints rc JOIN information_schema.table_constraints tc ON rc.constraint_name = tc.constraint_name WHERE tc.table_name = 'employees' AND tc.constraint_type = 'FOREIGN KEY'",
-            "expected": { "delete_rule": "SET NULL" }
+            "expected": {
+              "delete_rule": "SET NULL"
+            }
           },
           {
             "description": "Before deletion: employees have department_id",
             "executeQuery": "SELECT name FROM employees WHERE department_id = 1 ORDER BY name",
-            "expected": [{ "name": "Alice" }, { "name": "Bob" }]
+            "expected": [
+              {
+                "name": "Alice"
+              },
+              {
+                "name": "Bob"
+              }
+            ]
           },
           {
             "description": "Delete parent department",
             "executeQuery": "DELETE FROM departments WHERE id = 1 RETURNING name",
-            "expected": { "name": "Engineering" }
+            "expected": {
+              "name": "Engineering"
+            }
           },
           {
             "description": "After deletion: employees' department_id set to NULL",
             "executeQuery": "SELECT name FROM employees WHERE department_id IS NULL ORDER BY name",
-            "expected": [{ "name": "Alice" }, { "name": "Bob" }]
+            "expected": [
+              {
+                "name": "Alice"
+              },
+              {
+                "name": "Bob"
+              }
+            ]
           },
           {
             "description": "Employees still exist (not deleted, just orphaned)",
             "executeQuery": "SELECT COUNT(*) as count FROM employees",
-            "expected": { "count": 3 }
+            "expected": {
+              "count": 3
+            }
           }
         ]
       }
@@ -129,12 +164,16 @@
           {
             "description": "Foreign key has ON DELETE RESTRICT",
             "executeQuery": "SELECT rc.delete_rule FROM information_schema.referential_constraints rc JOIN information_schema.table_constraints tc ON rc.constraint_name = tc.constraint_name WHERE tc.table_name = 'products' AND tc.constraint_type = 'FOREIGN KEY'",
-            "expected": { "delete_rule": "RESTRICT" }
+            "expected": {
+              "delete_rule": "RESTRICT"
+            }
           },
           {
             "description": "Category 1 has 2 products",
             "executeQuery": "SELECT COUNT(*) as count FROM products WHERE category_id = 1",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Cannot delete category with existing products",
@@ -144,12 +183,16 @@
           {
             "description": "After failed deletion: category still exists",
             "executeQuery": "SELECT name FROM categories WHERE id = 1",
-            "expected": { "name": "Electronics" }
+            "expected": {
+              "name": "Electronics"
+            }
           },
           {
             "description": "After failed deletion: products still exist",
             "executeQuery": "SELECT COUNT(*) as count FROM products WHERE category_id = 1",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           }
         ]
       }
@@ -178,7 +221,9 @@
           {
             "description": "Foreign key has ON DELETE NO ACTION",
             "executeQuery": "SELECT rc.delete_rule FROM information_schema.referential_constraints rc JOIN information_schema.table_constraints tc ON rc.constraint_name = tc.constraint_name WHERE tc.table_name = 'tasks' AND tc.constraint_type = 'FOREIGN KEY'",
-            "expected": { "delete_rule": "NO ACTION" }
+            "expected": {
+              "delete_rule": "NO ACTION"
+            }
           },
           {
             "description": "Cannot delete project with existing tasks",
@@ -188,7 +233,9 @@
           {
             "description": "After failed deletion: project still exists",
             "executeQuery": "SELECT name FROM projects WHERE id = 1",
-            "expected": { "name": "Website Redesign" }
+            "expected": {
+              "name": "Website Redesign"
+            }
           }
         ]
       }
@@ -239,7 +286,9 @@
           {
             "description": "Default onDelete is RESTRICT (or NO ACTION depending on PostgreSQL version)",
             "executeQuery": "SELECT rc.delete_rule FROM information_schema.referential_constraints rc JOIN information_schema.table_constraints tc ON rc.constraint_name = tc.constraint_name WHERE tc.table_name = 'books' AND tc.constraint_type = 'FOREIGN KEY'",
-            "expected": { "delete_rule": "NO ACTION" }
+            "expected": {
+              "delete_rule": "NO ACTION"
+            }
           },
           {
             "description": "Cannot delete author with existing books (default behavior)",

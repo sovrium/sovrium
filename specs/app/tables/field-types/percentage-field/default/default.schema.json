@@ -26,17 +26,23 @@
           {
             "description": "Column has DEFAULT constraint",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='projects' AND column_name='completion'",
-            "expected": { "column_default": "0.0" }
+            "expected": {
+              "column_default": "0.0"
+            }
           },
           {
             "description": "Default value applied when not provided",
             "executeQuery": "SELECT completion FROM projects WHERE name = 'Project Alpha'",
-            "expected": { "completion": 0.0 }
+            "expected": {
+              "completion": 0.0
+            }
           },
           {
             "description": "Explicit value overrides default",
             "executeQuery": "INSERT INTO projects (name, completion) VALUES ('Project Gamma', 45.5) RETURNING completion",
-            "expected": { "completion": 45.5 }
+            "expected": {
+              "completion": 45.5
+            }
           }
         ]
       }
@@ -62,17 +68,23 @@
           {
             "description": "Default value is 15.0",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='tax_regions' AND column_name='tax_rate'",
-            "expected": { "column_default": "15.0" }
+            "expected": {
+              "column_default": "15.0"
+            }
           },
           {
             "description": "Default applied to inserted record",
             "executeQuery": "SELECT tax_rate FROM tax_regions WHERE region_name = 'Region A'",
-            "expected": { "tax_rate": 15.0 }
+            "expected": {
+              "tax_rate": 15.0
+            }
           },
           {
             "description": "Explicit 0.0 allowed (overrides default)",
             "executeQuery": "INSERT INTO tax_regions (region_name, tax_rate) VALUES ('Tax-Free Zone', 0.0) RETURNING tax_rate",
-            "expected": { "tax_rate": 0.0 }
+            "expected": {
+              "tax_rate": 0.0
+            }
           }
         ]
       }
@@ -97,17 +109,23 @@
           {
             "description": "No DEFAULT constraint",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='performance_metrics' AND column_name='efficiency'",
-            "expected": { "column_default": null }
+            "expected": {
+              "column_default": null
+            }
           },
           {
             "description": "NULL used when no default and no value",
             "executeQuery": "SELECT efficiency FROM performance_metrics WHERE id = 1",
-            "expected": { "efficiency": null }
+            "expected": {
+              "efficiency": null
+            }
           },
           {
             "description": "Explicit value succeeds",
             "executeQuery": "INSERT INTO performance_metrics (efficiency) VALUES (87.25) RETURNING efficiency",
-            "expected": { "efficiency": 87.25 }
+            "expected": {
+              "efficiency": 87.25
+            }
           }
         ]
       }

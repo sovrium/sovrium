@@ -25,17 +25,23 @@
           {
             "description": "Column has DEFAULT constraint",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='counters' AND column_name='value'",
-            "expected": { "column_default": "0" }
+            "expected": {
+              "column_default": "0"
+            }
           },
           {
             "description": "Default value applied when not provided",
             "executeQuery": "SELECT value FROM counters WHERE name = 'counter1'",
-            "expected": { "value": 0 }
+            "expected": {
+              "value": 0
+            }
           },
           {
             "description": "Explicit value overrides default",
             "executeQuery": "INSERT INTO counters (name, value) VALUES ('counter3', 42) RETURNING value",
-            "expected": { "value": 42 }
+            "expected": {
+              "value": 42
+            }
           }
         ]
       }
@@ -61,17 +67,23 @@
           {
             "description": "Default value is 100",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='products' AND column_name='stock'",
-            "expected": { "column_default": "100" }
+            "expected": {
+              "column_default": "100"
+            }
           },
           {
             "description": "Default applied to inserted record",
             "executeQuery": "SELECT stock FROM products WHERE name = 'Product 1'",
-            "expected": { "stock": 100 }
+            "expected": {
+              "stock": 100
+            }
           },
           {
             "description": "Explicit 0 allowed (overrides default)",
             "executeQuery": "INSERT INTO products (name, stock) VALUES ('Product 2', 0) RETURNING stock",
-            "expected": { "stock": 0 }
+            "expected": {
+              "stock": 0
+            }
           }
         ]
       }
@@ -96,17 +108,23 @@
           {
             "description": "No DEFAULT constraint",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='items' AND column_name='quantity'",
-            "expected": { "column_default": null }
+            "expected": {
+              "column_default": null
+            }
           },
           {
             "description": "NULL used when no default and no value",
             "executeQuery": "SELECT quantity FROM items WHERE id = 1",
-            "expected": { "quantity": null }
+            "expected": {
+              "quantity": null
+            }
           },
           {
             "description": "Explicit value succeeds",
             "executeQuery": "INSERT INTO items (quantity) VALUES (5) RETURNING quantity",
-            "expected": { "quantity": 5 }
+            "expected": {
+              "quantity": 5
+            }
           }
         ]
       }

@@ -27,7 +27,11 @@
     }
   },
   "description": "Multi-line text input for paragraphs, descriptions, notes, and comments. Supports line breaks and longer content. Text is stored as-is without rich formatting (no bold, italics, etc.). Required flag makes the field mandatory. Indexing improves search performance but may be slower for very long content.",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -38,7 +42,11 @@
       "validation": {
         "setup": {
           "executeQuery": "CREATE TABLE articles (id SERIAL PRIMARY KEY)",
-          "fieldConfig": { "id": 1, "name": "description", "type": "long-text" }
+          "fieldConfig": {
+            "id": 1,
+            "name": "description",
+            "type": "long-text"
+          }
         },
         "assertions": [
           {
@@ -54,7 +62,9 @@
           {
             "description": "Multi-line text with line breaks can be inserted",
             "executeQuery": "INSERT INTO articles (description) VALUES ('Line 1\nLine 2\nLine 3') RETURNING description",
-            "expected": { "description": "Line 1\nLine 2\nLine 3" }
+            "expected": {
+              "description": "Line 1\nLine 2\nLine 3"
+            }
           }
         ]
       }
@@ -80,7 +90,9 @@
           {
             "description": "Large text (>255 chars) insertion succeeds",
             "executeQuery": "INSERT INTO posts (content) VALUES ('Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.') RETURNING LENGTH(content) as length",
-            "expected": { "length": 445 }
+            "expected": {
+              "length": 445
+            }
           }
         ]
       }
@@ -98,12 +110,16 @@
           {
             "description": "NOT NULL constraint enforced",
             "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='comments' AND column_name='body'",
-            "expected": { "is_nullable": "NO" }
+            "expected": {
+              "is_nullable": "NO"
+            }
           },
           {
             "description": "Valid text insertion succeeds",
             "executeQuery": "INSERT INTO comments (body) VALUES ('Great article!') RETURNING body",
-            "expected": { "body": "Great article!" }
+            "expected": {
+              "body": "Great article!"
+            }
           },
           {
             "description": "NULL insertion fails",
@@ -136,7 +152,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_pages_content'",
-            "expected": { "indexname": "idx_pages_content", "tablename": "pages" }
+            "expected": {
+              "indexname": "idx_pages_content",
+              "tablename": "pages"
+            }
           },
           {
             "description": "Index uses btree for text searching",
@@ -167,17 +186,23 @@
           {
             "description": "Column has DEFAULT value",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='projects' AND column_name='notes'",
-            "expected": { "column_default": "'No notes'::text" }
+            "expected": {
+              "column_default": "'No notes'::text"
+            }
           },
           {
             "description": "INSERT without notes uses default",
             "executeQuery": "INSERT INTO projects (id) VALUES (DEFAULT) RETURNING notes",
-            "expected": { "notes": "No notes" }
+            "expected": {
+              "notes": "No notes"
+            }
           },
           {
             "description": "Explicit value overrides default",
             "executeQuery": "INSERT INTO projects (notes) VALUES ('Custom notes here') RETURNING notes",
-            "expected": { "notes": "Custom notes here" }
+            "expected": {
+              "notes": "Custom notes here"
+            }
           }
         ]
       }

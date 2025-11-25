@@ -22,7 +22,11 @@
     }
   },
   "description": "Flexible JSON field for storing structured data objects. Accepts any valid JSON (objects, arrays, primitives). Optionally provide a JSON Schema for validation to enforce structure and types. Useful for storing configuration objects, API responses, flexible attributes, and dynamic data that doesn't fit rigid schema. Displays with syntax highlighting and formatting in UI. Can be queried using JSON path expressions.",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -43,17 +47,31 @@
           {
             "description": "Column created as JSONB",
             "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='products' AND column_name='metadata'",
-            "expected": { "column_name": "metadata", "data_type": "jsonb" }
+            "expected": {
+              "column_name": "metadata",
+              "data_type": "jsonb"
+            }
           },
           {
             "description": "JSON object can be inserted",
             "executeQuery": "INSERT INTO products (metadata) VALUES ('{\"color\": \"red\", \"size\": \"large\"}') RETURNING metadata",
-            "expected": { "metadata": { "color": "red", "size": "large" } }
+            "expected": {
+              "metadata": {
+                "color": "red",
+                "size": "large"
+              }
+            }
           },
           {
             "description": "JSON array can be inserted",
             "executeQuery": "INSERT INTO products (metadata) VALUES ('[1, 2, 3]') RETURNING metadata",
-            "expected": { "metadata": [1, 2, 3] }
+            "expected": {
+              "metadata": [
+                1,
+                2,
+                3
+              ]
+            }
           }
         ]
       }
@@ -74,17 +92,23 @@
           {
             "description": "Extract top-level field as JSON",
             "executeQuery": "SELECT config -> 'theme' as theme FROM settings WHERE id = 1",
-            "expected": { "theme": "\"dark\"" }
+            "expected": {
+              "theme": "\"dark\""
+            }
           },
           {
             "description": "Extract top-level field as text",
             "executeQuery": "SELECT config ->> 'theme' as theme FROM settings WHERE id = 1",
-            "expected": { "theme": "dark" }
+            "expected": {
+              "theme": "dark"
+            }
           },
           {
             "description": "Extract nested field",
             "executeQuery": "SELECT config -> 'notifications' ->> 'email' as email_enabled FROM settings WHERE id = 1",
-            "expected": { "email_enabled": "true" }
+            "expected": {
+              "email_enabled": "true"
+            }
           }
         ]
       }
@@ -106,17 +130,23 @@
           {
             "description": "Find users with specific language preference",
             "executeQuery": "SELECT COUNT(*) as count FROM users WHERE preferences ->> 'language' = 'en'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Check if JSON contains specific key",
             "executeQuery": "SELECT COUNT(*) as count FROM users WHERE preferences ? 'timezone'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "JSON containment operator @>",
             "executeQuery": "SELECT COUNT(*) as count FROM users WHERE preferences @> '{\"language\": \"fr\"}'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -143,7 +173,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_documents_data'",
-            "expected": { "indexname": "idx_documents_data", "tablename": "documents" }
+            "expected": {
+              "indexname": "idx_documents_data",
+              "tablename": "documents"
+            }
           },
           {
             "description": "Index uses GIN for JSONB operations",
@@ -171,17 +204,33 @@
           {
             "description": "Initial JSON value",
             "executeQuery": "SELECT payload FROM events WHERE id = 1",
-            "expected": { "payload": { "type": "click", "count": 1 } }
+            "expected": {
+              "payload": {
+                "type": "click",
+                "count": 1
+              }
+            }
           },
           {
             "description": "Update specific JSON field with jsonb_set",
             "executeQuery": "UPDATE events SET payload = jsonb_set(payload, '{count}', '5') WHERE id = 1 RETURNING payload",
-            "expected": { "payload": { "type": "click", "count": 5 } }
+            "expected": {
+              "payload": {
+                "type": "click",
+                "count": 5
+              }
+            }
           },
           {
             "description": "Add new JSON field",
             "executeQuery": "UPDATE events SET payload = jsonb_set(payload, '{user_id}', '\"user123\"') WHERE id = 1 RETURNING payload",
-            "expected": { "payload": { "type": "click", "count": 5, "user_id": "user123" } }
+            "expected": {
+              "payload": {
+                "type": "click",
+                "count": 5,
+                "user_id": "user123"
+              }
+            }
           }
         ]
       }

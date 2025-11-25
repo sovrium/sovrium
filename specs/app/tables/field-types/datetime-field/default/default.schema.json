@@ -4,7 +4,11 @@
   "title": "Default DateTime Value",
   "description": "Default value for datetime field when no value is provided. Can be a static ISO 8601 datetime or dynamic keyword 'now' (PostgreSQL CURRENT_TIMESTAMP). Commonly used for created_at, updated_at timestamps.",
   "type": "string",
-  "examples": ["2024-12-31T15:00:00.000Z", "now", "2025-01-01T00:00:00.000Z"],
+  "examples": [
+    "2024-12-31T15:00:00.000Z",
+    "now",
+    "2025-01-01T00:00:00.000Z"
+  ],
   "x-specs": [
     {
       "id": "APP-FIELD-DATETIME-DEFAULT-001",
@@ -27,12 +31,16 @@
           {
             "description": "Column has DEFAULT constraint with timestamp",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='milestones' AND column_name='milestone_at'",
-            "expected": { "column_default": "'2025-01-01 00:00:00'::timestamp without time zone" }
+            "expected": {
+              "column_default": "'2025-01-01 00:00:00'::timestamp without time zone"
+            }
           },
           {
             "description": "INSERT without value uses default timestamp",
             "executeQuery": "SELECT milestone_at FROM milestones WHERE name = 'Launch Date'",
-            "expected": { "milestone_at": "2025-01-01T00:00:00.000Z" }
+            "expected": {
+              "milestone_at": "2025-01-01T00:00:00.000Z"
+            }
           }
         ]
       }
@@ -58,12 +66,16 @@
           {
             "description": "Column has DEFAULT CURRENT_TIMESTAMP constraint",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='posts' AND column_name='created_at'",
-            "expected": { "column_default": "CURRENT_TIMESTAMP" }
+            "expected": {
+              "column_default": "CURRENT_TIMESTAMP"
+            }
           },
           {
             "description": "INSERT without value uses current timestamp (dynamic)",
             "executeQuery": "SELECT (created_at BETWEEN CURRENT_TIMESTAMP - INTERVAL '5 seconds' AND CURRENT_TIMESTAMP) as is_recent FROM posts WHERE title = 'Hello World'",
-            "expected": { "is_recent": true }
+            "expected": {
+              "is_recent": true
+            }
           }
         ]
       }
@@ -88,12 +100,16 @@
           {
             "description": "Column has no DEFAULT constraint",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='drafts' AND column_name='published_at'",
-            "expected": { "column_default": null }
+            "expected": {
+              "column_default": null
+            }
           },
           {
             "description": "INSERT without value results in NULL",
             "executeQuery": "SELECT published_at FROM drafts WHERE content = 'Draft content'",
-            "expected": { "published_at": null }
+            "expected": {
+              "published_at": null
+            }
           }
         ]
       }

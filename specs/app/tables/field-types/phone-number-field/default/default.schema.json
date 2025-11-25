@@ -26,12 +26,16 @@
           {
             "description": "Column has DEFAULT constraint with phone number",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='customers' AND column_name='phone'",
-            "expected": { "column_default": "'+1-800-000-0000'::character varying" }
+            "expected": {
+              "column_default": "'+1-800-000-0000'::character varying"
+            }
           },
           {
             "description": "INSERT without value uses default phone",
             "executeQuery": "SELECT phone FROM customers WHERE name = 'John Doe'",
-            "expected": { "phone": "+1-800-000-0000" }
+            "expected": {
+              "phone": "+1-800-000-0000"
+            }
           }
         ]
       }
@@ -56,7 +60,9 @@
           {
             "description": "INSERT without value results in NULL",
             "executeQuery": "SELECT phone FROM contacts WHERE name = 'Jane Smith'",
-            "expected": { "phone": null }
+            "expected": {
+              "phone": null
+            }
           }
         ]
       }

@@ -4,7 +4,13 @@
   "title": "Formula Field Display Format",
   "description": "Display format hint for formula computation results. Formula fields compute values using expressions. Format controls result presentation: currency (monetary), percentage (0-100%), decimal (numeric with precision), date (datetime results), text (string results).",
   "type": "string",
-  "examples": ["currency", "percentage", "decimal", "date", "text"],
+  "examples": [
+    "currency",
+    "percentage",
+    "decimal",
+    "date",
+    "text"
+  ],
   "x-specs": [
     {
       "id": "APP-FIELD-FORMULA-FORMAT-001",
@@ -28,13 +34,16 @@
           {
             "description": "GENERATED column computes formula",
             "executeQuery": "SELECT total FROM order_items WHERE product_name = 'Widget'",
-            "expected": { "total": 59.97 }
+            "expected": {
+              "total": 59.97
+            }
           },
           {
             "description": "Application displays with currency formatting",
             "displayFormat": "currency",
             "executeQuery": "SELECT total FROM order_items WHERE product_name = 'Widget'",
-            "expectedDisplay": "$59.97"
+            "expectedDisplay": "$59.97",
+            "expectError": "validation error"
           }
         ]
       }
@@ -61,13 +70,16 @@
           {
             "description": "Formula computes percentage",
             "executeQuery": "SELECT completion_rate FROM projects WHERE name = 'Alpha'",
-            "expected": { "completion_rate": 75.0 }
+            "expected": {
+              "completion_rate": 75.0
+            }
           },
           {
             "description": "Application displays with percentage formatting",
             "displayFormat": "percentage",
             "executeQuery": "SELECT completion_rate FROM projects WHERE name = 'Alpha'",
-            "expectedDisplay": "75.00%"
+            "expectedDisplay": "75.00%",
+            "expectError": "validation error"
           }
         ]
       }
@@ -93,12 +105,15 @@
           {
             "description": "Formula computes sum",
             "executeQuery": "SELECT result FROM calculations WHERE x = 12.50",
-            "expected": { "result": 49.75 }
+            "expected": {
+              "result": 49.75
+            }
           },
           {
             "description": "Display without formatting (raw numeric)",
             "executeQuery": "SELECT result FROM calculations WHERE x = 12.50",
-            "expectedDisplay": "49.75"
+            "expectedDisplay": "49.75",
+            "expectError": "validation error"
           }
         ]
       }

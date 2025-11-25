@@ -18,7 +18,13 @@
     },
     "type": {
       "type": "string",
-      "enum": ["grid", "kanban", "calendar", "gallery", "form"],
+      "enum": [
+        "grid",
+        "kanban",
+        "calendar",
+        "gallery",
+        "form"
+      ],
       "default": "grid",
       "description": "View type determining the display layout"
     },
@@ -44,7 +50,11 @@
       "description": "Whether this is the default view for the table"
     }
   },
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "examples": [
     {
@@ -113,7 +123,7 @@
           {
             "description": "the view should be valid",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -134,7 +144,7 @@
           {
             "description": "validation should fail with pattern mismatch error",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "must be one of the allowed values"
           }
         ]
       }
@@ -155,7 +165,7 @@
           {
             "description": "this view's configuration should be applied automatically",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }

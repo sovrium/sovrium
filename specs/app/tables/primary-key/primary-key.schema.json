@@ -15,7 +15,10 @@
     },
     {
       "type": "composite",
-      "fields": ["tenant_id", "user_id"]
+      "fields": [
+        "tenant_id",
+        "user_id"
+      ]
     }
   ],
   "properties": {
@@ -29,7 +32,9 @@
       "$ref": "./fields/fields.schema.json"
     }
   },
-  "required": ["type"],
+  "required": [
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -52,17 +57,32 @@
           {
             "description": "Primary key constraint exists",
             "executeQuery": "SELECT constraint_name FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='PRIMARY KEY'",
-            "expected": { "constraint_name": "users_pkey" }
+            "expected": {
+              "constraint_name": "users_pkey"
+            }
           },
           {
             "description": "id column is SERIAL (integer with sequence)",
             "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='users' AND column_name='id'",
-            "expected": { "column_name": "id", "data_type": "integer" }
+            "expected": {
+              "column_name": "id",
+              "data_type": "integer"
+            }
           },
           {
             "description": "Auto-increment generates sequential IDs",
             "executeQuery": "SELECT id FROM users ORDER BY id",
-            "expected": [{ "id": 1 }, { "id": 2 }, { "id": 3 }]
+            "expected": [
+              {
+                "id": 1
+              },
+              {
+                "id": 2
+              },
+              {
+                "id": 3
+              }
+            ]
           },
           {
             "description": "Duplicate ID rejected (UNIQUE constraint)",
@@ -93,22 +113,31 @@
           {
             "description": "Primary key constraint exists",
             "executeQuery": "SELECT constraint_name FROM information_schema.table_constraints WHERE table_name='sessions' AND constraint_type='PRIMARY KEY'",
-            "expected": { "constraint_name": "sessions_pkey" }
+            "expected": {
+              "constraint_name": "sessions_pkey"
+            }
           },
           {
             "description": "id column is UUID type",
             "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='sessions' AND column_name='id'",
-            "expected": { "column_name": "id", "data_type": "uuid" }
+            "expected": {
+              "column_name": "id",
+              "data_type": "uuid"
+            }
           },
           {
             "description": "UUID values are generated automatically",
             "executeQuery": "SELECT COUNT(*) as count FROM sessions WHERE id IS NOT NULL",
-            "expected": { "count": 3 }
+            "expected": {
+              "count": 3
+            }
           },
           {
             "description": "UUID values are unique",
             "executeQuery": "SELECT COUNT(DISTINCT id) as unique_count FROM sessions",
-            "expected": { "unique_count": 3 }
+            "expected": {
+              "unique_count": 3
+            }
           }
         ]
       }
@@ -126,24 +155,33 @@
           ],
           "primaryKeyConfig": {
             "type": "composite",
-            "fields": ["tenant_id", "user_id"]
+            "fields": [
+              "tenant_id",
+              "user_id"
+            ]
           }
         },
         "assertions": [
           {
             "description": "Composite primary key constraint exists",
             "executeQuery": "SELECT constraint_name FROM information_schema.table_constraints WHERE table_name='tenant_users' AND constraint_type='PRIMARY KEY'",
-            "expected": { "constraint_name": "tenant_users_pkey" }
+            "expected": {
+              "constraint_name": "tenant_users_pkey"
+            }
           },
           {
             "description": "Primary key includes both columns",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.key_column_usage WHERE table_name='tenant_users' AND constraint_name='tenant_users_pkey'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Same user_id allowed in different tenants",
             "executeQuery": "SELECT COUNT(*) as count FROM tenant_users WHERE user_id = 1",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Duplicate composite key rejected",
@@ -173,7 +211,9 @@
           {
             "description": "Primary key column is NOT NULL",
             "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='id'",
-            "expected": { "is_nullable": "NO" }
+            "expected": {
+              "is_nullable": "NO"
+            }
           },
           {
             "description": "NULL value in primary key rejected",
@@ -183,7 +223,9 @@
           {
             "description": "Valid auto-generated ID succeeds",
             "executeQuery": "INSERT INTO products (name) VALUES ('Product 2') RETURNING id",
-            "expected": { "id": 2 }
+            "expected": {
+              "id": 2
+            }
           }
         ]
       }
@@ -208,7 +250,9 @@
           {
             "description": "Primary key index automatically created",
             "executeQuery": "SELECT indexname FROM pg_indexes WHERE tablename='orders' AND indexname='orders_pkey'",
-            "expected": { "indexname": "orders_pkey" }
+            "expected": {
+              "indexname": "orders_pkey"
+            }
           },
           {
             "description": "Index is unique",
@@ -220,7 +264,9 @@
           {
             "description": "Primary key lookup uses index (fast)",
             "executeQuery": "SELECT customer_id FROM orders WHERE id = 1",
-            "expected": { "customer_id": 1 }
+            "expected": {
+              "customer_id": 1
+            }
           }
         ]
       }
@@ -245,12 +291,17 @@
           {
             "description": "Primary key can be updated to unique value",
             "executeQuery": "UPDATE items SET id = 10 WHERE id = 1 RETURNING id, name",
-            "expected": { "id": 10, "name": "Item 1" }
+            "expected": {
+              "id": 10,
+              "name": "Item 1"
+            }
           },
           {
             "description": "Updated primary key is persisted",
             "executeQuery": "SELECT id FROM items WHERE name = 'Item 1'",
-            "expected": { "id": 10 }
+            "expected": {
+              "id": 10
+            }
           },
           {
             "description": "Primary key cannot be updated to duplicate value",
@@ -260,7 +311,9 @@
           {
             "description": "Original ID no longer exists after update",
             "executeQuery": "SELECT COUNT(*) as count FROM items WHERE id = 1",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           }
         ]
       }
@@ -286,22 +339,36 @@
           {
             "description": "id column is BIGINT type",
             "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='logs' AND column_name='id'",
-            "expected": { "column_name": "id", "data_type": "bigint" }
+            "expected": {
+              "column_name": "id",
+              "data_type": "bigint"
+            }
           },
           {
             "description": "BIGSERIAL generates sequential values",
             "executeQuery": "SELECT id FROM logs ORDER BY id",
-            "expected": [{ "id": 1 }, { "id": 2 }]
+            "expected": [
+              {
+                "id": 1
+              },
+              {
+                "id": 2
+              }
+            ]
           },
           {
             "description": "Primary key constraint exists",
             "executeQuery": "SELECT constraint_name FROM information_schema.table_constraints WHERE table_name='logs' AND constraint_type='PRIMARY KEY'",
-            "expected": { "constraint_name": "logs_pkey" }
+            "expected": {
+              "constraint_name": "logs_pkey"
+            }
           },
           {
             "description": "BIGINT supports range up to 2^63-1 (vs INTEGER 2^31-1)",
             "executeQuery": "SELECT pg_column_size(id) as byte_size FROM logs LIMIT 1",
-            "expected": { "byte_size": 8 }
+            "expected": {
+              "byte_size": 8
+            }
           }
         ]
       }
@@ -319,19 +386,27 @@
           ],
           "primaryKeyConfig": {
             "type": "composite",
-            "fields": ["tenant_id", "user_id", "timestamp"]
+            "fields": [
+              "tenant_id",
+              "user_id",
+              "timestamp"
+            ]
           }
         },
         "assertions": [
           {
             "description": "Composite primary key includes all 3 columns",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.key_column_usage WHERE table_name='audit_log' AND constraint_name='audit_log_pkey'",
-            "expected": { "count": 3 }
+            "expected": {
+              "count": 3
+            }
           },
           {
             "description": "Same tenant and user allowed at different timestamps",
             "executeQuery": "SELECT COUNT(*) as count FROM audit_log WHERE tenant_id = 1 AND user_id = 1",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Duplicate composite key rejected",
@@ -341,7 +416,9 @@
           {
             "description": "Different timestamp allows same tenant and user",
             "executeQuery": "INSERT INTO audit_log (tenant_id, user_id, timestamp, action) VALUES (1, 1, '2024-01-01 12:00:00', 'update') RETURNING action",
-            "expected": { "action": "update" }
+            "expected": {
+              "action": "update"
+            }
           }
         ]
       }

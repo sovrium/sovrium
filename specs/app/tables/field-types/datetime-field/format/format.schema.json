@@ -35,18 +35,23 @@
           {
             "description": "Column uses TIMESTAMPTZ type (ISO 8601 storage)",
             "executeQuery": "SELECT data_type FROM information_schema.columns WHERE table_name='appointments' AND column_name='scheduled_at'",
-            "expected": { "data_type": "timestamp with time zone" }
+            "expected": {
+              "data_type": "timestamp with time zone"
+            }
           },
           {
             "description": "Datetime stored in ISO format",
             "executeQuery": "SELECT scheduled_at FROM appointments WHERE title = 'Doctor Visit'",
-            "expected": { "scheduled_at": "2024-12-31T14:30:00.000Z" }
+            "expected": {
+              "scheduled_at": "2024-12-31T14:30:00.000Z"
+            }
           },
           {
             "description": "Application transforms to US 12-hour format",
             "displayFormat": "MM/DD/YYYY hh:mm A",
             "executeQuery": "SELECT scheduled_at FROM appointments WHERE title = 'Doctor Visit'",
-            "expectedDisplay": "12/31/2024 02:30 PM"
+            "expectedDisplay": "12/31/2024 02:30 PM",
+            "expectError": "validation error"
           }
         ]
       }
@@ -73,7 +78,8 @@
             "description": "Default format is YYYY-MM-DD HH:mm (ISO-like)",
             "displayFormat": "YYYY-MM-DD HH:mm",
             "executeQuery": "SELECT created_at FROM audit_logs WHERE action = 'User Login'",
-            "expectedDisplay": "2024-06-15 16:45"
+            "expectedDisplay": "2024-06-15 16:45",
+            "expectError": "validation error"
           }
         ]
       }
@@ -123,13 +129,16 @@
           {
             "description": "Storage uses ISO format with timezone",
             "executeQuery": "SELECT delivered_at FROM deliveries WHERE package_id = 'PKG-001'",
-            "expected": { "delivered_at": "2024-12-25T18:30:45.000Z" }
+            "expected": {
+              "delivered_at": "2024-12-25T18:30:45.000Z"
+            }
           },
           {
             "description": "Display uses European format with seconds",
             "displayFormat": "DD-MM-YYYY HH:mm:ss",
             "executeQuery": "SELECT delivered_at FROM deliveries WHERE package_id = 'PKG-001'",
-            "expectedDisplay": "25-12-2024 18:30:45"
+            "expectedDisplay": "25-12-2024 18:30:45",
+            "expectError": "validation error"
           }
         ]
       }

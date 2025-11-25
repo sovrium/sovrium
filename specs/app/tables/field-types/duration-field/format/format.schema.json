@@ -5,7 +5,12 @@
   "description": "Display format for duration values. Storage uses PostgreSQL INTERVAL type (ISO 8601 duration). Display format controls presentation: h:mm (hours:minutes), h:mm:ss (with seconds), minutes (total minutes), seconds (total seconds).",
   "type": "string",
   "default": "h:mm:ss",
-  "enum": ["h:mm", "h:mm:ss", "minutes", "seconds"],
+  "enum": [
+    "h:mm",
+    "h:mm:ss",
+    "minutes",
+    "seconds"
+  ],
   "x-specs": [
     {
       "id": "APP-FIELD-DURATION-FORMAT-001",
@@ -28,18 +33,23 @@
           {
             "description": "Column uses INTERVAL type",
             "executeQuery": "SELECT data_type FROM information_schema.columns WHERE table_name='tasks' AND column_name='time_spent'",
-            "expected": { "data_type": "interval" }
+            "expected": {
+              "data_type": "interval"
+            }
           },
           {
             "description": "Duration stored as INTERVAL",
             "executeQuery": "SELECT time_spent FROM tasks WHERE title = 'Coding'",
-            "expected": { "time_spent": "02:30:45" }
+            "expected": {
+              "time_spent": "02:30:45"
+            }
           },
           {
             "description": "Application displays in h:mm:ss format",
             "displayFormat": "h:mm:ss",
             "executeQuery": "SELECT time_spent FROM tasks WHERE title = 'Coding'",
-            "expectedDisplay": "2:30:45"
+            "expectedDisplay": "2:30:45",
+            "expectError": "validation error"
           }
         ]
       }
@@ -66,13 +76,15 @@
             "description": "Application displays total minutes",
             "displayFormat": "minutes",
             "executeQuery": "SELECT duration FROM meetings WHERE title = 'Planning'",
-            "expectedDisplay": "90"
+            "expectedDisplay": "90",
+            "expectError": "validation error"
           },
           {
             "description": "Short duration displayed correctly",
             "displayFormat": "minutes",
             "executeQuery": "SELECT duration FROM meetings WHERE title = 'Standup'",
-            "expectedDisplay": "15"
+            "expectedDisplay": "15",
+            "expectError": "validation error"
           }
         ]
       }
@@ -121,13 +133,15 @@
             "description": "Application displays total seconds",
             "displayFormat": "seconds",
             "executeQuery": "SELECT response_time FROM api_calls WHERE endpoint = '/api/users'",
-            "expectedDisplay": "150"
+            "expectedDisplay": "150",
+            "expectError": "validation error"
           },
           {
             "description": "Sub-minute duration displayed correctly",
             "displayFormat": "seconds",
             "executeQuery": "SELECT response_time FROM api_calls WHERE endpoint = '/api/posts'",
-            "expectedDisplay": "45"
+            "expectedDisplay": "45",
+            "expectError": "validation error"
           }
         ]
       }

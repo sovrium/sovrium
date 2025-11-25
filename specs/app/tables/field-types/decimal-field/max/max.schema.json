@@ -26,12 +26,16 @@
           {
             "description": "CHECK constraint exists for max value",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%score%' AND check_clause LIKE '%<= 100.0%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Value at maximum (100.0) accepted",
             "executeQuery": "SELECT score FROM exam_scores WHERE score = 100.0",
-            "expected": { "score": 100.0 }
+            "expected": {
+              "score": 100.0
+            }
           },
           {
             "description": "Value above maximum rejected",
@@ -41,7 +45,9 @@
           {
             "description": "Decimal value below maximum accepted",
             "executeQuery": "INSERT INTO exam_scores (score) VALUES (67.25) RETURNING score",
-            "expected": { "score": 67.25 }
+            "expected": {
+              "score": 67.25
+            }
           }
         ]
       }
@@ -67,12 +73,16 @@
           {
             "description": "CHECK constraint enforces max 999.99",
             "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%price%'",
-            "expected": { "check_clause": "(price <= 999.99)" }
+            "expected": {
+              "check_clause": "(price <= 999.99)"
+            }
           },
           {
             "description": "Exact maximum (999.99) accepted",
             "executeQuery": "SELECT price FROM products WHERE price = 999.99",
-            "expected": { "price": 999.99 }
+            "expected": {
+              "price": 999.99
+            }
           },
           {
             "description": "Above maximum rejected",
@@ -82,7 +92,9 @@
           {
             "description": "Below maximum accepted",
             "executeQuery": "INSERT INTO products (price) VALUES (149.50) RETURNING price",
-            "expected": { "price": 149.5 }
+            "expected": {
+              "price": 149.5
+            }
           }
         ]
       }
@@ -109,17 +121,23 @@
           {
             "description": "CHECK constraint enforces range 0.0-100.0",
             "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%rate%'",
-            "expected": { "check_clause": "((rate >= 0.0) AND (rate <= 100.0))" }
+            "expected": {
+              "check_clause": "((rate >= 0.0) AND (rate <= 100.0))"
+            }
           },
           {
             "description": "Value at min (0.0) accepted",
             "executeQuery": "SELECT rate FROM discounts WHERE rate = 0.0",
-            "expected": { "rate": 0.0 }
+            "expected": {
+              "rate": 0.0
+            }
           },
           {
             "description": "Value at max (100.0) accepted",
             "executeQuery": "SELECT rate FROM discounts WHERE rate = 100.0",
-            "expected": { "rate": 100.0 }
+            "expected": {
+              "rate": 100.0
+            }
           },
           {
             "description": "Value below min rejected",

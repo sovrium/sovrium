@@ -26,12 +26,16 @@
           {
             "description": "Column has DEFAULT constraint with URL",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='websites' AND column_name='url'",
-            "expected": { "column_default": "'https://example.com'::text" }
+            "expected": {
+              "column_default": "'https://example.com'::text"
+            }
           },
           {
             "description": "INSERT without value uses default URL",
             "executeQuery": "SELECT url FROM websites WHERE name = 'My Website'",
-            "expected": { "url": "https://example.com" }
+            "expected": {
+              "url": "https://example.com"
+            }
           }
         ]
       }
@@ -56,7 +60,9 @@
           {
             "description": "INSERT without value results in NULL",
             "executeQuery": "SELECT url FROM bookmarks WHERE title = 'My Bookmark'",
-            "expected": { "url": null }
+            "expected": {
+              "url": null
+            }
           }
         ]
       }
@@ -82,7 +88,9 @@
           {
             "description": "Explicit value overrides default",
             "executeQuery": "SELECT url FROM links WHERE title = 'Custom Link'",
-            "expected": { "url": "https://custom.com/page" }
+            "expected": {
+              "url": "https://custom.com/page"
+            }
           }
         ]
       }

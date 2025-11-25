@@ -25,7 +25,11 @@
     }
   },
   "description": "Auto-incrementing unique number (read-only)",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -55,12 +59,16 @@
           {
             "description": "UNIQUE constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='invoices' AND constraint_type='UNIQUE' AND constraint_name LIKE '%record_number%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Sequence exists for auto-increment",
             "executeQuery": "SELECT COUNT(*) as count FROM pg_sequences WHERE schemaname='public' AND sequencename LIKE '%record_number%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -83,22 +91,31 @@
           {
             "description": "First record gets number 1",
             "executeQuery": "SELECT order_number FROM orders WHERE id = 1",
-            "expected": { "order_number": 1 }
+            "expected": {
+              "order_number": 1
+            }
           },
           {
             "description": "Second record gets number 2",
             "executeQuery": "SELECT order_number FROM orders WHERE id = 2",
-            "expected": { "order_number": 2 }
+            "expected": {
+              "order_number": 2
+            }
           },
           {
             "description": "Third record gets number 3",
             "executeQuery": "SELECT order_number FROM orders WHERE id = 3",
-            "expected": { "order_number": 3 }
+            "expected": {
+              "order_number": 3
+            }
           },
           {
             "description": "All numbers are unique and sequential",
             "executeQuery": "SELECT COUNT(DISTINCT order_number) as unique_count, MAX(order_number) as max_number FROM orders",
-            "expected": { "unique_count": 3, "max_number": 3 }
+            "expected": {
+              "unique_count": 3,
+              "max_number": 3
+            }
           }
         ]
       }
@@ -126,17 +143,23 @@
           {
             "description": "Sequence starts at 1000",
             "executeQuery": "SELECT start_value FROM pg_sequences WHERE sequencename = 'tickets_ticket_id_seq'",
-            "expected": { "start_value": 1000 }
+            "expected": {
+              "start_value": 1000
+            }
           },
           {
             "description": "First record gets number 1000",
             "executeQuery": "SELECT ticket_id FROM tickets WHERE id = 1",
-            "expected": { "ticket_id": 1000 }
+            "expected": {
+              "ticket_id": 1000
+            }
           },
           {
             "description": "Second record gets number 1001",
             "executeQuery": "SELECT ticket_id FROM tickets WHERE id = 2",
-            "expected": { "ticket_id": 1001 }
+            "expected": {
+              "ticket_id": 1001
+            }
           }
         ]
       }
@@ -166,17 +189,24 @@
           {
             "description": "Generated column exists",
             "executeQuery": "SELECT column_name, is_generated FROM information_schema.columns WHERE table_name='requests' AND column_name='request_code'",
-            "expected": { "column_name": "request_code", "is_generated": "ALWAYS" }
+            "expected": {
+              "column_name": "request_code",
+              "is_generated": "ALWAYS"
+            }
           },
           {
             "description": "First record formatted with prefix and padding",
             "executeQuery": "SELECT request_code FROM requests WHERE id = 1",
-            "expected": { "request_code": "REQ-00001" }
+            "expected": {
+              "request_code": "REQ-00001"
+            }
           },
           {
             "description": "Third record increments correctly",
             "executeQuery": "SELECT request_code FROM requests WHERE id = 3",
-            "expected": { "request_code": "REQ-00003" }
+            "expected": {
+              "request_code": "REQ-00003"
+            }
           }
         ]
       }
@@ -198,7 +228,9 @@
           {
             "description": "First auto-generated number succeeds",
             "executeQuery": "SELECT contract_number FROM contracts WHERE id = 1",
-            "expected": { "contract_number": 1 }
+            "expected": {
+              "contract_number": 1
+            }
           },
           {
             "description": "Manual insert with duplicate number rejected",
@@ -208,7 +240,9 @@
           {
             "description": "Next auto-generated number succeeds",
             "executeQuery": "INSERT INTO contracts (id) VALUES (DEFAULT) RETURNING contract_number",
-            "expected": { "contract_number": 2 }
+            "expected": {
+              "contract_number": 2
+            }
           }
         ]
       }

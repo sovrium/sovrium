@@ -5,7 +5,13 @@
   "description": "Currency code (ISO 4217)",
   "type": "string",
   "default": "USD",
-  "examples": ["USD", "EUR", "GBP", "JPY", "CAD"],
+  "examples": [
+    "USD",
+    "EUR",
+    "GBP",
+    "JPY",
+    "CAD"
+  ],
   "x-specs": [
     {
       "id": "APP-FIELD-CURRENCY-001",
@@ -23,7 +29,7 @@
           {
             "description": "string value should be accepted",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -44,7 +50,7 @@
           {
             "description": "default to USD",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }

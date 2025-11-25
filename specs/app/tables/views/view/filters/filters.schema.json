@@ -7,7 +7,10 @@
   "properties": {
     "operator": {
       "type": "string",
-      "enum": ["AND", "OR"],
+      "enum": [
+        "AND",
+        "OR"
+      ],
       "default": "AND",
       "description": "Logical operator to combine conditions"
     },
@@ -20,7 +23,9 @@
       "description": "Array of filter conditions"
     }
   },
-  "required": ["conditions"],
+  "required": [
+    "conditions"
+  ],
   "additionalProperties": false,
   "examples": [
     {
@@ -79,7 +84,7 @@
           {
             "description": "only records matching all conditions should be included",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -100,7 +105,7 @@
           {
             "description": "records matching at least one condition should be included",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -121,7 +126,7 @@
           {
             "description": "AND operator should be used by default",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }

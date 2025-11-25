@@ -26,12 +26,16 @@
           {
             "description": "CHECK constraint exists for max value",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%amount%' AND check_clause LIKE '%<= 10000.00%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Value at maximum (10000.00) accepted",
             "executeQuery": "SELECT amount FROM expenses WHERE amount = 10000.00",
-            "expected": { "amount": 10000.0 }
+            "expected": {
+              "amount": 10000.0
+            }
           },
           {
             "description": "Value above maximum rejected",
@@ -41,7 +45,9 @@
           {
             "description": "Value below maximum accepted",
             "executeQuery": "INSERT INTO expenses (amount) VALUES (2500.00) RETURNING amount",
-            "expected": { "amount": 2500.0 }
+            "expected": {
+              "amount": 2500.0
+            }
           }
         ]
       }
@@ -67,12 +73,16 @@
           {
             "description": "CHECK constraint enforces max 999999.99",
             "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%total%'",
-            "expected": { "check_clause": "(total <= 999999.99)" }
+            "expected": {
+              "check_clause": "(total <= 999999.99)"
+            }
           },
           {
             "description": "Exact maximum (999999.99) accepted",
             "executeQuery": "SELECT total FROM invoices WHERE total = 999999.99",
-            "expected": { "total": 999999.99 }
+            "expected": {
+              "total": 999999.99
+            }
           },
           {
             "description": "Above maximum rejected",
@@ -82,7 +92,9 @@
           {
             "description": "Below maximum accepted",
             "executeQuery": "INSERT INTO invoices (total) VALUES (125000.00) RETURNING total",
-            "expected": { "total": 125000.0 }
+            "expected": {
+              "total": 125000.0
+            }
           }
         ]
       }
@@ -109,17 +121,23 @@
           {
             "description": "CHECK constraint enforces range 0.01-99999.99",
             "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%price%'",
-            "expected": { "check_clause": "((price >= 0.01) AND (price <= 99999.99))" }
+            "expected": {
+              "check_clause": "((price >= 0.01) AND (price <= 99999.99))"
+            }
           },
           {
             "description": "Value at min (0.01) accepted",
             "executeQuery": "SELECT price FROM products WHERE price = 0.01",
-            "expected": { "price": 0.01 }
+            "expected": {
+              "price": 0.01
+            }
           },
           {
             "description": "Value at max (99999.99) accepted",
             "executeQuery": "SELECT price FROM products WHERE price = 99999.99",
-            "expected": { "price": 99999.99 }
+            "expected": {
+              "price": 99999.99
+            }
           },
           {
             "description": "Value below min rejected",

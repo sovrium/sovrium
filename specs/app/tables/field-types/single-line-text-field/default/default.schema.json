@@ -26,12 +26,16 @@
           {
             "description": "Column has DEFAULT constraint",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='documents' AND column_name='title'",
-            "expected": { "column_default": "'Untitled'::character varying" }
+            "expected": {
+              "column_default": "'Untitled'::character varying"
+            }
           },
           {
             "description": "INSERT without value uses default",
             "executeQuery": "SELECT title FROM documents WHERE content = 'Sample content'",
-            "expected": { "title": "Untitled" }
+            "expected": {
+              "title": "Untitled"
+            }
           },
           {
             "description": "INSERT with explicit value overrides default",
@@ -39,7 +43,9 @@
               "INSERT INTO documents (title, content) VALUES ('My Document', 'More content')",
               "SELECT title FROM documents WHERE content = 'More content'"
             ],
-            "expected": { "title": "My Document" }
+            "expected": {
+              "title": "My Document"
+            }
           }
         ]
       }
@@ -64,12 +70,16 @@
           {
             "description": "Column has no DEFAULT constraint",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='items' AND column_name='name'",
-            "expected": { "column_default": null }
+            "expected": {
+              "column_default": null
+            }
           },
           {
             "description": "INSERT without value results in NULL",
             "executeQuery": "SELECT name FROM items WHERE description = 'Test description'",
-            "expected": { "name": null }
+            "expected": {
+              "name": null
+            }
           }
         ]
       }
@@ -95,17 +105,24 @@
           {
             "description": "Column has DEFAULT '' constraint",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='tasks' AND column_name='notes'",
-            "expected": { "column_default": "''::text" }
+            "expected": {
+              "column_default": "''::text"
+            }
           },
           {
             "description": "INSERT without value uses empty string default",
             "executeQuery": "SELECT notes FROM tasks WHERE title = 'Task 1'",
-            "expected": { "notes": "" }
+            "expected": {
+              "notes": ""
+            }
           },
           {
             "description": "Empty string is different from NULL",
             "executeQuery": "SELECT notes IS NULL as is_null, notes = '' as is_empty FROM tasks WHERE title = 'Task 1'",
-            "expected": { "is_null": false, "is_empty": true }
+            "expected": {
+              "is_null": false,
+              "is_empty": true
+            }
           }
         ]
       }
@@ -140,7 +157,9 @@
               "INSERT INTO products DEFAULT VALUES",
               "SELECT product_name FROM products LIMIT 1"
             ],
-            "expected": { "product_name": "New Product" }
+            "expected": {
+              "product_name": "New Product"
+            }
           }
         ]
       }

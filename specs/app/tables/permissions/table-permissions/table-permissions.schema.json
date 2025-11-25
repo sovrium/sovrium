@@ -26,14 +26,36 @@
   "additionalProperties": false,
   "examples": [
     {
-      "read": { "type": "public" },
-      "create": { "type": "authenticated" },
-      "update": { "type": "roles", "roles": ["admin", "editor"] },
-      "delete": { "type": "roles", "roles": ["admin"] }
+      "read": {
+        "type": "public"
+      },
+      "create": {
+        "type": "authenticated"
+      },
+      "update": {
+        "type": "roles",
+        "roles": [
+          "admin",
+          "editor"
+        ]
+      },
+      "delete": {
+        "type": "roles",
+        "roles": [
+          "admin"
+        ]
+      }
     },
     {
-      "read": { "type": "authenticated" },
-      "create": { "type": "roles", "roles": ["admin"] }
+      "read": {
+        "type": "authenticated"
+      },
+      "create": {
+        "type": "roles",
+        "roles": [
+          "admin"
+        ]
+      }
     }
   ],
   "x-specs": [
@@ -52,7 +74,12 @@
           ],
           "permissionConfig": {
             "table": {
-              "read": { "type": "roles", "roles": ["member"] }
+              "read": {
+                "type": "roles",
+                "roles": [
+                  "member"
+                ]
+              }
             }
           }
         },
@@ -60,17 +87,24 @@
           {
             "description": "RLS policy exists for member role",
             "executeQuery": "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='projects' AND policyname='member_read'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Policy uses USING clause for SELECT",
             "executeQuery": "SELECT cmd, qual FROM pg_policies WHERE tablename='projects' AND policyname='member_read'",
-            "expected": { "cmd": "SELECT", "qual": "auth.user_has_role('member'::text)" }
+            "expected": {
+              "cmd": "SELECT",
+              "qual": "auth.user_has_role('member'::text)"
+            }
           },
           {
             "description": "Member user can SELECT records",
             "executeQuery": "SET ROLE member_user; SELECT COUNT(*) as count FROM projects",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Non-member user cannot SELECT records",
@@ -94,7 +128,12 @@
           ],
           "permissionConfig": {
             "table": {
-              "create": { "type": "roles", "roles": ["admin"] }
+              "create": {
+                "type": "roles",
+                "roles": [
+                  "admin"
+                ]
+              }
             }
           }
         },
@@ -102,17 +141,24 @@
           {
             "description": "RLS policy exists for admin create",
             "executeQuery": "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='documents' AND policyname='admin_create'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Policy uses WITH CHECK clause for INSERT",
             "executeQuery": "SELECT cmd, with_check FROM pg_policies WHERE tablename='documents' AND policyname='admin_create'",
-            "expected": { "cmd": "INSERT", "with_check": "auth.user_has_role('admin'::text)" }
+            "expected": {
+              "cmd": "INSERT",
+              "with_check": "auth.user_has_role('admin'::text)"
+            }
           },
           {
             "description": "Admin user can INSERT records",
             "executeQuery": "SET ROLE admin_user; INSERT INTO documents (title) VALUES ('Doc 1') RETURNING id",
-            "expected": { "id": 1 }
+            "expected": {
+              "id": 1
+            }
           },
           {
             "description": "Member user cannot INSERT records",
@@ -135,7 +181,9 @@
           ],
           "permissionConfig": {
             "table": {
-              "read": { "type": "public" }
+              "read": {
+                "type": "public"
+              }
             }
           }
         },
@@ -143,22 +191,30 @@
           {
             "description": "RLS is not enabled for public tables",
             "executeQuery": "SELECT relrowsecurity FROM pg_class WHERE relname='articles'",
-            "expected": { "relrowsecurity": false }
+            "expected": {
+              "relrowsecurity": false
+            }
           },
           {
             "description": "No RLS policies exist",
             "executeQuery": "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='articles'",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           },
           {
             "description": "Any user can SELECT records",
             "executeQuery": "SELECT COUNT(*) as count FROM articles",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Unauthenticated session can SELECT records",
             "executeQuery": "RESET ROLE; SELECT COUNT(*) as count FROM articles",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           }
         ]
       }
@@ -178,7 +234,9 @@
           ],
           "permissionConfig": {
             "table": {
-              "update": { "type": "authenticated" }
+              "update": {
+                "type": "authenticated"
+              }
             }
           }
         },
@@ -186,7 +244,9 @@
           {
             "description": "RLS policy exists for authenticated update",
             "executeQuery": "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='profiles' AND policyname='authenticated_update'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Policy uses both USING and WITH CHECK",
@@ -200,7 +260,9 @@
           {
             "description": "Authenticated user can UPDATE records",
             "executeQuery": "SET ROLE authenticated_user; UPDATE profiles SET bio = 'Updated bio' WHERE id = 1 RETURNING bio",
-            "expected": { "bio": "Updated bio" }
+            "expected": {
+              "bio": "Updated bio"
+            }
           },
           {
             "description": "Unauthenticated user cannot UPDATE records",
@@ -230,22 +292,30 @@
           {
             "description": "RLS is enabled",
             "executeQuery": "SELECT relrowsecurity FROM pg_class WHERE relname='secrets'",
-            "expected": { "relrowsecurity": true }
+            "expected": {
+              "relrowsecurity": true
+            }
           },
           {
             "description": "No SELECT policies exist (default deny)",
             "executeQuery": "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='secrets' AND cmd='SELECT'",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           },
           {
             "description": "Admin user cannot SELECT (no policy)",
             "executeQuery": "SET ROLE admin_user; SELECT COUNT(*) as count FROM secrets",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           },
           {
             "description": "Any user gets empty result set (RLS blocks)",
             "executeQuery": "SET ROLE member_user; SELECT COUNT(*) as count FROM secrets",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           }
         ]
       }

@@ -23,7 +23,9 @@
       "type": "string",
       "const": "datetime",
       "description": "Field type discriminator for datetime fields with both date and time components",
-      "examples": ["datetime"]
+      "examples": [
+        "datetime"
+      ]
     },
     "format": {
       "$ref": "./format/format.schema.json"
@@ -55,7 +57,11 @@
       "format": "MM/DD/YYYY hh:mm A"
     }
   ],
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -66,7 +72,11 @@
       "validation": {
         "setup": {
           "executeQuery": "CREATE TABLE events (id SERIAL PRIMARY KEY)",
-          "fieldConfig": { "id": 1, "name": "scheduled_at", "type": "datetime" }
+          "fieldConfig": {
+            "id": 1,
+            "name": "scheduled_at",
+            "type": "datetime"
+          }
         },
         "assertions": [
           {
@@ -81,12 +91,16 @@
           {
             "description": "ISO 8601 timestamp can be inserted",
             "executeQuery": "INSERT INTO events (scheduled_at) VALUES ('2024-12-31T15:00:00Z') RETURNING scheduled_at",
-            "expected": { "scheduled_at": "2024-12-31T15:00:00+00:00" }
+            "expected": {
+              "scheduled_at": "2024-12-31T15:00:00+00:00"
+            }
           },
           {
             "description": "Timestamp with timezone offset supported",
             "executeQuery": "INSERT INTO events (scheduled_at) VALUES ('2024-06-15T14:30:00-05:00') RETURNING scheduled_at",
-            "expected": { "scheduled_at": "2024-06-15T19:30:00+00:00" }
+            "expected": {
+              "scheduled_at": "2024-06-15T19:30:00+00:00"
+            }
           }
         ]
       }
@@ -107,17 +121,23 @@
           {
             "description": "Find timestamps after specific datetime",
             "executeQuery": "SELECT COUNT(*) as count FROM appointments WHERE appointment_time > '2024-06-01T00:00:00Z'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Find timestamps between range",
             "executeQuery": "SELECT COUNT(*) as count FROM appointments WHERE appointment_time BETWEEN '2024-01-01T00:00:00Z' AND '2024-07-01T00:00:00Z'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Order by timestamp ascending",
             "executeQuery": "SELECT appointment_time::TEXT FROM appointments ORDER BY appointment_time ASC LIMIT 1",
-            "expected": { "appointment_time": "2024-01-15 09:00:00+00" }
+            "expected": {
+              "appointment_time": "2024-01-15 09:00:00+00"
+            }
           }
         ]
       }
@@ -138,12 +158,16 @@
           {
             "description": "NOT NULL constraint enforced",
             "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='logs' AND column_name='logged_at'",
-            "expected": { "is_nullable": "NO" }
+            "expected": {
+              "is_nullable": "NO"
+            }
           },
           {
             "description": "UNIQUE constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='logs' AND constraint_type='UNIQUE' AND constraint_name LIKE '%logged_at%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Duplicate timestamp rejected",
@@ -177,17 +201,23 @@
           {
             "description": "Column has DEFAULT value NOW()",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='notifications' AND column_name='sent_at'",
-            "expected": { "column_default": "now()" }
+            "expected": {
+              "column_default": "now()"
+            }
           },
           {
             "description": "INSERT without sent_at uses current timestamp",
             "executeQuery": "INSERT INTO notifications (id) VALUES (DEFAULT) RETURNING sent_at IS NOT NULL as has_timestamp",
-            "expected": { "has_timestamp": true }
+            "expected": {
+              "has_timestamp": true
+            }
           },
           {
             "description": "Explicit value overrides default",
             "executeQuery": "INSERT INTO notifications (sent_at) VALUES ('2024-01-01T00:00:00Z') RETURNING sent_at",
-            "expected": { "sent_at": "2024-01-01T00:00:00+00:00" }
+            "expected": {
+              "sent_at": "2024-01-01T00:00:00+00:00"
+            }
           }
         ]
       }
@@ -214,7 +244,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_articles_published'",
-            "expected": { "indexname": "idx_articles_published", "tablename": "articles" }
+            "expected": {
+              "indexname": "idx_articles_published",
+              "tablename": "articles"
+            }
           },
           {
             "description": "Index uses btree for timestamp range queries",

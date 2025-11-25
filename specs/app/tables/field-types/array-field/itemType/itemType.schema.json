@@ -5,7 +5,10 @@
   "description": "Type of items in the array",
   "type": "string",
   "default": "text",
-  "enum": ["text", "number"],
+  "enum": [
+    "text",
+    "number"
+  ],
   "x-specs": [
     {
       "id": "APP-FIELD-ARRAY-ITEMTYPE-001",
@@ -23,7 +26,7 @@
           {
             "description": "selection should be accepted",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -44,7 +47,7 @@
           {
             "description": "error should list valid options: text, number",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "must be one of the allowed values"
           }
         ]
       }
@@ -65,7 +68,7 @@
           {
             "description": "appropriate behavior should execute",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }

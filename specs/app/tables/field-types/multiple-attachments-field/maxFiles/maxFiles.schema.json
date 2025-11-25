@@ -23,7 +23,7 @@
           {
             "description": "value should be accepted",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -44,7 +44,7 @@
           {
             "description": "error should enforce minimum value",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "must be within the allowed range"
           }
         ]
       }

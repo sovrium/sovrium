@@ -22,7 +22,11 @@
     }
   },
   "description": "Time duration in hours, minutes, and seconds",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -43,17 +47,24 @@
           {
             "description": "Column created as INTERVAL type",
             "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='tasks' AND column_name='task_duration'",
-            "expected": { "column_name": "task_duration", "data_type": "interval" }
+            "expected": {
+              "column_name": "task_duration",
+              "data_type": "interval"
+            }
           },
           {
             "description": "Duration in hours can be inserted",
             "executeQuery": "INSERT INTO tasks (task_duration) VALUES (INTERVAL '2 hours') RETURNING task_duration",
-            "expected": { "task_duration": "02:00:00" }
+            "expected": {
+              "task_duration": "02:00:00"
+            }
           },
           {
             "description": "Duration in minutes can be inserted",
             "executeQuery": "INSERT INTO tasks (task_duration) VALUES (INTERVAL '45 minutes') RETURNING task_duration",
-            "expected": { "task_duration": "00:45:00" }
+            "expected": {
+              "task_duration": "00:45:00"
+            }
           }
         ]
       }
@@ -74,17 +85,23 @@
           {
             "description": "Find videos longer than 15 minutes",
             "executeQuery": "SELECT COUNT(*) as count FROM videos WHERE length > INTERVAL '15 minutes'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Calculate total duration of all videos",
             "executeQuery": "SELECT SUM(length) as total_duration FROM videos",
-            "expected": { "total_duration": "01:35:00" }
+            "expected": {
+              "total_duration": "01:35:00"
+            }
           },
           {
             "description": "Order videos by duration",
             "executeQuery": "SELECT title FROM videos ORDER BY length DESC LIMIT 1",
-            "expected": { "title": "Video 3" }
+            "expected": {
+              "title": "Video 3"
+            }
           }
         ]
       }
@@ -105,17 +122,23 @@
           {
             "description": "Complex duration stored correctly",
             "executeQuery": "SELECT estimated_time FROM meetings WHERE id = 1",
-            "expected": { "estimated_time": "2 days 03:30:00" }
+            "expected": {
+              "estimated_time": "2 days 03:30:00"
+            }
           },
           {
             "description": "Extract hours from interval",
             "executeQuery": "SELECT EXTRACT(HOUR FROM estimated_time) as hours FROM meetings WHERE id = 1",
-            "expected": { "hours": 3 }
+            "expected": {
+              "hours": 3
+            }
           },
           {
             "description": "Convert interval to total seconds",
             "executeQuery": "SELECT EXTRACT(EPOCH FROM estimated_time) as total_seconds FROM meetings WHERE id = 1",
-            "expected": { "total_seconds": 185400 }
+            "expected": {
+              "total_seconds": 185400
+            }
           }
         ]
       }
@@ -136,17 +159,23 @@
           {
             "description": "Calculate end date by adding duration",
             "executeQuery": "SELECT (start_date + duration)::DATE as end_date FROM projects WHERE id = 1",
-            "expected": { "end_date": "2024-01-06" }
+            "expected": {
+              "end_date": "2024-01-06"
+            }
           },
           {
             "description": "Calculate remaining time from now",
             "executeQuery": "SELECT (start_date + duration) > NOW() as is_future FROM projects WHERE id = 1",
-            "expected": { "is_future": false }
+            "expected": {
+              "is_future": false
+            }
           },
           {
             "description": "Duration arithmetic with multiplication",
             "executeQuery": "SELECT (duration * 2) as doubled_duration FROM projects WHERE id = 1",
-            "expected": { "doubled_duration": "10 days" }
+            "expected": {
+              "doubled_duration": "10 days"
+            }
           }
         ]
       }
@@ -169,12 +198,16 @@
           {
             "description": "Duration within limit succeeds",
             "executeQuery": "INSERT INTO shifts (shift_length) VALUES (INTERVAL '8 hours') RETURNING shift_length",
-            "expected": { "shift_length": "08:00:00" }
+            "expected": {
+              "shift_length": "08:00:00"
+            }
           },
           {
             "description": "Duration at maximum limit succeeds",
             "executeQuery": "INSERT INTO shifts (shift_length) VALUES (INTERVAL '12 hours') RETURNING shift_length",
-            "expected": { "shift_length": "12:00:00" }
+            "expected": {
+              "shift_length": "12:00:00"
+            }
           },
           {
             "description": "Duration exceeding limit rejected",

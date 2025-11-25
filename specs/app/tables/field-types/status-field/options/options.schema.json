@@ -17,7 +17,9 @@
         "description": "Hex color code for the status"
       }
     },
-    "required": ["value"]
+    "required": [
+      "value"
+    ]
   },
   "x-specs": [
     {
@@ -37,8 +39,14 @@
             "name": "status",
             "type": "status",
             "options": [
-              { "value": "Todo", "color": "#FF0000" },
-              { "value": "Done", "color": "#00FF00" }
+              {
+                "value": "Todo",
+                "color": "#FF0000"
+              },
+              {
+                "value": "Done",
+                "color": "#00FF00"
+              }
             ]
           }
         },
@@ -46,17 +54,24 @@
           {
             "description": "Status values enforced by CHECK constraint",
             "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%status%'",
-            "expected": { "check_clause": "(status IN ('Todo', 'Done'))" }
+            "expected": {
+              "check_clause": "(status IN ('Todo', 'Done'))"
+            }
           },
           {
             "description": "Color metadata stored in status_options table",
             "executeQuery": "SELECT value, color FROM status_options WHERE field_name = 'task_status' AND value = 'Todo'",
-            "expected": { "value": "Todo", "color": "#FF0000" }
+            "expected": {
+              "value": "Todo",
+              "color": "#FF0000"
+            }
           },
           {
             "description": "Valid status value accepted",
             "executeQuery": "SELECT status FROM tasks WHERE title = 'Task 1'",
-            "expected": { "status": "Todo" }
+            "expected": {
+              "status": "Todo"
+            }
           },
           {
             "description": "Invalid status value rejected",
@@ -82,24 +97,40 @@
           "fieldConfig": {
             "name": "priority",
             "type": "status",
-            "options": [{ "value": "Low" }, { "value": "High", "color": "#FF0000" }]
+            "options": [
+              {
+                "value": "Low"
+              },
+              {
+                "value": "High",
+                "color": "#FF0000"
+              }
+            ]
           }
         },
         "assertions": [
           {
             "description": "Options without color have NULL color metadata",
             "executeQuery": "SELECT value, color FROM status_options WHERE field_name = 'priority' AND value = 'Low'",
-            "expected": { "value": "Low", "color": null }
+            "expected": {
+              "value": "Low",
+              "color": null
+            }
           },
           {
             "description": "Options with color preserve color metadata",
             "executeQuery": "SELECT value, color FROM status_options WHERE field_name = 'priority' AND value = 'High'",
-            "expected": { "value": "High", "color": "#FF0000" }
+            "expected": {
+              "value": "High",
+              "color": "#FF0000"
+            }
           },
           {
             "description": "Both options accepted in data column",
             "executeQuery": "SELECT COUNT(*) as count FROM issues WHERE priority IN ('Low', 'High')",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           }
         ]
       }
@@ -114,7 +145,12 @@
           "fieldConfig": {
             "name": "status",
             "type": "status",
-            "options": [{ "value": "", "color": "#FF0000" }]
+            "options": [
+              {
+                "value": "",
+                "color": "#FF0000"
+              }
+            ]
           }
         },
         "assertions": [
@@ -136,14 +172,21 @@
           "fieldConfig": {
             "name": "status",
             "type": "status",
-            "options": [{ "value": "Active", "color": "#1A2B3C" }]
+            "options": [
+              {
+                "value": "Active",
+                "color": "#1A2B3C"
+              }
+            ]
           }
         },
         "assertions": [
           {
             "description": "Valid hex color accepted",
             "validateConfig": true,
-            "expected": { "valid": true }
+            "expected": {
+              "valid": true
+            }
           }
         ]
       }
@@ -158,7 +201,12 @@
           "fieldConfig": {
             "name": "status",
             "type": "status",
-            "options": [{ "value": "Error", "color": "red" }]
+            "options": [
+              {
+                "value": "Error",
+                "color": "red"
+              }
+            ]
           }
         },
         "assertions": [
@@ -184,14 +232,21 @@
           "fieldConfig": {
             "name": "task_status",
             "type": "status",
-            "options": [{ "value": "Review", "color": "#FF00FF" }]
+            "options": [
+              {
+                "value": "Review",
+                "color": "#FF00FF"
+              }
+            ]
           }
         },
         "assertions": [
           {
             "description": "Original hex format preserved (case-sensitive)",
             "executeQuery": "SELECT color FROM status_options WHERE field_name = 'task_status' AND value = 'Review'",
-            "expected": { "color": "#FF00FF" }
+            "expected": {
+              "color": "#FF00FF"
+            }
           }
         ]
       }

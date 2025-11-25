@@ -30,18 +30,24 @@
           {
             "description": "Raw foreign key value stored in database",
             "executeQuery": "SELECT customer_id FROM orders WHERE order_number = 'ORD-001'",
-            "expected": { "customer_id": 1 }
+            "expected": {
+              "customer_id": 1
+            }
           },
           {
             "description": "Application JOIN fetches display field (customer name)",
             "executeQuery": "SELECT o.order_number, c.name as customer_name FROM orders o JOIN customers c ON o.customer_id = c.id WHERE o.order_number = 'ORD-001'",
-            "expected": { "order_number": "ORD-001", "customer_name": "Alice Wonder" }
+            "expected": {
+              "order_number": "ORD-001",
+              "customer_name": "Alice Wonder"
+            }
           },
           {
             "description": "Application displays name, not ID (UI representation)",
             "displayField": "name",
             "executeQuery": "SELECT o.order_number, c.name as customer_name FROM orders o JOIN customers c ON o.customer_id = c.id WHERE o.order_number = 'ORD-001'",
-            "expectedDisplay": "Alice Wonder"
+            "expectedDisplay": "Alice Wonder",
+            "expectError": "validation error"
           }
         ]
       }
@@ -70,12 +76,17 @@
           {
             "description": "Raw foreign key stored",
             "executeQuery": "SELECT author_id FROM comments WHERE content = 'Great article!'",
-            "expected": { "author_id": 1 }
+            "expected": {
+              "author_id": 1
+            }
           },
           {
             "description": "Application JOIN fetches email as display field",
             "executeQuery": "SELECT c.content, u.email as author_email FROM comments c JOIN users u ON c.author_id = u.id WHERE c.content = 'Great article!'",
-            "expected": { "content": "Great article!", "author_email": "alice@example.com" }
+            "expected": {
+              "content": "Great article!",
+              "author_email": "alice@example.com"
+            }
           }
         ]
       }
@@ -155,12 +166,17 @@
           {
             "description": "Without displayField: application shows raw ID",
             "executeQuery": "SELECT category_id FROM products WHERE product_name = 'Laptop'",
-            "expected": { "category_id": 1 }
+            "expected": {
+              "category_id": 1
+            }
           },
           {
             "description": "Application can still manually JOIN if needed",
             "executeQuery": "SELECT p.product_name, c.name as category_name FROM products p JOIN categories c ON p.category_id = c.id WHERE p.product_name = 'Laptop'",
-            "expected": { "product_name": "Laptop", "category_name": "Electronics" }
+            "expected": {
+              "product_name": "Laptop",
+              "category_name": "Electronics"
+            }
           }
         ]
       }
@@ -189,12 +205,17 @@
           {
             "description": "Raw foreign key stored",
             "executeQuery": "SELECT organizer_id FROM meetings WHERE title = 'Sprint Planning'",
-            "expected": { "organizer_id": 1 }
+            "expected": {
+              "organizer_id": 1
+            }
           },
           {
             "description": "Application uses expression to build display value",
             "executeQuery": "SELECT m.title, CONCAT(c.first_name, ' ', c.last_name) as organizer_name FROM meetings m JOIN contacts c ON m.organizer_id = c.id WHERE m.title = 'Sprint Planning'",
-            "expected": { "title": "Sprint Planning", "organizer_name": "Alice Wonder" }
+            "expected": {
+              "title": "Sprint Planning",
+              "organizer_name": "Alice Wonder"
+            }
           }
         ]
       }

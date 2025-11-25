@@ -22,20 +22,38 @@
         "description": "Permission to modify this field's value. If denied, updates to this field are rejected."
       }
     },
-    "required": ["field"],
+    "required": [
+      "field"
+    ],
     "additionalProperties": false
   },
   "examples": [
     [
       {
         "field": "email",
-        "read": { "type": "authenticated" },
-        "write": { "type": "custom", "condition": "{userId} = id" }
+        "read": {
+          "type": "authenticated"
+        },
+        "write": {
+          "type": "custom",
+          "condition": "{userId} = id"
+        }
       },
       {
         "field": "salary",
-        "read": { "type": "roles", "roles": ["admin", "hr"] },
-        "write": { "type": "roles", "roles": ["admin"] }
+        "read": {
+          "type": "roles",
+          "roles": [
+            "admin",
+            "hr"
+          ]
+        },
+        "write": {
+          "type": "roles",
+          "roles": [
+            "admin"
+          ]
+        }
       }
     ],
     []
@@ -56,7 +74,12 @@
             "fields": [
               {
                 "field": "salary",
-                "read": { "type": "roles", "roles": ["admin"] }
+                "read": {
+                  "type": "roles",
+                  "roles": [
+                    "admin"
+                  ]
+                }
               }
             ]
           }
@@ -65,12 +88,21 @@
           {
             "description": "Admin user can SELECT salary column",
             "executeQuery": "SET ROLE admin_user; SELECT id, name, salary, department FROM employees WHERE id = 1",
-            "expected": { "id": 1, "name": "Alice", "salary": 75000.0, "department": "Engineering" }
+            "expected": {
+              "id": 1,
+              "name": "Alice",
+              "salary": 75000.0,
+              "department": "Engineering"
+            }
           },
           {
             "description": "Member user SELECT excludes salary (application layer filtering)",
             "executeQuery": "SET ROLE member_user; SELECT id, name, department FROM employees WHERE id = 1",
-            "expected": { "id": 1, "name": "Alice", "department": "Engineering" }
+            "expected": {
+              "id": 1,
+              "name": "Alice",
+              "department": "Engineering"
+            }
           },
           {
             "description": "Member attempting to SELECT salary gets NULL or error",
@@ -95,7 +127,12 @@
             "fields": [
               {
                 "field": "email",
-                "write": { "type": "roles", "roles": ["admin"] }
+                "write": {
+                  "type": "roles",
+                  "roles": [
+                    "admin"
+                  ]
+                }
               }
             ]
           }
@@ -104,12 +141,16 @@
           {
             "description": "Admin user can UPDATE email field",
             "executeQuery": "SET ROLE admin_user; UPDATE users SET email = 'alice.new@example.com' WHERE id = 1 RETURNING email",
-            "expected": { "email": "alice.new@example.com" }
+            "expected": {
+              "email": "alice.new@example.com"
+            }
           },
           {
             "description": "Member user can UPDATE other fields",
             "executeQuery": "SET ROLE member_user; UPDATE users SET bio = 'Updated bio' WHERE id = 1 RETURNING bio",
-            "expected": { "bio": "Updated bio" }
+            "expected": {
+              "bio": "Updated bio"
+            }
           },
           {
             "description": "Member user cannot UPDATE email field",
@@ -134,15 +175,24 @@
             "fields": [
               {
                 "field": "email",
-                "read": { "type": "authenticated" }
+                "read": {
+                  "type": "authenticated"
+                }
               },
               {
                 "field": "salary",
-                "read": { "type": "roles", "roles": ["admin"] }
+                "read": {
+                  "type": "roles",
+                  "roles": [
+                    "admin"
+                  ]
+                }
               },
               {
                 "field": "department",
-                "read": { "type": "public" }
+                "read": {
+                  "type": "public"
+                }
               }
             ]
           }
@@ -170,7 +220,10 @@
           {
             "description": "Unauthenticated user sees name, department only",
             "executeQuery": "RESET ROLE; SELECT name, department FROM staff WHERE id = 1",
-            "expected": { "name": "Alice", "department": "Engineering" }
+            "expected": {
+              "name": "Alice",
+              "department": "Engineering"
+            }
           }
         ]
       }
@@ -190,8 +243,15 @@
             "fields": [
               {
                 "field": "status",
-                "read": { "type": "public" },
-                "write": { "type": "roles", "roles": ["admin"] }
+                "read": {
+                  "type": "public"
+                },
+                "write": {
+                  "type": "roles",
+                  "roles": [
+                    "admin"
+                  ]
+                }
               }
             ]
           }
@@ -200,12 +260,17 @@
           {
             "description": "Unauthenticated user can SELECT status",
             "executeQuery": "RESET ROLE; SELECT title, status FROM tickets WHERE id = 1",
-            "expected": { "title": "Bug #123", "status": "open" }
+            "expected": {
+              "title": "Bug #123",
+              "status": "open"
+            }
           },
           {
             "description": "Admin user can UPDATE status",
             "executeQuery": "SET ROLE admin_user; UPDATE tickets SET status = 'closed' WHERE id = 1 RETURNING status",
-            "expected": { "status": "closed" }
+            "expected": {
+              "status": "closed"
+            }
           },
           {
             "description": "Member user cannot UPDATE status",
@@ -230,7 +295,10 @@
             "fields": [
               {
                 "field": "notes",
-                "write": { "type": "custom", "condition": "{userId} = owner_id" }
+                "write": {
+                  "type": "custom",
+                  "condition": "{userId} = owner_id"
+                }
               }
             ]
           }
@@ -239,7 +307,9 @@
           {
             "description": "Owner (user 1) can UPDATE notes on their task",
             "executeQuery": "SET LOCAL app.user_id = 1; UPDATE tasks SET notes = 'Updated by owner' WHERE id = 1 RETURNING notes",
-            "expected": { "notes": "Updated by owner" }
+            "expected": {
+              "notes": "Updated by owner"
+            }
           },
           {
             "description": "Non-owner (user 2) cannot UPDATE notes on task 1",
@@ -249,7 +319,9 @@
           {
             "description": "Owner can UPDATE notes on their own task (task 2)",
             "executeQuery": "SET LOCAL app.user_id = 2; UPDATE tasks SET notes = 'My notes' WHERE id = 2 RETURNING notes",
-            "expected": { "notes": "My notes" }
+            "expected": {
+              "notes": "My notes"
+            }
           }
         ]
       }
@@ -267,7 +339,9 @@
           ],
           "permissionConfig": {
             "table": {
-              "read": { "type": "authenticated" }
+              "read": {
+                "type": "authenticated"
+              }
             },
             "fields": []
           }
@@ -276,12 +350,17 @@
           {
             "description": "Field permissions array is empty",
             "executeQuery": "SELECT '[]'::jsonb as field_permissions",
-            "expected": { "field_permissions": [] }
+            "expected": {
+              "field_permissions": []
+            }
           },
           {
             "description": "Authenticated user can SELECT all fields (including created_at)",
             "executeQuery": "SET ROLE authenticated_user; SELECT id, title, created_at FROM posts WHERE id = 1",
-            "expected": { "id": 1, "title": "Post 1" }
+            "expected": {
+              "id": 1,
+              "title": "Post 1"
+            }
           },
           {
             "description": "Unauthenticated user cannot SELECT (table-level denied)",

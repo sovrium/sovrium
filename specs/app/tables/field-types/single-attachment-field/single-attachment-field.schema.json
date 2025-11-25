@@ -25,7 +25,11 @@
     }
   },
   "description": "Single file upload field with configurable storage backend. Supports local filesystem or S3-compatible cloud storage. Configure maxSize limit (in bytes, default 10MB), allowedTypes using MIME types or wildcards (e.g., image/*, application/pdf). Useful for profile pictures, documents, invoices, and single-file attachments. For S3 provider, bucket name is required.",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -46,7 +50,10 @@
           {
             "description": "Column created as JSONB",
             "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='users' AND column_name='profile_picture'",
-            "expected": { "column_name": "profile_picture", "data_type": "jsonb" }
+            "expected": {
+              "column_name": "profile_picture",
+              "data_type": "jsonb"
+            }
           },
           {
             "description": "File metadata can be stored",
@@ -63,7 +70,9 @@
           {
             "description": "Null attachment allowed (no file uploaded)",
             "executeQuery": "INSERT INTO users (profile_picture) VALUES (NULL) RETURNING profile_picture",
-            "expected": { "profile_picture": null }
+            "expected": {
+              "profile_picture": null
+            }
           }
         ]
       }
@@ -85,17 +94,24 @@
           {
             "description": "Extract filename from attachment",
             "executeQuery": "SELECT title, file ->> 'name' as filename FROM documents WHERE id = 1",
-            "expected": { "title": "Report 2024", "filename": "report.pdf" }
+            "expected": {
+              "title": "Report 2024",
+              "filename": "report.pdf"
+            }
           },
           {
             "description": "Filter by MIME type",
             "executeQuery": "SELECT COUNT(*) as count FROM documents WHERE file ->> 'mime_type' = 'application/pdf'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Find large attachments (> 300KB)",
             "executeQuery": "SELECT title FROM documents WHERE (file ->> 'size')::INTEGER > 300000",
-            "expected": { "title": "Report 2024" }
+            "expected": {
+              "title": "Report 2024"
+            }
           }
         ]
       }
@@ -122,7 +138,9 @@
           {
             "description": "NOT NULL constraint enforced",
             "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='profiles' AND column_name='avatar'",
-            "expected": { "is_nullable": "NO" }
+            "expected": {
+              "is_nullable": "NO"
+            }
           },
           {
             "description": "INSERT without attachment rejected",
@@ -154,7 +172,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_contracts_signed_copy'",
-            "expected": { "indexname": "idx_contracts_signed_copy", "tablename": "contracts" }
+            "expected": {
+              "indexname": "idx_contracts_signed_copy",
+              "tablename": "contracts"
+            }
           },
           {
             "description": "Index uses GIN for JSONB operations",
@@ -185,12 +206,16 @@
           {
             "description": "File within size limit succeeds",
             "executeQuery": "INSERT INTO invoices (pdf_file) VALUES ('{\"path\": \"/invoices/inv001.pdf\", \"name\": \"inv001.pdf\", \"size\": 5242880, \"mime_type\": \"application/pdf\"}') RETURNING pdf_file ->> 'size' as size",
-            "expected": { "size": "5242880" }
+            "expected": {
+              "size": "5242880"
+            }
           },
           {
             "description": "File at maximum size succeeds",
             "executeQuery": "INSERT INTO invoices (pdf_file) VALUES ('{\"path\": \"/invoices/inv002.pdf\", \"name\": \"inv002.pdf\", \"size\": 10485760, \"mime_type\": \"application/pdf\"}') RETURNING pdf_file ->> 'size' as size",
-            "expected": { "size": "10485760" }
+            "expected": {
+              "size": "10485760"
+            }
           },
           {
             "description": "File exceeding size limit rejected",

@@ -19,7 +19,11 @@
     }
   },
   "description": "Geographic coordinates (latitude/longitude)",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -40,17 +44,25 @@
           {
             "description": "Column created as POINT type",
             "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='locations' AND column_name='coordinates'",
-            "expected": { "column_name": "coordinates", "data_type": "point" }
+            "expected": {
+              "column_name": "coordinates",
+              "data_type": "point"
+            }
           },
           {
             "description": "Point (latitude, longitude) can be inserted",
             "executeQuery": "INSERT INTO locations (coordinates) VALUES (POINT(40.7128, -74.0060)) RETURNING coordinates",
-            "expected": { "coordinates": "(40.7128,-74.006)" }
+            "expected": {
+              "coordinates": "(40.7128,-74.006)"
+            }
           },
           {
             "description": "Point coordinates can be extracted",
             "executeQuery": "INSERT INTO locations (coordinates) VALUES (POINT(51.5074, -0.1278)) RETURNING coordinates[0] as latitude, coordinates[1] as longitude",
-            "expected": { "latitude": 51.5074, "longitude": -0.1278 }
+            "expected": {
+              "latitude": 51.5074,
+              "longitude": -0.1278
+            }
           }
         ]
       }
@@ -73,17 +85,29 @@
           {
             "description": "Calculate distance from reference point",
             "executeQuery": "SELECT name, location <-> POINT(40.7128, -74.0060) as distance FROM stores ORDER BY distance LIMIT 1",
-            "expected": { "name": "Store A", "distance": 0 }
+            "expected": {
+              "name": "Store A",
+              "distance": 0
+            }
           },
           {
             "description": "Find stores within distance threshold",
             "executeQuery": "SELECT COUNT(*) as count FROM stores WHERE location <-> POINT(40.7128, -74.0060) < 1",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Order stores by proximity to point",
             "executeQuery": "SELECT name FROM stores ORDER BY location <-> POINT(40.7128, -74.0060) LIMIT 2",
-            "expected": [{ "name": "Store A" }, { "name": "Store B" }]
+            "expected": [
+              {
+                "name": "Store A"
+              },
+              {
+                "name": "Store B"
+              }
+            ]
           }
         ]
       }
@@ -110,7 +134,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_places_position'",
-            "expected": { "indexname": "idx_places_position", "tablename": "places" }
+            "expected": {
+              "indexname": "idx_places_position",
+              "tablename": "places"
+            }
           },
           {
             "description": "Index uses GiST for spatial operations",
@@ -140,12 +167,16 @@
           {
             "description": "Define bounding box (SW and NE corners)",
             "executeQuery": "SELECT COUNT(*) as count FROM venues WHERE box(POINT(40.0, -75.0), POINT(41.0, -73.0)) @> coords",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Find venues outside bounding box",
             "executeQuery": "SELECT name FROM venues WHERE NOT box(POINT(40.0, -75.0), POINT(41.0, -73.0)) @> coords",
-            "expected": { "name": "Venue 3" }
+            "expected": {
+              "name": "Venue 3"
+            }
           }
         ]
       }
@@ -166,12 +197,16 @@
           {
             "description": "NOT NULL constraint enforced",
             "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='addresses' AND column_name='location'",
-            "expected": { "is_nullable": "NO" }
+            "expected": {
+              "is_nullable": "NO"
+            }
           },
           {
             "description": "UNIQUE constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='addresses' AND constraint_type='UNIQUE' AND constraint_name LIKE '%location%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Duplicate location rejected",

@@ -22,7 +22,11 @@
     }
   },
   "description": "Visual progress bar (0-100%)",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -41,7 +45,7 @@
           {
             "description": "correct handler should be selected",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -62,7 +66,7 @@
           {
             "description": "clear error message should identify the issue",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "must be one of the allowed values"
           }
         ]
       }

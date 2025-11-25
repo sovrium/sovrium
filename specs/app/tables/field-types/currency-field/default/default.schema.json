@@ -26,17 +26,23 @@
           {
             "description": "Column has DEFAULT constraint",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='accounts' AND column_name='balance'",
-            "expected": { "column_default": "0.00" }
+            "expected": {
+              "column_default": "0.00"
+            }
           },
           {
             "description": "Default value applied when not provided",
             "executeQuery": "SELECT balance FROM accounts WHERE name = 'Account 1'",
-            "expected": { "balance": 0.0 }
+            "expected": {
+              "balance": 0.0
+            }
           },
           {
             "description": "Explicit value overrides default",
             "executeQuery": "INSERT INTO accounts (name, balance) VALUES ('Account 3', 1500.50) RETURNING balance",
-            "expected": { "balance": 1500.5 }
+            "expected": {
+              "balance": 1500.5
+            }
           }
         ]
       }
@@ -62,17 +68,23 @@
           {
             "description": "Default value is 49.99",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='subscriptions' AND column_name='price'",
-            "expected": { "column_default": "49.99" }
+            "expected": {
+              "column_default": "49.99"
+            }
           },
           {
             "description": "Default applied to inserted record",
             "executeQuery": "SELECT price FROM subscriptions WHERE plan_name = 'Basic Plan'",
-            "expected": { "price": 49.99 }
+            "expected": {
+              "price": 49.99
+            }
           },
           {
             "description": "Explicit 0.00 allowed (overrides default)",
             "executeQuery": "INSERT INTO subscriptions (plan_name, price) VALUES ('Free Plan', 0.00) RETURNING price",
-            "expected": { "price": 0.0 }
+            "expected": {
+              "price": 0.0
+            }
           }
         ]
       }
@@ -97,17 +109,23 @@
           {
             "description": "No DEFAULT constraint",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='payments' AND column_name='amount'",
-            "expected": { "column_default": null }
+            "expected": {
+              "column_default": null
+            }
           },
           {
             "description": "NULL used when no default and no value",
             "executeQuery": "SELECT amount FROM payments WHERE id = 1",
-            "expected": { "amount": null }
+            "expected": {
+              "amount": null
+            }
           },
           {
             "description": "Explicit value succeeds",
             "executeQuery": "INSERT INTO payments (amount) VALUES (275.00) RETURNING amount",
-            "expected": { "amount": 275.0 }
+            "expected": {
+              "amount": 275.0
+            }
           }
         ]
       }

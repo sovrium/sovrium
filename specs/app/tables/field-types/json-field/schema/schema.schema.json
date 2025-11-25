@@ -21,7 +21,7 @@
           {
             "description": "value should meet schema requirements",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -42,7 +42,7 @@
           {
             "description": "value should be used correctly",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }

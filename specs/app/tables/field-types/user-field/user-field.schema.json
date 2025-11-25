@@ -25,7 +25,11 @@
     }
   },
   "description": "Reference to application users/collaborators for assignments, ownership, and mentions. Links records to user accounts. Set allowMultiple=true to assign multiple users (e.g., project team members), or false for single assignment (e.g., task owner). Automatically indexed for efficient filtering by user. Displays user profile information (name, avatar). Useful for task assignments, record ownership, collaboration, and audit trails.",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -59,12 +63,16 @@
           {
             "description": "FOREIGN KEY constraint references users table",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='tasks' AND constraint_type='FOREIGN KEY' AND constraint_name LIKE '%assigned_to%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Foreign key references users table",
             "executeQuery": "SELECT ccu.table_name as referenced_table FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name WHERE tc.table_name='tasks' AND tc.constraint_type='FOREIGN KEY'",
-            "expected": { "referenced_table": "users" }
+            "expected": {
+              "referenced_table": "users"
+            }
           }
         ]
       }
@@ -86,7 +94,9 @@
           {
             "description": "Valid user reference succeeds",
             "executeQuery": "INSERT INTO issues (title, reporter) VALUES ('Bug report', 1) RETURNING reporter",
-            "expected": { "reporter": 1 }
+            "expected": {
+              "reporter": 1
+            }
           },
           {
             "description": "Invalid user reference rejected",
@@ -96,7 +106,9 @@
           {
             "description": "NULL user allowed (optional assignment)",
             "executeQuery": "INSERT INTO issues (title, reporter) VALUES ('Unassigned issue', NULL) RETURNING reporter IS NULL as is_null",
-            "expected": { "is_null": true }
+            "expected": {
+              "is_null": true
+            }
           }
         ]
       }
@@ -127,20 +139,33 @@
           {
             "description": "Junction table exists",
             "executeQuery": "SELECT table_name FROM information_schema.tables WHERE table_name = 'project_collaborators'",
-            "expected": { "table_name": "project_collaborators" }
+            "expected": {
+              "table_name": "project_collaborators"
+            }
           },
           {
             "description": "Multiple users assigned to project",
             "executeQuery": "SELECT COUNT(*) as count FROM project_collaborators WHERE project_id = 1",
-            "expected": { "count": 3 }
+            "expected": {
+              "count": 3
+            }
           },
           {
             "description": "Query returns all collaborators via JOIN",
             "executeQuery": "SELECT p.name as project_name, u.name as user_name FROM projects p JOIN project_collaborators pc ON p.id = pc.project_id JOIN users u ON pc.user_id = u.id WHERE p.id = 1 ORDER BY u.name",
             "expected": [
-              { "project_name": "Website Redesign", "user_name": "Alice" },
-              { "project_name": "Website Redesign", "user_name": "Bob" },
-              { "project_name": "Website Redesign", "user_name": "Charlie" }
+              {
+                "project_name": "Website Redesign",
+                "user_name": "Alice"
+              },
+              {
+                "project_name": "Website Redesign",
+                "user_name": "Bob"
+              },
+              {
+                "project_name": "Website Redesign",
+                "user_name": "Charlie"
+              }
             ]
           }
         ]
@@ -179,7 +204,9 @@
           {
             "description": "Filter documents by user",
             "executeQuery": "SELECT COUNT(*) as count FROM documents d JOIN users u ON d.owner = u.id WHERE u.email = 'sarah@example.com'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           }
         ]
       }
@@ -207,7 +234,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_pull_requests_reviewer'",
-            "expected": { "indexname": "idx_pull_requests_reviewer", "tablename": "pull_requests" }
+            "expected": {
+              "indexname": "idx_pull_requests_reviewer",
+              "tablename": "pull_requests"
+            }
           },
           {
             "description": "Index uses btree for user filtering",

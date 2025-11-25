@@ -5,7 +5,11 @@
   "description": "Visual style for the rating",
   "type": "string",
   "default": "star",
-  "enum": ["star", "number", "heart"],
+  "enum": [
+    "star",
+    "number",
+    "heart"
+  ],
   "x-specs": [
     {
       "id": "APP-FIELD-RATING-STYLE-001",
@@ -23,7 +27,7 @@
           {
             "description": "selection should be accepted",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -44,7 +48,7 @@
           {
             "description": "error should list valid options: star, number, heart",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "must be a valid style option"
           }
         ]
       }
@@ -65,7 +69,7 @@
           {
             "description": "appropriate behavior should execute",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }

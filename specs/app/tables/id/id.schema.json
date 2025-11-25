@@ -4,7 +4,11 @@
   "$ref": "../../common/definitions.schema.json#/definitions/id",
   "title": "Table ID",
   "description": "Unique identifier for the table",
-  "examples": [1, 2, 100],
+  "examples": [
+    1,
+    2,
+    100
+  ],
   "x-specs": [
     {
       "id": "APP-TABLES-ID-001",
@@ -22,7 +26,7 @@
           {
             "description": "it should be unique within the parent collection",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -43,7 +47,7 @@
           {
             "description": "the system should prevent changes (read-only constraint)",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -64,7 +68,7 @@
           {
             "description": "the entity should be retrieved successfully",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }

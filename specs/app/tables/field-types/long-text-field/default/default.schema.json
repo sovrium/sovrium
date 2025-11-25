@@ -26,12 +26,16 @@
           {
             "description": "Column has DEFAULT constraint with multiline text",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='articles' AND column_name='body'",
-            "expected": { "column_default": "'# New Article\\n\\nStart writing here...'::text" }
+            "expected": {
+              "column_default": "'# New Article\\n\\nStart writing here...'::text"
+            }
           },
           {
             "description": "INSERT without value uses multiline default",
             "executeQuery": "SELECT body FROM articles WHERE title = 'My First Post'",
-            "expected": { "body": "# New Article\n\nStart writing here..." }
+            "expected": {
+              "body": "# New Article\n\nStart writing here..."
+            }
           }
         ]
       }
@@ -57,12 +61,17 @@
           {
             "description": "INSERT without value uses empty string",
             "executeQuery": "SELECT content FROM notes WHERE title = 'Quick Note'",
-            "expected": { "content": "" }
+            "expected": {
+              "content": ""
+            }
           },
           {
             "description": "Empty string vs NULL distinction",
             "executeQuery": "SELECT content IS NULL as is_null, LENGTH(content) as length FROM notes WHERE title = 'Quick Note'",
-            "expected": { "is_null": false, "length": 0 }
+            "expected": {
+              "is_null": false,
+              "length": 0
+            }
           }
         ]
       }
@@ -87,12 +96,16 @@
           {
             "description": "Column has no DEFAULT constraint",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='comments' AND column_name='text'",
-            "expected": { "column_default": null }
+            "expected": {
+              "column_default": null
+            }
           },
           {
             "description": "INSERT without value results in NULL",
             "executeQuery": "SELECT text FROM comments WHERE post_id = 1",
-            "expected": { "text": null }
+            "expected": {
+              "text": null
+            }
           }
         ]
       }

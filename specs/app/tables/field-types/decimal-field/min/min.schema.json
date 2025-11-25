@@ -26,12 +26,16 @@
           {
             "description": "CHECK constraint exists for min value",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%value%' AND check_clause LIKE '%>= 0.0%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Value at minimum (0.0) accepted",
             "executeQuery": "SELECT value FROM measurements WHERE value = 0.0",
-            "expected": { "value": 0.0 }
+            "expected": {
+              "value": 0.0
+            }
           },
           {
             "description": "Value below minimum rejected",
@@ -41,7 +45,9 @@
           {
             "description": "Decimal value above minimum accepted",
             "executeQuery": "INSERT INTO measurements (value) VALUES (25.75) RETURNING value",
-            "expected": { "value": 25.75 }
+            "expected": {
+              "value": 25.75
+            }
           }
         ]
       }
@@ -67,12 +73,16 @@
           {
             "description": "CHECK constraint enforces min -273.15",
             "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%celsius%'",
-            "expected": { "check_clause": "(celsius >= '-273.15'::numeric)" }
+            "expected": {
+              "check_clause": "(celsius >= '-273.15'::numeric)"
+            }
           },
           {
             "description": "Exact minimum (-273.15) accepted",
             "executeQuery": "SELECT celsius FROM temperatures WHERE celsius = -273.15",
-            "expected": { "celsius": -273.15 }
+            "expected": {
+              "celsius": -273.15
+            }
           },
           {
             "description": "Below minimum rejected",
@@ -82,7 +92,9 @@
           {
             "description": "Above minimum accepted",
             "executeQuery": "INSERT INTO temperatures (celsius) VALUES (37.5) RETURNING celsius",
-            "expected": { "celsius": 37.5 }
+            "expected": {
+              "celsius": 37.5
+            }
           }
         ]
       }
@@ -107,17 +119,23 @@
           {
             "description": "No CHECK constraint for min",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%amount%'",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           },
           {
             "description": "Negative decimal values accepted",
             "executeQuery": "SELECT amount FROM balances WHERE amount = -9999.99",
-            "expected": { "amount": -9999.99 }
+            "expected": {
+              "amount": -9999.99
+            }
           },
           {
             "description": "Large negative value accepted",
             "executeQuery": "INSERT INTO balances (amount) VALUES (-50000.00) RETURNING amount",
-            "expected": { "amount": -50000.0 }
+            "expected": {
+              "amount": -50000.0
+            }
           }
         ]
       }

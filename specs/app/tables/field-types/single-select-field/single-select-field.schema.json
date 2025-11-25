@@ -28,7 +28,12 @@
     }
   },
   "description": "Single selection dropdown from predefined options. Users can choose exactly one value from the list. Useful for status fields (Active, Inactive, Pending), categories, priority levels (High, Medium, Low), and enumerated values. Requires at least one option. Supports default value. Indexing improves filtering by option value.",
-  "required": ["id", "name", "type", "options"],
+  "required": [
+    "id",
+    "name",
+    "type",
+    "options"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -44,9 +49,21 @@
             "name": "priority",
             "type": "single-select",
             "options": [
-              { "value": "High", "label": "High", "color": "red" },
-              { "value": "Medium", "label": "Medium", "color": "yellow" },
-              { "value": "Low", "label": "Low", "color": "green" }
+              {
+                "value": "High",
+                "label": "High",
+                "color": "red"
+              },
+              {
+                "value": "Medium",
+                "label": "Medium",
+                "color": "yellow"
+              },
+              {
+                "value": "Low",
+                "label": "Low",
+                "color": "green"
+              }
             ]
           }
         },
@@ -62,12 +79,16 @@
           {
             "description": "CHECK constraint exists for enum values",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%priority%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Valid option value can be inserted",
             "executeQuery": "INSERT INTO tasks (priority) VALUES ('High') RETURNING priority",
-            "expected": { "priority": "High" }
+            "expected": {
+              "priority": "High"
+            }
           }
         ]
       }
@@ -85,12 +106,16 @@
           {
             "description": "Valid option 'Open' succeeds",
             "executeQuery": "INSERT INTO issues (status) VALUES ('Open') RETURNING status",
-            "expected": { "status": "Open" }
+            "expected": {
+              "status": "Open"
+            }
           },
           {
             "description": "Valid option 'In Progress' succeeds",
             "executeQuery": "INSERT INTO issues (status) VALUES ('In Progress') RETURNING status",
-            "expected": { "status": "In Progress" }
+            "expected": {
+              "status": "In Progress"
+            }
           },
           {
             "description": "Invalid value rejected by CHECK constraint",
@@ -116,12 +141,16 @@
           {
             "description": "NOT NULL constraint enforced",
             "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='category'",
-            "expected": { "is_nullable": "NO" }
+            "expected": {
+              "is_nullable": "NO"
+            }
           },
           {
             "description": "UNIQUE constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='products' AND constraint_type='UNIQUE' AND constraint_name LIKE '%category%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Duplicate value rejected",
@@ -149,10 +178,18 @@
             "name": "severity",
             "type": "single-select",
             "options": [
-              { "value": "Critical" },
-              { "value": "High" },
-              { "value": "Medium" },
-              { "value": "Low" }
+              {
+                "value": "Critical"
+              },
+              {
+                "value": "High"
+              },
+              {
+                "value": "Medium"
+              },
+              {
+                "value": "Low"
+              }
             ],
             "default": "Low"
           }
@@ -161,17 +198,23 @@
           {
             "description": "Column has DEFAULT value",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='tickets' AND column_name='severity'",
-            "expected": { "column_default": "'Low'::character varying" }
+            "expected": {
+              "column_default": "'Low'::character varying"
+            }
           },
           {
             "description": "INSERT without severity uses default",
             "executeQuery": "INSERT INTO tickets (id) VALUES (DEFAULT) RETURNING severity",
-            "expected": { "severity": "Low" }
+            "expected": {
+              "severity": "Low"
+            }
           },
           {
             "description": "Explicit value overrides default",
             "executeQuery": "INSERT INTO tickets (severity) VALUES ('Critical') RETURNING severity",
-            "expected": { "severity": "Critical" }
+            "expected": {
+              "severity": "Critical"
+            }
           }
         ]
       }
@@ -198,7 +241,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_documents_type'",
-            "expected": { "indexname": "idx_documents_type", "tablename": "documents" }
+            "expected": {
+              "indexname": "idx_documents_type",
+              "tablename": "documents"
+            }
           },
           {
             "description": "Index uses btree for option filtering",

@@ -27,7 +27,11 @@
     }
   },
   "description": "Text field optimized for phone numbers with automatic formatting based on detected country code. Stores the raw phone number value without validation to support international formats. Display formatting helps readability but doesn't enforce strict patterns. Required flag makes the field mandatory. Unique constraint ensures no duplicate phone numbers.",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -38,7 +42,11 @@
       "validation": {
         "setup": {
           "executeQuery": "CREATE TABLE contacts (id SERIAL PRIMARY KEY)",
-          "fieldConfig": { "id": 1, "name": "phone", "type": "phone-number" }
+          "fieldConfig": {
+            "id": 1,
+            "name": "phone",
+            "type": "phone-number"
+          }
         },
         "assertions": [
           {
@@ -54,7 +62,9 @@
           {
             "description": "Phone number can be inserted",
             "executeQuery": "INSERT INTO contacts (phone) VALUES ('+1-555-123-4567') RETURNING phone",
-            "expected": { "phone": "+1-555-123-4567" }
+            "expected": {
+              "phone": "+1-555-123-4567"
+            }
           }
         ]
       }
@@ -72,22 +82,30 @@
           {
             "description": "French phone number insertion succeeds",
             "executeQuery": "INSERT INTO customers (mobile) VALUES ('+33 1 23 45 67 89') RETURNING mobile",
-            "expected": { "mobile": "+33 1 23 45 67 89" }
+            "expected": {
+              "mobile": "+33 1 23 45 67 89"
+            }
           },
           {
             "description": "UK phone number insertion succeeds",
             "executeQuery": "INSERT INTO customers (mobile) VALUES ('+44 20 7123 4567') RETURNING mobile",
-            "expected": { "mobile": "+44 20 7123 4567" }
+            "expected": {
+              "mobile": "+44 20 7123 4567"
+            }
           },
           {
             "description": "Japanese phone number insertion succeeds",
             "executeQuery": "INSERT INTO customers (mobile) VALUES ('+81 3-1234-5678') RETURNING mobile",
-            "expected": { "mobile": "+81 3-1234-5678" }
+            "expected": {
+              "mobile": "+81 3-1234-5678"
+            }
           },
           {
             "description": "All international formats stored correctly",
             "executeQuery": "SELECT COUNT(*) as count FROM customers WHERE mobile LIKE '+%'",
-            "expected": { "count": 3 }
+            "expected": {
+              "count": 3
+            }
           }
         ]
       }
@@ -108,7 +126,9 @@
           {
             "description": "UNIQUE constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE' AND constraint_name LIKE '%phone%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Duplicate phone rejected",
@@ -118,7 +138,9 @@
           {
             "description": "Database still contains only 1 row",
             "executeQuery": "SELECT COUNT(*) as count FROM users",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -136,12 +158,16 @@
           {
             "description": "NOT NULL constraint enforced",
             "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='support_tickets' AND column_name='contact_phone'",
-            "expected": { "is_nullable": "NO" }
+            "expected": {
+              "is_nullable": "NO"
+            }
           },
           {
             "description": "Valid phone number insertion succeeds",
             "executeQuery": "INSERT INTO support_tickets (contact_phone) VALUES ('+1-800-SUPPORT') RETURNING contact_phone",
-            "expected": { "contact_phone": "+1-800-SUPPORT" }
+            "expected": {
+              "contact_phone": "+1-800-SUPPORT"
+            }
           },
           {
             "description": "NULL phone number insertion fails",
@@ -174,7 +200,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_employees_phone'",
-            "expected": { "indexname": "idx_employees_phone", "tablename": "employees" }
+            "expected": {
+              "indexname": "idx_employees_phone",
+              "tablename": "employees"
+            }
           },
           {
             "description": "Index uses btree for phone number searching",

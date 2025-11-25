@@ -33,7 +33,11 @@
     }
   },
   "description": "Ratio field displayed as percentage (0-100%). Stores value as decimal (0.0-1.0 or 0-100 depending on configuration). Display adds % symbol automatically. Supports min/max constraints for range validation (typically 0-100). Required flag makes the field mandatory. Useful for completion rates, discounts, and probability values.",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -44,7 +48,11 @@
       "validation": {
         "setup": {
           "executeQuery": "CREATE TABLE tasks (id SERIAL PRIMARY KEY)",
-          "fieldConfig": { "id": 1, "name": "completion", "type": "percentage" }
+          "fieldConfig": {
+            "id": 1,
+            "name": "completion",
+            "type": "percentage"
+          }
         },
         "assertions": [
           {
@@ -60,17 +68,23 @@
           {
             "description": "Percentage value can be inserted",
             "executeQuery": "INSERT INTO tasks (completion) VALUES (75.50) RETURNING completion",
-            "expected": { "completion": "75.50" }
+            "expected": {
+              "completion": "75.50"
+            }
           },
           {
             "description": "Zero percentage can be inserted",
             "executeQuery": "INSERT INTO tasks (completion) VALUES (0.00) RETURNING completion",
-            "expected": { "completion": "0.00" }
+            "expected": {
+              "completion": "0.00"
+            }
           },
           {
             "description": "Full completion (100%) can be inserted",
             "executeQuery": "INSERT INTO tasks (completion) VALUES (100.00) RETURNING completion",
-            "expected": { "completion": "100.00" }
+            "expected": {
+              "completion": "100.00"
+            }
           }
         ]
       }
@@ -88,12 +102,16 @@
           {
             "description": "CHECK constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%score%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Valid percentage within range succeeds",
             "executeQuery": "INSERT INTO progress_reports (score) VALUES (85.25) RETURNING score",
-            "expected": { "score": "85.25" }
+            "expected": {
+              "score": "85.25"
+            }
           },
           {
             "description": "Negative percentage rejected",
@@ -124,12 +142,16 @@
           {
             "description": "NOT NULL constraint enforced",
             "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='discounts' AND column_name='rate'",
-            "expected": { "is_nullable": "NO" }
+            "expected": {
+              "is_nullable": "NO"
+            }
           },
           {
             "description": "UNIQUE constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='discounts' AND constraint_type='UNIQUE' AND constraint_name LIKE '%rate%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Duplicate percentage rejected",
@@ -163,17 +185,23 @@
           {
             "description": "Column has DEFAULT value",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='metrics' AND column_name='success_rate'",
-            "expected": { "column_default": "0.00" }
+            "expected": {
+              "column_default": "0.00"
+            }
           },
           {
             "description": "INSERT without success_rate uses default",
             "executeQuery": "INSERT INTO metrics (id) VALUES (DEFAULT) RETURNING success_rate",
-            "expected": { "success_rate": "0.00" }
+            "expected": {
+              "success_rate": "0.00"
+            }
           },
           {
             "description": "Explicit value overrides default",
             "executeQuery": "INSERT INTO metrics (success_rate) VALUES (95.75) RETURNING success_rate",
-            "expected": { "success_rate": "95.75" }
+            "expected": {
+              "success_rate": "95.75"
+            }
           }
         ]
       }
@@ -200,7 +228,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_campaigns_conversion'",
-            "expected": { "indexname": "idx_campaigns_conversion", "tablename": "campaigns" }
+            "expected": {
+              "indexname": "idx_campaigns_conversion",
+              "tablename": "campaigns"
+            }
           },
           {
             "description": "Index uses btree for range queries and sorting",

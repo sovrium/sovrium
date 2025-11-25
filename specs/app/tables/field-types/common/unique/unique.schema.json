@@ -27,7 +27,9 @@
           {
             "description": "UNIQUE constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE' AND constraint_name LIKE '%email%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Duplicate value rejected",
@@ -37,7 +39,9 @@
           {
             "description": "Different value succeeds",
             "executeQuery": "INSERT INTO users (email, name) VALUES ('bob@example.com', 'Bob') RETURNING email",
-            "expected": { "email": "bob@example.com" }
+            "expected": {
+              "email": "bob@example.com"
+            }
           }
         ]
       }
@@ -63,17 +67,23 @@
           {
             "description": "No UNIQUE constraint on category",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='products' AND constraint_type='UNIQUE' AND constraint_name LIKE '%category%'",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           },
           {
             "description": "Duplicate values allowed",
             "executeQuery": "SELECT COUNT(*) as count FROM products WHERE category = 'Electronics'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Additional duplicate succeeds",
             "executeQuery": "INSERT INTO products (name, category) VALUES ('Product 3', 'Electronics') RETURNING id",
-            "expected": { "id": 3 }
+            "expected": {
+              "id": 3
+            }
           }
         ]
       }
@@ -99,12 +109,17 @@
           {
             "description": "Column currently allows duplicates",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='accounts' AND constraint_type='UNIQUE'",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           },
           {
             "description": "Duplicate values exist",
             "executeQuery": "SELECT username, COUNT(*) as count FROM accounts GROUP BY username HAVING COUNT(*) > 1",
-            "expected": { "username": "alice", "count": 2 }
+            "expected": {
+              "username": "alice",
+              "count": 2
+            }
           },
           {
             "description": "Adding UNIQUE constraint fails with existing duplicates",
@@ -135,17 +150,23 @@
           {
             "description": "UNIQUE constraint exists",
             "executeQuery": "SELECT constraint_name FROM information_schema.table_constraints WHERE table_name='sessions' AND constraint_type='UNIQUE'",
-            "expected": { "constraint_name": "sessions_token_key" }
+            "expected": {
+              "constraint_name": "sessions_token_key"
+            }
           },
           {
             "description": "Automatic index created for UNIQUE constraint",
             "executeQuery": "SELECT indexname FROM pg_indexes WHERE tablename='sessions' AND indexname LIKE '%token%'",
-            "expected": { "indexname": "sessions_token_key" }
+            "expected": {
+              "indexname": "sessions_token_key"
+            }
           },
           {
             "description": "Index enables fast lookups",
             "executeQuery": "SELECT id FROM sessions WHERE token = 'abc123'",
-            "expected": { "id": 1 }
+            "expected": {
+              "id": 1
+            }
           }
         ]
       }
@@ -172,17 +193,23 @@
           {
             "description": "UNIQUE constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='contacts' AND constraint_type='UNIQUE'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Multiple NULL values allowed (NULL != NULL)",
             "executeQuery": "SELECT COUNT(*) as count FROM contacts WHERE phone IS NULL",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Additional NULL succeeds",
             "executeQuery": "INSERT INTO contacts (phone) VALUES (NULL) RETURNING id",
-            "expected": { "id": 4 }
+            "expected": {
+              "id": 4
+            }
           },
           {
             "description": "Duplicate non-NULL rejected",

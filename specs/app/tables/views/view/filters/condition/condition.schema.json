@@ -36,7 +36,10 @@
       "description": "Value to compare against (optional for isEmpty/isNotEmpty operators)"
     }
   },
-  "required": ["field", "operator"],
+  "required": [
+    "field",
+    "operator"
+  ],
   "additionalProperties": false,
   "examples": [
     {
@@ -61,7 +64,11 @@
     {
       "field": "category",
       "operator": "in",
-      "value": ["electronics", "computers", "phones"]
+      "value": [
+        "electronics",
+        "computers",
+        "phones"
+      ]
     }
   ],
   "x-specs": [
@@ -81,7 +88,7 @@
           {
             "description": "only records with exact field value match should pass the filter",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -102,7 +109,7 @@
           {
             "description": "records with substring match should pass the filter",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -123,7 +130,7 @@
           {
             "description": "only records with field value greater than specified value should pass",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -144,7 +151,7 @@
           {
             "description": "only records where field is null or empty should pass",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -165,7 +172,7 @@
           {
             "description": "records where field matches any value in the array should pass",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }

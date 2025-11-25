@@ -32,17 +32,25 @@
           {
             "description": "Foreign key relationship exists (orders → customers)",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'FOREIGN KEY' AND table_name = 'orders'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Rollup aggregates customer's orders (100 + 250.50)",
             "executeQuery": "SELECT name, total_orders FROM customers WHERE name = 'Alice'",
-            "expected": { "name": "Alice", "total_orders": 350.5 }
+            "expected": {
+              "name": "Alice",
+              "total_orders": 350.5
+            }
           },
           {
             "description": "Different parent has different aggregation",
             "executeQuery": "SELECT name, total_orders FROM customers WHERE name = 'Bob'",
-            "expected": { "name": "Bob", "total_orders": 75.0 }
+            "expected": {
+              "name": "Bob",
+              "total_orders": 75.0
+            }
           }
         ]
       }
@@ -97,12 +105,18 @@
           {
             "description": "Project 'Website' has 3 tasks",
             "executeQuery": "SELECT name, task_count FROM projects WHERE name = 'Website'",
-            "expected": { "name": "Website", "task_count": 3 }
+            "expected": {
+              "name": "Website",
+              "task_count": 3
+            }
           },
           {
             "description": "Project 'Mobile App' has 1 task",
             "executeQuery": "SELECT name, task_count FROM projects WHERE name = 'Mobile App'",
-            "expected": { "name": "Mobile App", "task_count": 1 }
+            "expected": {
+              "name": "Mobile App",
+              "task_count": 1
+            }
           }
         ]
       }
@@ -133,12 +147,18 @@
           {
             "description": "Customer with orders shows aggregated total",
             "executeQuery": "SELECT name, order_total FROM customers WHERE name = 'Alice'",
-            "expected": { "name": "Alice", "order_total": 500.0 }
+            "expected": {
+              "name": "Alice",
+              "order_total": 500.0
+            }
           },
           {
             "description": "Customer without orders shows 0 (COALESCE default)",
             "executeQuery": "SELECT name, order_total FROM customers WHERE name = 'Bob'",
-            "expected": { "name": "Bob", "order_total": 0.0 }
+            "expected": {
+              "name": "Bob",
+              "order_total": 0.0
+            }
           }
         ]
       }

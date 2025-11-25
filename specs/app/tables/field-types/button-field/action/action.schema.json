@@ -4,7 +4,10 @@
   "title": "Type of action to trigger",
   "description": "Type of action to trigger",
   "type": "string",
-  "enum": ["url", "automation"],
+  "enum": [
+    "url",
+    "automation"
+  ],
   "x-specs": [
     {
       "id": "APP-FIELD-BUTTON-ACTION-001",
@@ -22,7 +25,7 @@
           {
             "description": "selection should be accepted",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -43,7 +46,7 @@
           {
             "description": "error should list valid options: url, automation",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "action must be one of: update_field, open_url, trigger_automation"
           }
         ]
       }
@@ -64,7 +67,7 @@
           {
             "description": "appropriate behavior should execute",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }

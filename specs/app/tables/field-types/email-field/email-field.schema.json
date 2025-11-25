@@ -27,7 +27,11 @@
       "$ref": "./default/default.schema.json"
     }
   },
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -38,7 +42,11 @@
       "validation": {
         "setup": {
           "executeQuery": "CREATE TABLE users (id SERIAL PRIMARY KEY)",
-          "fieldConfig": { "id": 1, "name": "email", "type": "email" }
+          "fieldConfig": {
+            "id": 1,
+            "name": "email",
+            "type": "email"
+          }
         },
         "assertions": [
           {
@@ -54,7 +62,9 @@
           {
             "description": "Valid email can be inserted",
             "executeQuery": "INSERT INTO users (email) VALUES ('john.doe@example.com') RETURNING email",
-            "expected": { "email": "john.doe@example.com" }
+            "expected": {
+              "email": "john.doe@example.com"
+            }
           }
         ]
       }
@@ -72,12 +82,16 @@
           {
             "description": "Application layer normalizes to lowercase before INSERT",
             "executeQuery": "INSERT INTO contacts (email) VALUES (LOWER('John.Doe@EXAMPLE.COM')) RETURNING email",
-            "expected": { "email": "john.doe@example.com" }
+            "expected": {
+              "email": "john.doe@example.com"
+            }
           },
           {
             "description": "Database stores lowercase value",
             "executeQuery": "SELECT email FROM contacts WHERE id = 1",
-            "expected": { "email": "john.doe@example.com" }
+            "expected": {
+              "email": "john.doe@example.com"
+            }
           }
         ]
       }
@@ -98,7 +112,9 @@
           {
             "description": "UNIQUE constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='members' AND constraint_type='UNIQUE' AND constraint_name LIKE '%email%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Duplicate email rejected",
@@ -108,7 +124,9 @@
           {
             "description": "Database still contains only 1 row",
             "executeQuery": "SELECT COUNT(*) as count FROM members",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -126,12 +144,16 @@
           {
             "description": "NOT NULL constraint enforced",
             "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='subscribers' AND column_name='email'",
-            "expected": { "is_nullable": "NO" }
+            "expected": {
+              "is_nullable": "NO"
+            }
           },
           {
             "description": "Valid email insertion succeeds",
             "executeQuery": "INSERT INTO subscribers (email) VALUES ('jane@example.com') RETURNING email",
-            "expected": { "email": "jane@example.com" }
+            "expected": {
+              "email": "jane@example.com"
+            }
           },
           {
             "description": "NULL email insertion fails",
@@ -164,7 +186,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_customers_email'",
-            "expected": { "indexname": "idx_customers_email", "tablename": "customers" }
+            "expected": {
+              "indexname": "idx_customers_email",
+              "tablename": "customers"
+            }
           },
           {
             "description": "Index uses btree for email searching",

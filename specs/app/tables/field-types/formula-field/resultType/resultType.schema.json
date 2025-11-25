@@ -5,7 +5,12 @@
   "description": "Expected data type of the formula result. Determines PostgreSQL column type for GENERATED column: text→TEXT, number→DECIMAL, boolean→BOOLEAN, date→DATE.",
   "type": "string",
   "default": "text",
-  "enum": ["text", "number", "boolean", "date"],
+  "enum": [
+    "text",
+    "number",
+    "boolean",
+    "date"
+  ],
   "x-specs": [
     {
       "id": "APP-FIELD-FORMULA-RESULTTYPE-001",
@@ -29,12 +34,16 @@
           {
             "description": "Column uses DECIMAL type for number resultType",
             "executeQuery": "SELECT data_type FROM information_schema.columns WHERE table_name='products' AND column_name='total'",
-            "expected": { "data_type": "numeric" }
+            "expected": {
+              "data_type": "numeric"
+            }
           },
           {
             "description": "Numeric result computed correctly",
             "executeQuery": "SELECT total FROM products WHERE id = 1",
-            "expected": { "total": 89.97 }
+            "expected": {
+              "total": 89.97
+            }
           }
         ]
       }
@@ -61,12 +70,16 @@
           {
             "description": "Column uses TEXT type for text resultType",
             "executeQuery": "SELECT data_type FROM information_schema.columns WHERE table_name='users' AND column_name='display_name'",
-            "expected": { "data_type": "text" }
+            "expected": {
+              "data_type": "text"
+            }
           },
           {
             "description": "Text result computed correctly",
             "executeQuery": "SELECT display_name FROM users WHERE first_name = 'Alice'",
-            "expected": { "display_name": "Alice Wonder" }
+            "expected": {
+              "display_name": "Alice Wonder"
+            }
           }
         ]
       }
@@ -93,17 +106,23 @@
           {
             "description": "Column uses BOOLEAN type for boolean resultType",
             "executeQuery": "SELECT data_type FROM information_schema.columns WHERE table_name='inventory' AND column_name='in_stock'",
-            "expected": { "data_type": "boolean" }
+            "expected": {
+              "data_type": "boolean"
+            }
           },
           {
             "description": "Boolean result for zero stock (false)",
             "executeQuery": "SELECT in_stock FROM inventory WHERE stock_level = 0",
-            "expected": { "in_stock": false }
+            "expected": {
+              "in_stock": false
+            }
           },
           {
             "description": "Boolean result for positive stock (true)",
             "executeQuery": "SELECT in_stock FROM inventory WHERE stock_level = 10",
-            "expected": { "in_stock": true }
+            "expected": {
+              "in_stock": true
+            }
           }
         ]
       }
@@ -130,12 +149,16 @@
           {
             "description": "Column uses DATE type for date resultType",
             "executeQuery": "SELECT data_type FROM information_schema.columns WHERE table_name='subscriptions' AND column_name='end_date'",
-            "expected": { "data_type": "date" }
+            "expected": {
+              "data_type": "date"
+            }
           },
           {
             "description": "Date calculation (2024-01-01 + 30 days)",
             "executeQuery": "SELECT end_date FROM subscriptions WHERE start_date = '2024-01-01'",
-            "expected": { "end_date": "2024-01-31" }
+            "expected": {
+              "end_date": "2024-01-31"
+            }
           }
         ]
       }
@@ -161,12 +184,16 @@
           {
             "description": "Default resultType is 'text'",
             "executeQuery": "SELECT data_type FROM information_schema.columns WHERE table_name='calculations' AND column_name='result'",
-            "expected": { "data_type": "text" }
+            "expected": {
+              "data_type": "text"
+            }
           },
           {
             "description": "Result formatted as text",
             "executeQuery": "SELECT result FROM calculations WHERE id = 1",
-            "expected": { "result": "Sum: 15" }
+            "expected": {
+              "result": "Sum: 15"
+            }
           }
         ]
       }

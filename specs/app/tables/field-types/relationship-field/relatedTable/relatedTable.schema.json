@@ -29,7 +29,9 @@
           {
             "description": "Foreign key constraint exists referencing customers table",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'FOREIGN KEY' AND table_name = 'orders'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Foreign key references customers table primary key",
@@ -43,7 +45,9 @@
           {
             "description": "Valid foreign key value accepted",
             "executeQuery": "SELECT order_number FROM orders WHERE customer_id = 1",
-            "expected": { "order_number": "ORD-001" }
+            "expected": {
+              "order_number": "ORD-001"
+            }
           },
           {
             "description": "Invalid foreign key value rejected (non-existent customer)",
@@ -117,19 +121,26 @@
             "name": "location",
             "type": "relationship",
             "relatedTable": "locations",
-            "foreignKeyColumns": ["location_country", "location_region"]
+            "foreignKeyColumns": [
+              "location_country",
+              "location_region"
+            ]
           }
         },
         "assertions": [
           {
             "description": "Composite foreign key constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'FOREIGN KEY' AND table_name = 'stores'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Valid composite foreign key accepted",
             "executeQuery": "SELECT store_name FROM stores WHERE location_country = 'US' AND location_region = 'NYC'",
-            "expected": { "store_name": "Store A" }
+            "expected": {
+              "store_name": "Store A"
+            }
           },
           {
             "description": "Invalid composite foreign key rejected",

@@ -27,7 +27,11 @@
     }
   },
   "description": "Short text input limited to a single line. Ideal for names, titles, labels, and brief identifiers. Text is stored as-is without formatting. Required flag makes the field mandatory. Unique constraint ensures no duplicate values across records. Indexing improves search and filter performance on this field.",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -38,7 +42,11 @@
       "validation": {
         "setup": {
           "executeQuery": "CREATE TABLE products (id SERIAL PRIMARY KEY)",
-          "fieldConfig": { "id": 1, "name": "title", "type": "single-line-text" }
+          "fieldConfig": {
+            "id": 1,
+            "name": "title",
+            "type": "single-line-text"
+          }
         },
         "assertions": [
           {
@@ -54,7 +62,9 @@
           {
             "description": "Valid text can be inserted",
             "executeQuery": "INSERT INTO products (title) VALUES ('MacBook Pro 16-inch') RETURNING title",
-            "expected": { "title": "MacBook Pro 16-inch" }
+            "expected": {
+              "title": "MacBook Pro 16-inch"
+            }
           }
         ]
       }
@@ -75,7 +85,9 @@
           {
             "description": "UNIQUE constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE' AND constraint_name LIKE '%username%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Duplicate username rejected",
@@ -85,7 +97,9 @@
           {
             "description": "Database still contains only 1 row",
             "executeQuery": "SELECT COUNT(*) as count FROM users",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -103,12 +117,16 @@
           {
             "description": "NOT NULL constraint enforced",
             "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='tasks' AND column_name='title'",
-            "expected": { "is_nullable": "NO" }
+            "expected": {
+              "is_nullable": "NO"
+            }
           },
           {
             "description": "Valid title insertion succeeds",
             "executeQuery": "INSERT INTO tasks (title) VALUES ('Complete project') RETURNING title",
-            "expected": { "title": "Complete project" }
+            "expected": {
+              "title": "Complete project"
+            }
           },
           {
             "description": "NULL title insertion fails",
@@ -141,7 +159,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_products_sku'",
-            "expected": { "indexname": "idx_products_sku", "tablename": "products" }
+            "expected": {
+              "indexname": "idx_products_sku",
+              "tablename": "products"
+            }
           },
           {
             "description": "Index uses btree for text searching",
@@ -172,17 +193,23 @@
           {
             "description": "Column has DEFAULT value",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='documents' AND column_name='name'",
-            "expected": { "column_default": "'Untitled'::character varying" }
+            "expected": {
+              "column_default": "'Untitled'::character varying"
+            }
           },
           {
             "description": "INSERT without name uses default",
             "executeQuery": "INSERT INTO documents (id) VALUES (DEFAULT) RETURNING name",
-            "expected": { "name": "Untitled" }
+            "expected": {
+              "name": "Untitled"
+            }
           },
           {
             "description": "Explicit value overrides default",
             "executeQuery": "INSERT INTO documents (name) VALUES ('My Document') RETURNING name",
-            "expected": { "name": "My Document" }
+            "expected": {
+              "name": "My Document"
+            }
           }
         ]
       }

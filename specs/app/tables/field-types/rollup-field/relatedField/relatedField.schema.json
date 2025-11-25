@@ -32,7 +32,10 @@
           {
             "description": "SUM aggregates amount field (100 + 250.50 + 49.99)",
             "executeQuery": "SELECT name, total_spent FROM customers WHERE name = 'Alice'",
-            "expected": { "name": "Alice", "total_spent": 400.49 }
+            "expected": {
+              "name": "Alice",
+              "total_spent": 400.49
+            }
           }
         ]
       }
@@ -63,7 +66,10 @@
           {
             "description": "AVG aggregates rating field (5+4+5+3)/4 = 4.25",
             "executeQuery": "SELECT name, avg_rating FROM products WHERE name = 'Laptop'",
-            "expected": { "name": "Laptop", "avg_rating": 4.25 }
+            "expected": {
+              "name": "Laptop",
+              "avg_rating": 4.25
+            }
           }
         ]
       }
@@ -94,7 +100,10 @@
           {
             "description": "MIN aggregates published_date field (earliest book)",
             "executeQuery": "SELECT name, first_book_date FROM authors WHERE name = 'Agatha Christie'",
-            "expected": { "name": "Agatha Christie", "first_book_date": "1920-10-01" }
+            "expected": {
+              "name": "Agatha Christie",
+              "first_book_date": "1920-10-01"
+            }
           }
         ]
       }

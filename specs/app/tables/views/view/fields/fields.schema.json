@@ -29,7 +29,9 @@
         "description": "Display order of the field (1 = first column)"
       }
     },
-    "required": ["name"],
+    "required": [
+      "name"
+    ],
     "additionalProperties": false
   },
   "examples": [
@@ -82,7 +84,7 @@
           {
             "description": "only configured visible fields should be shown",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -103,7 +105,7 @@
           {
             "description": "fields should appear in the specified order",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -124,7 +126,7 @@
           {
             "description": "that field should not be shown",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }

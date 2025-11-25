@@ -22,7 +22,7 @@
           {
             "description": "value should be accepted",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -43,7 +43,7 @@
           {
             "description": "clear error message should explain format requirement",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "must match the required pattern"
           }
         ]
       }
@@ -64,7 +64,7 @@
           {
             "description": "original format should be preserved",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }

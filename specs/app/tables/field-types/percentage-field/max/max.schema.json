@@ -26,12 +26,16 @@
           {
             "description": "CHECK constraint exists for max value",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%completion_rate%' AND check_clause LIKE '%<= 100.0%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Value at maximum (100.0) accepted",
             "executeQuery": "SELECT completion_rate FROM progress_trackers WHERE completion_rate = 100.0",
-            "expected": { "completion_rate": 100.0 }
+            "expected": {
+              "completion_rate": 100.0
+            }
           },
           {
             "description": "Value above maximum rejected",
@@ -41,7 +45,9 @@
           {
             "description": "Decimal value below maximum accepted",
             "executeQuery": "INSERT INTO progress_trackers (task_name, completion_rate) VALUES ('Project E', 82.33) RETURNING completion_rate",
-            "expected": { "completion_rate": 82.33 }
+            "expected": {
+              "completion_rate": 82.33
+            }
           }
         ]
       }
@@ -67,12 +73,16 @@
           {
             "description": "CHECK constraint enforces max 50.0",
             "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%max_discount%'",
-            "expected": { "check_clause": "(max_discount <= 50.0)" }
+            "expected": {
+              "check_clause": "(max_discount <= 50.0)"
+            }
           },
           {
             "description": "Exact maximum (50.0) accepted",
             "executeQuery": "SELECT max_discount FROM discount_policies WHERE max_discount = 50.0",
-            "expected": { "max_discount": 50.0 }
+            "expected": {
+              "max_discount": 50.0
+            }
           },
           {
             "description": "Above maximum rejected",
@@ -82,7 +92,9 @@
           {
             "description": "Below maximum accepted",
             "executeQuery": "INSERT INTO discount_policies (policy_name, max_discount) VALUES ('Standard', 25.0) RETURNING max_discount",
-            "expected": { "max_discount": 25.0 }
+            "expected": {
+              "max_discount": 25.0
+            }
           }
         ]
       }
@@ -109,17 +121,23 @@
           {
             "description": "CHECK constraint enforces range 0.0-100.0",
             "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%charge_level%'",
-            "expected": { "check_clause": "((charge_level >= 0.0) AND (charge_level <= 100.0))" }
+            "expected": {
+              "check_clause": "((charge_level >= 0.0) AND (charge_level <= 100.0))"
+            }
           },
           {
             "description": "Value at min (0.0) accepted",
             "executeQuery": "SELECT charge_level FROM battery_levels WHERE charge_level = 0.0",
-            "expected": { "charge_level": 0.0 }
+            "expected": {
+              "charge_level": 0.0
+            }
           },
           {
             "description": "Value at max (100.0) accepted",
             "executeQuery": "SELECT charge_level FROM battery_levels WHERE charge_level = 100.0",
-            "expected": { "charge_level": 100.0 }
+            "expected": {
+              "charge_level": 100.0
+            }
           },
           {
             "description": "Value below min rejected",

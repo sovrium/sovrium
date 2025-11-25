@@ -19,7 +19,11 @@
     }
   },
   "description": "Automatically updated reference to the user who last modified the record. Read-only field that links to user account. Updates on every save operation to current user. Automatically indexed for filtering by editor. Useful for audit trails, tracking who made recent changes, and collaboration history. Displays user profile information in UI.",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -36,7 +40,11 @@
             "CREATE OR REPLACE FUNCTION update_updated_by_column() RETURNS TRIGGER AS $$ BEGIN NEW.updated_by = NEW.updated_by; RETURN NEW; END; $$ LANGUAGE plpgsql",
             "CREATE TRIGGER set_updated_by BEFORE UPDATE ON products FOR EACH ROW EXECUTE FUNCTION update_updated_by_column()"
           ],
-          "fieldConfig": { "id": 1, "name": "updated_by", "type": "updated-by" }
+          "fieldConfig": {
+            "id": 1,
+            "name": "updated_by",
+            "type": "updated-by"
+          }
         },
         "assertions": [
           {
@@ -51,12 +59,16 @@
           {
             "description": "FOREIGN KEY constraint references users",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='products' AND constraint_type='FOREIGN KEY' AND constraint_name LIKE '%updated_by%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "UPDATE trigger exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.triggers WHERE event_object_table='products' AND trigger_name='set_updated_by'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -79,22 +91,31 @@
           {
             "description": "Initial updated_by is Alice (user 1)",
             "executeQuery": "SELECT updated_by FROM documents WHERE id = 1",
-            "expected": { "updated_by": 1 }
+            "expected": {
+              "updated_by": 1
+            }
           },
           {
             "description": "UPDATE by Bob changes updated_by to user 2",
             "executeQuery": "UPDATE documents SET title = 'Updated by Bob', updated_by = 2 WHERE id = 1 RETURNING updated_by",
-            "expected": { "updated_by": 2 }
+            "expected": {
+              "updated_by": 2
+            }
           },
           {
             "description": "Subsequent UPDATE by Charlie changes to user 3",
             "executeQuery": "UPDATE documents SET title = 'Updated by Charlie', updated_by = 3 WHERE id = 1 RETURNING updated_by",
-            "expected": { "updated_by": 3 }
+            "expected": {
+              "updated_by": 3
+            }
           },
           {
             "description": "Join with users shows last editor name",
             "executeQuery": "SELECT d.title, u.name as last_editor FROM documents d JOIN users u ON d.updated_by = u.id WHERE d.id = 1",
-            "expected": { "title": "Updated by Charlie", "last_editor": "Charlie" }
+            "expected": {
+              "title": "Updated by Charlie",
+              "last_editor": "Charlie"
+            }
           }
         ]
       }
@@ -119,19 +140,31 @@
           {
             "description": "Find all tasks last edited by Bob",
             "executeQuery": "SELECT COUNT(*) as count FROM tasks WHERE updated_by = 2",
-            "expected": { "count": 3 }
+            "expected": {
+              "count": 3
+            }
           },
           {
             "description": "Find tasks last edited by Alice",
             "executeQuery": "SELECT COUNT(*) as count FROM tasks WHERE updated_by = 1",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           },
           {
             "description": "Join with users to see editor details",
             "executeQuery": "SELECT t.title, t.status, u.name as last_editor FROM tasks t JOIN users u ON t.updated_by = u.id WHERE t.status = 'closed' ORDER BY t.id",
             "expected": [
-              { "title": "Task 1", "status": "closed", "last_editor": "Bob" },
-              { "title": "Task 3", "status": "closed", "last_editor": "Bob" }
+              {
+                "title": "Task 1",
+                "status": "closed",
+                "last_editor": "Bob"
+              },
+              {
+                "title": "Task 3",
+                "status": "closed",
+                "last_editor": "Bob"
+              }
             ]
           }
         ]
@@ -156,17 +189,25 @@
           {
             "description": "Creator remains Alice, editor is Bob",
             "executeQuery": "SELECT p.title, uc.name as creator, ue.name as editor FROM pages p JOIN users uc ON p.created_by = uc.id JOIN users ue ON p.updated_by = ue.id WHERE p.id = 1",
-            "expected": { "title": "Page 1 Edited", "creator": "Alice", "editor": "Bob" }
+            "expected": {
+              "title": "Page 1 Edited",
+              "creator": "Alice",
+              "editor": "Bob"
+            }
           },
           {
             "description": "created_by is immutable (still user 1)",
             "executeQuery": "SELECT created_by FROM pages WHERE id = 1",
-            "expected": { "created_by": 1 }
+            "expected": {
+              "created_by": 1
+            }
           },
           {
             "description": "updated_by changed to user 2",
             "executeQuery": "SELECT updated_by FROM pages WHERE id = 1",
-            "expected": { "updated_by": 2 }
+            "expected": {
+              "updated_by": 2
+            }
           }
         ]
       }
@@ -194,7 +235,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_articles_updated_by'",
-            "expected": { "indexname": "idx_articles_updated_by", "tablename": "articles" }
+            "expected": {
+              "indexname": "idx_articles_updated_by",
+              "tablename": "articles"
+            }
           },
           {
             "description": "Index uses btree for editor filtering",

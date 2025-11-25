@@ -36,7 +36,11 @@
     }
   },
   "description": "Floating-point number field with configurable decimal precision (0-10 places). Ideal for measurements, scores, ratings, and scientific data. Precision determines how many decimal places are stored and displayed (default: 2). Supports min/max constraints for range validation. Required flag makes the field mandatory.",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -47,7 +51,12 @@
       "validation": {
         "setup": {
           "executeQuery": "CREATE TABLE products (id SERIAL PRIMARY KEY)",
-          "fieldConfig": { "id": 1, "name": "price", "type": "decimal", "precision": 2 }
+          "fieldConfig": {
+            "id": 1,
+            "name": "price",
+            "type": "decimal",
+            "precision": 2
+          }
         },
         "assertions": [
           {
@@ -63,12 +72,16 @@
           {
             "description": "Decimal value with 2 places can be inserted",
             "executeQuery": "INSERT INTO products (price) VALUES (19.99) RETURNING price",
-            "expected": { "price": "19.99" }
+            "expected": {
+              "price": "19.99"
+            }
           },
           {
             "description": "Value with more than 2 decimals is rounded",
             "executeQuery": "INSERT INTO products (price) VALUES (29.999) RETURNING price",
-            "expected": { "price": "30.00" }
+            "expected": {
+              "price": "30.00"
+            }
           }
         ]
       }
@@ -86,12 +99,16 @@
           {
             "description": "CHECK constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%weight%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Valid decimal within range succeeds",
             "executeQuery": "INSERT INTO measurements (weight) VALUES (123.456) RETURNING weight",
-            "expected": { "weight": "123.456" }
+            "expected": {
+              "weight": "123.456"
+            }
           },
           {
             "description": "Value below min rejected",
@@ -122,12 +139,16 @@
           {
             "description": "NOT NULL constraint enforced",
             "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='financial_records' AND column_name='amount'",
-            "expected": { "is_nullable": "NO" }
+            "expected": {
+              "is_nullable": "NO"
+            }
           },
           {
             "description": "UNIQUE constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='financial_records' AND constraint_type='UNIQUE' AND constraint_name LIKE '%amount%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Duplicate decimal rejected",
@@ -162,17 +183,23 @@
           {
             "description": "Column has DEFAULT value",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='configurations' AND column_name='threshold'",
-            "expected": { "column_default": "5.5" }
+            "expected": {
+              "column_default": "5.5"
+            }
           },
           {
             "description": "INSERT without threshold uses default",
             "executeQuery": "INSERT INTO configurations (id) VALUES (DEFAULT) RETURNING threshold",
-            "expected": { "threshold": "5.5" }
+            "expected": {
+              "threshold": "5.5"
+            }
           },
           {
             "description": "Explicit value overrides default",
             "executeQuery": "INSERT INTO configurations (threshold) VALUES (9.8) RETURNING threshold",
-            "expected": { "threshold": "9.8" }
+            "expected": {
+              "threshold": "9.8"
+            }
           }
         ]
       }
@@ -200,7 +227,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_reviews_rating'",
-            "expected": { "indexname": "idx_reviews_rating", "tablename": "reviews" }
+            "expected": {
+              "indexname": "idx_reviews_rating",
+              "tablename": "reviews"
+            }
           },
           {
             "description": "Index uses btree for range queries and sorting",

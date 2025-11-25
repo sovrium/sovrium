@@ -28,7 +28,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_users_email'",
-            "expected": { "indexname": "idx_users_email", "tablename": "users" }
+            "expected": {
+              "indexname": "idx_users_email",
+              "tablename": "users"
+            }
           },
           {
             "description": "Index uses btree access method (default)",
@@ -40,7 +43,9 @@
           {
             "description": "Indexed field enables fast lookups",
             "executeQuery": "SELECT COUNT(*) as count FROM users WHERE email = 'alice@example.com'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -66,17 +71,23 @@
           {
             "description": "No custom index on description field",
             "executeQuery": "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='products' AND indexname LIKE '%description%'",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           },
           {
             "description": "Only primary key index exists",
             "executeQuery": "SELECT indexname FROM pg_indexes WHERE tablename='products'",
-            "expected": { "indexname": "products_pkey" }
+            "expected": {
+              "indexname": "products_pkey"
+            }
           },
           {
             "description": "Query still works (sequential scan)",
             "executeQuery": "SELECT name FROM products WHERE description LIKE '%Description%'",
-            "expected": { "name": "Product 1" }
+            "expected": {
+              "name": "Product 1"
+            }
           }
         ]
       }
@@ -103,17 +114,23 @@
           {
             "description": "Index exists on timestamp column",
             "executeQuery": "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_events_occurred_at'",
-            "expected": { "indexname": "idx_events_occurred_at" }
+            "expected": {
+              "indexname": "idx_events_occurred_at"
+            }
           },
           {
             "description": "Range query uses index",
             "executeQuery": "SELECT COUNT(*) as count FROM events WHERE occurred_at > '2024-01-01'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "ORDER BY uses index for sorting",
             "executeQuery": "SELECT name FROM events ORDER BY occurred_at DESC LIMIT 1",
-            "expected": { "name": "Event 3" }
+            "expected": {
+              "name": "Event 3"
+            }
           }
         ]
       }
@@ -140,19 +157,29 @@
           {
             "description": "Index exists for foreign key lookups",
             "executeQuery": "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_orders_customer_id'",
-            "expected": { "indexname": "idx_orders_customer_id" }
+            "expected": {
+              "indexname": "idx_orders_customer_id"
+            }
           },
           {
             "description": "Filter by customer_id uses index",
             "executeQuery": "SELECT COUNT(*) as count FROM orders WHERE customer_id = 1",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Grouped queries use index",
             "executeQuery": "SELECT customer_id, COUNT(*) as order_count FROM orders GROUP BY customer_id ORDER BY customer_id",
             "expected": [
-              { "customer_id": 1, "order_count": 2 },
-              { "customer_id": 2, "order_count": 1 }
+              {
+                "customer_id": 1,
+                "order_count": 2
+              },
+              {
+                "customer_id": 2,
+                "order_count": 1
+              }
             ]
           }
         ]
@@ -180,22 +207,30 @@
           {
             "description": "Index exists on text column",
             "executeQuery": "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_companies_name'",
-            "expected": { "indexname": "idx_companies_name" }
+            "expected": {
+              "indexname": "idx_companies_name"
+            }
           },
           {
             "description": "Prefix search uses index (name LIKE 'Acme%')",
             "executeQuery": "SELECT COUNT(*) as count FROM companies WHERE name LIKE 'Acme%'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Exact match uses index",
             "executeQuery": "SELECT name FROM companies WHERE name = 'Beta LLC'",
-            "expected": { "name": "Beta LLC" }
+            "expected": {
+              "name": "Beta LLC"
+            }
           },
           {
             "description": "ORDER BY uses index",
             "executeQuery": "SELECT name FROM companies ORDER BY name LIMIT 1",
-            "expected": { "name": "Acme Corp" }
+            "expected": {
+              "name": "Acme Corp"
+            }
           }
         ]
       }

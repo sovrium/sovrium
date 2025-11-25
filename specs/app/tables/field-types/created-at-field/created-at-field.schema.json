@@ -19,7 +19,11 @@
     }
   },
   "description": "Automatically set timestamp when record is created. Read-only field that cannot be modified after creation. Always uses current server time in UTC. Automatically indexed for sorting and filtering by creation time. Useful for audit trails, chronological ordering, and tracking when data was first entered. Displays as formatted datetime in UI.",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -30,7 +34,11 @@
       "validation": {
         "setup": {
           "executeQuery": "CREATE TABLE posts (id SERIAL PRIMARY KEY)",
-          "fieldConfig": { "id": 1, "name": "created_at", "type": "created-at" }
+          "fieldConfig": {
+            "id": 1,
+            "name": "created_at",
+            "type": "created-at"
+          }
         },
         "assertions": [
           {
@@ -45,12 +53,16 @@
           {
             "description": "Column has DEFAULT NOW() for automatic timestamp",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='posts' AND column_name='created_at'",
-            "expected": { "column_default": "now()" }
+            "expected": {
+              "column_default": "now()"
+            }
           },
           {
             "description": "INSERT automatically sets created_at to current timestamp",
             "executeQuery": "INSERT INTO posts (id) VALUES (DEFAULT) RETURNING created_at IS NOT NULL as has_timestamp",
-            "expected": { "has_timestamp": true }
+            "expected": {
+              "has_timestamp": true
+            }
           }
         ]
       }
@@ -73,17 +85,23 @@
           {
             "description": "Two records have different creation timestamps",
             "executeQuery": "SELECT COUNT(DISTINCT created_at) as unique_timestamps FROM users",
-            "expected": { "unique_timestamps": 2 }
+            "expected": {
+              "unique_timestamps": 2
+            }
           },
           {
             "description": "First record created before second record",
             "executeQuery": "SELECT (SELECT created_at FROM users WHERE id = 1) < (SELECT created_at FROM users WHERE id = 2) as correct_order",
-            "expected": { "correct_order": true }
+            "expected": {
+              "correct_order": true
+            }
           },
           {
             "description": "created_at values are immutable (read-only)",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='users' AND column_name='created_at' AND is_updatable='NO'",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           }
         ]
       }
@@ -110,7 +128,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_documents_created'",
-            "expected": { "indexname": "idx_documents_created", "tablename": "documents" }
+            "expected": {
+              "indexname": "idx_documents_created",
+              "tablename": "documents"
+            }
           },
           {
             "description": "Index uses btree for timestamp sorting",
@@ -138,17 +159,23 @@
           {
             "description": "Find records created after specific date",
             "executeQuery": "SELECT COUNT(*) as count FROM orders WHERE created_at > '2024-06-01T00:00:00Z'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Find records created today",
             "executeQuery": "SELECT COUNT(*) as count FROM orders WHERE created_at::DATE = CURRENT_DATE",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           },
           {
             "description": "Order by creation time descending (newest first)",
             "executeQuery": "SELECT id FROM orders ORDER BY created_at DESC LIMIT 1",
-            "expected": { "id": 3 }
+            "expected": {
+              "id": 3
+            }
           }
         ]
       }
@@ -166,12 +193,16 @@
           {
             "description": "Attempting to insert with explicit created_at still uses NOW()",
             "executeQuery": "INSERT INTO audit_log (id) VALUES (DEFAULT) RETURNING created_at > '2024-01-01T00:00:00Z' as is_recent",
-            "expected": { "is_recent": true }
+            "expected": {
+              "is_recent": true
+            }
           },
           {
             "description": "All records have recent timestamps",
             "executeQuery": "INSERT INTO audit_log (id) VALUES (DEFAULT), (DEFAULT), (DEFAULT) RETURNING (SELECT COUNT(*) FROM audit_log WHERE created_at > NOW() - INTERVAL '1 minute') as recent_count",
-            "expected": { "recent_count": 4 }
+            "expected": {
+              "recent_count": 4
+            }
           }
         ]
       }

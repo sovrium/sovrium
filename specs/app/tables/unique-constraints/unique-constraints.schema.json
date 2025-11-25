@@ -9,11 +9,17 @@
     [
       {
         "name": "uq_user_email_tenant",
-        "fields": ["email", "tenant_id"]
+        "fields": [
+          "email",
+          "tenant_id"
+        ]
       },
       {
         "name": "uq_product_sku_variant",
-        "fields": ["sku", "variant_id"]
+        "fields": [
+          "sku",
+          "variant_id"
+        ]
       }
     ]
   ],
@@ -27,7 +33,10 @@
         "$ref": "./fields/fields.schema.json"
       }
     },
-    "required": ["name", "fields"],
+    "required": [
+      "name",
+      "fields"
+    ],
     "additionalProperties": false
   },
   "x-specs": [

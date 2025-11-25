@@ -33,7 +33,11 @@
     }
   },
   "description": "Whole number field without decimal places. Ideal for counts, IDs, quantities, ages, and rankings. Supports min/max constraints for range validation. Required flag makes the field mandatory. Unique constraint ensures no duplicate values. Indexing enables efficient numerical sorting and filtering.",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -44,7 +48,11 @@
       "validation": {
         "setup": {
           "executeQuery": "CREATE TABLE products (id SERIAL PRIMARY KEY)",
-          "fieldConfig": { "id": 1, "name": "quantity", "type": "integer" }
+          "fieldConfig": {
+            "id": 1,
+            "name": "quantity",
+            "type": "integer"
+          }
         },
         "assertions": [
           {
@@ -59,12 +67,16 @@
           {
             "description": "Valid integer can be inserted",
             "executeQuery": "INSERT INTO products (quantity) VALUES (42) RETURNING quantity",
-            "expected": { "quantity": 42 }
+            "expected": {
+              "quantity": 42
+            }
           },
           {
             "description": "Negative integer can be inserted",
             "executeQuery": "INSERT INTO products (quantity) VALUES (-10) RETURNING quantity",
-            "expected": { "quantity": -10 }
+            "expected": {
+              "quantity": -10
+            }
           }
         ]
       }
@@ -82,12 +94,16 @@
           {
             "description": "CHECK constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%stock%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Valid value within range succeeds",
             "executeQuery": "INSERT INTO inventory (stock) VALUES (500) RETURNING stock",
-            "expected": { "stock": 500 }
+            "expected": {
+              "stock": 500
+            }
           },
           {
             "description": "Value below min rejected",
@@ -118,12 +134,16 @@
           {
             "description": "NOT NULL constraint enforced",
             "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='orders' AND column_name='order_number'",
-            "expected": { "is_nullable": "NO" }
+            "expected": {
+              "is_nullable": "NO"
+            }
           },
           {
             "description": "UNIQUE constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='orders' AND constraint_type='UNIQUE' AND constraint_name LIKE '%order_number%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Duplicate integer rejected",
@@ -157,17 +177,23 @@
           {
             "description": "Column has DEFAULT value",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='settings' AND column_name='timeout'",
-            "expected": { "column_default": "30" }
+            "expected": {
+              "column_default": "30"
+            }
           },
           {
             "description": "INSERT without timeout uses default",
             "executeQuery": "INSERT INTO settings (id) VALUES (DEFAULT) RETURNING timeout",
-            "expected": { "timeout": 30 }
+            "expected": {
+              "timeout": 30
+            }
           },
           {
             "description": "Explicit value overrides default",
             "executeQuery": "INSERT INTO settings (timeout) VALUES (60) RETURNING timeout",
-            "expected": { "timeout": 60 }
+            "expected": {
+              "timeout": 60
+            }
           }
         ]
       }
@@ -194,7 +220,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_leaderboard_score'",
-            "expected": { "indexname": "idx_leaderboard_score", "tablename": "leaderboard" }
+            "expected": {
+              "indexname": "idx_leaderboard_score",
+              "tablename": "leaderboard"
+            }
           },
           {
             "description": "Index uses btree for range queries and sorting",

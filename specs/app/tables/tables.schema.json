@@ -35,7 +35,11 @@
         "$ref": "./permissions/permissions.schema.json"
       }
     },
-    "required": ["id", "name", "fields"],
+    "required": [
+      "id",
+      "name",
+      "fields"
+    ],
     "additionalProperties": false
   },
   "x-specs": [
@@ -49,27 +53,46 @@
           "tableConfig": {
             "id": "tbl_products",
             "name": "products",
-            "fields": [{ "id": 1, "name": "title", "type": "single-line-text", "required": true }]
+            "fields": [
+              {
+                "id": 1,
+                "name": "title",
+                "type": "single-line-text",
+                "required": true
+              }
+            ]
           }
         },
         "assertions": [
           {
             "description": "Table exists in PostgreSQL",
             "executeQuery": "SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'products')",
-            "expected": { "exists": true }
+            "expected": {
+              "exists": true
+            }
           },
           {
             "description": "Table has correct columns with correct types",
             "executeQuery": "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'products' ORDER BY ordinal_position",
             "expected": [
-              { "column_name": "id", "data_type": "integer", "is_nullable": "NO" },
-              { "column_name": "title", "data_type": "character varying", "is_nullable": "NO" }
+              {
+                "column_name": "id",
+                "data_type": "integer",
+                "is_nullable": "NO"
+              },
+              {
+                "column_name": "title",
+                "data_type": "character varying",
+                "is_nullable": "NO"
+              }
             ]
           },
           {
             "description": "Primary key constraint exists",
             "executeQuery": "SELECT constraint_name, constraint_type FROM information_schema.table_constraints WHERE table_name = 'products' AND constraint_type = 'PRIMARY KEY'",
-            "expected": { "constraint_type": "PRIMARY KEY" }
+            "expected": {
+              "constraint_type": "PRIMARY KEY"
+            }
           }
         ]
       }
@@ -85,11 +108,36 @@
             "id": "tbl_customers",
             "name": "customers",
             "fields": [
-              { "id": 1, "name": "name", "type": "single-line-text", "required": true },
-              { "id": 2, "name": "email", "type": "email", "required": true, "unique": true },
-              { "id": 3, "name": "age", "type": "integer" },
-              { "id": 4, "name": "balance", "type": "decimal", "precision": 10, "scale": 2 },
-              { "id": 5, "name": "is_active", "type": "checkbox" }
+              {
+                "id": 1,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "email",
+                "type": "email",
+                "required": true,
+                "unique": true
+              },
+              {
+                "id": 3,
+                "name": "age",
+                "type": "integer"
+              },
+              {
+                "id": 4,
+                "name": "balance",
+                "type": "decimal",
+                "precision": 10,
+                "scale": 2
+              },
+              {
+                "id": 5,
+                "name": "is_active",
+                "type": "checkbox"
+              }
             ]
           }
         },
@@ -98,18 +146,38 @@
             "description": "All columns created with correct types",
             "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'customers' ORDER BY ordinal_position",
             "expected": [
-              { "column_name": "id", "data_type": "integer" },
-              { "column_name": "name", "data_type": "character varying" },
-              { "column_name": "email", "data_type": "character varying" },
-              { "column_name": "age", "data_type": "integer" },
-              { "column_name": "balance", "data_type": "numeric" },
-              { "column_name": "is_active", "data_type": "boolean" }
+              {
+                "column_name": "id",
+                "data_type": "integer"
+              },
+              {
+                "column_name": "name",
+                "data_type": "character varying"
+              },
+              {
+                "column_name": "email",
+                "data_type": "character varying"
+              },
+              {
+                "column_name": "age",
+                "data_type": "integer"
+              },
+              {
+                "column_name": "balance",
+                "data_type": "numeric"
+              },
+              {
+                "column_name": "is_active",
+                "data_type": "boolean"
+              }
             ]
           },
           {
             "description": "Email field has UNIQUE constraint",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='customers' AND constraint_type='UNIQUE'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -124,20 +192,36 @@
           "tableConfig": {
             "id": "tbl_orders",
             "name": "orders",
-            "fields": [{ "id": 1, "name": "order_id", "type": "integer", "required": true }],
-            "primaryKey": { "fields": ["order_id"] }
+            "fields": [
+              {
+                "id": 1,
+                "name": "order_id",
+                "type": "integer",
+                "required": true
+              }
+            ],
+            "primaryKey": {
+              "fields": [
+                "order_id"
+              ]
+            }
           }
         },
         "assertions": [
           {
             "description": "Primary key constraint exists on order_id",
             "executeQuery": "SELECT c.column_name, tc.constraint_type FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage c ON tc.constraint_name = c.constraint_name WHERE tc.table_name = 'orders' AND tc.constraint_type = 'PRIMARY KEY'",
-            "expected": { "column_name": "order_id", "constraint_type": "PRIMARY KEY" }
+            "expected": {
+              "column_name": "order_id",
+              "constraint_type": "PRIMARY KEY"
+            }
           },
           {
             "description": "Column is NOT NULL",
             "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name = 'orders' AND column_name = 'order_id'",
-            "expected": { "is_nullable": "NO" }
+            "expected": {
+              "is_nullable": "NO"
+            }
           }
         ]
       }
@@ -160,8 +244,19 @@
                 "required": true,
                 "unique": true
               },
-              { "id": 2, "name": "title", "type": "single-line-text", "required": true },
-              { "id": 3, "name": "price", "type": "decimal", "required": true, "min": 0.01 }
+              {
+                "id": 2,
+                "name": "title",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 3,
+                "name": "price",
+                "type": "decimal",
+                "required": true,
+                "min": 0.01
+              }
             ]
           }
         },
@@ -169,21 +264,34 @@
           {
             "description": "UNIQUE constraint exists on sku",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='products' AND constraint_type='UNIQUE' AND constraint_name LIKE '%sku%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "NOT NULL enforced on required fields",
             "executeQuery": "SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name IN ('sku', 'title', 'price') ORDER BY column_name",
             "expected": [
-              { "column_name": "price", "is_nullable": "NO" },
-              { "column_name": "sku", "is_nullable": "NO" },
-              { "column_name": "title", "is_nullable": "NO" }
+              {
+                "column_name": "price",
+                "is_nullable": "NO"
+              },
+              {
+                "column_name": "sku",
+                "is_nullable": "NO"
+              },
+              {
+                "column_name": "title",
+                "is_nullable": "NO"
+              }
             ]
           },
           {
             "description": "CHECK constraint enforces price > 0",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%price%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -204,21 +312,38 @@
           {
             "description": "pg_tables shows table existence",
             "executeQuery": "SELECT tablename, schemaname FROM pg_tables WHERE tablename = 'customers'",
-            "expected": { "tablename": "customers", "schemaname": "public" }
+            "expected": {
+              "tablename": "customers",
+              "schemaname": "public"
+            }
           },
           {
             "description": "information_schema.columns shows all columns",
             "executeQuery": "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'customers' ORDER BY ordinal_position",
             "expected": [
-              { "column_name": "id", "data_type": "integer", "is_nullable": "NO" },
-              { "column_name": "email", "data_type": "character varying", "is_nullable": "NO" },
-              { "column_name": "name", "data_type": "character varying", "is_nullable": "NO" }
+              {
+                "column_name": "id",
+                "data_type": "integer",
+                "is_nullable": "NO"
+              },
+              {
+                "column_name": "email",
+                "data_type": "character varying",
+                "is_nullable": "NO"
+              },
+              {
+                "column_name": "name",
+                "data_type": "character varying",
+                "is_nullable": "NO"
+              }
             ]
           },
           {
             "description": "pg_indexes shows index details",
             "executeQuery": "SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'customers' AND indexname = 'idx_customers_email'",
-            "expected": { "indexname": "idx_customers_email" }
+            "expected": {
+              "indexname": "idx_customers_email"
+            }
           }
         ]
       }
@@ -231,7 +356,11 @@
       "validation": {
         "setup": {
           "executeQuery": "CREATE TABLE items (id SERIAL PRIMARY KEY)",
-          "fieldConfig": { "id": 1, "name": "title", "type": "single-line-text" }
+          "fieldConfig": {
+            "id": 1,
+            "name": "title",
+            "type": "single-line-text"
+          }
         },
         "assertions": [
           {
@@ -275,7 +404,9 @@
           {
             "description": "UNIQUE constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -288,18 +419,29 @@
       "validation": {
         "setup": {
           "executeQuery": "CREATE TABLE products (id SERIAL PRIMARY KEY)",
-          "fieldConfig": { "id": 1, "name": "quantity", "type": "integer", "min": 0, "max": 10000 }
+          "fieldConfig": {
+            "id": 1,
+            "name": "quantity",
+            "type": "integer",
+            "min": 0,
+            "max": 10000
+          }
         },
         "assertions": [
           {
             "description": "Column created as INTEGER",
             "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='products' AND column_name='quantity'",
-            "expected": { "column_name": "quantity", "data_type": "integer" }
+            "expected": {
+              "column_name": "quantity",
+              "data_type": "integer"
+            }
           },
           {
             "description": "CHECK constraint exists for range validation",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%quantity%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -342,7 +484,12 @@
       "validation": {
         "setup": {
           "executeQuery": "CREATE TABLE settings (id SERIAL PRIMARY KEY)",
-          "fieldConfig": { "id": 1, "name": "is_active", "type": "checkbox", "default": false }
+          "fieldConfig": {
+            "id": 1,
+            "name": "is_active",
+            "type": "checkbox",
+            "default": false
+          }
         },
         "assertions": [
           {
@@ -373,7 +520,9 @@
           {
             "description": "First insertion succeeds",
             "executeQuery": "SELECT COUNT(*) as count FROM users WHERE email = 'john@example.com'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Duplicate insertion fails with unique constraint violation",
@@ -383,7 +532,9 @@
           {
             "description": "Database still contains only 1 row",
             "executeQuery": "SELECT COUNT(*) as count FROM users",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -401,7 +552,9 @@
           {
             "description": "Valid insertion with title succeeds",
             "executeQuery": "INSERT INTO products (title, price) VALUES ('MacBook Pro', 2499.99) RETURNING id, title",
-            "expected": { "title": "MacBook Pro" }
+            "expected": {
+              "title": "MacBook Pro"
+            }
           },
           {
             "description": "Insertion with NULL title fails",
@@ -424,7 +577,9 @@
           {
             "description": "Valid quantity within range succeeds",
             "executeQuery": "INSERT INTO inventory (item_name, quantity) VALUES ('Widget', 5000) RETURNING quantity",
-            "expected": { "quantity": 5000 }
+            "expected": {
+              "quantity": 5000
+            }
           },
           {
             "description": "Negative quantity rejected",
@@ -455,7 +610,10 @@
           {
             "description": "Index appears in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_users_email'",
-            "expected": { "indexname": "idx_users_email", "tablename": "users" }
+            "expected": {
+              "indexname": "idx_users_email",
+              "tablename": "users"
+            }
           }
         ]
       }
@@ -485,7 +643,9 @@
           {
             "description": "Table has 3 columns total",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name = 'customers'",
-            "expected": { "count": 3 }
+            "expected": {
+              "count": 3
+            }
           }
         ]
       }
@@ -506,12 +666,16 @@
           {
             "description": "Status column no longer exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name = 'temp_data' AND column_name = 'status'",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           },
           {
             "description": "Table has 2 remaining columns",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name = 'temp_data'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           }
         ]
       }
@@ -529,12 +693,17 @@
           {
             "description": "INSERT with RETURNING clause succeeds",
             "executeQuery": "INSERT INTO customers (email, name) VALUES ('john@example.com', 'John Doe') RETURNING id, email, name",
-            "expected": { "email": "john@example.com", "name": "John Doe" }
+            "expected": {
+              "email": "john@example.com",
+              "name": "John Doe"
+            }
           },
           {
             "description": "Row count is 1",
             "executeQuery": "SELECT COUNT(*) as count FROM customers",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -555,12 +724,16 @@
           {
             "description": "UPDATE statement succeeds",
             "executeQuery": "UPDATE customers SET name = 'John Smith' WHERE email = 'john@example.com' RETURNING name",
-            "expected": { "name": "John Smith" }
+            "expected": {
+              "name": "John Smith"
+            }
           },
           {
             "description": "SELECT confirms update",
             "executeQuery": "SELECT name FROM customers WHERE email = 'john@example.com'",
-            "expected": { "name": "John Smith" }
+            "expected": {
+              "name": "John Smith"
+            }
           }
         ]
       }
@@ -581,17 +754,23 @@
           {
             "description": "Initial row count is 3",
             "executeQuery": "SELECT COUNT(*) as count FROM customers",
-            "expected": { "count": 3 }
+            "expected": {
+              "count": 3
+            }
           },
           {
             "description": "DELETE removes 1 row",
             "executeQuery": "DELETE FROM customers WHERE email = 'john@example.com' RETURNING email",
-            "expected": { "email": "john@example.com" }
+            "expected": {
+              "email": "john@example.com"
+            }
           },
           {
             "description": "Row count is now 2",
             "executeQuery": "SELECT COUNT(*) as count FROM customers",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           }
         ]
       }
@@ -604,18 +783,27 @@
       "validation": {
         "setup": {
           "executeQuery": "CREATE TABLE orders (id SERIAL PRIMARY KEY)",
-          "fieldConfig": { "id": 1, "name": "created_at", "type": "created-at" }
+          "fieldConfig": {
+            "id": 1,
+            "name": "created_at",
+            "type": "created-at"
+          }
         },
         "assertions": [
           {
             "description": "Column created as TIMESTAMP",
             "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='orders' AND column_name='created_at'",
-            "expected": { "column_name": "created_at", "data_type": "timestamp without time zone" }
+            "expected": {
+              "column_name": "created_at",
+              "data_type": "timestamp without time zone"
+            }
           },
           {
             "description": "Column has DEFAULT NOW()",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='orders' AND column_name='created_at'",
-            "expected": { "column_default": "CURRENT_TIMESTAMP" }
+            "expected": {
+              "column_default": "CURRENT_TIMESTAMP"
+            }
           }
         ]
       }
@@ -632,19 +820,27 @@
             "id": 1,
             "name": "status",
             "type": "single-select",
-            "options": ["active", "inactive"]
+            "options": [
+              "active",
+              "inactive"
+            ]
           }
         },
         "assertions": [
           {
             "description": "Column created as VARCHAR",
             "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='items' AND column_name='status'",
-            "expected": { "column_name": "status", "data_type": "character varying" }
+            "expected": {
+              "column_name": "status",
+              "data_type": "character varying"
+            }
           },
           {
             "description": "CHECK constraint exists for enum values",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%status%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -662,16 +858,21 @@
           {
             "description": "Table exists before drop",
             "executeQuery": "SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = 'obsolete_data')",
-            "expected": { "exists": true }
+            "expected": {
+              "exists": true
+            }
           },
           {
             "description": "DROP TABLE succeeds",
-            "executeQuery": "DROP TABLE obsolete_data"
+            "executeQuery": "DROP TABLE obsolete_data",
+            "expectError": "validation error"
           },
           {
             "description": "Table no longer exists",
             "executeQuery": "SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = 'obsolete_data')",
-            "expected": { "exists": false }
+            "expected": {
+              "exists": false
+            }
           }
         ]
       }
@@ -688,22 +889,41 @@
             "id": "tbl_user_tenants",
             "name": "user_tenants",
             "fields": [
-              { "id": 1, "name": "tenant_id", "type": "integer", "required": true },
-              { "id": 2, "name": "user_id", "type": "integer", "required": true }
+              {
+                "id": 1,
+                "name": "tenant_id",
+                "type": "integer",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "user_id",
+                "type": "integer",
+                "required": true
+              }
             ],
-            "primaryKey": { "fields": ["tenant_id", "user_id"] }
+            "primaryKey": {
+              "fields": [
+                "tenant_id",
+                "user_id"
+              ]
+            }
           }
         },
         "assertions": [
           {
             "description": "Composite primary key exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='user_tenants' AND constraint_type='PRIMARY KEY'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Primary key includes both columns",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.key_column_usage WHERE table_name='user_tenants' AND constraint_name LIKE '%_pkey'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           }
         ]
       }

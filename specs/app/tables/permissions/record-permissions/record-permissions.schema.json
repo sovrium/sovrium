@@ -10,7 +10,11 @@
     "properties": {
       "action": {
         "type": "string",
-        "enum": ["read", "update", "delete"],
+        "enum": [
+          "read",
+          "update",
+          "delete"
+        ],
         "description": "The action this rule applies to (create not supported - use table-level)"
       },
       "condition": {
@@ -20,7 +24,10 @@
         "description": "Expression with placeholders: {userId}, {userEmail}, {userRole}, {user.customField}. Example: '{userId} = created_by', '{user.department} = department'"
       }
     },
-    "required": ["action", "condition"],
+    "required": [
+      "action",
+      "condition"
+    ],
     "additionalProperties": false
   },
   "examples": [
@@ -73,22 +80,35 @@
           {
             "description": "RLS policy exists for user_read_own",
             "executeQuery": "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='documents' AND policyname='user_read_own'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "User 1 can only SELECT their own records",
             "executeQuery": "SET LOCAL app.user_id = 1; SELECT COUNT(*) as count FROM documents",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "User 2 can only SELECT their own records",
             "executeQuery": "SET LOCAL app.user_id = 2; SELECT COUNT(*) as count FROM documents",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "User 1 sees titles of their documents",
             "executeQuery": "SET LOCAL app.user_id = 1; SELECT title FROM documents ORDER BY id",
-            "expected": [{ "title": "Doc 1" }, { "title": "Doc 3" }]
+            "expected": [
+              {
+                "title": "Doc 1"
+              },
+              {
+                "title": "Doc 3"
+              }
+            ]
           }
         ]
       }
@@ -119,22 +139,30 @@
           {
             "description": "RLS policy exists for user_update_assigned",
             "executeQuery": "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='tasks' AND policyname='user_update_assigned'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "User 1 can UPDATE tasks assigned to them",
             "executeQuery": "SET LOCAL app.user_id = 1; UPDATE tasks SET status = 'in_progress' WHERE id = 1 RETURNING status",
-            "expected": { "status": "in_progress" }
+            "expected": {
+              "status": "in_progress"
+            }
           },
           {
             "description": "User 1 cannot UPDATE tasks assigned to user 2",
             "executeQuery": "SET LOCAL app.user_id = 1; UPDATE tasks SET status = 'hacked' WHERE id = 2 RETURNING id",
-            "expected": { "id": null }
+            "expected": {
+              "id": null
+            }
           },
           {
             "description": "User 2 can only UPDATE their assigned tasks",
             "executeQuery": "SET LOCAL app.user_id = 2; UPDATE tasks SET status = 'done' WHERE id = 2 RETURNING status",
-            "expected": { "status": "done" }
+            "expected": {
+              "status": "done"
+            }
           }
         ]
       }
@@ -165,22 +193,30 @@
           {
             "description": "RLS policy exists with AND condition",
             "executeQuery": "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='articles' AND policyname='user_delete_draft'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "User 1 can DELETE their draft article",
             "executeQuery": "SET LOCAL app.user_id = 1; DELETE FROM articles WHERE id = 1 RETURNING id",
-            "expected": { "id": 1 }
+            "expected": {
+              "id": 1
+            }
           },
           {
             "description": "User 1 cannot DELETE their published article (status not draft)",
             "executeQuery": "SET LOCAL app.user_id = 1; DELETE FROM articles WHERE id = 2 RETURNING id",
-            "expected": { "id": null }
+            "expected": {
+              "id": null
+            }
           },
           {
             "description": "User 1 cannot DELETE drafts by user 2 (not their own)",
             "executeQuery": "SET LOCAL app.user_id = 1; DELETE FROM articles WHERE id = 3 RETURNING id",
-            "expected": { "id": null }
+            "expected": {
+              "id": null
+            }
           }
         ]
       }
@@ -222,17 +258,23 @@
           {
             "description": "Engineering user sees only active Engineering projects",
             "executeQuery": "SET LOCAL app.user_department = 'Engineering'; SELECT COUNT(*) as count FROM projects",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Engineering user sees Project A (active)",
             "executeQuery": "SET LOCAL app.user_department = 'Engineering'; SELECT name FROM projects",
-            "expected": { "name": "Project A" }
+            "expected": {
+              "name": "Project A"
+            }
           },
           {
             "description": "Marketing user sees only active Marketing projects",
             "executeQuery": "SET LOCAL app.user_department = 'Marketing'; SELECT name FROM projects",
-            "expected": { "name": "Project C" }
+            "expected": {
+              "name": "Project C"
+            }
           }
         ]
       }
@@ -270,17 +312,28 @@
           {
             "description": "Engineering user sees Engineering employees only",
             "executeQuery": "SET LOCAL app.user_department = 'Engineering'; SELECT COUNT(*) as count FROM employees",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Engineering user sees Alice and Charlie",
             "executeQuery": "SET LOCAL app.user_department = 'Engineering'; SELECT name FROM employees ORDER BY name",
-            "expected": [{ "name": "Alice" }, { "name": "Charlie" }]
+            "expected": [
+              {
+                "name": "Alice"
+              },
+              {
+                "name": "Charlie"
+              }
+            ]
           },
           {
             "description": "Marketing user sees Marketing employees only",
             "executeQuery": "SET LOCAL app.user_department = 'Marketing'; SELECT name FROM employees",
-            "expected": { "name": "Bob" }
+            "expected": {
+              "name": "Bob"
+            }
           }
         ]
       }
@@ -318,17 +371,36 @@
           {
             "description": "User 1 sees tickets they created OR are assigned to",
             "executeQuery": "SET LOCAL app.user_id = 1; SELECT COUNT(*) as count FROM tickets",
-            "expected": { "count": 3 }
+            "expected": {
+              "count": 3
+            }
           },
           {
             "description": "User 1 sees Ticket 1 (created), Ticket 2 (assigned), Ticket 3 (both)",
             "executeQuery": "SET LOCAL app.user_id = 1; SELECT title FROM tickets ORDER BY id",
-            "expected": [{ "title": "Ticket 1" }, { "title": "Ticket 2" }, { "title": "Ticket 3" }]
+            "expected": [
+              {
+                "title": "Ticket 1"
+              },
+              {
+                "title": "Ticket 2"
+              },
+              {
+                "title": "Ticket 3"
+              }
+            ]
           },
           {
             "description": "User 2 sees tickets they created OR are assigned to",
             "executeQuery": "SET LOCAL app.user_id = 2; SELECT title FROM tickets ORDER BY id",
-            "expected": [{ "title": "Ticket 1" }, { "title": "Ticket 2" }]
+            "expected": [
+              {
+                "title": "Ticket 1"
+              },
+              {
+                "title": "Ticket 2"
+              }
+            ]
           }
         ]
       }

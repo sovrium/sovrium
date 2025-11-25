@@ -23,16 +23,32 @@
   "examples": [
     {
       "table": {
-        "read": { "type": "authenticated" },
-        "create": { "type": "authenticated" },
-        "update": { "type": "authenticated" },
-        "delete": { "type": "roles", "roles": ["admin"] }
+        "read": {
+          "type": "authenticated"
+        },
+        "create": {
+          "type": "authenticated"
+        },
+        "update": {
+          "type": "authenticated"
+        },
+        "delete": {
+          "type": "roles",
+          "roles": [
+            "admin"
+          ]
+        }
       },
       "fields": [
         {
           "field": "email",
-          "read": { "type": "authenticated" },
-          "write": { "type": "custom", "condition": "{userId} = id" }
+          "read": {
+            "type": "authenticated"
+          },
+          "write": {
+            "type": "custom",
+            "condition": "{userId} = id"
+          }
         }
       ],
       "records": [
@@ -44,8 +60,16 @@
     },
     {
       "table": {
-        "read": { "type": "public" },
-        "create": { "type": "roles", "roles": ["admin", "editor"] }
+        "read": {
+          "type": "public"
+        },
+        "create": {
+          "type": "roles",
+          "roles": [
+            "admin",
+            "editor"
+          ]
+        }
       }
     }
   ],
@@ -65,7 +89,12 @@
           ],
           "permissionConfig": {
             "table": {
-              "read": { "type": "roles", "roles": ["admin"] }
+              "read": {
+                "type": "roles",
+                "roles": [
+                  "admin"
+                ]
+              }
             }
           }
         },
@@ -73,22 +102,30 @@
           {
             "description": "Table-level RLS policy exists",
             "executeQuery": "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='admin_data'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Admin user can SELECT records",
             "executeQuery": "SET ROLE admin_user; SELECT COUNT(*) as count FROM admin_data",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Member user cannot SELECT records (table-level denied)",
             "executeQuery": "SET ROLE member_user; SELECT COUNT(*) as count FROM admin_data",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           },
           {
             "description": "Field/record permissions not evaluated when table-level denies",
             "executeQuery": "SELECT COUNT(*) as field_policies FROM pg_policies WHERE tablename='admin_data' AND policyname LIKE '%field%'",
-            "expected": { "field_policies": 0 }
+            "expected": {
+              "field_policies": 0
+            }
           }
         ]
       }
@@ -106,12 +143,19 @@
           ],
           "permissionConfig": {
             "table": {
-              "read": { "type": "authenticated" }
+              "read": {
+                "type": "authenticated"
+              }
             },
             "fields": [
               {
                 "field": "salary",
-                "read": { "type": "roles", "roles": ["admin"] }
+                "read": {
+                  "type": "roles",
+                  "roles": [
+                    "admin"
+                  ]
+                }
               }
             ]
           }
@@ -120,12 +164,17 @@
           {
             "description": "Authenticated user can access table",
             "executeQuery": "SET ROLE authenticated_user; SELECT COUNT(*) as count FROM users",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Authenticated user can SELECT allowed fields",
             "executeQuery": "SET ROLE authenticated_user; SELECT name, email FROM users WHERE id = 1",
-            "expected": { "name": "Alice", "email": "alice@example.com" }
+            "expected": {
+              "name": "Alice",
+              "email": "alice@example.com"
+            }
           },
           {
             "description": "Authenticated user cannot SELECT salary field",
@@ -135,7 +184,11 @@
           {
             "description": "Admin user can SELECT all fields including salary",
             "executeQuery": "SET ROLE admin_user; SELECT name, email, salary FROM users WHERE id = 1",
-            "expected": { "name": "Alice", "email": "alice@example.com", "salary": 75000.0 }
+            "expected": {
+              "name": "Alice",
+              "email": "alice@example.com",
+              "salary": 75000.0
+            }
           }
         ]
       }
@@ -156,12 +209,17 @@
           ],
           "permissionConfig": {
             "table": {
-              "read": { "type": "authenticated" }
+              "read": {
+                "type": "authenticated"
+              }
             },
             "fields": [
               {
                 "field": "notes",
-                "read": { "type": "custom", "condition": "{userId} = owner_id" }
+                "read": {
+                  "type": "custom",
+                  "condition": "{userId} = owner_id"
+                }
               }
             ],
             "records": [
@@ -181,17 +239,24 @@
           {
             "description": "Authenticated user passes table level, filtered by record level",
             "executeQuery": "SET LOCAL app.user_id = 1; SELECT COUNT(*) as count FROM tasks",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "User 1 sees only their task (record-level filter)",
             "executeQuery": "SET LOCAL app.user_id = 1; SELECT title FROM tasks",
-            "expected": { "title": "Task 1" }
+            "expected": {
+              "title": "Task 1"
+            }
           },
           {
             "description": "User 1 can read notes on their own task (field-level allows)",
             "executeQuery": "SET LOCAL app.user_id = 1; SELECT title, notes FROM tasks WHERE id = 1",
-            "expected": { "title": "Task 1", "notes": "Private notes 1" }
+            "expected": {
+              "title": "Task 1",
+              "notes": "Private notes 1"
+            }
           }
         ]
       }
@@ -214,22 +279,30 @@
           {
             "description": "RLS is enabled",
             "executeQuery": "SELECT relrowsecurity FROM pg_class WHERE relname='confidential'",
-            "expected": { "relrowsecurity": true }
+            "expected": {
+              "relrowsecurity": true
+            }
           },
           {
             "description": "No policies exist (default deny)",
             "executeQuery": "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='confidential'",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           },
           {
             "description": "Admin user gets empty result (RLS blocks)",
             "executeQuery": "SET ROLE admin_user; SELECT COUNT(*) as count FROM confidential",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           },
           {
             "description": "Any user gets empty result (default deny)",
             "executeQuery": "SET ROLE authenticated_user; SELECT COUNT(*) as count FROM confidential",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           }
         ]
       }
@@ -249,12 +322,16 @@
           ],
           "permissionConfig": {
             "table": {
-              "read": { "type": "public" }
+              "read": {
+                "type": "public"
+              }
             },
             "fields": [
               {
                 "field": "body",
-                "read": { "type": "authenticated" }
+                "read": {
+                  "type": "authenticated"
+                }
               }
             ],
             "records": [
@@ -269,22 +346,31 @@
           {
             "description": "Unauthenticated user sees published posts only (record filter)",
             "executeQuery": "RESET ROLE; SELECT COUNT(*) as count FROM posts",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Unauthenticated user can see title but not body (field filter)",
             "executeQuery": "RESET ROLE; SELECT title FROM posts",
-            "expected": { "title": "Published Post" }
+            "expected": {
+              "title": "Published Post"
+            }
           },
           {
             "description": "Author sees published + their own drafts (2 records)",
             "executeQuery": "SET LOCAL app.user_id = 1; SELECT COUNT(*) as count FROM posts",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Author can read body field on their posts",
             "executeQuery": "SET LOCAL app.user_id = 1; SELECT title, body FROM posts WHERE id = 2",
-            "expected": { "title": "Draft Post", "body": "Private draft" }
+            "expected": {
+              "title": "Draft Post",
+              "body": "Private draft"
+            }
           }
         ]
       }

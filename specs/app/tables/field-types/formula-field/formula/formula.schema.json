@@ -34,12 +34,16 @@
           {
             "description": "Column is GENERATED type",
             "executeQuery": "SELECT is_generated FROM information_schema.columns WHERE table_name='order_items' AND column_name='total'",
-            "expected": { "is_generated": "ALWAYS" }
+            "expected": {
+              "is_generated": "ALWAYS"
+            }
           },
           {
             "description": "Formula computes automatically (19.99 * 5)",
             "executeQuery": "SELECT total FROM order_items WHERE product = 'Widget'",
-            "expected": { "total": 99.95 }
+            "expected": {
+              "total": 99.95
+            }
           },
           {
             "description": "Cannot manually insert into GENERATED column",
@@ -71,12 +75,16 @@
           {
             "description": "String concatenation works",
             "executeQuery": "SELECT full_name FROM employees WHERE first_name = 'John'",
-            "expected": { "full_name": "John Doe" }
+            "expected": {
+              "full_name": "John Doe"
+            }
           },
           {
             "description": "Formula updates when source fields change",
             "executeQuery": "UPDATE employees SET last_name = 'Johnson' WHERE first_name = 'John' RETURNING full_name",
-            "expected": { "full_name": "John Johnson" }
+            "expected": {
+              "full_name": "John Johnson"
+            }
           }
         ]
       }
@@ -103,12 +111,16 @@
           {
             "description": "Condition evaluates to 'Yes' for active",
             "executeQuery": "SELECT is_active FROM accounts WHERE username = 'user1'",
-            "expected": { "is_active": "Yes" }
+            "expected": {
+              "is_active": "Yes"
+            }
           },
           {
             "description": "Condition evaluates to 'No' for non-active",
             "executeQuery": "SELECT is_active FROM accounts WHERE username = 'user2'",
-            "expected": { "is_active": "No" }
+            "expected": {
+              "is_active": "No"
+            }
           }
         ]
       }
@@ -135,12 +147,16 @@
           {
             "description": "Tax calculated and rounded (100 * 0.15)",
             "executeQuery": "SELECT tax FROM invoices WHERE subtotal = 100.00",
-            "expected": { "tax": 15.0 }
+            "expected": {
+              "tax": 15.0
+            }
           },
           {
             "description": "Tax rounded to 2 decimals (49.99 * 0.15)",
             "executeQuery": "SELECT tax FROM invoices WHERE subtotal = 49.99",
-            "expected": { "tax": 7.5 }
+            "expected": {
+              "tax": 7.5
+            }
           }
         ]
       }

@@ -23,7 +23,9 @@
       "type": "string",
       "const": "date",
       "description": "Field type discriminator for date-only fields",
-      "examples": ["date"]
+      "examples": [
+        "date"
+      ]
     },
     "format": {
       "$ref": "./format/format.schema.json"
@@ -50,7 +52,11 @@
       "format": "MM/DD/YYYY"
     }
   ],
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -61,7 +67,11 @@
       "validation": {
         "setup": {
           "executeQuery": "CREATE TABLE employees (id SERIAL PRIMARY KEY)",
-          "fieldConfig": { "id": 1, "name": "birth_date", "type": "date" }
+          "fieldConfig": {
+            "id": 1,
+            "name": "birth_date",
+            "type": "date"
+          }
         },
         "assertions": [
           {
@@ -76,12 +86,16 @@
           {
             "description": "Valid date can be inserted",
             "executeQuery": "INSERT INTO employees (birth_date) VALUES ('1990-05-15') RETURNING birth_date",
-            "expected": { "birth_date": "1990-05-15" }
+            "expected": {
+              "birth_date": "1990-05-15"
+            }
           },
           {
             "description": "Date stored in ISO 8601 format (YYYY-MM-DD)",
             "executeQuery": "SELECT birth_date::TEXT as date_string FROM employees WHERE id = 1",
-            "expected": { "date_string": "1990-05-15" }
+            "expected": {
+              "date_string": "1990-05-15"
+            }
           }
         ]
       }
@@ -102,17 +116,23 @@
           {
             "description": "Find dates after specific date",
             "executeQuery": "SELECT COUNT(*) as count FROM projects WHERE deadline > '2024-06-01'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Find dates between range",
             "executeQuery": "SELECT COUNT(*) as count FROM projects WHERE deadline BETWEEN '2024-01-01' AND '2024-06-30'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Order by date ascending",
             "executeQuery": "SELECT deadline::TEXT FROM projects ORDER BY deadline ASC LIMIT 1",
-            "expected": { "deadline": "2024-01-15" }
+            "expected": {
+              "deadline": "2024-01-15"
+            }
           }
         ]
       }
@@ -133,12 +153,16 @@
           {
             "description": "NOT NULL constraint enforced",
             "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='events' AND column_name='event_date'",
-            "expected": { "is_nullable": "NO" }
+            "expected": {
+              "is_nullable": "NO"
+            }
           },
           {
             "description": "UNIQUE constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='events' AND constraint_type='UNIQUE' AND constraint_name LIKE '%event_date%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Duplicate date rejected",
@@ -172,17 +196,23 @@
           {
             "description": "Column has DEFAULT value CURRENT_DATE",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='registrations' AND column_name='signup_date'",
-            "expected": { "column_default": "CURRENT_DATE" }
+            "expected": {
+              "column_default": "CURRENT_DATE"
+            }
           },
           {
             "description": "INSERT without signup_date uses current date",
             "executeQuery": "INSERT INTO registrations (id) VALUES (DEFAULT) RETURNING signup_date = CURRENT_DATE as is_today",
-            "expected": { "is_today": true }
+            "expected": {
+              "is_today": true
+            }
           },
           {
             "description": "Explicit value overrides default",
             "executeQuery": "INSERT INTO registrations (signup_date) VALUES ('2024-01-01') RETURNING signup_date",
-            "expected": { "signup_date": "2024-01-01" }
+            "expected": {
+              "signup_date": "2024-01-01"
+            }
           }
         ]
       }
@@ -209,7 +239,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_memberships_anniversary'",
-            "expected": { "indexname": "idx_memberships_anniversary", "tablename": "memberships" }
+            "expected": {
+              "indexname": "idx_memberships_anniversary",
+              "tablename": "memberships"
+            }
           },
           {
             "description": "Index uses btree for date range queries",

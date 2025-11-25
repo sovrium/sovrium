@@ -28,7 +28,13 @@
     }
   },
   "description": "Trigger actions or open URLs",
-  "required": ["id", "name", "type", "label", "action"],
+  "required": [
+    "id",
+    "name",
+    "type",
+    "label",
+    "action"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -51,17 +57,28 @@
           {
             "description": "No column created for button field",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='approvals' AND column_name='approve_action'",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           },
           {
             "description": "Only id and status columns exist",
             "executeQuery": "SELECT column_name FROM information_schema.columns WHERE table_name='approvals' ORDER BY ordinal_position",
-            "expected": [{ "column_name": "id" }, { "column_name": "status" }]
+            "expected": [
+              {
+                "column_name": "id"
+              },
+              {
+                "column_name": "status"
+              }
+            ]
           },
           {
             "description": "Note: Button configuration stored in application layer, not database schema",
             "executeQuery": "SELECT 'Button field is UI-only, no database column' as note",
-            "expected": { "note": "Button field is UI-only, no database column" }
+            "expected": {
+              "note": "Button field is UI-only, no database column"
+            }
           }
         ]
       }
@@ -91,17 +108,25 @@
           {
             "description": "Initial task status",
             "executeQuery": "SELECT id, status FROM tasks WHERE id = 1",
-            "expected": { "id": 1, "status": "open" }
+            "expected": {
+              "id": 1,
+              "status": "open"
+            }
           },
           {
             "description": "Simulate button click: update status",
             "executeQuery": "UPDATE tasks SET status = 'completed' WHERE id = 1 RETURNING id, status",
-            "expected": { "id": 1, "status": "completed" }
+            "expected": {
+              "id": 1,
+              "status": "completed"
+            }
           },
           {
             "description": "Verify status updated",
             "executeQuery": "SELECT status FROM tasks WHERE id = 1",
-            "expected": { "status": "completed" }
+            "expected": {
+              "status": "completed"
+            }
           }
         ]
       }
@@ -140,12 +165,16 @@
           {
             "description": "Count button clicks for record",
             "executeQuery": "SELECT COUNT(*) as click_count FROM button_clicks WHERE table_name = 'orders' AND record_id = 1",
-            "expected": { "click_count": 1 }
+            "expected": {
+              "click_count": 1
+            }
           },
           {
             "description": "Multiple clicks tracked",
             "executeQuery": "INSERT INTO button_clicks (table_name, record_id, button_name) VALUES ('orders', 1, 'send_email_button'), ('orders', 1, 'send_email_button') RETURNING COUNT(*) OVER() as total",
-            "expected": { "total": 2 }
+            "expected": {
+              "total": 2
+            }
           }
         ]
       }
@@ -182,12 +211,16 @@
           {
             "description": "Button references URL from field",
             "executeQuery": "SELECT pdf_url FROM invoices WHERE id = 1",
-            "expected": { "pdf_url": "https://example.com/invoices/inv-001.pdf" }
+            "expected": {
+              "pdf_url": "https://example.com/invoices/inv-001.pdf"
+            }
           },
           {
             "description": "URL can be updated for button target",
             "executeQuery": "UPDATE invoices SET pdf_url = 'https://cdn.example.com/invoices/inv-001.pdf' WHERE id = 1 RETURNING pdf_url",
-            "expected": { "pdf_url": "https://cdn.example.com/invoices/inv-001.pdf" }
+            "expected": {
+              "pdf_url": "https://cdn.example.com/invoices/inv-001.pdf"
+            }
           }
         ]
       }
@@ -225,12 +258,16 @@
           {
             "description": "Workflow execution logged",
             "executeQuery": "SELECT COUNT(*) as workflow_count FROM workflow_executions WHERE trigger_source = 'escalate_button' AND record_id = 1",
-            "expected": { "workflow_count": 1 }
+            "expected": {
+              "workflow_count": 1
+            }
           },
           {
             "description": "Update workflow status after completion",
             "executeQuery": "UPDATE workflow_executions SET status = 'completed' WHERE trigger_source = 'escalate_button' AND record_id = 1 RETURNING status",
-            "expected": { "status": "completed" }
+            "expected": {
+              "status": "completed"
+            }
           }
         ]
       }

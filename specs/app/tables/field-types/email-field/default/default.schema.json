@@ -26,12 +26,16 @@
           {
             "description": "Column has DEFAULT constraint with email",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='users' AND column_name='email'",
-            "expected": { "column_default": "'noreply@example.com'::character varying" }
+            "expected": {
+              "column_default": "'noreply@example.com'::character varying"
+            }
           },
           {
             "description": "INSERT without value uses default email",
             "executeQuery": "SELECT email FROM users WHERE username = 'alice'",
-            "expected": { "email": "noreply@example.com" }
+            "expected": {
+              "email": "noreply@example.com"
+            }
           }
         ]
       }
@@ -56,7 +60,9 @@
           {
             "description": "INSERT without value results in NULL",
             "executeQuery": "SELECT email FROM contacts WHERE name = 'Bob'",
-            "expected": { "email": null }
+            "expected": {
+              "email": null
+            }
           }
         ]
       }
@@ -82,7 +88,9 @@
           {
             "description": "Explicit value overrides default",
             "executeQuery": "SELECT email FROM members WHERE name = 'Charlie'",
-            "expected": { "email": "charlie@custom.com" }
+            "expected": {
+              "email": "charlie@custom.com"
+            }
           }
         ]
       }

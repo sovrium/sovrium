@@ -25,7 +25,11 @@
     }
   },
   "description": "Boolean checkbox field for true/false values. Displays as a toggleable checkbox in forms and checkmark/cross in tables. Useful for status flags (active/inactive, published/draft), feature toggles, and yes/no questions. Supports default value. Cannot be required (defaults to false).",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -36,7 +40,11 @@
       "validation": {
         "setup": {
           "executeQuery": "CREATE TABLE users (id SERIAL PRIMARY KEY)",
-          "fieldConfig": { "id": 1, "name": "is_active", "type": "checkbox" }
+          "fieldConfig": {
+            "id": 1,
+            "name": "is_active",
+            "type": "checkbox"
+          }
         },
         "assertions": [
           {
@@ -51,12 +59,16 @@
           {
             "description": "True value can be inserted",
             "executeQuery": "INSERT INTO users (is_active) VALUES (true) RETURNING is_active",
-            "expected": { "is_active": true }
+            "expected": {
+              "is_active": true
+            }
           },
           {
             "description": "False value can be inserted",
             "executeQuery": "INSERT INTO users (is_active) VALUES (false) RETURNING is_active",
-            "expected": { "is_active": false }
+            "expected": {
+              "is_active": false
+            }
           }
         ]
       }
@@ -80,17 +92,23 @@
           {
             "description": "Column has DEFAULT value false",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='features' AND column_name='enabled'",
-            "expected": { "column_default": "false" }
+            "expected": {
+              "column_default": "false"
+            }
           },
           {
             "description": "INSERT without enabled uses default false",
             "executeQuery": "INSERT INTO features (id) VALUES (DEFAULT) RETURNING enabled",
-            "expected": { "enabled": false }
+            "expected": {
+              "enabled": false
+            }
           },
           {
             "description": "Explicit true overrides default",
             "executeQuery": "INSERT INTO features (enabled) VALUES (true) RETURNING enabled",
-            "expected": { "enabled": true }
+            "expected": {
+              "enabled": true
+            }
           }
         ]
       }
@@ -108,12 +126,16 @@
           {
             "description": "NOT NULL constraint enforced",
             "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='settings' AND column_name='accepted_terms'",
-            "expected": { "is_nullable": "NO" }
+            "expected": {
+              "is_nullable": "NO"
+            }
           },
           {
             "description": "Valid boolean insertion succeeds",
             "executeQuery": "INSERT INTO settings (accepted_terms) VALUES (true) RETURNING accepted_terms",
-            "expected": { "accepted_terms": true }
+            "expected": {
+              "accepted_terms": true
+            }
           },
           {
             "description": "NULL insertion fails",
@@ -139,17 +161,23 @@
           {
             "description": "Count completed tasks (true)",
             "executeQuery": "SELECT COUNT(*) as count FROM tasks WHERE completed = true",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Count incomplete tasks (false)",
             "executeQuery": "SELECT COUNT(*) as count FROM tasks WHERE completed = false",
-            "expected": { "count": 3 }
+            "expected": {
+              "count": 3
+            }
           },
           {
             "description": "Update boolean value",
             "executeQuery": "UPDATE tasks SET completed = true WHERE id = 2 RETURNING completed",
-            "expected": { "completed": true }
+            "expected": {
+              "completed": true
+            }
           }
         ]
       }
@@ -176,7 +204,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_articles_published'",
-            "expected": { "indexname": "idx_articles_published", "tablename": "articles" }
+            "expected": {
+              "indexname": "idx_articles_published",
+              "tablename": "articles"
+            }
           },
           {
             "description": "Index uses btree for boolean filtering",

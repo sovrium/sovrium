@@ -25,7 +25,11 @@
     }
   },
   "description": "Star/icon rating field for user feedback and scoring. Configure maxRating (typically 5 or 10), display icon (star, heart, thumbs-up), and whether to allow half-ratings. Stores numeric value (1 to maxRating). Useful for product reviews, satisfaction scores, priority levels, and quality assessments. Displays as interactive icon picker in forms and static icons in tables.",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -47,17 +51,24 @@
           {
             "description": "Column created as SMALLINT",
             "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='reviews' AND column_name='quality_score'",
-            "expected": { "column_name": "quality_score", "data_type": "smallint" }
+            "expected": {
+              "column_name": "quality_score",
+              "data_type": "smallint"
+            }
           },
           {
             "description": "Valid rating within range can be inserted",
             "executeQuery": "INSERT INTO reviews (quality_score) VALUES (5) RETURNING quality_score",
-            "expected": { "quality_score": 5 }
+            "expected": {
+              "quality_score": 5
+            }
           },
           {
             "description": "CHECK constraint validates rating range",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%quality_score%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -75,12 +86,16 @@
           {
             "description": "Minimum rating (1) succeeds",
             "executeQuery": "INSERT INTO products (rating) VALUES (1) RETURNING rating",
-            "expected": { "rating": 1 }
+            "expected": {
+              "rating": 1
+            }
           },
           {
             "description": "Maximum rating (5) succeeds",
             "executeQuery": "INSERT INTO products (rating) VALUES (5) RETURNING rating",
-            "expected": { "rating": 5 }
+            "expected": {
+              "rating": 5
+            }
           },
           {
             "description": "Rating below minimum rejected",
@@ -111,17 +126,23 @@
           {
             "description": "Calculate average rating",
             "executeQuery": "SELECT AVG(rating) as avg_rating FROM movies",
-            "expected": { "avg_rating": 8.5 }
+            "expected": {
+              "avg_rating": 8.5
+            }
           },
           {
             "description": "Find movies above average",
             "executeQuery": "SELECT COUNT(*) as count FROM movies WHERE rating > (SELECT AVG(rating) FROM movies)",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Order movies by rating",
             "executeQuery": "SELECT title FROM movies ORDER BY rating DESC LIMIT 1",
-            "expected": { "title": "Movie D" }
+            "expected": {
+              "title": "Movie D"
+            }
           }
         ]
       }
@@ -146,17 +167,23 @@
           {
             "description": "Column has DEFAULT value",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='restaurants' AND column_name='customer_rating'",
-            "expected": { "column_default": "3" }
+            "expected": {
+              "column_default": "3"
+            }
           },
           {
             "description": "INSERT without rating uses default",
             "executeQuery": "INSERT INTO restaurants (id) VALUES (DEFAULT) RETURNING customer_rating",
-            "expected": { "customer_rating": 3 }
+            "expected": {
+              "customer_rating": 3
+            }
           },
           {
             "description": "Explicit value overrides default",
             "executeQuery": "INSERT INTO restaurants (customer_rating) VALUES (5) RETURNING customer_rating",
-            "expected": { "customer_rating": 5 }
+            "expected": {
+              "customer_rating": 5
+            }
           }
         ]
       }
@@ -178,20 +205,34 @@
           {
             "description": "NOT NULL constraint enforced",
             "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='feedback' AND column_name='satisfaction'",
-            "expected": { "is_nullable": "NO" }
+            "expected": {
+              "is_nullable": "NO"
+            }
           },
           {
             "description": "Index exists for efficient queries",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_feedback_satisfaction'",
-            "expected": { "indexname": "idx_feedback_satisfaction", "tablename": "feedback" }
+            "expected": {
+              "indexname": "idx_feedback_satisfaction",
+              "tablename": "feedback"
+            }
           },
           {
             "description": "Count ratings distribution",
             "executeQuery": "SELECT satisfaction, COUNT(*) as count FROM feedback GROUP BY satisfaction ORDER BY satisfaction",
             "expected": [
-              { "satisfaction": 3, "count": 1 },
-              { "satisfaction": 4, "count": 2 },
-              { "satisfaction": 5, "count": 2 }
+              {
+                "satisfaction": 3,
+                "count": 1
+              },
+              {
+                "satisfaction": 4,
+                "count": 2
+              },
+              {
+                "satisfaction": 5,
+                "count": 2
+              }
             ]
           }
         ]

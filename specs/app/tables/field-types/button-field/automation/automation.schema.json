@@ -21,7 +21,7 @@
           {
             "description": "string value should be accepted",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -42,7 +42,7 @@
           {
             "description": "behavior should follow optional/required rules",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }

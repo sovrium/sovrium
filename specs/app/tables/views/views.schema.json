@@ -89,17 +89,28 @@
           {
             "description": "Filter translates to WHERE clause",
             "executeQuery": "SELECT COUNT(*) as count FROM tasks WHERE status = 'active'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Only active tasks returned",
             "executeQuery": "SELECT title FROM tasks WHERE status = 'active' ORDER BY id",
-            "expected": [{ "title": "Task 1" }, { "title": "Task 3" }]
+            "expected": [
+              {
+                "title": "Task 1"
+              },
+              {
+                "title": "Task 3"
+              }
+            ]
           },
           {
             "description": "Completed tasks excluded",
             "executeQuery": "SELECT COUNT(*) as count FROM tasks WHERE status = 'completed'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -140,17 +151,23 @@
           {
             "description": "Both conditions combined with AND",
             "executeQuery": "SELECT COUNT(*) as count FROM projects WHERE status = 'active' AND priority > 2",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Only Project B matches both conditions",
             "executeQuery": "SELECT name FROM projects WHERE status = 'active' AND priority > 2",
-            "expected": { "name": "Project B" }
+            "expected": {
+              "name": "Project B"
+            }
           },
           {
             "description": "Project A excluded (priority not > 2)",
             "executeQuery": "SELECT COUNT(*) as count FROM projects WHERE status = 'active' AND priority <= 2",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -183,20 +200,30 @@
             "description": "Records sorted by created_at descending",
             "executeQuery": "SELECT title FROM articles ORDER BY created_at DESC",
             "expected": [
-              { "title": "Article 2" },
-              { "title": "Article 3" },
-              { "title": "Article 1" }
+              {
+                "title": "Article 2"
+              },
+              {
+                "title": "Article 3"
+              },
+              {
+                "title": "Article 1"
+              }
             ]
           },
           {
             "description": "Most recent article first",
             "executeQuery": "SELECT title FROM articles ORDER BY created_at DESC LIMIT 1",
-            "expected": { "title": "Article 2" }
+            "expected": {
+              "title": "Article 2"
+            }
           },
           {
             "description": "Oldest article last",
             "executeQuery": "SELECT title FROM articles ORDER BY created_at ASC LIMIT 1",
-            "expected": { "title": "Article 1" }
+            "expected": {
+              "title": "Article 1"
+            }
           }
         ]
       }
@@ -227,22 +254,41 @@
             "description": "Records grouped by department",
             "executeQuery": "SELECT department, COUNT(*) as count FROM employees GROUP BY department ORDER BY department",
             "expected": [
-              { "department": "Engineering", "count": 2 },
-              { "department": "Marketing", "count": 1 }
+              {
+                "department": "Engineering",
+                "count": 2
+              },
+              {
+                "department": "Marketing",
+                "count": 1
+              }
             ]
           },
           {
             "description": "Aggregate functions work with GROUP BY",
             "executeQuery": "SELECT department, AVG(salary) as avg_salary FROM employees GROUP BY department ORDER BY department",
             "expected": [
-              { "department": "Engineering", "avg_salary": 77500.0 },
-              { "department": "Marketing", "avg_salary": 60000.0 }
+              {
+                "department": "Engineering",
+                "avg_salary": 77500.0
+              },
+              {
+                "department": "Marketing",
+                "avg_salary": 60000.0
+              }
             ]
           },
           {
             "description": "Group order matches direction (asc)",
             "executeQuery": "SELECT department FROM employees GROUP BY department ORDER BY department ASC",
-            "expected": [{ "department": "Engineering" }, { "department": "Marketing" }]
+            "expected": [
+              {
+                "department": "Engineering"
+              },
+              {
+                "department": "Marketing"
+              }
+            ]
           }
         ]
       }
@@ -262,24 +308,39 @@
             "id": "contact_info",
             "name": "Contact Info",
             "type": "grid",
-            "visibleFields": ["name", "email"]
+            "visibleFields": [
+              "name",
+              "email"
+            ]
           }
         },
         "assertions": [
           {
             "description": "Only specified fields in SELECT",
             "executeQuery": "SELECT name, email FROM users WHERE id = 1",
-            "expected": { "name": "Alice", "email": "alice@example.com" }
+            "expected": {
+              "name": "Alice",
+              "email": "alice@example.com"
+            }
           },
           {
             "description": "Hidden fields not included in result",
             "executeQuery": "SELECT column_name FROM information_schema.columns WHERE table_name='users' AND column_name IN ('phone', 'salary')",
-            "expected": [{ "column_name": "phone" }, { "column_name": "salary" }]
+            "expected": [
+              {
+                "column_name": "phone"
+              },
+              {
+                "column_name": "salary"
+              }
+            ]
           },
           {
             "description": "View config controls SELECT columns, not table schema",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='users'",
-            "expected": { "count": 5 }
+            "expected": {
+              "count": 5
+            }
           }
         ]
       }
@@ -322,17 +383,28 @@
           {
             "description": "Default view filter applied",
             "executeQuery": "SELECT COUNT(*) as count FROM posts WHERE status = 'published'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Default view sort applied",
             "executeQuery": "SELECT title FROM posts WHERE status = 'published' ORDER BY published_at DESC",
-            "expected": [{ "title": "Post 3" }, { "title": "Post 1" }]
+            "expected": [
+              {
+                "title": "Post 3"
+              },
+              {
+                "title": "Post 1"
+              }
+            ]
           },
           {
             "description": "Draft posts excluded by default view",
             "executeQuery": "SELECT COUNT(*) as count FROM posts WHERE status = 'draft'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }

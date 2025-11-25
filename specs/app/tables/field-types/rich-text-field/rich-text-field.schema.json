@@ -22,7 +22,11 @@
     }
   },
   "description": "Formatted text with markdown support",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -43,17 +47,24 @@
           {
             "description": "Column created as TEXT",
             "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='posts' AND column_name='content'",
-            "expected": { "column_name": "content", "data_type": "text" }
+            "expected": {
+              "column_name": "content",
+              "data_type": "text"
+            }
           },
           {
             "description": "Markdown text can be stored",
             "executeQuery": "INSERT INTO posts (content) VALUES ('# Heading\n\n**Bold** and *italic* text') RETURNING content",
-            "expected": { "content": "# Heading\n\n**Bold** and *italic* text" }
+            "expected": {
+              "content": "# Heading\n\n**Bold** and *italic* text"
+            }
           },
           {
             "description": "Long text content supported",
             "executeQuery": "INSERT INTO posts (content) VALUES (REPEAT('Lorem ipsum ', 1000)) RETURNING LENGTH(content) as length",
-            "expected": { "length": 12000 }
+            "expected": {
+              "length": 12000
+            }
           }
         ]
       }
@@ -77,7 +88,9 @@
           {
             "description": "Text within limit succeeds",
             "executeQuery": "INSERT INTO articles (summary) VALUES (REPEAT('a', 500)) RETURNING LENGTH(summary) as length",
-            "expected": { "length": 500 }
+            "expected": {
+              "length": 500
+            }
           },
           {
             "description": "Text exceeding maxLength rejected",
@@ -103,7 +116,10 @@
           {
             "description": "Full-text search index exists",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_pages_body_fulltext'",
-            "expected": { "indexname": "idx_pages_body_fulltext", "tablename": "pages" }
+            "expected": {
+              "indexname": "idx_pages_body_fulltext",
+              "tablename": "pages"
+            }
           },
           {
             "description": "Index uses GIN for full-text search",
@@ -133,12 +149,16 @@
           {
             "description": "Find comments containing 'product'",
             "executeQuery": "SELECT COUNT(*) as count FROM comments WHERE to_tsvector('english', message) @@ to_tsquery('english', 'product')",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Find comments containing 'design' OR 'service'",
             "executeQuery": "SELECT COUNT(*) as count FROM comments WHERE to_tsvector('english', message) @@ to_tsquery('english', 'design | service')",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           }
         ]
       }
@@ -159,12 +179,16 @@
           {
             "description": "NOT NULL constraint enforced",
             "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='documents' AND column_name='slug'",
-            "expected": { "is_nullable": "NO" }
+            "expected": {
+              "is_nullable": "NO"
+            }
           },
           {
             "description": "UNIQUE constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='documents' AND constraint_type='UNIQUE' AND constraint_name LIKE '%slug%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Duplicate slug rejected",

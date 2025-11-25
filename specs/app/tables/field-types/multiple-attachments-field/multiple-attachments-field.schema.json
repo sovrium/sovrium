@@ -28,7 +28,11 @@
     }
   },
   "description": "Multiple file upload field for collections of attachments. Supports local or S3 storage like single-attachment but allows multiple files per record. Configure maxFiles limit (default 10), maxSize per file (default 10MB), and allowedTypes using MIME types. Useful for document collections, image galleries, contract attachments, and multi-file uploads. Each file validated independently against constraints.",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -54,17 +58,24 @@
           {
             "description": "Junction table created",
             "executeQuery": "SELECT table_name FROM information_schema.tables WHERE table_name = 'product_photos'",
-            "expected": { "table_name": "product_photos" }
+            "expected": {
+              "table_name": "product_photos"
+            }
           },
           {
             "description": "Foreign key constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='product_photos' AND constraint_type='FOREIGN KEY'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "File metadata stored in junction table",
             "executeQuery": "SELECT file_name, file_size FROM product_photos WHERE product_id = 1",
-            "expected": { "file_name": "laptop-front.jpg", "file_size": 204800 }
+            "expected": {
+              "file_name": "laptop-front.jpg",
+              "file_size": 204800
+            }
           }
         ]
       }
@@ -87,21 +98,31 @@
           {
             "description": "Count attachments for project",
             "executeQuery": "SELECT COUNT(*) as attachment_count FROM project_documents WHERE project_id = 1",
-            "expected": { "attachment_count": 3 }
+            "expected": {
+              "attachment_count": 3
+            }
           },
           {
             "description": "List all filenames for project",
             "executeQuery": "SELECT file_name FROM project_documents WHERE project_id = 1 ORDER BY file_name",
             "expected": [
-              { "file_name": "chart.png" },
-              { "file_name": "data.xlsx" },
-              { "file_name": "summary.pdf" }
+              {
+                "file_name": "chart.png"
+              },
+              {
+                "file_name": "data.xlsx"
+              },
+              {
+                "file_name": "summary.pdf"
+              }
             ]
           },
           {
             "description": "Filter attachments by MIME type",
             "executeQuery": "SELECT COUNT(*) as pdf_count FROM project_documents WHERE project_id = 1 AND mime_type = 'application/pdf'",
-            "expected": { "pdf_count": 1 }
+            "expected": {
+              "pdf_count": 1
+            }
           }
         ]
       }
@@ -124,22 +145,30 @@
           {
             "description": "Initial attachment count",
             "executeQuery": "SELECT COUNT(*) as count FROM issue_attachments",
-            "expected": { "count": 3 }
+            "expected": {
+              "count": 3
+            }
           },
           {
             "description": "Delete parent issue cascades to attachments",
             "executeQuery": "DELETE FROM issues WHERE id = 1 RETURNING id",
-            "expected": { "id": 1 }
+            "expected": {
+              "id": 1
+            }
           },
           {
             "description": "Attachments for deleted issue removed",
             "executeQuery": "SELECT COUNT(*) as count FROM issue_attachments WHERE issue_id = 1",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           },
           {
             "description": "Other issue attachments remain",
             "executeQuery": "SELECT COUNT(*) as count FROM issue_attachments WHERE issue_id = 2",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -167,17 +196,23 @@
           {
             "description": "Insert 5 attachments (at limit)",
             "executeQuery": "INSERT INTO portfolio_images (portfolio_id, file_path) VALUES (1, '/img/1.jpg'), (1, '/img/2.jpg'), (1, '/img/3.jpg'), (1, '/img/4.jpg'), (1, '/img/5.jpg') RETURNING portfolio_id",
-            "expected": { "portfolio_id": 1 }
+            "expected": {
+              "portfolio_id": 1
+            }
           },
           {
             "description": "Count attachments at limit",
             "executeQuery": "SELECT COUNT(*) as count FROM portfolio_images WHERE portfolio_id = 1",
-            "expected": { "count": 5 }
+            "expected": {
+              "count": 5
+            }
           },
           {
             "description": "Note: maxFiles validation typically enforced at application layer",
             "executeQuery": "SELECT 'maxFiles checked by application before INSERT' as note",
-            "expected": { "note": "maxFiles checked by application before INSERT" }
+            "expected": {
+              "note": "maxFiles checked by application before INSERT"
+            }
           }
         ]
       }
@@ -200,20 +235,31 @@
           {
             "description": "Calculate total storage per gallery",
             "executeQuery": "SELECT g.name, COALESCE(SUM(gf.file_size), 0) as total_bytes FROM galleries g LEFT JOIN gallery_files gf ON g.id = gf.gallery_id WHERE g.id = 1 GROUP BY g.id, g.name",
-            "expected": { "name": "Vacation 2024", "total_bytes": 6815744 }
+            "expected": {
+              "name": "Vacation 2024",
+              "total_bytes": 6815744
+            }
           },
           {
             "description": "Count files per gallery",
             "executeQuery": "SELECT g.name, COUNT(gf.id) as file_count FROM galleries g LEFT JOIN gallery_files gf ON g.id = gf.gallery_id GROUP BY g.id, g.name ORDER BY g.name",
             "expected": [
-              { "name": "Vacation 2024", "file_count": 3 },
-              { "name": "Work Projects", "file_count": 1 }
+              {
+                "name": "Vacation 2024",
+                "file_count": 3
+              },
+              {
+                "name": "Work Projects",
+                "file_count": 1
+              }
             ]
           },
           {
             "description": "Find largest attachment in gallery",
             "executeQuery": "SELECT MAX(file_size) as largest_file FROM gallery_files WHERE gallery_id = 1",
-            "expected": { "largest_file": 3145728 }
+            "expected": {
+              "largest_file": 3145728
+            }
           }
         ]
       }

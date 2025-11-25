@@ -5,7 +5,12 @@
   "description": "Barcode encoding format. Storage uses TEXT for barcode data. Format controls encoding type: qr (QR Code 2D matrix), ean13 (13-digit European Article Number), code128 (high-density linear barcode), code39 (alphanumeric barcode).",
   "type": "string",
   "default": "qr",
-  "enum": ["qr", "ean13", "code128", "code39"],
+  "enum": [
+    "qr",
+    "ean13",
+    "code128",
+    "code39"
+  ],
   "x-specs": [
     {
       "id": "APP-FIELD-BARCODE-FORMAT-001",
@@ -28,18 +33,23 @@
           {
             "description": "Column uses TEXT type for barcode data",
             "executeQuery": "SELECT data_type FROM information_schema.columns WHERE table_name='products' AND column_name='product_code'",
-            "expected": { "data_type": "text" }
+            "expected": {
+              "data_type": "text"
+            }
           },
           {
             "description": "Barcode data stored as text",
             "executeQuery": "SELECT product_code FROM products WHERE name = 'Widget A'",
-            "expected": { "product_code": "https://example.com/product/12345" }
+            "expected": {
+              "product_code": "https://example.com/product/12345"
+            }
           },
           {
             "description": "Application encodes as QR Code (2D matrix)",
             "barcodeFormat": "qr",
             "executeQuery": "SELECT product_code FROM products WHERE name = 'Widget A'",
-            "expectedEncoding": "qr"
+            "expectedEncoding": "qr",
+            "expectError": "validation error"
           }
         ]
       }
@@ -65,12 +75,16 @@
           {
             "description": "CHECK constraint validates 13-digit format",
             "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%ean%'",
-            "expected": { "check_clause": "(ean ~ '^[0-9]{13}$')" }
+            "expected": {
+              "check_clause": "(ean ~ '^[0-9]{13}$')"
+            }
           },
           {
             "description": "Valid EAN-13 accepted",
             "executeQuery": "SELECT ean FROM inventory WHERE item_name = 'Book'",
-            "expected": { "ean": "5901234123457" }
+            "expected": {
+              "ean": "5901234123457"
+            }
           },
           {
             "description": "Invalid EAN-13 (wrong length) rejected",
@@ -123,13 +137,16 @@
           {
             "description": "Alphanumeric tracking number stored",
             "executeQuery": "SELECT tracking_number FROM shipments WHERE destination = 'New York'",
-            "expected": { "tracking_number": "SHIP-2024-001" }
+            "expected": {
+              "tracking_number": "SHIP-2024-001"
+            }
           },
           {
             "description": "Application encodes as Code 128",
             "barcodeFormat": "code128",
             "executeQuery": "SELECT tracking_number FROM shipments WHERE destination = 'New York'",
-            "expectedEncoding": "code128"
+            "expectedEncoding": "code128",
+            "expectError": "validation error"
           }
         ]
       }

@@ -9,11 +9,15 @@
     [
       {
         "name": "idx_user_email",
-        "fields": ["email"]
+        "fields": [
+          "email"
+        ]
       },
       {
         "name": "idx_user_created",
-        "fields": ["created_at"],
+        "fields": [
+          "created_at"
+        ],
         "unique": false
       }
     ]
@@ -31,7 +35,10 @@
         "$ref": "./unique/unique.schema.json"
       }
     },
-    "required": ["name", "fields"],
+    "required": [
+      "name",
+      "fields"
+    ],
     "additionalProperties": false
   },
   "x-specs": [
@@ -49,14 +56,19 @@
           ],
           "indexConfig": {
             "name": "idx_user_email",
-            "fields": ["email"]
+            "fields": [
+              "email"
+            ]
           }
         },
         "assertions": [
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_user_email'",
-            "expected": { "indexname": "idx_user_email", "tablename": "users" }
+            "expected": {
+              "indexname": "idx_user_email",
+              "tablename": "users"
+            }
           },
           {
             "description": "Index is on email column",
@@ -68,7 +80,9 @@
           {
             "description": "Email lookup uses index (fast query)",
             "executeQuery": "SELECT name FROM users WHERE email = 'alice@example.com'",
-            "expected": { "name": "Alice" }
+            "expected": {
+              "name": "Alice"
+            }
           }
         ]
       }
@@ -87,14 +101,19 @@
           ],
           "indexConfig": {
             "name": "idx_contacts_name",
-            "fields": ["last_name", "first_name"]
+            "fields": [
+              "last_name",
+              "first_name"
+            ]
           }
         },
         "assertions": [
           {
             "description": "Composite index exists",
             "executeQuery": "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_contacts_name'",
-            "expected": { "indexname": "idx_contacts_name" }
+            "expected": {
+              "indexname": "idx_contacts_name"
+            }
           },
           {
             "description": "Index includes both columns in order",
@@ -106,12 +125,16 @@
           {
             "description": "Lookup by last_name uses index",
             "executeQuery": "SELECT COUNT(*) as count FROM contacts WHERE last_name = 'Smith'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Lookup by both columns uses index",
             "executeQuery": "SELECT phone FROM contacts WHERE last_name = 'Smith' AND first_name = 'Alice'",
-            "expected": { "phone": "555-1111" }
+            "expected": {
+              "phone": "555-1111"
+            }
           }
         ]
       }
@@ -130,7 +153,9 @@
           ],
           "indexConfig": {
             "name": "idx_accounts_username",
-            "fields": ["username"],
+            "fields": [
+              "username"
+            ],
             "unique": true
           }
         },
@@ -138,7 +163,9 @@
           {
             "description": "UNIQUE index exists",
             "executeQuery": "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_accounts_username'",
-            "expected": { "indexname": "idx_accounts_username" }
+            "expected": {
+              "indexname": "idx_accounts_username"
+            }
           },
           {
             "description": "Index definition includes UNIQUE",
@@ -155,7 +182,9 @@
           {
             "description": "Different username succeeds",
             "executeQuery": "INSERT INTO accounts (username, email) VALUES ('bob456', 'bob@example.com') RETURNING username",
-            "expected": { "username": "bob456" }
+            "expected": {
+              "username": "bob456"
+            }
           }
         ]
       }
@@ -177,17 +206,23 @@
           {
             "description": "Only primary key index exists",
             "executeQuery": "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'logs'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Primary key index is on id column",
             "executeQuery": "SELECT indexname FROM pg_indexes WHERE tablename = 'logs' AND indexname LIKE '%pkey'",
-            "expected": { "indexname": "logs_pkey" }
+            "expected": {
+              "indexname": "logs_pkey"
+            }
           },
           {
             "description": "No custom indexes created",
             "executeQuery": "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'logs' AND indexname NOT LIKE '%pkey'",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           }
         ]
       }
@@ -209,15 +244,21 @@
           "indexConfig": [
             {
               "name": "idx_products_sku",
-              "fields": ["sku"]
+              "fields": [
+                "sku"
+              ]
             },
             {
               "name": "idx_products_category",
-              "fields": ["category"]
+              "fields": [
+                "category"
+              ]
             },
             {
               "name": "idx_products_price",
-              "fields": ["price"]
+              "fields": [
+                "price"
+              ]
             }
           ]
         },
@@ -225,22 +266,30 @@
           {
             "description": "All three indexes exist",
             "executeQuery": "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'products' AND indexname LIKE 'idx_products_%'",
-            "expected": { "count": 3 }
+            "expected": {
+              "count": 3
+            }
           },
           {
             "description": "SKU index exists",
             "executeQuery": "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_products_sku'",
-            "expected": { "indexname": "idx_products_sku" }
+            "expected": {
+              "indexname": "idx_products_sku"
+            }
           },
           {
             "description": "Category index exists",
             "executeQuery": "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_products_category'",
-            "expected": { "indexname": "idx_products_category" }
+            "expected": {
+              "indexname": "idx_products_category"
+            }
           },
           {
             "description": "Price index exists",
             "executeQuery": "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_products_price'",
-            "expected": { "indexname": "idx_products_price" }
+            "expected": {
+              "indexname": "idx_products_price"
+            }
           }
         ]
       }
@@ -259,29 +308,47 @@
           ],
           "indexConfig": {
             "name": "idx_events_created_at",
-            "fields": ["created_at"]
+            "fields": [
+              "created_at"
+            ]
           }
         },
         "assertions": [
           {
             "description": "Index exists on created_at",
             "executeQuery": "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_events_created_at'",
-            "expected": { "indexname": "idx_events_created_at" }
+            "expected": {
+              "indexname": "idx_events_created_at"
+            }
           },
           {
             "description": "Range query uses index",
             "executeQuery": "SELECT COUNT(*) as count FROM events WHERE created_at > '2024-01-01'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "ORDER BY uses index for sorting",
             "executeQuery": "SELECT name FROM events ORDER BY created_at DESC LIMIT 1",
-            "expected": { "name": "Event 3" }
+            "expected": {
+              "name": "Event 3"
+            }
           },
           {
             "description": "Date filter with ORDER BY uses index",
             "executeQuery": "SELECT name FROM events WHERE created_at >= '2024-01-01' ORDER BY created_at ASC",
-            "expected": [{ "name": "Event 1" }, { "name": "Event 2" }, { "name": "Event 3" }]
+            "expected": [
+              {
+                "name": "Event 1"
+              },
+              {
+                "name": "Event 2"
+              },
+              {
+                "name": "Event 3"
+              }
+            ]
           }
         ]
       }
@@ -300,7 +367,10 @@
           ],
           "indexConfig": {
             "name": "idx_tenant_users_unique",
-            "fields": ["tenant_id", "username"],
+            "fields": [
+              "tenant_id",
+              "username"
+            ],
             "unique": true
           }
         },
@@ -308,12 +378,16 @@
           {
             "description": "Composite unique index exists",
             "executeQuery": "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_tenant_users_unique'",
-            "expected": { "indexname": "idx_tenant_users_unique" }
+            "expected": {
+              "indexname": "idx_tenant_users_unique"
+            }
           },
           {
             "description": "Same username allowed in different tenants",
             "executeQuery": "SELECT COUNT(*) as count FROM tenant_users WHERE username = 'alice'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Duplicate username in same tenant rejected",
@@ -323,7 +397,9 @@
           {
             "description": "Same username in different tenant succeeds",
             "executeQuery": "INSERT INTO tenant_users (tenant_id, username, email) VALUES (3, 'alice', 'alice@tenant3.com') RETURNING username",
-            "expected": { "username": "alice" }
+            "expected": {
+              "username": "alice"
+            }
           }
         ]
       }
@@ -342,7 +418,10 @@
           ],
           "indexConfig": {
             "name": "idx_articles_search",
-            "fields": ["title", "content"],
+            "fields": [
+              "title",
+              "content"
+            ],
             "type": "gin"
           }
         },
@@ -350,7 +429,9 @@
           {
             "description": "GIN index exists",
             "executeQuery": "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_articles_search'",
-            "expected": { "indexname": "idx_articles_search" }
+            "expected": {
+              "indexname": "idx_articles_search"
+            }
           },
           {
             "description": "Index uses GIN access method",
@@ -362,12 +443,16 @@
           {
             "description": "Full-text search uses GIN index",
             "executeQuery": "SELECT title FROM articles WHERE to_tsvector('english', title || ' ' || content) @@ to_tsquery('english', 'database')",
-            "expected": { "title": "PostgreSQL Tutorial" }
+            "expected": {
+              "title": "PostgreSQL Tutorial"
+            }
           },
           {
             "description": "Multiple word search",
             "executeQuery": "SELECT COUNT(*) as count FROM articles WHERE to_tsvector('english', title || ' ' || content) @@ to_tsquery('english', 'programming | database')",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           }
         ]
       }

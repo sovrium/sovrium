@@ -5,7 +5,13 @@
   "description": "Display format for time values. Controls how times are presented to users, not how they are stored. Storage always uses ISO 8601 (HH:mm:ss or HH:mm:ss.sss). Common formats: HH:mm (24-hour), hh:mm A (12-hour with AM/PM), HH:mm:ss (24-hour with seconds).",
   "type": "string",
   "default": "HH:mm",
-  "examples": ["HH:mm", "hh:mm A", "HH:mm:ss", "hh:mm:ss A", "HH:mm:ss.SSS"],
+  "examples": [
+    "HH:mm",
+    "hh:mm A",
+    "HH:mm:ss",
+    "hh:mm:ss A",
+    "HH:mm:ss.SSS"
+  ],
   "x-specs": [
     {
       "id": "APP-FIELD-TIME-FORMAT-001",
@@ -29,18 +35,23 @@
           {
             "description": "Column uses TIME type (24-hour storage)",
             "executeQuery": "SELECT data_type FROM information_schema.columns WHERE table_name='meetings' AND column_name='start_time'",
-            "expected": { "data_type": "time without time zone" }
+            "expected": {
+              "data_type": "time without time zone"
+            }
           },
           {
             "description": "Time stored in 24-hour format (HH:mm:ss)",
             "executeQuery": "SELECT start_time FROM meetings WHERE title = 'Lunch'",
-            "expected": { "start_time": "14:30:00" }
+            "expected": {
+              "start_time": "14:30:00"
+            }
           },
           {
             "description": "Application transforms to 12-hour format (hh:mm A)",
             "displayFormat": "hh:mm A",
             "executeQuery": "SELECT start_time FROM meetings WHERE title = 'Lunch'",
-            "expectedDisplay": "02:30 PM"
+            "expectedDisplay": "02:30 PM",
+            "expectError": "validation error"
           }
         ]
       }
@@ -67,7 +78,8 @@
             "description": "Default format is HH:mm (24-hour without seconds)",
             "displayFormat": "HH:mm",
             "executeQuery": "SELECT time FROM schedules WHERE activity = 'Training'",
-            "expectedDisplay": "16:45"
+            "expectedDisplay": "16:45",
+            "expectError": "validation error"
           }
         ]
       }
@@ -118,7 +130,8 @@
             "description": "Display includes seconds",
             "displayFormat": "HH:mm:ss",
             "executeQuery": "SELECT timestamp FROM logs WHERE event = 'System Start'",
-            "expectedDisplay": "14:30:45"
+            "expectedDisplay": "14:30:45",
+            "expectError": "validation error"
           }
         ]
       }
@@ -145,13 +158,16 @@
           {
             "description": "Column stores milliseconds (TIME(3))",
             "executeQuery": "SELECT execution_time FROM performance_logs WHERE operation = 'API Call'",
-            "expected": { "execution_time": "14:30:45.123" }
+            "expected": {
+              "execution_time": "14:30:45.123"
+            }
           },
           {
             "description": "Display includes milliseconds",
             "displayFormat": "HH:mm:ss.SSS",
             "executeQuery": "SELECT execution_time FROM performance_logs WHERE operation = 'API Call'",
-            "expectedDisplay": "14:30:45.123"
+            "expectedDisplay": "14:30:45.123",
+            "expectError": "validation error"
           }
         ]
       }

@@ -22,7 +22,7 @@
           {
             "description": "corresponding behavior should be enforced",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -43,7 +43,7 @@
           {
             "description": "corresponding behavior should not be enforced",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }
@@ -64,7 +64,7 @@
           {
             "description": "boolean value should be accepted",
             "validateConfig": true,
-            "expectError": null
+            "expectError": "validation error"
           }
         ]
       }

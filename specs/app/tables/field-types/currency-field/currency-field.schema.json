@@ -36,7 +36,11 @@
       "$ref": "./currency/currency.schema.json"
     }
   },
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -47,7 +51,12 @@
       "validation": {
         "setup": {
           "executeQuery": "CREATE TABLE products (id SERIAL PRIMARY KEY)",
-          "fieldConfig": { "id": 1, "name": "price", "type": "currency", "currency": "USD" }
+          "fieldConfig": {
+            "id": 1,
+            "name": "price",
+            "type": "currency",
+            "currency": "USD"
+          }
         },
         "assertions": [
           {
@@ -63,12 +72,16 @@
           {
             "description": "Currency value with 2 decimals can be inserted",
             "executeQuery": "INSERT INTO products (price) VALUES (99.99) RETURNING price",
-            "expected": { "price": "99.99" }
+            "expected": {
+              "price": "99.99"
+            }
           },
           {
             "description": "Value rounded to 2 decimal places",
             "executeQuery": "INSERT INTO products (price) VALUES (19.995) RETURNING price",
-            "expected": { "price": "20.00" }
+            "expected": {
+              "price": "20.00"
+            }
           }
         ]
       }
@@ -86,12 +99,16 @@
           {
             "description": "CHECK constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%total%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Valid currency amount succeeds",
             "executeQuery": "INSERT INTO invoices (total) VALUES (1234.56) RETURNING total",
-            "expected": { "total": "1234.56" }
+            "expected": {
+              "total": "1234.56"
+            }
           },
           {
             "description": "Negative amount rejected",
@@ -122,12 +139,16 @@
           {
             "description": "NOT NULL constraint enforced",
             "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='transactions' AND column_name='amount'",
-            "expected": { "is_nullable": "NO" }
+            "expected": {
+              "is_nullable": "NO"
+            }
           },
           {
             "description": "UNIQUE constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='transactions' AND constraint_type='UNIQUE' AND constraint_name LIKE '%amount%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Duplicate amount rejected",
@@ -161,17 +182,23 @@
           {
             "description": "Column has DEFAULT value",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='items' AND column_name='cost'",
-            "expected": { "column_default": "0.00" }
+            "expected": {
+              "column_default": "0.00"
+            }
           },
           {
             "description": "INSERT without cost uses default",
             "executeQuery": "INSERT INTO items (id) VALUES (DEFAULT) RETURNING cost",
-            "expected": { "cost": "0.00" }
+            "expected": {
+              "cost": "0.00"
+            }
           },
           {
             "description": "Explicit value overrides default",
             "executeQuery": "INSERT INTO items (cost) VALUES (25.99) RETURNING cost",
-            "expected": { "cost": "25.99" }
+            "expected": {
+              "cost": "25.99"
+            }
           }
         ]
       }
@@ -198,7 +225,10 @@
           {
             "description": "Index exists in pg_indexes",
             "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_sales_price'",
-            "expected": { "indexname": "idx_sales_price", "tablename": "sales" }
+            "expected": {
+              "indexname": "idx_sales_price",
+              "tablename": "sales"
+            }
           },
           {
             "description": "Index uses btree for range queries and sorting",

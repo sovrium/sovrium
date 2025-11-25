@@ -26,12 +26,16 @@
           {
             "description": "CHECK constraint exists for min value",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%stock%' AND check_clause LIKE '%>= 0%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Value at minimum (0) accepted",
             "executeQuery": "SELECT stock FROM products WHERE stock = 0",
-            "expected": { "stock": 0 }
+            "expected": {
+              "stock": 0
+            }
           },
           {
             "description": "Value below minimum rejected",
@@ -41,7 +45,9 @@
           {
             "description": "Value above minimum accepted",
             "executeQuery": "INSERT INTO products (stock) VALUES (50) RETURNING stock",
-            "expected": { "stock": 50 }
+            "expected": {
+              "stock": 50
+            }
           }
         ]
       }
@@ -67,12 +73,16 @@
           {
             "description": "CHECK constraint enforces min age 18",
             "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%age%'",
-            "expected": { "check_clause": "(age >= 18)" }
+            "expected": {
+              "check_clause": "(age >= 18)"
+            }
           },
           {
             "description": "Age 18 (exact minimum) accepted",
             "executeQuery": "INSERT INTO users (name, age) VALUES ('Bob', 18) RETURNING age",
-            "expected": { "age": 18 }
+            "expected": {
+              "age": 18
+            }
           },
           {
             "description": "Age 17 (below minimum) rejected",
@@ -82,7 +92,9 @@
           {
             "description": "Age 65 (above minimum) accepted",
             "executeQuery": "INSERT INTO users (name, age) VALUES ('Diana', 65) RETURNING age",
-            "expected": { "age": 65 }
+            "expected": {
+              "age": 65
+            }
           }
         ]
       }
@@ -107,17 +119,23 @@
           {
             "description": "No CHECK constraint for min",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%temperature%'",
-            "expected": { "count": 0 }
+            "expected": {
+              "count": 0
+            }
           },
           {
             "description": "Negative values accepted",
             "executeQuery": "SELECT temperature FROM readings WHERE temperature = -273",
-            "expected": { "temperature": -273 }
+            "expected": {
+              "temperature": -273
+            }
           },
           {
             "description": "Very low value accepted (within INTEGER range)",
             "executeQuery": "INSERT INTO readings (temperature) VALUES (-2147483648) RETURNING temperature",
-            "expected": { "temperature": -2147483648 }
+            "expected": {
+              "temperature": -2147483648
+            }
           }
         ]
       }

@@ -4,7 +4,12 @@
   "title": "Rollup Field Display Format",
   "description": "Display format hint for rollup aggregation results. Rollup fields compute aggregations across related records. Format controls result presentation: currency (monetary values), number (numeric), percentage (0-100%), date (datetime results).",
   "type": "string",
-  "examples": ["currency", "number", "percentage", "date"],
+  "examples": [
+    "currency",
+    "number",
+    "percentage",
+    "date"
+  ],
   "x-specs": [
     {
       "id": "APP-FIELD-ROLLUP-FORMAT-001",
@@ -31,13 +36,16 @@
           {
             "description": "Rollup aggregates related values (SUM)",
             "executeQuery": "SELECT total_spent FROM customers WHERE id = 1",
-            "expected": { "total_spent": 400.5 }
+            "expected": {
+              "total_spent": 400.5
+            }
           },
           {
             "description": "Application displays with currency formatting",
             "displayFormat": "currency",
             "executeQuery": "SELECT total_spent FROM customers WHERE id = 1",
-            "expectedDisplay": "$400.50"
+            "expectedDisplay": "$400.50",
+            "expectError": "validation error"
           }
         ]
       }
@@ -67,13 +75,16 @@
           {
             "description": "Rollup counts related records (COUNT)",
             "executeQuery": "SELECT task_count FROM projects WHERE id = 1",
-            "expected": { "task_count": 3 }
+            "expected": {
+              "task_count": 3
+            }
           },
           {
             "description": "Application displays as integer",
             "displayFormat": "number",
             "executeQuery": "SELECT task_count FROM projects WHERE id = 1",
-            "expectedDisplay": "3"
+            "expectedDisplay": "3",
+            "expectError": "validation error"
           }
         ]
       }
@@ -102,12 +113,15 @@
           {
             "description": "Rollup computes average (AVG)",
             "executeQuery": "SELECT avg_value FROM sensors WHERE id = 1",
-            "expected": { "avg_value": 23.47 }
+            "expected": {
+              "avg_value": 23.47
+            }
           },
           {
             "description": "Display without formatting (raw numeric)",
             "executeQuery": "SELECT avg_value FROM sensors WHERE id = 1",
-            "expectedDisplay": "23.47"
+            "expectedDisplay": "23.47",
+            "expectError": "validation error"
           }
         ]
       }

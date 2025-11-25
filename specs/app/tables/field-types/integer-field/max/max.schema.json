@@ -26,12 +26,16 @@
           {
             "description": "CHECK constraint exists for max value",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%score%' AND check_clause LIKE '%<= 100%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Value at maximum (100) accepted",
             "executeQuery": "SELECT score FROM quiz_scores WHERE score = 100",
-            "expected": { "score": 100 }
+            "expected": {
+              "score": 100
+            }
           },
           {
             "description": "Value above maximum rejected",
@@ -41,7 +45,9 @@
           {
             "description": "Value below maximum accepted",
             "executeQuery": "INSERT INTO quiz_scores (student_name, score) VALUES ('Diana', 75) RETURNING score",
-            "expected": { "score": 75 }
+            "expected": {
+              "score": 75
+            }
           }
         ]
       }
@@ -67,12 +73,16 @@
           {
             "description": "CHECK constraint enforces max rating 5",
             "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%rating%'",
-            "expected": { "check_clause": "(rating <= 5)" }
+            "expected": {
+              "check_clause": "(rating <= 5)"
+            }
           },
           {
             "description": "Rating 5 (exact maximum) accepted",
             "executeQuery": "INSERT INTO reviews (product_name, rating) VALUES ('Product B', 5) RETURNING rating",
-            "expected": { "rating": 5 }
+            "expected": {
+              "rating": 5
+            }
           },
           {
             "description": "Rating 6 (above maximum) rejected",
@@ -82,7 +92,9 @@
           {
             "description": "Rating 1 (below maximum) accepted",
             "executeQuery": "INSERT INTO reviews (product_name, rating) VALUES ('Product D', 1) RETURNING rating",
-            "expected": { "rating": 1 }
+            "expected": {
+              "rating": 1
+            }
           }
         ]
       }
@@ -109,17 +121,23 @@
           {
             "description": "CHECK constraint enforces range 0-100",
             "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%volume%'",
-            "expected": { "check_clause": "((volume >= 0) AND (volume <= 100))" }
+            "expected": {
+              "check_clause": "((volume >= 0) AND (volume <= 100))"
+            }
           },
           {
             "description": "Value at min (0) accepted",
             "executeQuery": "SELECT volume FROM settings WHERE volume = 0",
-            "expected": { "volume": 0 }
+            "expected": {
+              "volume": 0
+            }
           },
           {
             "description": "Value at max (100) accepted",
             "executeQuery": "SELECT volume FROM settings WHERE volume = 100",
-            "expected": { "volume": 100 }
+            "expected": {
+              "volume": 100
+            }
           },
           {
             "description": "Value below min rejected",

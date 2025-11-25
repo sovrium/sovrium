@@ -4,7 +4,13 @@
   "title": "Autonumber Prefix",
   "description": "Optional prefix string prepended to autonumber. Implemented via PostgreSQL GENERATED ALWAYS AS column with string concatenation. Commonly used for invoice numbers (INV-), order codes (ORD-), ticket IDs (TKT-).",
   "type": "string",
-  "examples": ["INV-", "ORD-", "TKT-", "REQ-", ""],
+  "examples": [
+    "INV-",
+    "ORD-",
+    "TKT-",
+    "REQ-",
+    ""
+  ],
   "x-specs": [
     {
       "id": "APP-FIELD-AUTONUMBER-PREFIX-001",
@@ -28,17 +34,23 @@
           {
             "description": "First number formatted with prefix",
             "executeQuery": "SELECT invoice_code FROM invoices WHERE id = 1",
-            "expected": { "invoice_code": "INV-00001" }
+            "expected": {
+              "invoice_code": "INV-00001"
+            }
           },
           {
             "description": "Second number formatted with prefix",
             "executeQuery": "SELECT invoice_code FROM invoices WHERE id = 2",
-            "expected": { "invoice_code": "INV-00002" }
+            "expected": {
+              "invoice_code": "INV-00002"
+            }
           },
           {
             "description": "Third number formatted with prefix",
             "executeQuery": "SELECT invoice_code FROM invoices WHERE id = 3",
-            "expected": { "invoice_code": "INV-00003" }
+            "expected": {
+              "invoice_code": "INV-00003"
+            }
           }
         ]
       }
@@ -65,12 +77,16 @@
           {
             "description": "Number formatted without prefix",
             "executeQuery": "SELECT order_code FROM orders WHERE id = 1",
-            "expected": { "order_code": "0001" }
+            "expected": {
+              "order_code": "0001"
+            }
           },
           {
             "description": "Second number without prefix",
             "executeQuery": "SELECT order_code FROM orders WHERE id = 2",
-            "expected": { "order_code": "0002" }
+            "expected": {
+              "order_code": "0002"
+            }
           }
         ]
       }
@@ -96,7 +112,9 @@
           {
             "description": "Number formatted without prefix (optional not specified)",
             "executeQuery": "SELECT ticket_code FROM tickets WHERE id = 1",
-            "expected": { "ticket_code": "001" }
+            "expected": {
+              "ticket_code": "001"
+            }
           }
         ]
       }

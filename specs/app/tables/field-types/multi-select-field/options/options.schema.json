@@ -23,24 +23,40 @@
           "fieldConfig": {
             "name": "skills",
             "type": "multi-select",
-            "options": ["JavaScript", "Python", "Go", "Rust"]
+            "options": [
+              "JavaScript",
+              "Python",
+              "Go",
+              "Rust"
+            ]
           }
         },
         "assertions": [
           {
             "description": "Column uses TEXT[] array type",
             "executeQuery": "SELECT data_type FROM information_schema.columns WHERE table_name='developers' AND column_name='skills'",
-            "expected": { "data_type": "ARRAY" }
+            "expected": {
+              "data_type": "ARRAY"
+            }
           },
           {
             "description": "Valid array of options accepted",
             "executeQuery": "SELECT skills FROM developers WHERE name = 'Alice'",
-            "expected": { "skills": ["JavaScript", "Python"] }
+            "expected": {
+              "skills": [
+                "JavaScript",
+                "Python"
+              ]
+            }
           },
           {
             "description": "Single option stored as array",
             "executeQuery": "INSERT INTO developers (name, skills) VALUES ('Charlie', ARRAY['Python']) RETURNING skills",
-            "expected": { "skills": ["Python"] }
+            "expected": {
+              "skills": [
+                "Python"
+              ]
+            }
           },
           {
             "description": "Invalid option in array rejected",
@@ -64,7 +80,11 @@
           "fieldConfig": {
             "name": "tags",
             "type": "multi-select",
-            "options": ["Red", "Green", "Blue"],
+            "options": [
+              "Red",
+              "Green",
+              "Blue"
+            ],
             "required": false
           }
         },
@@ -72,17 +92,26 @@
           {
             "description": "Empty array accepted",
             "executeQuery": "SELECT tags FROM products WHERE name = 'Product B'",
-            "expected": { "tags": [] }
+            "expected": {
+              "tags": []
+            }
           },
           {
             "description": "NULL accepted when field is nullable",
             "executeQuery": "SELECT tags FROM products WHERE name = 'Product C'",
-            "expected": { "tags": null }
+            "expected": {
+              "tags": null
+            }
           },
           {
             "description": "Non-empty valid array accepted",
             "executeQuery": "SELECT tags FROM products WHERE name = 'Product A'",
-            "expected": { "tags": ["Red", "Blue"] }
+            "expected": {
+              "tags": [
+                "Red",
+                "Blue"
+              ]
+            }
           }
         ]
       }
@@ -123,19 +152,34 @@
           "fieldConfig": {
             "name": "labels",
             "type": "multi-select",
-            "options": ["Feature", "Bug", "Enhancement"]
+            "options": [
+              "Feature",
+              "Bug",
+              "Enhancement"
+            ]
           }
         },
         "assertions": [
           {
             "description": "All options can be selected simultaneously",
             "executeQuery": "SELECT labels FROM issues WHERE title = 'Issue 1'",
-            "expected": { "labels": ["Feature", "Bug", "Enhancement"] }
+            "expected": {
+              "labels": [
+                "Feature",
+                "Bug",
+                "Enhancement"
+              ]
+            }
           },
           {
             "description": "Array order preserved",
             "executeQuery": "INSERT INTO issues (title, labels) VALUES ('Issue 2', ARRAY['Enhancement', 'Feature']) RETURNING labels",
-            "expected": { "labels": ["Enhancement", "Feature"] }
+            "expected": {
+              "labels": [
+                "Enhancement",
+                "Feature"
+              ]
+            }
           },
           {
             "description": "Duplicate values in array rejected by application logic",

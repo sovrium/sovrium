@@ -22,7 +22,11 @@
     }
   },
   "description": "Color picker for hex colors",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -52,12 +56,16 @@
           {
             "description": "Valid hex color can be inserted",
             "executeQuery": "INSERT INTO themes (primary_color) VALUES ('#FF5733') RETURNING primary_color",
-            "expected": { "primary_color": "#FF5733" }
+            "expected": {
+              "primary_color": "#FF5733"
+            }
           },
           {
             "description": "CHECK constraint validates hex format",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%primary_color%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           }
         ]
       }
@@ -75,12 +83,16 @@
           {
             "description": "Valid uppercase hex color succeeds",
             "executeQuery": "INSERT INTO products (color) VALUES ('#ABCDEF') RETURNING color",
-            "expected": { "color": "#ABCDEF" }
+            "expected": {
+              "color": "#ABCDEF"
+            }
           },
           {
             "description": "Valid lowercase hex color succeeds",
             "executeQuery": "INSERT INTO products (color) VALUES ('#123abc') RETURNING color",
-            "expected": { "color": "#123abc" }
+            "expected": {
+              "color": "#123abc"
+            }
           },
           {
             "description": "Invalid color format rejected (missing #)",
@@ -114,17 +126,23 @@
           {
             "description": "Column has DEFAULT value",
             "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='brands' AND column_name='accent_color'",
-            "expected": { "column_default": "'#000000'::character varying" }
+            "expected": {
+              "column_default": "'#000000'::character varying"
+            }
           },
           {
             "description": "INSERT without color uses default",
             "executeQuery": "INSERT INTO brands (id) VALUES (DEFAULT) RETURNING accent_color",
-            "expected": { "accent_color": "#000000" }
+            "expected": {
+              "accent_color": "#000000"
+            }
           },
           {
             "description": "Explicit value overrides default",
             "executeQuery": "INSERT INTO brands (accent_color) VALUES ('#FF0000') RETURNING accent_color",
-            "expected": { "accent_color": "#FF0000" }
+            "expected": {
+              "accent_color": "#FF0000"
+            }
           }
         ]
       }
@@ -145,17 +163,31 @@
           {
             "description": "Find category by exact color",
             "executeQuery": "SELECT name FROM categories WHERE tag_color = '#FF0000'",
-            "expected": { "name": "Urgent" }
+            "expected": {
+              "name": "Urgent"
+            }
           },
           {
             "description": "Find categories with red tones (pattern match)",
             "executeQuery": "SELECT COUNT(*) as count FROM categories WHERE tag_color LIKE '#FF%'",
-            "expected": { "count": 2 }
+            "expected": {
+              "count": 2
+            }
           },
           {
             "description": "Order categories by color value",
             "executeQuery": "SELECT name FROM categories ORDER BY tag_color",
-            "expected": [{ "name": "Normal" }, { "name": "Urgent" }, { "name": "Important" }]
+            "expected": [
+              {
+                "name": "Normal"
+              },
+              {
+                "name": "Urgent"
+              },
+              {
+                "name": "Important"
+              }
+            ]
           }
         ]
       }
@@ -176,12 +208,16 @@
           {
             "description": "NOT NULL constraint enforced",
             "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='ui_elements' AND column_name='element_color'",
-            "expected": { "is_nullable": "NO" }
+            "expected": {
+              "is_nullable": "NO"
+            }
           },
           {
             "description": "UNIQUE constraint exists",
             "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='ui_elements' AND constraint_type='UNIQUE' AND constraint_name LIKE '%element_color%'",
-            "expected": { "count": 1 }
+            "expected": {
+              "count": 1
+            }
           },
           {
             "description": "Duplicate color rejected",
