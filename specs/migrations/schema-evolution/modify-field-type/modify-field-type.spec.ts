@@ -7,46 +7,116 @@
 
 import { test, expect } from '@/specs/fixtures'
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
+/**
+ * E2E Tests for Modify Field Type Migration
+ *
+ * Source: specs/migrations/schema-evolution/modify-field-type/modify-field-type.json
+ * Domain: migrations
+ * Spec Count: 6
+ *
+ * Test Organization:
+ * 1. @spec tests - One per spec in schema (6 tests) - Exhaustive acceptance criteria
+ * 2. @regression test - ONE optimized integration test - Efficient workflow validation
+ */
+
 test.describe('Modify Field Type Migration', () => {
-  test.fixme('MIG-MODIFY-TYPE-001: VARCHAR → TEXT (widening)', async () => {
-    // GIVEN: table 'users' with field 'bio' (VARCHAR(255))
-    // WHEN: field type changed to long-text (TEXT)
-    // THEN: ALTER TABLE ALTER COLUMN TYPE TEXT
-    expect(true).toBe(false)
-  })
+  // ============================================================================
+  // @spec tests - EXHAUSTIVE coverage (one test per spec)
+  // ============================================================================
 
-  test.fixme('MIG-MODIFY-TYPE-002: TEXT → VARCHAR (narrowing with truncation)', async () => {
-    // GIVEN: table 'products' with field 'sku' (TEXT)
-    // WHEN: field type changed to single-line-text with maxLength=50
-    // THEN: ALTER TABLE ALTER COLUMN TYPE VARCHAR(50) USING LEFT(sku, 50)
-    expect(true).toBe(false)
-  })
+  test.fixme(
+    'MIG-MODIFY-TYPE-001: should alter table alter column type text',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: table 'users' with field 'bio' (VARCHAR(255))
+      // WHEN: field type changed to long-text (TEXT)
+      // THEN: ALTER TABLE ALTER COLUMN TYPE TEXT
 
-  test.fixme('MIG-MODIFY-TYPE-003: INTEGER → NUMERIC/DECIMAL', async () => {
-    // GIVEN: table 'orders' with field 'total' (INTEGER)
-    // WHEN: field type changed to decimal
-    // THEN: ALTER TABLE ALTER COLUMN TYPE NUMERIC(10,2)
-    expect(true).toBe(false)
-  })
+      // TODO: Implement test based on validation assertions
+      expect(true).toBe(false)
+    }
+  )
 
-  test.fixme('MIG-MODIFY-TYPE-004: TEXT → INTEGER with casting', async () => {
-    // GIVEN: table 'metrics' with field 'count' stored as TEXT
-    // WHEN: field type changed to integer
-    // THEN: ALTER TABLE ALTER COLUMN TYPE INTEGER USING count::INTEGER
-    expect(true).toBe(false)
-  })
+  test.fixme(
+    'MIG-MODIFY-TYPE-002: should alter table alter column type varchar(50) using left(sku, 50)',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: table 'products' with field 'sku' (TEXT)
+      // WHEN: field type changed to single-line-text with maxLength=50
+      // THEN: ALTER TABLE ALTER COLUMN TYPE VARCHAR(50) USING LEFT(sku, 50)
 
-  test.fixme('MIG-MODIFY-TYPE-005: TEXT → TIMESTAMP conversion', async () => {
-    // GIVEN: table 'events' with field 'occurred_at' (TEXT) containing ISO-8601 strings
-    // WHEN: field type changed to timestamp
-    // THEN: ALTER TABLE ALTER COLUMN TYPE TIMESTAMPTZ USING occurred_at::TIMESTAMPTZ
-    expect(true).toBe(false)
-  })
+      // TODO: Implement test based on validation assertions
+      expect(true).toBe(false)
+    }
+  )
 
-  test.fixme('MIG-MODIFY-TYPE-006: Type change fails on invalid data', async () => {
-    // GIVEN: table 'data' with field 'value' (TEXT) containing non-numeric values
-    // WHEN: field type changed to INTEGER
-    // THEN: Migration fails with data conversion error, transaction rolled back
-    expect(true).toBe(false)
-  })
+  test.fixme(
+    'MIG-MODIFY-TYPE-003: should alter table alter column type numeric(10,2)',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: table 'orders' with field 'total' (INTEGER)
+      // WHEN: field type changed to decimal
+      // THEN: ALTER TABLE ALTER COLUMN TYPE NUMERIC(10,2)
+
+      // TODO: Implement test based on validation assertions
+      expect(true).toBe(false)
+    }
+  )
+
+  test.fixme(
+    'MIG-MODIFY-TYPE-004: should alter table alter column type integer using count::integer',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: table 'metrics' with field 'count' stored as TEXT
+      // WHEN: field type changed to integer
+      // THEN: ALTER TABLE ALTER COLUMN TYPE INTEGER USING count::INTEGER
+
+      // TODO: Implement test based on validation assertions
+      expect(true).toBe(false)
+    }
+  )
+
+  test.fixme(
+    'MIG-MODIFY-TYPE-005: should alter table alter column type timestamptz using occurred_at::timestamptz',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: table 'events' with field 'occurred_at' (TEXT) containing ISO-8601 strings
+      // WHEN: field type changed to timestamp
+      // THEN: ALTER TABLE ALTER COLUMN TYPE TIMESTAMPTZ USING occurred_at::TIMESTAMPTZ
+
+      // TODO: Implement test based on validation assertions
+      expect(true).toBe(false)
+    }
+  )
+
+  test.fixme(
+    'MIG-MODIFY-TYPE-006: should migration fails with data conversion error, transaction rolled back',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: table 'data' with field 'value' (TEXT) containing non-numeric values
+      // WHEN: field type changed to INTEGER
+      // THEN: Migration fails with data conversion error, transaction rolled back
+
+      // TODO: Implement test based on validation assertions
+      expect(true).toBe(false)
+    }
+  )
+
+  // ============================================================================
+  // @regression test - OPTIMIZED integration (exactly one test)
+  // ============================================================================
+
+  test.fixme(
+    'user can complete full modify-field-type workflow',
+    { tag: '@regression' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: Application configured with representative modify-field-type scenarios
+      // WHEN/THEN: Streamlined workflow testing integration points
+
+      // Focus on workflow continuity, not exhaustive coverage
+      expect(true).toBe(false)
+    }
+  )
 })

@@ -7,35 +7,90 @@
 
 import { test, expect } from '@/specs/fixtures'
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
+/**
+ * E2E Tests for Modify Field Required Migration
+ *
+ * Source: specs/migrations/schema-evolution/modify-field-required/modify-field-required.json
+ * Domain: migrations
+ * Spec Count: 4
+ *
+ * Test Organization:
+ * 1. @spec tests - One per spec in schema (4 tests) - Exhaustive acceptance criteria
+ * 2. @regression test - ONE optimized integration test - Efficient workflow validation
+ */
+
 test.describe('Modify Field Required Migration', () => {
-  test.fixme('MIG-MODIFY-REQUIRED-001: Add NOT NULL to optional field (empty table)', async () => {
-    // GIVEN: table 'users' with optional field 'phone' (TEXT NULL), no rows exist
-    // WHEN: field marked as required in schema
-    // THEN: ALTER TABLE ALTER COLUMN SET NOT NULL
-    expect(true).toBe(false)
-  })
+  // ============================================================================
+  // @spec tests - EXHAUSTIVE coverage (one test per spec)
+  // ============================================================================
 
   test.fixme(
-    'MIG-MODIFY-REQUIRED-002: Add NOT NULL fails (existing NULLs, no default)',
-    async () => {
-      // GIVEN: table 'products' with optional field 'category' (TEXT NULL), existing rows present
-      // WHEN: field marked as required without default value
-      // THEN: Migration fails with error (cannot add NOT NULL without default when data exists)
+    'MIG-MODIFY-REQUIRED-001: should alter table alter column set not null',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: table 'users' with optional field 'phone' (TEXT NULL), no rows exist
+      // WHEN: field marked as required in schema
+      // THEN: ALTER TABLE ALTER COLUMN SET NOT NULL
+
+      // TODO: Implement test based on validation assertions
       expect(true).toBe(false)
     }
   )
 
-  test.fixme('MIG-MODIFY-REQUIRED-003: Add NOT NULL with DEFAULT for backfill', async () => {
-    // GIVEN: table 'orders' with optional field 'status', existing rows present
-    // WHEN: field marked as required with default value 'pending'
-    // THEN: ALTER TABLE SET DEFAULT, backfill NULL values, then SET NOT NULL
-    expect(true).toBe(false)
-  })
+  test.fixme(
+    'MIG-MODIFY-REQUIRED-002: should migration fails with error (cannot add not null without default when data exists)',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: table 'products' with optional field 'category' (TEXT NULL), existing rows present
+      // WHEN: field marked as required without default value
+      // THEN: Migration fails with error (cannot add NOT NULL without default when data exists)
 
-  test.fixme('MIG-MODIFY-REQUIRED-004: Remove NOT NULL from required field', async () => {
-    // GIVEN: table 'tasks' with required field 'priority' (TEXT NOT NULL)
-    // WHEN: field marked as optional in schema
-    // THEN: ALTER TABLE ALTER COLUMN DROP NOT NULL
-    expect(true).toBe(false)
-  })
+      // TODO: Implement test based on validation assertions
+      expect(true).toBe(false)
+    }
+  )
+
+  test.fixme(
+    'MIG-MODIFY-REQUIRED-003: should alter table set default, backfill null values, then set not null',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: table 'orders' with optional field 'status', existing rows present
+      // WHEN: field marked as required with default value 'pending'
+      // THEN: ALTER TABLE SET DEFAULT, backfill NULL values, then SET NOT NULL
+
+      // TODO: Implement test based on validation assertions
+      expect(true).toBe(false)
+    }
+  )
+
+  test.fixme(
+    'MIG-MODIFY-REQUIRED-004: should alter table alter column drop not null',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: table 'tasks' with required field 'priority' (TEXT NOT NULL)
+      // WHEN: field marked as optional in schema
+      // THEN: ALTER TABLE ALTER COLUMN DROP NOT NULL
+
+      // TODO: Implement test based on validation assertions
+      expect(true).toBe(false)
+    }
+  )
+
+  // ============================================================================
+  // @regression test - OPTIMIZED integration (exactly one test)
+  // ============================================================================
+
+  test.fixme(
+    'user can complete full modify-field-required workflow',
+    { tag: '@regression' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: Application configured with representative modify-field-required scenarios
+      // WHEN/THEN: Streamlined workflow testing integration points
+
+      // Focus on workflow continuity, not exhaustive coverage
+      expect(true).toBe(false)
+    }
+  )
 })
