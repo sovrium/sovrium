@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures.ts'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Get current session
@@ -32,7 +32,7 @@ test.describe('Get current session', () => {
   test.fixme(
     'API-AUTH-GET-SESSION-SUCCESS-001: should returns 200 OK with session and user data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated user with active session
       await startServerWithSchema({
         name: 'test-app',
@@ -41,7 +41,7 @@ test.describe('Get current session', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\\$2a\\$10\\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, ip_address, user_agent, created_at, updated_at) VALUES (1, 1, 'valid_session_token', NOW() + INTERVAL '7 days', '192.168.1.1', 'Mozilla/5.0', NOW(), NOW())`
@@ -70,7 +70,7 @@ test.describe('Get current session', () => {
   test.fixme(
     'API-AUTH-GET-SESSION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -94,7 +94,7 @@ test.describe('Get current session', () => {
   test.fixme(
     'API-AUTH-GET-SESSION-PERMISSIONS-UNAUTHORIZED-INVALID-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -122,7 +122,7 @@ test.describe('Get current session', () => {
   test.fixme(
     'API-AUTH-GET-SESSION-PERMISSIONS-UNAUTHORIZED-EXPIRED-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A user with expired session token
       await startServerWithSchema({
         name: 'test-app',
@@ -131,7 +131,7 @@ test.describe('Get current session', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\\$2a\\$10\\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, created_at, updated_at) VALUES (1, 1, 'expired_token', NOW() - INTERVAL '1 day', NOW() - INTERVAL '7 days', NOW() - INTERVAL '7 days')`
@@ -158,7 +158,7 @@ test.describe('Get current session', () => {
   test.fixme(
     'API-AUTH-GET-SESSION-EDGE-CASE-SESSION-METADATA-001: should returns session with IP address and user agent metadata',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated user with session metadata
       await startServerWithSchema({
         name: 'test-app',
@@ -167,7 +167,7 @@ test.describe('Get current session', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\\$2a\\$10\\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, ip_address, user_agent, created_at, updated_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', '203.0.113.42', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', NOW(), NOW())`
@@ -195,7 +195,7 @@ test.describe('Get current session', () => {
   test.fixme(
     'user can complete full getSession workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures.ts'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Admin: Impersonate user
@@ -32,7 +32,7 @@ test.describe('Admin: Impersonate user', () => {
   test.fixme(
     'API-ADMIN-IMPERSONATE-USER-SUCCESS-001: should returns 200 OK with impersonation token and user data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
@@ -41,10 +41,10 @@ test.describe('Admin: Impersonate user', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
       )
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Target User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
@@ -76,7 +76,7 @@ test.describe('Admin: Impersonate user', () => {
   test.fixme(
     'API-ADMIN-IMPERSONATE-USER-VALIDATION-REQUIRED-USER-ID-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -85,7 +85,7 @@ test.describe('Admin: Impersonate user', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
@@ -110,7 +110,7 @@ test.describe('Admin: Impersonate user', () => {
   test.fixme(
     'API-ADMIN-IMPERSONATE-USER-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -139,7 +139,7 @@ test.describe('Admin: Impersonate user', () => {
   test.fixme(
     'API-ADMIN-IMPERSONATE-USER-PERMISSIONS-FORBIDDEN-NON-ADMIN-001: should returns 403 Forbidden',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -148,10 +148,10 @@ test.describe('Admin: Impersonate user', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'user@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Regular User', true, 'member', NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Regular User', true, 'member', NOW(), NOW())`
       )
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Target User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
@@ -179,7 +179,7 @@ test.describe('Admin: Impersonate user', () => {
   test.fixme(
     'API-ADMIN-IMPERSONATE-USER-PERMISSIONS-FORBIDDEN-BANNED-USER-001: should returns 403 Forbidden (cannot impersonate banned users)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated admin user and a banned user
       await startServerWithSchema({
         name: 'test-app',
@@ -188,10 +188,10 @@ test.describe('Admin: Impersonate user', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, banned, created_at, updated_at) VALUES (1, 'admin@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Admin User', true, 'admin', false, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, role, banned, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', false, NOW(), NOW())`
       )
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, banned, created_at, updated_at) VALUES (2, 'target@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Target User', true, true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, banned, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
@@ -219,7 +219,7 @@ test.describe('Admin: Impersonate user', () => {
   test.fixme(
     'API-ADMIN-IMPERSONATE-USER-NOT-FOUND-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -228,7 +228,7 @@ test.describe('Admin: Impersonate user', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
@@ -256,7 +256,7 @@ test.describe('Admin: Impersonate user', () => {
   test.fixme(
     'API-ADMIN-IMPERSONATE-USER-SECURITY-AUDIT-TRAIL-001: should returns 200 OK and creates audit trail in session metadata',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
@@ -265,10 +265,10 @@ test.describe('Admin: Impersonate user', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
       )
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Target User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
@@ -299,7 +299,7 @@ test.describe('Admin: Impersonate user', () => {
   test.fixme(
     'user can complete full adminImpersonateUser workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

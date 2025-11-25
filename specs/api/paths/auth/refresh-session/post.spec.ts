@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures.ts'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Refresh session token
@@ -32,7 +32,7 @@ test.describe('Refresh session token', () => {
   test.fixme(
     'API-AUTH-REFRESH-SESSION-SUCCESS-001: should returns 200 OK with new token and extended expiration',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated user with valid session token
       await startServerWithSchema({
         name: 'test-app',
@@ -41,7 +41,7 @@ test.describe('Refresh session token', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, created_at, updated_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '1 day', NOW(), NOW())`
@@ -72,7 +72,7 @@ test.describe('Refresh session token', () => {
   test.fixme(
     'API-AUTH-REFRESH-SESSION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -98,7 +98,7 @@ test.describe('Refresh session token', () => {
   test.fixme(
     'API-AUTH-REFRESH-SESSION-PERMISSIONS-UNAUTHORIZED-INVALID-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -124,7 +124,7 @@ test.describe('Refresh session token', () => {
   test.fixme(
     'API-AUTH-REFRESH-SESSION-PERMISSIONS-UNAUTHORIZED-EXPIRED-TOKEN-001: should returns 401 Unauthorized (cannot refresh expired session)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A user with expired session token
       await startServerWithSchema({
         name: 'test-app',
@@ -133,7 +133,7 @@ test.describe('Refresh session token', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, created_at, updated_at) VALUES (1, 1, 'expired_token', NOW() - INTERVAL '1 day', NOW() - INTERVAL '7 days', NOW() - INTERVAL '7 days')`
@@ -158,7 +158,7 @@ test.describe('Refresh session token', () => {
   test.fixme(
     'API-AUTH-REFRESH-SESSION-EDGE-CASE-OLD-TOKEN-INVALIDATION-001: should returns 401 Unauthorized (old token is invalidated)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A user who has refreshed their session
       await startServerWithSchema({
         name: 'test-app',
@@ -167,7 +167,7 @@ test.describe('Refresh session token', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, deleted_at, created_at, updated_at) VALUES (1, 1, 'old_refreshed_token', NOW() + INTERVAL '7 days', NOW(), NOW() - INTERVAL '1 hour', NOW())`
@@ -196,7 +196,7 @@ test.describe('Refresh session token', () => {
   test.fixme(
     'user can complete full refreshSession workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

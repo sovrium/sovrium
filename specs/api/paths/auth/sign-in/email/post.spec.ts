@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures.ts'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Sign in with email and password
@@ -32,7 +32,7 @@ test.describe('Sign in with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-IN-EMAIL-SUCCESS-001: should returns 200 OK with session token and user data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A registered user with valid credentials
       await startServerWithSchema({
         name: 'test-app',
@@ -41,7 +41,7 @@ test.describe('Sign in with email and password', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
       )
 
       // WHEN: User submits correct email and password
@@ -67,7 +67,7 @@ test.describe('Sign in with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-IN-EMAIL-VALIDATION-REQUIRED-EMAIL-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -96,7 +96,7 @@ test.describe('Sign in with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-IN-EMAIL-VALIDATION-REQUIRED-PASSWORD-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -125,7 +125,7 @@ test.describe('Sign in with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-IN-EMAIL-VALIDATION-INVALID-EMAIL-FORMAT-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -155,7 +155,7 @@ test.describe('Sign in with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-IN-EMAIL-PERMISSIONS-INVALID-CREDENTIALS-WRONG-PASSWORD-001: should returns 401 Unauthorized with generic error to prevent enumeration',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A registered user
       await startServerWithSchema({
         name: 'test-app',
@@ -164,7 +164,7 @@ test.describe('Sign in with email and password', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
       )
 
       // WHEN: User submits correct email but wrong password
@@ -190,7 +190,7 @@ test.describe('Sign in with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-IN-EMAIL-PERMISSIONS-INVALID-CREDENTIALS-NONEXISTENT-EMAIL-001: should returns 401 Unauthorized with same generic error to prevent enumeration',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server with no registered user
       await startServerWithSchema({
         name: 'test-app',
@@ -220,7 +220,7 @@ test.describe('Sign in with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-IN-EMAIL-EDGE-CASE-EMAIL-CASE-INSENSITIVE-001: should returns 200 OK with session token (case-insensitive matching)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A registered user with lowercase email
       await startServerWithSchema({
         name: 'test-app',
@@ -229,7 +229,7 @@ test.describe('Sign in with email and password', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
       )
 
       // WHEN: User signs in with uppercase email variation
@@ -255,7 +255,7 @@ test.describe('Sign in with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-IN-EMAIL-EDGE-CASE-REMEMBER-ME-001: should returns 200 OK with extended session token',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A registered user
       await startServerWithSchema({
         name: 'test-app',
@@ -264,7 +264,7 @@ test.describe('Sign in with email and password', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
       )
 
       // WHEN: User signs in with rememberMe set to true
@@ -295,7 +295,7 @@ test.describe('Sign in with email and password', () => {
   test.fixme(
     'user can complete full signInEmail workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

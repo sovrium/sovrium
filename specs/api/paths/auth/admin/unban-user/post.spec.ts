@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures.ts'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Admin: Unban user
@@ -32,7 +32,7 @@ test.describe('Admin: Unban user', () => {
   test.fixme(
     'API-ADMIN-UNBAN-USER-SUCCESS-001: should returns 200 OK and removes ban, allowing user to sign in',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated admin user and a banned user
       await startServerWithSchema({
         name: 'test-app',
@@ -41,10 +41,10 @@ test.describe('Admin: Unban user', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, banned, created_at, updated_at) VALUES (1, 'admin@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Admin User', true, 'admin', false, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, role, banned, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', false, NOW(), NOW())`
       )
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, banned, ban_reason, created_at, updated_at) VALUES (2, 'target@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Target User', true, true, 'Previously banned', NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, banned, ban_reason, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, true, 'Previously banned', NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
@@ -80,7 +80,7 @@ test.describe('Admin: Unban user', () => {
   test.fixme(
     'API-ADMIN-UNBAN-USER-VALIDATION-REQUIRED-USER-ID-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -89,7 +89,7 @@ test.describe('Admin: Unban user', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
@@ -114,7 +114,7 @@ test.describe('Admin: Unban user', () => {
   test.fixme(
     'API-ADMIN-UNBAN-USER-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -143,7 +143,7 @@ test.describe('Admin: Unban user', () => {
   test.fixme(
     'API-ADMIN-UNBAN-USER-PERMISSIONS-FORBIDDEN-NON-ADMIN-001: should returns 403 Forbidden',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -152,10 +152,10 @@ test.describe('Admin: Unban user', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'user@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Regular User', true, 'member', NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Regular User', true, 'member', NOW(), NOW())`
       )
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, banned, created_at, updated_at) VALUES (2, 'target@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Target User', true, true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, banned, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
@@ -183,7 +183,7 @@ test.describe('Admin: Unban user', () => {
   test.fixme(
     'API-ADMIN-UNBAN-USER-NOT-FOUND-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -192,7 +192,7 @@ test.describe('Admin: Unban user', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
@@ -220,7 +220,7 @@ test.describe('Admin: Unban user', () => {
   test.fixme(
     'API-ADMIN-UNBAN-USER-EDGE-CASE-ALREADY-UNBANNED-001: should returns 200 OK (idempotent operation)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated admin user and an already active user
       await startServerWithSchema({
         name: 'test-app',
@@ -229,10 +229,10 @@ test.describe('Admin: Unban user', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, banned, created_at, updated_at) VALUES (1, 'admin@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Admin User', true, 'admin', false, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, role, banned, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', false, NOW(), NOW())`
       )
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, banned, created_at, updated_at) VALUES (2, 'target@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Target User', true, false, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, banned, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, false, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
@@ -263,7 +263,7 @@ test.describe('Admin: Unban user', () => {
   test.fixme(
     'user can complete full adminUnbanUser workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

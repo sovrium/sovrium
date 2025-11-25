@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures.ts'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Admin: Set user password
@@ -32,7 +32,7 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-ADMIN-SET-USER-PASSWORD-SUCCESS-001: should returns 200 OK and updates user password',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
@@ -41,10 +41,10 @@ test.describe('Admin: Set user password', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
       )
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '\$2a\$10\$OldPasswordHash', 'Target User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$OldPasswordHash', 'Target User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
@@ -81,7 +81,7 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-ADMIN-SET-USER-PASSWORD-SUCCESS-REVOKE-SESSIONS-001: should returns 200 OK and revokes all user sessions',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated admin user and a user with multiple sessions
       await startServerWithSchema({
         name: 'test-app',
@@ -90,10 +90,10 @@ test.describe('Admin: Set user password', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
       )
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '\$2a\$10\$OldPasswordHash', 'Target User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$OldPasswordHash', 'Target User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
@@ -132,7 +132,7 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-ADMIN-SET-USER-PASSWORD-VALIDATION-REQUIRED-FIELDS-001: should returns 400 Bad Request with validation errors',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -141,7 +141,7 @@ test.describe('Admin: Set user password', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
@@ -166,7 +166,7 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-ADMIN-SET-USER-PASSWORD-VALIDATION-PASSWORD-LENGTH-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -175,10 +175,10 @@ test.describe('Admin: Set user password', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
       )
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '\$2a\$10\$OldPasswordHash', 'Target User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$OldPasswordHash', 'Target User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
@@ -207,7 +207,7 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-ADMIN-SET-USER-PASSWORD-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -237,7 +237,7 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-ADMIN-SET-USER-PASSWORD-PERMISSIONS-FORBIDDEN-NON-ADMIN-001: should returns 403 Forbidden',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -246,10 +246,10 @@ test.describe('Admin: Set user password', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'user@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Regular User', true, 'member', NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Regular User', true, 'member', NOW(), NOW())`
       )
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '\$2a\$10\$OldPasswordHash', 'Target User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$OldPasswordHash', 'Target User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
@@ -278,7 +278,7 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-ADMIN-SET-USER-PASSWORD-NOT-FOUND-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -287,7 +287,7 @@ test.describe('Admin: Set user password', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
@@ -320,7 +320,7 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'user can complete full adminSetUserPassword workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

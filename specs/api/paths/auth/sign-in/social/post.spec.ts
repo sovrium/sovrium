@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures.ts'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Sign in with social provider
@@ -31,7 +31,7 @@ test.describe('Sign in with social provider', () => {
   test.fixme(
     'API-AUTH-SIGN-IN-SOCIAL-001: should response should be successful (200 or redirect) or 404 if provider not configured',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -52,7 +52,7 @@ test.describe('Sign in with social provider', () => {
   test.fixme(
     'API-AUTH-SIGN-IN-SOCIAL-002: should response should be validation error (4xx)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -77,7 +77,7 @@ test.describe('Sign in with social provider', () => {
   test.fixme(
     'user can complete full Signinwithsocialprovider workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

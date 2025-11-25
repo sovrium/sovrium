@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures.ts'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for List user organizations
@@ -30,9 +30,9 @@ test.describe('List user organizations', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-LIST-ORGANIZATIONS-SUCCESS-001: should returns 200 OK with all organizations and user's roles',
+    'API-ORG-LIST-ORGANIZATIONS-SUCCESS-001: should returns 200 OK with all organizations and user\'s roles',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated user who is member of multiple organizations
       await startServerWithSchema({
         name: 'test-app',
@@ -40,7 +40,7 @@ test.describe('List user organizations', () => {
       })
 
     // Database setup
-    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`)
+    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`)
     await executeQuery(`INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Org One', 'org-one', NOW(), NOW())`)
     await executeQuery(`INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (2, 'Org Two', 'org-two', NOW(), NOW())`)
     await executeQuery(`INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`)
@@ -71,7 +71,7 @@ test.describe('List user organizations', () => {
   test.fixme(
     'API-ORG-LIST-ORGANIZATIONS-SUCCESS-EMPTY-001: should returns 200 OK with empty organizations array',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated user who is not member of any organization
       await startServerWithSchema({
         name: 'test-app',
@@ -79,7 +79,7 @@ test.describe('List user organizations', () => {
       })
 
     // Database setup
-    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`)
+    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`)
     await executeQuery(`INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`)
 
       // WHEN: User requests list of their organizations
@@ -101,7 +101,7 @@ test.describe('List user organizations', () => {
   test.fixme(
     'API-ORG-LIST-ORGANIZATIONS-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -110,7 +110,7 @@ test.describe('List user organizations', () => {
 
 
       // WHEN: Unauthenticated user attempts to list organizations
-    const response = await page.request.get('/api/auth/organization/list-organizations'
+    const response = await page.request.get('/api/auth/organization/list-organizations')
 
       // THEN: Returns 401 Unauthorized
     // Returns 401 Unauthorized
@@ -126,9 +126,9 @@ test.describe('List user organizations', () => {
 
 
   test.fixme(
-    'API-ORG-LIST-ORGANIZATIONS-SECURITY-ISOLATION-001: should returns 200 OK with only User A's organizations (User B's not visible)',
+    'API-ORG-LIST-ORGANIZATIONS-SECURITY-ISOLATION-001: should returns 200 OK with only User A\'s organizations (User B\'s not visible)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: Two users with different organizations
       await startServerWithSchema({
         name: 'test-app',
@@ -136,8 +136,8 @@ test.describe('List user organizations', () => {
       })
 
     // Database setup
-    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user1@example.com', '\$2a\$10\$YourHashedPasswordHere', 'User 1', true, NOW(), NOW())`)
-    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'user2@example.com', '\$2a\$10\$YourHashedPasswordHere', 'User 2', true, NOW(), NOW())`)
+    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user1@example.com', '$2a$10$YourHashedPasswordHere', 'User 1', true, NOW(), NOW())`)
+    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'user2@example.com', '$2a$10$YourHashedPasswordHere', 'User 2', true, NOW(), NOW())`)
     await executeQuery(`INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'User 1 Org', 'user1-org', NOW(), NOW())`)
     await executeQuery(`INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (2, 'User 2 Org', 'user2-org', NOW(), NOW())`)
     await executeQuery(`INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`)
@@ -165,7 +165,7 @@ test.describe('List user organizations', () => {
   test.fixme(
     'API-ORG-LIST-ORGANIZATIONS-SUCCESS-ROLE-DISPLAY-001: should returns 200 OK with correct role for each organization',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated user with different roles across organizations
       await startServerWithSchema({
         name: 'test-app',
@@ -173,7 +173,7 @@ test.describe('List user organizations', () => {
       })
 
     // Database setup
-    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`)
+    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`)
     await executeQuery(`INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Owned Org', 'owned-org', NOW(), NOW())`)
     await executeQuery(`INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (2, 'Admin Org', 'admin-org', NOW(), NOW())`)
     await executeQuery(`INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (3, 'Member Org', 'member-org', NOW(), NOW())`)
@@ -210,7 +210,7 @@ test.describe('List user organizations', () => {
   test.fixme(
     'user can complete full listOrganizations workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

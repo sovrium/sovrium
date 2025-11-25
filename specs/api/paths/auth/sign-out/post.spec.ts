@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures.ts'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Sign out user
@@ -31,7 +31,7 @@ test.describe('Sign out user', () => {
   test.fixme(
     'API-AUTH-SIGN-OUT-SUCCESS-001: should  invalidates session token',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated user with valid session
       await startServerWithSchema({
         name: 'test-app',
@@ -40,7 +40,7 @@ test.describe('Sign out user', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_session_token', NOW() + INTERVAL '7 days', NOW())`
@@ -67,9 +67,9 @@ test.describe('Sign out user', () => {
   )
 
   test.fixme(
-    'API-AUTH-SIGN-OUT-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should ',
+    'API-AUTH-SIGN-OUT-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -95,9 +95,9 @@ test.describe('Sign out user', () => {
   )
 
   test.fixme(
-    'API-AUTH-SIGN-OUT-PERMISSIONS-UNAUTHORIZED-INVALID-TOKEN-001: should ',
+    'API-AUTH-SIGN-OUT-PERMISSIONS-UNAUTHORIZED-INVALID-TOKEN-001: should',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -124,9 +124,9 @@ test.describe('Sign out user', () => {
   )
 
   test.fixme(
-    'API-AUTH-SIGN-OUT-EDGE-CASE-EXPIRED-TOKEN-001: should ',
+    'API-AUTH-SIGN-OUT-EDGE-CASE-EXPIRED-TOKEN-001: should',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A user with expired session token
       await startServerWithSchema({
         name: 'test-app',
@@ -135,7 +135,7 @@ test.describe('Sign out user', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'expired_token', NOW() - INTERVAL '1 day', NOW() - INTERVAL '7 days')`
@@ -163,7 +163,7 @@ test.describe('Sign out user', () => {
   test.fixme(
     'API-AUTH-SIGN-OUT-EDGE-CASE-TOKEN-REUSE-PREVENTION-001: should  (token is invalidated)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A user who has just signed out
       await startServerWithSchema({
         name: 'test-app',
@@ -172,7 +172,7 @@ test.describe('Sign out user', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO sessions (id, user_id, token, expires_at, deleted_at, created_at) VALUES (1, 1, 'signed_out_token', NOW() + INTERVAL '7 days', NOW(), NOW() - INTERVAL '1 hour')`
@@ -204,7 +204,7 @@ test.describe('Sign out user', () => {
   test.fixme(
     'user can complete full Signoutuser workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

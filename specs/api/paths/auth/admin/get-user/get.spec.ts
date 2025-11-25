@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures.ts'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Admin: Get user by ID
@@ -32,196 +32,204 @@ test.describe('Admin: Get user by ID', () => {
   test.fixme(
     'API-ADMIN-GET-USER-SUCCESS-001: should returns 200 OK with user details',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
         // TODO: Configure server schema based on test requirements
       })
 
-    // Database setup
-    await executeQuery(`INSERT INTO users (id, email, password_hash, name, image, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Admin User', null, true, 'admin', NOW(), NOW())`)
-    await executeQuery(`INSERT INTO users (id, email, password_hash, name, image, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Target User', 'https://avatar.com/target.jpg', true, NOW(), NOW())`)
-    await executeQuery(`INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`)
+      // Database setup
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, image, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', null, true, 'admin', NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, image, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', 'https://avatar.com/target.jpg', true, NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
+      )
 
       // WHEN: Admin requests user details by ID
-    const response = await page.request.get('/api/auth/admin/get-user?userId=2', {
-      headers: {
-      },
-    })
+      const response = await page.request.get('/api/auth/admin/get-user?userId=2', {
+        headers: {},
+      })
 
       // THEN: Returns 200 OK with user details
-    // Returns 200 OK
-    expect(response.status).toBe(200)
+      // Returns 200 OK
+      expect(response.status).toBe(200)
 
-    // Response contains user details
-    const data = await response.json()
-    // Validate response schema
-    expect(data).toMatchObject({})  // TODO: Add schema validation
+      // Response contains user details
+      const data = await response.json()
+      // Validate response schema
+      expect(data).toMatchObject({}) // TODO: Add schema validation
 
-    // Response includes correct user data
-
+      // Response includes correct user data
     }
   )
-
 
   test.fixme(
     'API-ADMIN-GET-USER-VALIDATION-REQUIRED-USER-ID-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         // TODO: Configure server schema based on test requirements
       })
 
-    // Database setup
-    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`)
-    await executeQuery(`INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`)
+      // Database setup
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
+      )
 
       // WHEN: Admin requests user without userId parameter
-    const response = await page.request.get('/api/auth/admin/get-user', {
-      headers: {
-      },
-    })
+      const response = await page.request.get('/api/auth/admin/get-user', {
+        headers: {},
+      })
 
       // THEN: Returns 400 Bad Request with validation error
-    // Returns 400 Bad Request
-    expect(response.status).toBe(400)
+      // Returns 400 Bad Request
+      expect(response.status).toBe(400)
 
-    // Response contains validation error for userId parameter
-    const data = await response.json()
-    // Validate response schema
-    expect(data).toMatchObject({})  // TODO: Add schema validation
-
+      // Response contains validation error for userId parameter
+      const data = await response.json()
+      // Validate response schema
+      expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
-
 
   test.fixme(
     'API-ADMIN-GET-USER-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
         // TODO: Configure server schema based on test requirements
       })
 
-
       // WHEN: Unauthenticated user attempts to get user
-    const response = await page.request.get('/api/auth/admin/get-user?userId=2'
+      const response = await page.request.get('/api/auth/admin/get-user?userId=2')
 
       // THEN: Returns 401 Unauthorized
-    // Returns 401 Unauthorized
-    expect(response.status).toBe(401)
+      // Returns 401 Unauthorized
+      expect(response.status).toBe(401)
 
-    // Response contains error about missing authentication
-    const data = await response.json()
-    // Validate response schema
-    expect(data).toMatchObject({})  // TODO: Add schema validation
-
+      // Response contains error about missing authentication
+      const data = await response.json()
+      // Validate response schema
+      expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
-
 
   test.fixme(
     'API-ADMIN-GET-USER-PERMISSIONS-FORBIDDEN-NON-ADMIN-001: should returns 403 Forbidden',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
         // TODO: Configure server schema based on test requirements
       })
 
-    // Database setup
-    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'user@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Regular User', true, 'member', NOW(), NOW())`)
-    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Target User', true, NOW(), NOW())`)
-    await executeQuery(`INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`)
+      // Database setup
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Regular User', true, 'member', NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
+      )
 
       // WHEN: Regular user attempts to get another user's details
-    const response = await page.request.get('/api/auth/admin/get-user?userId=2', {
-      headers: {
-      },
-    })
+      const response = await page.request.get('/api/auth/admin/get-user?userId=2', {
+        headers: {},
+      })
 
       // THEN: Returns 403 Forbidden
-    // Returns 403 Forbidden
-    expect(response.status).toBe(403)
+      // Returns 403 Forbidden
+      expect(response.status).toBe(403)
 
-    // Response contains error about insufficient permissions
-    const data = await response.json()
-    // Validate response schema
-    expect(data).toMatchObject({})  // TODO: Add schema validation
-
+      // Response contains error about insufficient permissions
+      const data = await response.json()
+      // Validate response schema
+      expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
-
 
   test.fixme(
     'API-ADMIN-GET-USER-NOT-FOUND-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         // TODO: Configure server schema based on test requirements
       })
 
-    // Database setup
-    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`)
-    await executeQuery(`INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`)
+      // Database setup
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
+      )
 
       // WHEN: Admin requests user with non-existent ID
-    const response = await page.request.get('/api/auth/admin/get-user?userId=999', {
-      headers: {
-      },
-    })
+      const response = await page.request.get('/api/auth/admin/get-user?userId=999', {
+        headers: {},
+      })
 
       // THEN: Returns 404 Not Found
-    // Returns 404 Not Found
-    expect(response.status).toBe(404)
+      // Returns 404 Not Found
+      expect(response.status).toBe(404)
 
-    // Response contains error about user not found
-    const data = await response.json()
-    // Validate response schema
-    expect(data).toMatchObject({})  // TODO: Add schema validation
-
+      // Response contains error about user not found
+      const data = await response.json()
+      // Validate response schema
+      expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
-
 
   test.fixme(
     'API-ADMIN-GET-USER-SECURITY-PASSWORD-EXCLUSION-001: should returns 200 OK with user details but password field excluded for security',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
         // TODO: Configure server schema based on test requirements
       })
 
-    // Database setup
-    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`)
-    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Target User', true, NOW(), NOW())`)
-    await executeQuery(`INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`)
+      // Database setup
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
+      )
 
       // WHEN: Admin requests user details
-    const response = await page.request.get('/api/auth/admin/get-user?userId=2', {
-      headers: {
-      },
-    })
+      const response = await page.request.get('/api/auth/admin/get-user?userId=2', {
+        headers: {},
+      })
 
       // THEN: Returns 200 OK with user details but password field excluded for security
-    // Returns 200 OK
-    expect(response.status).toBe(200)
+      // Returns 200 OK
+      expect(response.status).toBe(200)
 
-    // Response excludes password_hash field for security
-
+      // Response excludes password_hash field for security
     }
   )
-
 
   // ============================================================================
   // @regression test - OPTIMIZED integration confidence check
@@ -230,7 +238,7 @@ test.describe('Admin: Get user by ID', () => {
   test.fixme(
     'user can complete full adminGetUser workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',
@@ -246,5 +254,4 @@ test.describe('Admin: Get user by ID', () => {
       // TODO: Add integration assertions
     }
   )
-
 })

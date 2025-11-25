@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures.ts'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Update member role
@@ -32,7 +32,7 @@ test.describe('Update member role', () => {
   test.fixme(
     'API-ORG-UPDATE-MEMBER-ROLE-SUCCESS-001: should returns 200 OK with updated member data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated organization owner and an existing member
       await startServerWithSchema({
         name: 'test-app',
@@ -41,10 +41,10 @@ test.describe('Update member role', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
       )
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'member@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Member User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'member@example.com', '$2a$10$YourHashedPasswordHere', 'Member User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
@@ -87,7 +87,7 @@ test.describe('Update member role', () => {
   test.fixme(
     'API-ORG-UPDATE-MEMBER-ROLE-VALIDATION-REQUIRED-FIELDS-001: should returns 400 Bad Request with validation errors',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -96,7 +96,7 @@ test.describe('Update member role', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
@@ -127,7 +127,7 @@ test.describe('Update member role', () => {
   test.fixme(
     'API-ORG-UPDATE-MEMBER-ROLE-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -158,7 +158,7 @@ test.describe('Update member role', () => {
   test.fixme(
     'API-ORG-UPDATE-MEMBER-ROLE-PERMISSIONS-FORBIDDEN-REGULAR-MEMBER-001: should returns 403 Forbidden',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated regular member (not owner/admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -167,10 +167,10 @@ test.describe('Update member role', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'member1@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Member 1', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'member1@example.com', '$2a$10$YourHashedPasswordHere', 'Member 1', true, NOW(), NOW())`
       )
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'member2@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Member 2', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'member2@example.com', '$2a$10$YourHashedPasswordHere', 'Member 2', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
@@ -209,7 +209,7 @@ test.describe('Update member role', () => {
   test.fixme(
     'API-ORG-UPDATE-MEMBER-ROLE-NOT-FOUND-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -218,7 +218,7 @@ test.describe('Update member role', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
@@ -254,7 +254,7 @@ test.describe('Update member role', () => {
   test.fixme(
     'API-ORG-UPDATE-MEMBER-ROLE-EDGE-CASE-SAME-ROLE-001: should returns 200 OK (idempotent operation)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated organization owner and an existing admin member
       await startServerWithSchema({
         name: 'test-app',
@@ -263,10 +263,10 @@ test.describe('Update member role', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
       )
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'admin@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Admin User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
@@ -308,7 +308,7 @@ test.describe('Update member role', () => {
   test.fixme(
     'user can complete full updateMemberRole workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures.ts'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Verify email address
@@ -31,7 +31,7 @@ test.describe('Verify email address', () => {
   test.fixme(
     'API-AUTH-VERIFY-EMAIL-SUCCESS-001: should  marks email as verified',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A user with valid verification token
       await startServerWithSchema({
         name: 'test-app',
@@ -40,7 +40,7 @@ test.describe('Verify email address', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', false, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', false, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO email_verification_tokens (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_verify_token', NOW() + INTERVAL '24 hours', NOW())`
@@ -65,7 +65,7 @@ test.describe('Verify email address', () => {
   test.fixme(
     'API-AUTH-VERIFY-EMAIL-VALIDATION-REQUIRED-TOKEN-001: should  request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -89,7 +89,7 @@ test.describe('Verify email address', () => {
   test.fixme(
     'API-AUTH-VERIFY-EMAIL-PERMISSIONS-INVALID-TOKEN-001: should  (or 400 depending on better auth version)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -112,7 +112,7 @@ test.describe('Verify email address', () => {
   test.fixme(
     'API-AUTH-VERIFY-EMAIL-PERMISSIONS-EXPIRED-TOKEN-001: should  (or 400 depending on better auth version)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A user with expired verification token
       await startServerWithSchema({
         name: 'test-app',
@@ -121,7 +121,7 @@ test.describe('Verify email address', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', false, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', false, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO email_verification_tokens (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'expired_token', NOW() - INTERVAL '1 hour', NOW() - INTERVAL '25 hours')`
@@ -143,7 +143,7 @@ test.describe('Verify email address', () => {
   test.fixme(
     'API-AUTH-VERIFY-EMAIL-SECURITY-TOKEN-REUSE-PREVENTION-001: should  (token already used)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A user who has already verified their email
       await startServerWithSchema({
         name: 'test-app',
@@ -152,7 +152,7 @@ test.describe('Verify email address', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO email_verification_tokens (id, user_id, token, expires_at, used_at, created_at) VALUES (1, 1, 'used_token', NOW() + INTERVAL '24 hours', NOW() - INTERVAL '1 hour', NOW())`
@@ -174,7 +174,7 @@ test.describe('Verify email address', () => {
   test.fixme(
     'API-AUTH-VERIFY-EMAIL-EDGE-CASE-ALREADY-VERIFIED-001: should  or 400 (implementation-dependent)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A user with already verified email and unused token
       await startServerWithSchema({
         name: 'test-app',
@@ -183,7 +183,7 @@ test.describe('Verify email address', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO email_verification_tokens (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '24 hours', NOW())`
@@ -208,7 +208,7 @@ test.describe('Verify email address', () => {
   test.fixme(
     'user can complete full Verifyemailaddress workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

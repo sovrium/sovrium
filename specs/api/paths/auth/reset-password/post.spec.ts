@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures.ts'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Reset password
@@ -31,7 +31,7 @@ test.describe('Reset password', () => {
   test.fixme(
     'API-AUTH-RESET-PASSWORD-SUCCESS-001: should  password is updated',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A user with valid reset token
       await startServerWithSchema({
         name: 'test-app',
@@ -40,7 +40,7 @@ test.describe('Reset password', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$OldPasswordHash', 'Test User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$OldPasswordHash', 'Test User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO password_reset_tokens (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_reset_token', NOW() + INTERVAL '1 hour', NOW())`
@@ -73,7 +73,7 @@ test.describe('Reset password', () => {
   test.fixme(
     'API-AUTH-RESET-PASSWORD-VALIDATION-REQUIRED-NEW-PASSWORD-001: should  request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A user with valid reset token
       await startServerWithSchema({
         name: 'test-app',
@@ -82,7 +82,7 @@ test.describe('Reset password', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$OldPasswordHash', 'Test User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$OldPasswordHash', 'Test User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO password_reset_tokens (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_reset_token', NOW() + INTERVAL '1 hour', NOW())`
@@ -112,7 +112,7 @@ test.describe('Reset password', () => {
   test.fixme(
     'API-AUTH-RESET-PASSWORD-VALIDATION-PASSWORD-TOO-SHORT-001: should  request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A user with valid reset token
       await startServerWithSchema({
         name: 'test-app',
@@ -121,7 +121,7 @@ test.describe('Reset password', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$OldPasswordHash', 'Test User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$OldPasswordHash', 'Test User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO password_reset_tokens (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_reset_token', NOW() + INTERVAL '1 hour', NOW())`
@@ -152,7 +152,7 @@ test.describe('Reset password', () => {
   test.fixme(
     'API-AUTH-RESET-PASSWORD-PERMISSIONS-INVALID-TOKEN-001: should  (or 400 depending on better auth version)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -183,7 +183,7 @@ test.describe('Reset password', () => {
   test.fixme(
     'API-AUTH-RESET-PASSWORD-PERMISSIONS-EXPIRED-TOKEN-001: should  (or 400 depending on better auth version)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A user with expired reset token
       await startServerWithSchema({
         name: 'test-app',
@@ -192,7 +192,7 @@ test.describe('Reset password', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$OldPasswordHash', 'Test User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$OldPasswordHash', 'Test User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO password_reset_tokens (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'expired_token', NOW() - INTERVAL '1 hour', NOW() - INTERVAL '2 hours')`
@@ -222,7 +222,7 @@ test.describe('Reset password', () => {
   test.fixme(
     'API-AUTH-RESET-PASSWORD-SECURITY-TOKEN-REUSE-PREVENTION-001: should  (token already used)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A user who has already used their reset token
       await startServerWithSchema({
         name: 'test-app',
@@ -231,7 +231,7 @@ test.describe('Reset password', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$OldPasswordHash', 'Test User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$OldPasswordHash', 'Test User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO password_reset_tokens (id, user_id, token, expires_at, used_at, created_at) VALUES (1, 1, 'used_token', NOW() + INTERVAL '1 hour', NOW() - INTERVAL '5 minutes', NOW())`
@@ -261,7 +261,7 @@ test.describe('Reset password', () => {
   test.fixme(
     'API-AUTH-RESET-PASSWORD-EDGE-CASE-MISSING-TOKEN-001: should  request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -292,7 +292,7 @@ test.describe('Reset password', () => {
   test.fixme(
     'API-AUTH-RESET-PASSWORD-EDGE-CASE-REVOKE-ALL-SESSIONS-001: should  all active sessions are revoked',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A user with active sessions and valid reset token
       await startServerWithSchema({
         name: 'test-app',
@@ -301,7 +301,7 @@ test.describe('Reset password', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$OldPasswordHash', 'Test User', true, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$OldPasswordHash', 'Test User', true, NOW(), NOW())`
       )
       await executeQuery(
         `INSERT INTO password_reset_tokens (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_reset_token', NOW() + INTERVAL '1 hour', NOW())`
@@ -342,7 +342,7 @@ test.describe('Reset password', () => {
   test.fixme(
     'user can complete full Resetpassword workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures.ts'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Revoke all other sessions
@@ -32,7 +32,7 @@ test.describe('Revoke all other sessions', () => {
   test.fixme(
     'API-AUTH-REVOKE-OTHER-SESSIONS-SUCCESS-001: should returns 200 OK and revokes all sessions except current one',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated user with multiple active sessions
       await startServerWithSchema({
         name: 'test-app',
@@ -40,7 +40,7 @@ test.describe('Revoke all other sessions', () => {
       })
 
     // Database setup
-    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`)
+    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`)
     await executeQuery(`INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'current_session', NOW() + INTERVAL '7 days', NOW())`)
     await executeQuery(`INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (2, 1, 'other_session_1', NOW() + INTERVAL '7 days', NOW())`)
     await executeQuery(`INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (3, 1, 'other_session_2', NOW() + INTERVAL '7 days', NOW())`)
@@ -75,7 +75,7 @@ test.describe('Revoke all other sessions', () => {
   test.fixme(
     'API-AUTH-REVOKE-OTHER-SESSIONS-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -105,7 +105,7 @@ test.describe('Revoke all other sessions', () => {
   test.fixme(
     'API-AUTH-REVOKE-OTHER-SESSIONS-EDGE-CASE-SINGLE-SESSION-001: should returns 200 OK (no sessions to revoke)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated user with only current session
       await startServerWithSchema({
         name: 'test-app',
@@ -113,7 +113,7 @@ test.describe('Revoke all other sessions', () => {
       })
 
     // Database setup
-    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`)
+    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`)
     await executeQuery(`INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'current_session', NOW() + INTERVAL '7 days', NOW())`)
 
       // WHEN: User revokes other sessions (none exist)
@@ -141,7 +141,7 @@ test.describe('Revoke all other sessions', () => {
   test.fixme(
     'API-AUTH-REVOKE-OTHER-SESSIONS-EDGE-CASE-MULTIPLE-DEVICES-001: should returns 200 OK and revokes all sessions except current device',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated user with sessions across multiple devices
       await startServerWithSchema({
         name: 'test-app',
@@ -149,7 +149,7 @@ test.describe('Revoke all other sessions', () => {
       })
 
     // Database setup
-    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`)
+    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`)
     await executeQuery(`INSERT INTO sessions (id, user_id, token, ip_address, user_agent, expires_at, created_at) VALUES (1, 1, 'desktop_session', '192.168.1.10', 'Mozilla/5.0 (Windows NT 10.0) Chrome/120.0', NOW() + INTERVAL '7 days', NOW())`)
     await executeQuery(`INSERT INTO sessions (id, user_id, token, ip_address, user_agent, expires_at, created_at) VALUES (2, 1, 'mobile_session', '192.168.1.20', 'Mozilla/5.0 (iPhone; iOS 17.0) Safari/17.0', NOW() + INTERVAL '7 days', NOW())`)
     await executeQuery(`INSERT INTO sessions (id, user_id, token, ip_address, user_agent, expires_at, created_at) VALUES (3, 1, 'tablet_session', '192.168.1.30', 'Mozilla/5.0 (iPad; iPadOS 17.0) Safari/17.0', NOW() + INTERVAL '7 days', NOW())`)
@@ -177,9 +177,9 @@ test.describe('Revoke all other sessions', () => {
 
 
   test.fixme(
-    'API-AUTH-REVOKE-OTHER-SESSIONS-SECURITY-ISOLATION-001: should returns 200 OK and only revokes User A's sessions (User B unaffected)',
+    'API-AUTH-REVOKE-OTHER-SESSIONS-SECURITY-ISOLATION-001: should returns 200 OK and only revokes User A\'s sessions (User B unaffected)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: Two users with multiple sessions each
       await startServerWithSchema({
         name: 'test-app',
@@ -187,8 +187,8 @@ test.describe('Revoke all other sessions', () => {
       })
 
     // Database setup
-    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user1@example.com', '\$2a\$10\$YourHashedPasswordHere', 'User 1', true, NOW(), NOW())`)
-    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'user2@example.com', '\$2a\$10\$YourHashedPasswordHere', 'User 2', true, NOW(), NOW())`)
+    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user1@example.com', '$2a$10$YourHashedPasswordHere', 'User 1', true, NOW(), NOW())`)
+    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'user2@example.com', '$2a$10$YourHashedPasswordHere', 'User 2', true, NOW(), NOW())`)
     await executeQuery(`INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user1_session1', NOW() + INTERVAL '7 days', NOW())`)
     await executeQuery(`INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (2, 1, 'user1_session2', NOW() + INTERVAL '7 days', NOW())`)
     await executeQuery(`INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (3, 2, 'user2_session1', NOW() + INTERVAL '7 days', NOW())`)
@@ -227,7 +227,7 @@ test.describe('Revoke all other sessions', () => {
   test.fixme(
     'user can complete full revokeOtherSessions workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures.ts'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Sign up with email and password
@@ -32,7 +32,7 @@ test.describe('Sign up with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-UP-EMAIL-SUCCESS-001: should returns 200 OK with user data and session token',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server with no existing users
       await startServerWithSchema({
         name: 'test-app',
@@ -67,7 +67,7 @@ test.describe('Sign up with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-UP-EMAIL-VALIDATION-REQUIRED-NAME-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -97,7 +97,7 @@ test.describe('Sign up with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-UP-EMAIL-VALIDATION-REQUIRED-EMAIL-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -127,7 +127,7 @@ test.describe('Sign up with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-UP-EMAIL-VALIDATION-REQUIRED-PASSWORD-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -157,7 +157,7 @@ test.describe('Sign up with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-UP-EMAIL-VALIDATION-INVALID-EMAIL-FORMAT-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -188,7 +188,7 @@ test.describe('Sign up with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-UP-EMAIL-VALIDATION-PASSWORD-TOO-SHORT-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -219,7 +219,7 @@ test.describe('Sign up with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-UP-EMAIL-CONFLICT-DUPLICATE-EMAIL-001: should returns 409 Conflict error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server with existing user
       await startServerWithSchema({
         name: 'test-app',
@@ -228,7 +228,7 @@ test.describe('Sign up with email and password', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'existing@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Existing User', false, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'existing@example.com', '$2a$10$YourHashedPasswordHere', 'Existing User', false, NOW(), NOW())`
       )
 
       // WHEN: Another user attempts sign-up with same email
@@ -255,7 +255,7 @@ test.describe('Sign up with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-UP-EMAIL-CONFLICT-EMAIL-CASE-INSENSITIVE-001: should returns 409 Conflict error (case-insensitive email matching)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server with existing user (lowercase email)
       await startServerWithSchema({
         name: 'test-app',
@@ -264,7 +264,7 @@ test.describe('Sign up with email and password', () => {
 
       // Database setup
       await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', false, NOW(), NOW())`
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', false, NOW(), NOW())`
       )
 
       // WHEN: User attempts sign-up with same email in different case
@@ -291,7 +291,7 @@ test.describe('Sign up with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-UP-EMAIL-SECURITY-XSS-PREVENTION-NAME-001: should returns 200 OK with sanitized name (XSS payload neutralized)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -319,7 +319,7 @@ test.describe('Sign up with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-UP-EMAIL-EDGE-CASE-UNICODE-NAME-001: should returns 200 OK with Unicode name preserved',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -351,7 +351,7 @@ test.describe('Sign up with email and password', () => {
   test.fixme(
     'user can complete full signUpEmail workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',
