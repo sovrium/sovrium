@@ -498,12 +498,12 @@ function calculateApiPathPriority(featurePath: string): number {
     if (index >= 0) {
       // Known endpoint: use explicit priority
       // Multiply by 10000 to create large groups for sub-paths
-      return (index + 1) * 10000
+      return (index + 1) * 10_000
     }
 
     // Unknown endpoint: alphabetical after known endpoints
     const alphabeticalOffset = getAlphabeticalIndexForSubFeature(endpoint)
-    return (explicitOrder.length + 1) * 10000 + alphabeticalOffset * 1000
+    return (explicitOrder.length + 1) * 10_000 + alphabeticalOffset * 1000
   }
 
   // Non-path API specs: fallback to alphabetical
