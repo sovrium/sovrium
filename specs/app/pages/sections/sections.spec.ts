@@ -102,7 +102,7 @@ test.describe('Page Sections', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SECTIONS-003: should accept generic component properties via props.schema.json',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
