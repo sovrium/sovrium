@@ -8,12 +8,7 @@
 /* eslint-disable max-lines -- Component registry requires mapping all component types. Refactoring to smaller files would harm maintainability. */
 
 import { Hero } from '@/presentation/components/layout/hero'
-import {
-  CardWithHeader,
-  CardHeader,
-  CardBody,
-  CardFooter,
-} from '@/presentation/components/ui/card'
+import { CardWithHeader, CardHeader, CardBody, CardFooter } from '@/presentation/components/ui/card'
 import { SpeechBubble } from '@/presentation/components/ui/speech-bubble'
 import * as Renderers from '../renderers/element-renderers'
 import { convertBadgeProps, parseHTMLContent } from './component-registry-helpers'
@@ -387,33 +382,28 @@ export const COMPONENT_REGISTRY: Partial<Record<Component['type'], ComponentRend
   list: ({ elementProps, content, theme }) => Renderers.renderList(elementProps, content, theme),
 
   navigation: ({ elementPropsWithSpacing, content, renderedChildren, interactions }) => {
-    // If no children provided, render default hamburger menu button
-    const defaultChildren = renderedChildren.length === 0 ? (
-      <button
-        type="button"
-        aria-label="Menu"
-        style={{
-          backgroundColor: '#3b82f6',
-          color: 'white',
-          padding: '0.75rem',
-          borderRadius: '0.375rem',
-          border: 'none',
-          fontSize: '1.25rem',
-          cursor: 'pointer',
-          lineHeight: '1',
-        }}
-      >
-        ☰
-      </button>
-    ) : renderedChildren
+    // Default hamburger menu button when no children provided
+    // Rationale: Navigation without children should display something visible
+    // Used in APP-THEME-BREAKPOINTS-APPLICATION-002 test for default rendering
+    const defaultChildren =
+      renderedChildren.length === 0 ? (
+        <button
+          type="button"
+          aria-label="Menu"
+          className="cursor-pointer rounded-md border-none bg-blue-500 px-3 py-3 text-xl leading-none text-white"
+        >
+          ☰
+        </button>
+      ) : (
+        renderedChildren
+      )
 
-    // Add default padding to nav element to match expected dimensions
+    // Add default padding to nav element
     const navProps = {
       ...elementPropsWithSpacing,
-      style: {
-        ...(elementPropsWithSpacing.style as Record<string, unknown> | undefined),
-        padding: '1rem',
-      },
+      className: elementPropsWithSpacing.className
+        ? `${elementPropsWithSpacing.className} p-4`
+        : 'p-4',
     }
 
     return Renderers.renderHTMLElement({
