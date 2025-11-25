@@ -674,22 +674,57 @@ test.describe('Data Tables', () => {
   test.fixme(
     'APP-TABLES-MIGRATION-ALTER-001: should alter table and add new column with correct type',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: existing table 'customers' with 2 columns
-      // WHEN: migration adds new column 'phone' as VARCHAR(20)
-      await executeQuery(
-        `CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL)`
-      )
-      await executeQuery(`ALTER TABLE customers ADD COLUMN phone VARCHAR(20)`)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_customers',
+            name: 'customers',
+            fields: [
+              {
+                id: 1,
+                name: 'name',
+                type: 'single-line-text',
+                required: true,
+              },
+            ],
+          },
+        ],
+      })
 
-      // THEN: PostgreSQL table is altered, new column exists with correct type
+      // WHEN: migration adds new column 'phone'
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_customers',
+            name: 'customers',
+            fields: [
+              {
+                id: 1,
+                name: 'name',
+                type: 'single-line-text',
+                required: true,
+              },
+              {
+                id: 2,
+                name: 'phone',
+                type: 'phone-number',
+              },
+            ],
+          },
+        ],
+      })
+
+      // THEN: table is altered, new column exists with correct type
       const column = await executeQuery(
-        `SELECT column_name, data_type, character_maximum_length FROM information_schema.columns WHERE table_name = 'customers' AND column_name = 'phone'`
+        `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'customers' AND column_name = 'phone'`
       )
       expect(column.rows[0]).toMatchObject({
         column_name: 'phone',
         data_type: 'character varying',
-        character_maximum_length: 20,
       })
 
       const columnCount = await executeQuery(
@@ -702,15 +737,49 @@ test.describe('Data Tables', () => {
   test.fixme(
     'APP-TABLES-MIGRATION-DROP-001: should drop column and reduce table to remaining columns',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: existing table 'temp_data' with columns id, data, status
-      // WHEN: migration drops column 'status'
-      await executeQuery(
-        `CREATE TABLE temp_data (id SERIAL PRIMARY KEY, data TEXT, status VARCHAR(50))`
-      )
-      await executeQuery(`ALTER TABLE temp_data DROP COLUMN status`)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_temp_data',
+            name: 'temp_data',
+            fields: [
+              {
+                id: 1,
+                name: 'data',
+                type: 'long-text',
+              },
+              {
+                id: 2,
+                name: 'status',
+                type: 'single-line-text',
+              },
+            ],
+          },
+        ],
+      })
 
-      // THEN: PostgreSQL column is removed, table has 2 remaining columns
+      // WHEN: migration drops column 'status'
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_temp_data',
+            name: 'temp_data',
+            fields: [
+              {
+                id: 1,
+                name: 'data',
+                type: 'long-text',
+              },
+            ],
+          },
+        ],
+      })
+
+      // THEN: column is removed, table has 2 remaining columns (id + data)
       const statusColumn = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name = 'temp_data' AND column_name = 'status'`
       )
@@ -894,15 +963,31 @@ test.describe('Data Tables', () => {
   test.fixme(
     'APP-TABLES-FIELD-SELECT-001: should create VARCHAR column with CHECK constraint for enum values',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with single-select field with options ['active', 'inactive']
-      // WHEN: field migration creates column
-      await executeQuery(`CREATE TABLE items (id SERIAL PRIMARY KEY)`)
-      await executeQuery(
-        `ALTER TABLE items ADD COLUMN status VARCHAR(255) CHECK (status IN ('active', 'inactive'))`
-      )
+      // WHEN: table is created with select field
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_items',
+            name: 'items',
+            fields: [
+              {
+                id: 1,
+                name: 'status',
+                type: 'single-select',
+                options: [
+                  { value: 'active', label: 'Active' },
+                  { value: 'inactive', label: 'Inactive' },
+                ],
+              },
+            ],
+          },
+        ],
+      })
 
-      // THEN: PostgreSQL VARCHAR column with CHECK constraint for enum values
+      // THEN: VARCHAR column with CHECK constraint for enum values is created
       const column = await executeQuery(
         `SELECT column_name, data_type FROM information_schema.columns WHERE table_name='items' AND column_name='status'`
       )
@@ -921,19 +1006,37 @@ test.describe('Data Tables', () => {
   test.fixme(
     'APP-TABLES-DROP-001: should remove table completely via DROP TABLE',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: existing table 'obsolete_data' in database
-      await executeQuery(`CREATE TABLE obsolete_data (id SERIAL PRIMARY KEY, data TEXT)`)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_obsolete_data',
+            name: 'obsolete_data',
+            fields: [
+              {
+                id: 1,
+                name: 'data',
+                type: 'long-text',
+              },
+            ],
+          },
+        ],
+      })
 
-      // WHEN: DROP TABLE statement is executed
       const existsBefore = await executeQuery(
         `SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = 'obsolete_data')`
       )
       expect(existsBefore.rows[0]).toMatchObject({ exists: true })
 
-      await executeQuery(`DROP TABLE obsolete_data`)
+      // WHEN: migration removes table from schema
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [],
+      })
 
-      // THEN: PostgreSQL removes table completely, pg_tables no longer shows it
+      // THEN: table is removed completely, pg_tables no longer shows it
       const existsAfter = await executeQuery(
         `SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = 'obsolete_data')`
       )
@@ -944,14 +1047,37 @@ test.describe('Data Tables', () => {
   test.fixme(
     'APP-TABLES-COMPOSITE-PK-001: should create PRIMARY KEY constraint spanning multiple columns',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with composite primary key on (tenant_id, user_id)
       // WHEN: table 'user_tenants' is created
-      await executeQuery(
-        `CREATE TABLE user_tenants (tenant_id INTEGER NOT NULL, user_id INTEGER NOT NULL, PRIMARY KEY (tenant_id, user_id))`
-      )
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_user_tenants',
+            name: 'user_tenants',
+            fields: [
+              {
+                id: 1,
+                name: 'tenant_id',
+                type: 'integer',
+                required: true,
+              },
+              {
+                id: 2,
+                name: 'user_id',
+                type: 'integer',
+                required: true,
+              },
+            ],
+            primaryKey: {
+              fields: ['tenant_id', 'user_id'],
+            },
+          },
+        ],
+      })
 
-      // THEN: PostgreSQL PRIMARY KEY constraint spans both columns
+      // THEN: PRIMARY KEY constraint spans both columns
       const primaryKeyCount = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='user_tenants' AND constraint_type='PRIMARY KEY'`
       )
