@@ -53,7 +53,7 @@ test.describe('Page Sections', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SECTIONS-002: should support all component types for page building',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

@@ -110,7 +110,7 @@ function buildElementPropsFromConfig(config: ElementPropsConfig): Record<string,
 }
 
 /**
- * Build core props (className, style, data-testid)
+ * Build core props (className, style, data-testid, data-component-type)
  * Handles animation prop by extracting it from substitutedProps and merging into style
  */
 function buildCoreProps(
@@ -130,6 +130,7 @@ function buildCoreProps(
     className: config.finalClassName,
     ...(styleWithAnimation && { style: styleWithAnimation }),
     ...(testId && { 'data-testid': testId }),
+    'data-component-type': config.type,
   }
 }
 
