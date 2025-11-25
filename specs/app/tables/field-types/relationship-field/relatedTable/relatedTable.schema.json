@@ -34,7 +34,11 @@
           {
             "description": "Foreign key references customers table primary key",
             "executeQuery": "SELECT kcu.column_name, ccu.table_name AS foreign_table_name, ccu.column_name AS foreign_column_name FROM information_schema.key_column_usage AS kcu JOIN information_schema.constraint_column_usage AS ccu ON kcu.constraint_name = ccu.constraint_name WHERE kcu.table_name = 'orders' AND kcu.column_name = 'customer_id'",
-            "expected": { "column_name": "customer_id", "foreign_table_name": "customers", "foreign_column_name": "id" }
+            "expected": {
+              "column_name": "customer_id",
+              "foreign_table_name": "customers",
+              "foreign_column_name": "id"
+            }
           },
           {
             "description": "Valid foreign key value accepted",

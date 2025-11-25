@@ -56,10 +56,7 @@
           {
             "description": "Only id and status columns exist",
             "executeQuery": "SELECT column_name FROM information_schema.columns WHERE table_name='approvals' ORDER BY ordinal_position",
-            "expected": [
-              { "column_name": "id" },
-              { "column_name": "status" }
-            ]
+            "expected": [{ "column_name": "id" }, { "column_name": "status" }]
           },
           {
             "description": "Note: Button configuration stored in application layer, not database schema",

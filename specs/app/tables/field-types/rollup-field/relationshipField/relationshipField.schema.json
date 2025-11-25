@@ -37,12 +37,12 @@
           {
             "description": "Rollup aggregates customer's orders (100 + 250.50)",
             "executeQuery": "SELECT name, total_orders FROM customers WHERE name = 'Alice'",
-            "expected": { "name": "Alice", "total_orders": 350.50 }
+            "expected": { "name": "Alice", "total_orders": 350.5 }
           },
           {
             "description": "Different parent has different aggregation",
             "executeQuery": "SELECT name, total_orders FROM customers WHERE name = 'Bob'",
-            "expected": { "name": "Bob", "total_orders": 75.00 }
+            "expected": { "name": "Bob", "total_orders": 75.0 }
           }
         ]
       }
@@ -133,12 +133,12 @@
           {
             "description": "Customer with orders shows aggregated total",
             "executeQuery": "SELECT name, order_total FROM customers WHERE name = 'Alice'",
-            "expected": { "name": "Alice", "order_total": 500.00 }
+            "expected": { "name": "Alice", "order_total": 500.0 }
           },
           {
             "description": "Customer without orders shows 0 (COALESCE default)",
             "executeQuery": "SELECT name, order_total FROM customers WHERE name = 'Bob'",
-            "expected": { "name": "Bob", "order_total": 0.00 }
+            "expected": { "name": "Bob", "order_total": 0.0 }
           }
         ]
       }

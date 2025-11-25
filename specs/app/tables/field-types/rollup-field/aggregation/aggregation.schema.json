@@ -38,12 +38,12 @@
           {
             "description": "SUM aggregation computes total (100 + 250.50)",
             "executeQuery": "SELECT name, total_spent FROM customers WHERE name = 'Alice'",
-            "expected": { "name": "Alice", "total_spent": 350.50 }
+            "expected": { "name": "Alice", "total_spent": 350.5 }
           },
           {
             "description": "Different customer has different sum",
             "executeQuery": "SELECT name, total_spent FROM customers WHERE name = 'Bob'",
-            "expected": { "name": "Bob", "total_spent": 75.00 }
+            "expected": { "name": "Bob", "total_spent": 75.0 }
           }
         ]
       }
@@ -115,7 +115,7 @@
           {
             "description": "AVG aggregation for different product (3+4)/2 = 3.50",
             "executeQuery": "SELECT name, avg_rating FROM products WHERE name = 'Mouse'",
-            "expected": { "name": "Mouse", "avg_rating": 3.50 }
+            "expected": { "name": "Mouse", "avg_rating": 3.5 }
           }
         ]
       }

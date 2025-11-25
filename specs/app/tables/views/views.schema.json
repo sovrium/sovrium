@@ -235,8 +235,8 @@
             "description": "Aggregate functions work with GROUP BY",
             "executeQuery": "SELECT department, AVG(salary) as avg_salary FROM employees GROUP BY department ORDER BY department",
             "expected": [
-              { "department": "Engineering", "avg_salary": 77500.00 },
-              { "department": "Marketing", "avg_salary": 60000.00 }
+              { "department": "Engineering", "avg_salary": 77500.0 },
+              { "department": "Marketing", "avg_salary": 60000.0 }
             ]
           },
           {

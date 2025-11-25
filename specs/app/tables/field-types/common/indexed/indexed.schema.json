@@ -33,7 +33,9 @@
           {
             "description": "Index uses btree access method (default)",
             "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_users_email'",
-            "expected": { "indexdef": "CREATE INDEX idx_users_email ON public.users USING btree (email)" }
+            "expected": {
+              "indexdef": "CREATE INDEX idx_users_email ON public.users USING btree (email)"
+            }
           },
           {
             "description": "Indexed field enables fast lookups",

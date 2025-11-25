@@ -65,7 +65,7 @@
           {
             "description": "Admin user can SELECT salary column",
             "executeQuery": "SET ROLE admin_user; SELECT id, name, salary, department FROM employees WHERE id = 1",
-            "expected": { "id": 1, "name": "Alice", "salary": 75000.00, "department": "Engineering" }
+            "expected": { "id": 1, "name": "Alice", "salary": 75000.0, "department": "Engineering" }
           },
           {
             "description": "Member user SELECT excludes salary (application layer filtering)",
@@ -151,12 +151,21 @@
           {
             "description": "Admin user sees all fields",
             "executeQuery": "SET ROLE admin_user; SELECT name, email, salary, department FROM staff WHERE id = 1",
-            "expected": { "name": "Alice", "email": "alice@example.com", "salary": 80000.00, "department": "Engineering" }
+            "expected": {
+              "name": "Alice",
+              "email": "alice@example.com",
+              "salary": 80000.0,
+              "department": "Engineering"
+            }
           },
           {
             "description": "Authenticated user sees name, email, department (no salary)",
             "executeQuery": "SET ROLE authenticated_user; SELECT name, email, department FROM staff WHERE id = 1",
-            "expected": { "name": "Alice", "email": "alice@example.com", "department": "Engineering" }
+            "expected": {
+              "name": "Alice",
+              "email": "alice@example.com",
+              "department": "Engineering"
+            }
           },
           {
             "description": "Unauthenticated user sees name, department only",

@@ -61,7 +61,9 @@
           {
             "description": "Index is on email column",
             "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_user_email'",
-            "expected": { "indexdef": "CREATE INDEX idx_user_email ON public.users USING btree (email)" }
+            "expected": {
+              "indexdef": "CREATE INDEX idx_user_email ON public.users USING btree (email)"
+            }
           },
           {
             "description": "Email lookup uses index (fast query)",
@@ -97,7 +99,9 @@
           {
             "description": "Index includes both columns in order",
             "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_contacts_name'",
-            "expected": { "indexdef": "CREATE INDEX idx_contacts_name ON public.contacts USING btree (last_name, first_name)" }
+            "expected": {
+              "indexdef": "CREATE INDEX idx_contacts_name ON public.contacts USING btree (last_name, first_name)"
+            }
           },
           {
             "description": "Lookup by last_name uses index",
@@ -139,7 +143,9 @@
           {
             "description": "Index definition includes UNIQUE",
             "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_accounts_username'",
-            "expected": { "indexdef": "CREATE UNIQUE INDEX idx_accounts_username ON public.accounts USING btree (username)" }
+            "expected": {
+              "indexdef": "CREATE UNIQUE INDEX idx_accounts_username ON public.accounts USING btree (username)"
+            }
           },
           {
             "description": "Duplicate username rejected",
@@ -349,7 +355,9 @@
           {
             "description": "Index uses GIN access method",
             "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_articles_search'",
-            "expected": { "indexdef": "CREATE INDEX idx_articles_search ON public.articles USING gin (to_tsvector('english'::regconfig, ((title)::text || ' '::text) || content))" }
+            "expected": {
+              "indexdef": "CREATE INDEX idx_articles_search ON public.articles USING gin (to_tsvector('english'::regconfig, ((title)::text || ' '::text) || content))"
+            }
           },
           {
             "description": "Full-text search uses GIN index",

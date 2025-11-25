@@ -135,7 +135,7 @@
           {
             "description": "Admin user can SELECT all fields including salary",
             "executeQuery": "SET ROLE admin_user; SELECT name, email, salary FROM users WHERE id = 1",
-            "expected": { "name": "Alice", "email": "alice@example.com", "salary": 75000.00 }
+            "expected": { "name": "Alice", "email": "alice@example.com", "salary": 75000.0 }
           }
         ]
       }

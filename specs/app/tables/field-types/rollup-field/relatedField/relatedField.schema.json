@@ -125,7 +125,10 @@
           {
             "description": "CONCAT (STRING_AGG) aggregates tag field",
             "executeQuery": "SELECT title, tags_list FROM articles WHERE title = 'Web Development Guide'",
-            "expected": { "title": "Web Development Guide", "tags_list": "css, html, javascript, react" }
+            "expected": {
+              "title": "Web Development Guide",
+              "tags_list": "css, html, javascript, react"
+            }
           }
         ]
       }

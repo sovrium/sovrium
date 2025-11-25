@@ -31,7 +31,7 @@
           {
             "description": "Rollup aggregates related values (SUM)",
             "executeQuery": "SELECT total_spent FROM customers WHERE id = 1",
-            "expected": { "total_spent": 400.50 }
+            "expected": { "total_spent": 400.5 }
           },
           {
             "description": "Application displays with currency formatting",

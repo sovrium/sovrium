@@ -82,10 +82,7 @@
           "fieldConfig": {
             "name": "priority",
             "type": "status",
-            "options": [
-              { "value": "Low" },
-              { "value": "High", "color": "#FF0000" }
-            ]
+            "options": [{ "value": "Low" }, { "value": "High", "color": "#FF0000" }]
           }
         },
         "assertions": [
@@ -117,9 +114,7 @@
           "fieldConfig": {
             "name": "status",
             "type": "status",
-            "options": [
-              { "value": "", "color": "#FF0000" }
-            ]
+            "options": [{ "value": "", "color": "#FF0000" }]
           }
         },
         "assertions": [
@@ -141,9 +136,7 @@
           "fieldConfig": {
             "name": "status",
             "type": "status",
-            "options": [
-              { "value": "Active", "color": "#1A2B3C" }
-            ]
+            "options": [{ "value": "Active", "color": "#1A2B3C" }]
           }
         },
         "assertions": [
@@ -165,9 +158,7 @@
           "fieldConfig": {
             "name": "status",
             "type": "status",
-            "options": [
-              { "value": "Error", "color": "red" }
-            ]
+            "options": [{ "value": "Error", "color": "red" }]
           }
         },
         "assertions": [
@@ -193,9 +184,7 @@
           "fieldConfig": {
             "name": "task_status",
             "type": "status",
-            "options": [
-              { "value": "Review", "color": "#FF00FF" }
-            ]
+            "options": [{ "value": "Review", "color": "#FF00FF" }]
           }
         },
         "assertions": [

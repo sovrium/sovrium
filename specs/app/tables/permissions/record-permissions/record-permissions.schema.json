@@ -215,7 +215,9 @@
           {
             "description": "RLS policy combines conditions with AND",
             "executeQuery": "SELECT qual FROM pg_policies WHERE tablename='projects' AND policyname='user_read_projects'",
-            "expected": { "qual": "((department = (current_setting('app.user_department'::text))::text) AND (status = 'active'::text))" }
+            "expected": {
+              "qual": "((department = (current_setting('app.user_department'::text))::text) AND (status = 'active'::text))"
+            }
           },
           {
             "description": "Engineering user sees only active Engineering projects",
@@ -261,7 +263,9 @@
           {
             "description": "RLS policy uses custom user property",
             "executeQuery": "SELECT qual FROM pg_policies WHERE tablename='employees' AND policyname='same_department'",
-            "expected": { "qual": "(department = (current_setting('app.user_department'::text))::text)" }
+            "expected": {
+              "qual": "(department = (current_setting('app.user_department'::text))::text)"
+            }
           },
           {
             "description": "Engineering user sees Engineering employees only",
@@ -307,7 +311,9 @@
           {
             "description": "RLS policy uses OR condition",
             "executeQuery": "SELECT qual FROM pg_policies WHERE tablename='tickets' AND policyname='user_read_tickets'",
-            "expected": { "qual": "((created_by = (current_setting('app.user_id'::text))::integer) OR (assigned_to = (current_setting('app.user_id'::text))::integer))" }
+            "expected": {
+              "qual": "((created_by = (current_setting('app.user_id'::text))::integer) OR (assigned_to = (current_setting('app.user_id'::text))::integer))"
+            }
           },
           {
             "description": "User 1 sees tickets they created OR are assigned to",

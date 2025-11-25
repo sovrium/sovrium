@@ -135,12 +135,12 @@
           {
             "description": "Tax calculated and rounded (100 * 0.15)",
             "executeQuery": "SELECT tax FROM invoices WHERE subtotal = 100.00",
-            "expected": { "tax": 15.00 }
+            "expected": { "tax": 15.0 }
           },
           {
             "description": "Tax rounded to 2 decimals (49.99 * 0.15)",
             "executeQuery": "SELECT tax FROM invoices WHERE subtotal = 49.99",
-            "expected": { "tax": 7.50 }
+            "expected": { "tax": 7.5 }
           }
         ]
       }

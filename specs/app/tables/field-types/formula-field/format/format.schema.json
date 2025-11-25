@@ -61,7 +61,7 @@
           {
             "description": "Formula computes percentage",
             "executeQuery": "SELECT completion_rate FROM projects WHERE name = 'Alpha'",
-            "expected": { "completion_rate": 75.00 }
+            "expected": { "completion_rate": 75.0 }
           },
           {
             "description": "Application displays with percentage formatting",

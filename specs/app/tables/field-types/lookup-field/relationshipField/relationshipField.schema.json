@@ -130,17 +130,17 @@
           {
             "description": "First product shows correct tax rate",
             "executeQuery": "SELECT product_name, category_tax_rate FROM products_with_lookup WHERE product_name = 'Laptop'",
-            "expected": { "product_name": "Laptop", "category_tax_rate": 0.20 }
+            "expected": { "product_name": "Laptop", "category_tax_rate": 0.2 }
           },
           {
             "description": "Second product in same category shows same tax rate",
             "executeQuery": "SELECT product_name, category_tax_rate FROM products_with_lookup WHERE product_name = 'Smartphone'",
-            "expected": { "product_name": "Smartphone", "category_tax_rate": 0.20 }
+            "expected": { "product_name": "Smartphone", "category_tax_rate": 0.2 }
           },
           {
             "description": "Product in different category shows different tax rate",
             "executeQuery": "SELECT product_name, category_tax_rate FROM products_with_lookup WHERE product_name = 'T-Shirt'",
-            "expected": { "product_name": "T-Shirt", "category_tax_rate": 0.10 }
+            "expected": { "product_name": "T-Shirt", "category_tax_rate": 0.1 }
           }
         ]
       }
