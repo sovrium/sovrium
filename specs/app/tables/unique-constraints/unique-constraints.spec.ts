@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures.ts'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Unique Constraints
@@ -32,12 +32,37 @@ test.describe('Unique Constraints', () => {
   test.fixme(
     'APP-TABLES-UNIQUECONSTRAINTS-001: should reject with unique constraint violation error when attempting to insert duplicate combination',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with composite unique constraint on (email, tenant_id)
       // WHEN: attempting to insert duplicate combination
-      await executeQuery(
-        `CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255), tenant_id INTEGER, CONSTRAINT uq_user_email_tenant UNIQUE (email, tenant_id))`
-      )
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              {
+                id: 1,
+                name: 'email',
+                type: 'email',
+              },
+              {
+                id: 2,
+                name: 'tenant_id',
+                type: 'integer',
+              },
+            ],
+            uniqueConstraints: [
+              {
+                name: 'uq_user_email_tenant',
+                fields: ['email', 'tenant_id'],
+              },
+            ],
+          },
+        ],
+      })
+
       await executeQuery(`INSERT INTO users (email, tenant_id) VALUES ('alice@example.com', 1)`)
 
       // THEN: PostgreSQL rejects with unique constraint violation error
@@ -58,12 +83,32 @@ test.describe('Unique Constraints', () => {
   test.fixme(
     'APP-TABLES-UNIQUECONSTRAINTS-002: should allow duplicates without constraint when table has empty array',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table without unique constraints (empty array)
       // WHEN: inserting duplicate values
-      await executeQuery(
-        `CREATE TABLE products (id SERIAL PRIMARY KEY, sku VARCHAR(50), name VARCHAR(255))`
-      )
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_products',
+            name: 'products',
+            fields: [
+              {
+                id: 1,
+                name: 'sku',
+                type: 'single-line-text',
+              },
+              {
+                id: 2,
+                name: 'name',
+                type: 'single-line-text',
+              },
+            ],
+            uniqueConstraints: [], // Empty array - no unique constraints
+          },
+        ],
+      })
+
       await executeQuery(`INSERT INTO products (sku, name) VALUES ('ABC123', 'Widget')`)
 
       // THEN: PostgreSQL allows duplicates without constraint
@@ -79,12 +124,36 @@ test.describe('Unique Constraints', () => {
   test.fixme(
     'APP-TABLES-UNIQUECONSTRAINTS-FIELDS-001: should create composite unique index with 2 fields (minimum required)',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: unique constraint with 2 fields (minimum required)
       // WHEN: creating constraint on (last_name, first_name)
-      await executeQuery(
-        `CREATE TABLE contacts (id SERIAL PRIMARY KEY, first_name VARCHAR(255), last_name VARCHAR(255), CONSTRAINT uq_contacts_name UNIQUE (last_name, first_name))`
-      )
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_contacts',
+            name: 'contacts',
+            fields: [
+              {
+                id: 1,
+                name: 'first_name',
+                type: 'single-line-text',
+              },
+              {
+                id: 2,
+                name: 'last_name',
+                type: 'single-line-text',
+              },
+            ],
+            uniqueConstraints: [
+              {
+                name: 'uq_contacts_name',
+                fields: ['last_name', 'first_name'],
+              },
+            ],
+          },
+        ],
+      })
 
       // THEN: PostgreSQL creates composite unique index
 
@@ -105,12 +174,42 @@ test.describe('Unique Constraints', () => {
   test.fixme(
     'APP-TABLES-UNIQUECONSTRAINTS-FIELDS-002: should create multi-column unique index with 3+ fields',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: unique constraint with 3+ fields
       // WHEN: creating constraint on (country, state, city)
-      await executeQuery(
-        `CREATE TABLE locations (id SERIAL PRIMARY KEY, country VARCHAR(100), state VARCHAR(100), city VARCHAR(100), CONSTRAINT uq_location UNIQUE (country, state, city))`
-      )
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_locations',
+            name: 'locations',
+            fields: [
+              {
+                id: 1,
+                name: 'country',
+                type: 'single-line-text',
+              },
+              {
+                id: 2,
+                name: 'state',
+                type: 'single-line-text',
+              },
+              {
+                id: 3,
+                name: 'city',
+                type: 'single-line-text',
+              },
+            ],
+            uniqueConstraints: [
+              {
+                name: 'uq_location',
+                fields: ['country', 'state', 'city'],
+              },
+            ],
+          },
+        ],
+      })
+
       await executeQuery(
         `INSERT INTO locations (country, state, city) VALUES ('USA', 'California', 'San Francisco')`
       )
@@ -135,12 +234,36 @@ test.describe('Unique Constraints', () => {
   test.fixme(
     'APP-TABLES-UNIQUECONSTRAINTS-NAME-001: should accept constraint name matching pattern when creating unique constraint with valid name',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: constraint name matching pattern '^uq_[a-z][a-z0-9_]*$'
       // WHEN: creating unique constraint with valid name
-      await executeQuery(
-        `CREATE TABLE items (id SERIAL PRIMARY KEY, code VARCHAR(50), category VARCHAR(50), CONSTRAINT uq_item_code_category UNIQUE (code, category))`
-      )
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_items',
+            name: 'items',
+            fields: [
+              {
+                id: 1,
+                name: 'code',
+                type: 'single-line-text',
+              },
+              {
+                id: 2,
+                name: 'category',
+                type: 'single-line-text',
+              },
+            ],
+            uniqueConstraints: [
+              {
+                name: 'uq_item_code_category',
+                fields: ['code', 'category'],
+              },
+            ],
+          },
+        ],
+      })
 
       // THEN: PostgreSQL accepts constraint name
 
@@ -155,12 +278,36 @@ test.describe('Unique Constraints', () => {
   test.fixme(
     'APP-TABLES-UNIQUECONSTRAINTS-NAME-002: should accept but lowercase the name when constraint name has invalid characters',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: constraint name with invalid characters (spaces, uppercase)
       // WHEN: attempting to create constraint
-      await executeQuery(
-        `CREATE TABLE test_items (id SERIAL PRIMARY KEY, field1 VARCHAR(50), field2 VARCHAR(50), CONSTRAINT "UQ_TEST" UNIQUE (field1, field2))`
-      )
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_test_items',
+            name: 'test_items',
+            fields: [
+              {
+                id: 1,
+                name: 'field1',
+                type: 'single-line-text',
+              },
+              {
+                id: 2,
+                name: 'field2',
+                type: 'single-line-text',
+              },
+            ],
+            uniqueConstraints: [
+              {
+                name: 'UQ_TEST', // Uppercase name (will be lowercased by PostgreSQL)
+                fields: ['field1', 'field2'],
+              },
+            ],
+          },
+        ],
+      })
 
       // THEN: PostgreSQL accepts but lowercases the name
 
@@ -175,12 +322,36 @@ test.describe('Unique Constraints', () => {
   test.fixme(
     'APP-TABLES-UNIQUECONSTRAINTS-NAME-003: should preserve constraint name exactly as created when querying metadata',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: unique constraint with specific name
       // WHEN: querying constraint metadata
-      await executeQuery(
-        `CREATE TABLE preserved_names (id SERIAL PRIMARY KEY, col1 VARCHAR(50), col2 VARCHAR(50), CONSTRAINT uq_preserved_test UNIQUE (col1, col2))`
-      )
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_preserved_names',
+            name: 'preserved_names',
+            fields: [
+              {
+                id: 1,
+                name: 'col1',
+                type: 'single-line-text',
+              },
+              {
+                id: 2,
+                name: 'col2',
+                type: 'single-line-text',
+              },
+            ],
+            uniqueConstraints: [
+              {
+                name: 'uq_preserved_test',
+                fields: ['col1', 'col2'],
+              },
+            ],
+          },
+        ],
+      })
 
       // THEN: constraint name is preserved exactly as created
 
@@ -197,16 +368,43 @@ test.describe('Unique Constraints', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full Unique Constraints workflow',
+    'APP-TABLES-UNIQUECONSTRAINTS-REGRESSION-001: user can complete full Unique Constraints workflow',
     { tag: '@regression' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Database with representative unique constraint configurations
-      await executeQuery(
-        `CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255), tenant_id INTEGER, CONSTRAINT uq_user_email_tenant UNIQUE (email, tenant_id))`
-      )
-      await executeQuery(
-        `CREATE TABLE products (id SERIAL PRIMARY KEY, sku VARCHAR(50), variant_id INTEGER, CONSTRAINT uq_product_sku_variant UNIQUE (sku, variant_id))`
-      )
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              { id: 1, name: 'email', type: 'email' },
+              { id: 2, name: 'tenant_id', type: 'integer' },
+            ],
+            uniqueConstraints: [
+              {
+                name: 'uq_user_email_tenant',
+                fields: ['email', 'tenant_id'],
+              },
+            ],
+          },
+          {
+            id: 'tbl_products',
+            name: 'products',
+            fields: [
+              { id: 1, name: 'sku', type: 'single-line-text' },
+              { id: 2, name: 'variant_id', type: 'integer' },
+            ],
+            uniqueConstraints: [
+              {
+                name: 'uq_product_sku_variant',
+                fields: ['sku', 'variant_id'],
+              },
+            ],
+          },
+        ],
+      })
 
       // WHEN/THEN: Execute representative workflow
 

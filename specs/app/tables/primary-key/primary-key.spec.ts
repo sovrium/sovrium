@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures.ts'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Primary Key
@@ -33,10 +33,28 @@ test.describe('Primary Key', () => {
   test.fixme(
     'APP-TABLES-PRIMARYKEY-001: should generate sequential INTEGER values automatically with auto-increment primary key',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with auto-increment primary key (SERIAL)
       // WHEN: table is created with id field
-      await executeQuery(`CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))`)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              {
+                id: 1,
+                name: 'name',
+                type: 'single-line-text',
+              },
+            ],
+            // Auto-generated SERIAL primary key is default behavior
+          },
+        ],
+      })
+
+      // Insert test data
       await executeQuery(`INSERT INTO users (name) VALUES ('Alice'), ('Bob'), ('Charlie')`)
 
       // THEN: PostgreSQL generates sequential INTEGER values automatically
@@ -67,13 +85,34 @@ test.describe('Primary Key', () => {
   test.fixme(
     'APP-TABLES-PRIMARYKEY-002: should generate UUID values using gen_random_uuid() with UUID primary key',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with UUID primary key
       // WHEN: table is created with uuid field
-      await executeQuery(`CREATE EXTENSION IF NOT EXISTS "pgcrypto"`)
-      await executeQuery(
-        `CREATE TABLE sessions (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), user_id INTEGER, created_at TIMESTAMPTZ DEFAULT NOW())`
-      )
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_sessions',
+            name: 'sessions',
+            primaryKey: {
+              type: 'uuid', // UUID primary key instead of default SERIAL
+            },
+            fields: [
+              {
+                id: 1,
+                name: 'user_id',
+                type: 'integer',
+              },
+              {
+                id: 2,
+                name: 'created_at',
+                type: 'created-at',
+              },
+            ],
+          },
+        ],
+      })
+
       await executeQuery(`INSERT INTO sessions (user_id) VALUES (1), (2), (3)`)
 
       // THEN: PostgreSQL generates UUID values using gen_random_uuid()
@@ -107,12 +146,41 @@ test.describe('Primary Key', () => {
   test.fixme(
     'APP-TABLES-PRIMARYKEY-003: should create PRIMARY KEY constraint on both columns with composite primary key',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with composite primary key (tenant_id, user_id)
       // WHEN: table is created with multiple primary key fields
-      await executeQuery(
-        `CREATE TABLE tenant_users (tenant_id INTEGER, user_id INTEGER, name VARCHAR(255), PRIMARY KEY (tenant_id, user_id))`
-      )
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_tenant_users',
+            name: 'tenant_users',
+            primaryKey: {
+              fields: ['tenant_id', 'user_id'], // Composite primary key
+            },
+            fields: [
+              {
+                id: 1,
+                name: 'tenant_id',
+                type: 'integer',
+                required: true,
+              },
+              {
+                id: 2,
+                name: 'user_id',
+                type: 'integer',
+                required: true,
+              },
+              {
+                id: 3,
+                name: 'name',
+                type: 'single-line-text',
+              },
+            ],
+          },
+        ],
+      })
+
       await executeQuery(
         `INSERT INTO tenant_users (tenant_id, user_id, name) VALUES (1, 1, 'Alice'), (1, 2, 'Bob'), (2, 1, 'Charlie')`
       )
@@ -149,10 +217,27 @@ test.describe('Primary Key', () => {
   test.fixme(
     'APP-TABLES-PRIMARYKEY-004: should reject NULL values in primary key column',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: primary key column with NOT NULL constraint
       // WHEN: attempting to insert NULL value
-      await executeQuery(`CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255))`)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_products',
+            name: 'products',
+            fields: [
+              {
+                id: 1,
+                name: 'name',
+                type: 'single-line-text',
+              },
+            ],
+            // Auto-generated SERIAL primary key (default)
+          },
+        ],
+      })
+
       await executeQuery(`INSERT INTO products (name) VALUES ('Product 1')`)
 
       // THEN: PostgreSQL rejects NULL values in primary key column
@@ -179,12 +264,32 @@ test.describe('Primary Key', () => {
   test.fixme(
     'APP-TABLES-PRIMARYKEY-005: should automatically create index for primary key constraint',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: primary key creates automatic UNIQUE index
       // WHEN: table is created
-      await executeQuery(
-        `CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER, total DECIMAL(10,2))`
-      )
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_orders',
+            name: 'orders',
+            fields: [
+              {
+                id: 1,
+                name: 'customer_id',
+                type: 'integer',
+              },
+              {
+                id: 2,
+                name: 'total',
+                type: 'decimal',
+              },
+            ],
+            // Auto-generated SERIAL primary key (default)
+          },
+        ],
+      })
+
       await executeQuery(`INSERT INTO orders (customer_id, total) VALUES (1, 99.99)`)
 
       // THEN: PostgreSQL automatically creates index for primary key constraint
@@ -212,10 +317,35 @@ test.describe('Primary Key', () => {
   test.fixme(
     'APP-TABLES-PRIMARYKEY-006: should allow UPDATE but new value must remain unique',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: existing record with primary key
       // WHEN: attempting to update primary key value
-      await executeQuery(`CREATE TABLE items (id INTEGER PRIMARY KEY, name VARCHAR(255))`)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_items',
+            name: 'items',
+            primaryKey: {
+              fields: ['id'], // Explicit INTEGER primary key (not auto-increment)
+            },
+            fields: [
+              {
+                id: 1,
+                name: 'id',
+                type: 'integer',
+                required: true,
+              },
+              {
+                id: 2,
+                name: 'name',
+                type: 'single-line-text',
+              },
+            ],
+          },
+        ],
+      })
+
       await executeQuery(
         `INSERT INTO items (id, name) VALUES (1, 'Item 1'), (2, 'Item 2'), (3, 'Item 3')`
       )
@@ -244,12 +374,34 @@ test.describe('Primary Key', () => {
   test.fixme(
     'APP-TABLES-PRIMARYKEY-007: should use BIGINT for larger auto-increment range with BIGSERIAL',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with BIGSERIAL primary key for large datasets
       // WHEN: table is created with bigint id
-      await executeQuery(
-        `CREATE TABLE logs (id BIGSERIAL PRIMARY KEY, message TEXT, created_at TIMESTAMPTZ DEFAULT NOW())`
-      )
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_logs',
+            name: 'logs',
+            primaryKey: {
+              type: 'bigserial', // BIGSERIAL instead of default SERIAL
+            },
+            fields: [
+              {
+                id: 1,
+                name: 'message',
+                type: 'long-text',
+              },
+              {
+                id: 2,
+                name: 'created_at',
+                type: 'created-at',
+              },
+            ],
+          },
+        ],
+      })
+
       await executeQuery(`INSERT INTO logs (message) VALUES ('Log 1'), ('Log 2')`)
 
       // THEN: PostgreSQL uses BIGINT (8 bytes) for larger auto-increment range
@@ -281,12 +433,47 @@ test.describe('Primary Key', () => {
   test.fixme(
     'APP-TABLES-PRIMARYKEY-008: should create PRIMARY KEY constraint on all specified columns with 3-column composite key',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: composite primary key with more than 2 fields
       // WHEN: table is created with 3-column primary key
-      await executeQuery(
-        `CREATE TABLE audit_log (tenant_id INTEGER, user_id INTEGER, timestamp TIMESTAMPTZ, action VARCHAR(255), PRIMARY KEY (tenant_id, user_id, timestamp))`
-      )
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_audit_log',
+            name: 'audit_log',
+            primaryKey: {
+              fields: ['tenant_id', 'user_id', 'timestamp'], // 3-column composite primary key
+            },
+            fields: [
+              {
+                id: 1,
+                name: 'tenant_id',
+                type: 'integer',
+                required: true,
+              },
+              {
+                id: 2,
+                name: 'user_id',
+                type: 'integer',
+                required: true,
+              },
+              {
+                id: 3,
+                name: 'timestamp',
+                type: 'created-at',
+                required: true,
+              },
+              {
+                id: 4,
+                name: 'action',
+                type: 'single-line-text',
+              },
+            ],
+          },
+        ],
+      })
+
       await executeQuery(
         `INSERT INTO audit_log (tenant_id, user_id, timestamp, action) VALUES (1, 1, '2024-01-01 10:00:00', 'login'), (1, 1, '2024-01-01 11:00:00', 'logout')`
       )
@@ -325,18 +512,36 @@ test.describe('Primary Key', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full Primary Key workflow',
+    'APP-TABLES-PRIMARYKEY-REGRESSION-001: user can complete full Primary Key workflow',
     { tag: '@regression' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Database with representative primary key configurations
-      await executeQuery(`CREATE EXTENSION IF NOT EXISTS "pgcrypto"`)
-      await executeQuery(`CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))`)
-      await executeQuery(
-        `CREATE TABLE sessions (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), user_id INTEGER)`
-      )
-      await executeQuery(
-        `CREATE TABLE tenant_users (tenant_id INTEGER, user_id INTEGER, PRIMARY KEY (tenant_id, user_id))`
-      )
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+            // Default SERIAL primary key
+          },
+          {
+            id: 'tbl_sessions',
+            name: 'sessions',
+            primaryKey: { type: 'uuid' },
+            fields: [{ id: 1, name: 'user_id', type: 'integer' }],
+          },
+          {
+            id: 'tbl_tenant_users',
+            name: 'tenant_users',
+            primaryKey: { fields: ['tenant_id', 'user_id'] },
+            fields: [
+              { id: 1, name: 'tenant_id', type: 'integer', required: true },
+              { id: 2, name: 'user_id', type: 'integer', required: true },
+            ],
+          },
+        ],
+      })
 
       // WHEN/THEN: Execute representative workflow
 

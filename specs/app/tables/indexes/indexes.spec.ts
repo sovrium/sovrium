@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures.ts'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Database Indexes
@@ -33,13 +33,37 @@ test.describe('Database Indexes', () => {
   test.fixme(
     'APP-TABLES-INDEXES-001: should create index for efficient lookups with single-column index on email field',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with single-column index on 'email' field
       // WHEN: index migration creates btree index
-      await executeQuery(
-        `CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255))`
-      )
-      await executeQuery(`CREATE INDEX idx_user_email ON users(email)`)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              {
+                id: 1,
+                name: 'name',
+                type: 'single-line-text',
+              },
+              {
+                id: 2,
+                name: 'email',
+                type: 'email',
+              },
+            ],
+            indexes: [
+              {
+                name: 'idx_user_email',
+                fields: ['email'],
+              },
+            ],
+          },
+        ],
+      })
+
       await executeQuery(
         `INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com'), ('Bob', 'bob@example.com'), ('Charlie', 'charlie@example.com')`
       )
@@ -69,13 +93,42 @@ test.describe('Database Indexes', () => {
   test.fixme(
     'APP-TABLES-INDEXES-002: should create multi-column index for compound lookups with composite index on (last_name, first_name)',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with composite index on multiple fields (last_name, first_name)
       // WHEN: index migration creates multi-column index
-      await executeQuery(
-        `CREATE TABLE contacts (id SERIAL PRIMARY KEY, first_name VARCHAR(255), last_name VARCHAR(255), phone VARCHAR(50))`
-      )
-      await executeQuery(`CREATE INDEX idx_contacts_name ON contacts(last_name, first_name)`)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_contacts',
+            name: 'contacts',
+            fields: [
+              {
+                id: 1,
+                name: 'first_name',
+                type: 'single-line-text',
+              },
+              {
+                id: 2,
+                name: 'last_name',
+                type: 'single-line-text',
+              },
+              {
+                id: 3,
+                name: 'phone',
+                type: 'phone-number',
+              },
+            ],
+            indexes: [
+              {
+                name: 'idx_contacts_name',
+                fields: ['last_name', 'first_name'],
+              },
+            ],
+          },
+        ],
+      })
+
       await executeQuery(
         `INSERT INTO contacts (first_name, last_name, phone) VALUES ('Alice', 'Smith', '555-1111'), ('Bob', 'Smith', '555-2222'), ('Alice', 'Jones', '555-3333')`
       )
