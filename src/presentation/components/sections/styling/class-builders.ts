@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { Theme } from '@/domain/models/app/theme'
-
 /**
  * Build flex-specific classes based on props
  */
