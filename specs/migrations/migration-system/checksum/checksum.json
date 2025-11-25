@@ -1,33 +1,6 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "checksum.schema.json",
   "title": "Checksum Optimization",
   "description": "Runtime SQL migration checksum system for skip-if-unchanged optimization (<100ms startup)",
-  "type": "object",
-  "properties": {
-    "schemaConfig": {
-      "type": "object",
-      "description": "Table schema configuration to hash"
-    },
-    "checksumValidation": {
-      "type": "object",
-      "properties": {
-        "saved": {
-          "type": "boolean",
-          "description": "Checksum persisted to database"
-        },
-        "matched": {
-          "type": "boolean",
-          "description": "Checksum matches previous run"
-        },
-        "skipped": {
-          "type": "boolean",
-          "description": "Migrations skipped due to match"
-        }
-      }
-    }
-  },
-  "required": ["schemaConfig"],
   "x-specs": [
     {
       "id": "MIG-CHECKSUM-001",
@@ -45,7 +18,13 @@
                 "id": 1,
                 "name": "users",
                 "fields": [
-                  { "id": 1, "name": "email", "type": "email", "required": true, "unique": true }
+                  {
+                    "id": 1,
+                    "name": "email",
+                    "type": "email",
+                    "required": true,
+                    "unique": true
+                  }
                 ]
               }
             ]
@@ -94,7 +73,13 @@
                 "id": 1,
                 "name": "users",
                 "fields": [
-                  { "id": 1, "name": "email", "type": "email", "required": true, "unique": true }
+                  {
+                    "id": 1,
+                    "name": "email",
+                    "type": "email",
+                    "required": true,
+                    "unique": true
+                  }
                 ]
               }
             ]
@@ -139,7 +124,13 @@
               {
                 "id": 1,
                 "name": "users",
-                "fields": [{ "id": 1, "name": "email", "type": "email" }]
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "email",
+                    "type": "email"
+                  }
+                ]
               }
             ]
           },
@@ -149,8 +140,16 @@
                 "id": 1,
                 "name": "users",
                 "fields": [
-                  { "id": 1, "name": "email", "type": "email" },
-                  { "id": 2, "name": "name", "type": "single-line-text" }
+                  {
+                    "id": 1,
+                    "name": "email",
+                    "type": "email"
+                  },
+                  {
+                    "id": 2,
+                    "name": "name",
+                    "type": "single-line-text"
+                  }
                 ]
               }
             ]
@@ -204,7 +203,14 @@
               {
                 "id": 1,
                 "name": "products",
-                "fields": [{ "id": 1, "name": "sku", "type": "single-line-text", "indexed": false }]
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "sku",
+                    "type": "single-line-text",
+                    "indexed": false
+                  }
+                ]
               }
             ]
           },
@@ -213,7 +219,14 @@
               {
                 "id": 1,
                 "name": "products",
-                "fields": [{ "id": 1, "name": "sku", "type": "single-line-text", "indexed": true }]
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "sku",
+                    "type": "single-line-text",
+                    "indexed": true
+                  }
+                ]
               }
             ]
           }

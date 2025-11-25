@@ -1,24 +1,6 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "remove-field.schema.json",
   "title": "Remove Field Migration",
   "description": "Runtime SQL migration scenario for removing fields from existing tables via ALTER TABLE DROP COLUMN",
-  "type": "object",
-  "properties": {
-    "previousSchema": {
-      "type": "object",
-      "description": "Table schema before field removal"
-    },
-    "newSchema": {
-      "type": "object",
-      "description": "Table schema after field removal"
-    },
-    "removedField": {
-      "type": "object",
-      "description": "Field configuration that was removed"
-    }
-  },
-  "required": ["previousSchema", "newSchema", "removedField"],
   "x-specs": [
     {
       "id": "MIG-ALTER-REMOVE-001",
@@ -37,8 +19,19 @@
                 "id": 1,
                 "name": "users",
                 "fields": [
-                  { "id": 1, "name": "email", "type": "email", "required": true, "unique": true },
-                  { "id": 2, "name": "phone", "type": "phone-number", "required": false }
+                  {
+                    "id": 1,
+                    "name": "email",
+                    "type": "email",
+                    "required": true,
+                    "unique": true
+                  },
+                  {
+                    "id": 2,
+                    "name": "phone",
+                    "type": "phone-number",
+                    "required": false
+                  }
                 ]
               }
             ]
@@ -49,7 +42,13 @@
                 "id": 1,
                 "name": "users",
                 "fields": [
-                  { "id": 1, "name": "email", "type": "email", "required": true, "unique": true }
+                  {
+                    "id": 1,
+                    "name": "email",
+                    "type": "email",
+                    "required": true,
+                    "unique": true
+                  }
                 ]
               }
             ]
@@ -96,8 +95,16 @@
                 "id": 1,
                 "name": "products",
                 "fields": [
-                  { "id": 1, "name": "title", "type": "single-line-text" },
-                  { "id": 3, "name": "price", "type": "decimal" }
+                  {
+                    "id": 1,
+                    "name": "title",
+                    "type": "single-line-text"
+                  },
+                  {
+                    "id": 3,
+                    "name": "price",
+                    "type": "decimal"
+                  }
                 ]
               }
             ]
@@ -145,7 +152,13 @@
               {
                 "id": 1,
                 "name": "tasks",
-                "fields": [{ "id": 1, "name": "title", "type": "single-line-text" }]
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "title",
+                    "type": "single-line-text"
+                  }
+                ]
               }
             ]
           }
@@ -192,7 +205,13 @@
               {
                 "id": 2,
                 "name": "orders",
-                "fields": [{ "id": 2, "name": "total", "type": "decimal" }]
+                "fields": [
+                  {
+                    "id": 2,
+                    "name": "total",
+                    "type": "decimal"
+                  }
+                ]
               }
             ]
           }

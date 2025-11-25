@@ -1,6 +1,4 @@
 {
-  "$id": "static-assets.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Static Site Generation - Asset Management",
   "description": "Specifications for asset management in static site generation (copying files, preserving structure, handling binary files, updating references)",
   "x-specs": [

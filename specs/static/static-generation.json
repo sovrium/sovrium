@@ -1,6 +1,4 @@
 {
-  "$id": "static-generation.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Static Site Generation",
   "description": "Specifications for static site generation functionality in Sovrium (HTML generation, CSS compilation, directory structure, nested paths)",
   "x-specs": [
@@ -12,9 +10,18 @@
       "application": {
         "configuration": {
           "pages": [
-            { "name": "Home", "path": "/" },
-            { "name": "About", "path": "/about" },
-            { "name": "Contact", "path": "/contact" }
+            {
+              "name": "Home",
+              "path": "/"
+            },
+            {
+              "name": "About",
+              "path": "/about"
+            },
+            {
+              "name": "Contact",
+              "path": "/contact"
+            }
           ]
         },
         "expectedOutput": {
@@ -133,11 +140,21 @@
       "application": {
         "configuration": {
           "pages": [
-            { "path": "/" },
-            { "path": "/about" },
-            { "path": "/blog" },
-            { "path": "/blog/post-1" },
-            { "path": "/docs/api/reference" }
+            {
+              "path": "/"
+            },
+            {
+              "path": "/about"
+            },
+            {
+              "path": "/blog"
+            },
+            {
+              "path": "/blog/post-1"
+            },
+            {
+              "path": "/docs/api/reference"
+            }
           ]
         },
         "expectedOutput": {
@@ -174,9 +191,15 @@
       "application": {
         "configuration": {
           "pages": [
-            { "path": "/docs/guides/getting-started" },
-            { "path": "/docs/guides/advanced/authentication" },
-            { "path": "/api/v1/users/endpoints" }
+            {
+              "path": "/docs/guides/getting-started"
+            },
+            {
+              "path": "/docs/guides/advanced/authentication"
+            },
+            {
+              "path": "/api/v1/users/endpoints"
+            }
           ]
         },
         "expectedOutput": {
@@ -232,14 +255,25 @@
               "sections": [
                 {
                   "type": "div",
-                  "props": { "className": "container" },
+                  "props": {
+                    "className": "container"
+                  },
                   "children": [
-                    { "type": "h1", "children": ["Main Title"] },
+                    {
+                      "type": "h1",
+                      "children": ["Main Title"]
+                    },
                     {
                       "type": "div",
                       "children": [
-                        { "type": "p", "children": ["First paragraph"] },
-                        { "type": "p", "children": ["Second paragraph"] }
+                        {
+                          "type": "p",
+                          "children": ["First paragraph"]
+                        },
+                        {
+                          "type": "p",
+                          "children": ["Second paragraph"]
+                        }
                       ]
                     }
                   ]

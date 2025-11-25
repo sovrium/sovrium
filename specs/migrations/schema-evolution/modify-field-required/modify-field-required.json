@@ -1,33 +1,6 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "modify-field-required.schema.json",
   "title": "Modify Field Required Migration",
   "description": "Runtime SQL migration scenarios for adding and removing NOT NULL constraints via ALTER TABLE ALTER COLUMN",
-  "type": "object",
-  "properties": {
-    "previousSchema": {
-      "type": "object",
-      "description": "Table schema before required field modification"
-    },
-    "newSchema": {
-      "type": "object",
-      "description": "Table schema after required field modification"
-    },
-    "fieldChange": {
-      "type": "object",
-      "properties": {
-        "operation": {
-          "enum": ["add-required", "remove-required"],
-          "description": "Type of required constraint operation"
-        },
-        "fieldName": {
-          "type": "string",
-          "description": "Name of the field being modified"
-        }
-      }
-    }
-  },
-  "required": ["previousSchema", "newSchema"],
   "x-specs": [
     {
       "id": "MIG-MODIFY-REQUIRED-001",
@@ -40,16 +13,36 @@
             "id": "tbl_users",
             "name": "users",
             "fields": [
-              { "id": 1, "name": "email", "type": "email", "required": true },
-              { "id": 2, "name": "phone", "type": "phone-number", "required": false }
+              {
+                "id": 1,
+                "name": "email",
+                "type": "email",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "phone",
+                "type": "phone-number",
+                "required": false
+              }
             ]
           },
           "newSchema": {
             "id": "tbl_users",
             "name": "users",
             "fields": [
-              { "id": 1, "name": "email", "type": "email", "required": true },
-              { "id": 2, "name": "phone", "type": "phone-number", "required": true }
+              {
+                "id": 1,
+                "name": "email",
+                "type": "email",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "phone",
+                "type": "phone-number",
+                "required": true
+              }
             ]
           },
           "executeQuery": [
@@ -96,16 +89,36 @@
             "id": "tbl_products",
             "name": "products",
             "fields": [
-              { "id": 1, "name": "name", "type": "single-line-text", "required": true },
-              { "id": 2, "name": "category", "type": "single-line-text", "required": false }
+              {
+                "id": 1,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "category",
+                "type": "single-line-text",
+                "required": false
+              }
             ]
           },
           "newSchema": {
             "id": "tbl_products",
             "name": "products",
             "fields": [
-              { "id": 1, "name": "name", "type": "single-line-text", "required": true },
-              { "id": 2, "name": "category", "type": "single-line-text", "required": true }
+              {
+                "id": 1,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "category",
+                "type": "single-line-text",
+                "required": true
+              }
             ]
           },
           "executeQuery": [
@@ -154,15 +167,30 @@
             "id": "tbl_orders",
             "name": "orders",
             "fields": [
-              { "id": 1, "name": "order_number", "type": "single-line-text", "required": true },
-              { "id": 2, "name": "status", "type": "single-line-text", "required": false }
+              {
+                "id": 1,
+                "name": "order_number",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "status",
+                "type": "single-line-text",
+                "required": false
+              }
             ]
           },
           "newSchema": {
             "id": "tbl_orders",
             "name": "orders",
             "fields": [
-              { "id": 1, "name": "order_number", "type": "single-line-text", "required": true },
+              {
+                "id": 1,
+                "name": "order_number",
+                "type": "single-line-text",
+                "required": true
+              },
               {
                 "id": 2,
                 "name": "status",
@@ -230,16 +258,36 @@
             "id": "tbl_tasks",
             "name": "tasks",
             "fields": [
-              { "id": 1, "name": "title", "type": "single-line-text", "required": true },
-              { "id": 2, "name": "priority", "type": "single-line-text", "required": true }
+              {
+                "id": 1,
+                "name": "title",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "priority",
+                "type": "single-line-text",
+                "required": true
+              }
             ]
           },
           "newSchema": {
             "id": "tbl_tasks",
             "name": "tasks",
             "fields": [
-              { "id": 1, "name": "title", "type": "single-line-text", "required": true },
-              { "id": 2, "name": "priority", "type": "single-line-text", "required": false }
+              {
+                "id": 1,
+                "name": "title",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "priority",
+                "type": "single-line-text",
+                "required": false
+              }
             ]
           },
           "executeQuery": [

@@ -1,29 +1,6 @@
 {
-  "$id": "static-i18n.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Static Site Generation - Multi-Language Support",
   "description": "Specifications for internationalization in static site generation using $t: translation references from centralized languages.translations dictionary. Generates language directories, replaces translations at build time, includes hreflang links, and creates language switchers.",
-  "type": "object",
-  "properties": {
-    "languages": {
-      "$ref": "../app/languages/languages.schema.json",
-      "description": "Language configuration using centralized translations dictionary (same format as app.languages)"
-    },
-    "baseUrl": {
-      "type": "string",
-      "format": "uri",
-      "description": "Base URL for hreflang links and canonical URLs",
-      "examples": ["https://example.com", "https://mysite.org"]
-    },
-    "outputDir": {
-      "type": "string",
-      "description": "Output directory for generated static files",
-      "default": "dist",
-      "examples": ["dist", "build", "out"]
-    }
-  },
-  "required": ["languages"],
-  "additionalProperties": false,
   "x-specs": [
     {
       "id": "STATIC-I18N-001",
@@ -35,12 +12,28 @@
           "languages": {
             "default": "en",
             "supported": [
-              { "code": "en", "label": "English", "locale": "en-US" },
-              { "code": "fr", "label": "Français", "locale": "fr-FR" },
-              { "code": "es", "label": "Español", "locale": "es-ES" }
+              {
+                "code": "en",
+                "label": "English",
+                "locale": "en-US"
+              },
+              {
+                "code": "fr",
+                "label": "Français",
+                "locale": "fr-FR"
+              },
+              {
+                "code": "es",
+                "label": "Español",
+                "locale": "es-ES"
+              }
             ],
             "translations": {
-              "en": { "home.title": "Home", "about.title": "About", "contact.title": "Contact" },
+              "en": {
+                "home.title": "Home",
+                "about.title": "About",
+                "contact.title": "Contact"
+              },
               "fr": {
                 "home.title": "Accueil",
                 "about.title": "À propos",
@@ -54,9 +47,24 @@
             }
           },
           "pages": [
-            { "path": "/", "meta": { "title": "$t:home.title" } },
-            { "path": "/about", "meta": { "title": "$t:about.title" } },
-            { "path": "/contact", "meta": { "title": "$t:contact.title" } }
+            {
+              "path": "/",
+              "meta": {
+                "title": "$t:home.title"
+              }
+            },
+            {
+              "path": "/about",
+              "meta": {
+                "title": "$t:about.title"
+              }
+            },
+            {
+              "path": "/contact",
+              "meta": {
+                "title": "$t:contact.title"
+              }
+            }
           ]
         },
         "assertions": [
@@ -104,8 +112,16 @@
           "languages": {
             "default": "en",
             "supported": [
-              { "code": "en", "label": "English", "locale": "en-US" },
-              { "code": "fr", "label": "Français", "locale": "fr-FR" }
+              {
+                "code": "en",
+                "label": "English",
+                "locale": "en-US"
+              },
+              {
+                "code": "fr",
+                "label": "Français",
+                "locale": "fr-FR"
+              }
             ],
             "translations": {
               "en": {
@@ -128,9 +144,18 @@
                 "description": "$t:home.description"
               },
               "sections": [
-                { "type": "h1", "children": ["$t:home.title"] },
-                { "type": "p", "children": ["$t:home.description"] },
-                { "type": "button", "children": ["$t:home.cta"] }
+                {
+                  "type": "h1",
+                  "children": ["$t:home.title"]
+                },
+                {
+                  "type": "p",
+                  "children": ["$t:home.description"]
+                },
+                {
+                  "type": "button",
+                  "children": ["$t:home.cta"]
+                }
               ]
             }
           ]
@@ -190,19 +215,50 @@
           "languages": {
             "default": "en",
             "supported": [
-              { "code": "en", "label": "English", "locale": "en-US" },
-              { "code": "fr", "label": "Français", "locale": "fr-FR" },
-              { "code": "es", "label": "Español", "locale": "es-ES" }
+              {
+                "code": "en",
+                "label": "English",
+                "locale": "en-US"
+              },
+              {
+                "code": "fr",
+                "label": "Français",
+                "locale": "fr-FR"
+              },
+              {
+                "code": "es",
+                "label": "Español",
+                "locale": "es-ES"
+              }
             ],
             "translations": {
-              "en": { "home.title": "Home", "about.title": "About" },
-              "fr": { "home.title": "Accueil", "about.title": "À propos" },
-              "es-ES": { "home.title": "Inicio", "about.title": "Acerca de" }
+              "en": {
+                "home.title": "Home",
+                "about.title": "About"
+              },
+              "fr": {
+                "home.title": "Accueil",
+                "about.title": "À propos"
+              },
+              "es-ES": {
+                "home.title": "Inicio",
+                "about.title": "Acerca de"
+              }
             }
           },
           "pages": [
-            { "path": "/", "meta": { "title": "$t:home.title" } },
-            { "path": "/about", "meta": { "title": "$t:about.title" } }
+            {
+              "path": "/",
+              "meta": {
+                "title": "$t:home.title"
+              }
+            },
+            {
+              "path": "/about",
+              "meta": {
+                "title": "$t:about.title"
+              }
+            }
           ]
         },
         "assertions": [
@@ -258,23 +314,53 @@
           "languages": {
             "default": "en",
             "supported": [
-              { "code": "en", "label": "English", "locale": "en-US" },
-              { "code": "fr", "label": "Français", "locale": "fr-FR" },
-              { "code": "es", "label": "Español", "locale": "es-ES" }
+              {
+                "code": "en",
+                "label": "English",
+                "locale": "en-US"
+              },
+              {
+                "code": "fr",
+                "label": "Français",
+                "locale": "fr-FR"
+              },
+              {
+                "code": "es",
+                "label": "Español",
+                "locale": "es-ES"
+              }
             ],
             "translations": {
-              "en": { "lang.en-US": "English", "lang.fr-FR": "French", "lang.es-ES": "Spanish" },
+              "en": {
+                "lang.en-US": "English",
+                "lang.fr-FR": "French",
+                "lang.es-ES": "Spanish"
+              },
               "fr": {
                 "lang.en-US": "Anglais",
                 "lang.fr-FR": "Français",
                 "lang.es-ES": "Espagnol"
               },
-              "es-ES": { "lang.en-US": "Inglés", "lang.fr-FR": "Francés", "lang.es-ES": "Español" }
+              "es-ES": {
+                "lang.en-US": "Inglés",
+                "lang.fr-FR": "Francés",
+                "lang.es-ES": "Español"
+              }
             }
           },
           "pages": [
-            { "path": "/", "meta": { "title": "Home" } },
-            { "path": "/about", "meta": { "title": "About" } }
+            {
+              "path": "/",
+              "meta": {
+                "title": "Home"
+              }
+            },
+            {
+              "path": "/about",
+              "meta": {
+                "title": "About"
+              }
+            }
           ]
         },
         "assertions": [

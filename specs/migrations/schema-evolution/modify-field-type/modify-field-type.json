@@ -1,34 +1,6 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "modify-field-type.schema.json",
   "title": "Modify Field Type Migration",
   "description": "Runtime SQL migration scenarios for changing column data types via ALTER TABLE ALTER COLUMN TYPE",
-  "type": "object",
-  "properties": {
-    "previousSchema": {
-      "type": "object",
-      "description": "Table schema before type modification"
-    },
-    "newSchema": {
-      "type": "object",
-      "description": "Table schema after type modification"
-    },
-    "typeChange": {
-      "type": "object",
-      "properties": {
-        "fieldName": {
-          "type": "string"
-        },
-        "fromType": {
-          "type": "string"
-        },
-        "toType": {
-          "type": "string"
-        }
-      }
-    }
-  },
-  "required": ["previousSchema", "newSchema"],
   "x-specs": [
     {
       "id": "MIG-MODIFY-TYPE-001",
@@ -41,16 +13,36 @@
             "id": "tbl_users",
             "name": "users",
             "fields": [
-              { "id": 1, "name": "email", "type": "email", "required": true },
-              { "id": 2, "name": "bio", "type": "single-line-text", "required": false }
+              {
+                "id": 1,
+                "name": "email",
+                "type": "email",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "bio",
+                "type": "single-line-text",
+                "required": false
+              }
             ]
           },
           "newSchema": {
             "id": "tbl_users",
             "name": "users",
             "fields": [
-              { "id": 1, "name": "email", "type": "email", "required": true },
-              { "id": 2, "name": "bio", "type": "long-text", "required": false }
+              {
+                "id": 1,
+                "name": "email",
+                "type": "email",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "bio",
+                "type": "long-text",
+                "required": false
+              }
             ]
           },
           "executeQuery": [
@@ -100,15 +92,30 @@
             "id": "tbl_products",
             "name": "products",
             "fields": [
-              { "id": 1, "name": "name", "type": "single-line-text", "required": true },
-              { "id": 2, "name": "sku", "type": "long-text", "required": true }
+              {
+                "id": 1,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "sku",
+                "type": "long-text",
+                "required": true
+              }
             ]
           },
           "newSchema": {
             "id": "tbl_products",
             "name": "products",
             "fields": [
-              { "id": 1, "name": "name", "type": "single-line-text", "required": true },
+              {
+                "id": 1,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              },
               {
                 "id": 2,
                 "name": "sku",
@@ -160,16 +167,36 @@
             "id": "tbl_orders",
             "name": "orders",
             "fields": [
-              { "id": 1, "name": "order_number", "type": "single-line-text", "required": true },
-              { "id": 2, "name": "total", "type": "integer", "required": true }
+              {
+                "id": 1,
+                "name": "order_number",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "total",
+                "type": "integer",
+                "required": true
+              }
             ]
           },
           "newSchema": {
             "id": "tbl_orders",
             "name": "orders",
             "fields": [
-              { "id": 1, "name": "order_number", "type": "single-line-text", "required": true },
-              { "id": 2, "name": "total", "type": "decimal", "required": true }
+              {
+                "id": 1,
+                "name": "order_number",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "total",
+                "type": "decimal",
+                "required": true
+              }
             ]
           },
           "executeQuery": [
@@ -202,7 +229,7 @@
             "description": "Existing integer values preserved as decimal",
             "executeQuery": "SELECT total FROM orders WHERE order_number = 'ORD-001'",
             "expected": {
-              "total": 100.0
+              "total": 100
             }
           }
         ]
@@ -219,16 +246,36 @@
             "id": "tbl_metrics",
             "name": "metrics",
             "fields": [
-              { "id": 1, "name": "name", "type": "single-line-text", "required": true },
-              { "id": 2, "name": "count", "type": "single-line-text", "required": true }
+              {
+                "id": 1,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "count",
+                "type": "single-line-text",
+                "required": true
+              }
             ]
           },
           "newSchema": {
             "id": "tbl_metrics",
             "name": "metrics",
             "fields": [
-              { "id": 1, "name": "name", "type": "single-line-text", "required": true },
-              { "id": 2, "name": "count", "type": "integer", "required": true }
+              {
+                "id": 1,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "count",
+                "type": "integer",
+                "required": true
+              }
             ]
           },
           "executeQuery": [
@@ -280,16 +327,36 @@
             "id": "tbl_events",
             "name": "events",
             "fields": [
-              { "id": 1, "name": "name", "type": "single-line-text", "required": true },
-              { "id": 2, "name": "occurred_at", "type": "single-line-text", "required": true }
+              {
+                "id": 1,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "occurred_at",
+                "type": "single-line-text",
+                "required": true
+              }
             ]
           },
           "newSchema": {
             "id": "tbl_events",
             "name": "events",
             "fields": [
-              { "id": 1, "name": "name", "type": "single-line-text", "required": true },
-              { "id": 2, "name": "occurred_at", "type": "datetime", "required": true }
+              {
+                "id": 1,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "occurred_at",
+                "type": "datetime",
+                "required": true
+              }
             ]
           },
           "executeQuery": [
@@ -334,16 +401,36 @@
             "id": "tbl_data",
             "name": "data",
             "fields": [
-              { "id": 1, "name": "label", "type": "single-line-text", "required": true },
-              { "id": 2, "name": "value", "type": "single-line-text", "required": true }
+              {
+                "id": 1,
+                "name": "label",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "value",
+                "type": "single-line-text",
+                "required": true
+              }
             ]
           },
           "newSchema": {
             "id": "tbl_data",
             "name": "data",
             "fields": [
-              { "id": 1, "name": "label", "type": "single-line-text", "required": true },
-              { "id": 2, "name": "value", "type": "integer", "required": true }
+              {
+                "id": 1,
+                "name": "label",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "value",
+                "type": "integer",
+                "required": true
+              }
             ]
           },
           "executeQuery": [

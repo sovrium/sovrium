@@ -1,33 +1,6 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "views.schema.json",
   "title": "Database Views Migration",
   "description": "Runtime SQL migration scenarios for creating, modifying, and dropping database views (standard and materialized)",
-  "type": "object",
-  "properties": {
-    "previousSchema": {
-      "type": "object",
-      "description": "Schema before view modification"
-    },
-    "newSchema": {
-      "type": "object",
-      "description": "Schema after view modification"
-    },
-    "viewChange": {
-      "type": "object",
-      "properties": {
-        "operation": {
-          "enum": ["create", "drop", "alter", "refresh"],
-          "description": "Type of view operation"
-        },
-        "viewType": {
-          "enum": ["standard", "materialized"],
-          "description": "Type of view"
-        }
-      }
-    }
-  },
-  "required": ["previousSchema", "newSchema"],
   "x-specs": [
     {
       "id": "MIG-VIEW-001",
@@ -42,8 +15,16 @@
                 "id": "tbl_users",
                 "name": "users",
                 "fields": [
-                  { "id": 1, "name": "email", "type": "email" },
-                  { "id": 2, "name": "active", "type": "checkbox" }
+                  {
+                    "id": 1,
+                    "name": "email",
+                    "type": "email"
+                  },
+                  {
+                    "id": 2,
+                    "name": "active",
+                    "type": "checkbox"
+                  }
                 ]
               }
             ],
@@ -55,8 +36,16 @@
                 "id": "tbl_users",
                 "name": "users",
                 "fields": [
-                  { "id": 1, "name": "email", "type": "email" },
-                  { "id": 2, "name": "active", "type": "checkbox" }
+                  {
+                    "id": 1,
+                    "name": "email",
+                    "type": "email"
+                  },
+                  {
+                    "id": 2,
+                    "name": "active",
+                    "type": "checkbox"
+                  }
                 ]
               }
             ],
@@ -118,8 +107,16 @@
                 "id": "tbl_users",
                 "name": "users",
                 "fields": [
-                  { "id": 1, "name": "email", "type": "email" },
-                  { "id": 2, "name": "active", "type": "checkbox" }
+                  {
+                    "id": 1,
+                    "name": "email",
+                    "type": "email"
+                  },
+                  {
+                    "id": 2,
+                    "name": "active",
+                    "type": "checkbox"
+                  }
                 ]
               }
             ],
@@ -136,8 +133,16 @@
                 "id": "tbl_users",
                 "name": "users",
                 "fields": [
-                  { "id": 1, "name": "email", "type": "email" },
-                  { "id": 2, "name": "active", "type": "checkbox" }
+                  {
+                    "id": 1,
+                    "name": "email",
+                    "type": "email"
+                  },
+                  {
+                    "id": 2,
+                    "name": "active",
+                    "type": "checkbox"
+                  }
                 ]
               }
             ],
@@ -191,9 +196,21 @@
                 "id": "tbl_users",
                 "name": "users",
                 "fields": [
-                  { "id": 1, "name": "email", "type": "email" },
-                  { "id": 2, "name": "active", "type": "checkbox" },
-                  { "id": 3, "name": "created_at", "type": "datetime" }
+                  {
+                    "id": 1,
+                    "name": "email",
+                    "type": "email"
+                  },
+                  {
+                    "id": 2,
+                    "name": "active",
+                    "type": "checkbox"
+                  },
+                  {
+                    "id": 3,
+                    "name": "created_at",
+                    "type": "datetime"
+                  }
                 ]
               }
             ],
@@ -210,9 +227,21 @@
                 "id": "tbl_users",
                 "name": "users",
                 "fields": [
-                  { "id": 1, "name": "email", "type": "email" },
-                  { "id": 2, "name": "active", "type": "checkbox" },
-                  { "id": 3, "name": "created_at", "type": "datetime" }
+                  {
+                    "id": 1,
+                    "name": "email",
+                    "type": "email"
+                  },
+                  {
+                    "id": 2,
+                    "name": "active",
+                    "type": "checkbox"
+                  },
+                  {
+                    "id": 3,
+                    "name": "created_at",
+                    "type": "datetime"
+                  }
                 ]
               }
             ],
@@ -269,8 +298,16 @@
                 "id": "tbl_orders",
                 "name": "orders",
                 "fields": [
-                  { "id": 1, "name": "customer_id", "type": "integer" },
-                  { "id": 2, "name": "total", "type": "decimal" }
+                  {
+                    "id": 1,
+                    "name": "customer_id",
+                    "type": "integer"
+                  },
+                  {
+                    "id": 2,
+                    "name": "total",
+                    "type": "decimal"
+                  }
                 ]
               }
             ],
@@ -282,8 +319,16 @@
                 "id": "tbl_orders",
                 "name": "orders",
                 "fields": [
-                  { "id": 1, "name": "customer_id", "type": "integer" },
-                  { "id": 2, "name": "total", "type": "decimal" }
+                  {
+                    "id": 1,
+                    "name": "customer_id",
+                    "type": "integer"
+                  },
+                  {
+                    "id": 2,
+                    "name": "total",
+                    "type": "decimal"
+                  }
                 ]
               }
             ],
@@ -345,8 +390,16 @@
                 "id": "tbl_orders",
                 "name": "orders",
                 "fields": [
-                  { "id": 1, "name": "customer_id", "type": "integer" },
-                  { "id": 2, "name": "total", "type": "decimal" }
+                  {
+                    "id": 1,
+                    "name": "customer_id",
+                    "type": "integer"
+                  },
+                  {
+                    "id": 2,
+                    "name": "total",
+                    "type": "decimal"
+                  }
                 ]
               }
             ],
@@ -363,8 +416,16 @@
                 "id": "tbl_orders",
                 "name": "orders",
                 "fields": [
-                  { "id": 1, "name": "customer_id", "type": "integer" },
-                  { "id": 2, "name": "total", "type": "decimal" }
+                  {
+                    "id": 1,
+                    "name": "customer_id",
+                    "type": "integer"
+                  },
+                  {
+                    "id": 2,
+                    "name": "total",
+                    "type": "decimal"
+                  }
                 ]
               }
             ],
@@ -420,8 +481,16 @@
                 "id": "tbl_orders",
                 "name": "orders",
                 "fields": [
-                  { "id": 1, "name": "user_id", "type": "integer" },
-                  { "id": 2, "name": "status", "type": "single-line-text" }
+                  {
+                    "id": 1,
+                    "name": "user_id",
+                    "type": "integer"
+                  },
+                  {
+                    "id": 2,
+                    "name": "status",
+                    "type": "single-line-text"
+                  }
                 ]
               }
             ],
@@ -442,8 +511,16 @@
                 "id": "tbl_orders",
                 "name": "orders",
                 "fields": [
-                  { "id": 1, "name": "user_id", "type": "integer" },
-                  { "id": 2, "name": "status", "type": "single-line-text" }
+                  {
+                    "id": 1,
+                    "name": "user_id",
+                    "type": "integer"
+                  },
+                  {
+                    "id": 2,
+                    "name": "status",
+                    "type": "single-line-text"
+                  }
                 ]
               }
             ],

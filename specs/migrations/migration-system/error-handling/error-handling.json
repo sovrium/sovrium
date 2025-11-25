@@ -1,29 +1,6 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "error-handling.schema.json",
   "title": "Error Handling and Rollback",
   "description": "Runtime SQL migration error handling with PostgreSQL transaction rollback",
-  "type": "object",
-  "properties": {
-    "schemaConfig": {
-      "type": "object",
-      "description": "Table schema configuration (may contain errors)"
-    },
-    "errorScenario": {
-      "type": "object",
-      "properties": {
-        "type": {
-          "enum": ["invalid_sql", "invalid_type", "constraint_violation", "foreign_key_error"],
-          "description": "Type of error scenario to test"
-        },
-        "expectedError": {
-          "type": "string",
-          "description": "Expected error message pattern"
-        }
-      }
-    }
-  },
-  "required": ["schemaConfig", "errorScenario"],
   "x-specs": [
     {
       "id": "MIG-ERROR-001",
@@ -38,12 +15,25 @@
               {
                 "id": 1,
                 "name": "users",
-                "fields": [{ "id": 1, "name": "email", "type": "email", "required": true }]
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "email",
+                    "type": "email",
+                    "required": true
+                  }
+                ]
               },
               {
                 "id": 2,
                 "name": "products",
-                "fields": [{ "id": 1, "name": "bad_field", "type": "INVALID_TYPE" }]
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "bad_field",
+                    "type": "INVALID_TYPE"
+                  }
+                ]
               }
             ]
           }
@@ -92,15 +82,30 @@
                 "id": 1,
                 "name": "categories",
                 "fields": [
-                  { "id": 1, "name": "name", "type": "single-line-text", "required": true }
+                  {
+                    "id": 1,
+                    "name": "name",
+                    "type": "single-line-text",
+                    "required": true
+                  }
                 ]
               },
               {
                 "id": 2,
                 "name": "products",
                 "fields": [
-                  { "id": 1, "name": "title", "type": "single-line-text", "required": true },
-                  { "id": 2, "name": "price", "type": "decimal", "min": "invalid_not_a_number" }
+                  {
+                    "id": 1,
+                    "name": "title",
+                    "type": "single-line-text",
+                    "required": true
+                  },
+                  {
+                    "id": 2,
+                    "name": "price",
+                    "type": "decimal",
+                    "min": "invalid_not_a_number"
+                  }
                 ]
               }
             ]
@@ -146,8 +151,17 @@
                 "id": 1,
                 "name": "users",
                 "fields": [
-                  { "id": 1, "name": "email", "type": "email" },
-                  { "id": 2, "name": "name", "type": "single-line-text", "required": true }
+                  {
+                    "id": 1,
+                    "name": "email",
+                    "type": "email"
+                  },
+                  {
+                    "id": 2,
+                    "name": "name",
+                    "type": "single-line-text",
+                    "required": true
+                  }
                 ]
               }
             ]
@@ -197,8 +211,18 @@
                 "id": 1,
                 "name": "posts",
                 "fields": [
-                  { "id": 1, "name": "title", "type": "single-line-text", "required": true },
-                  { "id": 2, "name": "author_id", "type": "relationship", "relatedTable": "users" }
+                  {
+                    "id": 1,
+                    "name": "title",
+                    "type": "single-line-text",
+                    "required": true
+                  },
+                  {
+                    "id": 2,
+                    "name": "author_id",
+                    "type": "relationship",
+                    "relatedTable": "users"
+                  }
                 ]
               }
             ]
@@ -233,7 +257,13 @@
               {
                 "id": 1,
                 "name": "users",
-                "fields": [{ "id": 1, "name": "email", "type": "email" }]
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "email",
+                    "type": "email"
+                  }
+                ]
               }
             ]
           }

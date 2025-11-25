@@ -1,32 +1,6 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "modify-field-default.schema.json",
   "title": "Modify Field Default Migration",
   "description": "Runtime SQL migration scenarios for managing DEFAULT values via ALTER TABLE ALTER COLUMN",
-  "type": "object",
-  "properties": {
-    "previousSchema": {
-      "type": "object",
-      "description": "Table schema before default value modification"
-    },
-    "newSchema": {
-      "type": "object",
-      "description": "Table schema after default value modification"
-    },
-    "defaultChange": {
-      "type": "object",
-      "properties": {
-        "operation": {
-          "enum": ["add", "change", "remove"],
-          "description": "Type of default value operation"
-        },
-        "fieldName": {
-          "type": "string"
-        }
-      }
-    }
-  },
-  "required": ["previousSchema", "newSchema"],
   "x-specs": [
     {
       "id": "MIG-MODIFY-DEFAULT-001",
@@ -39,15 +13,30 @@
             "id": "tbl_tasks",
             "name": "tasks",
             "fields": [
-              { "id": 1, "name": "title", "type": "single-line-text", "required": true },
-              { "id": 2, "name": "priority", "type": "single-line-text", "required": false }
+              {
+                "id": 1,
+                "name": "title",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "priority",
+                "type": "single-line-text",
+                "required": false
+              }
             ]
           },
           "newSchema": {
             "id": "tbl_tasks",
             "name": "tasks",
             "fields": [
-              { "id": 1, "name": "title", "type": "single-line-text", "required": true },
+              {
+                "id": 1,
+                "name": "title",
+                "type": "single-line-text",
+                "required": true
+              },
               {
                 "id": 2,
                 "name": "priority",
@@ -111,7 +100,12 @@
             "id": "tbl_products",
             "name": "products",
             "fields": [
-              { "id": 1, "name": "name", "type": "single-line-text", "required": true },
+              {
+                "id": 1,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              },
               {
                 "id": 2,
                 "name": "status",
@@ -125,7 +119,12 @@
             "id": "tbl_products",
             "name": "products",
             "fields": [
-              { "id": 1, "name": "name", "type": "single-line-text", "required": true },
+              {
+                "id": 1,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              },
               {
                 "id": 2,
                 "name": "status",
@@ -189,7 +188,12 @@
             "id": "tbl_orders",
             "name": "orders",
             "fields": [
-              { "id": 1, "name": "order_number", "type": "single-line-text", "required": true },
+              {
+                "id": 1,
+                "name": "order_number",
+                "type": "single-line-text",
+                "required": true
+              },
               {
                 "id": 2,
                 "name": "created_at",
@@ -203,8 +207,18 @@
             "id": "tbl_orders",
             "name": "orders",
             "fields": [
-              { "id": 1, "name": "order_number", "type": "single-line-text", "required": true },
-              { "id": 2, "name": "created_at", "type": "datetime", "required": false }
+              {
+                "id": 1,
+                "name": "order_number",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "created_at",
+                "type": "datetime",
+                "required": false
+              }
             ]
           },
           "executeQuery": [

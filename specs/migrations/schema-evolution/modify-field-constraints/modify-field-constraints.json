@@ -1,33 +1,6 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "modify-field-constraints.schema.json",
   "title": "Modify Field Constraints Migration",
   "description": "Runtime SQL migration scenarios for managing CHECK constraints (min/max, pattern, custom rules)",
-  "type": "object",
-  "properties": {
-    "previousSchema": {
-      "type": "object",
-      "description": "Table schema before constraint modification"
-    },
-    "newSchema": {
-      "type": "object",
-      "description": "Table schema after constraint modification"
-    },
-    "constraintChange": {
-      "type": "object",
-      "properties": {
-        "operation": {
-          "enum": ["add", "modify", "remove"],
-          "description": "Type of constraint operation"
-        },
-        "constraintType": {
-          "enum": ["min-max", "pattern", "custom"],
-          "description": "Type of CHECK constraint"
-        }
-      }
-    }
-  },
-  "required": ["previousSchema", "newSchema"],
   "x-specs": [
     {
       "id": "MIG-MODIFY-CONSTRAINTS-001",
@@ -40,21 +13,39 @@
             "id": "tbl_products",
             "name": "products",
             "fields": [
-              { "id": 1, "name": "name", "type": "single-line-text", "required": true },
-              { "id": 2, "name": "price", "type": "decimal", "required": true }
+              {
+                "id": 1,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "price",
+                "type": "decimal",
+                "required": true
+              }
             ]
           },
           "newSchema": {
             "id": "tbl_products",
             "name": "products",
             "fields": [
-              { "id": 1, "name": "name", "type": "single-line-text", "required": true },
+              {
+                "id": 1,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              },
               {
                 "id": 2,
                 "name": "price",
                 "type": "decimal",
                 "required": true,
-                "validation": { "min": 0, "max": 10000 }
+                "validation": {
+                  "min": 0,
+                  "max": 10000
+                }
               }
             ]
           },
@@ -83,7 +74,7 @@
             "description": "Value within range accepted",
             "executeQuery": "INSERT INTO products (name, price) VALUES ('Product 3', 5000.00) RETURNING price",
             "expected": {
-              "price": 5000.0
+              "price": 5000
             }
           },
           {
@@ -110,13 +101,21 @@
             "id": "tbl_inventory",
             "name": "inventory",
             "fields": [
-              { "id": 1, "name": "product_name", "type": "single-line-text", "required": true },
+              {
+                "id": 1,
+                "name": "product_name",
+                "type": "single-line-text",
+                "required": true
+              },
               {
                 "id": 2,
                 "name": "quantity",
                 "type": "integer",
                 "required": true,
-                "validation": { "min": 0, "max": 100 }
+                "validation": {
+                  "min": 0,
+                  "max": 100
+                }
               }
             ]
           },
@@ -124,13 +123,21 @@
             "id": "tbl_inventory",
             "name": "inventory",
             "fields": [
-              { "id": 1, "name": "product_name", "type": "single-line-text", "required": true },
+              {
+                "id": 1,
+                "name": "product_name",
+                "type": "single-line-text",
+                "required": true
+              },
               {
                 "id": 2,
                 "name": "quantity",
                 "type": "integer",
                 "required": true,
-                "validation": { "min": 0, "max": 1000 }
+                "validation": {
+                  "min": 0,
+                  "max": 1000
+                }
               }
             ]
           },
@@ -190,21 +197,38 @@
             "id": "tbl_users",
             "name": "users",
             "fields": [
-              { "id": 1, "name": "name", "type": "single-line-text", "required": true },
-              { "id": 2, "name": "age", "type": "integer", "required": true }
+              {
+                "id": 1,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "age",
+                "type": "integer",
+                "required": true
+              }
             ]
           },
           "newSchema": {
             "id": "tbl_users",
             "name": "users",
             "fields": [
-              { "id": 1, "name": "name", "type": "single-line-text", "required": true },
+              {
+                "id": 1,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              },
               {
                 "id": 2,
                 "name": "age",
                 "type": "integer",
                 "required": true,
-                "validation": { "min": 0 }
+                "validation": {
+                  "min": 0
+                }
               }
             ]
           },
@@ -254,13 +278,21 @@
             "id": "tbl_orders",
             "name": "orders",
             "fields": [
-              { "id": 1, "name": "order_number", "type": "single-line-text", "required": true },
+              {
+                "id": 1,
+                "name": "order_number",
+                "type": "single-line-text",
+                "required": true
+              },
               {
                 "id": 2,
                 "name": "discount",
                 "type": "decimal",
                 "required": true,
-                "validation": { "min": 0, "max": 100 }
+                "validation": {
+                  "min": 0,
+                  "max": 100
+                }
               }
             ]
           },
@@ -268,8 +300,18 @@
             "id": "tbl_orders",
             "name": "orders",
             "fields": [
-              { "id": 1, "name": "order_number", "type": "single-line-text", "required": true },
-              { "id": 2, "name": "discount", "type": "decimal", "required": true }
+              {
+                "id": 1,
+                "name": "order_number",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "discount",
+                "type": "decimal",
+                "required": true
+              }
             ]
           },
           "executeQuery": [
@@ -296,14 +338,14 @@
             "description": "Value exceeding old max now accepted",
             "executeQuery": "INSERT INTO orders (order_number, discount) VALUES ('ORD-003', 150.00) RETURNING discount",
             "expected": {
-              "discount": 150.0
+              "discount": 150
             }
           },
           {
             "description": "Negative value now accepted",
             "executeQuery": "INSERT INTO orders (order_number, discount) VALUES ('ORD-004', -20.00) RETURNING discount",
             "expected": {
-              "discount": -20.0
+              "discount": -20
             }
           },
           {

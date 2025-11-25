@@ -1,36 +1,6 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "rename-field.schema.json",
   "title": "Rename Field Migration",
   "description": "Runtime SQL migration scenario for renaming fields in existing tables via ALTER TABLE RENAME COLUMN",
-  "type": "object",
-  "properties": {
-    "previousSchema": {
-      "type": "object",
-      "description": "Table schema before field rename"
-    },
-    "newSchema": {
-      "type": "object",
-      "description": "Table schema after field rename"
-    },
-    "renamedField": {
-      "type": "object",
-      "properties": {
-        "oldName": {
-          "type": "string"
-        },
-        "newName": {
-          "type": "string"
-        },
-        "fieldId": {
-          "type": "integer",
-          "description": "Field ID must remain same to detect rename (not drop+add)"
-        }
-      },
-      "required": ["oldName", "newName", "fieldId"]
-    }
-  },
-  "required": ["previousSchema", "newSchema", "renamedField"],
   "x-specs": [
     {
       "id": "MIG-ALTER-RENAME-001",
@@ -49,7 +19,13 @@
                 "id": 1,
                 "name": "users",
                 "fields": [
-                  { "id": 1, "name": "email", "type": "email", "required": true, "unique": true }
+                  {
+                    "id": 1,
+                    "name": "email",
+                    "type": "email",
+                    "required": true,
+                    "unique": true
+                  }
                 ]
               }
             ]

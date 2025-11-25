@@ -1,33 +1,6 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "rls-policies.schema.json",
   "title": "Row-Level Security Policies Migration",
   "description": "Runtime SQL migration scenarios for enabling RLS and managing policies (SELECT, INSERT, UPDATE, DELETE)",
-  "type": "object",
-  "properties": {
-    "previousSchema": {
-      "type": "object",
-      "description": "Schema before RLS policy modification"
-    },
-    "newSchema": {
-      "type": "object",
-      "description": "Schema after RLS policy modification"
-    },
-    "rlsChange": {
-      "type": "object",
-      "properties": {
-        "operation": {
-          "enum": ["enable-rls", "disable-rls", "create-policy", "drop-policy", "alter-policy"],
-          "description": "Type of RLS operation"
-        },
-        "policyType": {
-          "enum": ["SELECT", "INSERT", "UPDATE", "DELETE", "ALL"],
-          "description": "Policy command type"
-        }
-      }
-    }
-  },
-  "required": ["previousSchema", "newSchema"],
   "x-specs": [
     {
       "id": "MIG-RLS-001",
@@ -40,8 +13,16 @@
             "id": "tbl_documents",
             "name": "documents",
             "fields": [
-              { "id": 1, "name": "title", "type": "single-line-text" },
-              { "id": 2, "name": "user_id", "type": "integer" }
+              {
+                "id": 1,
+                "name": "title",
+                "type": "single-line-text"
+              },
+              {
+                "id": 2,
+                "name": "user_id",
+                "type": "integer"
+              }
             ],
             "rls": {
               "enabled": false,
@@ -52,8 +33,16 @@
             "id": "tbl_documents",
             "name": "documents",
             "fields": [
-              { "id": 1, "name": "title", "type": "single-line-text" },
-              { "id": 2, "name": "user_id", "type": "integer" }
+              {
+                "id": 1,
+                "name": "title",
+                "type": "single-line-text"
+              },
+              {
+                "id": 2,
+                "name": "user_id",
+                "type": "integer"
+              }
             ],
             "rls": {
               "enabled": true,
@@ -116,8 +105,16 @@
             "id": "tbl_posts",
             "name": "posts",
             "fields": [
-              { "id": 1, "name": "content", "type": "long-text" },
-              { "id": 2, "name": "user_id", "type": "integer" }
+              {
+                "id": 1,
+                "name": "content",
+                "type": "long-text"
+              },
+              {
+                "id": 2,
+                "name": "user_id",
+                "type": "integer"
+              }
             ],
             "rls": {
               "enabled": true,
@@ -134,8 +131,16 @@
             "id": "tbl_posts",
             "name": "posts",
             "fields": [
-              { "id": 1, "name": "content", "type": "long-text" },
-              { "id": 2, "name": "user_id", "type": "integer" }
+              {
+                "id": 1,
+                "name": "content",
+                "type": "long-text"
+              },
+              {
+                "id": 2,
+                "name": "user_id",
+                "type": "integer"
+              }
             ],
             "rls": {
               "enabled": true,
@@ -199,8 +204,16 @@
             "id": "tbl_comments",
             "name": "comments",
             "fields": [
-              { "id": 1, "name": "text", "type": "long-text" },
-              { "id": 2, "name": "user_id", "type": "integer" }
+              {
+                "id": 1,
+                "name": "text",
+                "type": "long-text"
+              },
+              {
+                "id": 2,
+                "name": "user_id",
+                "type": "integer"
+              }
             ],
             "rls": {
               "enabled": true,
@@ -222,8 +235,16 @@
             "id": "tbl_comments",
             "name": "comments",
             "fields": [
-              { "id": 1, "name": "text", "type": "long-text" },
-              { "id": 2, "name": "user_id", "type": "integer" }
+              {
+                "id": 1,
+                "name": "text",
+                "type": "long-text"
+              },
+              {
+                "id": 2,
+                "name": "user_id",
+                "type": "integer"
+              }
             ],
             "rls": {
               "enabled": true,
@@ -294,8 +315,16 @@
             "id": "tbl_tasks",
             "name": "tasks",
             "fields": [
-              { "id": 1, "name": "title", "type": "single-line-text" },
-              { "id": 2, "name": "user_id", "type": "integer" }
+              {
+                "id": 1,
+                "name": "title",
+                "type": "single-line-text"
+              },
+              {
+                "id": 2,
+                "name": "user_id",
+                "type": "integer"
+              }
             ],
             "rls": {
               "enabled": true,
@@ -317,8 +346,16 @@
             "id": "tbl_tasks",
             "name": "tasks",
             "fields": [
-              { "id": 1, "name": "title", "type": "single-line-text" },
-              { "id": 2, "name": "user_id", "type": "integer" }
+              {
+                "id": 1,
+                "name": "title",
+                "type": "single-line-text"
+              },
+              {
+                "id": 2,
+                "name": "user_id",
+                "type": "integer"
+              }
             ],
             "rls": {
               "enabled": true,
@@ -382,8 +419,16 @@
             "id": "tbl_projects",
             "name": "projects",
             "fields": [
-              { "id": 1, "name": "name", "type": "single-line-text" },
-              { "id": 2, "name": "owner_id", "type": "integer" }
+              {
+                "id": 1,
+                "name": "name",
+                "type": "single-line-text"
+              },
+              {
+                "id": 2,
+                "name": "owner_id",
+                "type": "integer"
+              }
             ],
             "rls": {
               "enabled": true,
@@ -400,8 +445,16 @@
             "id": "tbl_projects",
             "name": "projects",
             "fields": [
-              { "id": 1, "name": "name", "type": "single-line-text" },
-              { "id": 2, "name": "user_id", "type": "integer" }
+              {
+                "id": 1,
+                "name": "name",
+                "type": "single-line-text"
+              },
+              {
+                "id": 2,
+                "name": "user_id",
+                "type": "integer"
+              }
             ],
             "rls": {
               "enabled": true,
@@ -454,8 +507,16 @@
             "id": "tbl_logs",
             "name": "logs",
             "fields": [
-              { "id": 1, "name": "message", "type": "long-text" },
-              { "id": 2, "name": "user_id", "type": "integer" }
+              {
+                "id": 1,
+                "name": "message",
+                "type": "long-text"
+              },
+              {
+                "id": 2,
+                "name": "user_id",
+                "type": "integer"
+              }
             ],
             "rls": {
               "enabled": true,
@@ -472,8 +533,16 @@
             "id": "tbl_logs",
             "name": "logs",
             "fields": [
-              { "id": 1, "name": "message", "type": "long-text" },
-              { "id": 2, "name": "user_id", "type": "integer" }
+              {
+                "id": 1,
+                "name": "message",
+                "type": "long-text"
+              },
+              {
+                "id": 2,
+                "name": "user_id",
+                "type": "integer"
+              }
             ],
             "rls": {
               "enabled": false,

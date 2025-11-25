@@ -1,33 +1,6 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "modify-indexes.schema.json",
   "title": "Modify Indexes Migration",
   "description": "Runtime SQL migration scenarios for adding, removing, and modifying database indexes via CREATE INDEX and DROP INDEX",
-  "type": "object",
-  "properties": {
-    "previousSchema": {
-      "type": "object",
-      "description": "Table schema before index modification"
-    },
-    "newSchema": {
-      "type": "object",
-      "description": "Table schema after index modification"
-    },
-    "indexChange": {
-      "type": "object",
-      "properties": {
-        "operation": {
-          "enum": ["add", "remove", "modify"],
-          "description": "Type of index operation"
-        },
-        "indexConfig": {
-          "type": "object",
-          "description": "Index configuration"
-        }
-      }
-    }
-  },
-  "required": ["previousSchema", "newSchema"],
   "x-specs": [
     {
       "id": "MIG-MODIFY-INDEX-001",
@@ -40,9 +13,23 @@
             "id": "tbl_products",
             "name": "products",
             "fields": [
-              { "id": 1, "name": "sku", "type": "single-line-text", "required": true },
-              { "id": 2, "name": "name", "type": "single-line-text", "required": true },
-              { "id": 3, "name": "category", "type": "single-select" }
+              {
+                "id": 1,
+                "name": "sku",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 3,
+                "name": "category",
+                "type": "single-select"
+              }
             ],
             "indexes": []
           },
@@ -50,11 +37,30 @@
             "id": "tbl_products",
             "name": "products",
             "fields": [
-              { "id": 1, "name": "sku", "type": "single-line-text", "required": true },
-              { "id": 2, "name": "name", "type": "single-line-text", "required": true },
-              { "id": 3, "name": "category", "type": "single-select" }
+              {
+                "id": 1,
+                "name": "sku",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 3,
+                "name": "category",
+                "type": "single-select"
+              }
             ],
-            "indexes": [{ "name": "idx_products_category", "fields": ["category"] }]
+            "indexes": [
+              {
+                "name": "idx_products_category",
+                "fields": ["category"]
+              }
+            ]
           },
           "executeQuery": [
             "CREATE TABLE products (id SERIAL PRIMARY KEY, sku VARCHAR(255) NOT NULL, name VARCHAR(255) NOT NULL, category VARCHAR(50))",
@@ -104,9 +110,21 @@
             "id": "tbl_contacts",
             "name": "contacts",
             "fields": [
-              { "id": 1, "name": "first_name", "type": "single-line-text" },
-              { "id": 2, "name": "last_name", "type": "single-line-text" },
-              { "id": 3, "name": "email", "type": "email" }
+              {
+                "id": 1,
+                "name": "first_name",
+                "type": "single-line-text"
+              },
+              {
+                "id": 2,
+                "name": "last_name",
+                "type": "single-line-text"
+              },
+              {
+                "id": 3,
+                "name": "email",
+                "type": "email"
+              }
             ],
             "indexes": []
           },
@@ -114,11 +132,28 @@
             "id": "tbl_contacts",
             "name": "contacts",
             "fields": [
-              { "id": 1, "name": "first_name", "type": "single-line-text" },
-              { "id": 2, "name": "last_name", "type": "single-line-text" },
-              { "id": 3, "name": "email", "type": "email" }
+              {
+                "id": 1,
+                "name": "first_name",
+                "type": "single-line-text"
+              },
+              {
+                "id": 2,
+                "name": "last_name",
+                "type": "single-line-text"
+              },
+              {
+                "id": 3,
+                "name": "email",
+                "type": "email"
+              }
             ],
-            "indexes": [{ "name": "idx_contacts_name", "fields": ["last_name", "first_name"] }]
+            "indexes": [
+              {
+                "name": "idx_contacts_name",
+                "fields": ["last_name", "first_name"]
+              }
+            ]
           },
           "executeQuery": [
             "CREATE TABLE contacts (id SERIAL PRIMARY KEY, first_name VARCHAR(255), last_name VARCHAR(255), email VARCHAR(255))",
@@ -167,17 +202,38 @@
             "id": "tbl_users",
             "name": "users",
             "fields": [
-              { "id": 1, "name": "email", "type": "email" },
-              { "id": 2, "name": "name", "type": "single-line-text" }
+              {
+                "id": 1,
+                "name": "email",
+                "type": "email"
+              },
+              {
+                "id": 2,
+                "name": "name",
+                "type": "single-line-text"
+              }
             ],
-            "indexes": [{ "name": "idx_users_email", "fields": ["email"] }]
+            "indexes": [
+              {
+                "name": "idx_users_email",
+                "fields": ["email"]
+              }
+            ]
           },
           "newSchema": {
             "id": "tbl_users",
             "name": "users",
             "fields": [
-              { "id": 1, "name": "email", "type": "email" },
-              { "id": 2, "name": "name", "type": "single-line-text" }
+              {
+                "id": 1,
+                "name": "email",
+                "type": "email"
+              },
+              {
+                "id": 2,
+                "name": "name",
+                "type": "single-line-text"
+              }
             ],
             "indexes": []
           },
@@ -229,22 +285,54 @@
             "id": "tbl_orders",
             "name": "orders",
             "fields": [
-              { "id": 1, "name": "customer_id", "type": "integer" },
-              { "id": 2, "name": "created_at", "type": "datetime" },
-              { "id": 3, "name": "total", "type": "decimal" }
+              {
+                "id": 1,
+                "name": "customer_id",
+                "type": "integer"
+              },
+              {
+                "id": 2,
+                "name": "created_at",
+                "type": "datetime"
+              },
+              {
+                "id": 3,
+                "name": "total",
+                "type": "decimal"
+              }
             ],
-            "indexes": [{ "name": "idx_orders_customer", "fields": ["customer_id"] }]
+            "indexes": [
+              {
+                "name": "idx_orders_customer",
+                "fields": ["customer_id"]
+              }
+            ]
           },
           "newSchema": {
             "id": "tbl_orders",
             "name": "orders",
             "fields": [
-              { "id": 1, "name": "customer_id", "type": "integer" },
-              { "id": 2, "name": "created_at", "type": "datetime" },
-              { "id": 3, "name": "total", "type": "decimal" }
+              {
+                "id": 1,
+                "name": "customer_id",
+                "type": "integer"
+              },
+              {
+                "id": 2,
+                "name": "created_at",
+                "type": "datetime"
+              },
+              {
+                "id": 3,
+                "name": "total",
+                "type": "decimal"
+              }
             ],
             "indexes": [
-              { "name": "idx_orders_customer_date", "fields": ["customer_id", "created_at"] }
+              {
+                "name": "idx_orders_customer_date",
+                "fields": ["customer_id", "created_at"]
+              }
             ]
           },
           "executeQuery": [
@@ -298,21 +386,47 @@
             "id": "tbl_accounts",
             "name": "accounts",
             "fields": [
-              { "id": 1, "name": "username", "type": "single-line-text" },
-              { "id": 2, "name": "email", "type": "email" }
+              {
+                "id": 1,
+                "name": "username",
+                "type": "single-line-text"
+              },
+              {
+                "id": 2,
+                "name": "email",
+                "type": "email"
+              }
             ],
             "indexes": [
-              { "name": "idx_accounts_username", "fields": ["username"], "unique": false }
+              {
+                "name": "idx_accounts_username",
+                "fields": ["username"],
+                "unique": false
+              }
             ]
           },
           "newSchema": {
             "id": "tbl_accounts",
             "name": "accounts",
             "fields": [
-              { "id": 1, "name": "username", "type": "single-line-text" },
-              { "id": 2, "name": "email", "type": "email" }
+              {
+                "id": 1,
+                "name": "username",
+                "type": "single-line-text"
+              },
+              {
+                "id": 2,
+                "name": "email",
+                "type": "email"
+              }
             ],
-            "indexes": [{ "name": "idx_accounts_username", "fields": ["username"], "unique": true }]
+            "indexes": [
+              {
+                "name": "idx_accounts_username",
+                "fields": ["username"],
+                "unique": true
+              }
+            ]
           },
           "executeQuery": [
             "CREATE TABLE accounts (id SERIAL PRIMARY KEY, username VARCHAR(255), email VARCHAR(255))",
@@ -363,9 +477,21 @@
             "id": "tbl_events",
             "name": "events",
             "fields": [
-              { "id": 1, "name": "user_id", "type": "integer" },
-              { "id": 2, "name": "event_type", "type": "single-line-text" },
-              { "id": 3, "name": "created_at", "type": "datetime" }
+              {
+                "id": 1,
+                "name": "user_id",
+                "type": "integer"
+              },
+              {
+                "id": 2,
+                "name": "event_type",
+                "type": "single-line-text"
+              },
+              {
+                "id": 3,
+                "name": "created_at",
+                "type": "datetime"
+              }
             ],
             "indexes": []
           },
@@ -373,11 +499,29 @@
             "id": "tbl_events",
             "name": "events",
             "fields": [
-              { "id": 1, "name": "user_id", "type": "integer" },
-              { "id": 2, "name": "event_type", "type": "single-line-text" },
-              { "id": 3, "name": "created_at", "type": "datetime" }
+              {
+                "id": 1,
+                "name": "user_id",
+                "type": "integer"
+              },
+              {
+                "id": 2,
+                "name": "event_type",
+                "type": "single-line-text"
+              },
+              {
+                "id": 3,
+                "name": "created_at",
+                "type": "datetime"
+              }
             ],
-            "indexes": [{ "name": "idx_events_user", "fields": ["user_id"], "concurrent": true }]
+            "indexes": [
+              {
+                "name": "idx_events_user",
+                "fields": ["user_id"],
+                "concurrent": true
+              }
+            ]
           },
           "executeQuery": [
             "CREATE TABLE events (id SERIAL PRIMARY KEY, user_id INTEGER, event_type VARCHAR(50), created_at TIMESTAMPTZ)",

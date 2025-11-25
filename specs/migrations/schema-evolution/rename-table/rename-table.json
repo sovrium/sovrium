@@ -1,28 +1,6 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "rename-table.schema.json",
   "title": "Rename Table Migration",
   "description": "Runtime SQL migration scenario for renaming tables via ALTER TABLE RENAME TO",
-  "type": "object",
-  "properties": {
-    "previousSchema": {
-      "type": "object",
-      "description": "Table schema before rename"
-    },
-    "newSchema": {
-      "type": "object",
-      "description": "Table schema after rename"
-    },
-    "oldTableName": {
-      "type": "string",
-      "description": "Original table name"
-    },
-    "newTableName": {
-      "type": "string",
-      "description": "New table name"
-    }
-  },
-  "required": ["previousSchema", "newSchema", "oldTableName", "newTableName"],
   "x-specs": [
     {
       "id": "MIG-RENAME-TABLE-001",
@@ -35,16 +13,38 @@
             "id": "tbl_users",
             "name": "users",
             "fields": [
-              { "id": 1, "name": "email", "type": "email", "required": true, "unique": true },
-              { "id": 2, "name": "name", "type": "single-line-text", "required": true }
+              {
+                "id": 1,
+                "name": "email",
+                "type": "email",
+                "required": true,
+                "unique": true
+              },
+              {
+                "id": 2,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              }
             ]
           },
           "newSchema": {
             "id": "tbl_users",
             "name": "customers",
             "fields": [
-              { "id": 1, "name": "email", "type": "email", "required": true, "unique": true },
-              { "id": 2, "name": "name", "type": "single-line-text", "required": true }
+              {
+                "id": 1,
+                "name": "email",
+                "type": "email",
+                "required": true,
+                "unique": true
+              },
+              {
+                "id": 2,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              }
             ]
           },
           "executeQuery": [
@@ -114,12 +114,24 @@
           "previousSchema": {
             "id": "tbl_posts",
             "name": "posts",
-            "fields": [{ "id": 1, "name": "title", "type": "single-line-text" }]
+            "fields": [
+              {
+                "id": 1,
+                "name": "title",
+                "type": "single-line-text"
+              }
+            ]
           },
           "newSchema": {
             "id": "tbl_posts",
             "name": "articles",
-            "fields": [{ "id": 1, "name": "title", "type": "single-line-text" }]
+            "fields": [
+              {
+                "id": 1,
+                "name": "title",
+                "type": "single-line-text"
+              }
+            ]
           }
         },
         "assertions": [
@@ -175,8 +187,17 @@
                 "required": true,
                 "unique": true
               },
-              { "id": 2, "name": "name", "type": "single-line-text", "required": true },
-              { "id": 3, "name": "category", "type": "single-select" }
+              {
+                "id": 2,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 3,
+                "name": "category",
+                "type": "single-select"
+              }
             ]
           },
           "newSchema": {
@@ -190,8 +211,17 @@
                 "required": true,
                 "unique": true
               },
-              { "id": 2, "name": "name", "type": "single-line-text", "required": true },
-              { "id": 3, "name": "category", "type": "single-select" }
+              {
+                "id": 2,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              },
+              {
+                "id": 3,
+                "name": "category",
+                "type": "single-select"
+              }
             ]
           }
         },
@@ -240,12 +270,24 @@
           "previousSchema": {
             "id": "tbl_users",
             "name": "users",
-            "fields": [{ "id": 1, "name": "email", "type": "email" }]
+            "fields": [
+              {
+                "id": 1,
+                "name": "email",
+                "type": "email"
+              }
+            ]
           },
           "newSchema": {
             "id": "tbl_users",
             "name": "customers",
-            "fields": [{ "id": 1, "name": "email", "type": "email" }]
+            "fields": [
+              {
+                "id": 1,
+                "name": "email",
+                "type": "email"
+              }
+            ]
           }
         },
         "assertions": [

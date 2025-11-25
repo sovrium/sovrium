@@ -1,33 +1,6 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "modify-unique-constraints.schema.json",
   "title": "Modify Unique Constraints Migration",
   "description": "Runtime SQL migration scenarios for adding and removing unique constraints via ALTER TABLE ADD/DROP CONSTRAINT",
-  "type": "object",
-  "properties": {
-    "previousSchema": {
-      "type": "object",
-      "description": "Table schema before constraint modification"
-    },
-    "newSchema": {
-      "type": "object",
-      "description": "Table schema after constraint modification"
-    },
-    "constraintChange": {
-      "type": "object",
-      "properties": {
-        "operation": {
-          "enum": ["add", "remove", "modify"],
-          "description": "Type of constraint operation"
-        },
-        "constraintConfig": {
-          "type": "object",
-          "description": "Constraint configuration"
-        }
-      }
-    }
-  },
-  "required": ["previousSchema", "newSchema"],
   "x-specs": [
     {
       "id": "MIG-MODIFY-UNIQUE-001",
@@ -40,8 +13,18 @@
             "id": "tbl_users",
             "name": "users",
             "fields": [
-              { "id": 1, "name": "email", "type": "email", "required": true },
-              { "id": 2, "name": "name", "type": "single-line-text", "required": true }
+              {
+                "id": 1,
+                "name": "email",
+                "type": "email",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              }
             ],
             "uniqueConstraints": []
           },
@@ -49,10 +32,25 @@
             "id": "tbl_users",
             "name": "users",
             "fields": [
-              { "id": 1, "name": "email", "type": "email", "required": true },
-              { "id": 2, "name": "name", "type": "single-line-text", "required": true }
+              {
+                "id": 1,
+                "name": "email",
+                "type": "email",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              }
             ],
-            "uniqueConstraints": [{ "name": "uq_users_email", "fields": ["email"] }]
+            "uniqueConstraints": [
+              {
+                "name": "uq_users_email",
+                "fields": ["email"]
+              }
+            ]
           },
           "executeQuery": [
             "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL, name VARCHAR(255) NOT NULL)",
@@ -100,17 +98,38 @@
             "id": "tbl_accounts",
             "name": "accounts",
             "fields": [
-              { "id": 1, "name": "username", "type": "single-line-text" },
-              { "id": 2, "name": "email", "type": "email" }
+              {
+                "id": 1,
+                "name": "username",
+                "type": "single-line-text"
+              },
+              {
+                "id": 2,
+                "name": "email",
+                "type": "email"
+              }
             ],
-            "uniqueConstraints": [{ "name": "uq_accounts_username", "fields": ["username"] }]
+            "uniqueConstraints": [
+              {
+                "name": "uq_accounts_username",
+                "fields": ["username"]
+              }
+            ]
           },
           "newSchema": {
             "id": "tbl_accounts",
             "name": "accounts",
             "fields": [
-              { "id": 1, "name": "username", "type": "single-line-text" },
-              { "id": 2, "name": "email", "type": "email" }
+              {
+                "id": 1,
+                "name": "username",
+                "type": "single-line-text"
+              },
+              {
+                "id": 2,
+                "name": "email",
+                "type": "email"
+              }
             ],
             "uniqueConstraints": []
           },
@@ -162,9 +181,24 @@
             "id": "tbl_tenant_users",
             "name": "tenant_users",
             "fields": [
-              { "id": 1, "name": "tenant_id", "type": "integer", "required": true },
-              { "id": 2, "name": "email", "type": "email", "required": true },
-              { "id": 3, "name": "name", "type": "single-line-text", "required": true }
+              {
+                "id": 1,
+                "name": "tenant_id",
+                "type": "integer",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "email",
+                "type": "email",
+                "required": true
+              },
+              {
+                "id": 3,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              }
             ],
             "uniqueConstraints": []
           },
@@ -172,12 +206,30 @@
             "id": "tbl_tenant_users",
             "name": "tenant_users",
             "fields": [
-              { "id": 1, "name": "tenant_id", "type": "integer", "required": true },
-              { "id": 2, "name": "email", "type": "email", "required": true },
-              { "id": 3, "name": "name", "type": "single-line-text", "required": true }
+              {
+                "id": 1,
+                "name": "tenant_id",
+                "type": "integer",
+                "required": true
+              },
+              {
+                "id": 2,
+                "name": "email",
+                "type": "email",
+                "required": true
+              },
+              {
+                "id": 3,
+                "name": "name",
+                "type": "single-line-text",
+                "required": true
+              }
             ],
             "uniqueConstraints": [
-              { "name": "uq_tenant_users_email", "fields": ["tenant_id", "email"] }
+              {
+                "name": "uq_tenant_users_email",
+                "fields": ["tenant_id", "email"]
+              }
             ]
           },
           "executeQuery": [
@@ -234,8 +286,16 @@
             "id": "tbl_products",
             "name": "products",
             "fields": [
-              { "id": 1, "name": "sku", "type": "single-line-text" },
-              { "id": 2, "name": "name", "type": "single-line-text" }
+              {
+                "id": 1,
+                "name": "sku",
+                "type": "single-line-text"
+              },
+              {
+                "id": 2,
+                "name": "name",
+                "type": "single-line-text"
+              }
             ],
             "uniqueConstraints": []
           },
@@ -243,10 +303,23 @@
             "id": "tbl_products",
             "name": "products",
             "fields": [
-              { "id": 1, "name": "sku", "type": "single-line-text" },
-              { "id": 2, "name": "name", "type": "single-line-text" }
+              {
+                "id": 1,
+                "name": "sku",
+                "type": "single-line-text"
+              },
+              {
+                "id": 2,
+                "name": "name",
+                "type": "single-line-text"
+              }
             ],
-            "uniqueConstraints": [{ "name": "uq_products_sku", "fields": ["sku"] }]
+            "uniqueConstraints": [
+              {
+                "name": "uq_products_sku",
+                "fields": ["sku"]
+              }
+            ]
           },
           "executeQuery": [
             "CREATE TABLE products (id SERIAL PRIMARY KEY, sku VARCHAR(100), name VARCHAR(255))",
@@ -294,22 +367,54 @@
             "id": "tbl_orders",
             "name": "orders",
             "fields": [
-              { "id": 1, "name": "tenant_id", "type": "integer" },
-              { "id": 2, "name": "order_number", "type": "single-line-text" },
-              { "id": 3, "name": "total", "type": "decimal" }
+              {
+                "id": 1,
+                "name": "tenant_id",
+                "type": "integer"
+              },
+              {
+                "id": 2,
+                "name": "order_number",
+                "type": "single-line-text"
+              },
+              {
+                "id": 3,
+                "name": "total",
+                "type": "decimal"
+              }
             ],
-            "uniqueConstraints": [{ "name": "uq_orders_number", "fields": ["order_number"] }]
+            "uniqueConstraints": [
+              {
+                "name": "uq_orders_number",
+                "fields": ["order_number"]
+              }
+            ]
           },
           "newSchema": {
             "id": "tbl_orders",
             "name": "orders",
             "fields": [
-              { "id": 1, "name": "tenant_id", "type": "integer" },
-              { "id": 2, "name": "order_number", "type": "single-line-text" },
-              { "id": 3, "name": "total", "type": "decimal" }
+              {
+                "id": 1,
+                "name": "tenant_id",
+                "type": "integer"
+              },
+              {
+                "id": 2,
+                "name": "order_number",
+                "type": "single-line-text"
+              },
+              {
+                "id": 3,
+                "name": "total",
+                "type": "decimal"
+              }
             ],
             "uniqueConstraints": [
-              { "name": "uq_orders_number", "fields": ["order_number", "tenant_id"] }
+              {
+                "name": "uq_orders_number",
+                "fields": ["order_number", "tenant_id"]
+              }
             ]
           },
           "executeQuery": [

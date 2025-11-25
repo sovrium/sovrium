@@ -1,20 +1,6 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "modify-field-unique.schema.json",
   "title": "Modify Field Unique Migration",
   "description": "Runtime SQL migration scenarios for adding and removing UNIQUE constraints on individual fields via ALTER TABLE ADD/DROP CONSTRAINT",
-  "type": "object",
-  "properties": {
-    "previousSchema": {
-      "type": "object",
-      "description": "Table schema before unique constraint modification"
-    },
-    "newSchema": {
-      "type": "object",
-      "description": "Table schema after unique constraint modification"
-    }
-  },
-  "required": ["previousSchema", "newSchema"],
   "x-specs": [
     {
       "id": "MIG-MODIFY-UNIQUE-001",

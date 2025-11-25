@@ -1,24 +1,6 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "add-field.schema.json",
   "title": "Add Field Migration",
   "description": "Runtime SQL migration scenario for adding new fields to existing tables via ALTER TABLE ADD COLUMN",
-  "type": "object",
-  "properties": {
-    "previousSchema": {
-      "type": "object",
-      "description": "Table schema before field addition"
-    },
-    "newSchema": {
-      "type": "object",
-      "description": "Table schema after field addition"
-    },
-    "addedField": {
-      "type": "object",
-      "description": "Field configuration that was added"
-    }
-  },
-  "required": ["previousSchema", "newSchema", "addedField"],
   "x-specs": [
     {
       "id": "MIG-ALTER-ADD-001",
@@ -37,7 +19,13 @@
                 "id": 1,
                 "name": "users",
                 "fields": [
-                  { "id": 1, "name": "email", "type": "email", "required": true, "unique": true }
+                  {
+                    "id": 1,
+                    "name": "email",
+                    "type": "email",
+                    "required": true,
+                    "unique": true
+                  }
                 ]
               }
             ]
@@ -48,8 +36,19 @@
                 "id": 1,
                 "name": "users",
                 "fields": [
-                  { "id": 1, "name": "email", "type": "email", "required": true, "unique": true },
-                  { "id": 2, "name": "name", "type": "single-line-text", "required": true }
+                  {
+                    "id": 1,
+                    "name": "email",
+                    "type": "email",
+                    "required": true,
+                    "unique": true
+                  },
+                  {
+                    "id": 2,
+                    "name": "name",
+                    "type": "single-line-text",
+                    "required": true
+                  }
                 ]
               }
             ]
@@ -98,8 +97,18 @@
                 "id": 1,
                 "name": "products",
                 "fields": [
-                  { "id": 1, "name": "title", "type": "single-line-text", "required": true },
-                  { "id": 2, "name": "description", "type": "long-text", "required": false }
+                  {
+                    "id": 1,
+                    "name": "title",
+                    "type": "single-line-text",
+                    "required": true
+                  },
+                  {
+                    "id": 2,
+                    "name": "description",
+                    "type": "long-text",
+                    "required": false
+                  }
                 ]
               }
             ]
@@ -146,7 +155,12 @@
                 "id": 1,
                 "name": "tasks",
                 "fields": [
-                  { "id": 1, "name": "title", "type": "single-line-text", "required": true },
+                  {
+                    "id": 1,
+                    "name": "title",
+                    "type": "single-line-text",
+                    "required": true
+                  },
                   {
                     "id": 2,
                     "name": "priority",
@@ -200,8 +214,19 @@
                 "id": 1,
                 "name": "orders",
                 "fields": [
-                  { "id": 1, "name": "order_number", "type": "single-line-text", "required": true },
-                  { "id": 2, "name": "total", "type": "decimal", "required": true, "default": 0.0 }
+                  {
+                    "id": 1,
+                    "name": "order_number",
+                    "type": "single-line-text",
+                    "required": true
+                  },
+                  {
+                    "id": 2,
+                    "name": "total",
+                    "type": "decimal",
+                    "required": true,
+                    "default": 0
+                  }
                 ]
               }
             ]
