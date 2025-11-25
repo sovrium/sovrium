@@ -323,7 +323,7 @@ test.describe('Page Sections', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SECTIONS-010: should support hybrid section composition',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -332,11 +332,9 @@ test.describe('Page Sections', () => {
         name: 'test-app',
         blocks: [
           {
-            id: 'cta-section',
-            structure: {
-              type: 'section',
-              children: [{ type: 'button', content: '$buttonLabel' }],
-            },
+            name: 'cta-section',
+            type: 'section',
+            children: [{ type: 'button', content: '$buttonLabel' }],
           },
         ],
         pages: [
