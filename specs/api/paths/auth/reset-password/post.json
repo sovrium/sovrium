@@ -88,16 +88,343 @@
   },
   "x-specs": [
     {
-      "id": "API-AUTH-RESET-PASSWORD-001",
-      "given": "A running server",
-      "when": "User submits reset without new password",
-      "then": "Response should be validation error (4xx)"
+      "id": "API-AUTH-RESET-PASSWORD-SUCCESS-001",
+      "given": "A user with valid reset token",
+      "when": "User submits valid token and new password",
+      "then": "Returns 200 OK and password is updated",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$OldPasswordHash', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO password_reset_tokens (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_reset_token', NOW() + INTERVAL '1 hour', NOW())"
+          ],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/reset-password",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "token": "valid_reset_token",
+              "newPassword": "NewSecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Response indicates success",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "boolean",
+                  "enum": [true]
+                }
+              },
+              "required": ["status"]
+            }
+          },
+          {
+            "description": "Password hash is updated in database",
+            "validateDatabaseState": {
+              "query": "SELECT password_hash FROM users WHERE id = 1",
+              "expectedRows": 1,
+              "rowValidation": {
+                "password_hash": {
+                  "notEquals": "$2a$10$OldPasswordHash"
+                }
+              }
+            }
+          },
+          {
+            "description": "Reset token is marked as used",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM password_reset_tokens WHERE token = 'valid_reset_token' AND used_at IS NOT NULL",
+              "expectedRows": 1
+            }
+          }
+        ]
+      }
     },
     {
-      "id": "API-AUTH-RESET-PASSWORD-002",
+      "id": "API-AUTH-RESET-PASSWORD-VALIDATION-REQUIRED-NEW-PASSWORD-001",
+      "given": "A user with valid reset token",
+      "when": "User submits request without newPassword field",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$OldPasswordHash', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO password_reset_tokens (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_reset_token', NOW() + INTERVAL '1 hour', NOW())"
+          ],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/reset-password",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "token": "valid_reset_token"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for newPassword field",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-RESET-PASSWORD-VALIDATION-PASSWORD-TOO-SHORT-001",
+      "given": "A user with valid reset token",
+      "when": "User submits new password shorter than minimum length (8 characters)",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$OldPasswordHash', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO password_reset_tokens (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_reset_token', NOW() + INTERVAL '1 hour', NOW())"
+          ],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/reset-password",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "token": "valid_reset_token",
+              "newPassword": "Short1!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for password length",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-RESET-PASSWORD-PERMISSIONS-INVALID-TOKEN-001",
       "given": "A running server",
-      "when": "User submits reset with invalid token",
-      "then": "Response should be client error (4xx) - Better Auth returns 400 for invalid token"
+      "when": "User submits request with invalid token",
+      "then": "Returns 401 Unauthorized (or 400 depending on Better Auth version)",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/reset-password",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "token": "invalid_token_abc123",
+              "newPassword": "NewSecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 or 400 (depending on Better Auth version)",
+            "expectedStatusRange": [400, 401]
+          },
+          {
+            "description": "Response contains error about invalid token",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-RESET-PASSWORD-PERMISSIONS-EXPIRED-TOKEN-001",
+      "given": "A user with expired reset token",
+      "when": "User submits request with expired token",
+      "then": "Returns 401 Unauthorized (or 400 depending on Better Auth version)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$OldPasswordHash', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO password_reset_tokens (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'expired_token', NOW() - INTERVAL '1 hour', NOW() - INTERVAL '2 hours')"
+          ],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/reset-password",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "token": "expired_token",
+              "newPassword": "NewSecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 or 400 (depending on Better Auth version)",
+            "expectedStatusRange": [400, 401]
+          },
+          {
+            "description": "Response contains error about expired token",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-RESET-PASSWORD-SECURITY-TOKEN-REUSE-PREVENTION-001",
+      "given": "A user who has already used their reset token",
+      "when": "User attempts to reuse the same token",
+      "then": "Returns 401 Unauthorized (token already used)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$OldPasswordHash', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO password_reset_tokens (id, user_id, token, expires_at, used_at, created_at) VALUES (1, 1, 'used_token', NOW() + INTERVAL '1 hour', NOW() - INTERVAL '5 minutes', NOW())"
+          ],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/reset-password",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "token": "used_token",
+              "newPassword": "NewSecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 or 400 (token already used)",
+            "expectedStatusRange": [400, 401]
+          },
+          {
+            "description": "Response contains error about invalid token",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-RESET-PASSWORD-EDGE-CASE-MISSING-TOKEN-001",
+      "given": "A running server",
+      "when": "User submits request without token field",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/reset-password",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "newPassword": "NewSecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains error about missing token",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-RESET-PASSWORD-EDGE-CASE-REVOKE-ALL-SESSIONS-001",
+      "given": "A user with active sessions and valid reset token",
+      "when": "User resets password",
+      "then": "Returns 200 OK and all active sessions are revoked",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$OldPasswordHash', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO password_reset_tokens (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_reset_token', NOW() + INTERVAL '1 hour', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'session_1', NOW() + INTERVAL '7 days', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (2, 1, 'session_2', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/reset-password",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "token": "valid_reset_token",
+              "newPassword": "NewSecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "All user sessions are revoked for security",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM sessions WHERE user_id = 1 AND deleted_at IS NOT NULL",
+              "expectedRows": 2
+            }
+          }
+        ]
+      }
     }
   ]
 }

@@ -123,22 +123,382 @@
   },
   "x-specs": [
     {
-      "id": "API-AUTH-CHANGE-PASSWORD-001",
-      "given": "A running server",
-      "when": "User requests password change without newPassword",
-      "then": "Response should be validation error (4xx)"
+      "id": "API-AUTH-CHANGE-PASSWORD-SUCCESS-001",
+      "given": "An authenticated user with valid current password",
+      "when": "User submits correct current password and valid new password",
+      "then": "Returns 200 OK and password is updated",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourCurrentPasswordHash', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/change-password",
+            "headers": {
+              "Authorization": "Bearer valid_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "currentPassword": "CurrentPass123!",
+              "newPassword": "NewSecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Response contains user data",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "user": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "email": { "type": "string" },
+                    "name": { "type": "string" }
+                  },
+                  "required": ["id", "email", "name"]
+                }
+              },
+              "required": ["user"]
+            }
+          },
+          {
+            "description": "Password hash is updated in database",
+            "validateDatabaseState": {
+              "query": "SELECT password_hash FROM users WHERE id = 1",
+              "expectedRows": 1,
+              "rowValidation": {
+                "password_hash": {
+                  "notEquals": "$2a$10$YourCurrentPasswordHash"
+                }
+              }
+            }
+          }
+        ]
+      }
     },
     {
-      "id": "API-AUTH-CHANGE-PASSWORD-002",
-      "given": "A running server",
-      "when": "Unauthenticated user requests password change",
-      "then": "Response should be unauthorized (401)"
+      "id": "API-AUTH-CHANGE-PASSWORD-SUCCESS-REVOKE-SESSIONS-001",
+      "given": "An authenticated user with multiple active sessions",
+      "when": "User changes password with revokeOtherSessions enabled",
+      "then": "Returns 200 OK with new token and revokes all other sessions",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourCurrentPasswordHash', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'current_session', NOW() + INTERVAL '7 days', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (2, 1, 'other_session_1', NOW() + INTERVAL '7 days', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (3, 1, 'other_session_2', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/change-password",
+            "headers": {
+              "Authorization": "Bearer current_session",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "currentPassword": "CurrentPass123!",
+              "newPassword": "NewSecurePass123!",
+              "revokeOtherSessions": true
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Response contains new token",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "token": { "type": "string" },
+                "user": { "type": "object" }
+              },
+              "required": ["token", "user"]
+            }
+          },
+          {
+            "description": "Other sessions are revoked in database",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM sessions WHERE user_id = 1 AND token IN ('other_session_1', 'other_session_2') AND deleted_at IS NOT NULL",
+              "expectedRows": 2
+            }
+          }
+        ]
+      }
     },
     {
-      "id": "API-AUTH-CHANGE-PASSWORD-003",
+      "id": "API-AUTH-CHANGE-PASSWORD-VALIDATION-REQUIRED-NEW-PASSWORD-001",
+      "given": "An authenticated user",
+      "when": "User submits request without newPassword field",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourCurrentPasswordHash', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/change-password",
+            "headers": {
+              "Authorization": "Bearer valid_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "currentPassword": "CurrentPass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for newPassword field",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-CHANGE-PASSWORD-VALIDATION-REQUIRED-CURRENT-PASSWORD-001",
+      "given": "An authenticated user",
+      "when": "User submits request without currentPassword field",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourCurrentPasswordHash', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/change-password",
+            "headers": {
+              "Authorization": "Bearer valid_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "newPassword": "NewSecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for currentPassword field",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-CHANGE-PASSWORD-VALIDATION-PASSWORD-TOO-SHORT-001",
+      "given": "An authenticated user",
+      "when": "User submits new password shorter than minimum length (8 characters)",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourCurrentPasswordHash', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/change-password",
+            "headers": {
+              "Authorization": "Bearer valid_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "currentPassword": "CurrentPass123!",
+              "newPassword": "Short1!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for password length",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-CHANGE-PASSWORD-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001",
       "given": "A running server",
-      "when": "User submits wrong current password",
-      "then": "Response should be client error (4xx) - Better Auth returns 400 for invalid credentials"
+      "when": "Unauthenticated user attempts to change password",
+      "then": "Returns 401 Unauthorized",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/change-password",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "currentPassword": "CurrentPass123!",
+              "newPassword": "NewSecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 Unauthorized",
+            "expectedStatus": 401
+          },
+          {
+            "description": "Response contains error about missing authentication",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-CHANGE-PASSWORD-PERMISSIONS-UNAUTHORIZED-WRONG-PASSWORD-001",
+      "given": "An authenticated user",
+      "when": "User submits incorrect current password",
+      "then": "Returns 401 Unauthorized (or 400 Bad Request depending on Better Auth version)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourCurrentPasswordHash', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/change-password",
+            "headers": {
+              "Authorization": "Bearer valid_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "currentPassword": "WrongPassword123!",
+              "newPassword": "NewSecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 or 400 (depending on Better Auth version)",
+            "expectedStatusRange": [400, 401]
+          },
+          {
+            "description": "Response contains error about invalid password",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-CHANGE-PASSWORD-EDGE-CASE-SAME-PASSWORD-001",
+      "given": "An authenticated user",
+      "when": "User attempts to change password to the same password",
+      "then": "Returns 200 OK (same password allowed) or 400 (rejected)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourCurrentPasswordHash', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/change-password",
+            "headers": {
+              "Authorization": "Bearer valid_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "currentPassword": "CurrentPass123!",
+              "newPassword": "CurrentPass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns success or validation error (implementation-dependent)",
+            "expectedStatusRange": [200, 400]
+          }
+        ]
+      }
     }
   ]
 }

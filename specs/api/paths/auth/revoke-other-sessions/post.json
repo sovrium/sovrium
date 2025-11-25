@@ -1,0 +1,296 @@
+{
+  "summary": "Revoke all other sessions",
+  "description": "Revokes all active sessions for the authenticated user except the current session. Useful for logging out from all other devices while keeping the current session active.",
+  "operationId": "revokeOtherSessions",
+  "tags": ["authentication"],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "responses": {
+    "200": {
+      "description": "Success - Other sessions revoked successfully",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "required": ["status"],
+            "properties": {
+              "status": {
+                "type": "boolean",
+                "enum": [true],
+                "description": "Indicates successful revocation of other sessions"
+              }
+            }
+          },
+          "examples": {
+            "sessionsRevoked": {
+              "summary": "Other sessions revoked",
+              "value": {
+                "status": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "401": {
+      "description": "Unauthorized - User not authenticated",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../components/schemas/Error.json"
+          }
+        }
+      }
+    }
+  },
+  "x-specs": [
+    {
+      "id": "API-AUTH-REVOKE-OTHER-SESSIONS-SUCCESS-001",
+      "given": "An authenticated user with multiple active sessions",
+      "when": "User revokes all other sessions",
+      "then": "Returns 200 OK and revokes all sessions except current one",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'current_session', NOW() + INTERVAL '7 days', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (2, 1, 'other_session_1', NOW() + INTERVAL '7 days', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (3, 1, 'other_session_2', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/revoke-other-sessions",
+            "headers": {
+              "Authorization": "Bearer current_session",
+              "Content-Type": "application/json"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Response indicates success",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "boolean",
+                  "enum": [true]
+                }
+              },
+              "required": ["status"]
+            }
+          },
+          {
+            "description": "Other sessions are revoked in database",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM sessions WHERE user_id = 1 AND id IN (2, 3) AND deleted_at IS NOT NULL",
+              "expectedRows": 2
+            }
+          },
+          {
+            "description": "Current session remains active",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM sessions WHERE id = 1 AND deleted_at IS NULL",
+              "expectedRows": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-REVOKE-OTHER-SESSIONS-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001",
+      "given": "A running server",
+      "when": "Unauthenticated user attempts to revoke other sessions",
+      "then": "Returns 401 Unauthorized",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/revoke-other-sessions",
+            "headers": {
+              "Content-Type": "application/json"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 Unauthorized",
+            "expectedStatus": 401
+          },
+          {
+            "description": "Response contains error about missing authentication",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-REVOKE-OTHER-SESSIONS-EDGE-CASE-SINGLE-SESSION-001",
+      "given": "An authenticated user with only current session",
+      "when": "User revokes other sessions (none exist)",
+      "then": "Returns 200 OK (no sessions to revoke)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'current_session', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/revoke-other-sessions",
+            "headers": {
+              "Authorization": "Bearer current_session",
+              "Content-Type": "application/json"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Current session remains active",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM sessions WHERE id = 1 AND deleted_at IS NULL",
+              "expectedRows": 1
+            }
+          },
+          {
+            "description": "No other sessions exist for this user",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM sessions WHERE user_id = 1 AND id != 1",
+              "expectedRows": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-REVOKE-OTHER-SESSIONS-EDGE-CASE-MULTIPLE-DEVICES-001",
+      "given": "An authenticated user with sessions across multiple devices",
+      "when": "User revokes other sessions from one device",
+      "then": "Returns 200 OK and revokes all sessions except current device",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, ip_address, user_agent, expires_at, created_at) VALUES (1, 1, 'desktop_session', '192.168.1.10', 'Mozilla/5.0 (Windows NT 10.0) Chrome/120.0', NOW() + INTERVAL '7 days', NOW())",
+            "INSERT INTO sessions (id, user_id, token, ip_address, user_agent, expires_at, created_at) VALUES (2, 1, 'mobile_session', '192.168.1.20', 'Mozilla/5.0 (iPhone; iOS 17.0) Safari/17.0', NOW() + INTERVAL '7 days', NOW())",
+            "INSERT INTO sessions (id, user_id, token, ip_address, user_agent, expires_at, created_at) VALUES (3, 1, 'tablet_session', '192.168.1.30', 'Mozilla/5.0 (iPad; iPadOS 17.0) Safari/17.0', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/revoke-other-sessions",
+            "headers": {
+              "Authorization": "Bearer desktop_session",
+              "Content-Type": "application/json"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Mobile and tablet sessions are revoked",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM sessions WHERE user_id = 1 AND id IN (2, 3) AND deleted_at IS NOT NULL",
+              "expectedRows": 2
+            }
+          },
+          {
+            "description": "Desktop session (current) remains active",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM sessions WHERE id = 1 AND deleted_at IS NULL",
+              "expectedRows": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-REVOKE-OTHER-SESSIONS-SECURITY-ISOLATION-001",
+      "given": "Two users with multiple sessions each",
+      "when": "User A revokes their other sessions",
+      "then": "Returns 200 OK and only revokes User A's sessions (User B unaffected)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user1@example.com', '$2a$10$YourHashedPasswordHere', 'User 1', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'user2@example.com', '$2a$10$YourHashedPasswordHere', 'User 2', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user1_session1', NOW() + INTERVAL '7 days', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (2, 1, 'user1_session2', NOW() + INTERVAL '7 days', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (3, 2, 'user2_session1', NOW() + INTERVAL '7 days', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (4, 2, 'user2_session2', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/revoke-other-sessions",
+            "headers": {
+              "Authorization": "Bearer user1_session1",
+              "Content-Type": "application/json"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "User 1's other session is revoked",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM sessions WHERE id = 2 AND deleted_at IS NOT NULL",
+              "expectedRows": 1
+            }
+          },
+          {
+            "description": "User 1's current session remains active",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM sessions WHERE id = 1 AND deleted_at IS NULL",
+              "expectedRows": 1
+            }
+          },
+          {
+            "description": "User 2's sessions remain unaffected",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM sessions WHERE user_id = 2 AND deleted_at IS NULL",
+              "expectedRows": 2
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,621 @@
+{
+  "summary": "Admin: Create user",
+  "description": "Allows administrators to create new user accounts programmatically. Requires admin role. Can optionally set initial password and email verification status.",
+  "operationId": "adminCreateUser",
+  "tags": ["admin", "authentication"],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "requestBody": {
+    "required": true,
+    "content": {
+      "application/json": {
+        "schema": {
+          "type": "object",
+          "required": ["email", "name", "password"],
+          "properties": {
+            "email": {
+              "type": "string",
+              "format": "email",
+              "description": "User email address",
+              "example": "newuser@example.com"
+            },
+            "name": {
+              "type": "string",
+              "description": "User full name",
+              "example": "John Doe"
+            },
+            "password": {
+              "type": "string",
+              "minLength": 8,
+              "description": "User password (min 8 characters)",
+              "example": "SecurePass123!"
+            },
+            "emailVerified": {
+              "type": "boolean",
+              "description": "Whether email is pre-verified (default: false)",
+              "default": false,
+              "example": true
+            },
+            "image": {
+              "type": "string",
+              "format": "uri",
+              "description": "Optional profile image URL",
+              "nullable": true,
+              "example": "https://avatar.example.com/user.jpg"
+            }
+          }
+        }
+      }
+    }
+  },
+  "responses": {
+    "201": {
+      "description": "Success - User created",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "required": ["user"],
+            "properties": {
+              "user": {
+                "$ref": "../../../../components/schemas/User.json"
+              }
+            }
+          },
+          "examples": {
+            "userCreated": {
+              "summary": "User created successfully",
+              "value": {
+                "user": {
+                  "id": "user_123abc",
+                  "email": "newuser@example.com",
+                  "name": "John Doe",
+                  "image": null,
+                  "emailVerified": false,
+                  "createdAt": "2025-01-15T10:00:00Z",
+                  "updatedAt": "2025-01-15T10:00:00Z"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "400": {
+      "$ref": "../../../../components/responses/ValidationError.json"
+    },
+    "401": {
+      "description": "Unauthorized - User not authenticated",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    },
+    "403": {
+      "description": "Forbidden - User does not have admin role",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    },
+    "409": {
+      "$ref": "../../../../components/responses/ConflictError.json"
+    }
+  },
+  "x-specs": [
+    {
+      "id": "API-ADMIN-CREATE-USER-SUCCESS-001",
+      "given": "An authenticated admin user",
+      "when": "Admin creates a new user with valid data",
+      "then": "Returns 201 Created with user data",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "admin"
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/admin/create-user",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "email": "newuser@example.com",
+              "name": "New User",
+              "password": "SecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 201 Created",
+            "expectedStatus": 201
+          },
+          {
+            "description": "Response contains created user data",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "user": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "email": { "type": "string" },
+                    "name": { "type": "string" },
+                    "emailVerified": { "type": "boolean" }
+                  },
+                  "required": ["id", "email", "name"]
+                }
+              },
+              "required": ["user"]
+            }
+          },
+          {
+            "description": "User is created in database with hashed password",
+            "validateDatabaseState": {
+              "query": "SELECT email, name, email_verified FROM users WHERE email = 'newuser@example.com'",
+              "expectedRows": 1,
+              "rowValidation": {
+                "email": {
+                  "equals": "newuser@example.com"
+                },
+                "name": {
+                  "equals": "New User"
+                },
+                "email_verified": {
+                  "equals": false
+                }
+              }
+            }
+          },
+          {
+            "description": "Password is securely hashed (not plain text)",
+            "validateDatabaseState": {
+              "query": "SELECT password_hash FROM users WHERE email = 'newuser@example.com'",
+              "expectedRows": 1,
+              "rowValidation": {
+                "password_hash": {
+                  "notEquals": "SecurePass123!"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-CREATE-USER-SUCCESS-PRE-VERIFIED-001",
+      "given": "An authenticated admin user",
+      "when": "Admin creates user with emailVerified: true",
+      "then": "Returns 201 Created with email pre-verified",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "admin"
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/admin/create-user",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "email": "verified@example.com",
+              "name": "Verified User",
+              "password": "SecurePass123!",
+              "emailVerified": true
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 201 Created",
+            "expectedStatus": 201
+          },
+          {
+            "description": "User email is marked as verified",
+            "validateDatabaseState": {
+              "query": "SELECT email_verified FROM users WHERE email = 'verified@example.com'",
+              "expectedRows": 1,
+              "rowValidation": {
+                "email_verified": {
+                  "equals": true
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-CREATE-USER-VALIDATION-REQUIRED-FIELDS-001",
+      "given": "An authenticated admin user",
+      "when": "Admin submits request without required fields",
+      "then": "Returns 400 Bad Request with validation errors",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "admin"
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/admin/create-user",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "body": {}
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for required fields",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-CREATE-USER-VALIDATION-INVALID-EMAIL-FORMAT-001",
+      "given": "An authenticated admin user",
+      "when": "Admin submits request with invalid email format",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "admin"
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/admin/create-user",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "email": "not-an-email",
+              "name": "Test User",
+              "password": "SecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for email format",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-CREATE-USER-VALIDATION-PASSWORD-LENGTH-001",
+      "given": "An authenticated admin user",
+      "when": "Admin submits request with password shorter than 8 characters",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "admin"
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/admin/create-user",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "email": "newuser@example.com",
+              "name": "Test User",
+              "password": "short"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for password length",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-CREATE-USER-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001",
+      "given": "A running server",
+      "when": "Unauthenticated user attempts to create user",
+      "then": "Returns 401 Unauthorized",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/admin/create-user",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "email": "newuser@example.com",
+              "name": "Test User",
+              "password": "SecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 Unauthorized",
+            "expectedStatus": 401
+          },
+          {
+            "description": "Response contains error about missing authentication",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-CREATE-USER-PERMISSIONS-FORBIDDEN-NON-ADMIN-001",
+      "given": "An authenticated regular user (non-admin)",
+      "when": "Regular user attempts to create user",
+      "then": "Returns 403 Forbidden",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Regular User', true, 'member', NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "member"
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/admin/create-user",
+            "headers": {
+              "Authorization": "Bearer user_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "email": "newuser@example.com",
+              "name": "Test User",
+              "password": "SecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 Forbidden",
+            "expectedStatus": 403
+          },
+          {
+            "description": "Response contains error about insufficient permissions",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-CREATE-USER-CONFLICT-DUPLICATE-EMAIL-001",
+      "given": "An authenticated admin user and an existing user",
+      "when": "Admin attempts to create user with existing email",
+      "then": "Returns 409 Conflict error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'existing@example.com', '$2a$10$YourHashedPasswordHere', 'Existing User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "admin"
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/admin/create-user",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "email": "existing@example.com",
+              "name": "Another User",
+              "password": "SecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 409 Conflict",
+            "expectedStatus": 409
+          },
+          {
+            "description": "Response contains error about email already in use",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-CREATE-USER-SECURITY-XSS-PREVENTION-NAME-001",
+      "given": "An authenticated admin user",
+      "when": "Admin submits name with XSS payload",
+      "then": "Returns 201 Created with sanitized name (XSS payload neutralized)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "admin"
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/admin/create-user",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "email": "xsstest@example.com",
+              "name": "<script>alert('xss')</script>Malicious",
+              "password": "SecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 201 Created",
+            "expectedStatus": 201
+          },
+          {
+            "description": "Name is sanitized (no script tags)",
+            "validateResponseData": {
+              "user.name": {
+                "notContains": "<script>"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-CREATE-USER-EDGE-CASE-UNICODE-NAME-001",
+      "given": "An authenticated admin user",
+      "when": "Admin creates user with Unicode characters in name",
+      "then": "Returns 201 Created with Unicode name preserved",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "admin"
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/admin/create-user",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "email": "unicode@example.com",
+              "name": "José García 日本語",
+              "password": "SecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 201 Created",
+            "expectedStatus": 201
+          },
+          {
+            "description": "Unicode characters in name are preserved",
+            "validateResponseData": {
+              "user.name": {
+                "equals": "José García 日本語"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

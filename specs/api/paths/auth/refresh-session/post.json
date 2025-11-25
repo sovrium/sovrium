@@ -1,7 +1,7 @@
 {
-  "summary": "Sign out user",
-  "description": "Signs out the current authenticated user by invalidating their session. The session token will no longer be valid after this operation.",
-  "operationId": "signOut",
+  "summary": "Refresh session token",
+  "description": "Refreshes an existing session by issuing a new token with extended expiration. The old token is invalidated after successful refresh.",
+  "operationId": "refreshSession",
   "tags": ["authentication"],
   "security": [
     {
@@ -10,25 +10,30 @@
   ],
   "responses": {
     "200": {
-      "description": "Success - User signed out successfully",
+      "description": "Success - Session refreshed successfully",
       "content": {
         "application/json": {
           "schema": {
             "type": "object",
-            "required": ["success"],
+            "required": ["token", "expiresAt"],
             "properties": {
-              "success": {
-                "type": "boolean",
-                "enum": [true],
-                "description": "Indicates successful sign out"
+              "token": {
+                "type": "string",
+                "description": "New session authentication token"
+              },
+              "expiresAt": {
+                "type": "string",
+                "format": "date-time",
+                "description": "New session expiration timestamp"
               }
             }
           },
           "examples": {
-            "signedOut": {
-              "summary": "Successful sign out",
+            "refreshed": {
+              "summary": "Successfully refreshed session",
               "value": {
-                "success": true
+                "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                "expiresAt": "2025-01-29T10:30:00Z"
               }
             }
           }
@@ -48,15 +53,15 @@
   },
   "x-specs": [
     {
-      "id": "API-AUTH-SIGN-OUT-SUCCESS-001",
-      "given": "An authenticated user with valid session",
-      "when": "User requests to sign out",
-      "then": "Returns 200 OK and invalidates session token",
+      "id": "API-AUTH-REFRESH-SESSION-SUCCESS-001",
+      "given": "An authenticated user with valid session token",
+      "when": "User requests to refresh their session",
+      "then": "Returns 200 OK with new token and extended expiration",
       "validation": {
         "setup": {
           "executeQuery": [
             "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
-            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_session_token', NOW() + INTERVAL '7 days', NOW())"
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at, updated_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '1 day', NOW(), NOW())"
           ],
           "authUser": {
             "id": 1,
@@ -64,9 +69,9 @@
           },
           "apiRequest": {
             "method": "POST",
-            "endpoint": "/api/auth/sign-out",
+            "endpoint": "/api/auth/refresh-session",
             "headers": {
-              "Authorization": "Bearer valid_session_token",
+              "Authorization": "Bearer valid_token",
               "Content-Type": "application/json"
             }
           }
@@ -77,22 +82,28 @@
             "expectedStatus": 200
           },
           {
-            "description": "Response indicates successful sign out",
+            "description": "Response contains new token and expiration",
             "expectedSchema": {
               "type": "object",
               "properties": {
-                "success": {
-                  "type": "boolean",
-                  "enum": [true]
-                }
+                "token": { "type": "string" },
+                "expiresAt": { "type": "string" }
               },
-              "required": ["success"]
+              "required": ["token", "expiresAt"]
             }
           },
           {
-            "description": "Session is invalidated in database",
+            "description": "New token is different from old token",
+            "validateResponseData": {
+              "token": {
+                "notEquals": "valid_token"
+              }
+            }
+          },
+          {
+            "description": "Old token is invalidated in database",
             "validateDatabaseState": {
-              "query": "SELECT * FROM sessions WHERE id = 1 AND deleted_at IS NOT NULL",
+              "query": "SELECT * FROM sessions WHERE token = 'valid_token' AND deleted_at IS NOT NULL",
               "expectedRows": 1
             }
           }
@@ -100,15 +111,15 @@
       }
     },
     {
-      "id": "API-AUTH-SIGN-OUT-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001",
+      "id": "API-AUTH-REFRESH-SESSION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001",
       "given": "A running server",
-      "when": "User attempts sign-out without authentication token",
+      "when": "User attempts refresh without authentication token",
       "then": "Returns 401 Unauthorized",
       "validation": {
         "setup": {
           "apiRequest": {
             "method": "POST",
-            "endpoint": "/api/auth/sign-out",
+            "endpoint": "/api/auth/refresh-session",
             "headers": {
               "Content-Type": "application/json"
             }
@@ -133,15 +144,15 @@
       }
     },
     {
-      "id": "API-AUTH-SIGN-OUT-PERMISSIONS-UNAUTHORIZED-INVALID-TOKEN-001",
+      "id": "API-AUTH-REFRESH-SESSION-PERMISSIONS-UNAUTHORIZED-INVALID-TOKEN-001",
       "given": "A running server",
-      "when": "User attempts sign-out with invalid session token",
+      "when": "User attempts refresh with invalid token",
       "then": "Returns 401 Unauthorized",
       "validation": {
         "setup": {
           "apiRequest": {
             "method": "POST",
-            "endpoint": "/api/auth/sign-out",
+            "endpoint": "/api/auth/refresh-session",
             "headers": {
               "Authorization": "Bearer invalid_token_12345",
               "Content-Type": "application/json"
@@ -167,19 +178,19 @@
       }
     },
     {
-      "id": "API-AUTH-SIGN-OUT-EDGE-CASE-EXPIRED-TOKEN-001",
+      "id": "API-AUTH-REFRESH-SESSION-PERMISSIONS-UNAUTHORIZED-EXPIRED-TOKEN-001",
       "given": "A user with expired session token",
-      "when": "User attempts sign-out with expired token",
-      "then": "Returns 401 Unauthorized",
+      "when": "User attempts to refresh with expired token",
+      "then": "Returns 401 Unauthorized (cannot refresh expired session)",
       "validation": {
         "setup": {
           "executeQuery": [
             "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
-            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'expired_token', NOW() - INTERVAL '1 day', NOW() - INTERVAL '7 days')"
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at, updated_at) VALUES (1, 1, 'expired_token', NOW() - INTERVAL '1 day', NOW() - INTERVAL '7 days', NOW() - INTERVAL '7 days')"
           ],
           "apiRequest": {
             "method": "POST",
-            "endpoint": "/api/auth/sign-out",
+            "endpoint": "/api/auth/refresh-session",
             "headers": {
               "Authorization": "Bearer expired_token",
               "Content-Type": "application/json"
@@ -205,21 +216,21 @@
       }
     },
     {
-      "id": "API-AUTH-SIGN-OUT-EDGE-CASE-TOKEN-REUSE-PREVENTION-001",
-      "given": "A user who has just signed out",
-      "when": "User attempts to use the same token again",
-      "then": "Returns 401 Unauthorized (token is invalidated)",
+      "id": "API-AUTH-REFRESH-SESSION-EDGE-CASE-OLD-TOKEN-INVALIDATION-001",
+      "given": "A user who has refreshed their session",
+      "when": "User attempts to use the old token after refresh",
+      "then": "Returns 401 Unauthorized (old token is invalidated)",
       "validation": {
         "setup": {
           "executeQuery": [
             "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
-            "INSERT INTO sessions (id, user_id, token, expires_at, deleted_at, created_at) VALUES (1, 1, 'signed_out_token', NOW() + INTERVAL '7 days', NOW(), NOW() - INTERVAL '1 hour')"
+            "INSERT INTO sessions (id, user_id, token, expires_at, deleted_at, created_at, updated_at) VALUES (1, 1, 'old_refreshed_token', NOW() + INTERVAL '7 days', NOW(), NOW() - INTERVAL '1 hour', NOW())"
           ],
           "apiRequest": {
             "method": "POST",
-            "endpoint": "/api/auth/sign-out",
+            "endpoint": "/api/auth/refresh-session",
             "headers": {
-              "Authorization": "Bearer signed_out_token",
+              "Authorization": "Bearer old_refreshed_token",
               "Content-Type": "application/json"
             }
           }

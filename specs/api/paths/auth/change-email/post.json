@@ -94,22 +94,304 @@
   },
   "x-specs": [
     {
-      "id": "API-AUTH-CHANGE-EMAIL-001",
-      "given": "A running server",
-      "when": "User requests email change without newEmail",
-      "then": "Response should be validation error (4xx)"
+      "id": "API-AUTH-CHANGE-EMAIL-SUCCESS-001",
+      "given": "An authenticated user with valid new email",
+      "when": "User requests to change email to unused address",
+      "then": "Returns 200 OK and updates email (or sends verification)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'old@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/change-email",
+            "headers": {
+              "Authorization": "Bearer valid_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "newEmail": "new@example.com"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Response indicates success",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "boolean",
+                  "enum": [true]
+                },
+                "message": { "type": "string" }
+              },
+              "required": ["status"]
+            }
+          }
+        ]
+      }
     },
     {
-      "id": "API-AUTH-CHANGE-EMAIL-002",
-      "given": "A running server",
-      "when": "Unauthenticated user requests email change",
-      "then": "Response should be unauthorized (401)"
+      "id": "API-AUTH-CHANGE-EMAIL-VALIDATION-REQUIRED-NEW-EMAIL-001",
+      "given": "An authenticated user",
+      "when": "User submits request without newEmail field",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/change-email",
+            "headers": {
+              "Authorization": "Bearer valid_token",
+              "Content-Type": "application/json"
+            },
+            "body": {}
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for newEmail field",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
     },
     {
-      "id": "API-AUTH-CHANGE-EMAIL-003",
+      "id": "API-AUTH-CHANGE-EMAIL-VALIDATION-INVALID-EMAIL-FORMAT-001",
+      "given": "An authenticated user",
+      "when": "User submits request with invalid email format",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/change-email",
+            "headers": {
+              "Authorization": "Bearer valid_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "newEmail": "not-an-email"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for email format",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-CHANGE-EMAIL-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001",
       "given": "A running server",
-      "when": "User submits invalid email format",
-      "then": "Response should be validation error (4xx)"
+      "when": "Unauthenticated user attempts to change email",
+      "then": "Returns 401 Unauthorized",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/change-email",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "newEmail": "new@example.com"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 Unauthorized",
+            "expectedStatus": 401
+          },
+          {
+            "description": "Response contains error about missing authentication",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-CHANGE-EMAIL-CONFLICT-EMAIL-IN-USE-001",
+      "given": "An authenticated user and another user with target email",
+      "when": "User attempts to change to an already registered email",
+      "then": "Returns 409 Conflict error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user1@example.com', '$2a$10$YourHashedPasswordHere', 'User 1', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'existing@example.com', '$2a$10$YourHashedPasswordHere', 'User 2', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/change-email",
+            "headers": {
+              "Authorization": "Bearer valid_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "newEmail": "existing@example.com"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 409 Conflict",
+            "expectedStatus": 409
+          },
+          {
+            "description": "Response contains error about email already in use",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-CHANGE-EMAIL-EDGE-CASE-SAME-EMAIL-001",
+      "given": "An authenticated user",
+      "when": "User attempts to change to their current email",
+      "then": "Returns 200 OK or 400 (implementation-dependent)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/change-email",
+            "headers": {
+              "Authorization": "Bearer valid_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "newEmail": "test@example.com"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns success or error (implementation-dependent)",
+            "expectedStatusRange": [200, 400]
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-CHANGE-EMAIL-EDGE-CASE-EMAIL-CASE-INSENSITIVE-001",
+      "given": "An authenticated user with lowercase email",
+      "when": "User changes to uppercase variation of existing email",
+      "then": "Returns 409 Conflict (case-insensitive email matching)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user1@example.com', '$2a$10$YourHashedPasswordHere', 'User 1', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'existing@example.com', '$2a$10$YourHashedPasswordHere', 'User 2', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/change-email",
+            "headers": {
+              "Authorization": "Bearer valid_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "newEmail": "EXISTING@EXAMPLE.COM"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 409 Conflict despite case difference",
+            "expectedStatus": 409
+          },
+          {
+            "description": "Response contains error about email already in use",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
     }
   ]
 }

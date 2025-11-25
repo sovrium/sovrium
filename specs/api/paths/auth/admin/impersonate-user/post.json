@@ -1,0 +1,435 @@
+{
+  "summary": "Admin: Impersonate user",
+  "description": "Creates a session as another user, allowing admins to see the application from that user's perspective. Useful for troubleshooting and support. Requires admin role.",
+  "operationId": "adminImpersonateUser",
+  "tags": ["admin", "authentication"],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "requestBody": {
+    "required": true,
+    "content": {
+      "application/json": {
+        "schema": {
+          "type": "object",
+          "required": ["userId"],
+          "properties": {
+            "userId": {
+              "type": "string",
+              "description": "The ID of the user to impersonate",
+              "example": "user_123abc"
+            }
+          }
+        }
+      }
+    }
+  },
+  "responses": {
+    "200": {
+      "description": "Success - Impersonation session created",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "required": ["token", "user"],
+            "properties": {
+              "token": {
+                "type": "string",
+                "description": "Session token for impersonated user"
+              },
+              "user": {
+                "$ref": "../../../../components/schemas/User.json"
+              }
+            }
+          },
+          "examples": {
+            "impersonationStarted": {
+              "summary": "Impersonation session created",
+              "value": {
+                "token": "impersonation_token_abc123",
+                "user": {
+                  "id": "user_123abc",
+                  "email": "user@example.com",
+                  "name": "John Doe",
+                  "image": null,
+                  "emailVerified": true,
+                  "createdAt": "2025-01-15T10:00:00Z",
+                  "updatedAt": "2025-01-15T10:00:00Z"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "400": {
+      "$ref": "../../../../components/responses/ValidationError.json"
+    },
+    "401": {
+      "description": "Unauthorized - User not authenticated",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    },
+    "403": {
+      "description": "Forbidden - User does not have admin role or user is banned",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    },
+    "404": {
+      "description": "Not Found - User not found",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    }
+  },
+  "x-specs": [
+    {
+      "id": "API-ADMIN-IMPERSONATE-USER-SUCCESS-001",
+      "given": "An authenticated admin user and an existing user",
+      "when": "Admin impersonates the user",
+      "then": "Returns 200 OK with impersonation token and user data",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "admin"
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/admin/impersonate-user",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "userId": "2"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Response contains impersonation token and user data",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "token": { "type": "string" },
+                "user": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "email": { "type": "string" },
+                    "name": { "type": "string" }
+                  },
+                  "required": ["id", "email", "name"]
+                }
+              },
+              "required": ["token", "user"]
+            }
+          },
+          {
+            "description": "Impersonation session is created in database",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM sessions WHERE user_id = 2 AND impersonated_by = 1",
+              "expectedRows": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-IMPERSONATE-USER-VALIDATION-REQUIRED-USER-ID-001",
+      "given": "An authenticated admin user",
+      "when": "Admin submits request without userId",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "admin"
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/admin/impersonate-user",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "body": {}
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for userId field",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-IMPERSONATE-USER-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001",
+      "given": "A running server",
+      "when": "Unauthenticated user attempts to impersonate user",
+      "then": "Returns 401 Unauthorized",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/admin/impersonate-user",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "userId": "2"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 Unauthorized",
+            "expectedStatus": 401
+          },
+          {
+            "description": "Response contains error about missing authentication",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-IMPERSONATE-USER-PERMISSIONS-FORBIDDEN-NON-ADMIN-001",
+      "given": "An authenticated regular user (non-admin)",
+      "when": "Regular user attempts to impersonate another user",
+      "then": "Returns 403 Forbidden",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Regular User', true, 'member', NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "member"
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/admin/impersonate-user",
+            "headers": {
+              "Authorization": "Bearer user_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "userId": "2"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 Forbidden",
+            "expectedStatus": 403
+          },
+          {
+            "description": "Response contains error about insufficient permissions",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-IMPERSONATE-USER-PERMISSIONS-FORBIDDEN-BANNED-USER-001",
+      "given": "An authenticated admin user and a banned user",
+      "when": "Admin attempts to impersonate banned user",
+      "then": "Returns 403 Forbidden (cannot impersonate banned users)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, banned, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', false, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, banned, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "admin"
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/admin/impersonate-user",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "userId": "2"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 Forbidden",
+            "expectedStatus": 403
+          },
+          {
+            "description": "Response contains error about user being banned",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-IMPERSONATE-USER-NOT-FOUND-001",
+      "given": "An authenticated admin user",
+      "when": "Admin attempts to impersonate non-existent user",
+      "then": "Returns 404 Not Found",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "admin"
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/admin/impersonate-user",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "userId": "999"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 Not Found",
+            "expectedStatus": 404
+          },
+          {
+            "description": "Response contains error about user not found",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-IMPERSONATE-USER-SECURITY-AUDIT-TRAIL-001",
+      "given": "An authenticated admin user and an existing user",
+      "when": "Admin impersonates user",
+      "then": "Returns 200 OK and creates audit trail in session metadata",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "admin"
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/admin/impersonate-user",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "userId": "2"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Session includes admin ID for audit trail",
+            "validateDatabaseState": {
+              "query": "SELECT impersonated_by FROM sessions WHERE user_id = 2 AND impersonated_by IS NOT NULL",
+              "expectedRows": 1,
+              "rowValidation": {
+                "impersonated_by": {
+                  "equals": 1
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

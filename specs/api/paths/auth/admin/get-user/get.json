@@ -1,0 +1,354 @@
+{
+  "summary": "Admin: Get user by ID",
+  "description": "Retrieves detailed information about a specific user by their ID. Requires admin role.",
+  "operationId": "adminGetUser",
+  "tags": ["admin", "authentication"],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "parameters": [
+    {
+      "name": "userId",
+      "in": "query",
+      "description": "The ID of the user to retrieve",
+      "required": true,
+      "schema": {
+        "type": "string",
+        "example": "user_123abc"
+      }
+    }
+  ],
+  "responses": {
+    "200": {
+      "description": "Success - Returns user details",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "required": ["user"],
+            "properties": {
+              "user": {
+                "$ref": "../../../../components/schemas/User.json"
+              }
+            }
+          },
+          "examples": {
+            "userDetails": {
+              "summary": "User details retrieved",
+              "value": {
+                "user": {
+                  "id": "user_123abc",
+                  "email": "user@example.com",
+                  "name": "John Doe",
+                  "image": "https://avatar.example.com/user.jpg",
+                  "emailVerified": true,
+                  "createdAt": "2025-01-15T10:00:00Z",
+                  "updatedAt": "2025-01-15T10:00:00Z"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "400": {
+      "$ref": "../../../../components/responses/ValidationError.json"
+    },
+    "401": {
+      "description": "Unauthorized - User not authenticated",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    },
+    "403": {
+      "description": "Forbidden - User does not have admin role",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    },
+    "404": {
+      "description": "Not Found - User not found",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    }
+  },
+  "x-specs": [
+    {
+      "id": "API-ADMIN-GET-USER-SUCCESS-001",
+      "given": "An authenticated admin user and an existing user",
+      "when": "Admin requests user details by ID",
+      "then": "Returns 200 OK with user details",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, image, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', null, true, 'admin', NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, image, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', 'https://avatar.com/target.jpg', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "admin"
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/auth/admin/get-user?userId=2",
+            "headers": {
+              "Authorization": "Bearer admin_token"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Response contains user details",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "user": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "email": { "type": "string" },
+                    "name": { "type": "string" },
+                    "image": { "type": "string" },
+                    "emailVerified": { "type": "boolean" }
+                  },
+                  "required": ["id", "email", "name"]
+                }
+              },
+              "required": ["user"]
+            }
+          },
+          {
+            "description": "Response includes correct user data",
+            "validateResponseData": {
+              "user.email": {
+                "equals": "target@example.com"
+              },
+              "user.name": {
+                "equals": "Target User"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-GET-USER-VALIDATION-REQUIRED-USER-ID-001",
+      "given": "An authenticated admin user",
+      "when": "Admin requests user without userId parameter",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "admin"
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/auth/admin/get-user",
+            "headers": {
+              "Authorization": "Bearer admin_token"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for userId parameter",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-GET-USER-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001",
+      "given": "A running server",
+      "when": "Unauthenticated user attempts to get user",
+      "then": "Returns 401 Unauthorized",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/auth/admin/get-user?userId=2"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 Unauthorized",
+            "expectedStatus": 401
+          },
+          {
+            "description": "Response contains error about missing authentication",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-GET-USER-PERMISSIONS-FORBIDDEN-NON-ADMIN-001",
+      "given": "An authenticated regular user (non-admin)",
+      "when": "Regular user attempts to get another user's details",
+      "then": "Returns 403 Forbidden",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Regular User', true, 'member', NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "member"
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/auth/admin/get-user?userId=2",
+            "headers": {
+              "Authorization": "Bearer user_token"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 Forbidden",
+            "expectedStatus": 403
+          },
+          {
+            "description": "Response contains error about insufficient permissions",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-GET-USER-NOT-FOUND-001",
+      "given": "An authenticated admin user",
+      "when": "Admin requests user with non-existent ID",
+      "then": "Returns 404 Not Found",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "admin"
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/auth/admin/get-user?userId=999",
+            "headers": {
+              "Authorization": "Bearer admin_token"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 Not Found",
+            "expectedStatus": 404
+          },
+          {
+            "description": "Response contains error about user not found",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-GET-USER-SECURITY-PASSWORD-EXCLUSION-001",
+      "given": "An authenticated admin user and an existing user",
+      "when": "Admin requests user details",
+      "then": "Returns 200 OK with user details but password field excluded for security",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "admin"
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/auth/admin/get-user?userId=2",
+            "headers": {
+              "Authorization": "Bearer admin_token"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Response excludes password_hash field for security",
+            "validateResponseData": {
+              "user": {
+                "notHasKey": "password_hash"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

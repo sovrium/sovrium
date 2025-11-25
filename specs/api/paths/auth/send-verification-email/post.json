@@ -85,16 +85,242 @@
   },
   "x-specs": [
     {
-      "id": "API-AUTH-SEND-VERIFICATION-EMAIL-001",
-      "given": "A running server",
-      "when": "User requests verification without email",
-      "then": "Response should be validation error (4xx)"
+      "id": "API-AUTH-SEND-VERIFICATION-EMAIL-SUCCESS-001",
+      "given": "A registered user with unverified email",
+      "when": "User requests verification email",
+      "then": "Returns 200 OK and sends verification email with token",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', false, NOW(), NOW())"
+          ],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/send-verification-email",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "email": "test@example.com"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Response indicates email was sent",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "boolean",
+                  "enum": [true]
+                }
+              },
+              "required": ["status"]
+            }
+          },
+          {
+            "description": "Verification token is created in database",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM email_verification_tokens WHERE user_id = 1 AND expires_at > NOW()",
+              "expectedRows": 1
+            }
+          }
+        ]
+      }
     },
     {
-      "id": "API-AUTH-SEND-VERIFICATION-EMAIL-002",
+      "id": "API-AUTH-SEND-VERIFICATION-EMAIL-VALIDATION-REQUIRED-EMAIL-001",
       "given": "A running server",
-      "when": "User requests verification email",
-      "then": "Response should be 200 OK or indicate success"
+      "when": "User submits request without email field",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/send-verification-email",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {}
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for email field",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-SEND-VERIFICATION-EMAIL-VALIDATION-INVALID-EMAIL-FORMAT-001",
+      "given": "A running server",
+      "when": "User submits request with invalid email format",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/send-verification-email",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "email": "not-an-email"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for email format",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-SEND-VERIFICATION-EMAIL-EDGE-CASE-ALREADY-VERIFIED-001",
+      "given": "A user with already verified email",
+      "when": "User requests verification email again",
+      "then": "Returns 200 OK or 400 (implementation-dependent)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())"
+          ],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/send-verification-email",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "email": "test@example.com"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns success or error (implementation-dependent)",
+            "expectedStatusRange": [200, 400]
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-SEND-VERIFICATION-EMAIL-EDGE-CASE-MULTIPLE-REQUESTS-001",
+      "given": "A user who has already requested verification",
+      "when": "User requests verification email again",
+      "then": "Returns 200 OK and invalidates old token, creates new one",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', false, NOW(), NOW())",
+            "INSERT INTO email_verification_tokens (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'old_token_abc123', NOW() + INTERVAL '1 hour', NOW())"
+          ],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/send-verification-email",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "email": "test@example.com"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Old token is invalidated",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM email_verification_tokens WHERE token = 'old_token_abc123' AND (used_at IS NOT NULL OR deleted_at IS NOT NULL)",
+              "expectedRows": 1
+            }
+          },
+          {
+            "description": "New token is created",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM email_verification_tokens WHERE user_id = 1 AND token != 'old_token_abc123' AND expires_at > NOW()",
+              "expectedRows": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-SEND-VERIFICATION-EMAIL-EDGE-CASE-NONEXISTENT-EMAIL-001",
+      "given": "A running server with no registered user",
+      "when": "User requests verification email for non-existent email",
+      "then": "Returns 200 OK (same response to prevent email enumeration)",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/send-verification-email",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "email": "nonexistent@example.com"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK (prevent email enumeration)",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Response looks identical to success case",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "boolean",
+                  "enum": [true]
+                }
+              },
+              "required": ["status"]
+            }
+          },
+          {
+            "description": "No verification token is created (email doesn't exist)",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM email_verification_tokens WHERE user_id NOT IN (SELECT id FROM users WHERE email = 'nonexistent@example.com')",
+              "expectedRows": 0
+            }
+          }
+        ]
+      }
     }
   ]
 }

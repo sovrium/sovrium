@@ -1,0 +1,355 @@
+{
+  "summary": "Revoke specific session",
+  "description": "Revokes a specific user session by session ID. The session will no longer be valid for authentication.",
+  "operationId": "revokeSession",
+  "tags": ["authentication"],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "requestBody": {
+    "required": true,
+    "content": {
+      "application/json": {
+        "schema": {
+          "type": "object",
+          "required": ["sessionId"],
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "description": "The ID of the session to revoke",
+              "example": "session_123abc"
+            }
+          }
+        }
+      }
+    }
+  },
+  "responses": {
+    "200": {
+      "description": "Success - Session revoked successfully",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "required": ["status"],
+            "properties": {
+              "status": {
+                "type": "boolean",
+                "enum": [true],
+                "description": "Indicates successful session revocation"
+              }
+            }
+          },
+          "examples": {
+            "sessionRevoked": {
+              "summary": "Session revoked",
+              "value": {
+                "status": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "400": {
+      "$ref": "../../../components/responses/ValidationError.json"
+    },
+    "401": {
+      "description": "Unauthorized - User not authenticated",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../components/schemas/Error.json"
+          }
+        }
+      }
+    },
+    "404": {
+      "description": "Not Found - Session not found or doesn't belong to user",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../components/schemas/Error.json"
+          }
+        }
+      }
+    }
+  },
+  "x-specs": [
+    {
+      "id": "API-AUTH-REVOKE-SESSION-SUCCESS-001",
+      "given": "An authenticated user with multiple active sessions",
+      "when": "User revokes a specific session",
+      "then": "Returns 200 OK and revokes the specified session",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'current_session', NOW() + INTERVAL '7 days', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (2, 1, 'session_to_revoke', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/revoke-session",
+            "headers": {
+              "Authorization": "Bearer current_session",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "sessionId": "2"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Response indicates success",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "boolean",
+                  "enum": [true]
+                }
+              },
+              "required": ["status"]
+            }
+          },
+          {
+            "description": "Specified session is revoked in database",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM sessions WHERE id = 2 AND deleted_at IS NOT NULL",
+              "expectedRows": 1
+            }
+          },
+          {
+            "description": "Current session remains active",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM sessions WHERE id = 1 AND deleted_at IS NULL",
+              "expectedRows": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-REVOKE-SESSION-VALIDATION-REQUIRED-SESSION-ID-001",
+      "given": "An authenticated user",
+      "when": "User submits request without sessionId field",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/revoke-session",
+            "headers": {
+              "Authorization": "Bearer valid_token",
+              "Content-Type": "application/json"
+            },
+            "body": {}
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for sessionId field",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-REVOKE-SESSION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001",
+      "given": "A running server",
+      "when": "Unauthenticated user attempts to revoke a session",
+      "then": "Returns 401 Unauthorized",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/revoke-session",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "sessionId": "session_123"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 Unauthorized",
+            "expectedStatus": 401
+          },
+          {
+            "description": "Response contains error about missing authentication",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-REVOKE-SESSION-PERMISSIONS-NOT-FOUND-NONEXISTENT-SESSION-001",
+      "given": "An authenticated user",
+      "when": "User attempts to revoke non-existent session",
+      "then": "Returns 404 Not Found",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/revoke-session",
+            "headers": {
+              "Authorization": "Bearer valid_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "sessionId": "999"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 Not Found",
+            "expectedStatus": 404
+          },
+          {
+            "description": "Response contains error about session not found",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-REVOKE-SESSION-PERMISSIONS-FORBIDDEN-OTHER-USER-SESSION-001",
+      "given": "Two users with their own sessions",
+      "when": "User A attempts to revoke User B's session",
+      "then": "Returns 404 Not Found (not 403 to prevent session enumeration)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user1@example.com', '$2a$10$YourHashedPasswordHere', 'User 1', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'user2@example.com', '$2a$10$YourHashedPasswordHere', 'User 2', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user1_token', NOW() + INTERVAL '7 days', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (2, 2, 'user2_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/revoke-session",
+            "headers": {
+              "Authorization": "Bearer user1_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "sessionId": "2"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 Not Found (prevent session enumeration)",
+            "expectedStatus": 404
+          },
+          {
+            "description": "User 2's session remains active (not revoked)",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM sessions WHERE id = 2 AND deleted_at IS NULL",
+              "expectedRows": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-REVOKE-SESSION-EDGE-CASE-REVOKE-CURRENT-SESSION-001",
+      "given": "An authenticated user with current session",
+      "when": "User revokes their own current session",
+      "then": "Returns 200 OK and revokes current session",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'current_session', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/revoke-session",
+            "headers": {
+              "Authorization": "Bearer current_session",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "sessionId": "1"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Current session is revoked",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM sessions WHERE id = 1 AND deleted_at IS NOT NULL",
+              "expectedRows": 1
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

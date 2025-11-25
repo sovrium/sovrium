@@ -1,0 +1,483 @@
+{
+  "summary": "Admin: List users",
+  "description": "Retrieves a paginated list of all users in the system. Requires admin role. Supports filtering and sorting options.",
+  "operationId": "adminListUsers",
+  "tags": ["admin", "authentication"],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "parameters": [
+    {
+      "name": "limit",
+      "in": "query",
+      "description": "Maximum number of users to return (default: 10, max: 100)",
+      "required": false,
+      "schema": {
+        "type": "integer",
+        "default": 10,
+        "minimum": 1,
+        "maximum": 100,
+        "example": 20
+      }
+    },
+    {
+      "name": "offset",
+      "in": "query",
+      "description": "Number of users to skip for pagination (default: 0)",
+      "required": false,
+      "schema": {
+        "type": "integer",
+        "default": 0,
+        "minimum": 0,
+        "example": 0
+      }
+    },
+    {
+      "name": "sortBy",
+      "in": "query",
+      "description": "Field to sort by",
+      "required": false,
+      "schema": {
+        "type": "string",
+        "enum": ["createdAt", "email", "name"],
+        "default": "createdAt",
+        "example": "email"
+      }
+    },
+    {
+      "name": "sortOrder",
+      "in": "query",
+      "description": "Sort order",
+      "required": false,
+      "schema": {
+        "type": "string",
+        "enum": ["asc", "desc"],
+        "default": "desc",
+        "example": "asc"
+      }
+    }
+  ],
+  "responses": {
+    "200": {
+      "description": "Success - Returns list of users with pagination metadata",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "required": ["users", "total"],
+            "properties": {
+              "users": {
+                "type": "array",
+                "items": {
+                  "$ref": "../../../../components/schemas/User.json"
+                }
+              },
+              "total": {
+                "type": "integer",
+                "description": "Total number of users in the system"
+              },
+              "limit": {
+                "type": "integer",
+                "description": "Number of users per page"
+              },
+              "offset": {
+                "type": "integer",
+                "description": "Current offset"
+              }
+            }
+          },
+          "examples": {
+            "usersList": {
+              "summary": "Paginated list of users",
+              "value": {
+                "users": [
+                  {
+                    "id": "user_123abc",
+                    "email": "user1@example.com",
+                    "name": "User One",
+                    "image": null,
+                    "emailVerified": true,
+                    "createdAt": "2025-01-15T10:00:00Z",
+                    "updatedAt": "2025-01-15T10:00:00Z"
+                  },
+                  {
+                    "id": "user_456def",
+                    "email": "user2@example.com",
+                    "name": "User Two",
+                    "image": null,
+                    "emailVerified": false,
+                    "createdAt": "2025-01-14T15:30:00Z",
+                    "updatedAt": "2025-01-14T15:30:00Z"
+                  }
+                ],
+                "total": 50,
+                "limit": 10,
+                "offset": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "401": {
+      "description": "Unauthorized - User not authenticated",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    },
+    "403": {
+      "description": "Forbidden - User does not have admin role",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    }
+  },
+  "x-specs": [
+    {
+      "id": "API-ADMIN-LIST-USERS-SUCCESS-001",
+      "given": "An authenticated admin user with multiple users in system",
+      "when": "Admin requests list of users",
+      "then": "Returns 200 OK with paginated user list",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'user1@example.com', '$2a$10$YourHashedPasswordHere', 'User One', true, NOW() - INTERVAL '1 day', NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (3, 'user2@example.com', '$2a$10$YourHashedPasswordHere', 'User Two', false, NOW() - INTERVAL '2 days', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "admin"
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/auth/admin/list-users",
+            "headers": {
+              "Authorization": "Bearer admin_token"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Response contains users array and pagination metadata",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "users": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "string" },
+                      "email": { "type": "string" },
+                      "name": { "type": "string" },
+                      "emailVerified": { "type": "boolean" }
+                    },
+                    "required": ["id", "email", "name"]
+                  }
+                },
+                "total": { "type": "number" }
+              },
+              "required": ["users", "total"]
+            }
+          },
+          {
+            "description": "Response includes all 3 users",
+            "validateResponseData": {
+              "users.length": {
+                "equals": 3
+              },
+              "total": {
+                "equals": 3
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-LIST-USERS-SUCCESS-PAGINATION-001",
+      "given": "An authenticated admin user with multiple users in system",
+      "when": "Admin requests users with limit and offset",
+      "then": "Returns 200 OK with paginated results",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'user1@example.com', '$2a$10$YourHashedPasswordHere', 'User One', true, NOW() - INTERVAL '1 day', NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (3, 'user2@example.com', '$2a$10$YourHashedPasswordHere', 'User Two', false, NOW() - INTERVAL '2 days', NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (4, 'user3@example.com', '$2a$10$YourHashedPasswordHere', 'User Three', true, NOW() - INTERVAL '3 days', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "admin"
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/auth/admin/list-users?limit=2&offset=1",
+            "headers": {
+              "Authorization": "Bearer admin_token"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Response contains 2 users (limit)",
+            "validateResponseData": {
+              "users.length": {
+                "equals": 2
+              }
+            }
+          },
+          {
+            "description": "Total count includes all 4 users",
+            "validateResponseData": {
+              "total": {
+                "equals": 4
+              }
+            }
+          },
+          {
+            "description": "Pagination metadata is included",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "limit": { "type": "number" },
+                "offset": { "type": "number" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-LIST-USERS-SUCCESS-SORTING-001",
+      "given": "An authenticated admin user with multiple users",
+      "when": "Admin requests users sorted by email ascending",
+      "then": "Returns 200 OK with users sorted correctly",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'charlie@example.com', '$2a$10$YourHashedPasswordHere', 'Charlie', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (3, 'alice@example.com', '$2a$10$YourHashedPasswordHere', 'Alice', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (4, 'bob@example.com', '$2a$10$YourHashedPasswordHere', 'Bob', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "admin"
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/auth/admin/list-users?sortBy=email&sortOrder=asc",
+            "headers": {
+              "Authorization": "Bearer admin_token"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "First user is alice (alphabetically first)",
+            "validateResponseData": {
+              "users[0].email": {
+                "equals": "alice@example.com"
+              }
+            }
+          },
+          {
+            "description": "Users are sorted alphabetically by email",
+            "validateResponseData": {
+              "users[1].email": {
+                "equals": "admin@example.com"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-LIST-USERS-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001",
+      "given": "A running server",
+      "when": "Unauthenticated user attempts to list users",
+      "then": "Returns 401 Unauthorized",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/auth/admin/list-users"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 Unauthorized",
+            "expectedStatus": 401
+          },
+          {
+            "description": "Response contains error about missing authentication",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-LIST-USERS-PERMISSIONS-FORBIDDEN-NON-ADMIN-001",
+      "given": "An authenticated regular user (non-admin)",
+      "when": "Regular user attempts to list users",
+      "then": "Returns 403 Forbidden",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Regular User', true, 'member', NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "member"
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/auth/admin/list-users",
+            "headers": {
+              "Authorization": "Bearer user_token"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 Forbidden",
+            "expectedStatus": 403
+          },
+          {
+            "description": "Response contains error about insufficient permissions",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-LIST-USERS-SECURITY-PASSWORD-EXCLUSION-001",
+      "given": "An authenticated admin user with users in system",
+      "when": "Admin requests list of users",
+      "then": "Returns 200 OK with users but password field excluded for security",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Regular User', true, 'member', NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "admin"
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/auth/admin/list-users",
+            "headers": {
+              "Authorization": "Bearer admin_token"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Response excludes password_hash field for security",
+            "validateResponseData": {
+              "users[0]": {
+                "notHasKey": "password_hash"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ADMIN-LIST-USERS-EDGE-CASE-EMPTY-LIST-001",
+      "given": "An authenticated admin user with no other users in system",
+      "when": "Admin requests list of users",
+      "then": "Returns 200 OK with only admin user in list",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "role": "admin"
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/auth/admin/list-users",
+            "headers": {
+              "Authorization": "Bearer admin_token"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Response contains only admin user",
+            "validateResponseData": {
+              "users.length": {
+                "equals": 1
+              },
+              "total": {
+                "equals": 1
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

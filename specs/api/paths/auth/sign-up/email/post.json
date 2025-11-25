@@ -124,22 +124,402 @@
   },
   "x-specs": [
     {
-      "id": "API-AUTH-SIGN-UP-EMAIL-001",
-      "given": "A running server",
-      "when": "User signs up with valid credentials",
-      "then": "Response should be 200 OK"
+      "id": "API-AUTH-SIGN-UP-EMAIL-SUCCESS-001",
+      "given": "A running server with no existing users",
+      "when": "User submits valid sign-up credentials",
+      "then": "Returns 200 OK with user data and session token",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/sign-up/email",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "name": "John Doe",
+              "email": "john@example.com",
+              "password": "SecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Response contains user data and session token",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "token": { "type": "string" },
+                "user": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "email": { "type": "string" },
+                    "name": { "type": "string" },
+                    "emailVerified": { "type": "boolean" },
+                    "createdAt": { "type": "string" },
+                    "updatedAt": { "type": "string" }
+                  },
+                  "required": ["id", "email", "name", "emailVerified", "createdAt", "updatedAt"]
+                }
+              },
+              "required": ["token", "user"]
+            }
+          },
+          {
+            "description": "User is created in database",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM users WHERE email = 'john@example.com'",
+              "expectedRows": 1
+            }
+          }
+        ]
+      }
     },
     {
-      "id": "API-AUTH-SIGN-UP-EMAIL-002",
+      "id": "API-AUTH-SIGN-UP-EMAIL-VALIDATION-REQUIRED-NAME-001",
       "given": "A running server",
+      "when": "User submits request without name field",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/sign-up/email",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "email": "john@example.com",
+              "password": "SecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for name field",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-SIGN-UP-EMAIL-VALIDATION-REQUIRED-EMAIL-001",
+      "given": "A running server",
+      "when": "User submits request without email field",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/sign-up/email",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "name": "John Doe",
+              "password": "SecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for email field",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-SIGN-UP-EMAIL-VALIDATION-REQUIRED-PASSWORD-001",
+      "given": "A running server",
+      "when": "User submits request without password field",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/sign-up/email",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "name": "John Doe",
+              "email": "john@example.com"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for password field",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-SIGN-UP-EMAIL-VALIDATION-INVALID-EMAIL-FORMAT-001",
+      "given": "A running server",
+      "when": "User submits request with invalid email format",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/sign-up/email",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "name": "John Doe",
+              "email": "not-an-email",
+              "password": "SecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for email format",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-SIGN-UP-EMAIL-VALIDATION-PASSWORD-TOO-SHORT-001",
+      "given": "A running server",
+      "when": "User submits password shorter than minimum length (8 characters)",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/sign-up/email",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "name": "John Doe",
+              "email": "john@example.com",
+              "password": "Short1!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for password length",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-SIGN-UP-EMAIL-CONFLICT-DUPLICATE-EMAIL-001",
+      "given": "A running server with existing user",
       "when": "Another user attempts sign-up with same email",
-      "then": "Response should be client error (4xx)"
+      "then": "Returns 409 Conflict error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'existing@example.com', '$2a$10$YourHashedPasswordHere', 'Existing User', false, NOW(), NOW())"
+          ],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/sign-up/email",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "name": "Another User",
+              "email": "existing@example.com",
+              "password": "SecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 409 Conflict",
+            "expectedStatus": 409
+          },
+          {
+            "description": "Response contains error about email already in use",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
     },
     {
-      "id": "API-AUTH-SIGN-UP-EMAIL-003",
+      "id": "API-AUTH-SIGN-UP-EMAIL-CONFLICT-EMAIL-CASE-INSENSITIVE-001",
+      "given": "A running server with existing user (lowercase email)",
+      "when": "User attempts sign-up with same email in different case",
+      "then": "Returns 409 Conflict error (case-insensitive email matching)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', false, NOW(), NOW())"
+          ],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/sign-up/email",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "name": "Another User",
+              "email": "TEST@EXAMPLE.COM",
+              "password": "SecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 409 Conflict despite case difference",
+            "expectedStatus": 409
+          },
+          {
+            "description": "Response contains error about email already in use",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-SIGN-UP-EMAIL-SECURITY-XSS-PREVENTION-NAME-001",
       "given": "A running server",
-      "when": "User attempts sign-up without email",
-      "then": "Request should fail"
+      "when": "User submits name with XSS payload",
+      "then": "Returns 200 OK with sanitized name (XSS payload neutralized)",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/sign-up/email",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "name": "<script>alert('xss')</script>John",
+              "email": "john@example.com",
+              "password": "SecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Name is sanitized (no script tags in response)",
+            "validateResponseData": {
+              "user.name": {
+                "notContains": "<script>"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-AUTH-SIGN-UP-EMAIL-EDGE-CASE-UNICODE-NAME-001",
+      "given": "A running server",
+      "when": "User submits name with Unicode characters",
+      "then": "Returns 200 OK with Unicode name preserved",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/sign-up/email",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "name": "José García 日本語",
+              "email": "jose@example.com",
+              "password": "SecurePass123!"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Unicode characters in name are preserved",
+            "validateResponseData": {
+              "user.name": {
+                "equals": "José García 日本語"
+              }
+            }
+          }
+        ]
+      }
     }
   ]
 }
