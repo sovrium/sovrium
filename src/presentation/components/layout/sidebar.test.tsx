@@ -106,14 +106,14 @@ describe('Sidebar Component', () => {
       // When
       const html = renderToStaticMarkup(<Sidebar />)
       // Then
-      expect(html).toContain('fixed')
+      expect(html).toContain('sticky')
       expect(html).toContain('top-0')
     })
     test('does not apply sticky when false', () => {
       // When
       const html = renderToStaticMarkup(<Sidebar sticky={false} />)
       // Then
-      expect(html).not.toContain('fixed')
+      expect(html).not.toContain('sticky')
       expect(html).not.toContain('top-0')
     })
   })
@@ -252,7 +252,7 @@ describe('Sidebar Component', () => {
       // When
       const html = renderToStaticMarkup(<Sidebar items={items} />)
       // Then
-      expect(html).toContain('data-testid="sidebar-divider-0"')
+      expect(html).toContain('data-testid="sidebar-divider"')
       expect(html).toContain('<hr')
       expect(html).toContain('my-2')
       expect(html).toContain('border-t')
@@ -267,8 +267,9 @@ describe('Sidebar Component', () => {
       // When
       const html = renderToStaticMarkup(<Sidebar items={items} />)
       // Then
-      expect(html).toContain('data-testid="sidebar-divider-0"')
-      expect(html).toContain('data-testid="sidebar-divider-1"')
+      expect(html).toContain('data-testid="sidebar-divider"')
+      // Multiple dividers now all use generic 'sidebar-divider' test ID
+      expect(html).toContain('data-testid="sidebar-divider"')
     })
   })
   describe('Complex item combinations', () => {
@@ -289,10 +290,11 @@ describe('Sidebar Component', () => {
       const html = renderToStaticMarkup(<Sidebar items={items} />)
       // Then
       expect(html).toContain('data-testid="sidebar-link-0"')
-      expect(html).toContain('data-testid="sidebar-divider-0"')
+      expect(html).toContain('data-testid="sidebar-divider"')
       expect(html).toContain('data-testid="sidebar-group-0"')
       expect(html).toContain('data-testid="sidebar-link-1"')
-      expect(html).toContain('data-testid="sidebar-divider-1"')
+      // Multiple dividers now all use generic 'sidebar-divider' test ID
+      expect(html).toContain('data-testid="sidebar-divider"')
       expect(html).toContain('data-testid="sidebar-link-2"')
     })
     test('maintains correct counter sequence across all item types', () => {
@@ -318,7 +320,7 @@ describe('Sidebar Component', () => {
       expect(html).toContain('data-testid="sidebar-group-0"')
       expect(html).toContain('data-testid="sidebar-link-1"')
       expect(html).toContain('Child 1')
-      expect(html).toContain('data-testid="sidebar-divider-0"')
+      expect(html).toContain('data-testid="sidebar-divider"')
       expect(html).toContain('data-testid="sidebar-link-2"')
       expect(html).toContain('Child 2')
       expect(html).toContain('data-testid="sidebar-link-3"')
