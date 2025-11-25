@@ -1,24 +1,25 @@
 # Specification File Formats
 
-> **Purpose**: This document defines the two specification file formats used across the Sovrium project for E2E test generation.
+> **Purpose**: This document defines the three specification file formats used across the Sovrium project for E2E test generation.
 
 ## Overview
 
-The Sovrium project uses **two distinct specification formats** depending on the domain and purpose:
+The Sovrium project uses **three distinct specification formats** depending on the domain and purpose:
 
-1. **Full Schema Format** - For domains that require complete JSON Schema or OpenAPI validation
-2. **Simple Spec Format** - For domains that only need to list executable test specifications
+1. **Full Schema Format** (App) - For domains that require complete JSON Schema validation
+2. **OpenAPI Operation Format** (API) - For API endpoints with OpenAPI operation definitions
+3. **Simple Spec Format** (Admin/Migrations/Static) - For domains that only need to list executable test specifications
 
 ## Format Comparison
 
-| Aspect              | Full Schema Format                          | Simple Spec Format                                   |
-| ------------------- | ------------------------------------------- | ---------------------------------------------------- |
-| **File Extension**  | `.schema.json` (app), `.openapi.json` (api) | `.json`                                              |
-| **Domains**         | `specs/app/`, `specs/api/`                  | `specs/admin/`, `specs/migrations/`, `specs/static/` |
-| **Purpose**         | Define data structures + test specs         | List executable test specs only                      |
-| **Structure**       | JSON Schema Draft 7 / OpenAPI 3.1.0         | Title + Description + x-specs                        |
-| **Size**            | Large (50-200+ lines)                       | Small (10-50 lines)                                  |
-| **Maintainability** | Complex (schema + specs)                    | Simple (specs only)                                  |
+| Aspect              | Full Schema Format (App)       | OpenAPI Operation Format (API)           | Simple Spec Format                                   |
+| ------------------- | ------------------------------ | ---------------------------------------- | ---------------------------------------------------- |
+| **File Extension**  | `.schema.json`                 | `.json`                                  | `.json`                                              |
+| **Domains**         | `specs/app/`                   | `specs/api/paths/`                       | `specs/admin/`, `specs/migrations/`, `specs/static/` |
+| **Purpose**         | Define data structures + specs | Define API operations + test specs       | List executable test specs only                      |
+| **Structure**       | JSON Schema Draft 7 + x-specs  | OpenAPI 3.1.0 Operation Object + x-specs | Title + Description + x-specs                        |
+| **Size**            | Large (50-200+ lines)          | Medium (50-150 lines)                    | Small (10-50 lines)                                  |
+| **Maintainability** | Complex (schema + specs)       | Moderate (operation + specs)             | Simple (specs only)                                  |
 
 ---
 
@@ -73,58 +74,73 @@ Used when the specification file serves **dual purposes**:
 
 #### API Domain (`specs/api/**/`)
 
-- **File Extension**: `.openapi.json`
-- **Standard**: OpenAPI 3.1.0
-- **Example**: `specs/api/tables/tables.openapi.json`
+- **File Extension**: `.json`
+- **Standard**: OpenAPI 3.1.0 Operation Object (per endpoint)
+- **Example**: `specs/api/paths/tables/get.json`
 
 **Structure**:
 
+Individual `.json` files per endpoint, containing OpenAPI operation properties plus `x-specs`:
+
 ```json
 {
-  "openapi": "3.1.0",
-  "info": {
-    "title": "Tables API",
-    "version": "1.0.0",
-    "description": "API endpoints for table management"
+  "summary": "List all tables",
+  "description": "Returns array of all configured tables from the application schema",
+  "operationId": "listTables",
+  "tags": ["tables"],
+  "parameters": [],
+  "responses": {
+    "200": {
+      "description": "List of tables",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "array",
+            "items": {
+              "$ref": "../../components/schemas/Table.json"
+            }
+          }
+        }
+      }
+    }
   },
-  "paths": {
-    "/api/tables": {
-      "get": {
-        "summary": "List all tables",
-        "operationId": "listTables",
-        "responses": {
-          "200": {
-            "description": "List of tables",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/TableList" }
-              }
+  "x-specs": [
+    {
+      "id": "API-TABLES-LIST-001",
+      "given": "A running server with tables configured",
+      "when": "User requests list of all tables",
+      "then": "Response should be 200 OK with array of tables",
+      "validation": {
+        "setup": {
+          "executeQuery": ["CREATE TABLE ..."],
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables",
+            "headers": {
+              "Authorization": "Bearer test_token"
             }
           }
         },
-        "x-specs": [
+        "assertions": [
           {
-            "id": "API-TABLES-001",
-            "given": "database with 3 tables",
-            "when": "GET /api/tables",
-            "then": "returns 200 with array of 3 tables"
+            "description": "Returns 200 with array of tables",
+            "expectedStatus": 200,
+            "expectedSchema": { "type": "array" }
           }
         ]
       }
     }
-  },
-  "components": {
-    "schemas": {}
-  }
+  ]
 }
 ```
 
 **Key Properties**:
 
-- `openapi`, `info` - OpenAPI metadata
-- `paths` - API endpoints and operations
-- `components` - Reusable schemas, responses
-- `x-specs` - Test specifications (per operation)
+- `summary`, `description`, `operationId` - OpenAPI operation metadata
+- `tags` - Operation categorization
+- `parameters` - Path/query/header parameters
+- `responses` - HTTP status codes and response schemas
+- `x-specs` - Test specifications with validation details
 
 ---
 
@@ -364,10 +380,14 @@ specs/
 │   └── tables/
 │       ├── tables.json             ← Simple format
 │       └── tables.spec.ts
-├── api/                    # Full Schema Format (.openapi.json)
-│   └── tables/
-│       ├── tables.openapi.json    ← OpenAPI 3.1.0
-│       └── tables.spec.ts
+├── api/                    # OpenAPI Operation Format (.json)
+│   └── paths/
+│       └── tables/
+│           ├── get.json                    ← OpenAPI operation + x-specs
+│           ├── get.spec.ts
+│           └── {tableId}/
+│               ├── get.json                ← OpenAPI operation + x-specs
+│               └── get.spec.ts
 ├── migrations/             # Simple Spec Format (.json)
 │   ├── migration-system/
 │   │   └── checksum/
@@ -449,12 +469,12 @@ Skill(skill: "generating-e2e-tests")
 
 ## Summary
 
-| Domain         | Format      | File Extension  | Purpose                      |
-| -------------- | ----------- | --------------- | ---------------------------- |
-| **App**        | Full Schema | `.schema.json`  | Data structures + test specs |
-| **API**        | Full Schema | `.openapi.json` | API contracts + test specs   |
-| **Admin**      | Simple Spec | `.json`         | Test specs only              |
-| **Migrations** | Simple Spec | `.json`         | Test specs only              |
-| **Static**     | Simple Spec | `.json`         | Test specs only              |
+| Domain         | Format            | File Extension | Purpose                      |
+| -------------- | ----------------- | -------------- | ---------------------------- |
+| **App**        | Full Schema       | `.schema.json` | Data structures + test specs |
+| **API**        | OpenAPI Operation | `.json`        | API operations + test specs  |
+| **Admin**      | Simple Spec       | `.json`        | Test specs only              |
+| **Migrations** | Simple Spec       | `.json`        | Test specs only              |
+| **Static**     | Simple Spec       | `.json`        | Test specs only              |
 
 **Key Principle**: Use the **simplest format** that meets your needs. If you don't need schema validation or type generation, use the Simple Spec Format.
