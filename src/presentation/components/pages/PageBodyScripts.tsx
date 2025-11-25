@@ -183,6 +183,13 @@ function renderBodyEndScripts(config: {
     <>
       {renderScripts(scripts.external.bodyEnd, scripts.inline.bodyEnd, 'body-end')}
       {renderConditionalScripts({ page, theme, languages, direction })}
+      {/* Render APP_CONFIG after inline scripts to merge with any existing values */}
+      {page.scripts?.config &&
+        renderWindowConfig({
+          windowKey: 'APP_CONFIG',
+          data: page.scripts.config,
+          reactKey: 'window-app-config-body',
+        })}
       <script dangerouslySetInnerHTML={{ __html: clickScript }} />
     </>
   )

@@ -235,14 +235,9 @@ function GlobalStyles({ directionStyles }: { readonly directionStyles: string })
 
 /**
  * Renders external and inline scripts for head section
+ * Note: APP_CONFIG is rendered in body-end to merge with inline scripts
  */
-function HeadScripts({
-  scripts,
-  page,
-}: {
-  readonly scripts: GroupedScripts
-  readonly page: Page
-}): ReactElement {
+function HeadScripts({ scripts }: { readonly scripts: GroupedScripts }): ReactElement {
   return (
     <>
       {scripts.external.head.map((script, index) =>
@@ -263,12 +258,6 @@ function HeadScripts({
           reactKey: `inline-head-${index}`,
         })
       )}
-      {page.scripts?.config &&
-        renderWindowConfig({
-          windowKey: 'APP_CONFIG',
-          data: page.scripts.config,
-          reactKey: 'window-app-config',
-        })}
     </>
   )
 }
@@ -389,10 +378,7 @@ export function PageHead({
       <GoogleFonts googleFonts={page.meta?.googleFonts} />
       <ThemeFonts theme={theme} />
       <GlobalStyles directionStyles={directionStyles} />
-      <HeadScripts
-        scripts={scripts}
-        page={page}
-      />
+      <HeadScripts scripts={scripts} />
     </>
   )
 }
