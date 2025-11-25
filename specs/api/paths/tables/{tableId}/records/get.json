@@ -895,6 +895,943 @@
           }
         ]
       }
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-PERMISSIONS-UNAUTHORIZED-001",
+      "given": "An unauthenticated user (no Bearer token)",
+      "when": "User attempts to list records from a table",
+      "then": "Returns 401 Unauthorized error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), salary DECIMAL(10,2))",
+            "INSERT INTO employees (name, salary) VALUES ('John Doe', 75000)"
+          ],
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "pathParams": { "tableId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 when no auth token provided",
+            "expectedStatus": 401,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Unauthorized"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-PERMISSIONS-FORBIDDEN-VIEWER-001",
+      "given": "A viewer user without read permission for the table",
+      "when": "User attempts to list records",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": ["CREATE TABLE confidential_data (id SERIAL PRIMARY KEY, data TEXT)"],
+          "authUser": {
+            "id": 3,
+            "organizationId": "org_123",
+            "role": "viewer"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "confidential_data",
+            "permissions": {
+              "viewer": {
+                "table": { "read": false, "create": false, "update": false, "delete": false }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": { "Authorization": "Bearer viewer_token" },
+            "pathParams": { "tableId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when user lacks read permission",
+            "expectedStatus": 403,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Forbidden"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-PERMISSIONS-ORG-ISOLATION-001",
+      "given": "A user from organization A attempting to access table from organization B",
+      "when": "User attempts to list records from different organization's table",
+      "then": "Returns 404 Not Found (don't leak existence of other org's data)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO projects (name, organization_id) VALUES ('Project A', 'org_456')"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "projects",
+            "organizationId": "org_456"
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": { "Authorization": "Bearer admin_token" },
+            "pathParams": { "tableId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 to prevent leaking existence of other organization's data",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Table not found"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-PERMISSIONS-ORG-FILTER-001",
+      "given": "Multiple organizations with records in the same table",
+      "when": "User lists records",
+      "then": "Returns only records belonging to user's organization",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (name, organization_id) VALUES ('Alice', 'org_123'), ('Bob', 'org_123'), ('Charlie', 'org_456')"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123"
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": { "Authorization": "Bearer admin_token" },
+            "pathParams": { "tableId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns only records from user's organization",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "records": { "type": "array" },
+                "pagination": { "type": "object" }
+              },
+              "required": ["records", "pagination"]
+            },
+            "validateResponseData": {
+              "pagination.total": 2,
+              "records.length": 2
+            }
+          },
+          {
+            "description": "All returned records belong to user's organization",
+            "executeAssertion": "expect(response.records.every(r => r.organization_id === 'org_123')).toBe(true)"
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-PERMISSIONS-FIELD-FILTER-ADMIN-001",
+      "given": "An admin user listing records with sensitive fields",
+      "when": "Admin lists records from employees table",
+      "then": "Returns all fields including sensitive fields (salary)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2))",
+            "INSERT INTO employees (name, email, salary) VALUES ('John Doe', 'john@example.com', 75000), ('Jane Smith', 'jane@example.com', 85000)"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "admin": {
+                "table": { "read": true, "create": true, "update": true, "delete": true },
+                "fields": {
+                  "salary": { "read": true, "write": true }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": { "Authorization": "Bearer admin_token" },
+            "pathParams": { "tableId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns records with all fields including salary",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "records": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "integer" },
+                      "name": { "type": "string" },
+                      "email": { "type": "string" },
+                      "salary": { "type": "number" }
+                    },
+                    "required": ["id", "name", "email", "salary"]
+                  }
+                }
+              }
+            },
+            "validateResponseData": {
+              "records.length": 2,
+              "records[0].salary": 75000,
+              "records[1].salary": 85000
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-PERMISSIONS-FIELD-FILTER-MEMBER-001",
+      "given": "A member user with field-level restrictions (salary field hidden)",
+      "when": "Member lists records from employees table",
+      "then": "Returns records with salary field excluded from response",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2))",
+            "INSERT INTO employees (name, email, salary) VALUES ('John Doe', 'john@example.com', 75000), ('Jane Smith', 'jane@example.com', 85000)"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": false, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": { "Authorization": "Bearer member_token" },
+            "pathParams": { "tableId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns records with salary field filtered out",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "records": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "integer" },
+                      "name": { "type": "string" },
+                      "email": { "type": "string" }
+                    },
+                    "required": ["id", "name", "email"]
+                  }
+                }
+              }
+            },
+            "validateResponseData": {
+              "records.length": 2
+            }
+          },
+          {
+            "description": "Salary field does not exist in response",
+            "executeAssertion": "expect(response.records[0]).not.toHaveProperty('salary')"
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-PERMISSIONS-FIELD-FILTER-VIEWER-001",
+      "given": "A viewer user with field-level restrictions (salary and email hidden)",
+      "when": "Viewer lists records from employees table",
+      "then": "Returns records with sensitive fields excluded",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2))",
+            "INSERT INTO employees (name, email, salary) VALUES ('John Doe', 'john@example.com', 75000)"
+          ],
+          "authUser": {
+            "id": 3,
+            "organizationId": "org_123",
+            "role": "viewer"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "viewer": {
+                "table": { "read": true, "create": false, "update": false, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": false },
+                  "email": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": { "Authorization": "Bearer viewer_token" },
+            "pathParams": { "tableId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns records with only permitted fields",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "records": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "integer" },
+                      "name": { "type": "string" }
+                    },
+                    "required": ["id", "name"]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "description": "Sensitive fields do not exist in response",
+            "executeAssertion": "expect(response.records[0]).not.toHaveProperty('salary') && expect(response.records[0]).not.toHaveProperty('email')"
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-PERMISSIONS-FIELD-FILTER-MULTIPLE-001",
+      "given": "Multiple sensitive fields with different permission levels per role",
+      "when": "User lists records",
+      "then": "Returns records with appropriate field filtering based on role",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), phone VARCHAR(50), salary DECIMAL(10,2), ssn VARCHAR(11))",
+            "INSERT INTO employees (name, email, phone, salary, ssn) VALUES ('John Doe', 'john@example.com', '555-0100', 75000, '123-45-6789')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": false, "update": true, "delete": false },
+                "fields": {
+                  "email": { "read": true, "write": true },
+                  "phone": { "read": true, "write": false },
+                  "salary": { "read": false, "write": false },
+                  "ssn": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": { "Authorization": "Bearer member_token" },
+            "pathParams": { "tableId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns records with granular field filtering applied",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "records": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "integer" },
+                      "name": { "type": "string" },
+                      "email": { "type": "string" },
+                      "phone": { "type": "string" }
+                    },
+                    "required": ["id", "name", "email", "phone"]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "description": "Highly sensitive fields excluded",
+            "executeAssertion": "expect(response.records[0]).not.toHaveProperty('salary') && expect(response.records[0]).not.toHaveProperty('ssn')"
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-PERMISSIONS-FIELD-PROJECTION-001",
+      "given": "User requests specific fields using 'fields' query parameter",
+      "when": "Field projection combined with permission filtering",
+      "then": "Returns only fields that are both requested AND permitted",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2))",
+            "INSERT INTO employees (name, email, salary) VALUES ('John Doe', 'john@example.com', 75000)"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": false, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": { "Authorization": "Bearer member_token" },
+            "pathParams": { "tableId": 1 },
+            "queryParams": {
+              "fields": "id,name,email,salary"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns only permitted fields even if salary was requested",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "records": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "integer" },
+                      "name": { "type": "string" },
+                      "email": { "type": "string" }
+                    },
+                    "required": ["id", "name", "email"]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "description": "Salary field excluded despite being requested",
+            "executeAssertion": "expect(response.records[0]).not.toHaveProperty('salary')"
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-PERMISSIONS-COMBINED-001",
+      "given": "Organization isolation and field-level filtering both apply",
+      "when": "User lists records",
+      "then": "Returns only own organization's records with field filtering applied",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))",
+            "INSERT INTO employees (name, salary, organization_id) VALUES ('Alice', 75000, 'org_123'), ('Bob', 85000, 'org_123'), ('Charlie', 95000, 'org_456')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": false, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": { "Authorization": "Bearer member_token" },
+            "pathParams": { "tableId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns only own org records with salary filtered",
+            "expectedStatus": 200,
+            "validateResponseData": {
+              "pagination.total": 2,
+              "records.length": 2
+            }
+          },
+          {
+            "description": "All records from user's org and salary field hidden",
+            "executeAssertion": "expect(response.records.every(r => r.organization_id === 'org_123' && !r.hasOwnProperty('salary'))).toBe(true)"
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-PERMISSIONS-EMPTY-RESULTS-001",
+      "given": "User has permission to read table but no records exist in their organization",
+      "when": "User lists records",
+      "then": "Returns 200 with empty records array and total: 0",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO projects (name, organization_id) VALUES ('Project X', 'org_456')"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "projects",
+            "organizationId": "org_123",
+            "permissions": {
+              "admin": {
+                "table": { "read": true, "create": true, "update": true, "delete": true }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": { "Authorization": "Bearer admin_token" },
+            "pathParams": { "tableId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 with empty results when no records in user's org",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "records": { "type": "array" },
+                "pagination": {
+                  "type": "object",
+                  "properties": {
+                    "total": { "type": "integer" }
+                  }
+                }
+              }
+            },
+            "validateResponseData": {
+              "pagination.total": 0,
+              "records.length": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-PERMISSIONS-PAGINATION-001",
+      "given": "Large dataset with field-level permissions and pagination",
+      "when": "User paginates through records",
+      "then": "All paginated results respect field-level permissions",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), salary DECIMAL(10,2))",
+            "INSERT INTO employees (name, salary) SELECT 'Employee ' || generate_series(1, 50), generate_series(50000, 99000, 1000)"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": false, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": { "Authorization": "Bearer member_token" },
+            "pathParams": { "tableId": 1 },
+            "queryParams": {
+              "limit": 20,
+              "offset": 10
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Pagination works correctly with field filtering",
+            "expectedStatus": 200,
+            "validateResponseData": {
+              "pagination.total": 50,
+              "pagination.limit": 20,
+              "pagination.offset": 10,
+              "records.length": 20
+            }
+          },
+          {
+            "description": "All paginated records have salary field filtered",
+            "executeAssertion": "expect(response.records.every(r => !r.hasOwnProperty('salary'))).toBe(true)"
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-PERMISSIONS-SORTING-001",
+      "given": "User attempts to sort by a field they cannot read",
+      "when": "Sort parameter includes hidden field (salary)",
+      "then": "Returns 403 Forbidden (cannot sort by inaccessible field)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), salary DECIMAL(10,2))",
+            "INSERT INTO employees (name, salary) VALUES ('Alice', 75000), ('Bob', 85000)"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": false, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": { "Authorization": "Bearer member_token" },
+            "pathParams": { "tableId": 1 },
+            "queryParams": {
+              "sort": "salary:desc"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when attempting to sort by inaccessible field",
+            "expectedStatus": 403,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "Cannot sort by field 'salary': insufficient permissions"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-PERMISSIONS-FILTERING-001",
+      "given": "User attempts to filter by a field they cannot read",
+      "when": "Filter parameter includes hidden field (salary)",
+      "then": "Returns 403 Forbidden (cannot filter by inaccessible field)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), salary DECIMAL(10,2))",
+            "INSERT INTO employees (name, salary) VALUES ('Alice', 75000), ('Bob', 85000)"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": false, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": { "Authorization": "Bearer member_token" },
+            "pathParams": { "tableId": 1 },
+            "queryParams": {
+              "filter": "{\"operator\":\"AND\",\"conditions\":[{\"field\":\"salary\",\"operator\":\"greaterThan\",\"value\":70000}]}"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when attempting to filter by inaccessible field",
+            "expectedStatus": 403,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "Cannot filter by field 'salary': insufficient permissions"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-PERMISSIONS-AGGREGATE-001",
+      "given": "User attempts to aggregate field they cannot read",
+      "when": "Aggregate parameter includes hidden field (salary)",
+      "then": "Returns 403 Forbidden (cannot aggregate inaccessible field)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), salary DECIMAL(10,2))",
+            "INSERT INTO employees (name, salary) VALUES ('Alice', 75000), ('Bob', 85000)"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": false, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": { "Authorization": "Bearer member_token" },
+            "pathParams": { "tableId": 1 },
+            "queryParams": {
+              "aggregate": "{\"avg\":[\"salary\"]}"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when attempting to aggregate inaccessible field",
+            "expectedStatus": 403,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "Cannot aggregate field 'salary': insufficient permissions"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-LIST-PERMISSIONS-AGGREGATE-ALLOWED-001",
+      "given": "User aggregates only accessible fields",
+      "when": "Aggregate parameter includes only permitted fields",
+      "then": "Returns aggregation results for accessible fields",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), priority INTEGER, budget DECIMAL(10,2))",
+            "INSERT INTO projects (name, priority, budget) VALUES ('P1', 5, 10000), ('P2', 3, 20000), ('P3', 4, 15000)"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "projects",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": false, "update": true, "delete": false },
+                "fields": {
+                  "priority": { "read": true, "write": true },
+                  "budget": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": { "Authorization": "Bearer member_token" },
+            "pathParams": { "tableId": 1 },
+            "queryParams": {
+              "aggregate": "{\"count\":true,\"avg\":[\"priority\"]}"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns aggregation results for accessible fields only",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "records": { "type": "array" },
+                "aggregations": {
+                  "type": "object",
+                  "properties": {
+                    "count": { "type": "integer" },
+                    "avg": {
+                      "type": "object",
+                      "properties": {
+                        "priority": { "type": "number" }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "validateResponseData": {
+              "aggregations.count": 3,
+              "aggregations.avg.priority": 4
+            }
+          },
+          {
+            "description": "Budget field not included in aggregations",
+            "executeAssertion": "expect(response.aggregations.avg).not.toHaveProperty('budget')"
+          }
+        ]
+      }
     }
   ]
 }

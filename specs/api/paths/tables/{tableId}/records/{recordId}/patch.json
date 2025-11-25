@@ -153,6 +153,778 @@
           }
         ]
       }
+    },
+    {
+      "id": "API-TABLES-RECORDS-UPDATE-PERMISSIONS-UNAUTHORIZED-001",
+      "given": "An unauthenticated user (no Bearer token)",
+      "when": "User attempts to update a record",
+      "then": "Returns 401 Unauthorized error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255))",
+            "INSERT INTO tasks (id, title) VALUES (1, 'Original Title')"
+          ],
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1, "recordId": 1 },
+            "body": {
+              "title": "Updated Title"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 when no auth token provided",
+            "expectedStatus": 401,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Unauthorized"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-UPDATE-PERMISSIONS-FORBIDDEN-MEMBER-001",
+      "given": "A member user without update permission for the table",
+      "when": "Member attempts to update a record",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "INSERT INTO projects (id, name) VALUES (1, 'Alpha Project')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "projects",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": false, "delete": false }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1, "recordId": 1 },
+            "body": {
+              "name": "Beta Project"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when user lacks update permission",
+            "expectedStatus": 403,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "You do not have permission to update records in this table"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-UPDATE-PERMISSIONS-FORBIDDEN-VIEWER-001",
+      "given": "A viewer user without update permission",
+      "when": "Viewer attempts to update a record",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE documents (id SERIAL PRIMARY KEY, title VARCHAR(255), content TEXT)",
+            "INSERT INTO documents (id, title, content) VALUES (1, 'Doc 1', 'Content')"
+          ],
+          "authUser": {
+            "id": 3,
+            "organizationId": "org_123",
+            "role": "viewer"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "documents",
+            "organizationId": "org_123",
+            "permissions": {
+              "viewer": {
+                "table": { "read": true, "create": false, "update": false, "delete": false }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": {
+              "Authorization": "Bearer viewer_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1, "recordId": 1 },
+            "body": {
+              "title": "Modified Title"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when viewer attempts to update",
+            "expectedStatus": 403,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Forbidden"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-UPDATE-PERMISSIONS-ORG-ISOLATION-001",
+      "given": "A user from organization A attempting to update record from organization B",
+      "when": "User attempts to update record in different organization",
+      "then": "Returns 404 Not Found (don't leak existence)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, organization_id) VALUES (1, 'Alice', 'org_456')"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123"
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1, "recordId": 1 },
+            "body": {
+              "name": "Bob"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 to prevent leaking existence of other org's record",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Record not found"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-UPDATE-PERMISSIONS-FIELD-WRITE-ADMIN-001",
+      "given": "An admin user with write access to all fields including sensitive",
+      "when": "Admin updates record with sensitive field (salary)",
+      "then": "Returns 200 with updated record including salary",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), salary DECIMAL(10,2))",
+            "INSERT INTO employees (id, name, salary) VALUES (1, 'John Doe', 75000)"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "admin": {
+                "table": { "read": true, "create": true, "update": true, "delete": true },
+                "fields": {
+                  "salary": { "read": true, "write": true }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1, "recordId": 1 },
+            "body": {
+              "salary": 85000
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Admin can update sensitive fields",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "name": { "type": "string" },
+                "salary": { "type": "number" }
+              },
+              "required": ["id", "salary"]
+            },
+            "validateResponseData": {
+              "id": 1,
+              "salary": 85000
+            }
+          },
+          {
+            "description": "Database reflects updated salary",
+            "executeQuery": "SELECT salary FROM employees WHERE id=1",
+            "expected": { "salary": 85000 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-UPDATE-PERMISSIONS-FIELD-WRITE-FORBIDDEN-001",
+      "given": "A member user attempting to update write-protected field",
+      "when": "Member includes salary field in update request",
+      "then": "Returns 403 Forbidden (cannot write to protected field)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2))",
+            "INSERT INTO employees (id, name, email, salary) VALUES (1, 'Jane Smith', 'jane@example.com', 75000)"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1, "recordId": 1 },
+            "body": {
+              "name": "Jane Updated",
+              "salary": 95000
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when attempting to update protected field",
+            "expectedStatus": 403,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" },
+                "field": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "Cannot write to field 'salary': insufficient permissions",
+              "field": "salary"
+            }
+          },
+          {
+            "description": "Database unchanged (salary still 75000)",
+            "executeQuery": "SELECT salary FROM employees WHERE id=1",
+            "expected": { "salary": 75000 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-UPDATE-PERMISSIONS-READONLY-FIELD-001",
+      "given": "User attempts to update system-managed readonly fields",
+      "when": "Update request includes id or created_at fields",
+      "then": "Returns 403 Forbidden (cannot write to readonly fields)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), created_at TIMESTAMP DEFAULT NOW())",
+            "INSERT INTO tasks (id, title) VALUES (1, 'Important Task')"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "tasks",
+            "organizationId": "org_123",
+            "permissions": {
+              "admin": {
+                "table": { "read": true, "create": true, "update": true, "delete": true },
+                "fields": {
+                  "id": { "read": true, "write": false },
+                  "created_at": { "read": true, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1, "recordId": 1 },
+            "body": {
+              "id": 999,
+              "title": "Modified Task",
+              "created_at": "2025-01-01T00:00:00Z"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when attempting to update readonly fields",
+            "expectedStatus": 403,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "Cannot write to readonly field 'id'"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-UPDATE-PERMISSIONS-PARTIAL-UPDATE-001",
+      "given": "Member user updates only permitted fields",
+      "when": "Update request includes both permitted and omitted fields",
+      "then": "Returns 200 with permitted fields updated, protected fields unchanged",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2))",
+            "INSERT INTO employees (id, name, email, salary) VALUES (1, 'Alice Cooper', 'alice@example.com', 75000)"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false },
+                "fields": {
+                  "name": { "read": true, "write": true },
+                  "email": { "read": true, "write": true },
+                  "salary": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1, "recordId": 1 },
+            "body": {
+              "name": "Alice Updated",
+              "email": "alice.updated@example.com"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Permitted fields updated successfully",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "name": { "type": "string" },
+                "email": { "type": "string" }
+              },
+              "required": ["id", "name", "email"]
+            },
+            "validateResponseData": {
+              "id": 1,
+              "name": "Alice Updated",
+              "email": "alice.updated@example.com"
+            }
+          },
+          {
+            "description": "Salary remains unchanged in database",
+            "executeQuery": "SELECT salary FROM employees WHERE id=1",
+            "expected": { "salary": 75000 }
+          },
+          {
+            "description": "Salary field not in response (member cannot read it)",
+            "executeAssertion": "expect(response).not.toHaveProperty('salary')"
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-UPDATE-PERMISSIONS-ORG-OVERRIDE-PREVENTED-001",
+      "given": "User attempts to change record's organization_id",
+      "when": "Update body includes organization_id different from user's org",
+      "then": "Returns 403 Forbidden (cannot change organization ownership)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO projects (id, name, organization_id) VALUES (1, 'Alpha', 'org_123')"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "projects",
+            "organizationId": "org_123",
+            "permissions": {
+              "admin": {
+                "table": { "read": true, "create": true, "update": true, "delete": true }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1, "recordId": 1 },
+            "body": {
+              "name": "Beta",
+              "organization_id": "org_456"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when attempting to change organization_id",
+            "expectedStatus": 403,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "Cannot change record ownership to a different organization"
+            }
+          },
+          {
+            "description": "Organization ID unchanged in database",
+            "executeQuery": "SELECT organization_id FROM projects WHERE id=1",
+            "expected": { "organization_id": "org_123" }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-UPDATE-PERMISSIONS-COMBINED-001",
+      "given": "Organization isolation, field write restrictions, and table permission all apply",
+      "when": "Member updates record with only permitted fields in their org",
+      "then": "Returns 200 with updated permitted fields, org_id unchanged",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, email, salary, organization_id) VALUES (1, 'Bob Wilson', 'bob@example.com', 65000, 'org_123')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1, "recordId": 1 },
+            "body": {
+              "name": "Bob Updated",
+              "email": "bob.updated@example.com"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Record updated successfully within same org",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "name": { "type": "string" },
+                "email": { "type": "string" },
+                "organization_id": { "type": "string" }
+              },
+              "required": ["id", "name", "email", "organization_id"]
+            },
+            "validateResponseData": {
+              "id": 1,
+              "name": "Bob Updated",
+              "email": "bob.updated@example.com",
+              "organization_id": "org_123"
+            }
+          },
+          {
+            "description": "Salary field not in response and unchanged in DB",
+            "executeAssertion": "expect(response).not.toHaveProperty('salary')"
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-UPDATE-PERMISSIONS-FIELD-WRITE-MULTIPLE-001",
+      "given": "Multiple fields with different write permission levels",
+      "when": "User updates with mix of permitted and forbidden fields",
+      "then": "Returns 403 for first forbidden field encountered",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), phone VARCHAR(50), salary DECIMAL(10,2))",
+            "INSERT INTO employees (id, name, email, phone, salary) VALUES (1, 'Carol Davis', 'carol@example.com', '555-0100', 70000)"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false },
+                "fields": {
+                  "name": { "read": true, "write": true },
+                  "email": { "read": true, "write": true },
+                  "phone": { "read": true, "write": false },
+                  "salary": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1, "recordId": 1 },
+            "body": {
+              "name": "Carol Updated",
+              "phone": "555-9999",
+              "salary": 80000
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 for attempting to write forbidden fields",
+            "expectedStatus": 403,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" },
+                "field": { "type": "string" }
+              },
+              "required": ["error", "field"]
+            }
+          },
+          {
+            "description": "Database unchanged due to failed update",
+            "executeQuery": "SELECT name, phone, salary FROM employees WHERE id=1",
+            "expected": {
+              "name": "Carol Davis",
+              "phone": "555-0100",
+              "salary": 70000
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-UPDATE-PERMISSIONS-FIELD-RESPONSE-FILTER-001",
+      "given": "Member updates record and has field-level read restrictions",
+      "when": "Update is successful",
+      "then": "Response excludes fields member cannot read (even if they exist in DB)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2))",
+            "INSERT INTO employees (id, name, email, salary) VALUES (1, 'David Lee', 'david@example.com', 72000)"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false },
+                "fields": {
+                  "name": { "read": true, "write": true },
+                  "email": { "read": true, "write": true },
+                  "salary": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1, "recordId": 1 },
+            "body": {
+              "name": "David Updated"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Update successful with field filtering applied to response",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "name": { "type": "string" },
+                "email": { "type": "string" }
+              },
+              "required": ["id", "name", "email"]
+            },
+            "validateResponseData": {
+              "name": "David Updated"
+            }
+          },
+          {
+            "description": "Salary field not in response despite existing in database",
+            "executeAssertion": "expect(response).not.toHaveProperty('salary')"
+          },
+          {
+            "description": "Database has salary field unchanged",
+            "executeQuery": "SELECT salary FROM employees WHERE id=1",
+            "expected": { "salary": 72000 }
+          }
+        ]
+      }
     }
   ]
 }

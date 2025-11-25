@@ -290,6 +290,751 @@
           }
         ]
       }
+    },
+    {
+      "id": "API-TABLES-RECORDS-CREATE-PERMISSIONS-FORBIDDEN-MEMBER-001",
+      "given": "A member user without create permission for the table",
+      "when": "Member attempts to create a record",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": ["CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255))"],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "projects",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": false, "update": true, "delete": false }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "name": "New Project"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when user lacks create permission",
+            "expectedStatus": 403,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Forbidden"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-CREATE-PERMISSIONS-FORBIDDEN-VIEWER-001",
+      "given": "A viewer user without create permission",
+      "when": "Viewer attempts to create a record",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": ["CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255))"],
+          "authUser": {
+            "id": 3,
+            "organizationId": "org_123",
+            "role": "viewer"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "tasks",
+            "organizationId": "org_123",
+            "permissions": {
+              "viewer": {
+                "table": { "read": true, "create": false, "update": false, "delete": false }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer viewer_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "title": "New Task"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when viewer attempts to create",
+            "expectedStatus": 403,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "You do not have permission to create records in this table"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-CREATE-PERMISSIONS-ORG-ISOLATION-001",
+      "given": "A user from organization A attempting to create in organization B's table",
+      "when": "User attempts to create record in different organization's table",
+      "then": "Returns 404 Not Found (don't leak existence)",
+      "validation": {
+        "setup": {
+          "executeQuery": ["CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255))"],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_456"
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "name": "John Doe"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 to prevent leaking existence of other org's table",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Table not found"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-CREATE-PERMISSIONS-FIELD-WRITE-ADMIN-001",
+      "given": "An admin user with write access to all fields including sensitive",
+      "when": "Admin creates record with sensitive field (salary)",
+      "then": "Returns 201 Created with all fields",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2))"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "admin": {
+                "table": { "read": true, "create": true, "update": true, "delete": true },
+                "fields": {
+                  "salary": { "read": true, "write": true }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "name": "John Doe",
+              "email": "john@example.com",
+              "salary": 75000
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Admin can create with all fields including salary",
+            "expectedStatus": 201,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "name": { "type": "string" },
+                "email": { "type": "string" },
+                "salary": { "type": "number" }
+              },
+              "required": ["id", "name", "email", "salary"]
+            },
+            "validateResponseData": {
+              "name": "John Doe",
+              "email": "john@example.com",
+              "salary": 75000
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-CREATE-PERMISSIONS-FIELD-WRITE-FORBIDDEN-001",
+      "given": "A member user attempting to create with write-protected field",
+      "when": "Member includes salary field in create request",
+      "then": "Returns 403 Forbidden (cannot write to protected field)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2))"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "name": "Jane Smith",
+              "email": "jane@example.com",
+              "salary": 85000
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when attempting to write to protected field",
+            "expectedStatus": 403,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" },
+                "field": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "Cannot write to field 'salary': insufficient permissions",
+              "field": "salary"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-CREATE-PERMISSIONS-FIELD-WRITE-VIEWER-001",
+      "given": "A viewer user with very limited write permissions",
+      "when": "Viewer attempts to create with write-protected fields",
+      "then": "Returns 403 Forbidden",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255))"
+          ],
+          "authUser": {
+            "id": 3,
+            "organizationId": "org_123",
+            "role": "viewer"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "viewer": {
+                "table": { "read": true, "create": true, "update": false, "delete": false },
+                "fields": {
+                  "email": { "read": true, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer viewer_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "name": "Bob Wilson",
+              "email": "bob@example.com"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when viewer attempts to write to read-only field",
+            "expectedStatus": 403,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Forbidden",
+              "field": "email"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-CREATE-PERMISSIONS-READONLY-FIELD-001",
+      "given": "User attempts to set system-managed readonly fields",
+      "when": "Create request includes id or created_at fields",
+      "then": "Returns 403 Forbidden (cannot write to readonly fields)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), created_at TIMESTAMP DEFAULT NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "tasks",
+            "organizationId": "org_123",
+            "permissions": {
+              "admin": {
+                "table": { "read": true, "create": true, "update": true, "delete": true },
+                "fields": {
+                  "id": { "read": true, "write": false },
+                  "created_at": { "read": true, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "id": 999,
+              "title": "Important Task",
+              "created_at": "2025-01-01T00:00:00Z"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when attempting to set readonly fields",
+            "expectedStatus": 403,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "Cannot write to readonly field 'id'"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-CREATE-PERMISSIONS-FIELD-WRITE-MULTIPLE-001",
+      "given": "Multiple fields with different write permission levels",
+      "when": "User creates with mix of permitted and forbidden fields",
+      "then": "Returns 403 for first forbidden field encountered",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), phone VARCHAR(50), salary DECIMAL(10,2), ssn VARCHAR(11))"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false },
+                "fields": {
+                  "name": { "read": true, "write": true },
+                  "email": { "read": true, "write": true },
+                  "phone": { "read": true, "write": false },
+                  "salary": { "read": false, "write": false },
+                  "ssn": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "name": "Alice Cooper",
+              "email": "alice@example.com",
+              "phone": "555-0100",
+              "salary": 95000,
+              "ssn": "123-45-6789"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 for attempting to write multiple forbidden fields",
+            "expectedStatus": 403,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" },
+                "field": { "type": "string" }
+              },
+              "required": ["error", "field"]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-CREATE-PERMISSIONS-ORG-AUTO-INJECT-001",
+      "given": "User creates record in multi-tenant table",
+      "when": "Organization ID field exists in table",
+      "then": "Organization ID is automatically injected from user's session",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255) NOT NULL)"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "projects",
+            "organizationId": "org_123",
+            "permissions": {
+              "admin": {
+                "table": { "read": true, "create": true, "update": true, "delete": true }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "name": "Alpha Project"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Record created with auto-injected organization_id",
+            "expectedStatus": 201,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "name": { "type": "string" },
+                "organization_id": { "type": "string" }
+              },
+              "required": ["id", "name", "organization_id"]
+            },
+            "validateResponseData": {
+              "name": "Alpha Project",
+              "organization_id": "org_123"
+            }
+          },
+          {
+            "description": "Database record has correct organization_id",
+            "executeQuery": "SELECT organization_id FROM projects WHERE name='Alpha Project'",
+            "expected": { "organization_id": "org_123" }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-CREATE-PERMISSIONS-ORG-OVERRIDE-PREVENTED-001",
+      "given": "User attempts to create record with different organization_id",
+      "when": "Request body includes organization_id different from user's org",
+      "then": "Returns 403 Forbidden (cannot set org_id to different org)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "projects",
+            "organizationId": "org_123",
+            "permissions": {
+              "admin": {
+                "table": { "read": true, "create": true, "update": true, "delete": true }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "name": "Malicious Project",
+              "organization_id": "org_456"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when attempting to set different organization_id",
+            "expectedStatus": 403,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "Cannot create record for a different organization"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-CREATE-PERMISSIONS-COMBINED-001",
+      "given": "Organization isolation, field write restrictions, and table permission all apply",
+      "when": "Member creates record with only permitted fields",
+      "then": "Returns 201 Created with auto-injected org_id and filtered fields",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "name": "Carol Davis",
+              "email": "carol@example.com"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Record created successfully with org_id auto-injected",
+            "expectedStatus": 201,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "name": { "type": "string" },
+                "email": { "type": "string" },
+                "organization_id": { "type": "string" }
+              },
+              "required": ["id", "name", "email", "organization_id"]
+            },
+            "validateResponseData": {
+              "name": "Carol Davis",
+              "email": "carol@example.com",
+              "organization_id": "org_123"
+            }
+          },
+          {
+            "description": "Salary field not in response (member cannot read it)",
+            "executeAssertion": "expect(response).not.toHaveProperty('salary')"
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-CREATE-PERMISSIONS-PARTIAL-DATA-001",
+      "given": "User creates record with only permitted fields",
+      "when": "Some fields are omitted due to write restrictions",
+      "then": "Returns 201 Created with defaults/nulls for omitted fields",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, email VARCHAR(255), salary DECIMAL(10,2) DEFAULT 50000)"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false },
+                "fields": {
+                  "name": { "read": true, "write": true },
+                  "email": { "read": true, "write": true },
+                  "salary": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "name": "David Lee",
+              "email": "david@example.com"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Record created with database defaults for forbidden fields",
+            "expectedStatus": 201,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "name": { "type": "string" },
+                "email": { "type": "string" }
+              },
+              "required": ["id", "name", "email"]
+            },
+            "validateResponseData": {
+              "name": "David Lee",
+              "email": "david@example.com"
+            }
+          },
+          {
+            "description": "Database has default salary value",
+            "executeQuery": "SELECT salary FROM employees WHERE name='David Lee'",
+            "expected": { "salary": 50000 }
+          }
+        ]
+      }
     }
   ]
 }
