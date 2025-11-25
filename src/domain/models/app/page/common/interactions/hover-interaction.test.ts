@@ -226,6 +226,38 @@ describe('HoverInteractionSchema', () => {
     expect(() => Schema.decodeUnknownSync(HoverInteractionSchema)(hover)).toThrow()
   })
 
+  test('should accept hover with scale number', () => {
+    // GIVEN: Hover with scale factor
+    const hover = {
+      scale: 1.05,
+    }
+
+    // WHEN: Schema validation is performed
+    const result = Schema.decodeUnknownSync(HoverInteractionSchema)(hover)
+
+    // THEN: Scale should be accepted
+    expect(result.scale).toBe(1.05)
+  })
+
+  test('should accept hover with scale and other properties', () => {
+    // GIVEN: Hover with scale and additional effects
+    const hover = {
+      scale: 1.1,
+      shadow: '0 10px 25px rgba(0,0,0,0.15)',
+      duration: '300ms',
+      easing: 'ease-out',
+    }
+
+    // WHEN: Schema validation is performed
+    const result = Schema.decodeUnknownSync(HoverInteractionSchema)(hover)
+
+    // THEN: All properties should be accepted
+    expect(result.scale).toBe(1.1)
+    expect(result.shadow).toBe('0 10px 25px rgba(0,0,0,0.15)')
+    expect(result.duration).toBe('300ms')
+    expect(result.easing).toBe('ease-out')
+  })
+
   test('should accept empty hover interaction', () => {
     // GIVEN: Empty hover config
     const hover = {}
