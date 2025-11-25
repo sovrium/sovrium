@@ -278,6 +278,435 @@
           }
         ]
       }
+    },
+    {
+      "id": "API-RECORDS-BATCH-DELETE-PERMISSIONS-UNAUTHORIZED-001",
+      "given": "An unauthenticated user",
+      "when": "User attempts batch delete without auth token",
+      "then": "Returns 401 Unauthorized error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, organization_id) VALUES (1, 'Alice Cooper', 'org_123'), (2, 'Bob Smith', 'org_123')"
+          ],
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": { "Content-Type": "application/json" },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "ids": [1, 2]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 when no auth token provided",
+            "expectedStatus": 401,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            }
+          },
+          {
+            "description": "No records deleted in database",
+            "executeQuery": "SELECT COUNT(*) as count FROM employees",
+            "expected": { "count": 2 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-DELETE-PERMISSIONS-FORBIDDEN-MEMBER-001",
+      "given": "A member user without delete permission",
+      "when": "Member attempts batch delete",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, organization_id) VALUES (1, 'Alice Cooper', 'org_123'), (2, 'Bob Smith', 'org_123')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "ids": [1, 2]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when member lacks delete permission",
+            "expectedStatus": 403,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            },
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "You do not have permission to delete records in this table"
+            }
+          },
+          {
+            "description": "No records deleted",
+            "executeQuery": "SELECT COUNT(*) as count FROM employees",
+            "expected": { "count": 2 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-DELETE-PERMISSIONS-FORBIDDEN-VIEWER-001",
+      "given": "A viewer user with read-only access",
+      "when": "Viewer attempts batch delete",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO projects (id, name, organization_id) VALUES (1, 'Project Alpha', 'org_456'), (2, 'Project Beta', 'org_456')"
+          ],
+          "authUser": {
+            "id": 3,
+            "organizationId": "org_456",
+            "role": "viewer"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "projects",
+            "organizationId": "org_456",
+            "permissions": {
+              "viewer": {
+                "table": { "read": true, "create": false, "update": false, "delete": false }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer viewer_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "ids": [1, 2]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when viewer lacks delete permission",
+            "expectedStatus": 403,
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "You do not have permission to delete records in this table"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-DELETE-PERMISSIONS-ORG-ISOLATION-001",
+      "given": "An admin user from org_123 with records from org_456",
+      "when": "Admin attempts to batch delete records from different organization",
+      "then": "Returns 404 Not Found (organization isolation)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, organization_id) VALUES (1, 'Alice Cooper', 'org_456'), (2, 'Bob Smith', 'org_456')"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123"
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "ids": [1, 2]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 when records belong to different organization",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Record not found"
+            }
+          },
+          {
+            "description": "No records deleted (original values preserved)",
+            "executeQuery": "SELECT COUNT(*) as count FROM employees WHERE organization_id='org_456'",
+            "expected": { "count": 2 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-DELETE-PERMISSIONS-ADMIN-FULL-ACCESS-001",
+      "given": "An admin user with full delete permissions",
+      "when": "Admin batch deletes records from their organization",
+      "then": "Returns 200 with deleted count and records are removed",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, email, organization_id) VALUES (1, 'Alice Cooper', 'alice@example.com', 'org_123'), (2, 'Bob Smith', 'bob@example.com', 'org_123'), (3, 'Charlie Davis', 'charlie@example.com', 'org_123')"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "admin": {
+                "table": { "read": true, "create": true, "update": true, "delete": true }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "ids": [1, 2]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 with deleted count",
+            "expectedStatus": 200,
+            "validateResponseData": {
+              "deleted": 2
+            }
+          },
+          {
+            "description": "Records are deleted from database",
+            "executeQuery": "SELECT COUNT(*) as count FROM employees WHERE id IN (1, 2)",
+            "expected": { "count": 0 }
+          },
+          {
+            "description": "Remaining record still exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM employees WHERE id=3",
+            "expected": { "count": 1 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-DELETE-PERMISSIONS-OWNER-FULL-ACCESS-001",
+      "given": "An owner user with full delete permissions",
+      "when": "Owner batch deletes records from their organization",
+      "then": "Returns 200 with deleted count and records are removed",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), status VARCHAR(50), organization_id VARCHAR(255))",
+            "INSERT INTO projects (id, name, status, organization_id) VALUES (1, 'Project Alpha', 'active', 'org_789'), (2, 'Project Beta', 'active', 'org_789'), (3, 'Project Gamma', 'active', 'org_789')"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_789",
+            "role": "owner"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "projects",
+            "organizationId": "org_789",
+            "permissions": {
+              "owner": {
+                "table": { "read": true, "create": true, "update": true, "delete": true }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer owner_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "ids": [1, 2]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 with deleted count",
+            "expectedStatus": 200,
+            "validateResponseData": {
+              "deleted": 2
+            }
+          },
+          {
+            "description": "Records are deleted from database",
+            "executeQuery": "SELECT COUNT(*) as count FROM projects WHERE id IN (1, 2)",
+            "expected": { "count": 0 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-DELETE-PERMISSIONS-CROSS-ORG-PREVENTION-001",
+      "given": "A member from org_123 with records from different org",
+      "when": "Member attempts to batch delete records from org_456",
+      "then": "Returns 404 Not Found (prevents cross-org deletes)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, organization_id) VALUES (1, 'Alice Cooper', 'org_456'), (2, 'Bob Smith', 'org_456')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123"
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "ids": [1, 2]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 to prevent cross-org record deletes",
+            "expectedStatus": 404,
+            "validateResponseData": {
+              "error": "Record not found"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-DELETE-PERMISSIONS-COMBINED-SCENARIO-001",
+      "given": "A member without delete permission tries to delete records from different org",
+      "when": "Member attempts batch delete with both permission and org violations",
+      "then": "Returns 404 Not Found (org isolation checked first)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, organization_id) VALUES (1, 'Alice Cooper', 'org_456'), (2, 'Bob Smith', 'org_456')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "ids": [1, 2]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 (org isolation checked before permissions)",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Record not found"
+            }
+          }
+        ]
+      }
     }
   ]
 }

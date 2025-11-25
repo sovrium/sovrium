@@ -376,6 +376,652 @@
           }
         ]
       }
+    },
+    {
+      "id": "API-RECORDS-BATCH-PERMISSIONS-UNAUTHORIZED-001",
+      "given": "An unauthenticated user",
+      "when": "User attempts batch create without auth token",
+      "then": "Returns 401 Unauthorized error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), organization_id VARCHAR(255))"
+          ],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": { "Content-Type": "application/json" },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [{ "name": "Alice Cooper", "email": "alice@example.com" }]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 when no auth token provided",
+            "expectedStatus": 401,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            }
+          },
+          {
+            "description": "No records created in database",
+            "executeQuery": "SELECT COUNT(*) as count FROM employees",
+            "expected": { "count": 0 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-PERMISSIONS-FORBIDDEN-MEMBER-001",
+      "given": "A member user without create permission",
+      "when": "Member attempts batch create",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": false, "update": true, "delete": false }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [{ "name": "Alice Cooper" }, { "name": "Bob Smith" }]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when member lacks create permission",
+            "expectedStatus": 403,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            },
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "You do not have permission to create records in this table"
+            }
+          },
+          {
+            "description": "No records created",
+            "executeQuery": "SELECT COUNT(*) as count FROM employees",
+            "expected": { "count": 0 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-PERMISSIONS-FORBIDDEN-VIEWER-001",
+      "given": "A viewer user with read-only access",
+      "when": "Viewer attempts batch create",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))"
+          ],
+          "authUser": {
+            "id": 3,
+            "organizationId": "org_456",
+            "role": "viewer"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "projects",
+            "organizationId": "org_456",
+            "permissions": {
+              "viewer": {
+                "table": { "read": true, "create": false, "update": false, "delete": false }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer viewer_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [{ "name": "Project Alpha" }]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when viewer lacks create permission",
+            "expectedStatus": 403,
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "You do not have permission to create records in this table"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-PERMISSIONS-ORG-AUTO-INJECT-001",
+      "given": "An admin user from org_123 batch creating records",
+      "when": "Admin creates records without specifying organization_id",
+      "then": "Returns 201 with organization_id auto-injected for all records",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), organization_id VARCHAR(255))"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123"
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                { "name": "Alice Cooper", "email": "alice@example.com" },
+                { "name": "Bob Smith", "email": "bob@example.com" }
+              ]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 201 with organization_id auto-injected",
+            "expectedStatus": 201,
+            "validateResponseData": {
+              "created": 2,
+              "records.0.organization_id": "org_123",
+              "records.1.organization_id": "org_123"
+            }
+          },
+          {
+            "description": "All records have correct organization_id in database",
+            "executeQuery": "SELECT COUNT(*) as count FROM employees WHERE organization_id='org_123'",
+            "expected": { "count": 2 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-PERMISSIONS-FIELD-WRITE-FORBIDDEN-001",
+      "given": "A member user with field-level write restrictions (salary protected)",
+      "when": "Member attempts to batch create with protected field in any record",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                { "name": "Alice Cooper", "email": "alice@example.com" },
+                { "name": "Bob Smith", "email": "bob@example.com", "salary": 85000 }
+              ]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when any record contains protected field",
+            "expectedStatus": 403,
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "You do not have permission to write to field: salary"
+            }
+          },
+          {
+            "description": "No records created (transaction rollback)",
+            "executeQuery": "SELECT COUNT(*) as count FROM employees",
+            "expected": { "count": 0 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-PERMISSIONS-READONLY-FIELD-001",
+      "given": "An admin user attempting to set readonly fields",
+      "when": "Admin batch creates with id or created_at in payload",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), created_at TIMESTAMP DEFAULT NOW(), organization_id VARCHAR(255))"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123"
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [{ "id": 999, "name": "Alice Cooper" }]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 for readonly field violation",
+            "expectedStatus": 403,
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "Cannot set readonly field: id"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-PERMISSIONS-ORG-OVERRIDE-PREVENTED-001",
+      "given": "A member user attempting to set different organization_id",
+      "when": "Member batch creates with organization_id='org_456' in payload",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123"
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                { "name": "Alice Cooper", "organization_id": "org_123" },
+                { "name": "Bob Smith", "organization_id": "org_456" }
+              ]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when any record has different organization_id",
+            "expectedStatus": 403,
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "Cannot create records for different organization"
+            }
+          },
+          {
+            "description": "No records created",
+            "executeQuery": "SELECT COUNT(*) as count FROM employees",
+            "expected": { "count": 0 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-PERMISSIONS-PARTIAL-FIELD-FILTERING-001",
+      "given": "A member user with field-level read restrictions",
+      "when": "Member batch creates records successfully",
+      "then": "Returns 201 with protected fields filtered from response",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": true }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                { "name": "Alice Cooper", "email": "alice@example.com", "salary": 75000 },
+                { "name": "Bob Smith", "email": "bob@example.com", "salary": 85000 }
+              ]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 201 with salary field filtered from response",
+            "expectedStatus": 201,
+            "validateResponseData": {
+              "created": 2,
+              "records.0.name": "Alice Cooper",
+              "records.1.name": "Bob Smith"
+            },
+            "validateResponseDataExcluded": ["records.0.salary", "records.1.salary"]
+          },
+          {
+            "description": "Salary values stored in database",
+            "executeQuery": "SELECT COUNT(*) as count FROM employees WHERE salary IS NOT NULL",
+            "expected": { "count": 2 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-PERMISSIONS-ADMIN-FULL-ACCESS-001",
+      "given": "An admin user with full permissions",
+      "when": "Admin batch creates records with all fields",
+      "then": "Returns 201 with all fields visible in response",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_789",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_789",
+            "permissions": {
+              "admin": {
+                "table": { "read": true, "create": true, "update": true, "delete": true },
+                "fields": {
+                  "salary": { "read": true, "write": true }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                { "name": "Charlie Davis", "email": "charlie@example.com", "salary": 120000 },
+                { "name": "Diana Prince", "email": "diana@example.com", "salary": 95000 }
+              ]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 201 with all fields visible",
+            "expectedStatus": 201,
+            "validateResponseData": {
+              "created": 2,
+              "records.0.name": "Charlie Davis",
+              "records.0.salary": 120000,
+              "records.1.name": "Diana Prince",
+              "records.1.salary": 95000
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-PERMISSIONS-CROSS-ORG-PREVENTION-001",
+      "given": "A member from org_123 with manual organization_id in payload",
+      "when": "Member attempts to set organization_id='org_456' for any record",
+      "then": "Returns 403 Forbidden error (prevents cross-org data creation)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123"
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [{ "name": "Alice Cooper", "organization_id": "org_456" }]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 to prevent cross-org record creation",
+            "expectedStatus": 403,
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "Cannot create records for different organization"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-PERMISSIONS-COMBINED-SCENARIO-001",
+      "given": "A member without create permission and field restrictions",
+      "when": "Member attempts batch create with protected field",
+      "then": "Returns 403 Forbidden (table-level permission checked first)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": false, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [{ "name": "Alice Cooper", "salary": 85000 }]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 for table-level create permission",
+            "expectedStatus": 403,
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "You do not have permission to create records in this table"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-PERMISSIONS-COMBINED-SCENARIO-002",
+      "given": "A member with create permission but field restrictions",
+      "when": "Member batch creates records with only permitted fields",
+      "then": "Returns 201 with field filtering applied across all records",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": true }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                { "name": "Alice Cooper", "email": "alice@example.com", "salary": 75000 },
+                { "name": "Bob Smith", "email": "bob@example.com", "salary": 85000 },
+                { "name": "Charlie Davis", "email": "charlie@example.com", "salary": 95000 }
+              ]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 201 with salary filtered from all records",
+            "expectedStatus": 201,
+            "validateResponseData": {
+              "created": 3
+            },
+            "validateResponseDataExcluded": [
+              "records.0.salary",
+              "records.1.salary",
+              "records.2.salary"
+            ]
+          }
+        ]
+      }
     }
   ]
 }

@@ -318,34 +318,35 @@ function calculatePropertyGroupPriority(
   // Optional root properties get groups 4+
   // Nested properties get higher groups
 
-  if (property.level === 1 && property.required) {
-    // Required root property: Only 'name' is required in the schema
-    // Priority group 1 for 'name'
-    if (property.name === 'name') {
-      return 1
+  if (property.level === 1) {
+    // Root properties: Use explicit ordering
+    // Order: name → version → description → theme → languages → blocks → pages → tables → connections → interfaces → automations
+    const explicitOrder = [
+      'name',
+      'version',
+      'description',
+      'theme',
+      'languages',
+      'blocks',
+      'pages',
+      'tables',
+      'connections',
+      'interfaces',
+      'automations',
+    ]
+
+    const index = explicitOrder.indexOf(property.name)
+    if (index >= 0) {
+      return index + 1 // name=1, version=2, description=3, etc.
     }
-    // If other properties become required in the future
-    return 2
-  }
 
-  if (property.level === 1 && !property.required) {
-    // Optional root properties: Priority groups 2+
-    // Prioritize common metadata fields (version, description) before others
-
-    // High-priority optional metadata fields
-    const metadataOrder = ['version', 'description']
-    const metadataIndex = metadataOrder.indexOf(property.name)
-    if (metadataIndex >= 0) {
-      return 2 + metadataIndex // version=2, description=3
-    }
-
-    // Other optional root properties (alphabetical)
+    // Fallback for any other root properties not in explicit list (alphabetical after)
     const otherOptionalProps = Array.from(hierarchy.values())
-      .filter((p) => p.level === 1 && !p.required && !metadataOrder.includes(p.name))
+      .filter((p) => p.level === 1 && !explicitOrder.includes(p.name))
       .sort((a, b) => a.name.localeCompare(b.name))
 
-    const index = otherOptionalProps.findIndex((p) => p.name === property.name)
-    return 4 + index // Starting from group 4
+    const otherIndex = otherOptionalProps.findIndex((p) => p.name === property.name)
+    return explicitOrder.length + 1 + otherIndex // Starting after explicit list
   }
 
   // Nested properties (level 2+): Higher group numbers
@@ -431,12 +432,13 @@ export function createSchemaPriorityCalculator(rootSchemaPath: string): (specId:
 
 /**
  * Calculate simple priority for API and ADMIN specs
- * Uses alphabetical ordering of feature path with test number offset
+ * Uses explicit ordering for known endpoints, alphabetical for others
  *
  * @param specId Full spec ID (e.g., "API-PATHS-HEALTH-001", "ADMIN-TABLES-001")
+ * @param domain Domain type ('api' or 'admin')
  * @returns Priority number within domain (0-999,999)
  */
-function calculateSimplePriority(specId: string): number {
+function calculateSimplePriority(specId: string, domain: SpecDomain): number {
   // Extract feature path and test identifier
   const featurePath = getFeaturePathFromSpecId(specId)
   const parts = specId.split('-')
@@ -451,16 +453,16 @@ function calculateSimplePriority(specId: string): number {
     /^\d+$/.test(testIdentifier)
   const isRegression = isRegressionOnly || isRegressionWithNumber
 
-  // Calculate alphabetical priority for feature path
-  // Convert path segments to numeric value for consistent ordering
-  const pathParts = featurePath.split('/')
+  // Calculate feature priority based on domain
   let featurePriority = 0
 
-  for (let i = 0; i < pathParts.length; i++) {
-    const part = pathParts[i] || ''
-    const partValue = getAlphabeticalIndexForSubFeature(part)
-    // Each level gets exponentially less weight (1000, 100, 10, 1)
-    featurePriority += partValue * Math.pow(10, 3 - i)
+  if (domain === 'api') {
+    // API domain: explicit ordering for known paths
+    // Order: health → auth → tables
+    featurePriority = calculateApiPathPriority(featurePath)
+  } else {
+    // ADMIN domain: alphabetical ordering
+    featurePriority = calculateAlphabeticalPriority(featurePath)
   }
 
   // Round to nearest 1000 to create groups
@@ -473,6 +475,60 @@ function calculateSimplePriority(specId: string): number {
     const testNumber = parseInt(testIdentifier, 10) || 1
     return baseGroup + testNumber
   }
+}
+
+/**
+ * Calculate priority for API paths with explicit ordering
+ * Order: health → auth → tables → others (alphabetical)
+ *
+ * @param featurePath Feature path (e.g., "api/paths/health", "api/paths/auth/sign-in/email")
+ * @returns Priority number
+ */
+function calculateApiPathPriority(featurePath: string): number {
+  const pathParts = featurePath.split('/')
+
+  // For API paths, the structure is: api/paths/{endpoint}/...
+  if (pathParts.length >= 3 && pathParts[0] === 'api' && pathParts[1] === 'paths') {
+    const endpoint = pathParts[2] || ''
+
+    // Explicit ordering for known endpoints
+    const explicitOrder = ['health', 'auth', 'tables']
+    const index = explicitOrder.indexOf(endpoint)
+
+    if (index >= 0) {
+      // Known endpoint: use explicit priority
+      // Multiply by 10000 to create large groups for sub-paths
+      return (index + 1) * 10000
+    }
+
+    // Unknown endpoint: alphabetical after known endpoints
+    const alphabeticalOffset = getAlphabeticalIndexForSubFeature(endpoint)
+    return (explicitOrder.length + 1) * 10000 + alphabeticalOffset * 1000
+  }
+
+  // Non-path API specs: fallback to alphabetical
+  return calculateAlphabeticalPriority(featurePath)
+}
+
+/**
+ * Calculate alphabetical priority for a feature path
+ * Convert path segments to numeric value for consistent ordering
+ *
+ * @param featurePath Feature path (e.g., "admin/tables", "api/components/schemas")
+ * @returns Priority number
+ */
+function calculateAlphabeticalPriority(featurePath: string): number {
+  const pathParts = featurePath.split('/')
+  let featurePriority = 0
+
+  for (let i = 0; i < pathParts.length; i++) {
+    const part = pathParts[i] || ''
+    const partValue = getAlphabeticalIndexForSubFeature(part)
+    // Each level gets exponentially less weight (1000, 100, 10, 1)
+    featurePriority += partValue * Math.pow(10, 3 - i)
+  }
+
+  return featurePriority
 }
 
 /**
@@ -500,8 +556,7 @@ export function calculateSpecPriority(specId: string, rootSchemaPath: string): n
     return domainBasePriority + schemaPriority
   }
 
-  // For API and ADMIN domains, use simple alphabetical ordering
-  // (can be enhanced later to parse OpenAPI/other schemas if needed)
-  const simplePriority = calculateSimplePriority(specId)
+  // For API and ADMIN domains, use explicit ordering for known paths
+  const simplePriority = calculateSimplePriority(specId, domain)
   return domainBasePriority + simplePriority
 }

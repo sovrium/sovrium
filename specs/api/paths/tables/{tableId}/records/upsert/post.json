@@ -355,6 +355,651 @@
           }
         ]
       }
+    },
+    {
+      "id": "API-RECORDS-UPSERT-PERMISSIONS-UNAUTHORIZED-001",
+      "given": "An unauthenticated user",
+      "when": "User attempts upsert without auth token",
+      "then": "Returns 401 Unauthorized error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (email, name, organization_id) VALUES ('alice@example.com', 'Alice Cooper', 'org_123')"
+          ],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/upsert",
+            "headers": { "Content-Type": "application/json" },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [{ "email": "alice@example.com", "name": "Updated Alice" }],
+              "fieldsToMergeOn": ["email"]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 when no auth token provided",
+            "expectedStatus": 401,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            }
+          },
+          {
+            "description": "No records created or updated in database",
+            "executeQuery": "SELECT name FROM employees WHERE email='alice@example.com'",
+            "expected": { "name": "Alice Cooper" }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-UPSERT-PERMISSIONS-FORBIDDEN-CREATE-001",
+      "given": "A member user without create permission",
+      "when": "Member attempts upsert with new records",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE, name VARCHAR(255), organization_id VARCHAR(255))"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": false, "update": true, "delete": false }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/upsert",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [{ "email": "alice@example.com", "name": "Alice Cooper" }],
+              "fieldsToMergeOn": ["email"]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when member lacks create permission",
+            "expectedStatus": 403,
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "You do not have permission to create records in this table"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-UPSERT-PERMISSIONS-FORBIDDEN-UPDATE-001",
+      "given": "A member user without update permission",
+      "when": "Member attempts upsert with existing records",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (email, name, organization_id) VALUES ('alice@example.com', 'Alice Cooper', 'org_123')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": false, "delete": false }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/upsert",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [{ "email": "alice@example.com", "name": "Updated Alice" }],
+              "fieldsToMergeOn": ["email"]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when member lacks update permission",
+            "expectedStatus": 403,
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "You do not have permission to update records in this table"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-UPSERT-PERMISSIONS-FORBIDDEN-VIEWER-001",
+      "given": "A viewer user with read-only access",
+      "when": "Viewer attempts upsert",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255) UNIQUE, organization_id VARCHAR(255))"
+          ],
+          "authUser": {
+            "id": 3,
+            "organizationId": "org_456",
+            "role": "viewer"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "projects",
+            "organizationId": "org_456",
+            "permissions": {
+              "viewer": {
+                "table": { "read": true, "create": false, "update": false, "delete": false }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/upsert",
+            "headers": {
+              "Authorization": "Bearer viewer_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [{ "name": "Project Alpha" }],
+              "fieldsToMergeOn": ["name"]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when viewer lacks create/update permissions",
+            "expectedStatus": 403,
+            "validateResponseData": {
+              "error": "Forbidden"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-UPSERT-PERMISSIONS-ORG-AUTO-INJECT-001",
+      "given": "An admin user from org_123 upserting records",
+      "when": "Admin upserts records without specifying organization_id",
+      "then": "Returns 200 with organization_id auto-injected for all records",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (email, name, organization_id) VALUES ('alice@example.com', 'Alice', 'org_123')"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123"
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/upsert",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                { "email": "alice@example.com", "name": "Updated Alice" },
+                { "email": "bob@example.com", "name": "Bob Smith" }
+              ],
+              "fieldsToMergeOn": ["email"]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 with organization_id auto-injected",
+            "expectedStatus": 200,
+            "validateResponseData": {
+              "created": 1,
+              "updated": 1,
+              "records.0.organization_id": "org_123",
+              "records.1.organization_id": "org_123"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-UPSERT-PERMISSIONS-FIELD-WRITE-FORBIDDEN-CREATE-001",
+      "given": "A member user with field-level write restrictions (salary protected)",
+      "when": "Member attempts upsert creating record with protected field",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE, name VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/upsert",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                { "email": "alice@example.com", "name": "Alice Cooper", "salary": 85000 }
+              ],
+              "fieldsToMergeOn": ["email"]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when creating with protected field",
+            "expectedStatus": 403,
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "You do not have permission to write to field: salary"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-UPSERT-PERMISSIONS-FIELD-WRITE-FORBIDDEN-UPDATE-001",
+      "given": "A member user with field-level write restrictions (salary protected)",
+      "when": "Member attempts upsert updating record with protected field",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE, name VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))",
+            "INSERT INTO employees (email, name, salary, organization_id) VALUES ('alice@example.com', 'Alice Cooper', 75000, 'org_123')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/upsert",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                { "email": "alice@example.com", "name": "Updated Alice", "salary": 90000 }
+              ],
+              "fieldsToMergeOn": ["email"]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when updating with protected field",
+            "expectedStatus": 403,
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "You do not have permission to write to field: salary"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-UPSERT-PERMISSIONS-READONLY-FIELD-001",
+      "given": "An admin user attempting to set readonly fields",
+      "when": "Admin upserts with id or created_at in payload",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE, name VARCHAR(255), created_at TIMESTAMP DEFAULT NOW(), organization_id VARCHAR(255))"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123"
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/upsert",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [{ "id": 999, "email": "alice@example.com", "name": "Alice Cooper" }],
+              "fieldsToMergeOn": ["email"]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 for readonly field violation",
+            "expectedStatus": 403,
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "Cannot set readonly field: id"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-UPSERT-PERMISSIONS-ORG-OVERRIDE-PREVENTED-001",
+      "given": "A member user attempting to set different organization_id",
+      "when": "Member upserts with organization_id='org_456' in payload",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE, name VARCHAR(255), organization_id VARCHAR(255))"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123"
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/upsert",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                {
+                  "email": "alice@example.com",
+                  "name": "Alice Cooper",
+                  "organization_id": "org_456"
+                }
+              ],
+              "fieldsToMergeOn": ["email"]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when attempting to set different organization_id",
+            "expectedStatus": 403,
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "Cannot create records for different organization"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-UPSERT-PERMISSIONS-PARTIAL-FIELD-FILTERING-001",
+      "given": "A member user with field-level read restrictions",
+      "when": "Member upserts records successfully",
+      "then": "Returns 200 with protected fields filtered from response",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE, name VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))",
+            "INSERT INTO employees (email, name, salary, organization_id) VALUES ('alice@example.com', 'Alice', 75000, 'org_123')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": true }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/upsert",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                { "email": "alice@example.com", "name": "Updated Alice", "salary": 80000 },
+                { "email": "bob@example.com", "name": "Bob Smith", "salary": 85000 }
+              ],
+              "fieldsToMergeOn": ["email"]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 with salary field filtered from response",
+            "expectedStatus": 200,
+            "validateResponseData": {
+              "created": 1,
+              "updated": 1,
+              "records.0.name": "Updated Alice",
+              "records.1.name": "Bob Smith"
+            },
+            "validateResponseDataExcluded": ["records.0.salary", "records.1.salary"]
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-UPSERT-PERMISSIONS-ADMIN-FULL-ACCESS-001",
+      "given": "An admin user with full permissions",
+      "when": "Admin upserts records with all fields",
+      "then": "Returns 200 with all fields visible in response",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE, name VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))",
+            "INSERT INTO employees (email, name, salary, organization_id) VALUES ('charlie@example.com', 'Charlie', 120000, 'org_789')"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_789",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_789",
+            "permissions": {
+              "admin": {
+                "table": { "read": true, "create": true, "update": true, "delete": true },
+                "fields": {
+                  "salary": { "read": true, "write": true }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/upsert",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                { "email": "charlie@example.com", "name": "Updated Charlie", "salary": 130000 },
+                { "email": "diana@example.com", "name": "Diana Prince", "salary": 95000 }
+              ],
+              "fieldsToMergeOn": ["email"]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 with all fields visible",
+            "expectedStatus": 200,
+            "validateResponseData": {
+              "created": 1,
+              "updated": 1,
+              "records.0.name": "Updated Charlie",
+              "records.0.salary": 130000,
+              "records.1.name": "Diana Prince",
+              "records.1.salary": 95000
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-UPSERT-PERMISSIONS-COMBINED-SCENARIO-001",
+      "given": "A member with create/update permission but field restrictions",
+      "when": "Member upserts mixed creates/updates with only permitted fields",
+      "then": "Returns 200 with field filtering applied across all records",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE, name VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))",
+            "INSERT INTO employees (email, name, salary, organization_id) VALUES ('alice@example.com', 'Alice', 75000, 'org_123'), ('bob@example.com', 'Bob', 85000, 'org_123')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": true }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/upsert",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                { "email": "alice@example.com", "name": "Updated Alice", "salary": 80000 },
+                { "email": "bob@example.com", "name": "Updated Bob", "salary": 90000 },
+                { "email": "charlie@example.com", "name": "Charlie Davis", "salary": 70000 }
+              ],
+              "fieldsToMergeOn": ["email"]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 with salary filtered from all records",
+            "expectedStatus": 200,
+            "validateResponseData": {
+              "created": 1,
+              "updated": 2
+            },
+            "validateResponseDataExcluded": [
+              "records.0.salary",
+              "records.1.salary",
+              "records.2.salary"
+            ]
+          }
+        ]
+      }
     }
   ]
 }

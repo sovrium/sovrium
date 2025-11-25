@@ -385,6 +385,671 @@
           }
         ]
       }
+    },
+    {
+      "id": "API-RECORDS-BATCH-UPDATE-PERMISSIONS-UNAUTHORIZED-001",
+      "given": "An unauthenticated user",
+      "when": "User attempts batch update without auth token",
+      "then": "Returns 401 Unauthorized error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, email, organization_id) VALUES (1, 'Alice Cooper', 'alice@example.com', 'org_123')"
+          ],
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": { "Content-Type": "application/json" },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [{ "id": 1, "name": "Updated Name" }]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 when no auth token provided",
+            "expectedStatus": 401,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            }
+          },
+          {
+            "description": "No records updated in database",
+            "executeQuery": "SELECT name FROM employees WHERE id=1",
+            "expected": { "name": "Alice Cooper" }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-UPDATE-PERMISSIONS-FORBIDDEN-MEMBER-001",
+      "given": "A member user without update permission",
+      "when": "Member attempts batch update",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, organization_id) VALUES (1, 'Alice Cooper', 'org_123'), (2, 'Bob Smith', 'org_123')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": false, "delete": false }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                { "id": 1, "name": "Updated Alice" },
+                { "id": 2, "name": "Updated Bob" }
+              ]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when member lacks update permission",
+            "expectedStatus": 403,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            },
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "You do not have permission to update records in this table"
+            }
+          },
+          {
+            "description": "No records updated",
+            "executeQuery": "SELECT name FROM employees WHERE id=1",
+            "expected": { "name": "Alice Cooper" }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-UPDATE-PERMISSIONS-FORBIDDEN-VIEWER-001",
+      "given": "A viewer user with read-only access",
+      "when": "Viewer attempts batch update",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO projects (id, name, organization_id) VALUES (1, 'Project Alpha', 'org_456')"
+          ],
+          "authUser": {
+            "id": 3,
+            "organizationId": "org_456",
+            "role": "viewer"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "projects",
+            "organizationId": "org_456",
+            "permissions": {
+              "viewer": {
+                "table": { "read": true, "create": false, "update": false, "delete": false }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer viewer_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [{ "id": 1, "name": "Updated Project" }]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when viewer lacks update permission",
+            "expectedStatus": 403,
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "You do not have permission to update records in this table"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-UPDATE-PERMISSIONS-ORG-ISOLATION-001",
+      "given": "An admin user from org_123 with records from org_456",
+      "when": "Admin attempts to batch update records from different organization",
+      "then": "Returns 404 Not Found (organization isolation)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, email, organization_id) VALUES (1, 'Alice Cooper', 'alice@example.com', 'org_456'), (2, 'Bob Smith', 'bob@example.com', 'org_456')"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123"
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                { "id": 1, "name": "Updated Alice" },
+                { "id": 2, "name": "Updated Bob" }
+              ]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 when records belong to different organization",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Record not found"
+            }
+          },
+          {
+            "description": "No records updated (original values preserved)",
+            "executeQuery": "SELECT name FROM employees WHERE id=1",
+            "expected": { "name": "Alice Cooper" }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-UPDATE-PERMISSIONS-FIELD-WRITE-FORBIDDEN-001",
+      "given": "A member user with field-level write restrictions (salary protected)",
+      "when": "Member attempts to batch update with protected field in any record",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, email, salary, organization_id) VALUES (1, 'Alice Cooper', 'alice@example.com', 75000, 'org_123'), (2, 'Bob Smith', 'bob@example.com', 85000, 'org_123')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                { "id": 1, "name": "Updated Alice" },
+                { "id": 2, "email": "bob.updated@example.com", "salary": 95000 }
+              ]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when any record contains protected field",
+            "expectedStatus": 403,
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "You do not have permission to write to field: salary"
+            }
+          },
+          {
+            "description": "No records updated (transaction rollback)",
+            "executeQuery": "SELECT name FROM employees WHERE id=1",
+            "expected": { "name": "Alice Cooper" }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-UPDATE-PERMISSIONS-READONLY-FIELD-001",
+      "given": "An admin user attempting to update readonly fields",
+      "when": "Admin batch updates with id or created_at in payload",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), created_at TIMESTAMP DEFAULT NOW(), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, organization_id) VALUES (1, 'Alice Cooper', 'org_123')"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123"
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [{ "id": 1, "created_at": "2020-01-01T00:00:00Z" }]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 for readonly field violation",
+            "expectedStatus": 403,
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "Cannot update readonly field: created_at"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-UPDATE-PERMISSIONS-ORG-OVERRIDE-PREVENTED-001",
+      "given": "A member user attempting to change organization_id",
+      "when": "Member batch updates with organization_id='org_456' in payload",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, organization_id) VALUES (1, 'Alice Cooper', 'org_123'), (2, 'Bob Smith', 'org_123')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123"
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                { "id": 1, "name": "Updated Alice" },
+                { "id": 2, "organization_id": "org_456" }
+              ]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when any record attempts to change organization_id",
+            "expectedStatus": 403,
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "Cannot change organization_id"
+            }
+          },
+          {
+            "description": "No records updated",
+            "executeQuery": "SELECT name FROM employees WHERE id=1",
+            "expected": { "name": "Alice Cooper" }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-UPDATE-PERMISSIONS-PARTIAL-FIELD-FILTERING-001",
+      "given": "A member user with field-level read restrictions",
+      "when": "Member batch updates records successfully",
+      "then": "Returns 200 with protected fields filtered from response",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, email, salary, organization_id) VALUES (1, 'Alice Cooper', 'alice@example.com', 75000, 'org_123'), (2, 'Bob Smith', 'bob@example.com', 85000, 'org_123')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": true }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                { "id": 1, "name": "Updated Alice", "salary": 80000 },
+                { "id": 2, "name": "Updated Bob", "salary": 90000 }
+              ]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 with salary field filtered from response",
+            "expectedStatus": 200,
+            "validateResponseData": {
+              "updated": 2,
+              "records.0.name": "Updated Alice",
+              "records.1.name": "Updated Bob"
+            },
+            "validateResponseDataExcluded": ["records.0.salary", "records.1.salary"]
+          },
+          {
+            "description": "Salary values updated in database",
+            "executeQuery": "SELECT salary FROM employees WHERE id=1",
+            "expected": { "salary": 80000 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-UPDATE-PERMISSIONS-ADMIN-FULL-ACCESS-001",
+      "given": "An admin user with full permissions",
+      "when": "Admin batch updates records with all fields",
+      "then": "Returns 200 with all fields visible in response",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, email, salary, organization_id) VALUES (1, 'Charlie Davis', 'charlie@example.com', 120000, 'org_789'), (2, 'Diana Prince', 'diana@example.com', 95000, 'org_789')"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_789",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_789",
+            "permissions": {
+              "admin": {
+                "table": { "read": true, "create": true, "update": true, "delete": true },
+                "fields": {
+                  "salary": { "read": true, "write": true }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                { "id": 1, "name": "Updated Charlie", "salary": 130000 },
+                { "id": 2, "email": "diana.updated@example.com", "salary": 105000 }
+              ]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 with all fields visible",
+            "expectedStatus": 200,
+            "validateResponseData": {
+              "updated": 2,
+              "records.0.name": "Updated Charlie",
+              "records.0.salary": 130000,
+              "records.1.email": "diana.updated@example.com",
+              "records.1.salary": 105000
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-UPDATE-PERMISSIONS-CROSS-ORG-PREVENTION-001",
+      "given": "A member from org_123 with records from different org",
+      "when": "Member attempts to batch update records from org_456",
+      "then": "Returns 404 Not Found (prevents cross-org updates)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, organization_id) VALUES (1, 'Alice Cooper', 'org_456')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123"
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [{ "id": 1, "name": "Updated Alice" }]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 to prevent cross-org record updates",
+            "expectedStatus": 404,
+            "validateResponseData": {
+              "error": "Record not found"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-UPDATE-PERMISSIONS-COMBINED-SCENARIO-001",
+      "given": "A member without update permission and field restrictions",
+      "when": "Member attempts batch update with protected field",
+      "then": "Returns 403 Forbidden (table-level permission checked first)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, salary, organization_id) VALUES (1, 'Alice Cooper', 75000, 'org_123')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": false, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [{ "id": 1, "name": "Updated Alice", "salary": 85000 }]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 for table-level update permission",
+            "expectedStatus": 403,
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "You do not have permission to update records in this table"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-UPDATE-PERMISSIONS-COMBINED-SCENARIO-002",
+      "given": "A member with update permission but field restrictions",
+      "when": "Member batch updates records with only permitted fields",
+      "then": "Returns 200 with field filtering applied across all records",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, email, salary, organization_id) VALUES (1, 'Alice Cooper', 'alice@example.com', 75000, 'org_123'), (2, 'Bob Smith', 'bob@example.com', 85000, 'org_123'), (3, 'Charlie Davis', 'charlie@example.com', 95000, 'org_123')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": true }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                { "id": 1, "name": "Updated Alice", "salary": 80000 },
+                { "id": 2, "email": "bob.updated@example.com", "salary": 90000 },
+                { "id": 3, "name": "Updated Charlie", "salary": 100000 }
+              ]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 with salary filtered from all records",
+            "expectedStatus": 200,
+            "validateResponseData": {
+              "updated": 3
+            },
+            "validateResponseDataExcluded": [
+              "records.0.salary",
+              "records.1.salary",
+              "records.2.salary"
+            ]
+          }
+        ]
+      }
     }
   ]
 }
