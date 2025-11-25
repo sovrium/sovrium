@@ -1,0 +1,256 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "error-handling.schema.json",
+  "title": "Error Handling and Rollback",
+  "description": "Runtime SQL migration error handling with PostgreSQL transaction rollback",
+  "type": "object",
+  "properties": {
+    "schemaConfig": {
+      "type": "object",
+      "description": "Table schema configuration (may contain errors)"
+    },
+    "errorScenario": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "enum": ["invalid_sql", "invalid_type", "constraint_violation", "foreign_key_error"],
+          "description": "Type of error scenario to test"
+        },
+        "expectedError": {
+          "type": "string",
+          "description": "Expected error message pattern"
+        }
+      }
+    }
+  },
+  "required": ["schemaConfig", "errorScenario"],
+  "x-specs": [
+    {
+      "id": "MIG-ERROR-001",
+      "given": "table configuration with invalid field type 'INVALID_TYPE'",
+      "when": "runtime migration attempts to generate SQL for invalid type",
+      "then": "PostgreSQL transaction rolls back, no tables created",
+      "validation": {
+        "setup": {
+          "executeQuery": [],
+          "schemaConfig": {
+            "tables": [
+              {
+                "id": 1,
+                "name": "users",
+                "fields": [{ "id": 1, "name": "email", "type": "email", "required": true }]
+              },
+              {
+                "id": 2,
+                "name": "products",
+                "fields": [{ "id": 1, "name": "bad_field", "type": "INVALID_TYPE" }]
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Migration throws error for invalid type",
+            "migrationStatus": "failed",
+            "errorPattern": "Unknown field type: INVALID_TYPE"
+          },
+          {
+            "description": "Transaction rolled back - users table NOT created",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema='public' AND table_name='users'",
+            "expected": {
+              "count": 0
+            }
+          },
+          {
+            "description": "Transaction rolled back - products table NOT created",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema='public' AND table_name='products'",
+            "expected": {
+              "count": 0
+            }
+          },
+          {
+            "description": "Checksum NOT saved on failure",
+            "executeQuery": "SELECT COUNT(*) as count FROM _sovrium_schema_checksum WHERE id = 'singleton'",
+            "expected": {
+              "count": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "MIG-ERROR-002",
+      "given": "multiple tables being created, second table has SQL syntax error",
+      "when": "migration fails mid-execution",
+      "then": "All changes rolled back, first table NOT created",
+      "validation": {
+        "setup": {
+          "executeQuery": [],
+          "schemaConfig": {
+            "tables": [
+              {
+                "id": 1,
+                "name": "categories",
+                "fields": [
+                  { "id": 1, "name": "name", "type": "single-line-text", "required": true }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "products",
+                "fields": [
+                  { "id": 1, "name": "title", "type": "single-line-text", "required": true },
+                  { "id": 2, "name": "price", "type": "decimal", "min": "invalid_not_a_number" }
+                ]
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Migration fails on second table",
+            "migrationStatus": "failed",
+            "errorPattern": "Invalid constraint value"
+          },
+          {
+            "description": "First table NOT created (rollback)",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema='public' AND table_name='categories'",
+            "expected": {
+              "count": 0
+            }
+          },
+          {
+            "description": "Second table NOT created",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema='public' AND table_name='products'",
+            "expected": {
+              "count": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "MIG-ERROR-003",
+      "given": "ALTER TABLE operation fails (e.g., adding NOT NULL column without default to non-empty table)",
+      "when": "constraint violation during migration",
+      "then": "Transaction rolled back, table schema unchanged",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255))",
+            "INSERT INTO users (email) VALUES ('existing@example.com')"
+          ],
+          "schemaConfig": {
+            "tables": [
+              {
+                "id": 1,
+                "name": "users",
+                "fields": [
+                  { "id": 1, "name": "email", "type": "email" },
+                  { "id": 2, "name": "name", "type": "single-line-text", "required": true }
+                ]
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "ALTER TABLE fails (NOT NULL without default on existing data)",
+            "migrationStatus": "failed",
+            "errorPattern": "column \"name\" contains null values"
+          },
+          {
+            "description": "Column NOT added to table",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='users' AND column_name='name'",
+            "expected": {
+              "count": 0
+            }
+          },
+          {
+            "description": "Existing data preserved",
+            "executeQuery": "SELECT COUNT(*) as count FROM users WHERE email = 'existing@example.com'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Table still has only 2 columns (id, email)",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='users'",
+            "expected": {
+              "count": 2
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "MIG-ERROR-004",
+      "given": "foreign key reference to non-existent table",
+      "when": "creating table with invalid relationship",
+      "then": "Migration fails and rolls back all table creations",
+      "validation": {
+        "setup": {
+          "executeQuery": [],
+          "schemaConfig": {
+            "tables": [
+              {
+                "id": 1,
+                "name": "posts",
+                "fields": [
+                  { "id": 1, "name": "title", "type": "single-line-text", "required": true },
+                  { "id": 2, "name": "author_id", "type": "relationship", "relatedTable": "users" }
+                ]
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Foreign key creation fails (users table does not exist)",
+            "migrationStatus": "failed",
+            "errorPattern": "relation \"users\" does not exist"
+          },
+          {
+            "description": "Posts table NOT created",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema='public' AND table_name='posts'",
+            "expected": {
+              "count": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "MIG-ERROR-005",
+      "given": "migration system connection to database fails",
+      "when": "database connection error occurs",
+      "then": "Migration aborts with connection error, application does not start",
+      "validation": {
+        "setup": {
+          "databaseConnection": "invalid",
+          "schemaConfig": {
+            "tables": [
+              {
+                "id": 1,
+                "name": "users",
+                "fields": [{ "id": 1, "name": "email", "type": "email" }]
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Migration fails with connection error",
+            "migrationStatus": "failed",
+            "errorPattern": "database connection failed|ECONNREFUSED|connection refused"
+          },
+          {
+            "description": "Application startup aborted",
+            "applicationStatus": "not_started",
+            "note": "Application should not start if migrations cannot connect to database"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -233,9 +233,7 @@
           {
             "description": "SQL migration contains DROP CONSTRAINT",
             "sqlGeneration": {
-              "contains": [
-                "ALTER TABLE \"orders\" DROP CONSTRAINT unique_orders_order_number"
-              ]
+              "contains": ["ALTER TABLE \"orders\" DROP CONSTRAINT unique_orders_order_number"]
             }
           },
           {

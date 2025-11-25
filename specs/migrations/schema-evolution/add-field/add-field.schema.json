@@ -1,0 +1,238 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "add-field.schema.json",
+  "title": "Add Field Migration",
+  "description": "Runtime SQL migration scenario for adding new fields to existing tables via ALTER TABLE ADD COLUMN",
+  "type": "object",
+  "properties": {
+    "previousSchema": {
+      "type": "object",
+      "description": "Table schema before field addition"
+    },
+    "newSchema": {
+      "type": "object",
+      "description": "Table schema after field addition"
+    },
+    "addedField": {
+      "type": "object",
+      "description": "Field configuration that was added"
+    }
+  },
+  "required": ["previousSchema", "newSchema", "addedField"],
+  "x-specs": [
+    {
+      "id": "MIG-ALTER-ADD-001",
+      "given": "table 'users' with email field exists, new field 'name' (single-line-text, required) is added to schema",
+      "when": "runtime migration generates ALTER TABLE ADD COLUMN",
+      "then": "PostgreSQL adds TEXT NOT NULL column to existing table",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL UNIQUE, created_at TIMESTAMPTZ DEFAULT NOW())",
+            "INSERT INTO users (email) VALUES ('user@example.com')"
+          ],
+          "previousSchema": {
+            "tables": [
+              {
+                "id": 1,
+                "name": "users",
+                "fields": [
+                  { "id": 1, "name": "email", "type": "email", "required": true, "unique": true }
+                ]
+              }
+            ]
+          },
+          "newSchema": {
+            "tables": [
+              {
+                "id": 1,
+                "name": "users",
+                "fields": [
+                  { "id": 1, "name": "email", "type": "email", "required": true, "unique": true },
+                  { "id": 2, "name": "name", "type": "single-line-text", "required": true }
+                ]
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Generate ALTER TABLE ADD COLUMN SQL",
+            "sqlGeneration": {
+              "contains": ["ALTER TABLE \"users\" ADD COLUMN \"name\" VARCHAR(255) NOT NULL"]
+            }
+          },
+          {
+            "description": "Column added to existing table",
+            "executeQuery": "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='users' AND column_name='name'",
+            "expected": {
+              "column_name": "name",
+              "data_type": "character varying",
+              "is_nullable": "NO"
+            }
+          },
+          {
+            "description": "Existing data preserved after migration",
+            "executeQuery": "SELECT COUNT(*) as count FROM users WHERE email = 'user@example.com'",
+            "expected": {
+              "count": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "MIG-ALTER-ADD-002",
+      "given": "table 'products' with title field, new optional field 'description' (long-text) is added",
+      "when": "ALTER TABLE adds nullable column",
+      "then": "PostgreSQL adds TEXT column without NOT NULL constraint",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL)",
+            "INSERT INTO products (title) VALUES ('MacBook Pro'), ('iPhone 15')"
+          ],
+          "newSchema": {
+            "tables": [
+              {
+                "id": 1,
+                "name": "products",
+                "fields": [
+                  { "id": 1, "name": "title", "type": "single-line-text", "required": true },
+                  { "id": 2, "name": "description", "type": "long-text", "required": false }
+                ]
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "ALTER TABLE ADD COLUMN for optional field",
+            "sqlGeneration": {
+              "contains": ["ALTER TABLE \"products\" ADD COLUMN \"description\" TEXT"]
+            }
+          },
+          {
+            "description": "Nullable column added",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='description'",
+            "expected": {
+              "is_nullable": "YES"
+            }
+          },
+          {
+            "description": "Existing records have NULL for new column",
+            "executeQuery": "SELECT title, description FROM products WHERE title = 'MacBook Pro'",
+            "expected": {
+              "title": "MacBook Pro",
+              "description": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "MIG-ALTER-ADD-003",
+      "given": "table 'tasks' exists, new field 'priority' (single-select with options) is added",
+      "when": "ALTER TABLE adds column with CHECK constraint",
+      "then": "PostgreSQL adds TEXT column with CHECK constraint for enum values",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL)"
+          ],
+          "newSchema": {
+            "tables": [
+              {
+                "id": 1,
+                "name": "tasks",
+                "fields": [
+                  { "id": 1, "name": "title", "type": "single-line-text", "required": true },
+                  {
+                    "id": 2,
+                    "name": "priority",
+                    "type": "single-select",
+                    "options": ["low", "medium", "high"],
+                    "required": false
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "ALTER TABLE with CHECK constraint",
+            "sqlGeneration": {
+              "contains": [
+                "ALTER TABLE \"tasks\" ADD COLUMN \"priority\" VARCHAR(255) CHECK (\"priority\" IN ('low', 'medium', 'high'))"
+              ]
+            }
+          },
+          {
+            "description": "CHECK constraint enforced after addition",
+            "executeQuery": "INSERT INTO tasks (title, priority) VALUES ('Valid task', 'high') RETURNING priority",
+            "expected": {
+              "priority": "high"
+            }
+          },
+          {
+            "description": "Invalid enum value rejected",
+            "executeQuery": "INSERT INTO tasks (title, priority) VALUES ('Invalid task', 'critical')",
+            "expectError": "violates check constraint"
+          }
+        ]
+      }
+    },
+    {
+      "id": "MIG-ALTER-ADD-004",
+      "given": "table 'orders' exists, new field 'total' (decimal) with default value is added",
+      "when": "ALTER TABLE adds column with DEFAULT",
+      "then": "PostgreSQL adds column with default value applied to existing rows",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50) NOT NULL)",
+            "INSERT INTO orders (order_number) VALUES ('ORD-001'), ('ORD-002')"
+          ],
+          "newSchema": {
+            "tables": [
+              {
+                "id": 1,
+                "name": "orders",
+                "fields": [
+                  { "id": 1, "name": "order_number", "type": "single-line-text", "required": true },
+                  { "id": 2, "name": "total", "type": "decimal", "required": true, "default": 0.0 }
+                ]
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "ALTER TABLE with DEFAULT value",
+            "sqlGeneration": {
+              "contains": [
+                "ALTER TABLE \"orders\" ADD COLUMN \"total\" NUMERIC(19, 4) NOT NULL DEFAULT 0.00"
+              ]
+            }
+          },
+          {
+            "description": "Default applied to existing rows",
+            "executeQuery": "SELECT order_number, total FROM orders WHERE order_number = 'ORD-001'",
+            "expected": {
+              "order_number": "ORD-001",
+              "total": "0.0000"
+            }
+          },
+          {
+            "description": "New rows can override default",
+            "executeQuery": "INSERT INTO orders (order_number, total) VALUES ('ORD-003', 150.50) RETURNING total",
+            "expected": {
+              "total": "150.5000"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

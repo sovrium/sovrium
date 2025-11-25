@@ -1,0 +1,232 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "remove-field.schema.json",
+  "title": "Remove Field Migration",
+  "description": "Runtime SQL migration scenario for removing fields from existing tables via ALTER TABLE DROP COLUMN",
+  "type": "object",
+  "properties": {
+    "previousSchema": {
+      "type": "object",
+      "description": "Table schema before field removal"
+    },
+    "newSchema": {
+      "type": "object",
+      "description": "Table schema after field removal"
+    },
+    "removedField": {
+      "type": "object",
+      "description": "Field configuration that was removed"
+    }
+  },
+  "required": ["previousSchema", "newSchema", "removedField"],
+  "x-specs": [
+    {
+      "id": "MIG-ALTER-REMOVE-001",
+      "given": "table 'users' with email and phone fields, phone field is removed from schema",
+      "when": "runtime migration generates ALTER TABLE DROP COLUMN",
+      "then": "PostgreSQL removes phone column and preserves other columns",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL UNIQUE, phone VARCHAR(20))",
+            "INSERT INTO users (email, phone) VALUES ('user@example.com', '+1-555-0100')"
+          ],
+          "previousSchema": {
+            "tables": [
+              {
+                "id": 1,
+                "name": "users",
+                "fields": [
+                  { "id": 1, "name": "email", "type": "email", "required": true, "unique": true },
+                  { "id": 2, "name": "phone", "type": "phone-number", "required": false }
+                ]
+              }
+            ]
+          },
+          "newSchema": {
+            "tables": [
+              {
+                "id": 1,
+                "name": "users",
+                "fields": [
+                  { "id": 1, "name": "email", "type": "email", "required": true, "unique": true }
+                ]
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Generate ALTER TABLE DROP COLUMN SQL",
+            "sqlGeneration": {
+              "contains": ["ALTER TABLE \"users\" DROP COLUMN \"phone\""]
+            }
+          },
+          {
+            "description": "Column removed from table",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='users' AND column_name='phone'",
+            "expected": {
+              "count": 0
+            }
+          },
+          {
+            "description": "Other columns preserved",
+            "executeQuery": "SELECT email FROM users WHERE email = 'user@example.com'",
+            "expected": {
+              "email": "user@example.com"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "MIG-ALTER-REMOVE-002",
+      "given": "table 'products' with multiple fields, middle field is removed",
+      "when": "ALTER TABLE removes column from middle of schema",
+      "then": "PostgreSQL drops column and preserves column order for remaining fields",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, title VARCHAR(255), description TEXT, price NUMERIC(10,2))",
+            "INSERT INTO products (title, description, price) VALUES ('Product A', 'Description A', 99.99)"
+          ],
+          "newSchema": {
+            "tables": [
+              {
+                "id": 1,
+                "name": "products",
+                "fields": [
+                  { "id": 1, "name": "title", "type": "single-line-text" },
+                  { "id": 3, "name": "price", "type": "decimal" }
+                ]
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "DROP COLUMN for middle field",
+            "sqlGeneration": {
+              "contains": ["ALTER TABLE \"products\" DROP COLUMN \"description\""]
+            }
+          },
+          {
+            "description": "Column removed",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='products' AND column_name='description'",
+            "expected": {
+              "count": 0
+            }
+          },
+          {
+            "description": "Remaining columns accessible",
+            "executeQuery": "SELECT title, price FROM products WHERE id = 1",
+            "expected": {
+              "title": "Product A",
+              "price": "99.99"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "MIG-ALTER-REMOVE-003",
+      "given": "table 'tasks' with indexed field, indexed field is removed",
+      "when": "ALTER TABLE drops column with index",
+      "then": "PostgreSQL automatically drops associated index",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), status VARCHAR(50))",
+            "CREATE INDEX idx_tasks_status ON tasks(status)",
+            "INSERT INTO tasks (title, status) VALUES ('Task 1', 'open')"
+          ],
+          "newSchema": {
+            "tables": [
+              {
+                "id": 1,
+                "name": "tasks",
+                "fields": [{ "id": 1, "name": "title", "type": "single-line-text" }]
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "DROP COLUMN removes indexed field",
+            "sqlGeneration": {
+              "contains": ["ALTER TABLE \"tasks\" DROP COLUMN \"status\""]
+            }
+          },
+          {
+            "description": "Column dropped",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='tasks' AND column_name='status'",
+            "expected": {
+              "count": 0
+            }
+          },
+          {
+            "description": "Associated index automatically dropped",
+            "executeQuery": "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='tasks' AND indexname='idx_tasks_status'",
+            "expected": {
+              "count": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "MIG-ALTER-REMOVE-004",
+      "given": "table 'orders' with foreign key field, relationship field is removed",
+      "when": "ALTER TABLE drops column with foreign key constraint",
+      "then": "PostgreSQL removes column and CASCADE drops foreign key constraint",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "INSERT INTO customers (name) VALUES ('Customer A')",
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER REFERENCES customers(id), total NUMERIC(10,2))",
+            "INSERT INTO orders (customer_id, total) VALUES (1, 150.00)"
+          ],
+          "newSchema": {
+            "tables": [
+              {
+                "id": 2,
+                "name": "orders",
+                "fields": [{ "id": 2, "name": "total", "type": "decimal" }]
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "DROP COLUMN removes foreign key field",
+            "sqlGeneration": {
+              "contains": ["ALTER TABLE \"orders\" DROP COLUMN \"customer_id\""]
+            }
+          },
+          {
+            "description": "Foreign key column dropped",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='orders' AND column_name='customer_id'",
+            "expected": {
+              "count": 0
+            }
+          },
+          {
+            "description": "Foreign key constraint removed",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='orders' AND constraint_type='FOREIGN KEY'",
+            "expected": {
+              "count": 0
+            }
+          },
+          {
+            "description": "Data in remaining columns preserved",
+            "executeQuery": "SELECT total FROM orders WHERE id = 1",
+            "expected": {
+              "total": "150.00"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
