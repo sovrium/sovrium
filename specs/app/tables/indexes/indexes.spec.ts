@@ -167,13 +167,38 @@ test.describe('Database Indexes', () => {
   test.fixme(
     'APP-TABLES-INDEXES-003: should prevent duplicate values in indexed column with UNIQUE index on username field',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with UNIQUE index on 'username' field
       // WHEN: unique: true creates UNIQUE constraint
-      await executeQuery(
-        `CREATE TABLE accounts (id SERIAL PRIMARY KEY, username VARCHAR(255), email VARCHAR(255))`
-      )
-      await executeQuery(`CREATE UNIQUE INDEX idx_accounts_username ON accounts(username)`)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_accounts',
+            name: 'accounts',
+            fields: [
+              {
+                id: 1,
+                name: 'username',
+                type: 'single-line-text',
+              },
+              {
+                id: 2,
+                name: 'email',
+                type: 'email',
+              },
+            ],
+            indexes: [
+              {
+                name: 'idx_accounts_username',
+                fields: ['username'],
+                unique: true, // UNIQUE index
+              },
+            ],
+          },
+        ],
+      })
+
       await executeQuery(
         `INSERT INTO accounts (username, email) VALUES ('alice123', 'alice@example.com')`
       )
@@ -213,12 +238,32 @@ test.describe('Database Indexes', () => {
   test.fixme(
     'APP-TABLES-INDEXES-004: should only create default primary key index when table has no indexes configured',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with no indexes configured (empty array)
       // WHEN: table is created
-      await executeQuery(
-        `CREATE TABLE logs (id SERIAL PRIMARY KEY, message TEXT, created_at TIMESTAMPTZ)`
-      )
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_logs',
+            name: 'logs',
+            fields: [
+              {
+                id: 1,
+                name: 'message',
+                type: 'long-text',
+              },
+              {
+                id: 2,
+                name: 'created_at',
+                type: 'created-at',
+              },
+            ],
+            indexes: [], // No custom indexes
+          },
+        ],
+      })
+
       await executeQuery(
         `INSERT INTO logs (message, created_at) VALUES ('Log 1', NOW()), ('Log 2', NOW())`
       )
@@ -248,15 +293,55 @@ test.describe('Database Indexes', () => {
   test.fixme(
     'APP-TABLES-INDEXES-005: should create all specified indexes independently when table has multiple indexes configured',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with multiple indexes configured
       // WHEN: all indexes are created
-      await executeQuery(
-        `CREATE TABLE products (id SERIAL PRIMARY KEY, sku VARCHAR(100), name VARCHAR(255), category VARCHAR(100), price DECIMAL(10,2))`
-      )
-      await executeQuery(`CREATE INDEX idx_products_sku ON products(sku)`)
-      await executeQuery(`CREATE INDEX idx_products_category ON products(category)`)
-      await executeQuery(`CREATE INDEX idx_products_price ON products(price)`)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_products',
+            name: 'products',
+            fields: [
+              {
+                id: 1,
+                name: 'sku',
+                type: 'single-line-text',
+              },
+              {
+                id: 2,
+                name: 'name',
+                type: 'single-line-text',
+              },
+              {
+                id: 3,
+                name: 'category',
+                type: 'single-line-text',
+              },
+              {
+                id: 4,
+                name: 'price',
+                type: 'decimal',
+              },
+            ],
+            indexes: [
+              {
+                name: 'idx_products_sku',
+                fields: ['sku'],
+              },
+              {
+                name: 'idx_products_category',
+                fields: ['category'],
+              },
+              {
+                name: 'idx_products_price',
+                fields: ['price'],
+              },
+            ],
+          },
+        ],
+      })
+
       await executeQuery(
         `INSERT INTO products (sku, name, category, price) VALUES ('SKU-001', 'Product 1', 'Electronics', 99.99)`
       )
@@ -292,13 +377,37 @@ test.describe('Database Indexes', () => {
   test.fixme(
     'APP-TABLES-INDEXES-006: should optimize ORDER BY and range queries with index on timestamp field',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with index on timestamp field (created_at)
       // WHEN: index is used for date range queries
-      await executeQuery(
-        `CREATE TABLE events (id SERIAL PRIMARY KEY, name VARCHAR(255), created_at TIMESTAMPTZ)`
-      )
-      await executeQuery(`CREATE INDEX idx_events_created_at ON events(created_at)`)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_events',
+            name: 'events',
+            fields: [
+              {
+                id: 1,
+                name: 'name',
+                type: 'single-line-text',
+              },
+              {
+                id: 2,
+                name: 'created_at',
+                type: 'created-at',
+              },
+            ],
+            indexes: [
+              {
+                name: 'idx_events_created_at',
+                fields: ['created_at'],
+              },
+            ],
+          },
+        ],
+      })
+
       await executeQuery(
         `INSERT INTO events (name, created_at) VALUES ('Event 1', '2024-01-01 10:00:00'), ('Event 2', '2024-01-02 10:00:00'), ('Event 3', '2024-01-03 10:00:00')`
       )
@@ -336,15 +445,43 @@ test.describe('Database Indexes', () => {
   test.fixme(
     'APP-TABLES-INDEXES-007: should enforce uniqueness within each tenant only with partial unique index',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with partial unique index (unique username per tenant)
       // WHEN: composite unique index on (tenant_id, username)
-      await executeQuery(
-        `CREATE TABLE tenant_users (id SERIAL PRIMARY KEY, tenant_id INTEGER, username VARCHAR(255), email VARCHAR(255))`
-      )
-      await executeQuery(
-        `CREATE UNIQUE INDEX idx_tenant_users_unique ON tenant_users(tenant_id, username)`
-      )
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_tenant_users',
+            name: 'tenant_users',
+            fields: [
+              {
+                id: 1,
+                name: 'tenant_id',
+                type: 'integer',
+              },
+              {
+                id: 2,
+                name: 'username',
+                type: 'single-line-text',
+              },
+              {
+                id: 3,
+                name: 'email',
+                type: 'email',
+              },
+            ],
+            indexes: [
+              {
+                name: 'idx_tenant_users_unique',
+                fields: ['tenant_id', 'username'],
+                unique: true, // Composite unique index
+              },
+            ],
+          },
+        ],
+      })
+
       await executeQuery(
         `INSERT INTO tenant_users (tenant_id, username, email) VALUES (1, 'alice', 'alice@tenant1.com'), (2, 'alice', 'alice@tenant2.com')`
       )
@@ -429,16 +566,40 @@ test.describe('Database Indexes', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full Database Indexes workflow',
+    'APP-TABLES-INDEXES-REGRESSION-001: user can complete full Database Indexes workflow',
     { tag: '@regression' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Database with representative index configurations
-      await executeQuery(
-        `CREATE TABLE users (id SERIAL PRIMARY KEY, username VARCHAR(255), email VARCHAR(255), created_at TIMESTAMPTZ)`
-      )
-      await executeQuery(`CREATE UNIQUE INDEX idx_users_username ON users(username)`)
-      await executeQuery(`CREATE INDEX idx_users_email ON users(email)`)
-      await executeQuery(`CREATE INDEX idx_users_created_at ON users(created_at)`)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              { id: 1, name: 'username', type: 'single-line-text' },
+              { id: 2, name: 'email', type: 'email' },
+              { id: 3, name: 'created_at', type: 'created-at' },
+            ],
+            indexes: [
+              {
+                name: 'idx_users_username',
+                fields: ['username'],
+                unique: true,
+              },
+              {
+                name: 'idx_users_email',
+                fields: ['email'],
+              },
+              {
+                name: 'idx_users_created_at',
+                fields: ['created_at'],
+              },
+            ],
+          },
+        ],
+      })
+
       await executeQuery(
         `INSERT INTO users (username, email, created_at) VALUES ('alice', 'alice@example.com', '2024-01-01 10:00:00'), ('bob', 'bob@example.com', '2024-01-02 10:00:00')`
       )
