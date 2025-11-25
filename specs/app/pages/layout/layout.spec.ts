@@ -54,7 +54,7 @@ test.describe('Page Layout', () => {
       await expect(page.locator('[data-testid="banner"]')).toBeVisible()
       await expect(page.locator('[data-testid="navigation"]')).toBeVisible()
       await expect(page.locator('[data-testid="footer"]')).toBeVisible()
-      await expect(page.locator('[data-testid="sidebar"]')).toBeVisible()
+      await expect(page.locator('[data-testid="sidebar-left"]')).toBeVisible()
     }
   )
 
@@ -85,7 +85,7 @@ test.describe('Page Layout', () => {
       await expect(page.locator('[data-testid="navigation"]')).toBeVisible()
       await expect(page.locator('[data-testid="banner"]')).toBeHidden()
       await expect(page.locator('[data-testid="footer"]')).toBeHidden()
-      await expect(page.locator('[data-testid="sidebar"]')).toBeHidden()
+      await expect(page.locator('[data-testid="sidebar-left"]')).toBeHidden()
     }
   )
 
@@ -163,10 +163,10 @@ test.describe('Page Layout', () => {
       await page.goto('/')
 
       // THEN: it should support sidebar-based layouts
-      const sidebar = page.locator('[data-testid="sidebar"]')
+      const sidebar = page.locator('[data-testid="sidebar-left"]')
       await expect(sidebar).toBeVisible()
       await expect(sidebar).toHaveCSS('width', '250px')
-      await expect(sidebar).toHaveCSS('position', 'fixed')
+      await expect(sidebar).toHaveCSS('position', 'sticky')
       const sidebarLinks = sidebar.locator('a')
       await expect(sidebarLinks).toHaveCount(3)
     }
@@ -241,7 +241,7 @@ test.describe('Page Layout', () => {
       await expect(page.locator('[data-testid="banner"]')).toBeHidden()
       await expect(page.locator('[data-testid="navigation"]')).toBeHidden()
       await expect(page.locator('[data-testid="footer"]')).toBeHidden()
-      await expect(page.locator('[data-testid="sidebar"]')).toBeHidden()
+      await expect(page.locator('[data-testid="sidebar-left"]')).toBeHidden()
       await expect(page.locator('[data-testid="page-test"]')).toContainText('Content Only')
     }
   )
@@ -337,7 +337,7 @@ test.describe('Page Layout', () => {
 
       // Docs page: extends default + sidebar
       await page.goto('/docs')
-      await expect(page.locator('[data-testid="sidebar"]')).toBeVisible()
+      await expect(page.locator('[data-testid="sidebar-left"]')).toBeVisible()
 
       // THEN: it should override or extend default layout per page
     }

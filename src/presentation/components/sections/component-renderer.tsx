@@ -197,6 +197,16 @@ function RenderDirectComponent({
     interactionElementPropsWithSpacing
   )
 
+  // Add data-component-type attribute for testing
+  const finalElementPropsWithType = {
+    ...finalElementProps,
+    'data-component-type': type,
+  }
+  const finalElementPropsWithSpacingAndType = {
+    ...finalElementPropsWithSpacing,
+    'data-component-type': type,
+  }
+
   // Check if component has meta property with structured data
   const meta = componentProps?.meta as BlockMeta | undefined
   const structuredDataScript = meta ? <StructuredDataFromBlock meta={meta} /> : undefined
@@ -213,8 +223,8 @@ function RenderDirectComponent({
     const responsiveVariants = buildResponsiveContentVariants(
       responsive!,
       type,
-      finalElementProps,
-      finalElementPropsWithSpacing
+      finalElementPropsWithType,
+      finalElementPropsWithSpacingAndType
     )
 
     if (hoverData) {
@@ -293,8 +303,8 @@ function RenderDirectComponent({
   // Default rendering without responsive content
   const renderedComponent = dispatchComponentType({
     type,
-    elementProps: finalElementProps,
-    elementPropsWithSpacing: finalElementPropsWithSpacing,
+    elementProps: finalElementPropsWithType,
+    elementPropsWithSpacing: finalElementPropsWithSpacingAndType,
     content:
       resolvedContent !== undefined
         ? resolvedContent
