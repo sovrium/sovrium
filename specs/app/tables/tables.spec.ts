@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures.ts'
+import { test, expect } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Data Tables
@@ -402,7 +402,7 @@ test.describe('Data Tables', () => {
                 name: 'quantity',
                 type: 'integer',
                 min: 0,
-                max: 10000,
+                max: 10_000,
               },
             ],
           },
@@ -605,7 +605,7 @@ test.describe('Data Tables', () => {
                 name: 'quantity',
                 type: 'integer',
                 min: 0,
-                max: 10000,
+                max: 10_000,
               },
             ],
           },
