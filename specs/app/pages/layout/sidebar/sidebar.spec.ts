@@ -45,12 +45,12 @@ test.describe('Sidebar Configuration', () => {
       // WHEN: sidebar is enabled
       await page.goto('/')
 
-      // THEN: it should display sidebar navigation
-      await expect(page.locator('[data-testid="sidebar"]')).toBeVisible()
+      // THEN: it should display sidebar navigation (defaults to left position)
+      await expect(page.locator('[data-testid="sidebar-left"]')).toBeVisible()
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SIDEBAR-002: should render sidebar on left side',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -491,7 +491,7 @@ test.describe('Sidebar Configuration', () => {
       await page.goto('/')
 
       // Verify sidebar visible
-      const sidebar = page.locator('[data-testid="sidebar"]')
+      const sidebar = page.locator('[data-testid="sidebar-left"]')
       await expect(sidebar).toBeVisible()
 
       // Verify link click
