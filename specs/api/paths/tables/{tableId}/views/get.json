@@ -106,19 +106,64 @@
       "id": "API-TABLES-VIEWS-LIST-001",
       "given": "A table with configured views",
       "when": "User requests list of views",
-      "then": "All views should be returned with complete configurations"
+      "then": "All views should be returned with complete configurations",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "All views should be returned with complete configurations",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-VIEWS-LIST-002",
       "given": "A table with no views configured",
       "when": "User requests list of views",
-      "then": "An empty array should be returned"
+      "then": "An empty array should be returned",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "An empty array should be returned",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-VIEWS-LIST-003",
       "given": "A non-existent table ID",
       "when": "User requests list of views",
-      "then": "404 Not Found error should be returned"
+      "then": "404 Not Found error should be returned",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "404 Not Found error should be returned",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     }
   ]
 }

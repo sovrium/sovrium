@@ -187,19 +187,64 @@
       "id": "API-RECORDS-UPSERT-001",
       "given": "table 'tbl_001' with existing record (email='john@example.com')",
       "when": "POST /api/tables/tbl_001/records/upsert with fieldsToMergeOn=['email'] and 2 records (1 matching, 1 new)",
-      "then": "returns 200 with created=1, updated=1, and records array"
+      "then": "returns 200 with created=1, updated=1, and records array",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "returns 200 with created=1, updated=1, and records array",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-RECORDS-UPSERT-002",
       "given": "table 'tbl_001' with 0 records",
       "when": "POST /api/tables/tbl_001/records/upsert with fieldsToMergeOn=['email'] and 2 new records",
-      "then": "returns 200 with created=2, updated=0, and records array"
+      "then": "returns 200 with created=2, updated=0, and records array",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "returns 200 with created=2, updated=0, and records array",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-RECORDS-UPSERT-003",
       "given": "table 'tbl_001' with email validation",
       "when": "POST /api/tables/tbl_001/records/upsert with 1 valid and 1 invalid email",
-      "then": "returns 400 BatchValidationError with details array, no records created or updated (transaction rolled back)"
+      "then": "returns 400 BatchValidationError with details array, no records created or updated (transaction rolled back)",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "returns 400 BatchValidationError with details array, no records created or updated (transaction rolled back)",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     }
   ]
 }

@@ -10,19 +10,64 @@
       "id": "APP-FIELD-USER-ALLOWMULTIPLE-001",
       "given": "allowMultiple is true",
       "when": "processing entity",
-      "then": "corresponding behavior should be enforced"
+      "then": "corresponding behavior should be enforced",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "corresponding behavior should be enforced",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-USER-ALLOWMULTIPLE-002",
       "given": "allowMultiple is false (default: False)",
       "when": "processing entity",
-      "then": "corresponding behavior should not be enforced"
+      "then": "corresponding behavior should not be enforced",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "corresponding behavior should not be enforced",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-USER-ALLOWMULTIPLE-003",
       "given": "configuration with allowMultiple",
       "when": "validating settings",
-      "then": "boolean value should be accepted"
+      "then": "boolean value should be accepted",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "boolean value should be accepted",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     }
   ]
 }

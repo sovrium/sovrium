@@ -11,19 +11,64 @@
       "id": "APP-FIELD-RATING-STYLE-001",
       "given": "user selects style from valid options",
       "when": "validating input",
-      "then": "selection should be accepted"
+      "then": "selection should be accepted",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "selection should be accepted",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-RATING-STYLE-002",
       "given": "user provides invalid style value",
       "when": "validating input",
-      "then": "error should list valid options: star, number, heart"
+      "then": "error should list valid options: star, number, heart",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "error should list valid options: star, number, heart",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-RATING-STYLE-003",
       "given": "style is set to any valid enum value",
       "when": "processing entity",
-      "then": "appropriate behavior should execute"
+      "then": "appropriate behavior should execute",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "appropriate behavior should execute",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     }
   ]
 }

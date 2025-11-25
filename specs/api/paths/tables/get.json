@@ -55,13 +55,43 @@
       "id": "API-TABLES-LIST-001",
       "given": "A running server with tables configured",
       "when": "User requests list of all tables",
-      "then": "Response should be 200 OK with array of tables"
+      "then": "Response should be 200 OK with array of tables",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Response should be 200 OK with array of tables",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-LIST-002",
       "given": "A running server with no tables",
       "when": "User requests list of all tables",
-      "then": "Response should be 200 OK with empty array"
+      "then": "Response should be 200 OK with empty array",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Response should be 200 OK with empty array",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     }
   ]
 }

@@ -147,19 +147,64 @@
       "id": "API-RECORDS-BATCH-009",
       "given": "table 'tbl_001' with 3 records (rec_001, rec_002, rec_003)",
       "when": "DELETE /api/tables/tbl_001/records/batch with ids=[rec_001, rec_002]",
-      "then": "returns 200 with deleted=2, records are removed from database"
+      "then": "returns 200 with deleted=2, records are removed from database",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "returns 200 with deleted=2, records are removed from database",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-RECORDS-BATCH-010",
       "given": "table 'tbl_001' with record rec_001",
       "when": "DELETE /api/tables/tbl_001/records/batch with ids=[rec_001, rec_999] (rec_999 nonexistent)",
-      "then": "returns 404 NotFound for rec_999, no records deleted (transaction rolled back)"
+      "then": "returns 404 NotFound for rec_999, no records deleted (transaction rolled back)",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "returns 404 NotFound for rec_999, no records deleted (transaction rolled back)",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-RECORDS-BATCH-011",
       "given": "table 'tbl_001' exists",
       "when": "DELETE /api/tables/tbl_001/records/batch with 1001 IDs",
-      "then": "returns 413 PayloadTooLarge"
+      "then": "returns 413 PayloadTooLarge",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "returns 413 PayloadTooLarge",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     }
   ]
 }

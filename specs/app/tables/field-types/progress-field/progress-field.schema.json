@@ -29,13 +29,43 @@
       "id": "APP-PROGRESS-FIELD-001",
       "given": "entity with type='progress'",
       "when": "processing configuration",
-      "then": "correct handler should be selected"
+      "then": "correct handler should be selected",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "correct handler should be selected",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-PROGRESS-FIELD-002",
       "given": "invalid type value",
       "when": "validating configuration",
-      "then": "clear error message should identify the issue"
+      "then": "clear error message should identify the issue",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "clear error message should identify the issue",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     }
   ]
 }

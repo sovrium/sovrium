@@ -67,19 +67,64 @@
       "id": "APP-TABLES-VIEW-FILTERS-001",
       "given": "filters with AND operator and multiple conditions",
       "when": "applying filters to records",
-      "then": "only records matching all conditions should be included"
+      "then": "only records matching all conditions should be included",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "only records matching all conditions should be included",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-VIEW-FILTERS-002",
       "given": "filters with OR operator and multiple conditions",
       "when": "applying filters to records",
-      "then": "records matching at least one condition should be included"
+      "then": "records matching at least one condition should be included",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "records matching at least one condition should be included",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-VIEW-FILTERS-003",
       "given": "filters with no operator specified",
       "when": "applying filters to records",
-      "then": "AND operator should be used by default"
+      "then": "AND operator should be used by default",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "AND operator should be used by default",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     }
   ]
 }

@@ -51,19 +51,64 @@
       "id": "APP-TABLES-VIEW-SORTS-001",
       "given": "a sort by single field with ascending direction",
       "when": "applying sort to records",
-      "then": "records should be ordered from lowest to highest by that field"
+      "then": "records should be ordered from lowest to highest by that field",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "records should be ordered from lowest to highest by that field",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-VIEW-SORTS-002",
       "given": "a sort by single field with descending direction",
       "when": "applying sort to records",
-      "then": "records should be ordered from highest to lowest by that field"
+      "then": "records should be ordered from highest to lowest by that field",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "records should be ordered from highest to lowest by that field",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-VIEW-SORTS-003",
       "given": "sorts by multiple fields",
       "when": "applying sort to records",
-      "then": "records should be ordered by first field, then second field breaks ties, and so on"
+      "then": "records should be ordered by first field, then second field breaks ties, and so on",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "records should be ordered by first field, then second field breaks ties, and so on",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     }
   ]
 }

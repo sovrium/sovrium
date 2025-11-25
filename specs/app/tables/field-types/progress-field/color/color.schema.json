@@ -10,19 +10,64 @@
       "id": "APP-FIELD-PROGRESS-COLOR-001",
       "given": "user provides color matching pattern",
       "when": "validating input",
-      "then": "value should be accepted"
+      "then": "value should be accepted",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "value should be accepted",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-PROGRESS-COLOR-002",
       "given": "user provides color not matching pattern",
       "when": "validating input",
-      "then": "clear error message should explain format requirement"
+      "then": "clear error message should explain format requirement",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "clear error message should explain format requirement",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-PROGRESS-COLOR-003",
       "given": "color is stored",
       "when": "retrieved later",
-      "then": "original format should be preserved"
+      "then": "original format should be preserved",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "original format should be preserved",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     }
   ]
 }

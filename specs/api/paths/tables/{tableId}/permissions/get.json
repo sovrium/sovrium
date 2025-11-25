@@ -83,12 +83,30 @@
                   "delete": true
                 },
                 "fields": {
-                  "id": { "read": true, "write": false },
-                  "name": { "read": true, "write": true },
-                  "email": { "read": true, "write": true },
-                  "salary": { "read": true, "write": true },
-                  "created_at": { "read": true, "write": false },
-                  "updated_at": { "read": true, "write": false }
+                  "id": {
+                    "read": true,
+                    "write": false
+                  },
+                  "name": {
+                    "read": true,
+                    "write": true
+                  },
+                  "email": {
+                    "read": true,
+                    "write": true
+                  },
+                  "salary": {
+                    "read": true,
+                    "write": true
+                  },
+                  "created_at": {
+                    "read": true,
+                    "write": false
+                  },
+                  "updated_at": {
+                    "read": true,
+                    "write": false
+                  }
                 }
               }
             },
@@ -102,12 +120,30 @@
                   "delete": false
                 },
                 "fields": {
-                  "id": { "read": true, "write": false },
-                  "name": { "read": true, "write": true },
-                  "email": { "read": true, "write": true },
-                  "salary": { "read": false, "write": false },
-                  "created_at": { "read": true, "write": false },
-                  "updated_at": { "read": true, "write": false }
+                  "id": {
+                    "read": true,
+                    "write": false
+                  },
+                  "name": {
+                    "read": true,
+                    "write": true
+                  },
+                  "email": {
+                    "read": true,
+                    "write": true
+                  },
+                  "salary": {
+                    "read": false,
+                    "write": false
+                  },
+                  "created_at": {
+                    "read": true,
+                    "write": false
+                  },
+                  "updated_at": {
+                    "read": true,
+                    "write": false
+                  }
                 }
               }
             },
@@ -121,12 +157,30 @@
                   "delete": false
                 },
                 "fields": {
-                  "id": { "read": true, "write": false },
-                  "name": { "read": true, "write": false },
-                  "email": { "read": true, "write": false },
-                  "salary": { "read": false, "write": false },
-                  "created_at": { "read": true, "write": false },
-                  "updated_at": { "read": true, "write": false }
+                  "id": {
+                    "read": true,
+                    "write": false
+                  },
+                  "name": {
+                    "read": true,
+                    "write": false
+                  },
+                  "email": {
+                    "read": true,
+                    "write": false
+                  },
+                  "salary": {
+                    "read": false,
+                    "write": false
+                  },
+                  "created_at": {
+                    "read": true,
+                    "write": false
+                  },
+                  "updated_at": {
+                    "read": true,
+                    "write": false
+                  }
                 }
               }
             }
@@ -146,37 +200,127 @@
       "id": "API-TABLES-PERMISSIONS-CHECK-001",
       "given": "An authenticated admin user",
       "when": "User checks permissions for a table",
-      "then": "All table and field permissions should be returned as true"
+      "then": "All table and field permissions should be returned as true",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "All table and field permissions should be returned as true",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-PERMISSIONS-CHECK-002",
       "given": "An authenticated member user with limited permissions",
       "when": "User checks permissions for a table",
-      "then": "Permissions should reflect user's role restrictions"
+      "then": "Permissions should reflect user's role restrictions",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Permissions should reflect user's role restrictions",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-PERMISSIONS-CHECK-003",
       "given": "An unauthenticated user",
       "when": "User attempts to check permissions",
-      "then": "401 Unauthorized error should be returned"
+      "then": "401 Unauthorized error should be returned",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "401 Unauthorized error should be returned",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-PERMISSIONS-CHECK-004",
       "given": "An authenticated user checking a non-existent table",
       "when": "User checks permissions for invalid table ID",
-      "then": "404 Not Found error should be returned"
+      "then": "404 Not Found error should be returned",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "404 Not Found error should be returned",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-PERMISSIONS-CHECK-005",
       "given": "A table with field-level permission restrictions",
       "when": "User checks permissions",
-      "then": "Sensitive fields should show read: false and write: false"
+      "then": "Sensitive fields should show read: false and write: false",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Sensitive fields should show read: false and write: false",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-PERMISSIONS-CHECK-006",
       "given": "A viewer user with read-only access",
       "when": "User checks permissions",
-      "then": "All write operations should be false (create, update, delete)"
+      "then": "All write operations should be false (create, update, delete)",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "All write operations should be false (create, update, delete)",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     }
   ]
 }

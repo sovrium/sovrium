@@ -10,19 +10,64 @@
       "id": "APP-FIELD-BUTTON-ACTION-001",
       "given": "user selects action from valid options",
       "when": "validating input",
-      "then": "selection should be accepted"
+      "then": "selection should be accepted",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "selection should be accepted",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-BUTTON-ACTION-002",
       "given": "user provides invalid action value",
       "when": "validating input",
-      "then": "error should list valid options: url, automation"
+      "then": "error should list valid options: url, automation",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "error should list valid options: url, automation",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-BUTTON-ACTION-003",
       "given": "action is set to any valid enum value",
       "when": "processing entity",
-      "then": "appropriate behavior should execute"
+      "then": "appropriate behavior should execute",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "appropriate behavior should execute",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     }
   ]
 }

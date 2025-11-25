@@ -70,19 +70,64 @@
       "id": "APP-TABLES-VIEW-FIELDS-001",
       "given": "a view with specific fields configured as visible",
       "when": "displaying records in the view",
-      "then": "only configured visible fields should be shown"
+      "then": "only configured visible fields should be shown",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "only configured visible fields should be shown",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-VIEW-FIELDS-002",
       "given": "a view with fields configured with custom order",
       "when": "displaying records in the view",
-      "then": "fields should appear in the specified order"
+      "then": "fields should appear in the specified order",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "fields should appear in the specified order",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-VIEW-FIELDS-003",
       "given": "a view with a field marked as visible: false",
       "when": "displaying records in the view",
-      "then": "that field should not be shown"
+      "then": "that field should not be shown",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "that field should not be shown",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     }
   ]
 }

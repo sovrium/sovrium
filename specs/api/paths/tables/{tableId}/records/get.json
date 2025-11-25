@@ -362,73 +362,253 @@
       "id": "API-TABLES-RECORDS-LIST-001",
       "given": "A running server with existing records",
       "when": "User requests list of records",
-      "then": "Response should be 200 OK with array of records"
+      "then": "Response should be 200 OK with array of records",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Response should be 200 OK with array of records",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-RECORDS-LIST-002",
       "given": "A running server",
       "when": "User requests records from non-existent table",
-      "then": "Response should be 404 Not Found"
+      "then": "Response should be 404 Not Found",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Response should be 404 Not Found",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-RECORDS-LIST-003",
       "given": "A table with records matching filter criteria",
       "when": "User requests records with filter parameter",
-      "then": "Only matching records should be returned"
+      "then": "Only matching records should be returned",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Only matching records should be returned",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-RECORDS-LIST-004",
       "given": "A table with unsorted records",
       "when": "User requests records with sort parameter",
-      "then": "Records should be sorted correctly by specified fields"
+      "then": "Records should be sorted correctly by specified fields",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Records should be sorted correctly by specified fields",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-RECORDS-LIST-005",
       "given": "A table with records containing many fields",
       "when": "User requests specific fields only via fields parameter",
-      "then": "Response should include only requested fields"
+      "then": "Response should include only requested fields",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Response should include only requested fields",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-RECORDS-LIST-006",
       "given": "A table with 200 records",
       "when": "User requests records with limit=50 and offset=100",
-      "then": "Records 101-150 should be returned with pagination metadata"
+      "then": "Records 101-150 should be returned with pagination metadata",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Records 101-150 should be returned with pagination metadata",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-RECORDS-LIST-007",
       "given": "A table with a predefined view configured",
       "when": "User requests records with view parameter",
-      "then": "View filters and sorts should be applied to results"
+      "then": "View filters and sorts should be applied to results",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "View filters and sorts should be applied to results",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-RECORDS-LIST-008",
       "given": "A table with records of different statuses",
       "when": "User requests records with groupBy parameter",
-      "then": "Records should be grouped by specified field"
+      "then": "Records should be grouped by specified field",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Records should be grouped by specified field",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-RECORDS-LIST-009",
       "given": "A table with numeric fields",
       "when": "User requests records with aggregate parameter",
-      "then": "Aggregation results should be included in response"
+      "then": "Aggregation results should be included in response",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Aggregation results should be included in response",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-RECORDS-LIST-010",
       "given": "A table with records",
       "when": "User requests records with filterByFormula parameter",
-      "then": "Records matching the formula should be returned"
+      "then": "Records matching the formula should be returned",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Records matching the formula should be returned",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-RECORDS-LIST-011",
       "given": "A table with multi-field sorting",
       "when": "User requests records sorted by multiple fields",
-      "then": "Records should be sorted by first field, then second for ties"
+      "then": "Records should be sorted by first field, then second for ties",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Records should be sorted by first field, then second for ties",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-RECORDS-LIST-012",
       "given": "A table with view and explicit filters",
       "when": "User combines view and filter parameters",
-      "then": "Both view filters and explicit filters should be applied (AND logic)"
+      "then": "Both view filters and explicit filters should be applied (AND logic)",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Both view filters and explicit filters should be applied (AND logic)",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     }
   ]
 }

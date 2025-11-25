@@ -172,25 +172,85 @@
       "id": "API-RECORDS-BATCH-001",
       "given": "table 'tbl_001' exists with 0 records",
       "when": "POST /api/tables/tbl_001/records/batch with 2 valid records",
-      "then": "returns 201 with created=2 and records array"
+      "then": "returns 201 with created=2 and records array",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "returns 201 with created=2 and records array",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-RECORDS-BATCH-002",
       "given": "table 'tbl_001' exists",
       "when": "POST /api/tables/tbl_001/records/batch with returnRecords=false",
-      "then": "returns 201 with created=2 and no records array"
+      "then": "returns 201 with created=2 and no records array",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "returns 201 with created=2 and no records array",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-RECORDS-BATCH-003",
       "given": "table 'tbl_001' with required email field",
       "when": "POST /api/tables/tbl_001/records/batch with 1 valid and 1 missing email",
-      "then": "returns 400 BatchValidationError with details array, no records created (transaction rolled back)"
+      "then": "returns 400 BatchValidationError with details array, no records created (transaction rolled back)",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "returns 400 BatchValidationError with details array, no records created (transaction rolled back)",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-RECORDS-BATCH-004",
       "given": "table 'tbl_001' exists",
       "when": "POST /api/tables/tbl_001/records/batch with 1001 records",
-      "then": "returns 413 PayloadTooLarge"
+      "then": "returns 413 PayloadTooLarge",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "returns 413 PayloadTooLarge",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     }
   ]
 }

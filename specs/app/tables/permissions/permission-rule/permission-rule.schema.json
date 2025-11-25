@@ -76,60 +76,193 @@
     }
   ],
   "examples": [
-    { "type": "public" },
-    { "type": "authenticated" },
-    { "type": "roles", "roles": ["admin", "editor"] },
-    { "type": "custom", "condition": "{userId} = created_by" },
-    { "type": "custom", "condition": "{user.department} = department AND status = 'active'" }
+    {
+      "type": "public"
+    },
+    {
+      "type": "authenticated"
+    },
+    {
+      "type": "roles",
+      "roles": ["admin", "editor"]
+    },
+    {
+      "type": "custom",
+      "condition": "{userId} = created_by"
+    },
+    {
+      "type": "custom",
+      "condition": "{user.department} = department AND status = 'active'"
+    }
   ],
   "x-specs": [
     {
       "id": "APP-TABLES-PERMISSION-RULE-001",
       "given": "permission rule with type 'public'",
       "when": "any user accesses resource",
-      "then": "access should be granted without authentication check"
+      "then": "access should be granted without authentication check",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "access should be granted without authentication check",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-PERMISSION-RULE-002",
       "given": "permission rule with type 'authenticated'",
       "when": "unauthenticated user accesses resource",
-      "then": "access should be denied with 401 Unauthorized"
+      "then": "access should be denied with 401 Unauthorized",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "access should be denied with 401 Unauthorized",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-PERMISSION-RULE-003",
       "given": "permission rule with type 'authenticated'",
       "when": "authenticated user accesses resource",
-      "then": "access should be granted"
+      "then": "access should be granted",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "access should be granted",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-PERMISSION-RULE-004",
       "given": "permission rule with type 'roles' and roles ['admin', 'editor']",
       "when": "user with 'admin' role accesses resource",
-      "then": "access should be granted"
+      "then": "access should be granted",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "access should be granted",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-PERMISSION-RULE-005",
       "given": "permission rule with type 'roles' and roles ['admin']",
       "when": "user with 'member' role accesses resource",
-      "then": "access should be denied with 403 Forbidden"
+      "then": "access should be denied with 403 Forbidden",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "access should be denied with 403 Forbidden",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-PERMISSION-RULE-006",
       "given": "permission rule with type 'custom' and condition '{user.department} = department'",
       "when": "user with matching department accesses resource",
-      "then": "access should be granted"
+      "then": "access should be granted",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "access should be granted",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-PERMISSION-RULE-007",
       "given": "permission rule with type 'custom' and condition '{userId} = created_by'",
       "when": "user who is not the creator accesses resource",
-      "then": "access should be denied with 403 Forbidden"
+      "then": "access should be denied with 403 Forbidden",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "access should be denied with 403 Forbidden",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-PERMISSION-RULE-008",
       "given": "permission rule with multiple roles ['admin', 'editor', 'member']",
       "when": "user with 'editor' role accesses resource",
-      "then": "access should be granted (OR logic)"
+      "then": "access should be granted (OR logic)",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "access should be granted (OR logic)",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     }
   ]
 }

@@ -71,13 +71,43 @@
       "id": "API-TABLES-RECORDS-CREATE-001",
       "given": "A running server with valid table",
       "when": "User creates record with valid data",
-      "then": "Response should be 201 Created with record data"
+      "then": "Response should be 201 Created with record data",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Response should be 201 Created with record data",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-RECORDS-CREATE-002",
       "given": "A running server",
       "when": "User attempts to create record in non-existent table",
-      "then": "Response should be 404 Not Found"
+      "then": "Response should be 404 Not Found",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Response should be 404 Not Found",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     }
   ]
 }

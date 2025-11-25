@@ -168,25 +168,85 @@
       "id": "API-RECORDS-BATCH-005",
       "given": "table 'tbl_001' with records rec_001 and rec_002",
       "when": "PATCH /api/tables/tbl_001/records/batch with 2 valid updates",
-      "then": "returns 200 with updated=2 and updated records array"
+      "then": "returns 200 with updated=2 and updated records array",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "returns 200 with updated=2 and updated records array",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-RECORDS-BATCH-006",
       "given": "table 'tbl_001' with records rec_001 and rec_002",
       "when": "PATCH /api/tables/tbl_001/records/batch with returnRecords=false",
-      "then": "returns 200 with updated=2 and no records array"
+      "then": "returns 200 with updated=2 and no records array",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "returns 200 with updated=2 and no records array",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-RECORDS-BATCH-007",
       "given": "table 'tbl_001' with email validation",
       "when": "PATCH /api/tables/tbl_001/records/batch with 1 valid and 1 invalid email",
-      "then": "returns 400 BatchValidationError with details array, no records updated (transaction rolled back)"
+      "then": "returns 400 BatchValidationError with details array, no records updated (transaction rolled back)",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "returns 400 BatchValidationError with details array, no records updated (transaction rolled back)",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-RECORDS-BATCH-008",
       "given": "table 'tbl_001' with record rec_001",
       "when": "PATCH /api/tables/tbl_001/records/batch with rec_001 and rec_999 (nonexistent)",
-      "then": "returns 404 NotFound for rec_999, no records updated (transaction rolled back)"
+      "then": "returns 404 NotFound for rec_999, no records updated (transaction rolled back)",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "returns 404 NotFound for rec_999, no records updated (transaction rolled back)",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     }
   ]
 }

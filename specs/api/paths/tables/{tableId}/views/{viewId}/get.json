@@ -158,31 +158,106 @@
       "id": "API-TABLES-VIEWS-GET-001",
       "given": "A table with a specific view configured",
       "when": "User requests view details by viewId",
-      "then": "View configuration should be returned with all properties"
+      "then": "View configuration should be returned with all properties",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "View configuration should be returned with all properties",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-VIEWS-GET-002",
       "given": "A table without the requested view",
       "when": "User requests non-existent view",
-      "then": "404 Not Found error should be returned with 'View not found' message"
+      "then": "404 Not Found error should be returned with 'View not found' message",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "404 Not Found error should be returned with 'View not found' message",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-VIEWS-GET-003",
       "given": "A non-existent table ID",
       "when": "User requests view details",
-      "then": "404 Not Found error should be returned with 'Table not found' message"
+      "then": "404 Not Found error should be returned with 'Table not found' message",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "404 Not Found error should be returned with 'Table not found' message",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-VIEWS-GET-004",
       "given": "A view with filters, sorts, and groupBy configured",
       "when": "User requests view details",
-      "then": "All view properties including filters, sorts, and groupBy should be included in response"
+      "then": "All view properties including filters, sorts, and groupBy should be included in response",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "All view properties including filters, sorts, and groupBy should be included in response",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-VIEWS-GET-005",
       "given": "A calendar view with field configurations",
       "when": "User requests view details",
-      "then": "Fields array with visibility and order should be included in response"
+      "then": "Fields array with visibility and order should be included in response",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Fields array with visibility and order should be included in response",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     }
   ]
 }

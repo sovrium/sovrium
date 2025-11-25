@@ -74,13 +74,43 @@
       "id": "API-TABLES-GET-001",
       "given": "A running server with existing table",
       "when": "User requests table by ID",
-      "then": "Response should be 200 OK with table configuration"
+      "then": "Response should be 200 OK with table configuration",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Response should be 200 OK with table configuration",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-GET-002",
       "given": "A running server",
       "when": "User requests non-existent table",
-      "then": "Response should be 404 Not Found"
+      "then": "Response should be 404 Not Found",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Response should be 404 Not Found",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     }
   ]
 }

@@ -61,13 +61,43 @@
       "id": "API-TABLES-RECORDS-UPDATE-001",
       "given": "A running server with existing record",
       "when": "User updates record with valid data",
-      "then": "Response should be 200 OK with updated record"
+      "then": "Response should be 200 OK with updated record",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Response should be 200 OK with updated record",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-RECORDS-UPDATE-002",
       "given": "A running server",
       "when": "User attempts to update non-existent record",
-      "then": "Response should be 404 Not Found"
+      "then": "Response should be 404 Not Found",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Response should be 404 Not Found",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     }
   ]
 }

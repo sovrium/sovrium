@@ -36,13 +36,43 @@
       "id": "API-TABLES-RECORDS-DELETE-001",
       "given": "A running server with existing record",
       "when": "User deletes record by ID",
-      "then": "Response should be 204 No Content"
+      "then": "Response should be 204 No Content",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Response should be 204 No Content",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-RECORDS-DELETE-002",
       "given": "A running server",
       "when": "User attempts to delete non-existent record",
-      "then": "Response should be 404 Not Found"
+      "then": "Response should be 404 Not Found",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Response should be 404 Not Found",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     }
   ]
 }

@@ -101,19 +101,64 @@
       "id": "APP-TABLES-VIEW-001",
       "given": "a view with id, name, and type properties",
       "when": "validating the view schema",
-      "then": "the view should be valid"
+      "then": "the view should be valid",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "the view should be valid",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-VIEW-002",
       "given": "a view with invalid id format (contains uppercase or spaces)",
       "when": "validating the view schema",
-      "then": "validation should fail with pattern mismatch error"
+      "then": "validation should fail with pattern mismatch error",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "validation should fail with pattern mismatch error",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-VIEW-003",
       "given": "a view marked as isDefault: true",
       "when": "no specific view is requested via API",
-      "then": "this view's configuration should be applied automatically"
+      "then": "this view's configuration should be applied automatically",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "this view's configuration should be applied automatically",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     }
   ]
 }

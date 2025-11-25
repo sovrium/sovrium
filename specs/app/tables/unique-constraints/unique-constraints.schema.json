@@ -35,43 +35,148 @@
       "id": "APP-TABLES-UNIQUECONSTRAINTS-001",
       "given": "user provides uniqueConstraints array",
       "when": "validating input",
-      "then": "items should be processed in order"
+      "then": "items should be processed in order",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "items should be processed in order",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-UNIQUECONSTRAINTS-002",
       "given": "uniqueConstraints array is empty",
       "when": "validating input",
-      "then": "behavior should follow optional/required rules"
+      "then": "behavior should follow optional/required rules",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "behavior should follow optional/required rules",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-UNIQUECONSTRAINTS-FIELDS-001",
       "given": "user provides fields with at least 2 items",
       "when": "validating input",
-      "then": "array should be accepted"
+      "then": "array should be accepted",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "array should be accepted",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-UNIQUECONSTRAINTS-FIELDS-002",
       "given": "user provides fields with fewer than 2 items",
       "when": "validating input",
-      "then": "error should enforce minimum items"
+      "then": "error should enforce minimum items",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "error should enforce minimum items",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-UNIQUECONSTRAINTS-NAME-001",
       "given": "user provides name matching pattern",
       "when": "validating input",
-      "then": "value should be accepted"
+      "then": "value should be accepted",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "value should be accepted",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-UNIQUECONSTRAINTS-NAME-002",
       "given": "user provides name not matching pattern",
       "when": "validating input",
-      "then": "clear error message should explain format requirement"
+      "then": "clear error message should explain format requirement",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "clear error message should explain format requirement",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-UNIQUECONSTRAINTS-NAME-003",
       "given": "name is stored",
       "when": "retrieved later",
-      "then": "original format should be preserved"
+      "then": "original format should be preserved",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "original format should be preserved",
+            "validateConfig": true,
+            "expectError": null
+          }
+        ]
+      }
     }
   ]
 }
