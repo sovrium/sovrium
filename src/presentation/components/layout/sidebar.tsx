@@ -20,7 +20,7 @@ type ItemCounters = {
 /**
  * Render a sidebar divider
  */
-function renderDivider(itemIndex: number, counter: number): ReactElement {
+function renderDivider(itemIndex: number, _counter: number): ReactElement {
   return (
     <hr
       key={`divider-${itemIndex}`}
