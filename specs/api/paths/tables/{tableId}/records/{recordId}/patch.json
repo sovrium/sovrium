@@ -59,42 +59,97 @@
   "x-specs": [
     {
       "id": "API-TABLES-RECORDS-UPDATE-001",
-      "given": "A running server with existing record",
-      "when": "User updates record with valid data",
-      "then": "Response should be 200 OK with updated record",
+      "given": "Table 'users' with record ID=1 (email='old@example.com', name='Old Name')",
+      "when": "User updates record with new email and name",
+      "then": "Returns 200 with updated record and database reflects changes",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, name VARCHAR(255), updated_at TIMESTAMP DEFAULT NOW())",
+            "INSERT INTO users (id, email, name) VALUES (1, 'old@example.com', 'Old Name')"
+          ],
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": {
+              "Authorization": "Bearer test_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1, "recordId": 1 },
+            "body": {
+              "email": "new@example.com",
+              "name": "New Name"
+            }
           }
         },
         "assertions": [
           {
-            "description": "Response should be 200 OK with updated record",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns updated record",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "email": { "type": "string" },
+                "name": { "type": "string" },
+                "updated_at": { "type": "string" }
+              },
+              "required": ["id", "email"]
+            },
+            "validateResponseData": {
+              "id": 1,
+              "email": "new@example.com",
+              "name": "New Name"
+            }
+          },
+          {
+            "description": "Database reflects updated values",
+            "executeQuery": "SELECT email, name FROM users WHERE id=1",
+            "expected": {
+              "email": "new@example.com",
+              "name": "New Name"
+            }
           }
         ]
       }
     },
     {
       "id": "API-TABLES-RECORDS-UPDATE-002",
-      "given": "A running server",
+      "given": "Table 'users' exists but record ID=9999 does not",
       "when": "User attempts to update non-existent record",
-      "then": "Response should be 404 Not Found",
+      "then": "Returns 404 Not Found",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL)"
+          ],
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/9999",
+            "headers": {
+              "Authorization": "Bearer test_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1, "recordId": 9999 },
+            "body": {
+              "email": "test@example.com"
+            }
           }
         },
         "assertions": [
           {
-            "description": "Response should be 404 Not Found",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns 404 when record does not exist",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Record not found"
+            }
           }
         ]
       }

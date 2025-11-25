@@ -360,252 +360,538 @@
   "x-specs": [
     {
       "id": "API-TABLES-RECORDS-LIST-001",
-      "given": "A running server with existing records",
-      "when": "User requests list of records",
-      "then": "Response should be 200 OK with array of records",
+      "given": "Table 'projects' with 3 records",
+      "when": "User requests all records",
+      "then": "Returns 200 with array of 3 records and pagination metadata",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, status VARCHAR(50) DEFAULT 'active', priority INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT NOW())",
+            "INSERT INTO projects (name, status, priority) VALUES ('Project Alpha', 'active', 5), ('Project Beta', 'completed', 3), ('Project Gamma', 'active', 4)"
+          ],
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer test_token"
+            },
+            "pathParams": { "tableId": 1 }
           }
         },
         "assertions": [
           {
-            "description": "Response should be 200 OK with array of records",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns 200 with all records and pagination",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "records": {
+                  "type": "array",
+                  "minItems": 3,
+                  "maxItems": 3
+                },
+                "pagination": {
+                  "type": "object",
+                  "properties": {
+                    "total": { "type": "integer" },
+                    "limit": { "type": "integer" },
+                    "offset": { "type": "integer" }
+                  },
+                  "required": ["total"]
+                }
+              },
+              "required": ["records", "pagination"]
+            },
+            "validateResponseData": {
+              "pagination.total": 3,
+              "records.length": 3
+            }
           }
         ]
       }
     },
     {
       "id": "API-TABLES-RECORDS-LIST-002",
-      "given": "A running server",
+      "given": "A running server with no table ID 9999",
       "when": "User requests records from non-existent table",
-      "then": "Response should be 404 Not Found",
+      "then": "Returns 404 Not Found",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [],
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/9999/records",
+            "headers": {
+              "Authorization": "Bearer test_token"
+            },
+            "pathParams": { "tableId": 9999 }
           }
         },
         "assertions": [
           {
-            "description": "Response should be 404 Not Found",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns 404 when table does not exist",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Table not found"
+            }
           }
         ]
       }
     },
     {
       "id": "API-TABLES-RECORDS-LIST-003",
-      "given": "A table with records matching filter criteria",
-      "when": "User requests records with filter parameter",
-      "then": "Only matching records should be returned",
+      "given": "Table with 5 records (2 active, 3 completed)",
+      "when": "User requests records with filter for status=active",
+      "then": "Returns 200 with only 2 active records",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, status VARCHAR(50) NOT NULL)",
+            "INSERT INTO tasks (name, status) VALUES ('Task 1', 'active'), ('Task 2', 'active'), ('Task 3', 'completed'), ('Task 4', 'completed'), ('Task 5', 'completed')"
+          ],
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer test_token"
+            },
+            "pathParams": { "tableId": 1 },
+            "queryParams": {
+              "filter": "{\"operator\":\"AND\",\"conditions\":[{\"field\":\"status\",\"operator\":\"equals\",\"value\":\"active\"}]}"
+            }
           }
         },
         "assertions": [
           {
-            "description": "Only matching records should be returned",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns only records matching filter criteria",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "records": { "type": "array" },
+                "pagination": {
+                  "type": "object",
+                  "properties": {
+                    "total": { "type": "integer" }
+                  }
+                }
+              }
+            },
+            "validateResponseData": {
+              "pagination.total": 2,
+              "records.length": 2
+            }
           }
         ]
       }
     },
     {
       "id": "API-TABLES-RECORDS-LIST-004",
-      "given": "A table with unsorted records",
-      "when": "User requests records with sort parameter",
-      "then": "Records should be sorted correctly by specified fields",
+      "given": "Table with 3 records having different priorities",
+      "when": "User requests records sorted by priority descending",
+      "then": "Returns 200 with records in descending priority order",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), priority INTEGER)",
+            "INSERT INTO projects (name, priority) VALUES ('Low Priority', 1), ('High Priority', 5), ('Medium Priority', 3)"
+          ],
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer test_token"
+            },
+            "pathParams": { "tableId": 1 },
+            "queryParams": {
+              "sort": "priority:desc"
+            }
           }
         },
         "assertions": [
           {
-            "description": "Records should be sorted correctly by specified fields",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Records sorted by priority descending",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "records": {
+                  "type": "array",
+                  "minItems": 3
+                }
+              }
+            },
+            "validateResponseData": {
+              "records[0].priority": 5,
+              "records[1].priority": 3,
+              "records[2].priority": 1
+            }
           }
         ]
       }
     },
     {
       "id": "API-TABLES-RECORDS-LIST-005",
-      "given": "A table with records containing many fields",
-      "when": "User requests specific fields only via fields parameter",
-      "then": "Response should include only requested fields",
+      "given": "Table with records containing 5 fields each",
+      "when": "User requests only id and name fields",
+      "then": "Returns 200 with records containing only specified fields",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), phone VARCHAR(50), address TEXT, created_at TIMESTAMP)",
+            "INSERT INTO users (name, email, phone, address, created_at) VALUES ('John Doe', 'john@example.com', '555-0100', '123 Main St', NOW())"
+          ],
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer test_token"
+            },
+            "pathParams": { "tableId": 1 },
+            "queryParams": {
+              "fields": "id,name"
+            }
           }
         },
         "assertions": [
           {
-            "description": "Response should include only requested fields",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Response includes only requested fields",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "records": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "integer" },
+                      "name": { "type": "string" }
+                    },
+                    "required": ["id", "name"]
+                  }
+                }
+              }
+            },
+            "validateResponseData": {
+              "records[0].name": "John Doe"
+            }
           }
         ]
       }
     },
     {
       "id": "API-TABLES-RECORDS-LIST-006",
-      "given": "A table with 200 records",
-      "when": "User requests records with limit=50 and offset=100",
-      "then": "Records 101-150 should be returned with pagination metadata",
+      "given": "Table with 150 records",
+      "when": "User requests records with limit=20 and offset=40",
+      "then": "Returns 200 with records 41-60 and correct pagination metadata",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "INSERT INTO items (name) SELECT 'Item ' || generate_series(1, 150)"
+          ],
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer test_token"
+            },
+            "pathParams": { "tableId": 1 },
+            "queryParams": {
+              "limit": 20,
+              "offset": 40
+            }
           }
         },
         "assertions": [
           {
-            "description": "Records 101-150 should be returned with pagination metadata",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns paginated subset with correct metadata",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "records": { "type": "array" },
+                "pagination": {
+                  "type": "object",
+                  "properties": {
+                    "total": { "type": "integer" },
+                    "limit": { "type": "integer" },
+                    "offset": { "type": "integer" }
+                  }
+                }
+              }
+            },
+            "validateResponseData": {
+              "pagination.total": 150,
+              "pagination.limit": 20,
+              "pagination.offset": 40,
+              "records.length": 20
+            }
           }
         ]
       }
     },
     {
       "id": "API-TABLES-RECORDS-LIST-007",
-      "given": "A table with a predefined view configured",
+      "given": "Table with predefined view filtering active status",
       "when": "User requests records with view parameter",
-      "then": "View filters and sorts should be applied to results",
+      "then": "Returns 200 with records filtered by view configuration",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, name VARCHAR(255), status VARCHAR(50))",
+            "INSERT INTO tasks (name, status) VALUES ('Task 1', 'active'), ('Task 2', 'inactive'), ('Task 3', 'active')"
+          ],
+          "tableConfig": {
+            "views": [
+              {
+                "id": "active_view",
+                "filters": [{"field": "status", "operator": "equals", "value": "active"}]
+              }
+            ]
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer test_token"
+            },
+            "pathParams": { "tableId": 1 },
+            "queryParams": {
+              "view": "active_view"
+            }
           }
         },
         "assertions": [
           {
-            "description": "View filters and sorts should be applied to results",
-            "validateConfig": true,
-            "expectError": null
+            "description": "View filters applied to results",
+            "expectedStatus": 200,
+            "validateResponseData": {
+              "pagination.total": 2,
+              "records.length": 2
+            }
           }
         ]
       }
     },
     {
       "id": "API-TABLES-RECORDS-LIST-008",
-      "given": "A table with records of different statuses",
-      "when": "User requests records with groupBy parameter",
-      "then": "Records should be grouped by specified field",
+      "given": "Table with records of different statuses",
+      "when": "User requests records grouped by status field",
+      "then": "Returns 200 with records grouped by distinct status values",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), status VARCHAR(50))",
+            "INSERT INTO projects (name, status) VALUES ('P1', 'active'), ('P2', 'active'), ('P3', 'completed'), ('P4', 'pending')"
+          ],
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer test_token"
+            },
+            "pathParams": { "tableId": 1 },
+            "queryParams": {
+              "groupBy": "status"
+            }
           }
         },
         "assertions": [
           {
-            "description": "Records should be grouped by specified field",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Records grouped by status field",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "records": { "type": "array" },
+                "groups": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array"
+                  }
+                }
+              }
+            }
           }
         ]
       }
     },
     {
       "id": "API-TABLES-RECORDS-LIST-009",
-      "given": "A table with numeric fields",
-      "when": "User requests records with aggregate parameter",
-      "then": "Aggregation results should be included in response",
+      "given": "Table with numeric budget and priority fields",
+      "when": "User requests aggregations (count, sum, avg)",
+      "then": "Returns 200 with aggregation results in response",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), budget INTEGER, priority INTEGER)",
+            "INSERT INTO projects (name, budget, priority) VALUES ('P1', 10000, 5), ('P2', 20000, 3), ('P3', 15000, 4)"
+          ],
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer test_token"
+            },
+            "pathParams": { "tableId": 1 },
+            "queryParams": {
+              "aggregate": "{\"count\":true,\"sum\":[\"budget\"],\"avg\":[\"priority\"]}"
+            }
           }
         },
         "assertions": [
           {
-            "description": "Aggregation results should be included in response",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Aggregation results included in response",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "records": { "type": "array" },
+                "aggregations": {
+                  "type": "object",
+                  "properties": {
+                    "count": { "type": "integer" },
+                    "sum": { "type": "object" },
+                    "avg": { "type": "object" }
+                  }
+                }
+              }
+            },
+            "validateResponseData": {
+              "aggregations.count": 3,
+              "aggregations.sum.budget": 45000,
+              "aggregations.avg.priority": 4
+            }
           }
         ]
       }
     },
     {
       "id": "API-TABLES-RECORDS-LIST-010",
-      "given": "A table with records",
-      "when": "User requests records with filterByFormula parameter",
-      "then": "Records matching the formula should be returned",
+      "given": "Table with status and priority fields",
+      "when": "User filters records using Airtable-style formula",
+      "then": "Returns 200 with records matching formula criteria",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, name VARCHAR(255), status VARCHAR(50), priority INTEGER)",
+            "INSERT INTO tasks (name, status, priority) VALUES ('T1', 'active', 5), ('T2', 'active', 2), ('T3', 'completed', 5)"
+          ],
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer test_token"
+            },
+            "pathParams": { "tableId": 1 },
+            "queryParams": {
+              "filterByFormula": "AND({status}='active', {priority}>=3)"
+            }
           }
         },
         "assertions": [
           {
-            "description": "Records matching the formula should be returned",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Formula filter applied correctly",
+            "expectedStatus": 200,
+            "validateResponseData": {
+              "pagination.total": 1,
+              "records.length": 1,
+              "records[0].name": "T1"
+            }
           }
         ]
       }
     },
     {
       "id": "API-TABLES-RECORDS-LIST-011",
-      "given": "A table with multi-field sorting",
-      "when": "User requests records sorted by multiple fields",
-      "then": "Records should be sorted by first field, then second for ties",
+      "given": "Table with status and created_at fields",
+      "when": "User sorts by status ascending, then created_at descending",
+      "then": "Returns 200 with records sorted by primary then secondary field",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, name VARCHAR(255), status VARCHAR(50), created_at TIMESTAMP)",
+            "INSERT INTO tasks (name, status, created_at) VALUES ('T1', 'active', '2025-01-01'), ('T2', 'active', '2025-01-15'), ('T3', 'completed', '2025-01-10')"
+          ],
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer test_token"
+            },
+            "pathParams": { "tableId": 1 },
+            "queryParams": {
+              "sort": "status:asc,created_at:desc"
+            }
           }
         },
         "assertions": [
           {
-            "description": "Records should be sorted by first field, then second for ties",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Multi-field sort applied correctly",
+            "expectedStatus": 200,
+            "validateResponseData": {
+              "records[0].status": "active",
+              "records[0].name": "T2",
+              "records[1].status": "active",
+              "records[1].name": "T1",
+              "records[2].status": "completed"
+            }
           }
         ]
       }
     },
     {
       "id": "API-TABLES-RECORDS-LIST-012",
-      "given": "A table with view and explicit filters",
-      "when": "User combines view and filter parameters",
-      "then": "Both view filters and explicit filters should be applied (AND logic)",
+      "given": "Table with view filtering status=active and explicit priority filter",
+      "when": "User combines view parameter with filter parameter",
+      "then": "Returns 200 with both view and explicit filters applied (AND logic)",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, name VARCHAR(255), status VARCHAR(50), priority INTEGER)",
+            "INSERT INTO tasks (name, status, priority) VALUES ('T1', 'active', 5), ('T2', 'active', 2), ('T3', 'completed', 5)"
+          ],
+          "tableConfig": {
+            "views": [
+              {
+                "id": "active_view",
+                "filters": [{"field": "status", "operator": "equals", "value": "active"}]
+              }
+            ]
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer test_token"
+            },
+            "pathParams": { "tableId": 1 },
+            "queryParams": {
+              "view": "active_view",
+              "filter": "{\"operator\":\"AND\",\"conditions\":[{\"field\":\"priority\",\"operator\":\"greaterThan\",\"value\":3}]}"
+            }
           }
         },
         "assertions": [
           {
-            "description": "Both view filters and explicit filters should be applied (AND logic)",
-            "validateConfig": true,
-            "expectError": null
+            "description": "View and explicit filters combined with AND logic",
+            "expectedStatus": 200,
+            "validateResponseData": {
+              "pagination.total": 1,
+              "records.length": 1,
+              "records[0].name": "T1",
+              "records[0].status": "active",
+              "records[0].priority": 5
+            }
           }
         ]
       }

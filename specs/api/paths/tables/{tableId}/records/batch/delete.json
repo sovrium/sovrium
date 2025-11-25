@@ -145,63 +145,136 @@
   "x-specs": [
     {
       "id": "API-RECORDS-BATCH-009",
-      "given": "table 'tbl_001' with 3 records (rec_001, rec_002, rec_003)",
-      "when": "DELETE /api/tables/tbl_001/records/batch with ids=[rec_001, rec_002]",
-      "then": "returns 200 with deleted=2, records are removed from database",
+      "given": "Table 'users' with 3 records (ID=1, ID=2, ID=3)",
+      "when": "Batch delete IDs [1, 2]",
+      "then": "Returns 200 with deleted=2, records removed from database",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL, name VARCHAR(255))",
+            "INSERT INTO users (id, email, name) VALUES (1, 'user1@example.com', 'User One'), (2, 'user2@example.com', 'User Two'), (3, 'user3@example.com', 'User Three')"
+          ],
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer test_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "ids": [1, 2]
+            }
           }
         },
         "assertions": [
           {
-            "description": "returns 200 with deleted=2, records are removed from database",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns 200 with deleted count",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "deleted": { "type": "integer" }
+              },
+              "required": ["deleted"]
+            },
+            "validateResponseData": {
+              "deleted": 2
+            }
+          },
+          {
+            "description": "Deleted records no longer exist in database",
+            "executeQuery": "SELECT COUNT(*) as count FROM users WHERE id IN (1, 2)",
+            "expected": { "count": 0 }
+          },
+          {
+            "description": "Remaining record still exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM users WHERE id=3",
+            "expected": { "count": 1 }
           }
         ]
       }
     },
     {
       "id": "API-RECORDS-BATCH-010",
-      "given": "table 'tbl_001' with record rec_001",
-      "when": "DELETE /api/tables/tbl_001/records/batch with ids=[rec_001, rec_999] (rec_999 nonexistent)",
-      "then": "returns 404 NotFound for rec_999, no records deleted (transaction rolled back)",
+      "given": "Table 'users' with record ID=1 only",
+      "when": "Batch delete includes ID=1 (exists) and ID=9999 (not found)",
+      "then": "Returns 404 NotFound, no records deleted (rollback)",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL, name VARCHAR(255))",
+            "INSERT INTO users (id, email, name) VALUES (1, 'john@example.com', 'John')"
+          ],
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer test_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "ids": [1, 9999]
+            }
           }
         },
         "assertions": [
           {
-            "description": "returns 404 NotFound for rec_999, no records deleted (transaction rolled back)",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns 404 for nonexistent record",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              },
+              "required": ["error"]
+            }
+          },
+          {
+            "description": "No records deleted due to transaction rollback",
+            "executeQuery": "SELECT COUNT(*) as count FROM users WHERE id=1",
+            "expected": { "count": 1 }
           }
         ]
       }
     },
     {
       "id": "API-RECORDS-BATCH-011",
-      "given": "table 'tbl_001' exists",
-      "when": "DELETE /api/tables/tbl_001/records/batch with 1001 IDs",
-      "then": "returns 413 PayloadTooLarge",
+      "given": "Table 'users' exists",
+      "when": "Batch delete request exceeds 1000 ID limit",
+      "then": "Returns 413 PayloadTooLarge",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL)"
+          ],
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer test_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "ids": []
+            }
           }
         },
         "assertions": [
           {
-            "description": "returns 413 PayloadTooLarge",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns 413 for payload exceeding limit",
+            "expectedStatus": 413,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              }
+            },
+            "validateResponseData": {
+              "error": "PayloadTooLarge"
+            }
           }
         ]
       }

@@ -166,84 +166,222 @@
   "x-specs": [
     {
       "id": "API-RECORDS-BATCH-005",
-      "given": "table 'tbl_001' with records rec_001 and rec_002",
-      "when": "PATCH /api/tables/tbl_001/records/batch with 2 valid updates",
-      "then": "returns 200 with updated=2 and updated records array",
+      "given": "Table 'users' with records ID=1 and ID=2",
+      "when": "Batch update both records with returnRecords=true",
+      "then": "Returns 200 with updated=2 and updated records array",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, name VARCHAR(255), status VARCHAR(50), updated_at TIMESTAMP DEFAULT NOW())",
+            "INSERT INTO users (id, email, name, status) VALUES (1, 'john@example.com', 'John', 'active'), (2, 'jane@example.com', 'Jane', 'active')"
+          ],
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer test_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                {
+                  "id": 1,
+                  "status": "inactive"
+                },
+                {
+                  "id": 2,
+                  "email": "jane.smith@example.com"
+                }
+              ],
+              "returnRecords": true
+            }
           }
         },
         "assertions": [
           {
-            "description": "returns 200 with updated=2 and updated records array",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns 200 with update count and records",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "updated": { "type": "integer" },
+                "records": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2
+                }
+              },
+              "required": ["updated"]
+            },
+            "validateResponseData": {
+              "updated": 2,
+              "records.length": 2
+            }
+          },
+          {
+            "description": "Database reflects updated values",
+            "executeQuery": "SELECT status FROM users WHERE id=1",
+            "expected": { "status": "inactive" }
           }
         ]
       }
     },
     {
       "id": "API-RECORDS-BATCH-006",
-      "given": "table 'tbl_001' with records rec_001 and rec_002",
-      "when": "PATCH /api/tables/tbl_001/records/batch with returnRecords=false",
-      "then": "returns 200 with updated=2 and no records array",
+      "given": "Table 'users' with records ID=1 and ID=2",
+      "when": "Batch update with returnRecords=false",
+      "then": "Returns 200 with updated=2 and no records array",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL, name VARCHAR(255))",
+            "INSERT INTO users (id, email, name) VALUES (1, 'user1@example.com', 'User One'), (2, 'user2@example.com', 'User Two')"
+          ],
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer test_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                {
+                  "id": 1,
+                  "name": "Updated One"
+                },
+                {
+                  "id": 2,
+                  "name": "Updated Two"
+                }
+              ],
+              "returnRecords": false
+            }
           }
         },
         "assertions": [
           {
-            "description": "returns 200 with updated=2 and no records array",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns 200 with count only, no records array",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "updated": { "type": "integer" }
+              },
+              "required": ["updated"]
+            },
+            "validateResponseData": {
+              "updated": 2
+            }
           }
         ]
       }
     },
     {
       "id": "API-RECORDS-BATCH-007",
-      "given": "table 'tbl_001' with email validation",
-      "when": "PATCH /api/tables/tbl_001/records/batch with 1 valid and 1 invalid email",
-      "then": "returns 400 BatchValidationError with details array, no records updated (transaction rolled back)",
+      "given": "Table 'users' with email UNIQUE constraint and records ID=1, ID=2",
+      "when": "Batch update with duplicate email (constraint violation)",
+      "then": "Returns 400 BatchValidationError, no records updated (rollback)",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, name VARCHAR(255))",
+            "INSERT INTO users (id, email, name) VALUES (1, 'john@example.com', 'John'), (2, 'jane@example.com', 'Jane')"
+          ],
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer test_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                {
+                  "id": 1,
+                  "name": "Valid Update"
+                },
+                {
+                  "id": 2,
+                  "email": "john@example.com"
+                }
+              ]
+            }
           }
         },
         "assertions": [
           {
-            "description": "returns 400 BatchValidationError with details array, no records updated (transaction rolled back)",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns 400 validation error",
+            "expectedStatus": 400,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "details": { "type": "array" }
+              },
+              "required": ["error"]
+            }
+          },
+          {
+            "description": "No records updated due to transaction rollback",
+            "executeQuery": "SELECT name FROM users WHERE id=1",
+            "expected": { "name": "John" }
           }
         ]
       }
     },
     {
       "id": "API-RECORDS-BATCH-008",
-      "given": "table 'tbl_001' with record rec_001",
-      "when": "PATCH /api/tables/tbl_001/records/batch with rec_001 and rec_999 (nonexistent)",
-      "then": "returns 404 NotFound for rec_999, no records updated (transaction rolled back)",
+      "given": "Table 'users' with record ID=1 only",
+      "when": "Batch update includes ID=1 (exists) and ID=9999 (not found)",
+      "then": "Returns 404 NotFound, no records updated (rollback)",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL, name VARCHAR(255))",
+            "INSERT INTO users (id, email, name) VALUES (1, 'john@example.com', 'John')"
+          ],
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer test_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                {
+                  "id": 1,
+                  "name": "Updated John"
+                },
+                {
+                  "id": 9999,
+                  "name": "Nonexistent User"
+                }
+              ]
+            }
           }
         },
         "assertions": [
           {
-            "description": "returns 404 NotFound for rec_999, no records updated (transaction rolled back)",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns 404 for nonexistent record",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              },
+              "required": ["error"]
+            }
+          },
+          {
+            "description": "No records updated due to transaction rollback",
+            "executeQuery": "SELECT name FROM users WHERE id=1",
+            "expected": { "name": "John" }
           }
         ]
       }

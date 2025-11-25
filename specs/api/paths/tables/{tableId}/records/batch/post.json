@@ -170,84 +170,209 @@
   "x-specs": [
     {
       "id": "API-RECORDS-BATCH-001",
-      "given": "table 'tbl_001' exists with 0 records",
-      "when": "POST /api/tables/tbl_001/records/batch with 2 valid records",
-      "then": "returns 201 with created=2 and records array",
+      "given": "Table 'users' exists with 0 records",
+      "when": "Batch create 3 valid records with returnRecords=true",
+      "then": "Returns 201 with created=3 and records array",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, name VARCHAR(255), created_at TIMESTAMP DEFAULT NOW())"
+          ],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer test_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                {
+                  "email": "john@example.com",
+                  "name": "John Doe"
+                },
+                {
+                  "email": "jane@example.com",
+                  "name": "Jane Smith"
+                },
+                {
+                  "email": "bob@example.com",
+                  "name": "Bob Johnson"
+                }
+              ],
+              "returnRecords": true
+            }
           }
         },
         "assertions": [
           {
-            "description": "returns 201 with created=2 and records array",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns 201 with created count and records",
+            "expectedStatus": 201,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "created": { "type": "integer" },
+                "records": {
+                  "type": "array",
+                  "minItems": 3,
+                  "maxItems": 3
+                }
+              },
+              "required": ["created"]
+            },
+            "validateResponseData": {
+              "created": 3,
+              "records.length": 3
+            }
+          },
+          {
+            "description": "Database contains all 3 records",
+            "executeQuery": "SELECT COUNT(*) as count FROM users",
+            "expected": { "count": 3 }
           }
         ]
       }
     },
     {
       "id": "API-RECORDS-BATCH-002",
-      "given": "table 'tbl_001' exists",
-      "when": "POST /api/tables/tbl_001/records/batch with returnRecords=false",
-      "then": "returns 201 with created=2 and no records array",
+      "given": "Table 'users' exists",
+      "when": "Batch create 2 records with returnRecords=false",
+      "then": "Returns 201 with created=2 and no records array",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL, name VARCHAR(255))"
+          ],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer test_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                {
+                  "email": "user1@example.com",
+                  "name": "User One"
+                },
+                {
+                  "email": "user2@example.com",
+                  "name": "User Two"
+                }
+              ],
+              "returnRecords": false
+            }
           }
         },
         "assertions": [
           {
-            "description": "returns 201 with created=2 and no records array",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns 201 with count only, no records array",
+            "expectedStatus": 201,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "created": { "type": "integer" }
+              },
+              "required": ["created"]
+            },
+            "validateResponseData": {
+              "created": 2
+            }
           }
         ]
       }
     },
     {
       "id": "API-RECORDS-BATCH-003",
-      "given": "table 'tbl_001' with required email field",
-      "when": "POST /api/tables/tbl_001/records/batch with 1 valid and 1 missing email",
-      "then": "returns 400 BatchValidationError with details array, no records created (transaction rolled back)",
+      "given": "Table 'users' with email NOT NULL constraint",
+      "when": "Batch create with 1 valid record and 1 missing email",
+      "then": "Returns 400 BatchValidationError, no records created (rollback)",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL, name VARCHAR(255))"
+          ],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer test_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                {
+                  "email": "valid@example.com",
+                  "name": "Valid User"
+                },
+                {
+                  "name": "Invalid User"
+                }
+              ]
+            }
           }
         },
         "assertions": [
           {
-            "description": "returns 400 BatchValidationError with details array, no records created (transaction rolled back)",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns 400 validation error with details",
+            "expectedStatus": 400,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "details": { "type": "array" }
+              },
+              "required": ["error"]
+            }
+          },
+          {
+            "description": "No records created due to transaction rollback",
+            "executeQuery": "SELECT COUNT(*) as count FROM users",
+            "expected": { "count": 0 }
           }
         ]
       }
     },
     {
       "id": "API-RECORDS-BATCH-004",
-      "given": "table 'tbl_001' exists",
-      "when": "POST /api/tables/tbl_001/records/batch with 1001 records",
-      "then": "returns 413 PayloadTooLarge",
+      "given": "Table 'users' exists",
+      "when": "Batch create request exceeds 1000 record limit",
+      "then": "Returns 413 PayloadTooLarge",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL)"
+          ],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer test_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": []
+            }
           }
         },
         "assertions": [
           {
-            "description": "returns 413 PayloadTooLarge",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns 413 for payload exceeding limit",
+            "expectedStatus": 413,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              }
+            },
+            "validateResponseData": {
+              "error": "PayloadTooLarge"
+            }
           }
         ]
       }

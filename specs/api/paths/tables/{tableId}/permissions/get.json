@@ -203,16 +203,48 @@
       "then": "All table and field permissions should be returned as true",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2), created_at TIMESTAMP, updated_at TIMESTAMP)"
+          ],
+          "authUser": {
+            "id": 1,
+            "role": "admin",
+            "permissions": ["tables:read", "tables:create", "tables:update", "tables:delete"]
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/permissions",
+            "headers": { "Authorization": "Bearer admin_token" },
+            "pathParams": { "tableId": 1 }
           }
         },
         "assertions": [
           {
-            "description": "All table and field permissions should be returned as true",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns 200 with full table permissions for admin",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "table": {
+                  "type": "object",
+                  "properties": {
+                    "read": { "type": "boolean" },
+                    "create": { "type": "boolean" },
+                    "update": { "type": "boolean" },
+                    "delete": { "type": "boolean" }
+                  },
+                  "required": ["read", "create", "update", "delete"]
+                },
+                "fields": { "type": "object" }
+              },
+              "required": ["table", "fields"]
+            },
+            "validateResponseData": {
+              "table.read": true,
+              "table.create": true,
+              "table.update": true,
+              "table.delete": true
+            }
           }
         ]
       }
@@ -224,16 +256,45 @@
       "then": "Permissions should reflect user's role restrictions",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2))"
+          ],
+          "authUser": {
+            "id": 2,
+            "role": "member",
+            "permissions": ["tables:read", "tables:update"]
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": false, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/permissions",
+            "headers": { "Authorization": "Bearer member_token" },
+            "pathParams": { "tableId": 1 }
           }
         },
         "assertions": [
           {
-            "description": "Permissions should reflect user's role restrictions",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns 200 with restricted permissions for member",
+            "expectedStatus": 200,
+            "validateResponseData": {
+              "table.read": true,
+              "table.create": false,
+              "table.update": true,
+              "table.delete": false,
+              "fields.salary.read": false,
+              "fields.salary.write": false
+            }
           }
         ]
       }
@@ -245,16 +306,24 @@
       "then": "401 Unauthorized error should be returned",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": ["CREATE TABLE employees (id SERIAL PRIMARY KEY)"],
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/permissions",
+            "pathParams": { "tableId": 1 }
           }
         },
         "assertions": [
           {
-            "description": "401 Unauthorized error should be returned",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns 401 when no auth token provided",
+            "expectedStatus": 401,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            }
           }
         ]
       }
@@ -266,16 +335,29 @@
       "then": "404 Not Found error should be returned",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [],
+          "authUser": { "id": 1, "role": "admin" },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/9999/permissions",
+            "headers": { "Authorization": "Bearer admin_token" },
+            "pathParams": { "tableId": 9999 }
           }
         },
         "assertions": [
           {
-            "description": "404 Not Found error should be returned",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns 404 when table does not exist",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Table not found"
+            }
           }
         ]
       }
@@ -287,16 +369,43 @@
       "then": "Sensitive fields should show read: false and write: false",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2))"
+          ],
+          "authUser": { "id": 3, "role": "viewer" },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "permissions": {
+              "viewer": {
+                "table": { "read": true, "create": false, "update": false, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": false },
+                  "email": { "read": true, "write": false },
+                  "name": { "read": true, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/permissions",
+            "headers": { "Authorization": "Bearer viewer_token" },
+            "pathParams": { "tableId": 1 }
           }
         },
         "assertions": [
           {
-            "description": "Sensitive fields should show read: false and write: false",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns permissions with sensitive fields blocked",
+            "expectedStatus": 200,
+            "validateResponseData": {
+              "fields.salary.read": false,
+              "fields.salary.write": false,
+              "fields.email.read": true,
+              "fields.email.write": false,
+              "fields.name.read": true,
+              "fields.name.write": false
+            }
           }
         ]
       }
@@ -308,16 +417,34 @@
       "then": "All write operations should be false (create, update, delete)",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": ["CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), status VARCHAR(50))"],
+          "authUser": { "id": 4, "role": "viewer" },
+          "tableConfig": {
+            "id": 1,
+            "name": "projects",
+            "permissions": {
+              "viewer": {
+                "table": { "read": true, "create": false, "update": false, "delete": false }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/permissions",
+            "headers": { "Authorization": "Bearer viewer_token" },
+            "pathParams": { "tableId": 1 }
           }
         },
         "assertions": [
           {
-            "description": "All write operations should be false (create, update, delete)",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns read-only permissions (all writes false)",
+            "expectedStatus": 200,
+            "validateResponseData": {
+              "table.read": true,
+              "table.create": false,
+              "table.update": false,
+              "table.delete": false
+            }
           }
         ]
       }

@@ -185,63 +185,173 @@
   "x-specs": [
     {
       "id": "API-RECORDS-UPSERT-001",
-      "given": "table 'tbl_001' with existing record (email='john@example.com')",
-      "when": "POST /api/tables/tbl_001/records/upsert with fieldsToMergeOn=['email'] and 2 records (1 matching, 1 new)",
-      "then": "returns 200 with created=1, updated=1, and records array",
+      "given": "Table 'users' with existing record (email='john@example.com', name='John')",
+      "when": "Upsert with fieldsToMergeOn=['email'] - 1 existing match, 1 new record",
+      "then": "Returns 200 with created=1, updated=1, and records array",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, name VARCHAR(255), status VARCHAR(50))",
+            "INSERT INTO users (email, name, status) VALUES ('john@example.com', 'John', 'active')"
+          ],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/upsert",
+            "headers": {
+              "Authorization": "Bearer test_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                {
+                  "email": "john@example.com",
+                  "name": "John Updated",
+                  "status": "active"
+                },
+                {
+                  "email": "jane@example.com",
+                  "name": "Jane Smith",
+                  "status": "active"
+                }
+              ],
+              "fieldsToMergeOn": ["email"],
+              "returnRecords": true
+            }
           }
         },
         "assertions": [
           {
-            "description": "returns 200 with created=1, updated=1, and records array",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns 200 with created and updated counts",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "created": { "type": "integer" },
+                "updated": { "type": "integer" },
+                "records": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2
+                }
+              },
+              "required": ["created", "updated"]
+            },
+            "validateResponseData": {
+              "created": 1,
+              "updated": 1,
+              "records.length": 2
+            }
+          },
+          {
+            "description": "Database contains both records with correct data",
+            "executeQuery": "SELECT COUNT(*) as count FROM users",
+            "expected": { "count": 2 }
           }
         ]
       }
     },
     {
       "id": "API-RECORDS-UPSERT-002",
-      "given": "table 'tbl_001' with 0 records",
-      "when": "POST /api/tables/tbl_001/records/upsert with fieldsToMergeOn=['email'] and 2 new records",
-      "then": "returns 200 with created=2, updated=0, and records array",
+      "given": "Table 'users' with 0 records",
+      "when": "Upsert with fieldsToMergeOn=['email'] - both records are new",
+      "then": "Returns 200 with created=2, updated=0, and records array",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, name VARCHAR(255))"
+          ],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/upsert",
+            "headers": {
+              "Authorization": "Bearer test_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                {
+                  "email": "john@example.com",
+                  "name": "John Doe"
+                },
+                {
+                  "email": "jane@example.com",
+                  "name": "Jane Smith"
+                }
+              ],
+              "fieldsToMergeOn": ["email"],
+              "returnRecords": true
+            }
           }
         },
         "assertions": [
           {
-            "description": "returns 200 with created=2, updated=0, and records array",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns 200 with all records created",
+            "expectedStatus": 200,
+            "validateResponseData": {
+              "created": 2,
+              "updated": 0,
+              "records.length": 2
+            }
+          },
+          {
+            "description": "Database contains both new records",
+            "executeQuery": "SELECT COUNT(*) as count FROM users",
+            "expected": { "count": 2 }
           }
         ]
       }
     },
     {
       "id": "API-RECORDS-UPSERT-003",
-      "given": "table 'tbl_001' with email validation",
-      "when": "POST /api/tables/tbl_001/records/upsert with 1 valid and 1 invalid email",
-      "then": "returns 400 BatchValidationError with details array, no records created or updated (transaction rolled back)",
+      "given": "Table 'users' with email NOT NULL constraint",
+      "when": "Upsert with 1 valid record and 1 missing email (validation error)",
+      "then": "Returns 400 BatchValidationError, no records created/updated (rollback)",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, name VARCHAR(255))"
+          ],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records/upsert",
+            "headers": {
+              "Authorization": "Bearer test_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "records": [
+                {
+                  "email": "valid@example.com",
+                  "name": "Valid User"
+                },
+                {
+                  "name": "Invalid User"
+                }
+              ],
+              "fieldsToMergeOn": ["email"]
+            }
           }
         },
         "assertions": [
           {
-            "description": "returns 400 BatchValidationError with details array, no records created or updated (transaction rolled back)",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns 400 validation error",
+            "expectedStatus": 400,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "details": { "type": "array" }
+              },
+              "required": ["error"]
+            }
+          },
+          {
+            "description": "No records created due to transaction rollback",
+            "executeQuery": "SELECT COUNT(*) as count FROM users",
+            "expected": { "count": 0 }
           }
         ]
       }

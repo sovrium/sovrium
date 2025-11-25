@@ -42,42 +42,82 @@
   "x-specs": [
     {
       "id": "API-TABLES-RECORDS-GET-001",
-      "given": "A running server with existing record",
+      "given": "Table 'users' with record ID=1",
       "when": "User requests record by ID",
-      "then": "Response should be 200 OK with record data",
+      "then": "Returns 200 with complete record data",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL, name VARCHAR(255), phone VARCHAR(50), created_at TIMESTAMP DEFAULT NOW())",
+            "INSERT INTO users (email, name, phone) VALUES ('john.doe@example.com', 'John Doe', '555-0100') RETURNING id"
+          ],
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": {
+              "Authorization": "Bearer test_token"
+            },
+            "pathParams": { "tableId": 1, "recordId": 1 }
           }
         },
         "assertions": [
           {
-            "description": "Response should be 200 OK with record data",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns record with all fields",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "email": { "type": "string" },
+                "name": { "type": "string" },
+                "phone": { "type": "string" },
+                "created_at": { "type": "string" }
+              },
+              "required": ["id", "email"]
+            },
+            "validateResponseData": {
+              "id": 1,
+              "email": "john.doe@example.com",
+              "name": "John Doe",
+              "phone": "555-0100"
+            }
           }
         ]
       }
     },
     {
       "id": "API-TABLES-RECORDS-GET-002",
-      "given": "A running server",
+      "given": "Table 'users' exists but record ID=9999 does not",
       "when": "User requests non-existent record",
-      "then": "Response should be 404 Not Found",
+      "then": "Returns 404 Not Found",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL)"
+          ],
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records/9999",
+            "headers": {
+              "Authorization": "Bearer test_token"
+            },
+            "pathParams": { "tableId": 1, "recordId": 9999 }
           }
         },
         "assertions": [
           {
-            "description": "Response should be 404 Not Found",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns 404 when record does not exist",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Record not found"
+            }
           }
         ]
       }

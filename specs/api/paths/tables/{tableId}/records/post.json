@@ -74,16 +74,52 @@
       "then": "Response should be 201 Created with record data",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, first_name VARCHAR(255), last_name VARCHAR(255))"
+          ],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer test_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "email": "john.doe@example.com",
+              "first_name": "John",
+              "last_name": "Doe"
+            }
           }
         },
         "assertions": [
           {
-            "description": "Response should be 201 Created with record data",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns 201 with created record including auto-generated ID",
+            "expectedStatus": 201,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "email": { "type": "string" },
+                "first_name": { "type": "string" },
+                "last_name": { "type": "string" }
+              },
+              "required": ["id", "email"]
+            },
+            "validateResponseData": {
+              "email": "john.doe@example.com",
+              "first_name": "John",
+              "last_name": "Doe"
+            }
+          },
+          {
+            "description": "Record exists in database after creation",
+            "executeQuery": "SELECT * FROM users WHERE email='john.doe@example.com'",
+            "expected": {
+              "email": "john.doe@example.com",
+              "first_name": "John",
+              "last_name": "Doe"
+            }
           }
         ]
       }
@@ -95,16 +131,162 @@
       "then": "Response should be 404 Not Found",
       "validation": {
         "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
+          "executeQuery": [],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/9999/records",
+            "headers": {
+              "Authorization": "Bearer test_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 9999 },
+            "body": {
+              "email": "test@example.com"
+            }
           }
         },
         "assertions": [
           {
-            "description": "Response should be 404 Not Found",
-            "validateConfig": true,
-            "expectError": null
+            "description": "Returns 404 when table does not exist",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Table not found"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-CREATE-003",
+      "given": "A table with required email field",
+      "when": "User creates record without required field",
+      "then": "Response should be 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, first_name VARCHAR(255))"
+          ],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer test_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "first_name": "John"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 for missing required field",
+            "expectedStatus": 400,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "details": { "type": "object" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Validation error"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-CREATE-004",
+      "given": "A table with unique email constraint and existing record",
+      "when": "User attempts to create record with duplicate email",
+      "then": "Response should be 409 Conflict",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, first_name VARCHAR(255))",
+            "INSERT INTO users (email, first_name) VALUES ('existing@example.com', 'Jane')"
+          ],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Authorization": "Bearer test_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "email": "existing@example.com",
+              "first_name": "John"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 409 for unique constraint violation",
+            "expectedStatus": 409,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Unique constraint violation"
+            }
+          },
+          {
+            "description": "Database still contains only original record",
+            "executeQuery": "SELECT COUNT(*) as count FROM users WHERE email='existing@example.com'",
+            "expected": { "count": 1 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-CREATE-005",
+      "given": "A valid table",
+      "when": "Unauthenticated user attempts to create record",
+      "then": "Response should be 401 Unauthorized",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL)"
+          ],
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/tables/1/records",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "email": "test@example.com"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 when no auth token provided",
+            "expectedStatus": 401,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            }
           }
         ]
       }
