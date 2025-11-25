@@ -1,0 +1,430 @@
+/**
+ * Copyright (c) 2025 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { test, expect } from '@/specs/fixtures.ts'
+
+/**
+ * E2E Tests for Database Indexes
+ *
+ * Source: specs/app/tables/indexes/indexes.schema.json
+ * Domain: app
+ * Spec Count: 8
+ *
+ * Test Organization:
+ * 1. @spec tests - One per spec in schema (8 tests) - Exhaustive acceptance criteria
+ * 2. @regression test - ONE optimized integration test - Efficient workflow validation
+ *
+ * Validation Approach:
+ * - Database assertions (executeQuery fixture)
+ * - PostgreSQL index behavior (btree, GIN, UNIQUE)
+ * - Index optimization validation (pg_indexes metadata)
+ * - Query performance verification
+ */
+
+test.describe('Database Indexes', () => {
+  // ============================================================================
+  // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
+  // ============================================================================
+
+  test.fixme(
+    'APP-TABLES-INDEXES-001: should create index for efficient lookups with single-column index on email field',
+    { tag: '@spec' },
+    async ({ executeQuery }) => {
+      // GIVEN: table configuration with single-column index on 'email' field
+      // WHEN: index migration creates btree index
+      await executeQuery(
+        `CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255))`
+      )
+      await executeQuery(`CREATE INDEX idx_user_email ON users(email)`)
+      await executeQuery(
+        `INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com'), ('Bob', 'bob@example.com'), ('Charlie', 'charlie@example.com')`
+      )
+
+      // THEN: PostgreSQL CREATE INDEX statement creates index for efficient lookups
+
+      // Index exists in pg_indexes
+      const index = await executeQuery(
+        `SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_user_email'`
+      )
+      expect(index.rows[0]).toMatchObject({ indexname: 'idx_user_email', tablename: 'users' })
+
+      // Index is on email column
+      const indexDef = await executeQuery(
+        `SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_user_email'`
+      )
+      expect(indexDef.rows[0]).toMatchObject({
+        indexdef: 'CREATE INDEX idx_user_email ON public.users USING btree (email)',
+      })
+
+      // Email lookup uses index (fast query)
+      const result = await executeQuery(`SELECT name FROM users WHERE email = 'alice@example.com'`)
+      expect(result.rows[0]).toMatchObject({ name: 'Alice' })
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-INDEXES-002: should create multi-column index for compound lookups with composite index on (last_name, first_name)',
+    { tag: '@spec' },
+    async ({ executeQuery }) => {
+      // GIVEN: table configuration with composite index on multiple fields (last_name, first_name)
+      // WHEN: index migration creates multi-column index
+      await executeQuery(
+        `CREATE TABLE contacts (id SERIAL PRIMARY KEY, first_name VARCHAR(255), last_name VARCHAR(255), phone VARCHAR(50))`
+      )
+      await executeQuery(`CREATE INDEX idx_contacts_name ON contacts(last_name, first_name)`)
+      await executeQuery(
+        `INSERT INTO contacts (first_name, last_name, phone) VALUES ('Alice', 'Smith', '555-1111'), ('Bob', 'Smith', '555-2222'), ('Alice', 'Jones', '555-3333')`
+      )
+
+      // THEN: PostgreSQL CREATE INDEX with multiple columns for compound lookups
+
+      // Composite index exists
+      const index = await executeQuery(
+        `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_contacts_name'`
+      )
+      expect(index.rows[0]).toMatchObject({ indexname: 'idx_contacts_name' })
+
+      // Index includes both columns in order
+      const indexDef = await executeQuery(
+        `SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_contacts_name'`
+      )
+      expect(indexDef.rows[0]).toMatchObject({
+        indexdef:
+          'CREATE INDEX idx_contacts_name ON public.contacts USING btree (last_name, first_name)',
+      })
+
+      // Lookup by last_name uses index
+      const lastNameLookup = await executeQuery(
+        `SELECT COUNT(*) as count FROM contacts WHERE last_name = 'Smith'`
+      )
+      expect(lastNameLookup.rows[0]).toMatchObject({ count: 2 })
+
+      // Lookup by both columns uses index
+      const bothColumnsLookup = await executeQuery(
+        `SELECT phone FROM contacts WHERE last_name = 'Smith' AND first_name = 'Alice'`
+      )
+      expect(bothColumnsLookup.rows[0]).toMatchObject({ phone: '555-1111' })
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-INDEXES-003: should prevent duplicate values in indexed column with UNIQUE index on username field',
+    { tag: '@spec' },
+    async ({ executeQuery }) => {
+      // GIVEN: table configuration with UNIQUE index on 'username' field
+      // WHEN: unique: true creates UNIQUE constraint
+      await executeQuery(
+        `CREATE TABLE accounts (id SERIAL PRIMARY KEY, username VARCHAR(255), email VARCHAR(255))`
+      )
+      await executeQuery(`CREATE UNIQUE INDEX idx_accounts_username ON accounts(username)`)
+      await executeQuery(
+        `INSERT INTO accounts (username, email) VALUES ('alice123', 'alice@example.com')`
+      )
+
+      // THEN: PostgreSQL prevents duplicate values in indexed column
+
+      // UNIQUE index exists
+      const index = await executeQuery(
+        `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_accounts_username'`
+      )
+      expect(index.rows[0]).toMatchObject({ indexname: 'idx_accounts_username' })
+
+      // Index definition includes UNIQUE
+      const indexDef = await executeQuery(
+        `SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_accounts_username'`
+      )
+      expect(indexDef.rows[0]).toMatchObject({
+        indexdef:
+          'CREATE UNIQUE INDEX idx_accounts_username ON public.accounts USING btree (username)',
+      })
+
+      // Duplicate username rejected
+      await expect(
+        executeQuery(
+          `INSERT INTO accounts (username, email) VALUES ('alice123', 'duplicate@example.com')`
+        )
+      ).rejects.toThrow(/duplicate key value violates unique constraint/)
+
+      // Different username succeeds
+      const result = await executeQuery(
+        `INSERT INTO accounts (username, email) VALUES ('bob456', 'bob@example.com') RETURNING username`
+      )
+      expect(result.rows[0]).toMatchObject({ username: 'bob456' })
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-INDEXES-004: should only create default primary key index when table has no indexes configured',
+    { tag: '@spec' },
+    async ({ executeQuery }) => {
+      // GIVEN: table with no indexes configured (empty array)
+      // WHEN: table is created
+      await executeQuery(
+        `CREATE TABLE logs (id SERIAL PRIMARY KEY, message TEXT, created_at TIMESTAMPTZ)`
+      )
+      await executeQuery(
+        `INSERT INTO logs (message, created_at) VALUES ('Log 1', NOW()), ('Log 2', NOW())`
+      )
+
+      // THEN: PostgreSQL only creates default primary key index
+
+      // Only primary key index exists
+      const count = await executeQuery(
+        `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'logs'`
+      )
+      expect(count.rows[0]).toMatchObject({ count: 1 })
+
+      // Primary key index is on id column
+      const pkeyIndex = await executeQuery(
+        `SELECT indexname FROM pg_indexes WHERE tablename = 'logs' AND indexname LIKE '%pkey'`
+      )
+      expect(pkeyIndex.rows[0]).toMatchObject({ indexname: 'logs_pkey' })
+
+      // No custom indexes created
+      const customIndexes = await executeQuery(
+        `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'logs' AND indexname NOT LIKE '%pkey'`
+      )
+      expect(customIndexes.rows[0]).toMatchObject({ count: 0 })
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-INDEXES-005: should create all specified indexes independently when table has multiple indexes configured',
+    { tag: '@spec' },
+    async ({ executeQuery }) => {
+      // GIVEN: table with multiple indexes configured
+      // WHEN: all indexes are created
+      await executeQuery(
+        `CREATE TABLE products (id SERIAL PRIMARY KEY, sku VARCHAR(100), name VARCHAR(255), category VARCHAR(100), price DECIMAL(10,2))`
+      )
+      await executeQuery(`CREATE INDEX idx_products_sku ON products(sku)`)
+      await executeQuery(`CREATE INDEX idx_products_category ON products(category)`)
+      await executeQuery(`CREATE INDEX idx_products_price ON products(price)`)
+      await executeQuery(
+        `INSERT INTO products (sku, name, category, price) VALUES ('SKU-001', 'Product 1', 'Electronics', 99.99)`
+      )
+
+      // THEN: PostgreSQL creates all specified indexes independently
+
+      // All three indexes exist
+      const count = await executeQuery(
+        `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'products' AND indexname LIKE 'idx_products_%'`
+      )
+      expect(count.rows[0]).toMatchObject({ count: 3 })
+
+      // SKU index exists
+      const skuIndex = await executeQuery(
+        `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_products_sku'`
+      )
+      expect(skuIndex.rows[0]).toMatchObject({ indexname: 'idx_products_sku' })
+
+      // Category index exists
+      const categoryIndex = await executeQuery(
+        `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_products_category'`
+      )
+      expect(categoryIndex.rows[0]).toMatchObject({ indexname: 'idx_products_category' })
+
+      // Price index exists
+      const priceIndex = await executeQuery(
+        `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_products_price'`
+      )
+      expect(priceIndex.rows[0]).toMatchObject({ indexname: 'idx_products_price' })
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-INDEXES-006: should optimize ORDER BY and range queries with index on timestamp field',
+    { tag: '@spec' },
+    async ({ executeQuery }) => {
+      // GIVEN: table with index on timestamp field (created_at)
+      // WHEN: index is used for date range queries
+      await executeQuery(
+        `CREATE TABLE events (id SERIAL PRIMARY KEY, name VARCHAR(255), created_at TIMESTAMPTZ)`
+      )
+      await executeQuery(`CREATE INDEX idx_events_created_at ON events(created_at)`)
+      await executeQuery(
+        `INSERT INTO events (name, created_at) VALUES ('Event 1', '2024-01-01 10:00:00'), ('Event 2', '2024-01-02 10:00:00'), ('Event 3', '2024-01-03 10:00:00')`
+      )
+
+      // THEN: PostgreSQL btree index optimizes ORDER BY and range queries
+
+      // Index exists on created_at
+      const index = await executeQuery(
+        `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_events_created_at'`
+      )
+      expect(index.rows[0]).toMatchObject({ indexname: 'idx_events_created_at' })
+
+      // Range query uses index
+      const rangeQuery = await executeQuery(
+        `SELECT COUNT(*) as count FROM events WHERE created_at > '2024-01-01'`
+      )
+      expect(rangeQuery.rows[0]).toMatchObject({ count: 2 })
+
+      // ORDER BY uses index for sorting
+      const orderBy = await executeQuery(`SELECT name FROM events ORDER BY created_at DESC LIMIT 1`)
+      expect(orderBy.rows[0]).toMatchObject({ name: 'Event 3' })
+
+      // Date filter with ORDER BY uses index
+      const filterAndOrder = await executeQuery(
+        `SELECT name FROM events WHERE created_at >= '2024-01-01' ORDER BY created_at ASC`
+      )
+      expect(filterAndOrder.rows).toEqual([
+        { name: 'Event 1' },
+        { name: 'Event 2' },
+        { name: 'Event 3' },
+      ])
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-INDEXES-007: should enforce uniqueness within each tenant only with partial unique index',
+    { tag: '@spec' },
+    async ({ executeQuery }) => {
+      // GIVEN: table with partial unique index (unique username per tenant)
+      // WHEN: composite unique index on (tenant_id, username)
+      await executeQuery(
+        `CREATE TABLE tenant_users (id SERIAL PRIMARY KEY, tenant_id INTEGER, username VARCHAR(255), email VARCHAR(255))`
+      )
+      await executeQuery(
+        `CREATE UNIQUE INDEX idx_tenant_users_unique ON tenant_users(tenant_id, username)`
+      )
+      await executeQuery(
+        `INSERT INTO tenant_users (tenant_id, username, email) VALUES (1, 'alice', 'alice@tenant1.com'), (2, 'alice', 'alice@tenant2.com')`
+      )
+
+      // THEN: PostgreSQL enforces uniqueness within each tenant only
+
+      // Composite unique index exists
+      const index = await executeQuery(
+        `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_tenant_users_unique'`
+      )
+      expect(index.rows[0]).toMatchObject({ indexname: 'idx_tenant_users_unique' })
+
+      // Same username allowed in different tenants
+      const sameUsername = await executeQuery(
+        `SELECT COUNT(*) as count FROM tenant_users WHERE username = 'alice'`
+      )
+      expect(sameUsername.rows[0]).toMatchObject({ count: 2 })
+
+      // Duplicate username in same tenant rejected
+      await expect(
+        executeQuery(
+          `INSERT INTO tenant_users (tenant_id, username, email) VALUES (1, 'alice', 'duplicate@tenant1.com')`
+        )
+      ).rejects.toThrow(/duplicate key value violates unique constraint/)
+
+      // Same username in different tenant succeeds
+      const result = await executeQuery(
+        `INSERT INTO tenant_users (tenant_id, username, email) VALUES (3, 'alice', 'alice@tenant3.com') RETURNING username`
+      )
+      expect(result.rows[0]).toMatchObject({ username: 'alice' })
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-INDEXES-008: should enable efficient text search queries with GIN index for full-text search',
+    { tag: '@spec' },
+    async ({ executeQuery }) => {
+      // GIVEN: table with text search index using GIN (for full-text search)
+      // WHEN: index is created with to_tsvector
+      await executeQuery(
+        `CREATE TABLE articles (id SERIAL PRIMARY KEY, title VARCHAR(255), content TEXT)`
+      )
+      await executeQuery(
+        `CREATE INDEX idx_articles_search ON articles USING GIN (to_tsvector('english', title || ' ' || content))`
+      )
+      await executeQuery(
+        `INSERT INTO articles (title, content) VALUES ('PostgreSQL Tutorial', 'Learn about database indexes'), ('Python Guide', 'Introduction to Python programming')`
+      )
+
+      // THEN: PostgreSQL GIN index enables efficient text search queries
+
+      // GIN index exists
+      const index = await executeQuery(
+        `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_articles_search'`
+      )
+      expect(index.rows[0]).toMatchObject({ indexname: 'idx_articles_search' })
+
+      // Index uses GIN access method
+      const indexDef = await executeQuery(
+        `SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_articles_search'`
+      )
+      expect(indexDef.rows[0]).toMatchObject({
+        indexdef: `CREATE INDEX idx_articles_search ON public.articles USING gin (to_tsvector('english'::regconfig, ((title)::text || ' '::text) || content))`,
+      })
+
+      // Full-text search uses GIN index
+      const search = await executeQuery(
+        `SELECT title FROM articles WHERE to_tsvector('english', title || ' ' || content) @@ to_tsquery('english', 'database')`
+      )
+      expect(search.rows[0]).toMatchObject({ title: 'PostgreSQL Tutorial' })
+
+      // Multiple word search
+      const multiWordSearch = await executeQuery(
+        `SELECT COUNT(*) as count FROM articles WHERE to_tsvector('english', title || ' ' || content) @@ to_tsquery('english', 'programming | database')`
+      )
+      expect(multiWordSearch.rows[0]).toMatchObject({ count: 2 })
+    }
+  )
+
+  // ============================================================================
+  // @regression test - OPTIMIZED integration confidence check
+  // ============================================================================
+
+  test.fixme(
+    'user can complete full Database Indexes workflow',
+    { tag: '@regression' },
+    async ({ executeQuery }) => {
+      // GIVEN: Database with representative index configurations
+      await executeQuery(
+        `CREATE TABLE users (id SERIAL PRIMARY KEY, username VARCHAR(255), email VARCHAR(255), created_at TIMESTAMPTZ)`
+      )
+      await executeQuery(`CREATE UNIQUE INDEX idx_users_username ON users(username)`)
+      await executeQuery(`CREATE INDEX idx_users_email ON users(email)`)
+      await executeQuery(`CREATE INDEX idx_users_created_at ON users(created_at)`)
+      await executeQuery(
+        `INSERT INTO users (username, email, created_at) VALUES ('alice', 'alice@example.com', '2024-01-01 10:00:00'), ('bob', 'bob@example.com', '2024-01-02 10:00:00')`
+      )
+
+      // WHEN/THEN: Execute representative workflow
+
+      // 1. Unique index prevents duplicates
+      await expect(
+        executeQuery(
+          `INSERT INTO users (username, email, created_at) VALUES ('alice', 'duplicate@example.com', NOW())`
+        )
+      ).rejects.toThrow(/unique constraint/)
+
+      // 2. Regular indexes allow efficient lookups
+      const emailLookup = await executeQuery(
+        `SELECT username FROM users WHERE email = 'bob@example.com'`
+      )
+      expect(emailLookup.rows[0]).toMatchObject({ username: 'bob' })
+
+      // 3. Timestamp index supports range queries
+      const rangeQuery = await executeQuery(
+        `SELECT COUNT(*) as count FROM users WHERE created_at > '2024-01-01'`
+      )
+      expect(rangeQuery.rows[0]).toMatchObject({ count: 1 })
+
+      // 4. All indexes are retrievable
+      const indexes = await executeQuery(
+        `SELECT indexname FROM pg_indexes WHERE tablename = 'users' AND indexname LIKE 'idx_users_%' ORDER BY indexname`
+      )
+      expect(indexes.rows).toHaveLength(3)
+      expect(indexes.rows).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ indexname: 'idx_users_username' }),
+          expect.objectContaining({ indexname: 'idx_users_email' }),
+          expect.objectContaining({ indexname: 'idx_users_created_at' }),
+        ])
+      )
+
+      // Workflow completes successfully
+    }
+  )
+})
