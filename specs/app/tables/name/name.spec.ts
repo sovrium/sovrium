@@ -152,7 +152,7 @@ test.describe('Table Name', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full Table Name workflow',
+    'APP-TABLES-NAME-REGRESSION-001: user can complete full Table Name workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application with representative table name configurations

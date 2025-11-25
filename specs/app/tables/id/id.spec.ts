@@ -158,7 +158,7 @@ test.describe('Table ID', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full Table ID workflow',
+    'APP-TABLES-ID-REGRESSION-001: user can complete full Table ID workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Database with entities using auto-generated IDs

@@ -727,7 +727,7 @@ test.describe('Data Tables', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full Data Tables workflow',
+    'APP-TABLES-REGRESSION-001: user can complete full Data Tables workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Database with representative table configuration
