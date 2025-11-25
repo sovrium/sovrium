@@ -40,6 +40,7 @@ function buildDefaultTestId(type: string): string | undefined {
 /**
  * Build test ID for component using config object
  */
+
 function buildTestId(config: TestIdConfig): string | undefined {
   const { type, blockName, blockInstanceIndex, substitutedProps, childIndex } = config
 
@@ -103,8 +104,11 @@ function buildElementPropsFromConfig(config: ElementPropsConfig): Record<string,
   const { style: _emptyStyle, ...emptyStylePropsWithoutStyle } = emptyStyleProps
 
   // Remove animation and style props from substitutedProps (already applied to style object)
-  const { animation: _animation, style: _style, ...substitutedPropsWithoutAnimation } =
-    config.substitutedProps || {}
+  const {
+    animation: _animation,
+    style: _style,
+    ...substitutedPropsWithoutAnimation
+  } = config.substitutedProps || {}
 
   // Convert custom props to data attributes
   const customDataAttributes = convertCustomPropsToDataAttributes(substitutedPropsWithoutAnimation)
@@ -124,8 +128,12 @@ function buildElementPropsFromConfig(config: ElementPropsConfig): Record<string,
 }
 
 /**
- * Build core props (className, style, data-testid, data-component-type)
+ * Build core props (className, style, data-testid)
  * Handles animation prop by extracting it from substitutedProps and merging into style
+ *
+ * Note: data-component-type removed for clean production HTML
+ * This debug attribute was useful during development but adds unnecessary
+ * markup to static sites and production builds
  */
 function buildCoreProps(
   config: ElementPropsConfig,
@@ -144,7 +152,6 @@ function buildCoreProps(
     className: config.finalClassName,
     ...(styleWithAnimation && { style: styleWithAnimation }),
     ...(testId && { 'data-testid': testId }),
-    'data-component-type': config.type,
   }
 }
 

@@ -24,3 +24,6 @@ CLAUDE.md
 
 # LICENSE
 LICENSE.md
+
+# GitHub Workflows (complex shell scripts incompatible with Prettier YAML parser)
+.github/workflows/

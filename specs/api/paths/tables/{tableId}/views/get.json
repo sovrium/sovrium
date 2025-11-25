@@ -1,0 +1,277 @@
+{
+  "summary": "List table views",
+  "description": "Returns all configured views for a table. Views are predefined in the table schema and are read-only via the API.",
+  "operationId": "listTableViews",
+  "tags": ["views"],
+  "parameters": [
+    {
+      "name": "tableId",
+      "in": "path",
+      "required": true,
+      "description": "The ID of the table",
+      "schema": {
+        "type": "integer",
+        "minimum": 1
+      }
+    }
+  ],
+  "responses": {
+    "200": {
+      "description": "List of views",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "array",
+            "items": {
+              "$ref": "../../../../components/schemas/View.json"
+            }
+          },
+          "examples": {
+            "multipleViews": {
+              "summary": "Table with multiple views",
+              "value": [
+                {
+                  "id": "all_projects",
+                  "name": "All Projects",
+                  "type": "grid",
+                  "isDefault": true,
+                  "sorts": [
+                    {
+                      "field": "created_at",
+                      "direction": "desc"
+                    }
+                  ]
+                },
+                {
+                  "id": "active_projects",
+                  "name": "Active Projects",
+                  "type": "grid",
+                  "filters": {
+                    "operator": "OR",
+                    "conditions": [
+                      {
+                        "field": "status",
+                        "operator": "equals",
+                        "value": "planning"
+                      },
+                      {
+                        "field": "status",
+                        "operator": "equals",
+                        "value": "in-progress"
+                      }
+                    ]
+                  },
+                  "sorts": [
+                    {
+                      "field": "priority",
+                      "direction": "desc"
+                    }
+                  ]
+                },
+                {
+                  "id": "high_priority",
+                  "name": "High Priority",
+                  "type": "kanban",
+                  "filters": {
+                    "operator": "AND",
+                    "conditions": [
+                      {
+                        "field": "priority",
+                        "operator": "greaterThanOrEqual",
+                        "value": 4
+                      }
+                    ]
+                  },
+                  "groupBy": {
+                    "field": "status",
+                    "direction": "asc"
+                  }
+                }
+              ]
+            },
+            "emptyViews": {
+              "summary": "Table with no views configured",
+              "value": []
+            }
+          }
+        }
+      }
+    },
+    "404": {
+      "$ref": "../../../../components/responses/TableNotFound.json"
+    }
+  },
+  "x-specs": [
+    {
+      "id": "API-TABLES-VIEWS-LIST-001",
+      "given": "A table with configured views",
+      "when": "User requests list of views",
+      "then": "All views should be returned with complete configurations",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, status VARCHAR(50), priority INTEGER, created_at TIMESTAMP DEFAULT NOW())"
+          ],
+          "tableConfig": {
+            "id": 1,
+            "name": "projects",
+            "views": [
+              {
+                "id": "all_projects",
+                "name": "All Projects",
+                "type": "grid",
+                "isDefault": true,
+                "sorts": [{ "field": "created_at", "direction": "desc" }]
+              },
+              {
+                "id": "active_projects",
+                "name": "Active Projects",
+                "type": "grid",
+                "filters": {
+                  "operator": "OR",
+                  "conditions": [
+                    { "field": "status", "operator": "equals", "value": "planning" },
+                    { "field": "status", "operator": "equals", "value": "in-progress" }
+                  ]
+                },
+                "sorts": [{ "field": "priority", "direction": "desc" }]
+              },
+              {
+                "id": "high_priority",
+                "name": "High Priority",
+                "type": "kanban",
+                "filters": {
+                  "operator": "AND",
+                  "conditions": [
+                    { "field": "priority", "operator": "greaterThanOrEqual", "value": 4 }
+                  ]
+                },
+                "groupBy": { "field": "status", "direction": "asc" }
+              }
+            ]
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/views",
+            "headers": { "Authorization": "Bearer test_token" },
+            "pathParams": { "tableId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 with array of all configured views",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "array",
+              "minItems": 3,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "name": { "type": "string" },
+                  "type": { "type": "string" }
+                },
+                "required": ["id", "name", "type"]
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-VIEWS-LIST-002",
+      "given": "A table with no views configured",
+      "when": "User requests list of views",
+      "then": "An empty array should be returned",
+      "validation": {
+        "setup": {
+          "executeQuery": ["CREATE TABLE users (id SERIAL PRIMARY KEY)"],
+          "tableConfig": {
+            "id": 1,
+            "name": "users",
+            "views": []
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/views",
+            "headers": { "Authorization": "Bearer test_token" },
+            "pathParams": { "tableId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 with empty array",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "array",
+              "maxItems": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-VIEWS-LIST-003",
+      "given": "A non-existent table ID",
+      "when": "User requests list of views",
+      "then": "404 Not Found error should be returned",
+      "validation": {
+        "setup": {
+          "executeQuery": [],
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/9999/views",
+            "headers": { "Authorization": "Bearer test_token" },
+            "pathParams": { "tableId": 9999 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 when table does not exist",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Table not found"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-VIEWS-LIST-004",
+      "given": "A table with configured views",
+      "when": "Unauthenticated user requests list of views",
+      "then": "Response should be 401 Unauthorized",
+      "validation": {
+        "setup": {
+          "executeQuery": ["CREATE TABLE projects (id SERIAL PRIMARY KEY)"],
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/views",
+            "pathParams": { "tableId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 when no auth token provided",
+            "expectedStatus": 401,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

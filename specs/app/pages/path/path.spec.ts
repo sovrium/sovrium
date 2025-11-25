@@ -11,16 +11,20 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for URL Path
  *
  * Source: specs/app/pages/path/path.schema.json
- * Spec Count: 15
+ * Spec Count: 19
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (15 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (19 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  *
  * Routing Behavior (APP-PAGES-PATH-011 to APP-PAGES-PATH-015):
  * DefaultHomePage.tsx should ONLY be rendered when NO page exists at '/' path.
  * It should NOT render blocks - only app name, version, and description.
  * Bug: Lines 68-79 in DefaultHomePage.tsx incorrectly render app.blocks.
+ *
+ * Error Page Override Behavior (APP-PAGES-PATH-016 to APP-PAGES-PATH-019):
+ * Users can override default error pages (404, 500) by defining pages at '/404' and '/500' paths.
+ * If no custom error page exists, default NotFoundPage and ErrorPage components are rendered.
  */
 
 test.describe('URL Path', () => {
@@ -489,6 +493,108 @@ test.describe('URL Path', () => {
 
       // Verify block rendered via sections (NOT from DefaultHomePage)
       await expect(page.locator('[data-block="hero"]')).toBeVisible()
+    }
+  )
+
+  test(
+    'APP-PAGES-PATH-016: Custom 404 page renders when user defines page at /404 path',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema }) => {
+      // GIVEN: app with custom 404 page at path '/404'
+      await startServerWithSchema({
+        name: 'my-app',
+        pages: [
+          { name: 'Home', path: '/', meta: { lang: 'en-US', title: 'Home' }, sections: [] },
+          {
+            name: 'Custom404',
+            path: '/404',
+            meta: { lang: 'en-US', title: 'Custom Not Found' },
+            sections: [
+              {
+                type: 'section',
+                children: [{ type: 'heading', content: 'Custom 404 Page' }],
+              },
+            ],
+          },
+        ],
+      })
+
+      // WHEN: user navigates to non-existent page
+      await page.goto('/nonexistent')
+
+      // THEN: custom 404 page renders (NOT default NotFoundPage)
+      await expect(page).toHaveTitle('Custom Not Found')
+      await expect(page.locator('h1')).toHaveText('Custom 404 Page')
+    }
+  )
+
+  test(
+    'APP-PAGES-PATH-017: Default NotFoundPage renders when no custom 404 page exists',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema }) => {
+      // GIVEN: app WITHOUT custom 404 page
+      await startServerWithSchema({
+        name: 'my-app',
+        pages: [{ name: 'Home', path: '/', meta: { lang: 'en-US', title: 'Home' }, sections: [] }],
+      })
+
+      // WHEN: user navigates to non-existent page
+      await page.goto('/nonexistent')
+
+      // THEN: default NotFoundPage renders
+      await expect(page).toHaveTitle('404 - Not Found')
+      await expect(page.locator('h1')).toHaveText('404')
+    }
+  )
+
+  test(
+    'APP-PAGES-PATH-018: Custom 500 page renders when user defines page at /500 path',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema }) => {
+      // GIVEN: app with custom 500 page at path '/500'
+      await startServerWithSchema({
+        name: 'my-app',
+        pages: [
+          { name: 'Home', path: '/', meta: { lang: 'en-US', title: 'Home' }, sections: [] },
+          {
+            name: 'Custom500',
+            path: '/500',
+            meta: { lang: 'en-US', title: 'Custom Server Error' },
+            sections: [
+              {
+                type: 'section',
+                children: [{ type: 'heading', content: 'Custom 500 Page' }],
+              },
+            ],
+          },
+        ],
+      })
+
+      // WHEN: user navigates to custom error page directly (test endpoint)
+      await page.goto('/500')
+
+      // THEN: custom 500 page renders
+      await expect(page).toHaveTitle('Custom Server Error')
+      await expect(page.locator('h1')).toHaveText('Custom 500 Page')
+    }
+  )
+
+  test(
+    'APP-PAGES-PATH-019: Default ErrorPage renders when no custom 500 page exists',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema }) => {
+      // GIVEN: app WITHOUT custom 500 page
+      await startServerWithSchema({
+        name: 'my-app',
+        pages: [{ name: 'Home', path: '/', meta: { lang: 'en-US', title: 'Home' }, sections: [] }],
+      })
+
+      // WHEN: server error occurs (access test error endpoint in dev mode)
+      await page.goto('/test/error')
+
+      // THEN: default ErrorPage renders
+      await expect(page).toHaveTitle('500 - Internal Server Error')
+      await expect(page.locator('h1')).toHaveText('500')
     }
   )
 

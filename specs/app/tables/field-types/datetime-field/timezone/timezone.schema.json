@@ -20,28 +20,98 @@
       "title": "Display datetime in specified timezone",
       "given": "a datetime field with timezone 'America/New_York'",
       "when": "user views datetime '2024-12-31T15:00:00.000Z' (UTC)",
-      "then": "the datetime is displayed as '2024-12-31 10:00' (EST, UTC-5)"
+      "then": "the datetime is displayed as '2024-12-31 10:00' (EST, UTC-5)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "SELECT '2024-12-31 15:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'America/New_York' AS displayed_time"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Timezone conversion displays correct local time (EST -5)",
+            "executeQuery": "SELECT '2024-12-31 15:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'America/New_York' AS displayed_time",
+            "expected": {
+              "displayed_time": "2024-12-31 10:00:00"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-DATETIME-TIMEZONE-002",
       "title": "Reject invalid timezone identifier",
       "given": "a datetime field configuration",
       "when": "user sets timezone to 'Invalid/Timezone'",
-      "then": "validation error is returned with message 'Invalid IANA timezone identifier'"
+      "then": "validation error is returned with message 'Invalid IANA timezone identifier'",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "SELECT '2024-01-01 00:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'Invalid/Timezone' AS result"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "PostgreSQL rejects invalid timezone identifier",
+            "executeQuery": "SELECT '2024-01-01 00:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'Invalid/Timezone' AS result",
+            "expectError": "time zone \"Invalid/Timezone\" not recognized"
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-DATETIME-TIMEZONE-003",
       "title": "Handle DST transition correctly",
       "given": "a datetime field with timezone 'America/New_York'",
       "when": "user views datetime during DST transition (March/November)",
-      "then": "the datetime is displayed with correct offset (EST -5 or EDT -4)"
+      "then": "the datetime is displayed with correct offset (EST -5 or EDT -4)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "SELECT '2024-01-15 12:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'America/New_York' AS winter_time",
+            "SELECT '2024-07-15 12:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'America/New_York' AS summer_time"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Winter time uses EST offset (UTC-5)",
+            "executeQuery": "SELECT '2024-01-15 12:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'America/New_York' AS winter_time",
+            "expected": {
+              "winter_time": "2024-01-15 07:00:00"
+            }
+          },
+          {
+            "description": "Summer time uses EDT offset (UTC-4)",
+            "executeQuery": "SELECT '2024-07-15 12:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'America/New_York' AS summer_time",
+            "expected": {
+              "summer_time": "2024-07-15 08:00:00"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-DATETIME-TIMEZONE-004",
       "title": "Use UTC as default timezone",
       "given": "a datetime field without timezone property",
       "when": "user views a datetime value",
-      "then": "the datetime is displayed in UTC timezone (no conversion)"
+      "then": "the datetime is displayed in UTC timezone (no conversion)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "SELECT '2024-12-31 15:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'UTC' AS utc_time"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "UTC timezone displays time without conversion",
+            "executeQuery": "SELECT '2024-12-31 15:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'UTC' AS utc_time",
+            "expected": {
+              "utc_time": "2024-12-31 15:00:00"
+            }
+          }
+        ]
+      }
     }
   ]
 }

@@ -38,15 +38,198 @@
   "x-specs": [
     {
       "id": "APP-INTEGER-FIELD-001",
-      "given": "a Integer Field is configured",
-      "when": "validating schema",
-      "then": "type must be 'integer'"
+      "given": "table configuration with integer field 'quantity'",
+      "when": "field migration creates column",
+      "then": "PostgreSQL INTEGER column is created (32-bit signed integer)",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE products (id SERIAL PRIMARY KEY)",
+          "fieldConfig": {
+            "id": 1,
+            "name": "quantity",
+            "type": "integer"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column created as INTEGER type",
+            "executeQuery": "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='quantity'",
+            "expected": {
+              "column_name": "quantity",
+              "data_type": "integer",
+              "is_nullable": "YES"
+            }
+          },
+          {
+            "description": "Valid integer can be inserted",
+            "executeQuery": "INSERT INTO products (quantity) VALUES (42) RETURNING quantity",
+            "expected": {
+              "quantity": 42
+            }
+          },
+          {
+            "description": "Negative integer can be inserted",
+            "executeQuery": "INSERT INTO products (quantity) VALUES (-10) RETURNING quantity",
+            "expected": {
+              "quantity": -10
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-INTEGER-FIELD-002",
-      "given": "type is set to 'integer'",
-      "when": "processing field",
-      "then": "it should be treated as a Integer Field"
+      "given": "table 'inventory' with integer field 'stock' (min=0, max=1000)",
+      "when": "CHECK constraint enforces range validation",
+      "then": "PostgreSQL rejects values outside min/max range",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE inventory (id SERIAL PRIMARY KEY, stock INTEGER CHECK (stock >= 0 AND stock <= 1000))"
+        },
+        "assertions": [
+          {
+            "description": "CHECK constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%stock%'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Valid value within range succeeds",
+            "executeQuery": "INSERT INTO inventory (stock) VALUES (500) RETURNING stock",
+            "expected": {
+              "stock": 500
+            }
+          },
+          {
+            "description": "Value below min rejected",
+            "executeQuery": "INSERT INTO inventory (stock) VALUES (-1)",
+            "expectError": "violates check constraint"
+          },
+          {
+            "description": "Value above max rejected",
+            "executeQuery": "INSERT INTO inventory (stock) VALUES (1001)",
+            "expectError": "violates check constraint"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-INTEGER-FIELD-003",
+      "given": "table 'orders' with integer field 'order_number' (required, unique)",
+      "when": "constraints are applied",
+      "then": "PostgreSQL enforces NOT NULL and UNIQUE constraints",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number INTEGER UNIQUE NOT NULL)",
+            "INSERT INTO orders (order_number) VALUES (1001)"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "NOT NULL constraint enforced",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='orders' AND column_name='order_number'",
+            "expected": {
+              "is_nullable": "NO"
+            }
+          },
+          {
+            "description": "UNIQUE constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='orders' AND constraint_type='UNIQUE' AND constraint_name LIKE '%order_number%'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Duplicate integer rejected",
+            "executeQuery": "INSERT INTO orders (order_number) VALUES (1001)",
+            "expectError": "duplicate key value violates unique constraint"
+          },
+          {
+            "description": "NULL insertion fails",
+            "executeQuery": "INSERT INTO orders (order_number) VALUES (NULL)",
+            "expectError": "violates not-null constraint"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-INTEGER-FIELD-004",
+      "given": "table 'settings' with integer field 'timeout' and default value 30",
+      "when": "row inserted without providing timeout value",
+      "then": "PostgreSQL applies DEFAULT value 30",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE settings (id SERIAL PRIMARY KEY, timeout INTEGER DEFAULT 30)",
+          "fieldConfig": {
+            "id": 1,
+            "name": "timeout",
+            "type": "integer",
+            "default": 30
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT value",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='settings' AND column_name='timeout'",
+            "expected": {
+              "column_default": "30"
+            }
+          },
+          {
+            "description": "INSERT without timeout uses default",
+            "executeQuery": "INSERT INTO settings (id) VALUES (DEFAULT) RETURNING timeout",
+            "expected": {
+              "timeout": 30
+            }
+          },
+          {
+            "description": "Explicit value overrides default",
+            "executeQuery": "INSERT INTO settings (timeout) VALUES (60) RETURNING timeout",
+            "expected": {
+              "timeout": 60
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-INTEGER-FIELD-005",
+      "given": "table configuration with integer field 'score', indexed=true",
+      "when": "index is created on the integer field",
+      "then": "PostgreSQL btree index exists for fast numerical queries",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE leaderboard (id SERIAL PRIMARY KEY, score INTEGER NOT NULL)",
+            "CREATE INDEX idx_leaderboard_score ON leaderboard(score)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "score",
+            "type": "integer",
+            "indexed": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists in pg_indexes",
+            "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_leaderboard_score'",
+            "expected": {
+              "indexname": "idx_leaderboard_score",
+              "tablename": "leaderboard"
+            }
+          },
+          {
+            "description": "Index uses btree for range queries and sorting",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_leaderboard_score'",
+            "expected": {
+              "indexdef": "CREATE INDEX idx_leaderboard_score ON public.leaderboard USING btree (score)"
+            }
+          }
+        ]
+      }
     }
   ]
 }

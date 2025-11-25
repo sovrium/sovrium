@@ -150,24 +150,14 @@ function normalizeAriaDataProps(key: string): string {
   // Convert ariaLabel → aria-label, dataTestId → data-test-id
   // Check if fifth character is uppercase letter (not hyphen or other character)
   // to avoid double-conversion (aria-label → aria--label)
-  if (
-    key.startsWith('aria') &&
-    key.length > 4 &&
-    key[4] !== undefined &&
-    /[A-Z]/.test(key[4])
-  ) {
+  if (key.startsWith('aria') && key.length > 4 && key[4] !== undefined && /[A-Z]/.test(key[4])) {
     // ariaLabel → aria-label
     const suffix = key.slice(4) // 'Label'
     const kebabSuffix = toKebabCase(suffix) // 'label'
     return `aria-${kebabSuffix}`
   }
 
-  if (
-    key.startsWith('data') &&
-    key.length > 4 &&
-    key[4] !== undefined &&
-    /[A-Z]/.test(key[4])
-  ) {
+  if (key.startsWith('data') && key.length > 4 && key[4] !== undefined && /[A-Z]/.test(key[4])) {
     // dataTestId → data-test-id
     const suffix = key.slice(4) // 'TestId'
     const kebabSuffix = toKebabCase(suffix) // 'test-id'

@@ -2,21 +2,166 @@
   "$id": "relationshipField.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Name of the relationship field to aggregate from",
-  "description": "Name of the relationship field to aggregate from",
+  "description": "Name of the reverse relationship to follow for aggregation. Rollup fields aggregate across child records in one-to-many relationships. Specifies which related table contains the records to aggregate.",
   "type": "string",
   "minLength": 1,
   "x-specs": [
     {
       "id": "APP-FIELD-ROLLUP-RELATIONSHIPFIELD-001",
-      "given": "user provides relationshipField with at least 1 characters",
-      "when": "validating input",
-      "then": "value should be accepted"
+      "given": "rollup field with relationshipField: 'orders' (customers → orders)",
+      "when": "aggregating across one-to-many relationship",
+      "then": "PostgreSQL aggregates values from child orders table",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255), total_orders DECIMAL(15,2) DEFAULT 0)",
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER REFERENCES customers(id), amount DECIMAL(15,2))",
+            "INSERT INTO customers (name) VALUES ('Alice'), ('Bob')",
+            "INSERT INTO orders (customer_id, amount) VALUES (1, 100.00), (1, 250.50), (2, 75.00)",
+            "UPDATE customers SET total_orders = (SELECT COALESCE(SUM(amount), 0) FROM orders WHERE customer_id = customers.id)"
+          ],
+          "fieldConfig": {
+            "name": "total_orders",
+            "type": "rollup",
+            "relationshipField": "orders",
+            "relatedField": "amount",
+            "aggregation": "sum"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Foreign key relationship exists (orders → customers)",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'FOREIGN KEY' AND table_name = 'orders'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Rollup aggregates customer's orders (100 + 250.50)",
+            "executeQuery": "SELECT name, total_orders FROM customers WHERE name = 'Alice'",
+            "expected": {
+              "name": "Alice",
+              "total_orders": 350.5
+            }
+          },
+          {
+            "description": "Different parent has different aggregation",
+            "executeQuery": "SELECT name, total_orders FROM customers WHERE name = 'Bob'",
+            "expected": {
+              "name": "Bob",
+              "total_orders": 75.0
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-ROLLUP-RELATIONSHIPFIELD-002",
-      "given": "user provides relationshipField shorter than 1 chars",
-      "when": "validating input",
-      "then": "error should require minimum length"
+      "given": "rollup field with empty relationshipField value",
+      "when": "field configuration validation runs",
+      "then": "error should require minimum length 1 character",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "total",
+            "type": "rollup",
+            "relationshipField": "",
+            "relatedField": "amount",
+            "aggregation": "sum"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Empty relationshipField rejected",
+            "validateConfig": true,
+            "expectError": "relationshipField must have at least 1 character"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ROLLUP-RELATIONSHIPFIELD-003",
+      "given": "rollup field aggregating across projects → tasks relationship",
+      "when": "counting child records",
+      "then": "PostgreSQL COUNT aggregation returns number of related tasks",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), task_count INTEGER DEFAULT 0)",
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, project_id INTEGER REFERENCES projects(id), title VARCHAR(255), status VARCHAR(50))",
+            "INSERT INTO projects (name) VALUES ('Website'), ('Mobile App')",
+            "INSERT INTO tasks (project_id, title, status) VALUES (1, 'Design', 'done'), (1, 'Development', 'in-progress'), (1, 'Testing', 'pending'), (2, 'Prototype', 'done')",
+            "UPDATE projects SET task_count = (SELECT COUNT(*) FROM tasks WHERE project_id = projects.id)"
+          ],
+          "fieldConfig": {
+            "name": "task_count",
+            "type": "rollup",
+            "relationshipField": "tasks",
+            "relatedField": "id",
+            "aggregation": "count"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Project 'Website' has 3 tasks",
+            "executeQuery": "SELECT name, task_count FROM projects WHERE name = 'Website'",
+            "expected": {
+              "name": "Website",
+              "task_count": 3
+            }
+          },
+          {
+            "description": "Project 'Mobile App' has 1 task",
+            "executeQuery": "SELECT name, task_count FROM projects WHERE name = 'Mobile App'",
+            "expected": {
+              "name": "Mobile App",
+              "task_count": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ROLLUP-RELATIONSHIPFIELD-004",
+      "given": "rollup field with no related records (customer has no orders)",
+      "when": "aggregating with COALESCE for NULL handling",
+      "then": "PostgreSQL returns default value (0) instead of NULL",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255), order_total DECIMAL(15,2) DEFAULT 0)",
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER REFERENCES customers(id), amount DECIMAL(15,2))",
+            "INSERT INTO customers (name) VALUES ('Alice'), ('Bob')",
+            "INSERT INTO orders (customer_id, amount) VALUES (1, 500.00)",
+            "UPDATE customers SET order_total = (SELECT COALESCE(SUM(amount), 0) FROM orders WHERE customer_id = customers.id)"
+          ],
+          "fieldConfig": {
+            "name": "order_total",
+            "type": "rollup",
+            "relationshipField": "orders",
+            "relatedField": "amount",
+            "aggregation": "sum"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Customer with orders shows aggregated total",
+            "executeQuery": "SELECT name, order_total FROM customers WHERE name = 'Alice'",
+            "expected": {
+              "name": "Alice",
+              "order_total": 500.0
+            }
+          },
+          {
+            "description": "Customer without orders shows 0 (COALESCE default)",
+            "executeQuery": "SELECT name, order_total FROM customers WHERE name = 'Bob'",
+            "expected": {
+              "name": "Bob",
+              "order_total": 0.0
+            }
+          }
+        ]
+      }
     }
   ]
 }

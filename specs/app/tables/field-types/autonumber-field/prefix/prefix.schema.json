@@ -1,22 +1,117 @@
 {
   "$id": "prefix.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Optional prefix for the autonumber",
-  "description": "Optional prefix for the autonumber",
+  "title": "Autonumber Prefix",
+  "description": "Optional prefix string prepended to autonumber. Implemented via PostgreSQL GENERATED ALWAYS AS column with string concatenation. Commonly used for invoice numbers (INV-), order codes (ORD-), ticket IDs (TKT-).",
   "type": "string",
-  "examples": ["INV-", "ORD-", ""],
+  "examples": ["INV-", "ORD-", "TKT-", "REQ-", ""],
   "x-specs": [
     {
       "id": "APP-FIELD-AUTONUMBER-PREFIX-001",
-      "given": "user provides prefix",
-      "when": "validating input",
-      "then": "string value should be accepted"
+      "given": "autonumber field with prefix='INV-' and digits=5",
+      "when": "generated column concatenates prefix with padded number",
+      "then": "PostgreSQL GENERATED ALWAYS AS creates formatted string with prefix",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE invoices (id SERIAL PRIMARY KEY, invoice_num SERIAL NOT NULL, invoice_code VARCHAR(50) GENERATED ALWAYS AS ('INV-' || LPAD(invoice_num::TEXT, 5, '0')) STORED)",
+            "INSERT INTO invoices (id) VALUES (DEFAULT), (DEFAULT), (DEFAULT)"
+          ],
+          "fieldConfig": {
+            "name": "invoice_code",
+            "type": "autonumber",
+            "prefix": "INV-",
+            "digits": 5
+          }
+        },
+        "assertions": [
+          {
+            "description": "First number formatted with prefix",
+            "executeQuery": "SELECT invoice_code FROM invoices WHERE id = 1",
+            "expected": {
+              "invoice_code": "INV-00001"
+            }
+          },
+          {
+            "description": "Second number formatted with prefix",
+            "executeQuery": "SELECT invoice_code FROM invoices WHERE id = 2",
+            "expected": {
+              "invoice_code": "INV-00002"
+            }
+          },
+          {
+            "description": "Third number formatted with prefix",
+            "executeQuery": "SELECT invoice_code FROM invoices WHERE id = 3",
+            "expected": {
+              "invoice_code": "INV-00003"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-AUTONUMBER-PREFIX-002",
-      "given": "prefix is empty string",
-      "when": "validating input",
-      "then": "behavior should follow optional/required rules"
+      "given": "autonumber field with empty prefix (prefix='')",
+      "when": "generated column omits prefix concatenation",
+      "then": "PostgreSQL GENERATED ALWAYS AS creates number without prefix",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, order_num SERIAL NOT NULL, order_code VARCHAR(50) GENERATED ALWAYS AS (LPAD(order_num::TEXT, 4, '0')) STORED)",
+            "INSERT INTO orders (id) VALUES (DEFAULT), (DEFAULT)"
+          ],
+          "fieldConfig": {
+            "name": "order_code",
+            "type": "autonumber",
+            "prefix": "",
+            "digits": 4
+          }
+        },
+        "assertions": [
+          {
+            "description": "Number formatted without prefix",
+            "executeQuery": "SELECT order_code FROM orders WHERE id = 1",
+            "expected": {
+              "order_code": "0001"
+            }
+          },
+          {
+            "description": "Second number without prefix",
+            "executeQuery": "SELECT order_code FROM orders WHERE id = 2",
+            "expected": {
+              "order_code": "0002"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-AUTONUMBER-PREFIX-003",
+      "given": "autonumber field without prefix specified (optional)",
+      "when": "generated column uses only padded number",
+      "then": "PostgreSQL GENERATED ALWAYS AS creates number-only format",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tickets (id SERIAL PRIMARY KEY, ticket_num SERIAL NOT NULL, ticket_code VARCHAR(50) GENERATED ALWAYS AS (LPAD(ticket_num::TEXT, 3, '0')) STORED)",
+            "INSERT INTO tickets (id) VALUES (DEFAULT)"
+          ],
+          "fieldConfig": {
+            "name": "ticket_code",
+            "type": "autonumber",
+            "digits": 3
+          }
+        },
+        "assertions": [
+          {
+            "description": "Number formatted without prefix (optional not specified)",
+            "executeQuery": "SELECT ticket_code FROM tickets WHERE id = 1",
+            "expected": {
+              "ticket_code": "001"
+            }
+          }
+        ]
+      }
     }
   ]
 }

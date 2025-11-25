@@ -2,28 +2,303 @@
   "$id": "onUpdate.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Action to take when the related record's key is updated",
-  "description": "Action to take when the related record's key is updated",
+  "description": "PostgreSQL referential action for ON UPDATE: cascade (update child foreign keys), set-null (set foreign key to NULL), restrict (prevent update if children exist), no-action (similar to restrict with deferred check).",
   "type": "string",
   "default": "cascade",
   "enum": ["cascade", "set-null", "restrict", "no-action"],
   "x-specs": [
     {
       "id": "APP-FIELD-RELATIONSHIP-ONUPDATE-001",
-      "given": "user selects onUpdate from valid options",
-      "when": "validating input",
-      "then": "selection should be accepted"
+      "given": "relationship field with onUpdate: 'cascade'",
+      "when": "parent record's primary key updated",
+      "then": "PostgreSQL automatically updates all child foreign keys (CASCADE)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE customers (id INTEGER PRIMARY KEY, name VARCHAR(255), email VARCHAR(255))",
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50), customer_id INTEGER REFERENCES customers(id) ON UPDATE CASCADE)",
+            "INSERT INTO customers (id, name, email) VALUES (1, 'Alice', 'alice@example.com'), (2, 'Bob', 'bob@example.com')",
+            "INSERT INTO orders (order_number, customer_id) VALUES ('ORD-001', 1), ('ORD-002', 1), ('ORD-003', 2)"
+          ],
+          "fieldConfig": {
+            "name": "customer_id",
+            "type": "relationship",
+            "relatedTable": "customers",
+            "onUpdate": "cascade"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Foreign key has ON UPDATE CASCADE",
+            "executeQuery": "SELECT rc.update_rule FROM information_schema.referential_constraints rc JOIN information_schema.table_constraints tc ON rc.constraint_name = tc.constraint_name WHERE tc.table_name = 'orders' AND tc.constraint_type = 'FOREIGN KEY'",
+            "expected": {
+              "update_rule": "CASCADE"
+            }
+          },
+          {
+            "description": "Before update: customer 1 has 2 orders",
+            "executeQuery": "SELECT COUNT(*) as count FROM orders WHERE customer_id = 1",
+            "expected": {
+              "count": 2
+            }
+          },
+          {
+            "description": "Update parent customer's ID",
+            "executeQuery": "UPDATE customers SET id = 100 WHERE id = 1 RETURNING name",
+            "expected": {
+              "name": "Alice"
+            }
+          },
+          {
+            "description": "After update: child orders' customer_id automatically updated (CASCADE)",
+            "executeQuery": "SELECT COUNT(*) as count FROM orders WHERE customer_id = 100",
+            "expected": {
+              "count": 2
+            }
+          },
+          {
+            "description": "Old customer_id no longer exists in child records",
+            "executeQuery": "SELECT COUNT(*) as count FROM orders WHERE customer_id = 1",
+            "expected": {
+              "count": 0
+            }
+          },
+          {
+            "description": "Other customer's orders unaffected",
+            "executeQuery": "SELECT COUNT(*) as count FROM orders WHERE customer_id = 2",
+            "expected": {
+              "count": 1
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-RELATIONSHIP-ONUPDATE-002",
-      "given": "user provides invalid onUpdate value",
-      "when": "validating input",
-      "then": "error should list valid options: cascade, set-null, restrict"
+      "given": "relationship field with onUpdate: 'set-null'",
+      "when": "parent record's primary key updated",
+      "then": "PostgreSQL sets child foreign key columns to NULL (SET NULL)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE departments (id INTEGER PRIMARY KEY, name VARCHAR(255))",
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), department_id INTEGER REFERENCES departments(id) ON UPDATE SET NULL)",
+            "INSERT INTO departments (id, name) VALUES (1, 'Engineering'), (2, 'Sales')",
+            "INSERT INTO employees (name, department_id) VALUES ('Alice', 1), ('Bob', 1), ('Charlie', 2)"
+          ],
+          "fieldConfig": {
+            "name": "department_id",
+            "type": "relationship",
+            "relatedTable": "departments",
+            "onUpdate": "set-null"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Foreign key has ON UPDATE SET NULL",
+            "executeQuery": "SELECT rc.update_rule FROM information_schema.referential_constraints rc JOIN information_schema.table_constraints tc ON rc.constraint_name = tc.constraint_name WHERE tc.table_name = 'employees' AND tc.constraint_type = 'FOREIGN KEY'",
+            "expected": {
+              "update_rule": "SET NULL"
+            }
+          },
+          {
+            "description": "Before update: employees have department_id",
+            "executeQuery": "SELECT name FROM employees WHERE department_id = 1 ORDER BY name",
+            "expected": [
+              {
+                "name": "Alice"
+              },
+              {
+                "name": "Bob"
+              }
+            ]
+          },
+          {
+            "description": "Update parent department's ID",
+            "executeQuery": "UPDATE departments SET id = 100 WHERE id = 1 RETURNING name",
+            "expected": {
+              "name": "Engineering"
+            }
+          },
+          {
+            "description": "After update: employees' department_id set to NULL",
+            "executeQuery": "SELECT name FROM employees WHERE department_id IS NULL ORDER BY name",
+            "expected": [
+              {
+                "name": "Alice"
+              },
+              {
+                "name": "Bob"
+              }
+            ]
+          },
+          {
+            "description": "Employees still exist (not deleted, just orphaned)",
+            "executeQuery": "SELECT COUNT(*) as count FROM employees",
+            "expected": {
+              "count": 3
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-RELATIONSHIP-ONUPDATE-003",
-      "given": "onUpdate is set to any valid enum value",
-      "when": "processing entity",
-      "then": "appropriate behavior should execute"
+      "given": "relationship field with onUpdate: 'restrict'",
+      "when": "attempting to update parent record's key with children",
+      "then": "PostgreSQL prevents update and returns error (RESTRICT)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE categories (id INTEGER PRIMARY KEY, name VARCHAR(255))",
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255), category_id INTEGER REFERENCES categories(id) ON UPDATE RESTRICT)",
+            "INSERT INTO categories (id, name) VALUES (1, 'Electronics'), (2, 'Clothing')",
+            "INSERT INTO products (name, category_id) VALUES ('Laptop', 1), ('Smartphone', 1), ('T-Shirt', 2)"
+          ],
+          "fieldConfig": {
+            "name": "category_id",
+            "type": "relationship",
+            "relatedTable": "categories",
+            "onUpdate": "restrict"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Foreign key has ON UPDATE RESTRICT",
+            "executeQuery": "SELECT rc.update_rule FROM information_schema.referential_constraints rc JOIN information_schema.table_constraints tc ON rc.constraint_name = tc.constraint_name WHERE tc.table_name = 'products' AND tc.constraint_type = 'FOREIGN KEY'",
+            "expected": {
+              "update_rule": "RESTRICT"
+            }
+          },
+          {
+            "description": "Category 1 has 2 products",
+            "executeQuery": "SELECT COUNT(*) as count FROM products WHERE category_id = 1",
+            "expected": {
+              "count": 2
+            }
+          },
+          {
+            "description": "Cannot update category ID with existing products",
+            "executeQuery": "UPDATE categories SET id = 100 WHERE id = 1",
+            "expectError": "violates foreign key constraint"
+          },
+          {
+            "description": "After failed update: category ID unchanged",
+            "executeQuery": "SELECT name FROM categories WHERE id = 1",
+            "expected": {
+              "name": "Electronics"
+            }
+          },
+          {
+            "description": "After failed update: products still reference old ID",
+            "executeQuery": "SELECT COUNT(*) as count FROM products WHERE category_id = 1",
+            "expected": {
+              "count": 2
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-RELATIONSHIP-ONUPDATE-004",
+      "given": "relationship field with onUpdate: 'no-action'",
+      "when": "attempting to update parent record's key with children",
+      "then": "PostgreSQL prevents update (NO ACTION, deferred check)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id INTEGER PRIMARY KEY, name VARCHAR(255))",
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), project_id INTEGER REFERENCES projects(id) ON UPDATE NO ACTION)",
+            "INSERT INTO projects (id, name) VALUES (1, 'Website Redesign'), (2, 'Mobile App')",
+            "INSERT INTO tasks (title, project_id) VALUES ('Design mockups', 1), ('Implement backend', 1)"
+          ],
+          "fieldConfig": {
+            "name": "project_id",
+            "type": "relationship",
+            "relatedTable": "projects",
+            "onUpdate": "no-action"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Foreign key has ON UPDATE NO ACTION",
+            "executeQuery": "SELECT rc.update_rule FROM information_schema.referential_constraints rc JOIN information_schema.table_constraints tc ON rc.constraint_name = tc.constraint_name WHERE tc.table_name = 'tasks' AND tc.constraint_type = 'FOREIGN KEY'",
+            "expected": {
+              "update_rule": "NO ACTION"
+            }
+          },
+          {
+            "description": "Cannot update project ID with existing tasks",
+            "executeQuery": "UPDATE projects SET id = 100 WHERE id = 1",
+            "expectError": "violates foreign key constraint"
+          },
+          {
+            "description": "After failed update: project ID unchanged",
+            "executeQuery": "SELECT name FROM projects WHERE id = 1",
+            "expected": {
+              "name": "Website Redesign"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-RELATIONSHIP-ONUPDATE-005",
+      "given": "relationship field with invalid onUpdate value",
+      "when": "field configuration validation runs",
+      "then": "error lists valid options: cascade, set-null, restrict, no-action",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "customer_id",
+            "type": "relationship",
+            "relatedTable": "customers",
+            "onUpdate": "INVALID-ACTION"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Invalid onUpdate rejected with enum error",
+            "validateConfig": true,
+            "expectError": "onUpdate must be one of: cascade, set-null, restrict, no-action"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-RELATIONSHIP-ONUPDATE-006",
+      "given": "relationship field without onUpdate specified",
+      "when": "field configuration uses default",
+      "then": "PostgreSQL uses CASCADE as default action",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE authors (id INTEGER PRIMARY KEY, name VARCHAR(255))",
+            "CREATE TABLE books (id SERIAL PRIMARY KEY, title VARCHAR(255), author_id INTEGER REFERENCES authors(id))",
+            "INSERT INTO authors (id, name) VALUES (1, 'Jane Austen')",
+            "INSERT INTO books (title, author_id) VALUES ('Pride and Prejudice', 1)"
+          ],
+          "fieldConfig": {
+            "name": "author_id",
+            "type": "relationship",
+            "relatedTable": "authors"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Default onUpdate is CASCADE (or NO ACTION depending on PostgreSQL version)",
+            "executeQuery": "SELECT rc.update_rule FROM information_schema.referential_constraints rc JOIN information_schema.table_constraints tc ON rc.constraint_name = tc.constraint_name WHERE tc.table_name = 'books' AND tc.constraint_type = 'FOREIGN KEY'",
+            "expected": {
+              "update_rule": "NO ACTION"
+            }
+          },
+          {
+            "description": "With default NO ACTION: cannot update author ID with existing books",
+            "executeQuery": "UPDATE authors SET id = 100 WHERE id = 1",
+            "expectError": "violates foreign key constraint"
+          }
+        ]
+      }
     }
   ]
 }

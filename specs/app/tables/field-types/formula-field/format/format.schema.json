@@ -1,22 +1,116 @@
 {
   "$id": "format.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Display format for the result (e.g., currency, percentage)",
-  "description": "Display format for the result (e.g., currency, percentage)",
+  "title": "Formula Field Display Format",
+  "description": "Display format hint for formula computation results. Formula fields compute values using expressions. Format controls result presentation: currency (monetary), percentage (0-100%), decimal (numeric with precision), date (datetime results), text (string results).",
   "type": "string",
-  "examples": ["currency", "percentage", "decimal", "date"],
+  "examples": ["currency", "percentage", "decimal", "date", "text"],
   "x-specs": [
     {
       "id": "APP-FIELD-FORMULA-FORMAT-001",
-      "given": "user provides format",
-      "when": "validating input",
-      "then": "string value should be accepted"
+      "given": "formula field with format: 'currency' and expression: price * quantity",
+      "when": "formula computes product total",
+      "then": "PostgreSQL GENERATED column computes value, application displays with currency formatting",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE order_items (id SERIAL PRIMARY KEY, product_name VARCHAR(255), price DECIMAL(10,2), quantity INTEGER, total DECIMAL(15,2) GENERATED ALWAYS AS (price * quantity) STORED)",
+            "INSERT INTO order_items (product_name, price, quantity) VALUES ('Widget', 19.99, 3), ('Gadget', 49.50, 2)"
+          ],
+          "fieldConfig": {
+            "name": "total",
+            "type": "formula",
+            "expression": "price * quantity",
+            "format": "currency"
+          }
+        },
+        "assertions": [
+          {
+            "description": "GENERATED column computes formula",
+            "executeQuery": "SELECT total FROM order_items WHERE product_name = 'Widget'",
+            "expected": {
+              "total": 59.97
+            }
+          },
+          {
+            "description": "Application displays with currency formatting",
+            "displayFormat": "currency",
+            "executeQuery": "SELECT total FROM order_items WHERE product_name = 'Widget'",
+            "expectedDisplay": "$59.97",
+            "expectError": "validation error"
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-FORMULA-FORMAT-002",
-      "given": "format is empty string",
-      "when": "validating input",
-      "then": "behavior should follow optional/required rules"
+      "given": "formula field with format: 'percentage' and expression: (completed / total) * 100",
+      "when": "formula computes completion rate",
+      "then": "PostgreSQL computes percentage, application displays with % symbol",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), completed INTEGER, total INTEGER, completion_rate DECIMAL(5,2) GENERATED ALWAYS AS ((completed::DECIMAL / NULLIF(total, 0)) * 100) STORED)",
+            "INSERT INTO projects (name, completed, total) VALUES ('Alpha', 75, 100), ('Beta', 45, 60)"
+          ],
+          "fieldConfig": {
+            "name": "completion_rate",
+            "type": "formula",
+            "expression": "(completed / total) * 100",
+            "format": "percentage"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Formula computes percentage",
+            "executeQuery": "SELECT completion_rate FROM projects WHERE name = 'Alpha'",
+            "expected": {
+              "completion_rate": 75.0
+            }
+          },
+          {
+            "description": "Application displays with percentage formatting",
+            "displayFormat": "percentage",
+            "executeQuery": "SELECT completion_rate FROM projects WHERE name = 'Alpha'",
+            "expectedDisplay": "75.00%",
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-FORMULA-FORMAT-003",
+      "given": "formula field without format property",
+      "when": "format is empty or omitted",
+      "then": "PostgreSQL formula result displayed without formatting",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE calculations (id SERIAL PRIMARY KEY, x DECIMAL(10,2), y DECIMAL(10,2), result DECIMAL(10,2) GENERATED ALWAYS AS (x + y) STORED)",
+            "INSERT INTO calculations (x, y) VALUES (12.50, 37.25), (100.00, 250.50)"
+          ],
+          "fieldConfig": {
+            "name": "result",
+            "type": "formula",
+            "expression": "x + y"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Formula computes sum",
+            "executeQuery": "SELECT result FROM calculations WHERE x = 12.50",
+            "expected": {
+              "result": 49.75
+            }
+          },
+          {
+            "description": "Display without formatting (raw numeric)",
+            "executeQuery": "SELECT result FROM calculations WHERE x = 12.50",
+            "expectedDisplay": "49.75",
+            "expectError": "validation error"
+          }
+        ]
+      }
     }
   ]
 }

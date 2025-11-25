@@ -30,15 +30,220 @@
   "x-specs": [
     {
       "id": "APP-USER-FIELD-001",
-      "given": "entity with type='user'",
-      "when": "processing configuration",
-      "then": "correct handler should be selected"
+      "given": "table configuration with user field 'assigned_to' (single user assignment)",
+      "when": "field migration creates foreign key to users table",
+      "then": "PostgreSQL INTEGER column with FOREIGN KEY to users is created",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255))",
+            "INSERT INTO users (name, email) VALUES ('Alice Johnson', 'alice@example.com'), ('Bob Smith', 'bob@example.com')",
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255))"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "assigned_to",
+            "type": "user",
+            "allowMultiple": false
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column created as INTEGER",
+            "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='tasks' AND column_name='assigned_to'",
+            "expected": {
+              "column_name": "assigned_to",
+              "data_type": "integer"
+            }
+          },
+          {
+            "description": "FOREIGN KEY constraint references users table",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='tasks' AND constraint_type='FOREIGN KEY' AND constraint_name LIKE '%assigned_to%'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Foreign key references users table",
+            "executeQuery": "SELECT ccu.table_name as referenced_table FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name WHERE tc.table_name='tasks' AND tc.constraint_type='FOREIGN KEY'",
+            "expected": {
+              "referenced_table": "users"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-USER-FIELD-002",
-      "given": "invalid type value",
-      "when": "validating configuration",
-      "then": "clear error message should identify the issue"
+      "given": "table 'issues' with user field 'reporter' referencing users",
+      "when": "inserting record with valid and invalid user references",
+      "then": "PostgreSQL enforces valid user foreign key references",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "INSERT INTO users (name) VALUES ('John Doe')",
+            "CREATE TABLE issues (id SERIAL PRIMARY KEY, title VARCHAR(255), reporter INTEGER REFERENCES users(id))"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Valid user reference succeeds",
+            "executeQuery": "INSERT INTO issues (title, reporter) VALUES ('Bug report', 1) RETURNING reporter",
+            "expected": {
+              "reporter": 1
+            }
+          },
+          {
+            "description": "Invalid user reference rejected",
+            "executeQuery": "INSERT INTO issues (title, reporter) VALUES ('Feature request', 999)",
+            "expectError": "violates foreign key constraint"
+          },
+          {
+            "description": "NULL user allowed (optional assignment)",
+            "executeQuery": "INSERT INTO issues (title, reporter) VALUES ('Unassigned issue', NULL) RETURNING reporter IS NULL as is_null",
+            "expected": {
+              "is_null": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-USER-FIELD-003",
+      "given": "table configuration with user field 'collaborators' (multiple users via junction table)",
+      "when": "many-to-many relationship is created",
+      "then": "PostgreSQL junction table supports multiple user assignments",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "INSERT INTO users (name) VALUES ('Alice'), ('Bob'), ('Charlie')",
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "INSERT INTO projects (name) VALUES ('Website Redesign')",
+            "CREATE TABLE project_collaborators (project_id INTEGER REFERENCES projects(id), user_id INTEGER REFERENCES users(id), PRIMARY KEY (project_id, user_id))",
+            "INSERT INTO project_collaborators (project_id, user_id) VALUES (1, 1), (1, 2), (1, 3)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "collaborators",
+            "type": "user",
+            "allowMultiple": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Junction table exists",
+            "executeQuery": "SELECT table_name FROM information_schema.tables WHERE table_name = 'project_collaborators'",
+            "expected": {
+              "table_name": "project_collaborators"
+            }
+          },
+          {
+            "description": "Multiple users assigned to project",
+            "executeQuery": "SELECT COUNT(*) as count FROM project_collaborators WHERE project_id = 1",
+            "expected": {
+              "count": 3
+            }
+          },
+          {
+            "description": "Query returns all collaborators via JOIN",
+            "executeQuery": "SELECT p.name as project_name, u.name as user_name FROM projects p JOIN project_collaborators pc ON p.id = pc.project_id JOIN users u ON pc.user_id = u.id WHERE p.id = 1 ORDER BY u.name",
+            "expected": [
+              {
+                "project_name": "Website Redesign",
+                "user_name": "Alice"
+              },
+              {
+                "project_name": "Website Redesign",
+                "user_name": "Bob"
+              },
+              {
+                "project_name": "Website Redesign",
+                "user_name": "Charlie"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-USER-FIELD-004",
+      "given": "table 'documents' with user field 'owner' for user profile lookup",
+      "when": "querying with JOIN to retrieve user information",
+      "then": "PostgreSQL JOIN returns user profile data (name, email) from users table",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), avatar_url VARCHAR(500))",
+            "INSERT INTO users (name, email, avatar_url) VALUES ('Sarah Connor', 'sarah@example.com', 'https://example.com/avatars/sarah.jpg')",
+            "CREATE TABLE documents (id SERIAL PRIMARY KEY, title VARCHAR(255), owner INTEGER REFERENCES users(id))",
+            "INSERT INTO documents (title, owner) VALUES ('Project Plan', 1), ('Budget Report', 1)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "owner",
+            "type": "user"
+          }
+        },
+        "assertions": [
+          {
+            "description": "JOIN retrieves user profile information",
+            "executeQuery": "SELECT d.id, d.title, u.name as owner_name, u.email as owner_email FROM documents d JOIN users u ON d.owner = u.id WHERE d.id = 1",
+            "expected": {
+              "id": 1,
+              "title": "Project Plan",
+              "owner_name": "Sarah Connor",
+              "owner_email": "sarah@example.com"
+            }
+          },
+          {
+            "description": "Filter documents by user",
+            "executeQuery": "SELECT COUNT(*) as count FROM documents d JOIN users u ON d.owner = u.id WHERE u.email = 'sarah@example.com'",
+            "expected": {
+              "count": 2
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-USER-FIELD-005",
+      "given": "table configuration with user field 'reviewer', indexed=true",
+      "when": "index is created on the user field",
+      "then": "PostgreSQL btree index exists for fast user filtering",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "CREATE TABLE pull_requests (id SERIAL PRIMARY KEY, title VARCHAR(255), reviewer INTEGER REFERENCES users(id))",
+            "CREATE INDEX idx_pull_requests_reviewer ON pull_requests(reviewer)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "reviewer",
+            "type": "user",
+            "indexed": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists in pg_indexes",
+            "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_pull_requests_reviewer'",
+            "expected": {
+              "indexname": "idx_pull_requests_reviewer",
+              "tablename": "pull_requests"
+            }
+          },
+          {
+            "description": "Index uses btree for user filtering",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_pull_requests_reviewer'",
+            "expected": {
+              "indexdef": "CREATE INDEX idx_pull_requests_reviewer ON public.pull_requests USING btree (reviewer)"
+            }
+          }
+        ]
+      }
     }
   ]
 }

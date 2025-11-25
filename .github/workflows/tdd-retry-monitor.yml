@@ -1,4 +1,7 @@
-name: TDD Retry Monitor
+name: TDD Retry Monitor [DEPRECATED]
+
+# ⚠️ DEPRECATED: This workflow has been consolidated into tdd-monitor-unified.yml
+# Kept for reference only. Will be removed after successful migration.
 
 # This workflow monitors for retry attempts that fail to start properly
 # It detects when workflow_dispatch retries silently fail and recovers them
@@ -6,7 +9,7 @@ name: TDD Retry Monitor
 on:
   # Run every 20 minutes to check for stuck retries
   schedule:
-    - cron: '*/20 * * * *'
+    - cron: '*/30 * * * *' # Optimized from 20 min to reduce GitHub Actions usage
 
   # Manual trigger for testing
   workflow_dispatch:
@@ -20,6 +23,7 @@ jobs:
   check-stuck-retries:
     name: 🔍 Monitor Stuck Retries
     runs-on: ubuntu-latest
+    if: false # DISABLED - consolidated into tdd-monitor-unified.yml
     timeout-minutes: 5
 
     steps:

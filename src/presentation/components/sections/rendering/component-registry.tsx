@@ -8,17 +8,13 @@
 /* eslint-disable max-lines -- Component registry requires mapping all component types. Refactoring to smaller files would harm maintainability. */
 
 import { Hero } from '@/presentation/components/layout/hero'
-import {
-  CardWithHeader,
-  CardHeader,
-  CardBody,
-  CardFooter,
-} from '@/presentation/components/ui/card'
+import { CardWithHeader, CardHeader, CardBody, CardFooter } from '@/presentation/components/ui/card'
 import { SpeechBubble } from '@/presentation/components/ui/speech-bubble'
 import * as Renderers from '../renderers/element-renderers'
 import { convertBadgeProps, parseHTMLContent } from './component-registry-helpers'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { Component } from '@/domain/models/app/page/sections'
+import type { ReactElement } from 'react'
 
 /**
  * Creates a renderer for card components
@@ -385,14 +381,39 @@ export const COMPONENT_REGISTRY: Partial<Record<Component['type'], ComponentRend
 
   list: ({ elementProps, content, theme }) => Renderers.renderList(elementProps, content, theme),
 
-  navigation: ({ elementPropsWithSpacing, content, renderedChildren, interactions }) =>
-    Renderers.renderHTMLElement({
+  navigation: ({ elementPropsWithSpacing, content, renderedChildren, interactions }) => {
+    // Default hamburger menu button when no children provided
+    // Rationale: Navigation without children should display something visible
+    // Used in APP-THEME-BREAKPOINTS-APPLICATION-002 test for default rendering
+    const defaultChildren =
+      renderedChildren.length === 0 ? (
+        <button
+          type="button"
+          aria-label="Menu"
+          className="cursor-pointer rounded-md border-none bg-blue-500 px-3 py-3 text-xl leading-none text-white"
+        >
+          ☰
+        </button>
+      ) : (
+        renderedChildren
+      )
+
+    // Add default padding to nav element
+    const navProps = {
+      ...elementPropsWithSpacing,
+      className: elementPropsWithSpacing.className
+        ? `${elementPropsWithSpacing.className} p-4`
+        : 'p-4',
+    }
+
+    return Renderers.renderHTMLElement({
       type: 'nav',
-      props: elementPropsWithSpacing,
+      props: navProps,
       content: content,
-      children: renderedChildren,
+      children: defaultChildren as readonly ReactElement[],
       interactions: interactions,
-    }),
+    })
+  },
 
   ul: ({ elementProps, content, renderedChildren }) =>
     Renderers.renderUnorderedList(elementProps, content, renderedChildren),

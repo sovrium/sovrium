@@ -19,9 +19,13 @@ import type { App } from '@/domain/models/app'
  * @param app - Validated application data from AppSchema
  * @param path - Page path to render (e.g., '/', '/about', '/blog/hello-world')
  * @param detectedLanguage - Optional detected language from Accept-Language header or URL
- * @returns Complete HTML document as string with DOCTYPE, or null if page not found
+ * @returns Complete HTML document as string with DOCTYPE, or undefined if page not found
  */
-function renderPageByPath(app: App, path: string, detectedLanguage?: string): string | undefined {
+export function renderPageByPath(
+  app: App,
+  path: string,
+  detectedLanguage?: string
+): string | undefined {
   // If no pages configured, return undefined
   if (!app.pages || app.pages.length === 0) {
     return undefined

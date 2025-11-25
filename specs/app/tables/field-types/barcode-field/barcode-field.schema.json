@@ -27,15 +27,210 @@
   "x-specs": [
     {
       "id": "APP-BARCODE-FIELD-001",
-      "given": "entity with type='barcode'",
-      "when": "processing configuration",
-      "then": "correct handler should be selected"
+      "given": "table configuration with barcode field 'product_code'",
+      "when": "field migration creates VARCHAR column for barcode",
+      "then": "PostgreSQL VARCHAR column stores barcode string values",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE products (id SERIAL PRIMARY KEY, product_code VARCHAR(100))",
+          "fieldConfig": {
+            "id": 1,
+            "name": "product_code",
+            "type": "barcode"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column created as VARCHAR",
+            "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='products' AND column_name='product_code'",
+            "expected": {
+              "column_name": "product_code",
+              "data_type": "character varying"
+            }
+          },
+          {
+            "description": "Barcode value can be stored",
+            "executeQuery": "INSERT INTO products (product_code) VALUES ('123456789012') RETURNING product_code",
+            "expected": {
+              "product_code": "123456789012"
+            }
+          },
+          {
+            "description": "Null barcode allowed (optional field)",
+            "executeQuery": "INSERT INTO products (product_code) VALUES (NULL) RETURNING product_code",
+            "expected": {
+              "product_code": null
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-BARCODE-FIELD-002",
-      "given": "invalid type value",
-      "when": "validating configuration",
-      "then": "clear error message should identify the issue"
+      "given": "table 'inventory' with barcode field (EAN-13 format) and validation",
+      "when": "CHECK constraint enforces barcode format",
+      "then": "PostgreSQL validates barcode length and numeric characters",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE inventory (id SERIAL PRIMARY KEY, ean_code VARCHAR(13) CHECK (ean_code ~ '^[0-9]{13}$'))",
+          "fieldConfig": {
+            "id": 1,
+            "name": "ean_code",
+            "type": "barcode",
+            "format": "EAN-13"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Valid EAN-13 barcode succeeds",
+            "executeQuery": "INSERT INTO inventory (ean_code) VALUES ('5901234123457') RETURNING ean_code",
+            "expected": {
+              "ean_code": "5901234123457"
+            }
+          },
+          {
+            "description": "Invalid barcode (too short) rejected",
+            "executeQuery": "INSERT INTO inventory (ean_code) VALUES ('12345')",
+            "expectError": "violates check constraint"
+          },
+          {
+            "description": "Invalid barcode (non-numeric) rejected",
+            "executeQuery": "INSERT INTO inventory (ean_code) VALUES ('123456789012A')",
+            "expectError": "violates check constraint"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-BARCODE-FIELD-003",
+      "given": "table 'assets' with barcode field (UNIQUE constraint)",
+      "when": "barcode uniqueness is enforced",
+      "then": "PostgreSQL UNIQUE constraint prevents duplicate barcodes",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE assets (id SERIAL PRIMARY KEY, asset_tag VARCHAR(50) UNIQUE NOT NULL)",
+            "INSERT INTO assets (asset_tag) VALUES ('ASSET-001')"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "asset_tag",
+            "type": "barcode",
+            "required": true,
+            "unique": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "UNIQUE constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='assets' AND constraint_type='UNIQUE' AND constraint_name LIKE '%asset_tag%'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Duplicate barcode rejected",
+            "executeQuery": "INSERT INTO assets (asset_tag) VALUES ('ASSET-001')",
+            "expectError": "duplicate key value violates unique constraint"
+          },
+          {
+            "description": "New unique barcode succeeds",
+            "executeQuery": "INSERT INTO assets (asset_tag) VALUES ('ASSET-002') RETURNING asset_tag",
+            "expected": {
+              "asset_tag": "ASSET-002"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-BARCODE-FIELD-004",
+      "given": "table 'shipments' with barcode field and index for lookups",
+      "when": "btree index is created on barcode column",
+      "then": "PostgreSQL index optimizes barcode scan lookups",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE shipments (id SERIAL PRIMARY KEY, tracking_code VARCHAR(50))",
+            "CREATE INDEX idx_shipments_tracking_code ON shipments(tracking_code)",
+            "INSERT INTO shipments (tracking_code) VALUES ('TRACK-001'), ('TRACK-002'), ('TRACK-003')"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "tracking_code",
+            "type": "barcode",
+            "indexed": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists for efficient lookups",
+            "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_shipments_tracking_code'",
+            "expected": {
+              "indexname": "idx_shipments_tracking_code",
+              "tablename": "shipments"
+            }
+          },
+          {
+            "description": "Barcode lookup by exact match",
+            "executeQuery": "SELECT id, tracking_code FROM shipments WHERE tracking_code = 'TRACK-002'",
+            "expected": {
+              "id": 2,
+              "tracking_code": "TRACK-002"
+            }
+          },
+          {
+            "description": "Barcode prefix search",
+            "executeQuery": "SELECT COUNT(*) as count FROM shipments WHERE tracking_code LIKE 'TRACK-%'",
+            "expected": {
+              "count": 3
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-BARCODE-FIELD-005",
+      "given": "table 'tickets' with barcode field (QR code format) for URLs",
+      "when": "barcode stores longer QR code data",
+      "then": "PostgreSQL VARCHAR supports variable-length barcode data",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tickets (id SERIAL PRIMARY KEY, qr_data VARCHAR(500))",
+            "INSERT INTO tickets (qr_data) VALUES ('https://event.example.com/tickets/abc123?seat=A15&gate=3')"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "qr_data",
+            "type": "barcode",
+            "format": "QR"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Long QR code data can be stored",
+            "executeQuery": "SELECT LENGTH(qr_data) as length FROM tickets WHERE id = 1",
+            "expected": {
+              "length": 61
+            }
+          },
+          {
+            "description": "QR code data retrieved",
+            "executeQuery": "SELECT qr_data FROM tickets WHERE id = 1",
+            "expected": {
+              "qr_data": "https://event.example.com/tickets/abc123?seat=A15&gate=3"
+            }
+          },
+          {
+            "description": "Extract URL components from QR code",
+            "executeQuery": "SELECT SPLIT_PART(qr_data, '?', 1) as base_url FROM tickets WHERE id = 1",
+            "expected": {
+              "base_url": "https://event.example.com/tickets/abc123"
+            }
+          }
+        ]
+      }
     }
   ]
 }

@@ -1,18 +1,19 @@
 # API Schema Roadmap
 
-> **Last Generated**: 2025-11-15
+> **Last Generated**: 2025-11-24
 > **Back to**: [Main Roadmap](../../ROADMAP.md)
 
 ## 2. API Schema Progress
 
 📋 **Goal**: `specs/api/app.openapi.json` (19 endpoints)
-📦 **Current**: `schemas/0.0.1/app.openapi.json` (29 endpoints)
-📊 **Completion**: 63% (12/19 implemented)
+📦 **Current**: `schemas/0.0.1/app.openapi.json` (28 endpoints)
+📊 **Completion**: 58% (11/19 implemented)
 
-### Missing Endpoints (7)
+### Missing Endpoints (8)
 
 | Method   | Path                                       |
 | -------- | ------------------------------------------ |
+| `POST`   | `/api/auth/forget-password`                |
 | `GET`    | `/api/tables`                              |
 | `GET`    | `/api/tables/{tableId}`                    |
 | `GET`    | `/api/tables/{tableId}/records`            |

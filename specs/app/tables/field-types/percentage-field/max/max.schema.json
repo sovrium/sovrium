@@ -1,21 +1,156 @@
 {
   "$id": "max.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Maximum value",
-  "description": "Maximum value",
+  "title": "Percentage Field Maximum Value",
+  "description": "Maximum value allowed for this percentage field",
   "type": "number",
   "x-specs": [
     {
       "id": "APP-FIELD-PERCENTAGE-MAX-001",
-      "given": "user provides max",
-      "when": "validating input",
-      "then": "numeric value should be accepted"
+      "given": "percentage field with max: 100.0 (standard percentage cap)",
+      "when": "field migration creates CHECK constraint",
+      "then": "PostgreSQL rejects percentage values above maximum",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE progress_trackers (id SERIAL PRIMARY KEY, task_name VARCHAR(255), completion_rate DECIMAL(5,2) CHECK (completion_rate <= 100.0))",
+            "INSERT INTO progress_trackers (task_name, completion_rate) VALUES ('Project A', 25.5), ('Project B', 100.0), ('Project C', 67.75)"
+          ],
+          "fieldConfig": {
+            "name": "completion_rate",
+            "type": "percentage",
+            "max": 100.0
+          }
+        },
+        "assertions": [
+          {
+            "description": "CHECK constraint exists for max value",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%completion_rate%' AND check_clause LIKE '%<= 100.0%'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Value at maximum (100.0) accepted",
+            "executeQuery": "SELECT completion_rate FROM progress_trackers WHERE completion_rate = 100.0",
+            "expected": {
+              "completion_rate": 100.0
+            }
+          },
+          {
+            "description": "Value above maximum rejected",
+            "executeQuery": "INSERT INTO progress_trackers (task_name, completion_rate) VALUES ('Project D', 100.01)",
+            "expectError": "violates check constraint"
+          },
+          {
+            "description": "Decimal value below maximum accepted",
+            "executeQuery": "INSERT INTO progress_trackers (task_name, completion_rate) VALUES ('Project E', 82.33) RETURNING completion_rate",
+            "expected": {
+              "completion_rate": 82.33
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-PERCENTAGE-MAX-002",
-      "given": "user provides non-numeric max",
-      "when": "validating input",
-      "then": "error should require number"
+      "given": "percentage field with max: 50.0 (discount limit)",
+      "when": "INSERT with value above max",
+      "then": "PostgreSQL CHECK constraint rejects value",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE discount_policies (id SERIAL PRIMARY KEY, policy_name VARCHAR(255), max_discount DECIMAL(5,2) CHECK (max_discount <= 50.0))",
+            "INSERT INTO discount_policies (policy_name, max_discount) VALUES ('Regular', 10.0), ('Premium', 50.0)"
+          ],
+          "fieldConfig": {
+            "name": "max_discount",
+            "type": "percentage",
+            "max": 50.0
+          }
+        },
+        "assertions": [
+          {
+            "description": "CHECK constraint enforces max 50.0",
+            "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%max_discount%'",
+            "expected": {
+              "check_clause": "(max_discount <= 50.0)"
+            }
+          },
+          {
+            "description": "Exact maximum (50.0) accepted",
+            "executeQuery": "SELECT max_discount FROM discount_policies WHERE max_discount = 50.0",
+            "expected": {
+              "max_discount": 50.0
+            }
+          },
+          {
+            "description": "Above maximum rejected",
+            "executeQuery": "INSERT INTO discount_policies (policy_name, max_discount) VALUES ('Excessive', 50.01)",
+            "expectError": "violates check constraint"
+          },
+          {
+            "description": "Below maximum accepted",
+            "executeQuery": "INSERT INTO discount_policies (policy_name, max_discount) VALUES ('Standard', 25.0) RETURNING max_discount",
+            "expected": {
+              "max_discount": 25.0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-PERCENTAGE-MAX-003",
+      "given": "percentage field with both min and max (range constraint)",
+      "when": "CHECK constraint combines both",
+      "then": "PostgreSQL enforces percentage value within range",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE battery_levels (id SERIAL PRIMARY KEY, device_name VARCHAR(255), charge_level DECIMAL(5,2) CHECK (charge_level >= 0.0 AND charge_level <= 100.0))",
+            "INSERT INTO battery_levels (device_name, charge_level) VALUES ('Phone', 0.0), ('Laptop', 55.5), ('Tablet', 100.0)"
+          ],
+          "fieldConfig": {
+            "name": "charge_level",
+            "type": "percentage",
+            "min": 0.0,
+            "max": 100.0
+          }
+        },
+        "assertions": [
+          {
+            "description": "CHECK constraint enforces range 0.0-100.0",
+            "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%charge_level%'",
+            "expected": {
+              "check_clause": "((charge_level >= 0.0) AND (charge_level <= 100.0))"
+            }
+          },
+          {
+            "description": "Value at min (0.0) accepted",
+            "executeQuery": "SELECT charge_level FROM battery_levels WHERE charge_level = 0.0",
+            "expected": {
+              "charge_level": 0.0
+            }
+          },
+          {
+            "description": "Value at max (100.0) accepted",
+            "executeQuery": "SELECT charge_level FROM battery_levels WHERE charge_level = 100.0",
+            "expected": {
+              "charge_level": 100.0
+            }
+          },
+          {
+            "description": "Value below min rejected",
+            "executeQuery": "INSERT INTO battery_levels (device_name, charge_level) VALUES ('Watch', -0.01)",
+            "expectError": "violates check constraint"
+          },
+          {
+            "description": "Value above max rejected",
+            "executeQuery": "INSERT INTO battery_levels (device_name, charge_level) VALUES ('Headphones', 100.01)",
+            "expectError": "violates check constraint"
+          }
+        ]
+      }
     }
   ]
 }

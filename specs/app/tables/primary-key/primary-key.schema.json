@@ -34,63 +34,382 @@
   "x-specs": [
     {
       "id": "APP-TABLES-PRIMARYKEY-001",
-      "given": "user configures primaryKey",
-      "when": "validating input",
-      "then": "value should meet schema requirements"
+      "given": "table configuration with auto-increment primary key (SERIAL)",
+      "when": "table is created with id field",
+      "then": "PostgreSQL generates sequential INTEGER values automatically",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "INSERT INTO users (name) VALUES ('Alice'), ('Bob'), ('Charlie')"
+          ],
+          "primaryKeyConfig": {
+            "type": "auto-increment",
+            "field": "id"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Primary key constraint exists",
+            "executeQuery": "SELECT constraint_name FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='PRIMARY KEY'",
+            "expected": {
+              "constraint_name": "users_pkey"
+            }
+          },
+          {
+            "description": "id column is SERIAL (integer with sequence)",
+            "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='users' AND column_name='id'",
+            "expected": {
+              "column_name": "id",
+              "data_type": "integer"
+            }
+          },
+          {
+            "description": "Auto-increment generates sequential IDs",
+            "executeQuery": "SELECT id FROM users ORDER BY id",
+            "expected": [
+              {
+                "id": 1
+              },
+              {
+                "id": 2
+              },
+              {
+                "id": 3
+              }
+            ]
+          },
+          {
+            "description": "Duplicate ID rejected (UNIQUE constraint)",
+            "executeQuery": "INSERT INTO users (id, name) VALUES (1, 'Duplicate')",
+            "expectError": "duplicate key value violates unique constraint"
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-PRIMARYKEY-002",
-      "given": "primaryKey is set",
-      "when": "processing configuration",
-      "then": "value should be used correctly"
+      "given": "table configuration with UUID primary key",
+      "when": "table is created with uuid field",
+      "then": "PostgreSQL generates UUID values using gen_random_uuid()",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE EXTENSION IF NOT EXISTS \"pgcrypto\"",
+            "CREATE TABLE sessions (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), user_id INTEGER, created_at TIMESTAMPTZ DEFAULT NOW())",
+            "INSERT INTO sessions (user_id) VALUES (1), (2), (3)"
+          ],
+          "primaryKeyConfig": {
+            "type": "uuid",
+            "field": "id"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Primary key constraint exists",
+            "executeQuery": "SELECT constraint_name FROM information_schema.table_constraints WHERE table_name='sessions' AND constraint_type='PRIMARY KEY'",
+            "expected": {
+              "constraint_name": "sessions_pkey"
+            }
+          },
+          {
+            "description": "id column is UUID type",
+            "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='sessions' AND column_name='id'",
+            "expected": {
+              "column_name": "id",
+              "data_type": "uuid"
+            }
+          },
+          {
+            "description": "UUID values are generated automatically",
+            "executeQuery": "SELECT COUNT(*) as count FROM sessions WHERE id IS NOT NULL",
+            "expected": {
+              "count": 3
+            }
+          },
+          {
+            "description": "UUID values are unique",
+            "executeQuery": "SELECT COUNT(DISTINCT id) as unique_count FROM sessions",
+            "expected": {
+              "unique_count": 3
+            }
+          }
+        ]
+      }
     },
     {
-      "id": "APP-TABLES-PRIMARYKEY-FIELD-001",
-      "given": "user provides field matching pattern",
-      "when": "validating input",
-      "then": "value should be accepted"
+      "id": "APP-TABLES-PRIMARYKEY-003",
+      "given": "table configuration with composite primary key (tenant_id, user_id)",
+      "when": "table is created with multiple primary key fields",
+      "then": "PostgreSQL creates PRIMARY KEY constraint on both columns",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tenant_users (tenant_id INTEGER, user_id INTEGER, name VARCHAR(255), PRIMARY KEY (tenant_id, user_id))",
+            "INSERT INTO tenant_users (tenant_id, user_id, name) VALUES (1, 1, 'Alice'), (1, 2, 'Bob'), (2, 1, 'Charlie')"
+          ],
+          "primaryKeyConfig": {
+            "type": "composite",
+            "fields": ["tenant_id", "user_id"]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Composite primary key constraint exists",
+            "executeQuery": "SELECT constraint_name FROM information_schema.table_constraints WHERE table_name='tenant_users' AND constraint_type='PRIMARY KEY'",
+            "expected": {
+              "constraint_name": "tenant_users_pkey"
+            }
+          },
+          {
+            "description": "Primary key includes both columns",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.key_column_usage WHERE table_name='tenant_users' AND constraint_name='tenant_users_pkey'",
+            "expected": {
+              "count": 2
+            }
+          },
+          {
+            "description": "Same user_id allowed in different tenants",
+            "executeQuery": "SELECT COUNT(*) as count FROM tenant_users WHERE user_id = 1",
+            "expected": {
+              "count": 2
+            }
+          },
+          {
+            "description": "Duplicate composite key rejected",
+            "executeQuery": "INSERT INTO tenant_users (tenant_id, user_id, name) VALUES (1, 1, 'Duplicate')",
+            "expectError": "duplicate key value violates unique constraint"
+          }
+        ]
+      }
     },
     {
-      "id": "APP-TABLES-PRIMARYKEY-FIELD-002",
-      "given": "user provides field not matching pattern",
-      "when": "validating input",
-      "then": "clear error message should explain format requirement"
+      "id": "APP-TABLES-PRIMARYKEY-004",
+      "given": "primary key column with NOT NULL constraint",
+      "when": "attempting to insert NULL value",
+      "then": "PostgreSQL rejects NULL values in primary key column",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "INSERT INTO products (name) VALUES ('Product 1')"
+          ],
+          "primaryKeyConfig": {
+            "type": "auto-increment",
+            "field": "id"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Primary key column is NOT NULL",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='id'",
+            "expected": {
+              "is_nullable": "NO"
+            }
+          },
+          {
+            "description": "NULL value in primary key rejected",
+            "executeQuery": "INSERT INTO products (id, name) VALUES (NULL, 'Product 2')",
+            "expectError": "null value in column \"id\" violates not-null constraint"
+          },
+          {
+            "description": "Valid auto-generated ID succeeds",
+            "executeQuery": "INSERT INTO products (name) VALUES ('Product 2') RETURNING id",
+            "expected": {
+              "id": 2
+            }
+          }
+        ]
+      }
     },
     {
-      "id": "APP-TABLES-PRIMARYKEY-FIELD-003",
-      "given": "field is stored",
-      "when": "retrieved later",
-      "then": "original format should be preserved"
+      "id": "APP-TABLES-PRIMARYKEY-005",
+      "given": "primary key creates automatic UNIQUE index",
+      "when": "table is created",
+      "then": "PostgreSQL automatically creates index for primary key constraint",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER, total DECIMAL(10,2))",
+            "INSERT INTO orders (customer_id, total) VALUES (1, 99.99)"
+          ],
+          "primaryKeyConfig": {
+            "type": "auto-increment",
+            "field": "id"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Primary key index automatically created",
+            "executeQuery": "SELECT indexname FROM pg_indexes WHERE tablename='orders' AND indexname='orders_pkey'",
+            "expected": {
+              "indexname": "orders_pkey"
+            }
+          },
+          {
+            "description": "Index is unique",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname='orders_pkey'",
+            "expected": {
+              "indexdef": "CREATE UNIQUE INDEX orders_pkey ON public.orders USING btree (id)"
+            }
+          },
+          {
+            "description": "Primary key lookup uses index (fast)",
+            "executeQuery": "SELECT customer_id FROM orders WHERE id = 1",
+            "expected": {
+              "customer_id": 1
+            }
+          }
+        ]
+      }
     },
     {
-      "id": "APP-TABLES-PRIMARYKEY-TYPE-001",
-      "given": "a new entity is created",
-      "when": "the system assigns an ID",
-      "then": "it should be unique within the parent collection"
+      "id": "APP-TABLES-PRIMARYKEY-006",
+      "given": "existing record with primary key",
+      "when": "attempting to update primary key value",
+      "then": "PostgreSQL allows UPDATE but new value must remain unique",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE items (id INTEGER PRIMARY KEY, name VARCHAR(255))",
+            "INSERT INTO items (id, name) VALUES (1, 'Item 1'), (2, 'Item 2'), (3, 'Item 3')"
+          ],
+          "primaryKeyConfig": {
+            "type": "custom",
+            "field": "id"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Primary key can be updated to unique value",
+            "executeQuery": "UPDATE items SET id = 10 WHERE id = 1 RETURNING id, name",
+            "expected": {
+              "id": 10,
+              "name": "Item 1"
+            }
+          },
+          {
+            "description": "Updated primary key is persisted",
+            "executeQuery": "SELECT id FROM items WHERE name = 'Item 1'",
+            "expected": {
+              "id": 10
+            }
+          },
+          {
+            "description": "Primary key cannot be updated to duplicate value",
+            "executeQuery": "UPDATE items SET id = 2 WHERE id = 10",
+            "expectError": "duplicate key value violates unique constraint"
+          },
+          {
+            "description": "Original ID no longer exists after update",
+            "executeQuery": "SELECT COUNT(*) as count FROM items WHERE id = 1",
+            "expected": {
+              "count": 0
+            }
+          }
+        ]
+      }
     },
     {
-      "id": "APP-TABLES-PRIMARYKEY-TYPE-002",
-      "given": "an entity exists",
-      "when": "attempting to modify its ID",
-      "then": "the system should prevent changes (read-only constraint)"
+      "id": "APP-TABLES-PRIMARYKEY-007",
+      "given": "table with BIGSERIAL primary key for large datasets",
+      "when": "table is created with bigint id",
+      "then": "PostgreSQL uses BIGINT (8 bytes) for larger auto-increment range",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE logs (id BIGSERIAL PRIMARY KEY, message TEXT, created_at TIMESTAMPTZ DEFAULT NOW())",
+            "INSERT INTO logs (message) VALUES ('Log 1'), ('Log 2')"
+          ],
+          "primaryKeyConfig": {
+            "type": "auto-increment",
+            "field": "id",
+            "size": "bigint"
+          }
+        },
+        "assertions": [
+          {
+            "description": "id column is BIGINT type",
+            "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='logs' AND column_name='id'",
+            "expected": {
+              "column_name": "id",
+              "data_type": "bigint"
+            }
+          },
+          {
+            "description": "BIGSERIAL generates sequential values",
+            "executeQuery": "SELECT id FROM logs ORDER BY id",
+            "expected": [
+              {
+                "id": 1
+              },
+              {
+                "id": 2
+              }
+            ]
+          },
+          {
+            "description": "Primary key constraint exists",
+            "executeQuery": "SELECT constraint_name FROM information_schema.table_constraints WHERE table_name='logs' AND constraint_type='PRIMARY KEY'",
+            "expected": {
+              "constraint_name": "logs_pkey"
+            }
+          },
+          {
+            "description": "BIGINT supports range up to 2^63-1 (vs INTEGER 2^31-1)",
+            "executeQuery": "SELECT pg_column_size(id) as byte_size FROM logs LIMIT 1",
+            "expected": {
+              "byte_size": 8
+            }
+          }
+        ]
+      }
     },
     {
-      "id": "APP-TABLES-PRIMARYKEY-TYPE-003",
-      "given": "a client requests an entity by ID",
-      "when": "the ID is valid",
-      "then": "the entity should be retrieved successfully"
-    },
-    {
-      "id": "APP-TABLES-PRIMARYKEY-FIELDS-001",
-      "given": "user provides fields with at least 2 items",
-      "when": "validating input",
-      "then": "array should be accepted"
-    },
-    {
-      "id": "APP-TABLES-PRIMARYKEY-FIELDS-002",
-      "given": "user provides fields with fewer than 2 items",
-      "when": "validating input",
-      "then": "error should enforce minimum items"
+      "id": "APP-TABLES-PRIMARYKEY-008",
+      "given": "composite primary key with more than 2 fields",
+      "when": "table is created with 3-column primary key",
+      "then": "PostgreSQL creates PRIMARY KEY constraint on all specified columns",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE audit_log (tenant_id INTEGER, user_id INTEGER, timestamp TIMESTAMPTZ, action VARCHAR(255), PRIMARY KEY (tenant_id, user_id, timestamp))",
+            "INSERT INTO audit_log (tenant_id, user_id, timestamp, action) VALUES (1, 1, '2024-01-01 10:00:00', 'login'), (1, 1, '2024-01-01 11:00:00', 'logout')"
+          ],
+          "primaryKeyConfig": {
+            "type": "composite",
+            "fields": ["tenant_id", "user_id", "timestamp"]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Composite primary key includes all 3 columns",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.key_column_usage WHERE table_name='audit_log' AND constraint_name='audit_log_pkey'",
+            "expected": {
+              "count": 3
+            }
+          },
+          {
+            "description": "Same tenant and user allowed at different timestamps",
+            "executeQuery": "SELECT COUNT(*) as count FROM audit_log WHERE tenant_id = 1 AND user_id = 1",
+            "expected": {
+              "count": 2
+            }
+          },
+          {
+            "description": "Duplicate composite key rejected",
+            "executeQuery": "INSERT INTO audit_log (tenant_id, user_id, timestamp, action) VALUES (1, 1, '2024-01-01 10:00:00', 'duplicate')",
+            "expectError": "duplicate key value violates unique constraint"
+          },
+          {
+            "description": "Different timestamp allows same tenant and user",
+            "executeQuery": "INSERT INTO audit_log (tenant_id, user_id, timestamp, action) VALUES (1, 1, '2024-01-01 12:00:00', 'update') RETURNING action",
+            "expected": {
+              "action": "update"
+            }
+          }
+        ]
+      }
     }
   ]
 }

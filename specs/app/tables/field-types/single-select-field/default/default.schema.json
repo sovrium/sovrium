@@ -1,20 +1,149 @@
 {
   "$id": "default.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "default",
+  "title": "Single-Select Field Default Value",
+  "description": "Default option value when no value is provided during INSERT. PostgreSQL DEFAULT constraint with VARCHAR type for single selection from predefined options.",
   "type": "string",
+  "examples": ["option_1", "status_active", "priority_medium"],
   "x-specs": [
     {
       "id": "APP-FIELD-SINGLE-SELECT-DEFAULT-001",
-      "given": "user provides default",
-      "when": "validating input",
-      "then": "string value should be accepted"
+      "given": "single-select field with default: 'option_1'",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL DEFAULT constraint provides default option",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255), category VARCHAR(50) DEFAULT 'option_1')",
+            "INSERT INTO products (name) VALUES ('Product A')"
+          ],
+          "fieldConfig": {
+            "name": "category",
+            "type": "single-select",
+            "options": [
+              {
+                "id": "option_1",
+                "value": "Electronics"
+              },
+              {
+                "id": "option_2",
+                "value": "Clothing"
+              },
+              {
+                "id": "option_3",
+                "value": "Food"
+              }
+            ],
+            "default": "option_1"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT constraint with option",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='products' AND column_name='category'",
+            "expected": {
+              "column_default": "'option_1'::character varying"
+            }
+          },
+          {
+            "description": "INSERT without value uses default option",
+            "executeQuery": "SELECT category FROM products WHERE name = 'Product A'",
+            "expected": {
+              "category": "option_1"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-SINGLE-SELECT-DEFAULT-002",
-      "given": "default is empty string",
-      "when": "validating input",
-      "then": "behavior should follow optional/required rules"
+      "given": "single-select field without default specified",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL inserts NULL",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), priority VARCHAR(50))",
+            "INSERT INTO tasks (title) VALUES ('Task A')"
+          ],
+          "fieldConfig": {
+            "name": "priority",
+            "type": "single-select",
+            "options": [
+              {
+                "id": "low",
+                "value": "Low"
+              },
+              {
+                "id": "medium",
+                "value": "Medium"
+              },
+              {
+                "id": "high",
+                "value": "High"
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has no DEFAULT constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='tasks' AND column_name='priority'",
+            "expected": {
+              "column_default": null
+            }
+          },
+          {
+            "description": "INSERT without value results in NULL",
+            "executeQuery": "SELECT priority FROM tasks WHERE title = 'Task A'",
+            "expected": {
+              "priority": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-SELECT-DEFAULT-003",
+      "given": "single-select field with default and explicit value",
+      "when": "INSERT with specific option",
+      "then": "PostgreSQL uses explicit value, ignoring default",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tickets (id SERIAL PRIMARY KEY, title VARCHAR(255), status VARCHAR(50) DEFAULT 'open')",
+            "INSERT INTO tickets (title, status) VALUES ('Bug Report', 'closed')"
+          ],
+          "fieldConfig": {
+            "name": "status",
+            "type": "single-select",
+            "options": [
+              {
+                "id": "open",
+                "value": "Open"
+              },
+              {
+                "id": "closed",
+                "value": "Closed"
+              },
+              {
+                "id": "pending",
+                "value": "Pending"
+              }
+            ],
+            "default": "open"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Explicit value overrides default",
+            "executeQuery": "SELECT status FROM tickets WHERE title = 'Bug Report'",
+            "expected": {
+              "status": "closed"
+            }
+          }
+        ]
+      }
     }
   ]
 }

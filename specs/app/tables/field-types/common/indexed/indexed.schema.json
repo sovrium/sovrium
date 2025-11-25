@@ -8,21 +8,232 @@
   "x-specs": [
     {
       "id": "APP-FIELD-INDEXED-001",
-      "given": "indexed is true",
-      "when": "processing entity",
-      "then": "corresponding behavior should be enforced"
+      "given": "field with indexed: true",
+      "when": "field migration creates btree index",
+      "then": "PostgreSQL CREATE INDEX statement optimizes queries on field",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW())",
+            "CREATE INDEX idx_users_email ON users(email)",
+            "INSERT INTO users (email) VALUES ('alice@example.com'), ('bob@example.com'), ('charlie@example.com')"
+          ],
+          "fieldConfig": {
+            "name": "email",
+            "type": "email",
+            "indexed": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists in pg_indexes",
+            "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_users_email'",
+            "expected": {
+              "indexname": "idx_users_email",
+              "tablename": "users"
+            }
+          },
+          {
+            "description": "Index uses btree access method (default)",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_users_email'",
+            "expected": {
+              "indexdef": "CREATE INDEX idx_users_email ON public.users USING btree (email)"
+            }
+          },
+          {
+            "description": "Indexed field enables fast lookups",
+            "executeQuery": "SELECT COUNT(*) as count FROM users WHERE email = 'alice@example.com'",
+            "expected": {
+              "count": 1
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-INDEXED-002",
-      "given": "indexed is false (default: false)",
-      "when": "processing entity",
-      "then": "corresponding behavior should not be enforced"
+      "given": "field with indexed: false (default)",
+      "when": "field migration creates column without index",
+      "then": "PostgreSQL does not create index for field (except primary key)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT)",
+            "INSERT INTO products (name, description) VALUES ('Product 1', 'Description 1')"
+          ],
+          "fieldConfig": {
+            "name": "description",
+            "type": "long-text",
+            "indexed": false
+          }
+        },
+        "assertions": [
+          {
+            "description": "No custom index on description field",
+            "executeQuery": "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='products' AND indexname LIKE '%description%'",
+            "expected": {
+              "count": 0
+            }
+          },
+          {
+            "description": "Only primary key index exists",
+            "executeQuery": "SELECT indexname FROM pg_indexes WHERE tablename='products'",
+            "expected": {
+              "indexname": "products_pkey"
+            }
+          },
+          {
+            "description": "Query still works (sequential scan)",
+            "executeQuery": "SELECT name FROM products WHERE description LIKE '%Description%'",
+            "expected": {
+              "name": "Product 1"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-INDEXED-003",
-      "given": "configuration with indexed",
-      "when": "validating settings",
-      "then": "boolean value should be accepted"
+      "given": "timestamp field with indexed: true",
+      "when": "index created for range queries",
+      "then": "PostgreSQL btree index optimizes date range and ORDER BY queries",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE events (id SERIAL PRIMARY KEY, name VARCHAR(255), occurred_at TIMESTAMPTZ NOT NULL)",
+            "CREATE INDEX idx_events_occurred_at ON events(occurred_at)",
+            "INSERT INTO events (name, occurred_at) VALUES ('Event 1', '2024-01-01 10:00:00'), ('Event 2', '2024-01-02 10:00:00'), ('Event 3', '2024-01-03 10:00:00')"
+          ],
+          "fieldConfig": {
+            "name": "occurred_at",
+            "type": "datetime",
+            "indexed": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists on timestamp column",
+            "executeQuery": "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_events_occurred_at'",
+            "expected": {
+              "indexname": "idx_events_occurred_at"
+            }
+          },
+          {
+            "description": "Range query uses index",
+            "executeQuery": "SELECT COUNT(*) as count FROM events WHERE occurred_at > '2024-01-01'",
+            "expected": {
+              "count": 2
+            }
+          },
+          {
+            "description": "ORDER BY uses index for sorting",
+            "executeQuery": "SELECT name FROM events ORDER BY occurred_at DESC LIMIT 1",
+            "expected": {
+              "name": "Event 3"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-INDEXED-004",
+      "given": "frequently queried field with indexed: true",
+      "when": "index improves query performance",
+      "then": "PostgreSQL uses index for WHERE, JOIN, and ORDER BY operations",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER NOT NULL, status VARCHAR(50) NOT NULL, total DECIMAL(10,2))",
+            "CREATE INDEX idx_orders_customer_id ON orders(customer_id)",
+            "INSERT INTO orders (customer_id, status, total) VALUES (1, 'pending', 99.99), (1, 'completed', 149.99), (2, 'pending', 75.00)"
+          ],
+          "fieldConfig": {
+            "name": "customer_id",
+            "type": "integer",
+            "indexed": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists for foreign key lookups",
+            "executeQuery": "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_orders_customer_id'",
+            "expected": {
+              "indexname": "idx_orders_customer_id"
+            }
+          },
+          {
+            "description": "Filter by customer_id uses index",
+            "executeQuery": "SELECT COUNT(*) as count FROM orders WHERE customer_id = 1",
+            "expected": {
+              "count": 2
+            }
+          },
+          {
+            "description": "Grouped queries use index",
+            "executeQuery": "SELECT customer_id, COUNT(*) as order_count FROM orders GROUP BY customer_id ORDER BY customer_id",
+            "expected": [
+              {
+                "customer_id": 1,
+                "order_count": 2
+              },
+              {
+                "customer_id": 2,
+                "order_count": 1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-INDEXED-005",
+      "given": "text field with indexed: true for LIKE queries",
+      "when": "index created with btree",
+      "then": "PostgreSQL index improves prefix searches (name LIKE 'prefix%')",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE companies (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL)",
+            "CREATE INDEX idx_companies_name ON companies(name)",
+            "INSERT INTO companies (name) VALUES ('Acme Corp'), ('Acme Industries'), ('Beta LLC'), ('Gamma Inc')"
+          ],
+          "fieldConfig": {
+            "name": "name",
+            "type": "single-line-text",
+            "indexed": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists on text column",
+            "executeQuery": "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_companies_name'",
+            "expected": {
+              "indexname": "idx_companies_name"
+            }
+          },
+          {
+            "description": "Prefix search uses index (name LIKE 'Acme%')",
+            "executeQuery": "SELECT COUNT(*) as count FROM companies WHERE name LIKE 'Acme%'",
+            "expected": {
+              "count": 2
+            }
+          },
+          {
+            "description": "Exact match uses index",
+            "executeQuery": "SELECT name FROM companies WHERE name = 'Beta LLC'",
+            "expected": {
+              "name": "Beta LLC"
+            }
+          },
+          {
+            "description": "ORDER BY uses index",
+            "executeQuery": "SELECT name FROM companies ORDER BY name LIMIT 1",
+            "expected": {
+              "name": "Acme Corp"
+            }
+          }
+        ]
+      }
     }
   ]
 }

@@ -33,15 +33,231 @@
   "x-specs": [
     {
       "id": "APP-STATUS-FIELD-001",
-      "given": "entity with type='status'",
-      "when": "processing configuration",
-      "then": "correct handler should be selected"
+      "given": "table configuration with status field 'workflow_status' (options: Draft, In Review, Approved, Published)",
+      "when": "field migration creates column",
+      "then": "PostgreSQL VARCHAR column with CHECK constraint for status values is created",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE documents (id SERIAL PRIMARY KEY)",
+          "fieldConfig": {
+            "id": 1,
+            "name": "workflow_status",
+            "type": "status",
+            "options": [
+              {
+                "value": "Draft",
+                "label": "Draft",
+                "color": "gray"
+              },
+              {
+                "value": "In Review",
+                "label": "In Review",
+                "color": "yellow"
+              },
+              {
+                "value": "Approved",
+                "label": "Approved",
+                "color": "green"
+              },
+              {
+                "value": "Published",
+                "label": "Published",
+                "color": "blue"
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column created as VARCHAR",
+            "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='documents' AND column_name='workflow_status'",
+            "expected": {
+              "column_name": "workflow_status",
+              "data_type": "character varying"
+            }
+          },
+          {
+            "description": "CHECK constraint exists for status values",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%workflow_status%'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Valid status value can be inserted",
+            "executeQuery": "INSERT INTO documents (workflow_status) VALUES ('Draft') RETURNING workflow_status",
+            "expected": {
+              "workflow_status": "Draft"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-STATUS-FIELD-002",
-      "given": "invalid type value",
-      "when": "validating configuration",
-      "then": "clear error message should identify the issue"
+      "given": "table 'projects' with status field 'project_status' (options: Planning, Active, On Hold, Completed, Cancelled)",
+      "when": "invalid status value is inserted",
+      "then": "PostgreSQL CHECK constraint rejects value not in status options",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE projects (id SERIAL PRIMARY KEY, project_status VARCHAR(50) CHECK (project_status IN ('Planning', 'Active', 'On Hold', 'Completed', 'Cancelled')))"
+        },
+        "assertions": [
+          {
+            "description": "Valid status 'Planning' succeeds",
+            "executeQuery": "INSERT INTO projects (project_status) VALUES ('Planning') RETURNING project_status",
+            "expected": {
+              "project_status": "Planning"
+            }
+          },
+          {
+            "description": "Valid status 'Active' succeeds",
+            "executeQuery": "INSERT INTO projects (project_status) VALUES ('Active') RETURNING project_status",
+            "expected": {
+              "project_status": "Active"
+            }
+          },
+          {
+            "description": "Invalid status value rejected by CHECK constraint",
+            "executeQuery": "INSERT INTO projects (project_status) VALUES ('Invalid Status')",
+            "expectError": "violates check constraint"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-STATUS-FIELD-003",
+      "given": "table 'tasks' with status field 'task_status' (required, unique)",
+      "when": "constraints are applied",
+      "then": "PostgreSQL enforces NOT NULL and UNIQUE constraints",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, task_status VARCHAR(50) UNIQUE NOT NULL CHECK (task_status IN ('Todo', 'In Progress', 'Blocked', 'Done')))",
+            "INSERT INTO tasks (task_status) VALUES ('Todo')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "NOT NULL constraint enforced",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='tasks' AND column_name='task_status'",
+            "expected": {
+              "is_nullable": "NO"
+            }
+          },
+          {
+            "description": "UNIQUE constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='tasks' AND constraint_type='UNIQUE' AND constraint_name LIKE '%task_status%'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Duplicate status value rejected",
+            "executeQuery": "INSERT INTO tasks (task_status) VALUES ('Todo')",
+            "expectError": "duplicate key value violates unique constraint"
+          },
+          {
+            "description": "NULL status value rejected",
+            "executeQuery": "INSERT INTO tasks (task_status) VALUES (NULL)",
+            "expectError": "violates not-null constraint"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-STATUS-FIELD-004",
+      "given": "table 'orders' with status field 'order_status' and default value 'Pending'",
+      "when": "row inserted without providing order_status value",
+      "then": "PostgreSQL applies DEFAULT value 'Pending'",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE orders (id SERIAL PRIMARY KEY, order_status VARCHAR(50) DEFAULT 'Pending' CHECK (order_status IN ('Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled')))",
+          "fieldConfig": {
+            "id": 1,
+            "name": "order_status",
+            "type": "status",
+            "options": [
+              {
+                "value": "Pending"
+              },
+              {
+                "value": "Processing"
+              },
+              {
+                "value": "Shipped"
+              },
+              {
+                "value": "Delivered"
+              },
+              {
+                "value": "Cancelled"
+              }
+            ],
+            "default": "Pending"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT value",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='orders' AND column_name='order_status'",
+            "expected": {
+              "column_default": "'Pending'::character varying"
+            }
+          },
+          {
+            "description": "INSERT without order_status uses default",
+            "executeQuery": "INSERT INTO orders (id) VALUES (DEFAULT) RETURNING order_status",
+            "expected": {
+              "order_status": "Pending"
+            }
+          },
+          {
+            "description": "Explicit value overrides default",
+            "executeQuery": "INSERT INTO orders (order_status) VALUES ('Shipped') RETURNING order_status",
+            "expected": {
+              "order_status": "Shipped"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-STATUS-FIELD-005",
+      "given": "table configuration with status field 'approval_status', indexed=true",
+      "when": "index is created on the status field",
+      "then": "PostgreSQL btree index exists for fast status filtering",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE requests (id SERIAL PRIMARY KEY, approval_status VARCHAR(50) NOT NULL CHECK (approval_status IN ('Submitted', 'Under Review', 'Approved', 'Rejected')))",
+            "CREATE INDEX idx_requests_status ON requests(approval_status)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "approval_status",
+            "type": "status",
+            "indexed": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists in pg_indexes",
+            "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_requests_status'",
+            "expected": {
+              "indexname": "idx_requests_status",
+              "tablename": "requests"
+            }
+          },
+          {
+            "description": "Index uses btree for status filtering",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_requests_status'",
+            "expected": {
+              "indexdef": "CREATE INDEX idx_requests_status ON public.requests USING btree (approval_status)"
+            }
+          }
+        ]
+      }
     }
   ]
 }

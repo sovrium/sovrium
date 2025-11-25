@@ -30,15 +30,209 @@
   "x-specs": [
     {
       "id": "APP-RATING-FIELD-001",
-      "given": "entity with type='rating'",
-      "when": "processing configuration",
-      "then": "correct handler should be selected"
+      "given": "table configuration with rating field 'quality_score' (max=5)",
+      "when": "field migration creates SMALLINT column with range constraint",
+      "then": "PostgreSQL SMALLINT column with CHECK constraint for rating range is created",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE reviews (id SERIAL PRIMARY KEY, quality_score SMALLINT CHECK (quality_score >= 1 AND quality_score <= 5))",
+          "fieldConfig": {
+            "id": 1,
+            "name": "quality_score",
+            "type": "rating",
+            "max": 5
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column created as SMALLINT",
+            "executeQuery": "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='reviews' AND column_name='quality_score'",
+            "expected": {
+              "column_name": "quality_score",
+              "data_type": "smallint"
+            }
+          },
+          {
+            "description": "Valid rating within range can be inserted",
+            "executeQuery": "INSERT INTO reviews (quality_score) VALUES (5) RETURNING quality_score",
+            "expected": {
+              "quality_score": 5
+            }
+          },
+          {
+            "description": "CHECK constraint validates rating range",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%quality_score%'",
+            "expected": {
+              "count": 1
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-RATING-FIELD-002",
-      "given": "invalid type value",
-      "when": "validating configuration",
-      "then": "clear error message should identify the issue"
+      "given": "table 'products' with rating field and boundary validation",
+      "when": "inserting ratings outside valid range",
+      "then": "PostgreSQL CHECK constraint rejects invalid ratings",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE products (id SERIAL PRIMARY KEY, rating SMALLINT CHECK (rating >= 1 AND rating <= 5))"
+        },
+        "assertions": [
+          {
+            "description": "Minimum rating (1) succeeds",
+            "executeQuery": "INSERT INTO products (rating) VALUES (1) RETURNING rating",
+            "expected": {
+              "rating": 1
+            }
+          },
+          {
+            "description": "Maximum rating (5) succeeds",
+            "executeQuery": "INSERT INTO products (rating) VALUES (5) RETURNING rating",
+            "expected": {
+              "rating": 5
+            }
+          },
+          {
+            "description": "Rating below minimum rejected",
+            "executeQuery": "INSERT INTO products (rating) VALUES (0)",
+            "expectError": "violates check constraint"
+          },
+          {
+            "description": "Rating above maximum rejected",
+            "executeQuery": "INSERT INTO products (rating) VALUES (6)",
+            "expectError": "violates check constraint"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-RATING-FIELD-003",
+      "given": "table 'movies' with rating field for aggregate calculations",
+      "when": "calculating average rating",
+      "then": "PostgreSQL AVG function computes mean rating",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE movies (id SERIAL PRIMARY KEY, title VARCHAR(255), rating SMALLINT CHECK (rating >= 1 AND rating <= 10))",
+            "INSERT INTO movies (title, rating) VALUES ('Movie A', 8), ('Movie B', 9), ('Movie C', 7), ('Movie D', 10)"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Calculate average rating",
+            "executeQuery": "SELECT AVG(rating) as avg_rating FROM movies",
+            "expected": {
+              "avg_rating": 8.5
+            }
+          },
+          {
+            "description": "Find movies above average",
+            "executeQuery": "SELECT COUNT(*) as count FROM movies WHERE rating > (SELECT AVG(rating) FROM movies)",
+            "expected": {
+              "count": 2
+            }
+          },
+          {
+            "description": "Order movies by rating",
+            "executeQuery": "SELECT title FROM movies ORDER BY rating DESC LIMIT 1",
+            "expected": {
+              "title": "Movie D"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-RATING-FIELD-004",
+      "given": "table 'restaurants' with rating field and default value",
+      "when": "row inserted without providing rating",
+      "then": "PostgreSQL applies DEFAULT rating value",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE restaurants (id SERIAL PRIMARY KEY, customer_rating SMALLINT DEFAULT 3 CHECK (customer_rating >= 1 AND customer_rating <= 5))",
+          "fieldConfig": {
+            "id": 1,
+            "name": "customer_rating",
+            "type": "rating",
+            "max": 5,
+            "default": 3
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT value",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='restaurants' AND column_name='customer_rating'",
+            "expected": {
+              "column_default": "3"
+            }
+          },
+          {
+            "description": "INSERT without rating uses default",
+            "executeQuery": "INSERT INTO restaurants (id) VALUES (DEFAULT) RETURNING customer_rating",
+            "expected": {
+              "customer_rating": 3
+            }
+          },
+          {
+            "description": "Explicit value overrides default",
+            "executeQuery": "INSERT INTO restaurants (customer_rating) VALUES (5) RETURNING customer_rating",
+            "expected": {
+              "customer_rating": 5
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-RATING-FIELD-005",
+      "given": "table 'feedback' with rating field (required, indexed)",
+      "when": "constraints and index are applied",
+      "then": "PostgreSQL enforces NOT NULL and creates btree index for sorting/filtering",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE feedback (id SERIAL PRIMARY KEY, satisfaction SMALLINT NOT NULL CHECK (satisfaction >= 1 AND satisfaction <= 5))",
+            "CREATE INDEX idx_feedback_satisfaction ON feedback(satisfaction)",
+            "INSERT INTO feedback (satisfaction) VALUES (4), (5), (3), (5), (4)"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "NOT NULL constraint enforced",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='feedback' AND column_name='satisfaction'",
+            "expected": {
+              "is_nullable": "NO"
+            }
+          },
+          {
+            "description": "Index exists for efficient queries",
+            "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_feedback_satisfaction'",
+            "expected": {
+              "indexname": "idx_feedback_satisfaction",
+              "tablename": "feedback"
+            }
+          },
+          {
+            "description": "Count ratings distribution",
+            "executeQuery": "SELECT satisfaction, COUNT(*) as count FROM feedback GROUP BY satisfaction ORDER BY satisfaction",
+            "expected": [
+              {
+                "satisfaction": 3,
+                "count": 1
+              },
+              {
+                "satisfaction": 4,
+                "count": 2
+              },
+              {
+                "satisfaction": 5,
+                "count": 2
+              }
+            ]
+          }
+        ]
+      }
     }
   ]
 }

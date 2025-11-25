@@ -1,0 +1,144 @@
+{
+  "type": "object",
+  "description": "View configuration for displaying and filtering table data",
+  "required": ["id", "name", "type"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "Unique view identifier",
+      "example": "active_projects"
+    },
+    "name": {
+      "type": "string",
+      "description": "Display name for the view",
+      "example": "Active Projects"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["grid", "kanban", "calendar", "gallery", "form"],
+      "description": "View type determining the display layout",
+      "example": "grid"
+    },
+    "filters": {
+      "type": "object",
+      "description": "Filter conditions to apply to records",
+      "properties": {
+        "operator": {
+          "type": "string",
+          "enum": ["AND", "OR"],
+          "description": "Logical operator to combine conditions"
+        },
+        "conditions": {
+          "type": "array",
+          "description": "Array of filter conditions",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": "string",
+                "description": "Name of the field to filter on"
+              },
+              "operator": {
+                "type": "string",
+                "enum": [
+                  "equals",
+                  "notEquals",
+                  "contains",
+                  "notContains",
+                  "startsWith",
+                  "endsWith",
+                  "greaterThan",
+                  "lessThan",
+                  "greaterThanOrEqual",
+                  "lessThanOrEqual",
+                  "isEmpty",
+                  "isNotEmpty",
+                  "in",
+                  "notIn",
+                  "isTrue",
+                  "isFalse"
+                ],
+                "description": "Comparison operator"
+              },
+              "value": {
+                "description": "Value to compare against"
+              }
+            },
+            "required": ["field", "operator"]
+          }
+        }
+      },
+      "required": ["conditions"]
+    },
+    "sorts": {
+      "type": "array",
+      "description": "Sorting rules for records",
+      "items": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string",
+            "description": "Name of the field to sort by"
+          },
+          "direction": {
+            "type": "string",
+            "enum": ["asc", "desc"],
+            "description": "Sort direction"
+          }
+        },
+        "required": ["field", "direction"]
+      }
+    },
+    "fields": {
+      "type": "array",
+      "description": "Field visibility and display configuration",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the field"
+          },
+          "visible": {
+            "type": "boolean",
+            "description": "Whether the field is visible"
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 50,
+            "maximum": 1000,
+            "description": "Column width in pixels"
+          },
+          "order": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Display order"
+          }
+        },
+        "required": ["name"]
+      }
+    },
+    "groupBy": {
+      "type": "object",
+      "description": "Grouping configuration",
+      "properties": {
+        "field": {
+          "type": "string",
+          "description": "Name of the field to group by"
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["asc", "desc"],
+          "description": "Sort direction for groups"
+        }
+      },
+      "required": ["field"]
+    },
+    "isDefault": {
+      "type": "boolean",
+      "description": "Whether this is the default view for the table",
+      "example": false
+    }
+  }
+}

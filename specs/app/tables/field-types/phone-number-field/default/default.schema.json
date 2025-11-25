@@ -1,20 +1,71 @@
 {
   "$id": "default.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "default",
+  "title": "Phone Number Field Default Value",
+  "description": "Default phone number value when no value is provided during INSERT. PostgreSQL DEFAULT constraint with VARCHAR type for phone numbers.",
   "type": "string",
   "x-specs": [
     {
       "id": "APP-FIELD-PHONE-NUMBER-DEFAULT-001",
-      "given": "user provides default",
-      "when": "validating input",
-      "then": "string value should be accepted"
+      "given": "phone number field with default: '+1-800-000-0000'",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL DEFAULT constraint provides default phone number",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255), phone VARCHAR(20) DEFAULT '+1-800-000-0000')",
+            "INSERT INTO customers (name) VALUES ('John Doe')"
+          ],
+          "fieldConfig": {
+            "name": "phone",
+            "type": "phone-number",
+            "default": "+1-800-000-0000"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT constraint with phone number",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='customers' AND column_name='phone'",
+            "expected": {
+              "column_default": "'+1-800-000-0000'::character varying"
+            }
+          },
+          {
+            "description": "INSERT without value uses default phone",
+            "executeQuery": "SELECT phone FROM customers WHERE name = 'John Doe'",
+            "expected": {
+              "phone": "+1-800-000-0000"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-PHONE-NUMBER-DEFAULT-002",
-      "given": "default is empty string",
-      "when": "validating input",
-      "then": "behavior should follow optional/required rules"
+      "given": "phone number field without default specified",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL inserts NULL",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE contacts (id SERIAL PRIMARY KEY, name VARCHAR(255), phone VARCHAR(20))",
+            "INSERT INTO contacts (name) VALUES ('Jane Smith')"
+          ],
+          "fieldConfig": {
+            "name": "phone",
+            "type": "phone-number"
+          }
+        },
+        "assertions": [
+          {
+            "description": "INSERT without value results in NULL",
+            "executeQuery": "SELECT phone FROM contacts WHERE name = 'Jane Smith'",
+            "expected": {
+              "phone": null
+            }
+          }
+        ]
+      }
     }
   ]
 }

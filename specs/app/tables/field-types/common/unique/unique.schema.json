@@ -8,21 +8,216 @@
   "x-specs": [
     {
       "id": "APP-FIELD-UNIQUE-001",
-      "given": "unique is true",
-      "when": "processing entity",
-      "then": "corresponding behavior should be enforced"
+      "given": "field with unique: true",
+      "when": "field migration creates UNIQUE constraint",
+      "then": "PostgreSQL prevents duplicate values in column",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, name VARCHAR(255))",
+            "INSERT INTO users (email, name) VALUES ('alice@example.com', 'Alice')"
+          ],
+          "fieldConfig": {
+            "name": "email",
+            "type": "email",
+            "unique": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "UNIQUE constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE' AND constraint_name LIKE '%email%'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Duplicate value rejected",
+            "executeQuery": "INSERT INTO users (email, name) VALUES ('alice@example.com', 'Alice Duplicate')",
+            "expectError": "duplicate key value violates unique constraint"
+          },
+          {
+            "description": "Different value succeeds",
+            "executeQuery": "INSERT INTO users (email, name) VALUES ('bob@example.com', 'Bob') RETURNING email",
+            "expected": {
+              "email": "bob@example.com"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-UNIQUE-002",
-      "given": "unique is false (default: false)",
-      "when": "processing entity",
-      "then": "corresponding behavior should not be enforced"
+      "given": "field with unique: false (default)",
+      "when": "field migration creates column without UNIQUE constraint",
+      "then": "PostgreSQL allows duplicate values in column",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, category VARCHAR(100))",
+            "INSERT INTO products (name, category) VALUES ('Product 1', 'Electronics'), ('Product 2', 'Electronics')"
+          ],
+          "fieldConfig": {
+            "name": "category",
+            "type": "single-line-text",
+            "unique": false
+          }
+        },
+        "assertions": [
+          {
+            "description": "No UNIQUE constraint on category",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='products' AND constraint_type='UNIQUE' AND constraint_name LIKE '%category%'",
+            "expected": {
+              "count": 0
+            }
+          },
+          {
+            "description": "Duplicate values allowed",
+            "executeQuery": "SELECT COUNT(*) as count FROM products WHERE category = 'Electronics'",
+            "expected": {
+              "count": 2
+            }
+          },
+          {
+            "description": "Additional duplicate succeeds",
+            "executeQuery": "INSERT INTO products (name, category) VALUES ('Product 3', 'Electronics') RETURNING id",
+            "expected": {
+              "id": 3
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-UNIQUE-003",
-      "given": "configuration with unique",
-      "when": "validating settings",
-      "then": "boolean value should be accepted"
+      "given": "unique field with existing duplicate values",
+      "when": "attempting to add UNIQUE constraint",
+      "then": "PostgreSQL migration fails if existing duplicates present",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE accounts (id SERIAL PRIMARY KEY, username VARCHAR(255))",
+            "INSERT INTO accounts (username) VALUES ('alice'), ('bob'), ('alice')"
+          ],
+          "fieldConfig": {
+            "name": "username",
+            "type": "single-line-text",
+            "unique": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column currently allows duplicates",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='accounts' AND constraint_type='UNIQUE'",
+            "expected": {
+              "count": 0
+            }
+          },
+          {
+            "description": "Duplicate values exist",
+            "executeQuery": "SELECT username, COUNT(*) as count FROM accounts GROUP BY username HAVING COUNT(*) > 1",
+            "expected": {
+              "username": "alice",
+              "count": 2
+            }
+          },
+          {
+            "description": "Adding UNIQUE constraint fails with existing duplicates",
+            "executeQuery": "ALTER TABLE accounts ADD CONSTRAINT accounts_username_unique UNIQUE (username)",
+            "expectError": "could not create unique index"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-UNIQUE-004",
+      "given": "unique constraint creates automatic index",
+      "when": "UNIQUE constraint is added",
+      "then": "PostgreSQL automatically creates index for efficient lookups",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE sessions (id SERIAL PRIMARY KEY, token VARCHAR(255) UNIQUE NOT NULL)",
+            "INSERT INTO sessions (token) VALUES ('abc123'), ('def456')"
+          ],
+          "fieldConfig": {
+            "name": "token",
+            "type": "single-line-text",
+            "unique": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "UNIQUE constraint exists",
+            "executeQuery": "SELECT constraint_name FROM information_schema.table_constraints WHERE table_name='sessions' AND constraint_type='UNIQUE'",
+            "expected": {
+              "constraint_name": "sessions_token_key"
+            }
+          },
+          {
+            "description": "Automatic index created for UNIQUE constraint",
+            "executeQuery": "SELECT indexname FROM pg_indexes WHERE tablename='sessions' AND indexname LIKE '%token%'",
+            "expected": {
+              "indexname": "sessions_token_key"
+            }
+          },
+          {
+            "description": "Index enables fast lookups",
+            "executeQuery": "SELECT id FROM sessions WHERE token = 'abc123'",
+            "expected": {
+              "id": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-UNIQUE-005",
+      "given": "unique field allows NULL values (SQL standard)",
+      "when": "multiple NULL values inserted",
+      "then": "PostgreSQL allows multiple NULLs (NULL != NULL)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE contacts (id SERIAL PRIMARY KEY, phone VARCHAR(50) UNIQUE)",
+            "INSERT INTO contacts (phone) VALUES (NULL), (NULL), ('555-1234')"
+          ],
+          "fieldConfig": {
+            "name": "phone",
+            "type": "phone-number",
+            "unique": true,
+            "required": false
+          }
+        },
+        "assertions": [
+          {
+            "description": "UNIQUE constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='contacts' AND constraint_type='UNIQUE'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Multiple NULL values allowed (NULL != NULL)",
+            "executeQuery": "SELECT COUNT(*) as count FROM contacts WHERE phone IS NULL",
+            "expected": {
+              "count": 2
+            }
+          },
+          {
+            "description": "Additional NULL succeeds",
+            "executeQuery": "INSERT INTO contacts (phone) VALUES (NULL) RETURNING id",
+            "expected": {
+              "id": 4
+            }
+          },
+          {
+            "description": "Duplicate non-NULL rejected",
+            "executeQuery": "INSERT INTO contacts (phone) VALUES ('555-1234')",
+            "expectError": "duplicate key value violates unique constraint"
+          }
+        ]
+      }
     }
   ]
 }

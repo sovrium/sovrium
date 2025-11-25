@@ -1,7 +1,7 @@
 {
   "summary": "Request password reset",
   "description": "Sends a password reset email to the user with a reset token. The email contains a link to reset the password.",
-  "operationId": "forgetPassword",
+  "operationId": "requestPasswordReset",
   "tags": ["authentication"],
   "security": [
     {

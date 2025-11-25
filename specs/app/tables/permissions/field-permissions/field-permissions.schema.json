@@ -1,0 +1,359 @@
+{
+  "$id": "field-permissions.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Field-Level Permissions",
+  "description": "Permissions for individual fields. Controls field visibility (read) and editability (write) based on user permissions. Only evaluated if table-level permissions grant access.",
+  "type": "array",
+  "default": [],
+  "items": {
+    "type": "object",
+    "properties": {
+      "field": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Name of the field to apply permissions to"
+      },
+      "read": {
+        "$ref": "../permission-rule/permission-rule.schema.json",
+        "description": "Permission to view this field's value. If denied, field is excluded from responses."
+      },
+      "write": {
+        "$ref": "../permission-rule/permission-rule.schema.json",
+        "description": "Permission to modify this field's value. If denied, updates to this field are rejected."
+      }
+    },
+    "required": ["field"],
+    "additionalProperties": false
+  },
+  "examples": [
+    [
+      {
+        "field": "email",
+        "read": {
+          "type": "authenticated"
+        },
+        "write": {
+          "type": "custom",
+          "condition": "{userId} = id"
+        }
+      },
+      {
+        "field": "salary",
+        "read": {
+          "type": "roles",
+          "roles": ["admin", "hr"]
+        },
+        "write": {
+          "type": "roles",
+          "roles": ["admin"]
+        }
+      }
+    ],
+    []
+  ],
+  "x-specs": [
+    {
+      "id": "APP-TABLES-FIELD-PERMISSIONS-001",
+      "given": "field 'salary' with read permission restricted to 'admin' role",
+      "when": "user with 'member' role requests records",
+      "then": "PostgreSQL query excludes salary column for non-admin users",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), salary DECIMAL(10,2), department VARCHAR(100))",
+            "INSERT INTO employees (name, salary, department) VALUES ('Alice', 75000.00, 'Engineering'), ('Bob', 65000.00, 'Marketing')"
+          ],
+          "permissionConfig": {
+            "fields": [
+              {
+                "field": "salary",
+                "read": {
+                  "type": "roles",
+                  "roles": ["admin"]
+                }
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Admin user can SELECT salary column",
+            "executeQuery": "SET ROLE admin_user; SELECT id, name, salary, department FROM employees WHERE id = 1",
+            "expected": {
+              "id": 1,
+              "name": "Alice",
+              "salary": 75000.0,
+              "department": "Engineering"
+            }
+          },
+          {
+            "description": "Member user SELECT excludes salary (application layer filtering)",
+            "executeQuery": "SET ROLE member_user; SELECT id, name, department FROM employees WHERE id = 1",
+            "expected": {
+              "id": 1,
+              "name": "Alice",
+              "department": "Engineering"
+            }
+          },
+          {
+            "description": "Member attempting to SELECT salary gets NULL or error",
+            "executeQuery": "SET ROLE member_user; SELECT salary FROM employees WHERE id = 1",
+            "expectError": "permission denied for column salary"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-TABLES-FIELD-PERMISSIONS-002",
+      "given": "field 'email' with write permission restricted to 'admin' role",
+      "when": "user with 'member' role attempts to update field",
+      "then": "PostgreSQL UPDATE triggers or application layer rejects modification",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), bio TEXT)",
+            "INSERT INTO users (name, email, bio) VALUES ('Alice', 'alice@example.com', 'Software engineer')"
+          ],
+          "permissionConfig": {
+            "fields": [
+              {
+                "field": "email",
+                "write": {
+                  "type": "roles",
+                  "roles": ["admin"]
+                }
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Admin user can UPDATE email field",
+            "executeQuery": "SET ROLE admin_user; UPDATE users SET email = 'alice.new@example.com' WHERE id = 1 RETURNING email",
+            "expected": {
+              "email": "alice.new@example.com"
+            }
+          },
+          {
+            "description": "Member user can UPDATE other fields",
+            "executeQuery": "SET ROLE member_user; UPDATE users SET bio = 'Updated bio' WHERE id = 1 RETURNING bio",
+            "expected": {
+              "bio": "Updated bio"
+            }
+          },
+          {
+            "description": "Member user cannot UPDATE email field",
+            "executeQuery": "SET ROLE member_user; UPDATE users SET email = 'hacked@example.com' WHERE id = 1",
+            "expectError": "permission denied for column email"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-TABLES-FIELD-PERMISSIONS-003",
+      "given": "multiple fields with different read permissions (email: authenticated, salary: admin, department: public)",
+      "when": "users with different roles request records",
+      "then": "PostgreSQL SELECT includes only columns user has permission to read",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE staff (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2), department VARCHAR(100))",
+            "INSERT INTO staff (name, email, salary, department) VALUES ('Alice', 'alice@example.com', 80000.00, 'Engineering')"
+          ],
+          "permissionConfig": {
+            "fields": [
+              {
+                "field": "email",
+                "read": {
+                  "type": "authenticated"
+                }
+              },
+              {
+                "field": "salary",
+                "read": {
+                  "type": "roles",
+                  "roles": ["admin"]
+                }
+              },
+              {
+                "field": "department",
+                "read": {
+                  "type": "public"
+                }
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Admin user sees all fields",
+            "executeQuery": "SET ROLE admin_user; SELECT name, email, salary, department FROM staff WHERE id = 1",
+            "expected": {
+              "name": "Alice",
+              "email": "alice@example.com",
+              "salary": 80000.0,
+              "department": "Engineering"
+            }
+          },
+          {
+            "description": "Authenticated user sees name, email, department (no salary)",
+            "executeQuery": "SET ROLE authenticated_user; SELECT name, email, department FROM staff WHERE id = 1",
+            "expected": {
+              "name": "Alice",
+              "email": "alice@example.com",
+              "department": "Engineering"
+            }
+          },
+          {
+            "description": "Unauthenticated user sees name, department only",
+            "executeQuery": "RESET ROLE; SELECT name, department FROM staff WHERE id = 1",
+            "expected": {
+              "name": "Alice",
+              "department": "Engineering"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-TABLES-FIELD-PERMISSIONS-004",
+      "given": "field 'status' with public read but admin-only write permission",
+      "when": "unauthenticated user views records",
+      "then": "PostgreSQL SELECT includes status field for all users",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tickets (id SERIAL PRIMARY KEY, title VARCHAR(255), status VARCHAR(50))",
+            "INSERT INTO tickets (title, status) VALUES ('Bug #123', 'open')"
+          ],
+          "permissionConfig": {
+            "fields": [
+              {
+                "field": "status",
+                "read": {
+                  "type": "public"
+                },
+                "write": {
+                  "type": "roles",
+                  "roles": ["admin"]
+                }
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Unauthenticated user can SELECT status",
+            "executeQuery": "RESET ROLE; SELECT title, status FROM tickets WHERE id = 1",
+            "expected": {
+              "title": "Bug #123",
+              "status": "open"
+            }
+          },
+          {
+            "description": "Admin user can UPDATE status",
+            "executeQuery": "SET ROLE admin_user; UPDATE tickets SET status = 'closed' WHERE id = 1 RETURNING status",
+            "expected": {
+              "status": "closed"
+            }
+          },
+          {
+            "description": "Member user cannot UPDATE status",
+            "executeQuery": "SET ROLE member_user; UPDATE tickets SET status = 'reopened' WHERE id = 1",
+            "expectError": "permission denied for column status"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-TABLES-FIELD-PERMISSIONS-005",
+      "given": "field 'notes' with custom condition write permission (owner only)",
+      "when": "non-owner attempts to update field",
+      "then": "PostgreSQL RLS policy or application layer denies UPDATE",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), notes TEXT, owner_id INTEGER)",
+            "INSERT INTO tasks (title, notes, owner_id) VALUES ('Task 1', 'Initial notes', 1), ('Task 2', 'Other notes', 2)"
+          ],
+          "permissionConfig": {
+            "fields": [
+              {
+                "field": "notes",
+                "write": {
+                  "type": "custom",
+                  "condition": "{userId} = owner_id"
+                }
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Owner (user 1) can UPDATE notes on their task",
+            "executeQuery": "SET LOCAL app.user_id = 1; UPDATE tasks SET notes = 'Updated by owner' WHERE id = 1 RETURNING notes",
+            "expected": {
+              "notes": "Updated by owner"
+            }
+          },
+          {
+            "description": "Non-owner (user 2) cannot UPDATE notes on task 1",
+            "executeQuery": "SET LOCAL app.user_id = 2; UPDATE tasks SET notes = 'Hacked notes' WHERE id = 1",
+            "expectError": "permission denied for column notes"
+          },
+          {
+            "description": "Owner can UPDATE notes on their own task (task 2)",
+            "executeQuery": "SET LOCAL app.user_id = 2; UPDATE tasks SET notes = 'My notes' WHERE id = 2 RETURNING notes",
+            "expected": {
+              "notes": "My notes"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-TABLES-FIELD-PERMISSIONS-006",
+      "given": "field 'created_at' with no read permission specified (inherit from table)",
+      "when": "user with table read access requests records",
+      "then": "PostgreSQL includes field in SELECT (inherits table-level permissions)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE posts (id SERIAL PRIMARY KEY, title VARCHAR(255), content TEXT, created_at TIMESTAMPTZ DEFAULT NOW())",
+            "INSERT INTO posts (title, content) VALUES ('Post 1', 'Content 1')"
+          ],
+          "permissionConfig": {
+            "table": {
+              "read": {
+                "type": "authenticated"
+              }
+            },
+            "fields": []
+          }
+        },
+        "assertions": [
+          {
+            "description": "Field permissions array is empty",
+            "executeQuery": "SELECT '[]'::jsonb as field_permissions",
+            "expected": {
+              "field_permissions": []
+            }
+          },
+          {
+            "description": "Authenticated user can SELECT all fields (including created_at)",
+            "executeQuery": "SET ROLE authenticated_user; SELECT id, title, created_at FROM posts WHERE id = 1",
+            "expected": {
+              "id": 1,
+              "title": "Post 1"
+            }
+          },
+          {
+            "description": "Unauthenticated user cannot SELECT (table-level denied)",
+            "executeQuery": "RESET ROLE; SELECT id, title FROM posts WHERE id = 1",
+            "expectError": "permission denied for table posts"
+          }
+        ]
+      }
+    }
+  ]
+}

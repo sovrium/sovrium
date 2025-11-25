@@ -10,13 +10,43 @@
       "id": "APP-FIELD-RICH-TEXT-MAXLENGTH-001",
       "given": "user provides maxLength >= 1",
       "when": "validating input",
-      "then": "value should be accepted"
+      "then": "value should be accepted",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "value should be accepted",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-RICH-TEXT-MAXLENGTH-002",
       "given": "user provides maxLength < 1",
       "when": "validating input",
-      "then": "error should enforce minimum value"
+      "then": "error should enforce minimum value",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "error should enforce minimum value",
+            "validateConfig": true,
+            "expectError": "must be within the allowed range"
+          }
+        ]
+      }
     }
   ]
 }

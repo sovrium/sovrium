@@ -27,15 +27,219 @@
   "x-specs": [
     {
       "id": "APP-LOOKUP-FIELD-001",
-      "given": "entity with type='lookup'",
-      "when": "processing configuration",
-      "then": "correct handler should be selected"
+      "given": "table 'orders' with lookup field 'customer_name' through 'customer_id' relationship",
+      "when": "querying with JOIN to retrieve related field",
+      "then": "PostgreSQL JOIN returns customer name from related table",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255))",
+            "INSERT INTO customers (name, email) VALUES ('Alice Johnson', 'alice@example.com'), ('Bob Smith', 'bob@example.com')",
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER REFERENCES customers(id), amount DECIMAL(10,2))",
+            "INSERT INTO orders (customer_id, amount) VALUES (1, 150.00), (2, 200.00), (1, 75.50)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "customer_name",
+            "type": "lookup",
+            "relationshipField": "customer_id",
+            "relatedField": "name"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Lookup retrieves customer name via JOIN",
+            "executeQuery": "SELECT o.id, c.name as customer_name FROM orders o JOIN customers c ON o.customer_id = c.id WHERE o.id = 1",
+            "expected": { "id": 1, "customer_name": "Alice Johnson" }
+          },
+          {
+            "description": "Multiple orders lookup same customer",
+            "executeQuery": "SELECT COUNT(*) as count FROM orders o JOIN customers c ON o.customer_id = c.id WHERE c.name = 'Alice Johnson'",
+            "expected": { "count": 2 }
+          },
+          {
+            "description": "Lookup returns all related records",
+            "executeQuery": "SELECT o.id, c.name as customer_name FROM orders o JOIN customers c ON o.customer_id = c.id ORDER BY o.id",
+            "expected": [
+              { "id": 1, "customer_name": "Alice Johnson" },
+              { "id": 2, "customer_name": "Bob Smith" },
+              { "id": 3, "customer_name": "Alice Johnson" }
+            ]
+          }
+        ]
+      }
     },
     {
       "id": "APP-LOOKUP-FIELD-002",
-      "given": "invalid type value",
-      "when": "validating configuration",
-      "then": "clear error message should identify the issue"
+      "given": "table 'tasks' with multiple lookup fields through same relationship",
+      "when": "querying multiple related fields via JOIN",
+      "then": "PostgreSQL JOIN returns all specified lookup fields",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), department VARCHAR(100))",
+            "INSERT INTO users (name, email, department) VALUES ('John Doe', 'john@company.com', 'Engineering')",
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), assigned_to INTEGER REFERENCES users(id))",
+            "INSERT INTO tasks (title, assigned_to) VALUES ('Fix bug', 1), ('Write docs', 1)"
+          ],
+          "fieldConfig": [
+            {
+              "id": 1,
+              "name": "assignee_name",
+              "type": "lookup",
+              "relationshipField": "assigned_to",
+              "relatedField": "name"
+            },
+            {
+              "id": 2,
+              "name": "assignee_email",
+              "type": "lookup",
+              "relationshipField": "assigned_to",
+              "relatedField": "email"
+            },
+            {
+              "id": 3,
+              "name": "assignee_department",
+              "type": "lookup",
+              "relationshipField": "assigned_to",
+              "relatedField": "department"
+            }
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Single JOIN retrieves all lookup fields",
+            "executeQuery": "SELECT t.id, u.name as assignee_name, u.email as assignee_email, u.department as assignee_department FROM tasks t JOIN users u ON t.assigned_to = u.id WHERE t.id = 1",
+            "expected": {
+              "id": 1,
+              "assignee_name": "John Doe",
+              "assignee_email": "john@company.com",
+              "assignee_department": "Engineering"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-LOOKUP-FIELD-003",
+      "given": "table configuration with lookup field 'product_category' defined as VIEW",
+      "when": "VIEW is created to encapsulate lookup logic",
+      "then": "PostgreSQL VIEW provides lookup field alongside base table columns",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE categories (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "INSERT INTO categories (name) VALUES ('Electronics'), ('Clothing')",
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, title VARCHAR(255), category_id INTEGER REFERENCES categories(id))",
+            "INSERT INTO products (title, category_id) VALUES ('Laptop', 1), ('T-Shirt', 2)",
+            "CREATE VIEW products_with_category AS SELECT p.id, p.title, p.category_id, c.name as product_category FROM products p LEFT JOIN categories c ON p.category_id = c.id"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "product_category",
+            "type": "lookup",
+            "relationshipField": "category_id",
+            "relatedField": "name"
+          }
+        },
+        "assertions": [
+          {
+            "description": "VIEW exists in information_schema",
+            "executeQuery": "SELECT table_name FROM information_schema.views WHERE table_name = 'products_with_category'",
+            "expected": { "table_name": "products_with_category" }
+          },
+          {
+            "description": "VIEW returns lookup field with base columns",
+            "executeQuery": "SELECT id, title, product_category FROM products_with_category WHERE id = 1",
+            "expected": { "id": 1, "title": "Laptop", "product_category": "Electronics" }
+          },
+          {
+            "description": "VIEW supports filtering by lookup field",
+            "executeQuery": "SELECT COUNT(*) as count FROM products_with_category WHERE product_category = 'Electronics'",
+            "expected": { "count": 1 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-LOOKUP-FIELD-004",
+      "given": "table 'invoices' with lookup field when relationship is NULL",
+      "when": "LEFT JOIN is used for optional relationships",
+      "then": "PostgreSQL returns NULL for lookup when foreign key is NULL",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE companies (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "INSERT INTO companies (name) VALUES ('Acme Corp')",
+            "CREATE TABLE invoices (id SERIAL PRIMARY KEY, invoice_number VARCHAR(50), company_id INTEGER REFERENCES companies(id))",
+            "INSERT INTO invoices (invoice_number, company_id) VALUES ('INV-001', 1), ('INV-002', NULL)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "company_name",
+            "type": "lookup",
+            "relationshipField": "company_id",
+            "relatedField": "name"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Lookup returns value when relationship exists",
+            "executeQuery": "SELECT i.invoice_number, c.name as company_name FROM invoices i LEFT JOIN companies c ON i.company_id = c.id WHERE i.invoice_number = 'INV-001'",
+            "expected": { "invoice_number": "INV-001", "company_name": "Acme Corp" }
+          },
+          {
+            "description": "Lookup returns NULL when relationship is NULL",
+            "executeQuery": "SELECT i.invoice_number, c.name as company_name FROM invoices i LEFT JOIN companies c ON i.company_id = c.id WHERE i.invoice_number = 'INV-002'",
+            "expected": { "invoice_number": "INV-002", "company_name": null }
+          },
+          {
+            "description": "LEFT JOIN preserves records with NULL relationships",
+            "executeQuery": "SELECT COUNT(*) as count FROM invoices i LEFT JOIN companies c ON i.company_id = c.id",
+            "expected": { "count": 2 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-LOOKUP-FIELD-005",
+      "given": "table 'line_items' with lookup field 'product_price' from products table",
+      "when": "related product price is updated",
+      "then": "lookup reflects the updated value immediately",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255), price DECIMAL(10,2))",
+            "INSERT INTO products (name, price) VALUES ('Widget', 19.99)",
+            "CREATE TABLE line_items (id SERIAL PRIMARY KEY, product_id INTEGER REFERENCES products(id), quantity INTEGER)",
+            "INSERT INTO line_items (product_id, quantity) VALUES (1, 5)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "product_price",
+            "type": "lookup",
+            "relationshipField": "product_id",
+            "relatedField": "price"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Initial lookup returns original price",
+            "executeQuery": "SELECT li.id, p.price as product_price FROM line_items li JOIN products p ON li.product_id = p.id WHERE li.id = 1",
+            "expected": { "id": 1, "product_price": "19.99" }
+          },
+          {
+            "description": "Update related product price",
+            "executeQuery": "UPDATE products SET price = 24.99 WHERE id = 1",
+            "expected": {}
+          },
+          {
+            "description": "Lookup automatically reflects updated price",
+            "executeQuery": "SELECT li.id, p.price as product_price FROM line_items li JOIN products p ON li.product_id = p.id WHERE li.id = 1",
+            "expected": { "id": 1, "product_price": "24.99" }
+          }
+        ]
+      }
     }
   ]
 }

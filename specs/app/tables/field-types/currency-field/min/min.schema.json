@@ -7,15 +7,138 @@
   "x-specs": [
     {
       "id": "APP-FIELD-CURRENCY-MIN-001",
-      "given": "user provides min",
-      "when": "validating input",
-      "then": "numeric value should be accepted"
+      "given": "currency field with min: 0.00 (no negative prices)",
+      "when": "field migration creates CHECK constraint",
+      "then": "PostgreSQL rejects currency values below minimum",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, price DECIMAL(15,2) CHECK (price >= 0.00))",
+            "INSERT INTO products (price) VALUES (0.00), (9.99), (1250.00)"
+          ],
+          "fieldConfig": {
+            "name": "price",
+            "type": "currency",
+            "min": 0.0
+          }
+        },
+        "assertions": [
+          {
+            "description": "CHECK constraint exists for min value",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%price%' AND check_clause LIKE '%>= 0.00%'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Zero price accepted",
+            "executeQuery": "SELECT price FROM products WHERE price = 0.00",
+            "expected": {
+              "price": 0.0
+            }
+          },
+          {
+            "description": "Negative price rejected",
+            "executeQuery": "INSERT INTO products (price) VALUES (-5.00)",
+            "expectError": "violates check constraint"
+          },
+          {
+            "description": "Positive price accepted",
+            "executeQuery": "INSERT INTO products (price) VALUES (29.99) RETURNING price",
+            "expected": {
+              "price": 29.99
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-CURRENCY-MIN-002",
-      "given": "user provides non-numeric min",
-      "when": "validating input",
-      "then": "error should require number"
+      "given": "currency field with min: 1.00 (minimum purchase)",
+      "when": "INSERT with value below min",
+      "then": "PostgreSQL CHECK constraint rejects value",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, total DECIMAL(15,2) CHECK (total >= 1.00))",
+            "INSERT INTO orders (total) VALUES (1.00), (50.00)"
+          ],
+          "fieldConfig": {
+            "name": "total",
+            "type": "currency",
+            "min": 1.0
+          }
+        },
+        "assertions": [
+          {
+            "description": "CHECK constraint enforces min 1.00",
+            "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%total%'",
+            "expected": {
+              "check_clause": "(total >= 1.00)"
+            }
+          },
+          {
+            "description": "Exact minimum (1.00) accepted",
+            "executeQuery": "SELECT total FROM orders WHERE total = 1.00",
+            "expected": {
+              "total": 1.0
+            }
+          },
+          {
+            "description": "Below minimum rejected",
+            "executeQuery": "INSERT INTO orders (total) VALUES (0.99)",
+            "expectError": "violates check constraint"
+          },
+          {
+            "description": "Above minimum accepted",
+            "executeQuery": "INSERT INTO orders (total) VALUES (125.50) RETURNING total",
+            "expected": {
+              "total": 125.5
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-CURRENCY-MIN-003",
+      "given": "currency field with no min specified",
+      "when": "negative values inserted (refunds, credits)",
+      "then": "PostgreSQL accepts all DECIMAL range values",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE transactions (id SERIAL PRIMARY KEY, amount DECIMAL(15,2))",
+            "INSERT INTO transactions (amount) VALUES (-100.00), (0.00), (500.00)"
+          ],
+          "fieldConfig": {
+            "name": "amount",
+            "type": "currency"
+          }
+        },
+        "assertions": [
+          {
+            "description": "No CHECK constraint for min",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%amount%'",
+            "expected": {
+              "count": 0
+            }
+          },
+          {
+            "description": "Negative amounts accepted (refunds)",
+            "executeQuery": "SELECT amount FROM transactions WHERE amount = -100.00",
+            "expected": {
+              "amount": -100.0
+            }
+          },
+          {
+            "description": "Large refund accepted",
+            "executeQuery": "INSERT INTO transactions (amount) VALUES (-5000.00) RETURNING amount",
+            "expected": {
+              "amount": -5000.0
+            }
+          }
+        ]
+      }
     }
   ]
 }

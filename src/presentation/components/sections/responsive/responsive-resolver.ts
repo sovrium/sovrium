@@ -45,19 +45,17 @@ function getActiveBreakpoints(currentBreakpoint: Breakpoint): readonly Breakpoin
  * @param override - Override className
  * @returns Override className if present, else base
  */
-function mergeClassNames(base: string | undefined, override: string | undefined): string | undefined {
+function mergeClassNames(
+  base: string | undefined,
+  override: string | undefined
+): string | undefined {
   return override ?? base
 }
 
 /**
  * Props value type from VariantOverrides
  */
-type PropsValue =
-  | string
-  | number
-  | boolean
-  | readonly unknown[]
-  | { readonly [x: string]: unknown }
+type PropsValue = string | number | boolean | readonly unknown[] | { readonly [x: string]: unknown }
 
 /**
  * Props record type from VariantOverrides

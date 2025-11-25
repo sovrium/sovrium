@@ -1,4 +1,8 @@
-name: TDD Queue - PR Monitor & Auto-Retry
+name: TDD Queue - PR Monitor & Auto-Retry [DEPRECATED]
+
+
+# ⚠️ DEPRECATED: This workflow has been consolidated into tdd-monitor-unified.yml
+# Kept for reference only. Will be removed after successful migration.
 
 # This workflow monitors TDD automation PRs for three issues:
 # 1. PRs stuck in open state despite passing checks (missing auto-merge)
@@ -14,8 +18,8 @@ name: TDD Queue - PR Monitor & Auto-Retry
 
 on:
   schedule:
-    # Run every 10 minutes
-    - cron: '*/10 * * * *'
+    # Run every 30 minutes (optimized from 10 min to reduce GitHub Actions usage)
+    - cron: '*/30 * * * *'
   workflow_dispatch: # Allow manual triggering for testing
 
 concurrency:
@@ -30,6 +34,7 @@ jobs:
   monitor-stuck-prs:
     name: Monitor and Fix PRs
     runs-on: ubuntu-latest
+    if: false # DISABLED - consolidated into tdd-monitor-unified.yml
     permissions:
       contents: write
       pull-requests: write

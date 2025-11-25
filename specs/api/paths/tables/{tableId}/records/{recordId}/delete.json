@@ -34,15 +34,469 @@
   "x-specs": [
     {
       "id": "API-TABLES-RECORDS-DELETE-001",
-      "given": "A running server with existing record",
+      "given": "Table 'users' with record ID=1",
       "when": "User deletes record by ID",
-      "then": "Response should be 204 No Content"
+      "then": "Returns 204 No Content and record is removed from database",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL)",
+            "INSERT INTO users (id, email) VALUES (1, 'test@example.com')"
+          ],
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": {
+              "Authorization": "Bearer test_token"
+            },
+            "pathParams": { "tableId": 1, "recordId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 204 No Content",
+            "expectedStatus": 204
+          },
+          {
+            "description": "Record no longer exists in database",
+            "executeQuery": "SELECT COUNT(*) as count FROM users WHERE id=1",
+            "expected": { "count": 0 }
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-RECORDS-DELETE-002",
-      "given": "A running server",
+      "given": "Table 'users' exists but record ID=9999 does not",
       "when": "User attempts to delete non-existent record",
-      "then": "Response should be 404 Not Found"
+      "then": "Returns 404 Not Found",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL)"
+          ],
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/9999",
+            "headers": {
+              "Authorization": "Bearer test_token"
+            },
+            "pathParams": { "tableId": 1, "recordId": 9999 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 when record does not exist",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Record not found"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-DELETE-PERMISSIONS-UNAUTHORIZED-001",
+      "given": "An unauthenticated user",
+      "when": "User attempts to delete a record without auth token",
+      "then": "Returns 401 Unauthorized error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, organization_id) VALUES (1, 'Alice Cooper', 'org_123')"
+          ],
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/1",
+            "pathParams": { "tableId": 1, "recordId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 when no auth token provided",
+            "expectedStatus": 401,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            }
+          },
+          {
+            "description": "Record remains in database (not deleted)",
+            "executeQuery": "SELECT COUNT(*) as count FROM employees WHERE id=1",
+            "expected": { "count": 1 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-DELETE-PERMISSIONS-FORBIDDEN-MEMBER-001",
+      "given": "A member user without delete permission",
+      "when": "Member attempts to delete a record",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, organization_id) VALUES (1, 'Alice Cooper', 'org_123')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": { "Authorization": "Bearer member_token" },
+            "pathParams": { "tableId": 1, "recordId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when member lacks delete permission",
+            "expectedStatus": 403,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            },
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "You do not have permission to delete records in this table"
+            }
+          },
+          {
+            "description": "Record remains in database",
+            "executeQuery": "SELECT COUNT(*) as count FROM employees WHERE id=1",
+            "expected": { "count": 1 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-DELETE-PERMISSIONS-FORBIDDEN-VIEWER-001",
+      "given": "A viewer user with read-only access",
+      "when": "Viewer attempts to delete a record",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO projects (id, name, organization_id) VALUES (1, 'Project Alpha', 'org_456')"
+          ],
+          "authUser": {
+            "id": 3,
+            "organizationId": "org_456",
+            "role": "viewer"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "projects",
+            "organizationId": "org_456",
+            "permissions": {
+              "viewer": {
+                "table": { "read": true, "create": false, "update": false, "delete": false }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": { "Authorization": "Bearer viewer_token" },
+            "pathParams": { "tableId": 1, "recordId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when viewer lacks delete permission",
+            "expectedStatus": 403,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            },
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "You do not have permission to delete records in this table"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-DELETE-PERMISSIONS-ORG-ISOLATION-001",
+      "given": "An admin user from organization org_123",
+      "when": "Admin attempts to delete record from organization org_456",
+      "then": "Returns 404 Not Found (organization isolation)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, organization_id) VALUES (1, 'Alice Cooper', 'org_456')"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123"
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": { "Authorization": "Bearer admin_token" },
+            "pathParams": { "tableId": 1, "recordId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 when record belongs to different organization",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Record not found"
+            }
+          },
+          {
+            "description": "Record remains in database (not deleted)",
+            "executeQuery": "SELECT COUNT(*) as count FROM employees WHERE id=1 AND organization_id='org_456'",
+            "expected": { "count": 1 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-DELETE-PERMISSIONS-ADMIN-FULL-ACCESS-001",
+      "given": "An admin user with full delete permissions",
+      "when": "Admin deletes a record from their organization",
+      "then": "Returns 204 No Content and record is deleted",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, organization_id) VALUES (1, 'Alice Cooper', 'org_123')"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "admin": {
+                "table": { "read": true, "create": true, "update": true, "delete": true }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": { "Authorization": "Bearer admin_token" },
+            "pathParams": { "tableId": 1, "recordId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 204 No Content",
+            "expectedStatus": 204
+          },
+          {
+            "description": "Record is deleted from database",
+            "executeQuery": "SELECT COUNT(*) as count FROM employees WHERE id=1",
+            "expected": { "count": 0 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-DELETE-PERMISSIONS-OWNER-FULL-ACCESS-001",
+      "given": "An owner user with full delete permissions",
+      "when": "Owner deletes a record from their organization",
+      "then": "Returns 204 No Content and record is deleted",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), status VARCHAR(50), organization_id VARCHAR(255))",
+            "INSERT INTO projects (id, name, status, organization_id) VALUES (1, 'Project Alpha', 'active', 'org_789')"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_789",
+            "role": "owner"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "projects",
+            "organizationId": "org_789",
+            "permissions": {
+              "owner": {
+                "table": { "read": true, "create": true, "update": true, "delete": true }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": { "Authorization": "Bearer owner_token" },
+            "pathParams": { "tableId": 1, "recordId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 204 No Content",
+            "expectedStatus": 204
+          },
+          {
+            "description": "Record is deleted from database",
+            "executeQuery": "SELECT COUNT(*) as count FROM projects WHERE id=1",
+            "expected": { "count": 0 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-DELETE-PERMISSIONS-CROSS-ORG-PREVENTION-001",
+      "given": "A record with organization_id='org_456' and admin from org_123",
+      "when": "Admin attempts to delete record from different organization",
+      "then": "Returns 404 Not Found (not 403 - prevents org enumeration)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, email, organization_id) VALUES (1, 'Bob Smith', 'bob@example.com', 'org_456')"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "admin": {
+                "table": { "read": true, "create": true, "update": true, "delete": true }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": { "Authorization": "Bearer admin_token" },
+            "pathParams": { "tableId": 1, "recordId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 to prevent organization enumeration",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Record not found"
+            }
+          },
+          {
+            "description": "Record remains in database (not deleted)",
+            "executeQuery": "SELECT COUNT(*) as count FROM employees WHERE id=1 AND organization_id='org_456'",
+            "expected": { "count": 1 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-DELETE-PERMISSIONS-COMBINED-SCENARIO-001",
+      "given": "A member without delete permission tries to delete record from different org",
+      "when": "Member attempts delete with both permission and org violations",
+      "then": "Returns 404 Not Found (org isolation checked first)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, organization_id) VALUES (1, 'Alice Cooper', 'org_456')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": { "Authorization": "Bearer member_token" },
+            "pathParams": { "tableId": 1, "recordId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 (org isolation checked before permissions)",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Record not found"
+            }
+          }
+        ]
+      }
     }
   ]
 }

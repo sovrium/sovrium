@@ -1,23 +1,193 @@
 {
   "$id": "default.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "default",
+  "title": "Multi-Select Field Default Value",
+  "description": "Default array of option values when no value is provided during INSERT. PostgreSQL DEFAULT constraint with TEXT[] (array) type for multiple selections from predefined options.",
   "type": "array",
   "items": {
     "type": "string"
   },
+  "examples": [["option_1", "option_2"], ["tag_important"], []],
   "x-specs": [
     {
       "id": "APP-FIELD-MULTI-SELECT-DEFAULT-001",
-      "given": "user provides default array",
-      "when": "validating input",
-      "then": "items should be processed in order"
+      "given": "multi-select field with default: ['tag_1', 'tag_2']",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL DEFAULT constraint provides default array of options",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE articles (id SERIAL PRIMARY KEY, title VARCHAR(255), tags TEXT[] DEFAULT ARRAY['tag_1', 'tag_2'])",
+            "INSERT INTO articles (title) VALUES ('Article A')"
+          ],
+          "fieldConfig": {
+            "name": "tags",
+            "type": "multi-select",
+            "options": [
+              {
+                "id": "tag_1",
+                "value": "Technology"
+              },
+              {
+                "id": "tag_2",
+                "value": "Programming"
+              },
+              {
+                "id": "tag_3",
+                "value": "Design"
+              }
+            ],
+            "default": ["tag_1", "tag_2"]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT constraint with array",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='articles' AND column_name='tags'",
+            "expected": {
+              "column_default": "'{tag_1,tag_2}'::text[]"
+            }
+          },
+          {
+            "description": "INSERT without value uses default array",
+            "executeQuery": "SELECT tags FROM articles WHERE title = 'Article A'",
+            "expected": {
+              "tags": ["tag_1", "tag_2"]
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-MULTI-SELECT-DEFAULT-002",
-      "given": "default array is empty",
-      "when": "validating input",
-      "then": "behavior should follow optional/required rules"
+      "given": "multi-select field with empty array default: []",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL DEFAULT constraint provides empty array",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE posts (id SERIAL PRIMARY KEY, content TEXT, categories TEXT[] DEFAULT ARRAY[]::TEXT[])",
+            "INSERT INTO posts (content) VALUES ('Post content')"
+          ],
+          "fieldConfig": {
+            "name": "categories",
+            "type": "multi-select",
+            "options": [
+              {
+                "id": "cat_1",
+                "value": "News"
+              },
+              {
+                "id": "cat_2",
+                "value": "Updates"
+              }
+            ],
+            "default": []
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT constraint with empty array",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='posts' AND column_name='categories'",
+            "expected": {
+              "column_default": "'{}'::text[]"
+            }
+          },
+          {
+            "description": "INSERT without value uses empty array",
+            "executeQuery": "SELECT categories FROM posts WHERE content = 'Post content'",
+            "expected": {
+              "categories": []
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-MULTI-SELECT-DEFAULT-003",
+      "given": "multi-select field without default specified",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL inserts NULL",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), labels TEXT[])",
+            "INSERT INTO projects (name) VALUES ('Project Alpha')"
+          ],
+          "fieldConfig": {
+            "name": "labels",
+            "type": "multi-select",
+            "options": [
+              {
+                "id": "label_1",
+                "value": "Active"
+              },
+              {
+                "id": "label_2",
+                "value": "Archived"
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has no DEFAULT constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='projects' AND column_name='labels'",
+            "expected": {
+              "column_default": null
+            }
+          },
+          {
+            "description": "INSERT without value results in NULL",
+            "executeQuery": "SELECT labels FROM projects WHERE name = 'Project Alpha'",
+            "expected": {
+              "labels": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-MULTI-SELECT-DEFAULT-004",
+      "given": "multi-select field with default and explicit value",
+      "when": "INSERT with specific options array",
+      "then": "PostgreSQL uses explicit value, ignoring default",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE documents (id SERIAL PRIMARY KEY, title VARCHAR(255), flags TEXT[] DEFAULT ARRAY['flag_1'])",
+            "INSERT INTO documents (title, flags) VALUES ('Doc A', ARRAY['flag_2', 'flag_3'])"
+          ],
+          "fieldConfig": {
+            "name": "flags",
+            "type": "multi-select",
+            "options": [
+              {
+                "id": "flag_1",
+                "value": "Important"
+              },
+              {
+                "id": "flag_2",
+                "value": "Urgent"
+              },
+              {
+                "id": "flag_3",
+                "value": "Review"
+              }
+            ],
+            "default": ["flag_1"]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Explicit value overrides default",
+            "executeQuery": "SELECT flags FROM documents WHERE title = 'Doc A'",
+            "expected": {
+              "flags": ["flag_2", "flag_3"]
+            }
+          }
+        ]
+      }
     }
   ]
 }

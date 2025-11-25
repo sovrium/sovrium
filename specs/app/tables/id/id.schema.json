@@ -10,19 +10,64 @@
       "id": "APP-TABLES-ID-001",
       "given": "a new entity is created",
       "when": "the system assigns an ID",
-      "then": "it should be unique within the parent collection"
+      "then": "it should be unique within the parent collection",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "it should be unique within the parent collection",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-ID-002",
       "given": "an entity exists",
       "when": "attempting to modify its ID",
-      "then": "the system should prevent changes (read-only constraint)"
+      "then": "the system should prevent changes (read-only constraint)",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "the system should prevent changes (read-only constraint)",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-ID-003",
       "given": "a client requests an entity by ID",
       "when": "the ID is valid",
-      "then": "the entity should be retrieved successfully"
+      "then": "the entity should be retrieved successfully",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "the entity should be retrieved successfully",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
     }
   ]
 }

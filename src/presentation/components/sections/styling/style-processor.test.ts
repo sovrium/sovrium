@@ -292,7 +292,12 @@ describe('Style Processor', () => {
 
     test('processes object style', () => {
       const style = { color: 'blue', margin: '5px' }
-      const result = processComponentStyle('section' as Component['type'], style, undefined, undefined)
+      const result = processComponentStyle(
+        'section' as Component['type'],
+        style,
+        undefined,
+        undefined
+      )
       expect(result).toMatchObject(style)
     })
 
@@ -403,7 +408,12 @@ describe('Style Processor', () => {
 
     test('extracts CSS properties from props', () => {
       const props = { maxWidth: '1200px', minHeight: '400px', backgroundColor: '#f0f0f0' }
-      const result = processComponentStyle('section' as Component['type'], undefined, undefined, props)
+      const result = processComponentStyle(
+        'section' as Component['type'],
+        undefined,
+        undefined,
+        props
+      )
       expect(result).toBeDefined()
       expect(result).toHaveProperty('maxWidth', '1200px')
       expect(result).toHaveProperty('minHeight', '400px')

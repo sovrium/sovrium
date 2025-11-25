@@ -118,24 +118,10 @@ function LanguageSwitcherScripts({
 }
 
 /**
- * Checks if scroll animation script should be loaded
+ * Renders banner dismiss script if dismissible
  */
-function shouldLoadScrollAnimation(
-  page: Page,
-  theme: Theme | undefined
-): boolean {
-  const hasSections = page.sections && page.sections.length > 0
-  const hasScaleUpAnimation = theme?.animations?.scaleUp
-  return hasSections || !!hasScaleUpAnimation
-}
-
-/**
- * Renders banner dismiss script if needed
- */
-function renderBannerScript(page: Page): ReactElement | undefined {
-  if (!page.layout?.banner?.dismissible) {
-    return undefined
-  }
+function BannerDismissScript({ page }: { readonly page: Page }): ReactElement | undefined {
+  if (!page.layout?.banner?.dismissible) return undefined
   return (
     <script
       src="/assets/banner-dismiss.js"
@@ -147,13 +133,15 @@ function renderBannerScript(page: Page): ReactElement | undefined {
 /**
  * Renders scroll animation script if needed
  */
-function renderScrollAnimationScript(
-  page: Page,
-  theme: Theme | undefined
-): ReactElement | undefined {
-  if (!shouldLoadScrollAnimation(page, theme)) {
-    return undefined
-  }
+function ScrollAnimationScript({
+  page,
+  theme,
+}: {
+  readonly page: Page
+  readonly theme: Theme | undefined
+}): ReactElement | undefined {
+  const needsAnimation = (page.sections && page.sections.length > 0) || theme?.animations?.scaleUp
+  if (!needsAnimation) return undefined
   return (
     <script
       src="/assets/scroll-animation.js"
@@ -163,12 +151,10 @@ function renderScrollAnimationScript(
 }
 
 /**
- * Renders feature flags window config if configured
+ * Renders feature flags configuration if configured
  */
-function renderFeatureFlags(page: Page): ReactElement | undefined {
-  if (!page.scripts?.features) {
-    return undefined
-  }
+function FeatureFlagsScript({ page }: { readonly page: Page }): ReactElement | undefined {
+  if (!page.scripts?.features) return undefined
   return renderWindowConfig({
     windowKey: 'FEATURES',
     data: page.scripts.features,
@@ -188,11 +174,11 @@ function renderConditionalScripts(config: {
   const { page, theme, languages, direction } = config
   return (
     <>
-      {/* Client-side banner dismiss functionality - inject when banner is dismissible */}
-      {renderBannerScript(page)}
-      {/* Client-side scroll animation functionality - inject when page has sections or theme has scaleUp */}
-      {renderScrollAnimationScript(page, theme)}
-      {/* Client-side language switcher functionality - always inject when languages configured */}
+      <BannerDismissScript page={page} />
+      <ScrollAnimationScript
+        page={page}
+        theme={theme}
+      />
       {languages && (
         <LanguageSwitcherScripts
           page={page}
@@ -201,8 +187,7 @@ function renderConditionalScripts(config: {
           direction={direction}
         />
       )}
-      {/* Client-side feature flags - inject when features configured */}
-      {renderFeatureFlags(page)}
+      <FeatureFlagsScript page={page} />
     </>
   )
 }

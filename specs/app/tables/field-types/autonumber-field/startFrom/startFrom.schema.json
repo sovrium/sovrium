@@ -1,23 +1,140 @@
 {
   "$id": "startFrom.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Starting number",
-  "description": "Starting number",
+  "title": "Autonumber Start Value",
+  "description": "Starting number for autonumber sequence. Implemented via PostgreSQL CREATE SEQUENCE with START WITH clause. Minimum value is 1. Default is 1. Commonly used to start invoice numbers at 1000, order numbers at 100, etc.",
   "type": "integer",
   "default": 1,
   "minimum": 1,
+  "examples": [1, 100, 1000, 10000],
   "x-specs": [
     {
       "id": "APP-FIELD-AUTONUMBER-STARTFROM-001",
-      "given": "user provides startFrom >= 1",
-      "when": "validating input",
-      "then": "value should be accepted"
+      "given": "autonumber field with startFrom=1000",
+      "when": "sequence created with START WITH 1000",
+      "then": "PostgreSQL sequence generates numbers starting from 1000",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE SEQUENCE orders_order_num_seq START WITH 1000 INCREMENT BY 1",
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, order_num INTEGER NOT NULL UNIQUE DEFAULT nextval('orders_order_num_seq'))",
+            "INSERT INTO orders (id) VALUES (DEFAULT), (DEFAULT), (DEFAULT)"
+          ],
+          "fieldConfig": {
+            "name": "order_num",
+            "type": "autonumber",
+            "startFrom": 1000
+          }
+        },
+        "assertions": [
+          {
+            "description": "Sequence start value is 1000",
+            "executeQuery": "SELECT start_value FROM pg_sequences WHERE sequencename = 'orders_order_num_seq'",
+            "expected": {
+              "start_value": 1000
+            }
+          },
+          {
+            "description": "First record gets number 1000",
+            "executeQuery": "SELECT order_num FROM orders WHERE id = 1",
+            "expected": {
+              "order_num": 1000
+            }
+          },
+          {
+            "description": "Second record gets number 1001",
+            "executeQuery": "SELECT order_num FROM orders WHERE id = 2",
+            "expected": {
+              "order_num": 1001
+            }
+          },
+          {
+            "description": "Third record gets number 1002",
+            "executeQuery": "SELECT order_num FROM orders WHERE id = 3",
+            "expected": {
+              "order_num": 1002
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-AUTONUMBER-STARTFROM-002",
-      "given": "user provides startFrom < 1",
-      "when": "validating input",
-      "then": "error should enforce minimum value"
+      "given": "autonumber field with default startFrom=1 (not specified)",
+      "when": "sequence created with default START WITH 1",
+      "then": "PostgreSQL sequence generates numbers starting from 1",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE SEQUENCE invoices_invoice_num_seq START WITH 1 INCREMENT BY 1",
+            "CREATE TABLE invoices (id SERIAL PRIMARY KEY, invoice_num INTEGER NOT NULL UNIQUE DEFAULT nextval('invoices_invoice_num_seq'))",
+            "INSERT INTO invoices (id) VALUES (DEFAULT), (DEFAULT)"
+          ],
+          "fieldConfig": {
+            "name": "invoice_num",
+            "type": "autonumber"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Sequence start value defaults to 1",
+            "executeQuery": "SELECT start_value FROM pg_sequences WHERE sequencename = 'invoices_invoice_num_seq'",
+            "expected": {
+              "start_value": 1
+            }
+          },
+          {
+            "description": "First record gets number 1",
+            "executeQuery": "SELECT invoice_num FROM invoices WHERE id = 1",
+            "expected": {
+              "invoice_num": 1
+            }
+          },
+          {
+            "description": "Second record gets number 2",
+            "executeQuery": "SELECT invoice_num FROM invoices WHERE id = 2",
+            "expected": {
+              "invoice_num": 2
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-AUTONUMBER-STARTFROM-003",
+      "given": "autonumber field with startFrom=100",
+      "when": "sequence created with START WITH 100",
+      "then": "PostgreSQL sequence generates numbers starting from 100",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE SEQUENCE tickets_ticket_num_seq START WITH 100 INCREMENT BY 1",
+            "CREATE TABLE tickets (id SERIAL PRIMARY KEY, ticket_num INTEGER NOT NULL UNIQUE DEFAULT nextval('tickets_ticket_num_seq'))",
+            "INSERT INTO tickets (id) VALUES (DEFAULT)"
+          ],
+          "fieldConfig": {
+            "name": "ticket_num",
+            "type": "autonumber",
+            "startFrom": 100
+          }
+        },
+        "assertions": [
+          {
+            "description": "Sequence start value is 100",
+            "executeQuery": "SELECT start_value FROM pg_sequences WHERE sequencename = 'tickets_ticket_num_seq'",
+            "expected": {
+              "start_value": 100
+            }
+          },
+          {
+            "description": "First record gets number 100",
+            "executeQuery": "SELECT ticket_num FROM tickets WHERE id = 1",
+            "expected": {
+              "ticket_num": 100
+            }
+          }
+        ]
+      }
     }
   ]
 }

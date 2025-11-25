@@ -7,15 +7,138 @@
   "x-specs": [
     {
       "id": "APP-FIELD-DECIMAL-MIN-001",
-      "given": "user provides min",
-      "when": "validating input",
-      "then": "numeric value should be accepted"
+      "given": "decimal field with min: 0.0",
+      "when": "field migration creates CHECK constraint",
+      "then": "PostgreSQL rejects decimal values below minimum",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE measurements (id SERIAL PRIMARY KEY, value DECIMAL(10,2) CHECK (value >= 0.0))",
+            "INSERT INTO measurements (value) VALUES (0.0), (10.5), (99.99)"
+          ],
+          "fieldConfig": {
+            "name": "value",
+            "type": "decimal",
+            "min": 0.0
+          }
+        },
+        "assertions": [
+          {
+            "description": "CHECK constraint exists for min value",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%value%' AND check_clause LIKE '%>= 0.0%'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Value at minimum (0.0) accepted",
+            "executeQuery": "SELECT value FROM measurements WHERE value = 0.0",
+            "expected": {
+              "value": 0.0
+            }
+          },
+          {
+            "description": "Value below minimum rejected",
+            "executeQuery": "INSERT INTO measurements (value) VALUES (-0.01)",
+            "expectError": "violates check constraint"
+          },
+          {
+            "description": "Decimal value above minimum accepted",
+            "executeQuery": "INSERT INTO measurements (value) VALUES (25.75) RETURNING value",
+            "expected": {
+              "value": 25.75
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-DECIMAL-MIN-002",
-      "given": "user provides non-numeric min",
-      "when": "validating input",
-      "then": "error should require number"
+      "given": "decimal field with min: -273.15 (absolute zero)",
+      "when": "INSERT with value below min",
+      "then": "PostgreSQL CHECK constraint rejects value",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE temperatures (id SERIAL PRIMARY KEY, celsius DECIMAL(6,2) CHECK (celsius >= -273.15))",
+            "INSERT INTO temperatures (celsius) VALUES (-273.15), (0.0), (100.0)"
+          ],
+          "fieldConfig": {
+            "name": "celsius",
+            "type": "decimal",
+            "min": -273.15
+          }
+        },
+        "assertions": [
+          {
+            "description": "CHECK constraint enforces min -273.15",
+            "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%celsius%'",
+            "expected": {
+              "check_clause": "(celsius >= '-273.15'::numeric)"
+            }
+          },
+          {
+            "description": "Exact minimum (-273.15) accepted",
+            "executeQuery": "SELECT celsius FROM temperatures WHERE celsius = -273.15",
+            "expected": {
+              "celsius": -273.15
+            }
+          },
+          {
+            "description": "Below minimum rejected",
+            "executeQuery": "INSERT INTO temperatures (celsius) VALUES (-273.16)",
+            "expectError": "violates check constraint"
+          },
+          {
+            "description": "Above minimum accepted",
+            "executeQuery": "INSERT INTO temperatures (celsius) VALUES (37.5) RETURNING celsius",
+            "expected": {
+              "celsius": 37.5
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-DECIMAL-MIN-003",
+      "given": "decimal field with no min specified",
+      "when": "any decimal value inserted",
+      "then": "PostgreSQL accepts all DECIMAL range values",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE balances (id SERIAL PRIMARY KEY, amount DECIMAL(15,2))",
+            "INSERT INTO balances (amount) VALUES (-9999.99), (0.0), (9999.99)"
+          ],
+          "fieldConfig": {
+            "name": "amount",
+            "type": "decimal"
+          }
+        },
+        "assertions": [
+          {
+            "description": "No CHECK constraint for min",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%amount%'",
+            "expected": {
+              "count": 0
+            }
+          },
+          {
+            "description": "Negative decimal values accepted",
+            "executeQuery": "SELECT amount FROM balances WHERE amount = -9999.99",
+            "expected": {
+              "amount": -9999.99
+            }
+          },
+          {
+            "description": "Large negative value accepted",
+            "executeQuery": "INSERT INTO balances (amount) VALUES (-50000.00) RETURNING amount",
+            "expected": {
+              "amount": -50000.0
+            }
+          }
+        ]
+      }
     }
   ]
 }

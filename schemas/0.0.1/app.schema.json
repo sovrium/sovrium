@@ -81,11 +81,61 @@
       "description": "Child elements array for block templates (components or strings)",
       "title": "Block Children"
     },
+    "NavLinks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label", "href"],
+        "properties": {
+          "label": { "type": "string", "description": "Link text" },
+          "href": {
+            "type": "string",
+            "description": "Link destination (URL or anchor)"
+          },
+          "target": {
+            "type": "string",
+            "enum": ["_self", "_blank", "_parent", "_top"],
+            "description": "Link target"
+          },
+          "icon": { "type": "string", "description": "Optional icon name" },
+          "badge": {
+            "type": "string",
+            "description": "Optional badge text (e.g., 'New', 'Beta')"
+          },
+          "children": { "$ref": "#/$defs/NavLinks" }
+        },
+        "additionalProperties": false,
+        "description": "Navigation link item"
+      },
+      "description": "Array of navigation link items",
+      "title": "Navigation Links"
+    },
+    "SidebarItems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["link", "group", "divider"],
+            "description": "Sidebar item type"
+          },
+          "label": { "type": "string", "description": "Item label" },
+          "href": { "type": "string", "description": "Link destination" },
+          "icon": { "type": "string", "description": "Item icon" },
+          "children": { "$ref": "#/$defs/SidebarItems" }
+        },
+        "additionalProperties": false,
+        "description": "Sidebar item"
+      },
+      "description": "Sidebar items array"
+    },
     "Pages": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["path", "sections"],
+        "required": ["name", "path", "sections"],
         "properties": {
           "id": { "$ref": "#/$defs/PageId" },
           "name": {
@@ -98,7 +148,7 @@
           },
           "path": {
             "type": "string",
-            "description": "URL path for routing and navigation",
+            "description": "URL path for routing and navigation (supports dynamic parameters with :param)",
             "title": "Path",
             "minLength": 1,
             "examples": [
@@ -106,9 +156,11 @@
               "/customers",
               "/products/inventory",
               "/admin/settings",
-              "/reports/sales"
+              "/reports/sales",
+              "/blog/:slug",
+              "/products/:id"
             ],
-            "pattern": "^\\/[a-z0-9-/]*$"
+            "pattern": "^\\/[a-z0-9-_/:]*$"
           },
           "meta": {
             "type": "object",
@@ -144,6 +196,26 @@
                 "type": "string",
                 "description": "Canonical URL to prevent duplicate content issues"
               },
+              "robots": {
+                "type": "string",
+                "description": "Robot directives (e.g., noindex, nofollow, noindex, nofollow)"
+              },
+              "noindex": {
+                "type": "boolean",
+                "description": "Prevent indexing by search engines (shorthand for robots: noindex)"
+              },
+              "priority": {
+                "type": "number",
+                "description": "Sitemap priority (0.0 to 1.0) for search engine crawling hints",
+                "title": "between(0, 1)",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "changefreq": {
+                "type": "string",
+                "enum": ["always", "hourly", "daily", "weekly", "monthly", "yearly", "never"],
+                "description": "Sitemap change frequency hint for search engines"
+              },
               "favicon": {
                 "type": "string",
                 "description": "Default favicon path",
@@ -151,46 +223,88 @@
                 "pattern": "^\\.\\/.+\\.(ico|png|svg)$"
               },
               "favicons": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "required": ["rel", "href"],
-                  "properties": {
-                    "rel": {
-                      "type": "string",
-                      "enum": ["icon", "apple-touch-icon", "manifest", "mask-icon"],
-                      "description": "Favicon relationship type"
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["rel", "href"],
+                      "properties": {
+                        "rel": {
+                          "type": "string",
+                          "enum": ["icon", "apple-touch-icon", "manifest", "mask-icon"],
+                          "description": "Favicon relationship type"
+                        },
+                        "type": {
+                          "type": "string",
+                          "description": "MIME type",
+                          "examples": ["image/png", "image/x-icon", "image/svg+xml"],
+                          "pattern": "^image\\/"
+                        },
+                        "sizes": {
+                          "type": "string",
+                          "description": "Icon dimensions",
+                          "examples": ["16x16", "32x32", "180x180", "192x192"],
+                          "pattern": "^[0-9]+x[0-9]+$"
+                        },
+                        "href": {
+                          "type": "string",
+                          "description": "Path to the favicon file",
+                          "pattern": "^\\.\\/"
+                        },
+                        "color": {
+                          "type": "string",
+                          "description": "Color for mask-icon (Safari pinned tab)",
+                          "title": "Hex Color",
+                          "examples": ["#007BFF", "#28A745", "#DC3545", "#5BBAD5"],
+                          "pattern": "^#[0-9A-Fa-f]{6}$"
+                        }
+                      },
+                      "additionalProperties": false,
+                      "description": "Favicon item"
                     },
-                    "type": {
-                      "type": "string",
-                      "description": "MIME type",
-                      "examples": ["image/png", "image/x-icon", "image/svg+xml"],
-                      "pattern": "^image\\/"
-                    },
-                    "sizes": {
-                      "type": "string",
-                      "description": "Icon dimensions",
-                      "examples": ["16x16", "32x32", "180x180", "192x192"],
-                      "pattern": "^[0-9]+x[0-9]+$"
-                    },
-                    "href": {
-                      "type": "string",
-                      "description": "Path to the favicon file",
-                      "pattern": "^\\.\\/"
-                    },
-                    "color": {
-                      "type": "string",
-                      "description": "Color for mask-icon (Safari pinned tab)",
-                      "title": "Hex Color",
-                      "examples": ["#007BFF", "#28A745", "#DC3545", "#5BBAD5"],
-                      "pattern": "^#[0-9A-Fa-f]{6}$"
-                    }
+                    "description": "Multiple favicon sizes and types for different devices",
+                    "title": "Favicon Set"
                   },
-                  "additionalProperties": false,
-                  "description": "Favicon item"
-                },
-                "description": "Multiple favicon sizes and types for different devices",
-                "title": "Favicon Set"
+                  {
+                    "type": "object",
+                    "required": [],
+                    "properties": {
+                      "icon": {
+                        "type": "string",
+                        "description": "Default icon (SVG or ICO)"
+                      },
+                      "appleTouchIcon": {
+                        "type": "string",
+                        "description": "iOS home screen icon"
+                      },
+                      "sizes": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": ["size", "href"],
+                          "properties": {
+                            "size": {
+                              "type": "string",
+                              "description": "Icon dimensions (e.g., 32x32, 16x16)",
+                              "pattern": "^[0-9]+x[0-9]+$"
+                            },
+                            "href": {
+                              "type": "string",
+                              "description": "Path to the favicon file"
+                            }
+                          },
+                          "additionalProperties": false,
+                          "description": "Favicon size specification"
+                        },
+                        "description": "Size-specific favicons"
+                      }
+                    },
+                    "additionalProperties": false,
+                    "description": "Helper configuration for favicons with named properties",
+                    "title": "Favicons Configuration"
+                  }
+                ]
               },
               "stylesheet": {
                 "type": "string",
@@ -374,929 +488,9 @@
                 "title": "Twitter Card Metadata"
               },
               "schema": {
-                "type": "object",
-                "required": [],
-                "properties": {
-                  "organization": {
-                    "type": "object",
-                    "required": ["@context", "@type", "name"],
-                    "properties": {
-                      "@context": {
-                        "type": "string",
-                        "enum": ["https://schema.org"],
-                        "description": "Schema.org context"
-                      },
-                      "@type": {
-                        "type": "string",
-                        "enum": ["Organization"],
-                        "description": "Schema.org type"
-                      },
-                      "name": {
-                        "type": "string",
-                        "description": "Organization name"
-                      },
-                      "description": {
-                        "type": "string",
-                        "description": "Organization description"
-                      },
-                      "url": {
-                        "type": "string",
-                        "description": "Organization website URL"
-                      },
-                      "logo": {
-                        "type": "string",
-                        "description": "Organization logo URL"
-                      },
-                      "image": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Organization image URL"
-                          },
-                          {
-                            "type": "array",
-                            "items": {
-                              "type": "string",
-                              "description": "Organization image URL"
-                            }
-                          }
-                        ],
-                        "description": "Organization image(s)"
-                      },
-                      "email": {
-                        "type": "string",
-                        "description": "Contact email"
-                      },
-                      "telephone": {
-                        "type": "string",
-                        "description": "Contact phone number"
-                      },
-                      "address": {
-                        "type": "object",
-                        "required": ["@type"],
-                        "properties": {
-                          "@type": {
-                            "type": "string",
-                            "enum": ["PostalAddress"],
-                            "description": "Schema.org type"
-                          },
-                          "streetAddress": {
-                            "type": "string",
-                            "description": "Street address"
-                          },
-                          "addressLocality": {
-                            "type": "string",
-                            "description": "City or locality"
-                          },
-                          "addressRegion": {
-                            "type": "string",
-                            "description": "State or region"
-                          },
-                          "postalCode": {
-                            "type": "string",
-                            "description": "Postal or ZIP code"
-                          },
-                          "addressCountry": {
-                            "type": "string",
-                            "description": "ISO 3166-1 alpha-2 country code",
-                            "examples": ["US", "FR", "GB", "DE"],
-                            "pattern": "^[A-Z]{2}$"
-                          }
-                        },
-                        "additionalProperties": false,
-                        "description": "Schema.org PostalAddress structured data",
-                        "title": "Postal Address"
-                      },
-                      "sameAs": {
-                        "type": "array",
-                        "items": {
-                          "type": "string",
-                          "description": "Social media profile URL"
-                        },
-                        "description": "Social media profile URLs",
-                        "examples": [["https://facebook.com/myorg", "https://twitter.com/myorg"]]
-                      },
-                      "founder": {
-                        "type": "string",
-                        "description": "Organization founder name"
-                      },
-                      "foundingDate": {
-                        "type": "string",
-                        "description": "Date organization was founded"
-                      },
-                      "employees": {
-                        "$ref": "#/$defs/Int",
-                        "description": "Number of employees",
-                        "title": "greaterThanOrEqualTo(1)",
-                        "minimum": 1
-                      }
-                    },
-                    "additionalProperties": false,
-                    "description": "Schema.org Organization structured data",
-                    "title": "Organization Schema"
-                  },
-                  "person": {
-                    "type": "object",
-                    "required": ["@context", "@type", "name"],
-                    "properties": {
-                      "@context": {
-                        "type": "string",
-                        "enum": ["https://schema.org"],
-                        "description": "Schema.org context"
-                      },
-                      "@type": {
-                        "type": "string",
-                        "enum": ["Person"],
-                        "description": "Schema.org type"
-                      },
-                      "name": {
-                        "type": "string",
-                        "description": "Person's full name"
-                      },
-                      "givenName": {
-                        "type": "string",
-                        "description": "First name"
-                      },
-                      "familyName": {
-                        "type": "string",
-                        "description": "Last name"
-                      },
-                      "email": {
-                        "type": "string",
-                        "description": "Email address"
-                      },
-                      "telephone": {
-                        "type": "string",
-                        "description": "Phone number"
-                      },
-                      "url": {
-                        "type": "string",
-                        "description": "Person's website or profile"
-                      },
-                      "image": {
-                        "type": "string",
-                        "description": "Person's photo URL"
-                      },
-                      "jobTitle": {
-                        "type": "string",
-                        "description": "Professional role"
-                      },
-                      "worksFor": {
-                        "type": "object",
-                        "required": ["@type"],
-                        "properties": {
-                          "@type": {
-                            "type": "string",
-                            "enum": ["Organization"],
-                            "description": "Schema.org type"
-                          },
-                          "name": {
-                            "type": "string",
-                            "description": "Organization name"
-                          }
-                        },
-                        "additionalProperties": false,
-                        "description": "Person's employer organization"
-                      },
-                      "sameAs": {
-                        "type": "array",
-                        "items": {
-                          "type": "string",
-                          "description": "Social media profile URL"
-                        },
-                        "description": "Array of social media profile URLs"
-                      },
-                      "address": {
-                        "type": "object",
-                        "required": ["@type"],
-                        "properties": {
-                          "@type": {
-                            "type": "string",
-                            "enum": ["PostalAddress"],
-                            "description": "Schema.org type"
-                          },
-                          "streetAddress": {
-                            "type": "string",
-                            "description": "Street address"
-                          },
-                          "addressLocality": {
-                            "type": "string",
-                            "description": "City or locality"
-                          },
-                          "addressRegion": {
-                            "type": "string",
-                            "description": "State or region"
-                          },
-                          "postalCode": {
-                            "type": "string",
-                            "description": "Postal or ZIP code"
-                          },
-                          "addressCountry": {
-                            "type": "string",
-                            "description": "ISO 3166-1 alpha-2 country code",
-                            "examples": ["US", "FR", "GB", "DE"],
-                            "pattern": "^[A-Z]{2}$"
-                          }
-                        },
-                        "additionalProperties": false,
-                        "description": "Schema.org PostalAddress structured data",
-                        "title": "Postal Address"
-                      }
-                    },
-                    "additionalProperties": false,
-                    "description": "Schema.org Person structured data",
-                    "title": "Person Schema"
-                  },
-                  "localBusiness": {
-                    "type": "object",
-                    "required": ["@context", "@type", "name"],
-                    "properties": {
-                      "@context": {
-                        "type": "string",
-                        "enum": ["https://schema.org"],
-                        "description": "Schema.org context"
-                      },
-                      "@type": {
-                        "type": "string",
-                        "enum": ["LocalBusiness"],
-                        "description": "Schema.org type"
-                      },
-                      "name": {
-                        "type": "string",
-                        "description": "Business name"
-                      },
-                      "description": {
-                        "type": "string",
-                        "description": "Business description"
-                      },
-                      "url": {
-                        "type": "string",
-                        "description": "Business website URL"
-                      },
-                      "logo": {
-                        "type": "string",
-                        "description": "Business logo URL"
-                      },
-                      "image": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Business image URL"
-                          },
-                          {
-                            "type": "array",
-                            "items": {
-                              "type": "string",
-                              "description": "Business image URL"
-                            }
-                          }
-                        ],
-                        "description": "Business image(s)"
-                      },
-                      "email": {
-                        "type": "string",
-                        "description": "Contact email"
-                      },
-                      "telephone": {
-                        "type": "string",
-                        "description": "Contact phone number"
-                      },
-                      "priceRange": {
-                        "type": "string",
-                        "description": "Price range (e.g., '$-$$$$')"
-                      },
-                      "address": {
-                        "type": "object",
-                        "required": ["@type"],
-                        "properties": {
-                          "@type": {
-                            "type": "string",
-                            "enum": ["PostalAddress"],
-                            "description": "Schema.org type"
-                          },
-                          "streetAddress": {
-                            "type": "string",
-                            "description": "Street address"
-                          },
-                          "addressLocality": {
-                            "type": "string",
-                            "description": "City or locality"
-                          },
-                          "addressRegion": {
-                            "type": "string",
-                            "description": "State or region"
-                          },
-                          "postalCode": {
-                            "type": "string",
-                            "description": "Postal or ZIP code"
-                          },
-                          "addressCountry": {
-                            "type": "string",
-                            "description": "ISO 3166-1 alpha-2 country code",
-                            "examples": ["US", "FR", "GB", "DE"],
-                            "pattern": "^[A-Z]{2}$"
-                          }
-                        },
-                        "additionalProperties": false,
-                        "description": "Schema.org PostalAddress structured data",
-                        "title": "Postal Address"
-                      },
-                      "geo": {
-                        "type": "object",
-                        "required": ["@type"],
-                        "properties": {
-                          "@type": {
-                            "type": "string",
-                            "enum": ["GeoCoordinates"],
-                            "description": "Schema.org type"
-                          },
-                          "latitude": {
-                            "type": "string",
-                            "description": "Latitude"
-                          },
-                          "longitude": {
-                            "type": "string",
-                            "description": "Longitude"
-                          }
-                        },
-                        "additionalProperties": false,
-                        "description": "Geographic coordinates"
-                      },
-                      "sameAs": {
-                        "type": "array",
-                        "items": {
-                          "type": "string",
-                          "description": "Social media profile URL"
-                        },
-                        "description": "Social media profile URLs"
-                      },
-                      "openingHoursSpecification": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "required": ["@type"],
-                          "properties": {
-                            "@type": {
-                              "type": "string",
-                              "enum": ["OpeningHoursSpecification"],
-                              "description": "Schema.org type"
-                            },
-                            "dayOfWeek": {
-                              "type": "array",
-                              "items": {
-                                "type": "string",
-                                "enum": [
-                                  "Monday",
-                                  "Tuesday",
-                                  "Wednesday",
-                                  "Thursday",
-                                  "Friday",
-                                  "Saturday",
-                                  "Sunday"
-                                ],
-                                "description": "Day of the week"
-                              },
-                              "description": "Days these hours apply to"
-                            },
-                            "opens": {
-                              "type": "string",
-                              "description": "Opening time",
-                              "examples": ["09:00", "18:00"],
-                              "pattern": "^[0-9]{2}:[0-9]{2}$"
-                            },
-                            "closes": {
-                              "type": "string",
-                              "description": "Closing time",
-                              "examples": ["09:00", "18:00"],
-                              "pattern": "^[0-9]{2}:[0-9]{2}$"
-                            }
-                          },
-                          "additionalProperties": false,
-                          "description": "Opening hours specification"
-                        },
-                        "description": "Opening hours specifications"
-                      }
-                    },
-                    "additionalProperties": false,
-                    "description": "Schema.org LocalBusiness structured data",
-                    "title": "Local Business Schema"
-                  },
-                  "product": {
-                    "type": "object",
-                    "required": ["@context", "@type", "name"],
-                    "properties": {
-                      "@context": {
-                        "type": "string",
-                        "enum": ["https://schema.org"],
-                        "description": "Schema.org context"
-                      },
-                      "@type": {
-                        "type": "string",
-                        "enum": ["Product"],
-                        "description": "Schema.org type"
-                      },
-                      "name": {
-                        "type": "string",
-                        "description": "Product name"
-                      },
-                      "description": {
-                        "type": "string",
-                        "description": "Product description"
-                      },
-                      "image": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Product image URL"
-                          },
-                          {
-                            "type": "array",
-                            "items": {
-                              "type": "string",
-                              "description": "Product image URL"
-                            }
-                          }
-                        ],
-                        "description": "Product image(s)"
-                      },
-                      "brand": {
-                        "type": "object",
-                        "required": ["@type"],
-                        "properties": {
-                          "@type": {
-                            "type": "string",
-                            "enum": ["Brand"],
-                            "description": "Schema.org type"
-                          },
-                          "name": {
-                            "type": "string",
-                            "description": "Brand name"
-                          }
-                        },
-                        "additionalProperties": false,
-                        "description": "Product brand"
-                      },
-                      "sku": {
-                        "type": "string",
-                        "description": "Stock Keeping Unit"
-                      },
-                      "gtin": {
-                        "type": "string",
-                        "description": "Global Trade Item Number (UPC, EAN, ISBN)"
-                      },
-                      "offers": {
-                        "type": "object",
-                        "required": ["@type"],
-                        "properties": {
-                          "@type": {
-                            "type": "string",
-                            "enum": ["Offer"],
-                            "description": "Schema.org type"
-                          },
-                          "price": {
-                            "anyOf": [{ "type": "string" }, { "type": "number" }],
-                            "description": "Product price"
-                          },
-                          "priceCurrency": {
-                            "type": "string",
-                            "description": "ISO 4217 currency code",
-                            "examples": ["USD", "EUR", "GBP"],
-                            "pattern": "^[A-Z]{3}$"
-                          },
-                          "availability": {
-                            "type": "string",
-                            "description": "Stock availability status"
-                          },
-                          "url": {
-                            "type": "string",
-                            "description": "URL to purchase page"
-                          }
-                        },
-                        "additionalProperties": false,
-                        "description": "Product offer"
-                      },
-                      "aggregateRating": {
-                        "type": "object",
-                        "required": ["@type"],
-                        "properties": {
-                          "@type": {
-                            "type": "string",
-                            "enum": ["AggregateRating"],
-                            "description": "Schema.org type"
-                          },
-                          "ratingValue": {
-                            "type": "number",
-                            "description": "Average rating value"
-                          },
-                          "reviewCount": {
-                            "type": "integer",
-                            "description": "Total number of reviews",
-                            "title": "int"
-                          }
-                        },
-                        "additionalProperties": false,
-                        "description": "Aggregate rating"
-                      }
-                    },
-                    "additionalProperties": false,
-                    "description": "Schema.org Product structured data",
-                    "title": "Product Schema"
-                  },
-                  "article": {
-                    "type": "object",
-                    "required": ["@context", "@type", "headline"],
-                    "properties": {
-                      "@context": {
-                        "type": "string",
-                        "enum": ["https://schema.org"],
-                        "description": "Schema.org context"
-                      },
-                      "@type": {
-                        "type": "string",
-                        "enum": ["Article", "NewsArticle", "BlogPosting"],
-                        "description": "Article type"
-                      },
-                      "headline": {
-                        "type": "string",
-                        "description": "Article title"
-                      },
-                      "description": {
-                        "type": "string",
-                        "description": "Article summary"
-                      },
-                      "image": {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "description": "Article image URL"
-                          },
-                          {
-                            "type": "array",
-                            "items": {
-                              "type": "string",
-                              "description": "Article image URL"
-                            }
-                          }
-                        ],
-                        "description": "Article image(s)"
-                      },
-                      "author": {
-                        "anyOf": [
-                          { "type": "string" },
-                          {
-                            "type": "object",
-                            "required": ["@type"],
-                            "properties": {
-                              "@type": {
-                                "type": "string",
-                                "enum": ["Person", "Organization"],
-                                "description": "Author type"
-                              },
-                              "name": {
-                                "type": "string",
-                                "description": "Author name"
-                              },
-                              "url": {
-                                "type": "string",
-                                "description": "Author profile URL"
-                              }
-                            },
-                            "additionalProperties": false
-                          }
-                        ],
-                        "description": "Article author"
-                      },
-                      "datePublished": {
-                        "type": "string",
-                        "description": "Publication date"
-                      },
-                      "dateModified": {
-                        "type": "string",
-                        "description": "Last modification date"
-                      },
-                      "publisher": {
-                        "type": "object",
-                        "required": ["@type"],
-                        "properties": {
-                          "@type": {
-                            "type": "string",
-                            "enum": ["Organization"],
-                            "description": "Schema.org type"
-                          },
-                          "name": {
-                            "type": "string",
-                            "description": "Publisher name"
-                          },
-                          "logo": {
-                            "type": "object",
-                            "required": ["@type"],
-                            "properties": {
-                              "@type": {
-                                "type": "string",
-                                "enum": ["ImageObject"],
-                                "description": "Schema.org type"
-                              },
-                              "url": {
-                                "type": "string",
-                                "description": "Logo URL"
-                              }
-                            },
-                            "additionalProperties": false,
-                            "description": "Publisher logo"
-                          }
-                        },
-                        "additionalProperties": false,
-                        "description": "Article publisher"
-                      },
-                      "mainEntityOfPage": {
-                        "type": "string",
-                        "description": "Article's canonical URL"
-                      }
-                    },
-                    "additionalProperties": false,
-                    "description": "Schema.org Article structured data",
-                    "title": "Article Schema"
-                  },
-                  "breadcrumb": {
-                    "type": "object",
-                    "required": ["@context", "@type", "itemListElement"],
-                    "properties": {
-                      "@context": {
-                        "type": "string",
-                        "enum": ["https://schema.org"],
-                        "description": "Schema.org context"
-                      },
-                      "@type": {
-                        "type": "string",
-                        "enum": ["BreadcrumbList"],
-                        "description": "Schema.org type"
-                      },
-                      "itemListElement": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "required": ["@type", "position", "name"],
-                          "properties": {
-                            "@type": {
-                              "type": "string",
-                              "enum": ["ListItem"],
-                              "description": "Schema.org type"
-                            },
-                            "position": {
-                              "$ref": "#/$defs/Int",
-                              "description": "Item position in breadcrumb trail",
-                              "title": "greaterThanOrEqualTo(1)",
-                              "minimum": 1
-                            },
-                            "name": {
-                              "type": "string",
-                              "description": "Breadcrumb label"
-                            },
-                            "item": {
-                              "type": "string",
-                              "description": "URL to the breadcrumb page"
-                            }
-                          },
-                          "additionalProperties": false,
-                          "description": "Breadcrumb list item"
-                        },
-                        "description": "Array of breadcrumb items"
-                      }
-                    },
-                    "additionalProperties": false,
-                    "description": "Schema.org BreadcrumbList structured data",
-                    "title": "Breadcrumb Schema"
-                  },
-                  "faqPage": {
-                    "type": "object",
-                    "required": ["@context", "@type", "mainEntity"],
-                    "properties": {
-                      "@context": {
-                        "type": "string",
-                        "enum": ["https://schema.org"],
-                        "description": "Schema.org context"
-                      },
-                      "@type": {
-                        "type": "string",
-                        "enum": ["FAQPage"],
-                        "description": "Schema.org type"
-                      },
-                      "mainEntity": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "required": ["@type", "name", "acceptedAnswer"],
-                          "properties": {
-                            "@type": {
-                              "type": "string",
-                              "enum": ["Question"],
-                              "description": "Schema.org Question type"
-                            },
-                            "name": {
-                              "type": "string",
-                              "description": "The question text"
-                            },
-                            "acceptedAnswer": {
-                              "type": "object",
-                              "required": ["@type", "text"],
-                              "properties": {
-                                "@type": {
-                                  "type": "string",
-                                  "enum": ["Answer"],
-                                  "description": "Schema.org Answer type"
-                                },
-                                "text": {
-                                  "type": "string",
-                                  "description": "The answer text"
-                                }
-                              },
-                              "additionalProperties": false,
-                              "description": "FAQ answer"
-                            }
-                          },
-                          "additionalProperties": false,
-                          "description": "FAQ question"
-                        },
-                        "description": "Array of questions and answers"
-                      }
-                    },
-                    "additionalProperties": false,
-                    "description": "Schema.org FAQPage structured data",
-                    "title": "FAQ Page Schema"
-                  },
-                  "educationEvent": {
-                    "type": "object",
-                    "required": ["@type", "name", "startDate"],
-                    "properties": {
-                      "@type": {
-                        "type": "string",
-                        "enum": ["EducationEvent"],
-                        "description": "Schema.org type"
-                      },
-                      "name": { "type": "string", "description": "Event name" },
-                      "description": {
-                        "type": "string",
-                        "description": "Event description"
-                      },
-                      "startDate": {
-                        "type": "string",
-                        "description": "Event start date/time (ISO 8601)"
-                      },
-                      "endDate": {
-                        "type": "string",
-                        "description": "Event end date/time (ISO 8601)"
-                      },
-                      "eventAttendanceMode": {
-                        "type": "string",
-                        "enum": [
-                          "https://schema.org/OfflineEventAttendanceMode",
-                          "https://schema.org/OnlineEventAttendanceMode",
-                          "https://schema.org/MixedEventAttendanceMode"
-                        ],
-                        "description": "Event attendance mode"
-                      },
-                      "eventStatus": {
-                        "type": "string",
-                        "enum": [
-                          "https://schema.org/EventScheduled",
-                          "https://schema.org/EventCancelled",
-                          "https://schema.org/EventPostponed",
-                          "https://schema.org/EventRescheduled"
-                        ],
-                        "description": "Event status"
-                      },
-                      "location": {
-                        "type": "object",
-                        "required": ["@type"],
-                        "properties": {
-                          "@type": {
-                            "type": "string",
-                            "enum": ["Place"],
-                            "description": "Schema.org type"
-                          },
-                          "name": {
-                            "type": "string",
-                            "description": "Venue name"
-                          },
-                          "address": {
-                            "type": "object",
-                            "required": ["@type"],
-                            "properties": {
-                              "@type": {
-                                "type": "string",
-                                "enum": ["PostalAddress"],
-                                "description": "Schema.org type"
-                              },
-                              "streetAddress": {
-                                "type": "string",
-                                "description": "Street address"
-                              },
-                              "addressLocality": {
-                                "type": "string",
-                                "description": "City or locality"
-                              },
-                              "addressRegion": {
-                                "type": "string",
-                                "description": "State or region"
-                              },
-                              "postalCode": {
-                                "type": "string",
-                                "description": "Postal or ZIP code"
-                              },
-                              "addressCountry": {
-                                "type": "string",
-                                "description": "ISO 3166-1 alpha-2 country code",
-                                "examples": ["US", "FR", "GB", "DE"],
-                                "pattern": "^[A-Z]{2}$"
-                              }
-                            },
-                            "additionalProperties": false,
-                            "description": "Schema.org PostalAddress structured data",
-                            "title": "Postal Address"
-                          }
-                        },
-                        "additionalProperties": false,
-                        "description": "Event location"
-                      },
-                      "organizer": {
-                        "type": "object",
-                        "required": ["@type"],
-                        "properties": {
-                          "@type": {
-                            "type": "string",
-                            "enum": ["Organization", "Person"],
-                            "description": "Organizer type"
-                          },
-                          "name": {
-                            "type": "string",
-                            "description": "Organizer name"
-                          },
-                          "url": {
-                            "type": "string",
-                            "description": "Organizer URL"
-                          }
-                        },
-                        "additionalProperties": false,
-                        "description": "Event organizer"
-                      },
-                      "offers": {
-                        "type": "object",
-                        "required": ["@type"],
-                        "properties": {
-                          "@type": {
-                            "type": "string",
-                            "enum": ["Offer"],
-                            "description": "Schema.org type"
-                          },
-                          "price": {
-                            "anyOf": [{ "type": "string" }, { "type": "number" }],
-                            "description": "Ticket price"
-                          },
-                          "priceCurrency": {
-                            "type": "string",
-                            "description": "ISO 4217 currency code",
-                            "examples": ["USD", "EUR", "GBP"],
-                            "pattern": "^[A-Z]{3}$"
-                          },
-                          "availability": {
-                            "type": "string",
-                            "enum": [
-                              "https://schema.org/InStock",
-                              "https://schema.org/OutOfStock",
-                              "https://schema.org/PreOrder",
-                              "https://schema.org/SoldOut"
-                            ],
-                            "description": "Ticket availability status"
-                          },
-                          "url": {
-                            "type": "string",
-                            "description": "Ticket purchase URL"
-                          }
-                        },
-                        "additionalProperties": false,
-                        "description": "Event ticket offer"
-                      },
-                      "maximumAttendeeCapacity": {
-                        "$ref": "#/$defs/Int",
-                        "description": "Maximum number of attendees",
-                        "title": "greaterThanOrEqualTo(1)",
-                        "minimum": 1
-                      },
-                      "minimumAttendeeCapacity": {
-                        "$ref": "#/$defs/Int",
-                        "description": "Minimum number of attendees",
-                        "title": "greaterThanOrEqualTo(1)",
-                        "minimum": 1
-                      }
-                    },
-                    "additionalProperties": false,
-                    "description": "Schema.org EducationEvent structured data",
-                    "title": "Education Event Schema"
-                  }
-                },
-                "additionalProperties": false,
-                "description": "Schema.org structured data for search engine understanding",
-                "title": "Structured Data"
+                "$id": "/schemas/unknown",
+                "description": "Schema.org structured data - accepts orchestrator format (organization, faqPage, etc.) or direct Schema.org object (@context, @type, ...)",
+                "title": "unknown"
               },
               "preload": {
                 "type": "array",
@@ -1634,502 +828,565 @@
             "title": "Page Metadata"
           },
           "layout": {
-            "type": "object",
-            "required": [],
-            "properties": {
-              "banner": {
+            "anyOf": [
+              {
                 "type": "object",
                 "required": [],
                 "properties": {
-                  "enabled": {
-                    "type": "boolean",
-                    "description": "Whether to show the banner",
-                    "default": false
-                  },
-                  "message": {
-                    "type": "string",
-                    "description": "Banner message content"
-                  },
-                  "text": {
-                    "type": "string",
-                    "description": "Banner text content"
-                  },
-                  "link": {
+                  "banner": {
                     "type": "object",
-                    "required": ["href", "label"],
+                    "required": [],
                     "properties": {
-                      "href": { "type": "string", "description": "Link URL" },
-                      "label": { "type": "string", "description": "Link text" }
-                    },
-                    "additionalProperties": false,
-                    "description": "Banner link"
-                  },
-                  "gradient": {
-                    "type": "string",
-                    "description": "CSS gradient background"
-                  },
-                  "backgroundColor": {
-                    "type": "string",
-                    "description": "Hex color code in #RRGGBB format",
-                    "title": "Hex Color",
-                    "examples": ["#007BFF", "#28A745", "#DC3545", "#5BBAD5"],
-                    "pattern": "^#[0-9A-Fa-f]{6}$"
-                  },
-                  "textColor": {
-                    "type": "string",
-                    "description": "Hex color code in #RRGGBB format",
-                    "title": "Hex Color",
-                    "examples": ["#007BFF", "#28A745", "#DC3545", "#5BBAD5"],
-                    "pattern": "^#[0-9A-Fa-f]{6}$"
-                  },
-                  "dismissible": {
-                    "type": "boolean",
-                    "description": "Whether users can dismiss the banner",
-                    "default": false
-                  },
-                  "sticky": {
-                    "type": "boolean",
-                    "description": "Whether the banner sticks to the top on scroll",
-                    "default": false
-                  }
-                },
-                "additionalProperties": false,
-                "description": "Top banner/announcement bar configuration",
-                "title": "Banner Configuration"
-              },
-              "navigation": {
-                "type": "object",
-                "required": ["logo"],
-                "properties": {
-                  "logo": {
-                    "type": "string",
-                    "description": "Path to logo image"
-                  },
-                  "logoMobile": {
-                    "type": "string",
-                    "description": "Alternative logo for mobile devices"
-                  },
-                  "logoAlt": {
-                    "type": "string",
-                    "description": "Logo alt text for accessibility"
-                  },
-                  "sticky": {
-                    "type": "boolean",
-                    "description": "Whether navigation sticks to top on scroll",
-                    "default": false
-                  },
-                  "transparent": {
-                    "type": "boolean",
-                    "description": "Whether navigation has transparent background initially",
-                    "default": false
-                  },
-                  "links": {
-                    "type": "object",
-                    "required": ["desktop"],
-                    "properties": {
-                      "desktop": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "required": ["label", "href"],
-                          "properties": {
-                            "label": {
-                              "type": "string",
-                              "description": "Link text"
-                            },
-                            "href": {
-                              "type": "string",
-                              "description": "Link destination (URL or anchor)"
-                            },
-                            "target": {
-                              "type": "string",
-                              "enum": ["_self", "_blank", "_parent", "_top"],
-                              "description": "Link target"
-                            },
-                            "icon": {
-                              "type": "string",
-                              "description": "Optional icon name"
-                            },
-                            "badge": {
-                              "type": "string",
-                              "description": "Optional badge text (e.g., 'New', 'Beta')"
-                            },
-                            "children": { "$ref": "#/$defs/NavLinks" }
-                          },
-                          "additionalProperties": false,
-                          "description": "Navigation link item"
-                        },
-                        "description": "Array of navigation link items",
-                        "title": "Navigation Links"
+                      "enabled": {
+                        "type": "boolean",
+                        "description": "Whether to show the banner",
+                        "default": false
                       },
-                      "mobile": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "required": ["label", "href"],
-                          "properties": {
-                            "label": {
-                              "type": "string",
-                              "description": "Link text"
-                            },
-                            "href": {
-                              "type": "string",
-                              "description": "Link destination (URL or anchor)"
-                            },
-                            "target": {
-                              "type": "string",
-                              "enum": ["_self", "_blank", "_parent", "_top"],
-                              "description": "Link target"
-                            },
-                            "icon": {
-                              "type": "string",
-                              "description": "Optional icon name"
-                            },
-                            "badge": {
-                              "type": "string",
-                              "description": "Optional badge text (e.g., 'New', 'Beta')"
-                            },
-                            "children": { "$ref": "#/$defs/NavLinks" }
-                          },
-                          "additionalProperties": false,
-                          "description": "Navigation link item"
-                        },
-                        "description": "Array of navigation link items",
-                        "title": "Navigation Links"
-                      }
-                    },
-                    "additionalProperties": false,
-                    "description": "Navigation links for desktop and mobile"
-                  },
-                  "cta": {
-                    "type": "object",
-                    "required": ["text", "href"],
-                    "properties": {
+                      "message": {
+                        "type": "string",
+                        "description": "Banner message content"
+                      },
                       "text": {
                         "type": "string",
-                        "description": "Button text"
+                        "description": "Banner text content"
                       },
-                      "href": {
-                        "type": "string",
-                        "description": "Button link destination"
-                      },
-                      "variant": {
-                        "type": "string",
-                        "enum": ["primary", "secondary", "outline", "ghost", "link"],
-                        "description": "Button style variant"
-                      },
-                      "size": {
-                        "type": "string",
-                        "enum": ["sm", "md", "lg", "xl"],
-                        "description": "Button size"
-                      },
-                      "color": {
-                        "type": "string",
-                        "enum": ["orange", "blue", "green", "red"],
-                        "description": "Button color (theme color name)"
-                      },
-                      "icon": {
-                        "type": "string",
-                        "description": "Optional icon name"
-                      },
-                      "iconPosition": {
-                        "type": "string",
-                        "enum": ["left", "right"],
-                        "description": "Icon position relative to text"
-                      }
-                    },
-                    "additionalProperties": false,
-                    "description": "Call-to-action button configuration",
-                    "title": "CTA Button"
-                  },
-                  "search": {
-                    "type": "object",
-                    "required": [],
-                    "properties": {
-                      "enabled": {
-                        "type": "boolean",
-                        "description": "Whether to show search input",
-                        "default": false
-                      },
-                      "placeholder": {
-                        "type": "string",
-                        "description": "Search input placeholder",
-                        "default": "Search..."
-                      }
-                    },
-                    "additionalProperties": false,
-                    "description": "Search configuration"
-                  },
-                  "user": {
-                    "type": "object",
-                    "required": [],
-                    "properties": {
-                      "enabled": {
-                        "type": "boolean",
-                        "description": "Show user account menu",
-                        "default": false
-                      },
-                      "loginUrl": {
-                        "type": "string",
-                        "description": "Login page URL"
-                      },
-                      "signupUrl": {
-                        "type": "string",
-                        "description": "Signup page URL"
-                      }
-                    },
-                    "additionalProperties": false,
-                    "description": "User account menu"
-                  }
-                },
-                "additionalProperties": false,
-                "description": "Main navigation configuration including logo, links, and CTA",
-                "title": "Navigation Configuration"
-              },
-              "footer": {
-                "type": "object",
-                "required": [],
-                "properties": {
-                  "enabled": {
-                    "type": "boolean",
-                    "description": "Whether to show the footer",
-                    "default": true
-                  },
-                  "logo": {
-                    "type": "string",
-                    "description": "Footer logo path"
-                  },
-                  "description": {
-                    "type": "string",
-                    "description": "Company description or tagline"
-                  },
-                  "columns": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "required": ["title", "links"],
-                      "properties": {
-                        "title": {
-                          "type": "string",
-                          "description": "Column heading"
-                        },
-                        "links": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "required": ["label", "href"],
-                            "properties": {
-                              "label": { "type": "string" },
-                              "href": { "type": "string" },
-                              "target": {
-                                "type": "string",
-                                "enum": ["_self", "_blank"],
-                                "description": "Footer link target"
-                              }
-                            },
-                            "additionalProperties": false,
-                            "description": "Footer link"
+                      "link": {
+                        "type": "object",
+                        "required": ["href", "label"],
+                        "properties": {
+                          "href": {
+                            "type": "string",
+                            "description": "Link URL"
+                          },
+                          "label": {
+                            "type": "string",
+                            "description": "Link text"
                           }
+                        },
+                        "additionalProperties": false,
+                        "description": "Banner link"
+                      },
+                      "gradient": {
+                        "type": "string",
+                        "description": "CSS gradient background"
+                      },
+                      "backgroundColor": {
+                        "type": "string",
+                        "description": "Hex color code in #RRGGBB format",
+                        "title": "Hex Color",
+                        "examples": ["#007BFF", "#28A745", "#DC3545", "#5BBAD5"],
+                        "pattern": "^#[0-9A-Fa-f]{6}$"
+                      },
+                      "textColor": {
+                        "type": "string",
+                        "description": "Hex color code in #RRGGBB format",
+                        "title": "Hex Color",
+                        "examples": ["#007BFF", "#28A745", "#DC3545", "#5BBAD5"],
+                        "pattern": "^#[0-9A-Fa-f]{6}$"
+                      },
+                      "dismissible": {
+                        "type": "boolean",
+                        "description": "Whether users can dismiss the banner",
+                        "default": false
+                      },
+                      "sticky": {
+                        "type": "boolean",
+                        "description": "Whether the banner sticks to the top on scroll",
+                        "default": false
+                      }
+                    },
+                    "additionalProperties": false,
+                    "description": "Top banner/announcement bar configuration",
+                    "title": "Banner Configuration"
+                  },
+                  "navigation": {
+                    "type": "object",
+                    "required": ["logo"],
+                    "properties": {
+                      "logo": {
+                        "type": "string",
+                        "description": "Path to logo image"
+                      },
+                      "logoMobile": {
+                        "type": "string",
+                        "description": "Alternative logo for mobile devices"
+                      },
+                      "logoAlt": {
+                        "type": "string",
+                        "description": "Logo alt text for accessibility"
+                      },
+                      "sticky": {
+                        "type": "boolean",
+                        "description": "Whether navigation sticks to top on scroll",
+                        "default": false
+                      },
+                      "transparent": {
+                        "type": "boolean",
+                        "description": "Whether navigation has transparent background initially",
+                        "default": false
+                      },
+                      "backgroundColor": {
+                        "type": "string",
+                        "description": "Background color for navigation (hex, rgb, or named color)"
+                      },
+                      "textColor": {
+                        "type": "string",
+                        "description": "Text color for navigation (hex, rgb, or named color)"
+                      },
+                      "links": {
+                        "type": "object",
+                        "required": ["desktop"],
+                        "properties": {
+                          "desktop": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": ["label", "href"],
+                              "properties": {
+                                "label": {
+                                  "type": "string",
+                                  "description": "Link text"
+                                },
+                                "href": {
+                                  "type": "string",
+                                  "description": "Link destination (URL or anchor)"
+                                },
+                                "target": {
+                                  "type": "string",
+                                  "enum": ["_self", "_blank", "_parent", "_top"],
+                                  "description": "Link target"
+                                },
+                                "icon": {
+                                  "type": "string",
+                                  "description": "Optional icon name"
+                                },
+                                "badge": {
+                                  "type": "string",
+                                  "description": "Optional badge text (e.g., 'New', 'Beta')"
+                                },
+                                "children": { "$ref": "#/$defs/NavLinks" }
+                              },
+                              "additionalProperties": false,
+                              "description": "Navigation link item"
+                            },
+                            "description": "Array of navigation link items",
+                            "title": "Navigation Links"
+                          },
+                          "mobile": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": ["label", "href"],
+                              "properties": {
+                                "label": {
+                                  "type": "string",
+                                  "description": "Link text"
+                                },
+                                "href": {
+                                  "type": "string",
+                                  "description": "Link destination (URL or anchor)"
+                                },
+                                "target": {
+                                  "type": "string",
+                                  "enum": ["_self", "_blank", "_parent", "_top"],
+                                  "description": "Link target"
+                                },
+                                "icon": {
+                                  "type": "string",
+                                  "description": "Optional icon name"
+                                },
+                                "badge": {
+                                  "type": "string",
+                                  "description": "Optional badge text (e.g., 'New', 'Beta')"
+                                },
+                                "children": { "$ref": "#/$defs/NavLinks" }
+                              },
+                              "additionalProperties": false,
+                              "description": "Navigation link item"
+                            },
+                            "description": "Array of navigation link items",
+                            "title": "Navigation Links"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "description": "Navigation links for desktop and mobile"
+                      },
+                      "cta": {
+                        "type": "object",
+                        "required": ["text", "href"],
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "description": "Button text"
+                          },
+                          "href": {
+                            "type": "string",
+                            "description": "Button link destination"
+                          },
+                          "variant": {
+                            "type": "string",
+                            "enum": ["primary", "secondary", "outline", "ghost", "link"],
+                            "description": "Button style variant"
+                          },
+                          "size": {
+                            "type": "string",
+                            "enum": ["sm", "md", "lg", "xl"],
+                            "description": "Button size"
+                          },
+                          "color": {
+                            "type": "string",
+                            "enum": ["orange", "blue", "green", "red"],
+                            "description": "Button color (theme color name)"
+                          },
+                          "icon": {
+                            "type": "string",
+                            "description": "Optional icon name"
+                          },
+                          "iconPosition": {
+                            "type": "string",
+                            "enum": ["left", "right"],
+                            "description": "Icon position relative to text"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "description": "Call-to-action button configuration",
+                        "title": "CTA Button"
+                      },
+                      "search": {
+                        "type": "object",
+                        "required": [],
+                        "properties": {
+                          "enabled": {
+                            "type": "boolean",
+                            "description": "Whether to show search input",
+                            "default": false
+                          },
+                          "placeholder": {
+                            "type": "string",
+                            "description": "Search input placeholder",
+                            "default": "Search..."
+                          }
+                        },
+                        "additionalProperties": false,
+                        "description": "Search configuration"
+                      },
+                      "user": {
+                        "type": "object",
+                        "required": [],
+                        "properties": {
+                          "enabled": {
+                            "type": "boolean",
+                            "description": "Show user account menu",
+                            "default": false
+                          },
+                          "loginUrl": {
+                            "type": "string",
+                            "description": "Login page URL"
+                          },
+                          "signupUrl": {
+                            "type": "string",
+                            "description": "Signup page URL"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "description": "User account menu"
+                      },
+                      "languageSwitcher": {
+                        "type": "object",
+                        "required": ["label", "items"],
+                        "properties": {
+                          "label": {
+                            "type": "string",
+                            "description": "Switcher button label"
+                          },
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": ["lang", "label", "href"],
+                              "properties": {
+                                "lang": {
+                                  "type": "string",
+                                  "description": "Language code (e.g., en, fr, es)"
+                                },
+                                "label": {
+                                  "type": "string",
+                                  "description": "Display label for the language"
+                                },
+                                "href": {
+                                  "type": "string",
+                                  "description": "URL pattern for language switch (supports {{currentPath}} placeholder)"
+                                }
+                              },
+                              "additionalProperties": false,
+                              "description": "Language switcher item"
+                            },
+                            "description": "Language options"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "description": "Language switcher configuration"
+                      }
+                    },
+                    "additionalProperties": false,
+                    "description": "Main navigation configuration including logo, links, and CTA",
+                    "title": "Navigation Configuration"
+                  },
+                  "footer": {
+                    "type": "object",
+                    "required": [],
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean",
+                        "description": "Whether to show the footer",
+                        "default": true
+                      },
+                      "logo": {
+                        "type": "string",
+                        "description": "Footer logo path"
+                      },
+                      "description": {
+                        "type": "string",
+                        "description": "Company description or tagline"
+                      },
+                      "backgroundColor": {
+                        "type": "string",
+                        "description": "Background color for footer (hex, rgb, or named color)"
+                      },
+                      "textColor": {
+                        "type": "string",
+                        "description": "Text color for footer (hex, rgb, or named color)"
+                      },
+                      "columns": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": ["title", "links"],
+                          "properties": {
+                            "title": {
+                              "type": "string",
+                              "description": "Column heading"
+                            },
+                            "links": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": ["label", "href"],
+                                "properties": {
+                                  "label": { "type": "string" },
+                                  "href": { "type": "string" },
+                                  "target": {
+                                    "type": "string",
+                                    "enum": ["_self", "_blank"],
+                                    "description": "Footer link target"
+                                  }
+                                },
+                                "additionalProperties": false,
+                                "description": "Footer link"
+                              }
+                            }
+                          },
+                          "additionalProperties": false,
+                          "description": "Footer column"
                         }
                       },
-                      "additionalProperties": false,
-                      "description": "Footer column"
-                    }
+                      "social": {
+                        "type": "object",
+                        "required": [],
+                        "properties": {
+                          "title": {
+                            "type": "string",
+                            "description": "Social section title",
+                            "default": "Follow Us"
+                          },
+                          "links": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": ["platform", "url"],
+                              "properties": {
+                                "platform": {
+                                  "type": "string",
+                                  "enum": [
+                                    "facebook",
+                                    "twitter",
+                                    "instagram",
+                                    "linkedin",
+                                    "youtube",
+                                    "github",
+                                    "tiktok"
+                                  ],
+                                  "description": "Social media platform"
+                                },
+                                "url": {
+                                  "type": "string",
+                                  "description": "Social profile URL"
+                                },
+                                "icon": {
+                                  "type": "string",
+                                  "description": "Custom icon name if different from platform"
+                                }
+                              },
+                              "additionalProperties": false,
+                              "description": "Social media link"
+                            }
+                          }
+                        },
+                        "additionalProperties": false,
+                        "description": "Social media section"
+                      },
+                      "newsletter": {
+                        "type": "object",
+                        "required": [],
+                        "properties": {
+                          "enabled": {
+                            "type": "boolean",
+                            "description": "Whether to show newsletter form",
+                            "default": false
+                          },
+                          "title": {
+                            "type": "string",
+                            "description": "Newsletter title",
+                            "default": "Subscribe to our newsletter"
+                          },
+                          "description": {
+                            "type": "string",
+                            "description": "Newsletter description"
+                          },
+                          "placeholder": {
+                            "type": "string",
+                            "description": "Email input placeholder",
+                            "default": "Enter your email"
+                          },
+                          "buttonText": {
+                            "type": "string",
+                            "description": "Submit button text",
+                            "default": "Subscribe"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "description": "Newsletter subscription"
+                      },
+                      "copyright": {
+                        "type": "string",
+                        "description": "Copyright text"
+                      },
+                      "legal": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": ["label", "href"],
+                          "properties": {
+                            "label": { "type": "string" },
+                            "href": { "type": "string" },
+                            "target": {
+                              "type": "string",
+                              "enum": ["_self", "_blank"],
+                              "description": "Footer link target"
+                            }
+                          },
+                          "additionalProperties": false,
+                          "description": "Footer link"
+                        }
+                      },
+                      "email": {
+                        "type": "string",
+                        "description": "Contact email address"
+                      }
+                    },
+                    "additionalProperties": false,
+                    "description": "Footer layout and content configuration",
+                    "title": "Footer Configuration"
                   },
-                  "social": {
+                  "sidebar": {
                     "type": "object",
                     "required": [],
                     "properties": {
-                      "title": {
+                      "enabled": {
+                        "type": "boolean",
+                        "description": "Whether to show the sidebar",
+                        "default": false
+                      },
+                      "position": {
                         "type": "string",
-                        "description": "Social section title",
-                        "default": "Follow Us"
+                        "enum": ["left", "right"],
+                        "description": "Sidebar position"
+                      },
+                      "width": {
+                        "type": "string",
+                        "description": "Sidebar width",
+                        "default": "256px"
+                      },
+                      "collapsible": {
+                        "type": "boolean",
+                        "description": "Whether sidebar can be collapsed",
+                        "default": true
+                      },
+                      "defaultCollapsed": {
+                        "type": "boolean",
+                        "description": "Whether sidebar starts collapsed",
+                        "default": false
+                      },
+                      "sticky": {
+                        "type": "boolean",
+                        "description": "Whether sidebar sticks on scroll",
+                        "default": true
+                      },
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": ["type"],
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": ["link", "group", "divider"],
+                              "description": "Sidebar item type"
+                            },
+                            "label": {
+                              "type": "string",
+                              "description": "Item label"
+                            },
+                            "href": {
+                              "type": "string",
+                              "description": "Link destination"
+                            },
+                            "icon": {
+                              "type": "string",
+                              "description": "Item icon"
+                            },
+                            "children": { "$ref": "#/$defs/SidebarItems" }
+                          },
+                          "additionalProperties": false,
+                          "description": "Sidebar item"
+                        },
+                        "description": "Sidebar items array"
                       },
                       "links": {
                         "type": "array",
                         "items": {
                           "type": "object",
-                          "required": ["platform", "url"],
+                          "required": ["label", "href"],
                           "properties": {
-                            "platform": {
-                              "type": "string",
-                              "enum": [
-                                "facebook",
-                                "twitter",
-                                "instagram",
-                                "linkedin",
-                                "youtube",
-                                "github",
-                                "tiktok"
-                              ],
-                              "description": "Social media platform"
-                            },
-                            "url": {
-                              "type": "string",
-                              "description": "Social profile URL"
-                            },
-                            "icon": {
-                              "type": "string",
-                              "description": "Custom icon name if different from platform"
-                            }
+                            "label": { "type": "string" },
+                            "href": { "type": "string" }
                           },
-                          "additionalProperties": false,
-                          "description": "Social media link"
-                        }
+                          "additionalProperties": false
+                        },
+                        "description": "Simple sidebar links (legacy format, use items for advanced features)"
                       }
                     },
                     "additionalProperties": false,
-                    "description": "Social media section"
-                  },
-                  "newsletter": {
-                    "type": "object",
-                    "required": [],
-                    "properties": {
-                      "enabled": {
-                        "type": "boolean",
-                        "description": "Whether to show newsletter form",
-                        "default": false
-                      },
-                      "title": {
-                        "type": "string",
-                        "description": "Newsletter title",
-                        "default": "Subscribe to our newsletter"
-                      },
-                      "description": {
-                        "type": "string",
-                        "description": "Newsletter description"
-                      },
-                      "placeholder": {
-                        "type": "string",
-                        "description": "Email input placeholder",
-                        "default": "Enter your email"
-                      },
-                      "buttonText": {
-                        "type": "string",
-                        "description": "Submit button text",
-                        "default": "Subscribe"
-                      }
-                    },
-                    "additionalProperties": false,
-                    "description": "Newsletter subscription"
-                  },
-                  "copyright": {
-                    "type": "string",
-                    "description": "Copyright text"
-                  },
-                  "legal": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "required": ["label", "href"],
-                      "properties": {
-                        "label": { "type": "string" },
-                        "href": { "type": "string" },
-                        "target": {
-                          "type": "string",
-                          "enum": ["_self", "_blank"],
-                          "description": "Footer link target"
-                        }
-                      },
-                      "additionalProperties": false,
-                      "description": "Footer link"
-                    }
-                  },
-                  "email": {
-                    "type": "string",
-                    "description": "Contact email address"
+                    "description": "Sidebar navigation and content configuration",
+                    "title": "Sidebar Configuration"
                   }
                 },
                 "additionalProperties": false,
-                "description": "Footer layout and content configuration",
-                "title": "Footer Configuration"
+                "description": "Global layout configuration including banner, navigation, footer, and sidebar",
+                "title": "Page Layout"
               },
-              "sidebar": {
-                "type": "object",
-                "required": [],
-                "properties": {
-                  "enabled": {
-                    "type": "boolean",
-                    "description": "Whether to show the sidebar",
-                    "default": false
-                  },
-                  "position": {
-                    "type": "string",
-                    "enum": ["left", "right"],
-                    "description": "Sidebar position"
-                  },
-                  "width": {
-                    "type": "string",
-                    "description": "Sidebar width",
-                    "default": "256px"
-                  },
-                  "collapsible": {
-                    "type": "boolean",
-                    "description": "Whether sidebar can be collapsed",
-                    "default": true
-                  },
-                  "defaultCollapsed": {
-                    "type": "boolean",
-                    "description": "Whether sidebar starts collapsed",
-                    "default": false
-                  },
-                  "sticky": {
-                    "type": "boolean",
-                    "description": "Whether sidebar sticks on scroll",
-                    "default": true
-                  },
-                  "items": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "required": ["type"],
-                      "properties": {
-                        "type": {
-                          "type": "string",
-                          "enum": ["link", "group", "divider"],
-                          "description": "Sidebar item type"
-                        },
-                        "label": {
-                          "type": "string",
-                          "description": "Item label"
-                        },
-                        "href": {
-                          "type": "string",
-                          "description": "Link destination"
-                        },
-                        "icon": {
-                          "type": "string",
-                          "description": "Item icon"
-                        },
-                        "children": { "$ref": "#/$defs/SidebarItems" }
-                      },
-                      "additionalProperties": false,
-                      "description": "Sidebar item"
-                    },
-                    "description": "Sidebar items array"
-                  },
-                  "links": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "required": ["label", "href"],
-                      "properties": {
-                        "label": { "type": "string" },
-                        "href": { "type": "string" }
-                      },
-                      "additionalProperties": false
-                    },
-                    "description": "Simple sidebar links (legacy format, use items for advanced features)"
-                  }
-                },
-                "additionalProperties": false,
-                "description": "Sidebar navigation and content configuration",
-                "title": "Sidebar Configuration"
-              }
-            },
-            "additionalProperties": false,
-            "description": "Global layout configuration including banner, navigation, footer, and sidebar",
-            "title": "Page Layout"
+              { "type": "null" }
+            ]
           },
           "sections": {
             "type": "array",
@@ -2147,6 +1404,10 @@
                         "flex",
                         "grid",
                         "card",
+                        "card-with-header",
+                        "card-header",
+                        "card-body",
+                        "card-footer",
                         "text",
                         "heading",
                         "paragraph",
@@ -2158,12 +1419,15 @@
                         "h6",
                         "icon",
                         "image",
+                        "img",
+                        "avatar",
                         "button",
                         "link",
                         "a",
                         "timeline",
                         "accordion",
                         "badge",
+                        "speech-bubble",
                         "customHTML",
                         "video",
                         "audio",
@@ -3202,56 +2466,6 @@
       ],
       "minLength": 1
     },
-    "NavLinks": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["label", "href"],
-        "properties": {
-          "label": { "type": "string", "description": "Link text" },
-          "href": {
-            "type": "string",
-            "description": "Link destination (URL or anchor)"
-          },
-          "target": {
-            "type": "string",
-            "enum": ["_self", "_blank", "_parent", "_top"],
-            "description": "Link target"
-          },
-          "icon": { "type": "string", "description": "Optional icon name" },
-          "badge": {
-            "type": "string",
-            "description": "Optional badge text (e.g., 'New', 'Beta')"
-          },
-          "children": { "$ref": "#/$defs/NavLinks" }
-        },
-        "additionalProperties": false,
-        "description": "Navigation link item"
-      },
-      "description": "Array of navigation link items",
-      "title": "Navigation Links"
-    },
-    "SidebarItems": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["type"],
-        "properties": {
-          "type": {
-            "type": "string",
-            "enum": ["link", "group", "divider"],
-            "description": "Sidebar item type"
-          },
-          "label": { "type": "string", "description": "Item label" },
-          "href": { "type": "string", "description": "Link destination" },
-          "icon": { "type": "string", "description": "Item icon" },
-          "children": { "$ref": "#/$defs/SidebarItems" }
-        },
-        "additionalProperties": false,
-        "description": "Sidebar item"
-      },
-      "description": "Sidebar items array"
-    },
     "Children": {
       "type": "array",
       "items": {
@@ -3273,6 +2487,10 @@
                 "flex",
                 "grid",
                 "card",
+                "card-with-header",
+                "card-header",
+                "card-body",
+                "card-footer",
                 "text",
                 "heading",
                 "paragraph",
@@ -3284,12 +2502,15 @@
                 "h6",
                 "icon",
                 "image",
+                "img",
+                "avatar",
                 "button",
                 "link",
                 "a",
                 "timeline",
                 "accordion",
                 "badge",
+                "speech-bubble",
                 "customHTML",
                 "video",
                 "audio",
@@ -6927,10 +6148,10 @@
       "properties": {
         "default": {
           "type": "string",
-          "description": "ISO 639-1 language code with optional region",
+          "description": "Short language code (2 letters) for URLs and routing",
           "title": "Language Code",
-          "examples": ["en-US", "fr-FR", "es-ES", "ar-SA"],
-          "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+          "examples": ["en", "fr", "es", "de", "ar", "he"],
+          "pattern": "^[a-z]{2}$"
         },
         "supported": {
           "type": "array",
@@ -6940,10 +6161,17 @@
             "properties": {
               "code": {
                 "type": "string",
-                "description": "Language code (ISO 639-1 with optional country)",
+                "description": "Short language code used for URLs and routing (ISO 639-1, 2 letters)",
                 "title": "Language Code",
-                "examples": ["en-US", "fr-FR", "es-ES", "ar-SA"],
-                "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+                "examples": ["en", "fr", "es", "de", "ar", "he"],
+                "pattern": "^[a-z]{2}$"
+              },
+              "locale": {
+                "type": "string",
+                "description": "Full locale code (optional - defaults to short code if not specified). Used for HTML lang attribute and hreflang links.",
+                "title": "Language Locale",
+                "examples": ["en-US", "fr-FR", "es-ES", "de-DE", "ar-SA", "he-IL"],
+                "pattern": "^[a-z]{2}-[A-Z]{2}$"
               },
               "label": {
                 "type": "string",
@@ -6974,10 +6202,10 @@
         },
         "fallback": {
           "type": "string",
-          "description": "ISO 639-1 language code with optional region",
+          "description": "Short language code (2 letters) for URLs and routing",
           "title": "Language Code",
-          "examples": ["en-US", "fr-FR", "es-ES", "ar-SA"],
-          "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+          "examples": ["en", "fr", "es", "de", "ar", "he"],
+          "pattern": "^[a-z]{2}$"
         },
         "detectBrowser": { "type": "boolean" },
         "persistSelection": { "type": "boolean" },
@@ -7004,12 +6232,12 @@
           },
           "propertyNames": {
             "type": "string",
-            "description": "ISO 639-1 language code with optional region",
+            "description": "Short language code (2 letters) for URLs and routing",
             "title": "Language Code",
-            "examples": ["en-US", "fr-FR", "es-ES", "ar-SA"],
-            "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+            "examples": ["en", "fr", "es", "de", "ar", "he"],
+            "pattern": "^[a-z]{2}$"
           },
-          "description": "Translation dictionaries for all supported languages. Use $t:key syntax to reference translations.",
+          "description": "Translation dictionaries for all supported languages (keyed by short codes: en, fr, es). Use $t:key syntax to reference translations.",
           "title": "Centralized Translations"
         }
       },
@@ -7156,6 +6384,529 @@
         "description": "A reusable UI component template with variable placeholders",
         "title": "Block Template"
       }
+    },
+    "defaultLayout": {
+      "type": "object",
+      "required": [],
+      "properties": {
+        "banner": {
+          "type": "object",
+          "required": [],
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Whether to show the banner",
+              "default": false
+            },
+            "message": {
+              "type": "string",
+              "description": "Banner message content"
+            },
+            "text": { "type": "string", "description": "Banner text content" },
+            "link": {
+              "type": "object",
+              "required": ["href", "label"],
+              "properties": {
+                "href": { "type": "string", "description": "Link URL" },
+                "label": { "type": "string", "description": "Link text" }
+              },
+              "additionalProperties": false,
+              "description": "Banner link"
+            },
+            "gradient": {
+              "type": "string",
+              "description": "CSS gradient background"
+            },
+            "backgroundColor": {
+              "type": "string",
+              "description": "Hex color code in #RRGGBB format",
+              "title": "Hex Color",
+              "examples": ["#007BFF", "#28A745", "#DC3545", "#5BBAD5"],
+              "pattern": "^#[0-9A-Fa-f]{6}$"
+            },
+            "textColor": {
+              "type": "string",
+              "description": "Hex color code in #RRGGBB format",
+              "title": "Hex Color",
+              "examples": ["#007BFF", "#28A745", "#DC3545", "#5BBAD5"],
+              "pattern": "^#[0-9A-Fa-f]{6}$"
+            },
+            "dismissible": {
+              "type": "boolean",
+              "description": "Whether users can dismiss the banner",
+              "default": false
+            },
+            "sticky": {
+              "type": "boolean",
+              "description": "Whether the banner sticks to the top on scroll",
+              "default": false
+            }
+          },
+          "additionalProperties": false,
+          "description": "Top banner/announcement bar configuration",
+          "title": "Banner Configuration"
+        },
+        "navigation": {
+          "type": "object",
+          "required": ["logo"],
+          "properties": {
+            "logo": { "type": "string", "description": "Path to logo image" },
+            "logoMobile": {
+              "type": "string",
+              "description": "Alternative logo for mobile devices"
+            },
+            "logoAlt": {
+              "type": "string",
+              "description": "Logo alt text for accessibility"
+            },
+            "sticky": {
+              "type": "boolean",
+              "description": "Whether navigation sticks to top on scroll",
+              "default": false
+            },
+            "transparent": {
+              "type": "boolean",
+              "description": "Whether navigation has transparent background initially",
+              "default": false
+            },
+            "backgroundColor": {
+              "type": "string",
+              "description": "Background color for navigation (hex, rgb, or named color)"
+            },
+            "textColor": {
+              "type": "string",
+              "description": "Text color for navigation (hex, rgb, or named color)"
+            },
+            "links": {
+              "type": "object",
+              "required": ["desktop"],
+              "properties": {
+                "desktop": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["label", "href"],
+                    "properties": {
+                      "label": { "type": "string", "description": "Link text" },
+                      "href": {
+                        "type": "string",
+                        "description": "Link destination (URL or anchor)"
+                      },
+                      "target": {
+                        "type": "string",
+                        "enum": ["_self", "_blank", "_parent", "_top"],
+                        "description": "Link target"
+                      },
+                      "icon": {
+                        "type": "string",
+                        "description": "Optional icon name"
+                      },
+                      "badge": {
+                        "type": "string",
+                        "description": "Optional badge text (e.g., 'New', 'Beta')"
+                      },
+                      "children": { "$ref": "#/$defs/NavLinks" }
+                    },
+                    "additionalProperties": false,
+                    "description": "Navigation link item"
+                  },
+                  "description": "Array of navigation link items",
+                  "title": "Navigation Links"
+                },
+                "mobile": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["label", "href"],
+                    "properties": {
+                      "label": { "type": "string", "description": "Link text" },
+                      "href": {
+                        "type": "string",
+                        "description": "Link destination (URL or anchor)"
+                      },
+                      "target": {
+                        "type": "string",
+                        "enum": ["_self", "_blank", "_parent", "_top"],
+                        "description": "Link target"
+                      },
+                      "icon": {
+                        "type": "string",
+                        "description": "Optional icon name"
+                      },
+                      "badge": {
+                        "type": "string",
+                        "description": "Optional badge text (e.g., 'New', 'Beta')"
+                      },
+                      "children": { "$ref": "#/$defs/NavLinks" }
+                    },
+                    "additionalProperties": false,
+                    "description": "Navigation link item"
+                  },
+                  "description": "Array of navigation link items",
+                  "title": "Navigation Links"
+                }
+              },
+              "additionalProperties": false,
+              "description": "Navigation links for desktop and mobile"
+            },
+            "cta": {
+              "type": "object",
+              "required": ["text", "href"],
+              "properties": {
+                "text": { "type": "string", "description": "Button text" },
+                "href": {
+                  "type": "string",
+                  "description": "Button link destination"
+                },
+                "variant": {
+                  "type": "string",
+                  "enum": ["primary", "secondary", "outline", "ghost", "link"],
+                  "description": "Button style variant"
+                },
+                "size": {
+                  "type": "string",
+                  "enum": ["sm", "md", "lg", "xl"],
+                  "description": "Button size"
+                },
+                "color": {
+                  "type": "string",
+                  "enum": ["orange", "blue", "green", "red"],
+                  "description": "Button color (theme color name)"
+                },
+                "icon": {
+                  "type": "string",
+                  "description": "Optional icon name"
+                },
+                "iconPosition": {
+                  "type": "string",
+                  "enum": ["left", "right"],
+                  "description": "Icon position relative to text"
+                }
+              },
+              "additionalProperties": false,
+              "description": "Call-to-action button configuration",
+              "title": "CTA Button"
+            },
+            "search": {
+              "type": "object",
+              "required": [],
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Whether to show search input",
+                  "default": false
+                },
+                "placeholder": {
+                  "type": "string",
+                  "description": "Search input placeholder",
+                  "default": "Search..."
+                }
+              },
+              "additionalProperties": false,
+              "description": "Search configuration"
+            },
+            "user": {
+              "type": "object",
+              "required": [],
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Show user account menu",
+                  "default": false
+                },
+                "loginUrl": {
+                  "type": "string",
+                  "description": "Login page URL"
+                },
+                "signupUrl": {
+                  "type": "string",
+                  "description": "Signup page URL"
+                }
+              },
+              "additionalProperties": false,
+              "description": "User account menu"
+            },
+            "languageSwitcher": {
+              "type": "object",
+              "required": ["label", "items"],
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "description": "Switcher button label"
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["lang", "label", "href"],
+                    "properties": {
+                      "lang": {
+                        "type": "string",
+                        "description": "Language code (e.g., en, fr, es)"
+                      },
+                      "label": {
+                        "type": "string",
+                        "description": "Display label for the language"
+                      },
+                      "href": {
+                        "type": "string",
+                        "description": "URL pattern for language switch (supports {{currentPath}} placeholder)"
+                      }
+                    },
+                    "additionalProperties": false,
+                    "description": "Language switcher item"
+                  },
+                  "description": "Language options"
+                }
+              },
+              "additionalProperties": false,
+              "description": "Language switcher configuration"
+            }
+          },
+          "additionalProperties": false,
+          "description": "Main navigation configuration including logo, links, and CTA",
+          "title": "Navigation Configuration"
+        },
+        "footer": {
+          "type": "object",
+          "required": [],
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Whether to show the footer",
+              "default": true
+            },
+            "logo": { "type": "string", "description": "Footer logo path" },
+            "description": {
+              "type": "string",
+              "description": "Company description or tagline"
+            },
+            "backgroundColor": {
+              "type": "string",
+              "description": "Background color for footer (hex, rgb, or named color)"
+            },
+            "textColor": {
+              "type": "string",
+              "description": "Text color for footer (hex, rgb, or named color)"
+            },
+            "columns": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["title", "links"],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "description": "Column heading"
+                  },
+                  "links": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["label", "href"],
+                      "properties": {
+                        "label": { "type": "string" },
+                        "href": { "type": "string" },
+                        "target": {
+                          "type": "string",
+                          "enum": ["_self", "_blank"],
+                          "description": "Footer link target"
+                        }
+                      },
+                      "additionalProperties": false,
+                      "description": "Footer link"
+                    }
+                  }
+                },
+                "additionalProperties": false,
+                "description": "Footer column"
+              }
+            },
+            "social": {
+              "type": "object",
+              "required": [],
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "description": "Social section title",
+                  "default": "Follow Us"
+                },
+                "links": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["platform", "url"],
+                    "properties": {
+                      "platform": {
+                        "type": "string",
+                        "enum": [
+                          "facebook",
+                          "twitter",
+                          "instagram",
+                          "linkedin",
+                          "youtube",
+                          "github",
+                          "tiktok"
+                        ],
+                        "description": "Social media platform"
+                      },
+                      "url": {
+                        "type": "string",
+                        "description": "Social profile URL"
+                      },
+                      "icon": {
+                        "type": "string",
+                        "description": "Custom icon name if different from platform"
+                      }
+                    },
+                    "additionalProperties": false,
+                    "description": "Social media link"
+                  }
+                }
+              },
+              "additionalProperties": false,
+              "description": "Social media section"
+            },
+            "newsletter": {
+              "type": "object",
+              "required": [],
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Whether to show newsletter form",
+                  "default": false
+                },
+                "title": {
+                  "type": "string",
+                  "description": "Newsletter title",
+                  "default": "Subscribe to our newsletter"
+                },
+                "description": {
+                  "type": "string",
+                  "description": "Newsletter description"
+                },
+                "placeholder": {
+                  "type": "string",
+                  "description": "Email input placeholder",
+                  "default": "Enter your email"
+                },
+                "buttonText": {
+                  "type": "string",
+                  "description": "Submit button text",
+                  "default": "Subscribe"
+                }
+              },
+              "additionalProperties": false,
+              "description": "Newsletter subscription"
+            },
+            "copyright": { "type": "string", "description": "Copyright text" },
+            "legal": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["label", "href"],
+                "properties": {
+                  "label": { "type": "string" },
+                  "href": { "type": "string" },
+                  "target": {
+                    "type": "string",
+                    "enum": ["_self", "_blank"],
+                    "description": "Footer link target"
+                  }
+                },
+                "additionalProperties": false,
+                "description": "Footer link"
+              }
+            },
+            "email": {
+              "type": "string",
+              "description": "Contact email address"
+            }
+          },
+          "additionalProperties": false,
+          "description": "Footer layout and content configuration",
+          "title": "Footer Configuration"
+        },
+        "sidebar": {
+          "type": "object",
+          "required": [],
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Whether to show the sidebar",
+              "default": false
+            },
+            "position": {
+              "type": "string",
+              "enum": ["left", "right"],
+              "description": "Sidebar position"
+            },
+            "width": {
+              "type": "string",
+              "description": "Sidebar width",
+              "default": "256px"
+            },
+            "collapsible": {
+              "type": "boolean",
+              "description": "Whether sidebar can be collapsed",
+              "default": true
+            },
+            "defaultCollapsed": {
+              "type": "boolean",
+              "description": "Whether sidebar starts collapsed",
+              "default": false
+            },
+            "sticky": {
+              "type": "boolean",
+              "description": "Whether sidebar sticks on scroll",
+              "default": true
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["type"],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": ["link", "group", "divider"],
+                    "description": "Sidebar item type"
+                  },
+                  "label": { "type": "string", "description": "Item label" },
+                  "href": {
+                    "type": "string",
+                    "description": "Link destination"
+                  },
+                  "icon": { "type": "string", "description": "Item icon" },
+                  "children": { "$ref": "#/$defs/SidebarItems" }
+                },
+                "additionalProperties": false,
+                "description": "Sidebar item"
+              },
+              "description": "Sidebar items array"
+            },
+            "links": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["label", "href"],
+                "properties": {
+                  "label": { "type": "string" },
+                  "href": { "type": "string" }
+                },
+                "additionalProperties": false
+              },
+              "description": "Simple sidebar links (legacy format, use items for advanced features)"
+            }
+          },
+          "additionalProperties": false,
+          "description": "Sidebar navigation and content configuration",
+          "title": "Sidebar Configuration"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Global layout configuration including banner, navigation, footer, and sidebar",
+      "title": "Page Layout"
     },
     "pages": { "$ref": "#/$defs/Pages" }
   },

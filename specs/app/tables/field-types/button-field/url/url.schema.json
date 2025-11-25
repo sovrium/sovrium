@@ -9,13 +9,43 @@
       "id": "APP-FIELD-BUTTON-URL-001",
       "given": "user provides url",
       "when": "validating input",
-      "then": "string value should be accepted"
+      "then": "string value should be accepted",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "string value should be accepted",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-BUTTON-URL-002",
       "given": "url is empty string",
       "when": "validating input",
-      "then": "behavior should follow optional/required rules"
+      "then": "behavior should follow optional/required rules",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "behavior should follow optional/required rules",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
     }
   ]
 }

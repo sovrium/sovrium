@@ -42,9 +42,9 @@
         "$ref": "./paths/auth/get-session/get.json"
       }
     },
-    "/api/auth/forget-password": {
+    "/api/auth/request-password-reset": {
       "post": {
-        "$ref": "./paths/auth/forget-password/post.json"
+        "$ref": "./paths/auth/request-password-reset/post.json"
       }
     },
     "/api/auth/reset-password": {
@@ -100,6 +100,11 @@
       "delete": {
         "$ref": "./paths/tables/{tableId}/records/{recordId}/delete.json"
       }
+    },
+    "/api/tables/{tableId}/permissions": {
+      "get": {
+        "$ref": "./paths/tables/{tableId}/permissions/get.json"
+      }
     }
   },
   "components": {
@@ -141,6 +146,17 @@
       },
       "ConflictError": {
         "$ref": "./components/responses/ConflictError.json"
+      },
+      "Unauthorized": {
+        "$ref": "./components/responses/Unauthorized.json"
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT token from Better Auth authentication"
       }
     }
   },
@@ -160,6 +176,10 @@
     {
       "name": "records",
       "description": "Record CRUD operations"
+    },
+    {
+      "name": "permissions",
+      "description": "Permission checking endpoints"
     }
   ]
 }

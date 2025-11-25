@@ -1,0 +1,130 @@
+{
+  "$id": "filters.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "View Filters",
+  "description": "Filter conditions for view. Supports AND/OR logic with multiple conditions.",
+  "type": "object",
+  "properties": {
+    "operator": {
+      "type": "string",
+      "enum": ["AND", "OR"],
+      "default": "AND",
+      "description": "Logical operator to combine conditions"
+    },
+    "conditions": {
+      "type": "array",
+      "items": {
+        "$ref": "./condition/condition.schema.json"
+      },
+      "minItems": 1,
+      "description": "Array of filter conditions"
+    }
+  },
+  "required": ["conditions"],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "operator": "AND",
+      "conditions": [
+        {
+          "field": "status",
+          "operator": "equals",
+          "value": "active"
+        },
+        {
+          "field": "age",
+          "operator": "greaterThan",
+          "value": 18
+        }
+      ]
+    },
+    {
+      "operator": "OR",
+      "conditions": [
+        {
+          "field": "priority",
+          "operator": "equals",
+          "value": "high"
+        },
+        {
+          "field": "urgent",
+          "operator": "isTrue"
+        }
+      ]
+    },
+    {
+      "conditions": [
+        {
+          "field": "name",
+          "operator": "contains",
+          "value": "test"
+        }
+      ]
+    }
+  ],
+  "x-specs": [
+    {
+      "id": "APP-TABLES-VIEW-FILTERS-001",
+      "given": "filters with AND operator and multiple conditions",
+      "when": "applying filters to records",
+      "then": "only records matching all conditions should be included",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "only records matching all conditions should be included",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-TABLES-VIEW-FILTERS-002",
+      "given": "filters with OR operator and multiple conditions",
+      "when": "applying filters to records",
+      "then": "records matching at least one condition should be included",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "records matching at least one condition should be included",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-TABLES-VIEW-FILTERS-003",
+      "given": "filters with no operator specified",
+      "when": "applying filters to records",
+      "then": "AND operator should be used by default",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "AND operator should be used by default",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
+    }
+  ]
+}

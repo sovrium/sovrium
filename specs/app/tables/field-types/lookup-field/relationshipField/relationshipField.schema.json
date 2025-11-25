@@ -2,21 +2,207 @@
   "$id": "relationshipField.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Name of the relationship field to lookup from",
-  "description": "Name of the relationship field to lookup from",
+  "description": "Name of the relationship field to follow for lookup. Lookup fields traverse an existing foreign key relationship to fetch values from the related table. Implemented via PostgreSQL VIEWs or triggers.",
   "type": "string",
   "minLength": 1,
   "x-specs": [
     {
       "id": "APP-FIELD-LOOKUP-RELATIONSHIPFIELD-001",
-      "given": "user provides relationshipField with at least 1 characters",
-      "when": "validating input",
-      "then": "value should be accepted"
+      "given": "lookup field with relationshipField: 'customer_id' (existing FK)",
+      "when": "field migration creates VIEW or trigger-based lookup",
+      "then": "PostgreSQL VIEW joins through relationship to fetch lookup values",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), city VARCHAR(255))",
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50), customer_id INTEGER REFERENCES customers(id))",
+            "CREATE VIEW orders_with_lookup AS SELECT o.*, c.email as customer_email FROM orders o LEFT JOIN customers c ON o.customer_id = c.id",
+            "INSERT INTO customers (name, email, city) VALUES ('Alice', 'alice@example.com', 'New York'), ('Bob', 'bob@example.com', 'Los Angeles')",
+            "INSERT INTO orders (order_number, customer_id) VALUES ('ORD-001', 1), ('ORD-002', 2)"
+          ],
+          "fieldConfig": {
+            "name": "customer_email",
+            "type": "lookup",
+            "relationshipField": "customer_id",
+            "relatedField": "email"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Base table has foreign key relationship",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'FOREIGN KEY' AND table_name = 'orders'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "VIEW exists with lookup field",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.views WHERE table_name = 'orders_with_lookup'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Lookup field fetches value through relationship",
+            "executeQuery": "SELECT order_number, customer_email FROM orders_with_lookup WHERE order_number = 'ORD-001'",
+            "expected": {
+              "order_number": "ORD-001",
+              "customer_email": "alice@example.com"
+            }
+          },
+          {
+            "description": "Lookup field updates when related record changes",
+            "executeQuery": [
+              "UPDATE customers SET email = 'alice.new@example.com' WHERE id = 1",
+              "SELECT customer_email FROM orders_with_lookup WHERE order_number = 'ORD-001'"
+            ],
+            "expected": {
+              "customer_email": "alice.new@example.com"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-LOOKUP-RELATIONSHIPFIELD-002",
-      "given": "user provides relationshipField shorter than 1 chars",
-      "when": "validating input",
-      "then": "error should require minimum length"
+      "given": "lookup field with relationshipField referencing non-existent field",
+      "when": "VIEW creation attempts to join on non-existent column",
+      "then": "PostgreSQL returns error for undefined column",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE departments (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, emp_name VARCHAR(255))",
+            "CREATE VIEW employees_with_lookup AS SELECT e.*, d.name as department_name FROM employees e LEFT JOIN departments d ON e.nonexistent_field = d.id"
+          ],
+          "fieldConfig": {
+            "name": "department_name",
+            "type": "lookup",
+            "relationshipField": "nonexistent_field",
+            "relatedField": "name"
+          }
+        },
+        "assertions": [
+          {
+            "description": "VIEW creation with non-existent relationship field fails",
+            "executeQuery": "CREATE VIEW employees_with_lookup AS SELECT e.*, d.name as department_name FROM employees e LEFT JOIN departments d ON e.nonexistent_field = d.id",
+            "expectError": "column \"nonexistent_field\" does not exist"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-LOOKUP-RELATIONSHIPFIELD-003",
+      "given": "lookup field with empty relationshipField value",
+      "when": "field configuration validation runs",
+      "then": "error should require minimum length 1 character",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "customer_email",
+            "type": "lookup",
+            "relationshipField": "",
+            "relatedField": "email"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Empty relationshipField rejected",
+            "validateConfig": true,
+            "expectError": "relationshipField must have at least 1 character"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-LOOKUP-RELATIONSHIPFIELD-004",
+      "given": "lookup field following many-to-one relationship (products → category)",
+      "when": "multiple products reference same category",
+      "then": "each product's lookup field shows correct category value",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE categories (id SERIAL PRIMARY KEY, name VARCHAR(255), tax_rate DECIMAL(5,2))",
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, product_name VARCHAR(255), category_id INTEGER REFERENCES categories(id))",
+            "CREATE VIEW products_with_lookup AS SELECT p.*, c.tax_rate as category_tax_rate FROM products p LEFT JOIN categories c ON p.category_id = c.id",
+            "INSERT INTO categories (name, tax_rate) VALUES ('Electronics', 0.20), ('Clothing', 0.10)",
+            "INSERT INTO products (product_name, category_id) VALUES ('Laptop', 1), ('Smartphone', 1), ('T-Shirt', 2)"
+          ],
+          "fieldConfig": {
+            "name": "category_tax_rate",
+            "type": "lookup",
+            "relationshipField": "category_id",
+            "relatedField": "tax_rate"
+          }
+        },
+        "assertions": [
+          {
+            "description": "First product shows correct tax rate",
+            "executeQuery": "SELECT product_name, category_tax_rate FROM products_with_lookup WHERE product_name = 'Laptop'",
+            "expected": {
+              "product_name": "Laptop",
+              "category_tax_rate": 0.2
+            }
+          },
+          {
+            "description": "Second product in same category shows same tax rate",
+            "executeQuery": "SELECT product_name, category_tax_rate FROM products_with_lookup WHERE product_name = 'Smartphone'",
+            "expected": {
+              "product_name": "Smartphone",
+              "category_tax_rate": 0.2
+            }
+          },
+          {
+            "description": "Product in different category shows different tax rate",
+            "executeQuery": "SELECT product_name, category_tax_rate FROM products_with_lookup WHERE product_name = 'T-Shirt'",
+            "expected": {
+              "product_name": "T-Shirt",
+              "category_tax_rate": 0.1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-LOOKUP-RELATIONSHIPFIELD-005",
+      "given": "lookup field with NULL relationship field value",
+      "when": "base record has no related record (FK is NULL)",
+      "then": "lookup field returns NULL (LEFT JOIN behavior)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE managers (id SERIAL PRIMARY KEY, name VARCHAR(255), department VARCHAR(255))",
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), assigned_to INTEGER REFERENCES managers(id))",
+            "CREATE VIEW tasks_with_lookup AS SELECT t.*, m.department as manager_department FROM tasks t LEFT JOIN managers m ON t.assigned_to = m.id",
+            "INSERT INTO managers (name, department) VALUES ('Alice', 'Engineering')",
+            "INSERT INTO tasks (title, assigned_to) VALUES ('Assigned Task', 1), ('Unassigned Task', NULL)"
+          ],
+          "fieldConfig": {
+            "name": "manager_department",
+            "type": "lookup",
+            "relationshipField": "assigned_to",
+            "relatedField": "department"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Task with assigned manager shows lookup value",
+            "executeQuery": "SELECT title, manager_department FROM tasks_with_lookup WHERE title = 'Assigned Task'",
+            "expected": {
+              "title": "Assigned Task",
+              "manager_department": "Engineering"
+            }
+          },
+          {
+            "description": "Task without assigned manager shows NULL lookup value",
+            "executeQuery": "SELECT title, manager_department FROM tasks_with_lookup WHERE title = 'Unassigned Task'",
+            "expected": {
+              "title": "Unassigned Task",
+              "manager_department": null
+            }
+          }
+        ]
+      }
     }
   ]
 }

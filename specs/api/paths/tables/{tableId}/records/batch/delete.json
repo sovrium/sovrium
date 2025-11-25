@@ -1,0 +1,712 @@
+{
+  "summary": "Batch delete records",
+  "description": "Delete multiple records in a single transaction. All record IDs are validated before deletion. If any ID is invalid or not found, the entire operation is rolled back. Maximum 1000 records per request.",
+  "operationId": "batchDeleteRecords",
+  "tags": ["Records"],
+  "parameters": [
+    {
+      "name": "tableId",
+      "in": "path",
+      "required": true,
+      "description": "Table identifier (tbl_XXXXX)",
+      "schema": {
+        "type": "string",
+        "pattern": "^tbl_[a-zA-Z0-9]+$"
+      }
+    }
+  ],
+  "requestBody": {
+    "required": true,
+    "content": {
+      "application/json": {
+        "schema": {
+          "type": "object",
+          "properties": {
+            "ids": {
+              "type": "array",
+              "description": "Array of record IDs to delete (max 1000)",
+              "minItems": 1,
+              "maxItems": 1000,
+              "items": {
+                "type": "string",
+                "pattern": "^rec_[a-zA-Z0-9]+$"
+              }
+            }
+          },
+          "required": ["ids"]
+        },
+        "example": {
+          "ids": ["rec_001", "rec_002", "rec_003"]
+        }
+      }
+    }
+  },
+  "responses": {
+    "200": {
+      "description": "Records deleted successfully",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "deleted": {
+                "type": "integer",
+                "description": "Number of records successfully deleted"
+              }
+            },
+            "required": ["deleted"]
+          },
+          "example": {
+            "deleted": 3
+          }
+        }
+      }
+    },
+    "400": {
+      "description": "Validation error - Invalid record ID format",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string",
+                "enum": ["ValidationError"]
+              },
+              "message": {
+                "type": "string"
+              },
+              "details": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "index": {
+                      "type": "integer"
+                    },
+                    "field": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "example": {
+            "error": "ValidationError",
+            "message": "Invalid record ID format",
+            "details": [
+              {
+                "index": 1,
+                "field": "ids[1]",
+                "message": "Must match pattern ^rec_[a-zA-Z0-9]+$"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "403": {
+      "$ref": "../../../../../../components/responses/PermissionDenied.json"
+    },
+    "404": {
+      "$ref": "../../../../../../components/responses/NotFound.json"
+    },
+    "413": {
+      "description": "Payload too large - Exceeds 1000 record limit",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string",
+                "enum": ["PayloadTooLarge"]
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          },
+          "example": {
+            "error": "PayloadTooLarge",
+            "message": "Batch size exceeds maximum of 1000 records"
+          }
+        }
+      }
+    },
+    "500": {
+      "$ref": "../../../../../../components/responses/InternalError.json"
+    }
+  },
+  "x-specs": [
+    {
+      "id": "API-RECORDS-BATCH-009",
+      "given": "Table 'users' with 3 records (ID=1, ID=2, ID=3)",
+      "when": "Batch delete IDs [1, 2]",
+      "then": "Returns 200 with deleted=2, records removed from database",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL, name VARCHAR(255))",
+            "INSERT INTO users (id, email, name) VALUES (1, 'user1@example.com', 'User One'), (2, 'user2@example.com', 'User Two'), (3, 'user3@example.com', 'User Three')"
+          ],
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer test_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "ids": [1, 2]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 with deleted count",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "deleted": { "type": "integer" }
+              },
+              "required": ["deleted"]
+            },
+            "validateResponseData": {
+              "deleted": 2
+            }
+          },
+          {
+            "description": "Deleted records no longer exist in database",
+            "executeQuery": "SELECT COUNT(*) as count FROM users WHERE id IN (1, 2)",
+            "expected": { "count": 0 }
+          },
+          {
+            "description": "Remaining record still exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM users WHERE id=3",
+            "expected": { "count": 1 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-010",
+      "given": "Table 'users' with record ID=1 only",
+      "when": "Batch delete includes ID=1 (exists) and ID=9999 (not found)",
+      "then": "Returns 404 NotFound, no records deleted (rollback)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL, name VARCHAR(255))",
+            "INSERT INTO users (id, email, name) VALUES (1, 'john@example.com', 'John')"
+          ],
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer test_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "ids": [1, 9999]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 for nonexistent record",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              },
+              "required": ["error"]
+            }
+          },
+          {
+            "description": "No records deleted due to transaction rollback",
+            "executeQuery": "SELECT COUNT(*) as count FROM users WHERE id=1",
+            "expected": { "count": 1 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-011",
+      "given": "Table 'users' exists",
+      "when": "Batch delete request exceeds 1000 ID limit",
+      "then": "Returns 413 PayloadTooLarge",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL)"
+          ],
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer test_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "ids": []
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 413 for payload exceeding limit",
+            "expectedStatus": 413,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              }
+            },
+            "validateResponseData": {
+              "error": "PayloadTooLarge"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-DELETE-PERMISSIONS-UNAUTHORIZED-001",
+      "given": "An unauthenticated user",
+      "when": "User attempts batch delete without auth token",
+      "then": "Returns 401 Unauthorized error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, organization_id) VALUES (1, 'Alice Cooper', 'org_123'), (2, 'Bob Smith', 'org_123')"
+          ],
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": { "Content-Type": "application/json" },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "ids": [1, 2]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 when no auth token provided",
+            "expectedStatus": 401,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            }
+          },
+          {
+            "description": "No records deleted in database",
+            "executeQuery": "SELECT COUNT(*) as count FROM employees",
+            "expected": { "count": 2 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-DELETE-PERMISSIONS-FORBIDDEN-MEMBER-001",
+      "given": "A member user without delete permission",
+      "when": "Member attempts batch delete",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, organization_id) VALUES (1, 'Alice Cooper', 'org_123'), (2, 'Bob Smith', 'org_123')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "ids": [1, 2]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when member lacks delete permission",
+            "expectedStatus": 403,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            },
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "You do not have permission to delete records in this table"
+            }
+          },
+          {
+            "description": "No records deleted",
+            "executeQuery": "SELECT COUNT(*) as count FROM employees",
+            "expected": { "count": 2 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-DELETE-PERMISSIONS-FORBIDDEN-VIEWER-001",
+      "given": "A viewer user with read-only access",
+      "when": "Viewer attempts batch delete",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO projects (id, name, organization_id) VALUES (1, 'Project Alpha', 'org_456'), (2, 'Project Beta', 'org_456')"
+          ],
+          "authUser": {
+            "id": 3,
+            "organizationId": "org_456",
+            "role": "viewer"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "projects",
+            "organizationId": "org_456",
+            "permissions": {
+              "viewer": {
+                "table": { "read": true, "create": false, "update": false, "delete": false }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer viewer_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "ids": [1, 2]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when viewer lacks delete permission",
+            "expectedStatus": 403,
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "You do not have permission to delete records in this table"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-DELETE-PERMISSIONS-ORG-ISOLATION-001",
+      "given": "An admin user from org_123 with records from org_456",
+      "when": "Admin attempts to batch delete records from different organization",
+      "then": "Returns 404 Not Found (organization isolation)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, organization_id) VALUES (1, 'Alice Cooper', 'org_456'), (2, 'Bob Smith', 'org_456')"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123"
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "ids": [1, 2]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 when records belong to different organization",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Record not found"
+            }
+          },
+          {
+            "description": "No records deleted (original values preserved)",
+            "executeQuery": "SELECT COUNT(*) as count FROM employees WHERE organization_id='org_456'",
+            "expected": { "count": 2 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-DELETE-PERMISSIONS-ADMIN-FULL-ACCESS-001",
+      "given": "An admin user with full delete permissions",
+      "when": "Admin batch deletes records from their organization",
+      "then": "Returns 200 with deleted count and records are removed",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, email, organization_id) VALUES (1, 'Alice Cooper', 'alice@example.com', 'org_123'), (2, 'Bob Smith', 'bob@example.com', 'org_123'), (3, 'Charlie Davis', 'charlie@example.com', 'org_123')"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "admin": {
+                "table": { "read": true, "create": true, "update": true, "delete": true }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer admin_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "ids": [1, 2]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 with deleted count",
+            "expectedStatus": 200,
+            "validateResponseData": {
+              "deleted": 2
+            }
+          },
+          {
+            "description": "Records are deleted from database",
+            "executeQuery": "SELECT COUNT(*) as count FROM employees WHERE id IN (1, 2)",
+            "expected": { "count": 0 }
+          },
+          {
+            "description": "Remaining record still exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM employees WHERE id=3",
+            "expected": { "count": 1 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-DELETE-PERMISSIONS-OWNER-FULL-ACCESS-001",
+      "given": "An owner user with full delete permissions",
+      "when": "Owner batch deletes records from their organization",
+      "then": "Returns 200 with deleted count and records are removed",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), status VARCHAR(50), organization_id VARCHAR(255))",
+            "INSERT INTO projects (id, name, status, organization_id) VALUES (1, 'Project Alpha', 'active', 'org_789'), (2, 'Project Beta', 'active', 'org_789'), (3, 'Project Gamma', 'active', 'org_789')"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_789",
+            "role": "owner"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "projects",
+            "organizationId": "org_789",
+            "permissions": {
+              "owner": {
+                "table": { "read": true, "create": true, "update": true, "delete": true }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer owner_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "ids": [1, 2]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 with deleted count",
+            "expectedStatus": 200,
+            "validateResponseData": {
+              "deleted": 2
+            }
+          },
+          {
+            "description": "Records are deleted from database",
+            "executeQuery": "SELECT COUNT(*) as count FROM projects WHERE id IN (1, 2)",
+            "expected": { "count": 0 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-DELETE-PERMISSIONS-CROSS-ORG-PREVENTION-001",
+      "given": "A member from org_123 with records from different org",
+      "when": "Member attempts to batch delete records from org_456",
+      "then": "Returns 404 Not Found (prevents cross-org deletes)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, organization_id) VALUES (1, 'Alice Cooper', 'org_456'), (2, 'Bob Smith', 'org_456')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123"
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "ids": [1, 2]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 to prevent cross-org record deletes",
+            "expectedStatus": 404,
+            "validateResponseData": {
+              "error": "Record not found"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-RECORDS-BATCH-DELETE-PERMISSIONS-COMBINED-SCENARIO-001",
+      "given": "A member without delete permission tries to delete records from different org",
+      "when": "Member attempts batch delete with both permission and org violations",
+      "then": "Returns 404 Not Found (org isolation checked first)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, organization_id) VALUES (1, 'Alice Cooper', 'org_456'), (2, 'Bob Smith', 'org_456')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/tables/1/records/batch",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "pathParams": { "tableId": 1 },
+            "body": {
+              "ids": [1, 2]
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 (org isolation checked before permissions)",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Record not found"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

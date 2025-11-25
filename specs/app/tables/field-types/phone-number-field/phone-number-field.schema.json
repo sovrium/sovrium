@@ -32,33 +32,184 @@
   "x-specs": [
     {
       "id": "APP-FIELD-PHONE-NUMBER-001",
-      "given": "I create a phone number field",
-      "when": "I enter a phone number",
-      "then": "it should format it automatically for display"
+      "given": "table configuration with phone-number field 'phone'",
+      "when": "field migration creates column",
+      "then": "PostgreSQL VARCHAR(255) column is created for phone number storage",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE contacts (id SERIAL PRIMARY KEY)",
+          "fieldConfig": {
+            "id": 1,
+            "name": "phone",
+            "type": "phone-number"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column created as VARCHAR(255)",
+            "executeQuery": "SELECT column_name, data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='contacts' AND column_name='phone'",
+            "expected": {
+              "column_name": "phone",
+              "data_type": "character varying",
+              "character_maximum_length": 255,
+              "is_nullable": "YES"
+            }
+          },
+          {
+            "description": "Phone number can be inserted",
+            "executeQuery": "INSERT INTO contacts (phone) VALUES ('+1-555-123-4567') RETURNING phone",
+            "expected": {
+              "phone": "+1-555-123-4567"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-PHONE-NUMBER-002",
-      "given": "I create a phone number field",
-      "when": "I enter an international number",
-      "then": "it should accept it without validation errors"
+      "given": "table 'customers' with phone-number field 'mobile'",
+      "when": "insert international phone numbers with different formats",
+      "then": "all formats are stored as-is without validation (VARCHAR accepts any text)",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE customers (id SERIAL PRIMARY KEY, mobile VARCHAR(255))"
+        },
+        "assertions": [
+          {
+            "description": "French phone number insertion succeeds",
+            "executeQuery": "INSERT INTO customers (mobile) VALUES ('+33 1 23 45 67 89') RETURNING mobile",
+            "expected": {
+              "mobile": "+33 1 23 45 67 89"
+            }
+          },
+          {
+            "description": "UK phone number insertion succeeds",
+            "executeQuery": "INSERT INTO customers (mobile) VALUES ('+44 20 7123 4567') RETURNING mobile",
+            "expected": {
+              "mobile": "+44 20 7123 4567"
+            }
+          },
+          {
+            "description": "Japanese phone number insertion succeeds",
+            "executeQuery": "INSERT INTO customers (mobile) VALUES ('+81 3-1234-5678') RETURNING mobile",
+            "expected": {
+              "mobile": "+81 3-1234-5678"
+            }
+          },
+          {
+            "description": "All international formats stored correctly",
+            "executeQuery": "SELECT COUNT(*) as count FROM customers WHERE mobile LIKE '+%'",
+            "expected": {
+              "count": 3
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-PHONE-NUMBER-003",
-      "given": "I create a phone number field with unique constraint",
-      "when": "I enter a duplicate number",
-      "then": "it should reject the input"
+      "given": "table 'users' with phone-number field 'phone' (required, unique), existing row phone='+1-555-1234'",
+      "when": "attempt to insert duplicate phone='+1-555-1234'",
+      "then": "PostgreSQL UNIQUE constraint rejects insertion",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, phone VARCHAR(255) UNIQUE NOT NULL)",
+            "INSERT INTO users (phone) VALUES ('+1-555-1234')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "UNIQUE constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE' AND constraint_name LIKE '%phone%'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Duplicate phone rejected",
+            "executeQuery": "INSERT INTO users (phone) VALUES ('+1-555-1234')",
+            "expectError": "duplicate key value violates unique constraint"
+          },
+          {
+            "description": "Database still contains only 1 row",
+            "executeQuery": "SELECT COUNT(*) as count FROM users",
+            "expected": {
+              "count": 1
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-PHONE-NUMBER-FIELD-004",
-      "given": "a Phone Number Field is configured",
-      "when": "validating schema",
-      "then": "type must be 'phone-number'"
+      "given": "table 'support_tickets' with required phone-number field 'contact_phone'",
+      "when": "attempt to insert NULL value for required contact_phone",
+      "then": "PostgreSQL NOT NULL constraint rejects insertion",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE support_tickets (id SERIAL PRIMARY KEY, contact_phone VARCHAR(255) NOT NULL)"
+        },
+        "assertions": [
+          {
+            "description": "NOT NULL constraint enforced",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='support_tickets' AND column_name='contact_phone'",
+            "expected": {
+              "is_nullable": "NO"
+            }
+          },
+          {
+            "description": "Valid phone number insertion succeeds",
+            "executeQuery": "INSERT INTO support_tickets (contact_phone) VALUES ('+1-800-SUPPORT') RETURNING contact_phone",
+            "expected": {
+              "contact_phone": "+1-800-SUPPORT"
+            }
+          },
+          {
+            "description": "NULL phone number insertion fails",
+            "executeQuery": "INSERT INTO support_tickets (contact_phone) VALUES (NULL)",
+            "expectError": "violates not-null constraint"
+          }
+        ]
+      }
     },
     {
       "id": "APP-PHONE-NUMBER-FIELD-005",
-      "given": "type is set to 'phone-number'",
-      "when": "processing field",
-      "then": "it should be treated as a Phone Number Field"
+      "given": "table configuration with phone-number field, indexed=true",
+      "when": "index is created on the phone field",
+      "then": "PostgreSQL btree index exists for fast phone number lookups",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, phone VARCHAR(255) UNIQUE NOT NULL)",
+            "CREATE INDEX idx_employees_phone ON employees(phone)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "phone",
+            "type": "phone-number",
+            "unique": true,
+            "indexed": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists in pg_indexes",
+            "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_employees_phone'",
+            "expected": {
+              "indexname": "idx_employees_phone",
+              "tablename": "employees"
+            }
+          },
+          {
+            "description": "Index uses btree for phone number searching",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_employees_phone'",
+            "expected": {
+              "indexdef": "CREATE INDEX idx_employees_phone ON public.employees USING btree (phone)"
+            }
+          }
+        ]
+      }
     }
   ]
 }

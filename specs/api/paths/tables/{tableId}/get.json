@@ -74,13 +74,117 @@
       "id": "API-TABLES-GET-001",
       "given": "A running server with existing table",
       "when": "User requests table by ID",
-      "then": "Response should be 200 OK with table configuration"
+      "then": "Response should be 200 OK with table configuration",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, first_name VARCHAR(255))",
+            "CREATE UNIQUE INDEX uq_users_email ON users(email)",
+            "CREATE INDEX idx_users_email ON users(email)"
+          ],
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1",
+            "headers": {
+              "Authorization": "Bearer test_token"
+            },
+            "pathParams": {
+              "tableId": 1
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 with complete table configuration",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "name": { "type": "string" },
+                "fields": { "type": "array" },
+                "primaryKey": { "type": "object" },
+                "uniqueConstraints": { "type": "array" },
+                "indexes": { "type": "array" }
+              },
+              "required": ["id", "name", "fields"]
+            },
+            "validateResponseData": {
+              "name": "users",
+              "fields.length": 3
+            }
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-GET-002",
       "given": "A running server",
       "when": "User requests non-existent table",
-      "then": "Response should be 404 Not Found"
+      "then": "Response should be 404 Not Found",
+      "validation": {
+        "setup": {
+          "executeQuery": [],
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/9999",
+            "headers": {
+              "Authorization": "Bearer test_token"
+            },
+            "pathParams": {
+              "tableId": 9999
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 with error message",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Table not found"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-GET-003",
+      "given": "A running server with existing table",
+      "when": "Unauthenticated user requests table by ID",
+      "then": "Response should be 401 Unauthorized",
+      "validation": {
+        "setup": {
+          "executeQuery": ["CREATE TABLE users (id SERIAL PRIMARY KEY)"],
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1",
+            "pathParams": {
+              "tableId": 1
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 when no auth token provided",
+            "expectedStatus": 401,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
     }
   ]
 }

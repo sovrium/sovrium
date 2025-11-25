@@ -33,45 +33,178 @@
   "x-specs": [
     {
       "id": "APP-TABLES-UNIQUECONSTRAINTS-001",
-      "given": "user provides uniqueConstraints array",
-      "when": "validating input",
-      "then": "items should be processed in order"
+      "given": "table with composite unique constraint on (email, tenant_id)",
+      "when": "attempting to insert duplicate combination",
+      "then": "PostgreSQL rejects with unique constraint violation error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255), tenant_id INTEGER, CONSTRAINT uq_user_email_tenant UNIQUE (email, tenant_id))",
+            "INSERT INTO users (email, tenant_id) VALUES ('alice@example.com', 1)"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Duplicate (email, tenant_id) combination rejected",
+            "executeQuery": "INSERT INTO users (email, tenant_id) VALUES ('alice@example.com', 1)",
+            "expectError": "duplicate key value violates unique constraint \"uq_user_email_tenant\""
+          },
+          {
+            "description": "Same email with different tenant_id is allowed",
+            "executeQuery": "INSERT INTO users (email, tenant_id) VALUES ('alice@example.com', 2) RETURNING id",
+            "expected": {
+              "id": 2
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-UNIQUECONSTRAINTS-002",
-      "given": "uniqueConstraints array is empty",
-      "when": "validating input",
-      "then": "behavior should follow optional/required rules"
+      "given": "table without unique constraints (empty array)",
+      "when": "inserting duplicate values",
+      "then": "PostgreSQL allows duplicates without constraint",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, sku VARCHAR(50), name VARCHAR(255))",
+            "INSERT INTO products (sku, name) VALUES ('ABC123', 'Widget')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Duplicate SKU allowed when no unique constraint",
+            "executeQuery": "INSERT INTO products (sku, name) VALUES ('ABC123', 'Different Widget') RETURNING id",
+            "expected": {
+              "id": 2
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-UNIQUECONSTRAINTS-FIELDS-001",
-      "given": "user provides fields with at least 2 items",
-      "when": "validating input",
-      "then": "array should be accepted"
+      "given": "unique constraint with 2 fields (minimum required)",
+      "when": "creating constraint on (last_name, first_name)",
+      "then": "PostgreSQL creates composite unique index",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE contacts (id SERIAL PRIMARY KEY, first_name VARCHAR(255), last_name VARCHAR(255), CONSTRAINT uq_contacts_name UNIQUE (last_name, first_name))"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Constraint created successfully",
+            "executeQuery": "SELECT conname, contype FROM pg_constraint WHERE conname = 'uq_contacts_name'",
+            "expected": {
+              "conname": "uq_contacts_name",
+              "contype": "u"
+            }
+          },
+          {
+            "description": "Constraint enforces uniqueness on both fields",
+            "executeQuery": "INSERT INTO contacts (first_name, last_name) VALUES ('John', 'Doe'), ('John', 'Smith'), ('Jane', 'Doe') RETURNING id",
+            "expected": {
+              "id": 3
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-UNIQUECONSTRAINTS-FIELDS-002",
-      "given": "user provides fields with fewer than 2 items",
-      "when": "validating input",
-      "then": "error should enforce minimum items"
+      "given": "unique constraint with 3+ fields",
+      "when": "creating constraint on (country, state, city)",
+      "then": "PostgreSQL creates multi-column unique index",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE locations (id SERIAL PRIMARY KEY, country VARCHAR(100), state VARCHAR(100), city VARCHAR(100), CONSTRAINT uq_location UNIQUE (country, state, city))",
+            "INSERT INTO locations (country, state, city) VALUES ('USA', 'California', 'San Francisco')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Duplicate triple rejected",
+            "executeQuery": "INSERT INTO locations (country, state, city) VALUES ('USA', 'California', 'San Francisco')",
+            "expectError": "duplicate key value violates unique constraint \"uq_location\""
+          },
+          {
+            "description": "Different city with same country/state allowed",
+            "executeQuery": "INSERT INTO locations (country, state, city) VALUES ('USA', 'California', 'Los Angeles') RETURNING id",
+            "expected": {
+              "id": 2
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-UNIQUECONSTRAINTS-NAME-001",
-      "given": "user provides name matching pattern",
-      "when": "validating input",
-      "then": "value should be accepted"
+      "given": "constraint name matching pattern '^uq_[a-z][a-z0-9_]*$'",
+      "when": "creating unique constraint with valid name",
+      "then": "PostgreSQL accepts constraint name",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE items (id SERIAL PRIMARY KEY, code VARCHAR(50), category VARCHAR(50), CONSTRAINT uq_item_code_category UNIQUE (code, category))"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Constraint created with snake_case name",
+            "executeQuery": "SELECT conname FROM pg_constraint WHERE conname = 'uq_item_code_category'",
+            "expected": {
+              "conname": "uq_item_code_category"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-UNIQUECONSTRAINTS-NAME-002",
-      "given": "user provides name not matching pattern",
-      "when": "validating input",
-      "then": "clear error message should explain format requirement"
+      "given": "constraint name with invalid characters (spaces, uppercase)",
+      "when": "attempting to create constraint",
+      "then": "PostgreSQL accepts but lowercases the name",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE test_items (id SERIAL PRIMARY KEY, field1 VARCHAR(50), field2 VARCHAR(50), CONSTRAINT \"UQ_TEST\" UNIQUE (field1, field2))"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "PostgreSQL stores constraint name in lowercase",
+            "executeQuery": "SELECT conname FROM pg_constraint WHERE conname = 'UQ_TEST' OR conname = 'uq_test'",
+            "expected": {
+              "conname": "UQ_TEST"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-UNIQUECONSTRAINTS-NAME-003",
-      "given": "name is stored",
-      "when": "retrieved later",
-      "then": "original format should be preserved"
+      "given": "unique constraint with specific name",
+      "when": "querying constraint metadata",
+      "then": "constraint name is preserved exactly as created",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE preserved_names (id SERIAL PRIMARY KEY, col1 VARCHAR(50), col2 VARCHAR(50), CONSTRAINT uq_preserved_test UNIQUE (col1, col2))"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Constraint name retrieved matches original",
+            "executeQuery": "SELECT conname FROM pg_constraint WHERE conrelid = 'preserved_names'::regclass AND contype = 'u'",
+            "expected": {
+              "conname": "uq_preserved_test"
+            }
+          }
+        ]
+      }
     }
   ]
 }

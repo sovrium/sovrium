@@ -125,13 +125,43 @@
       "id": "APP-TABLES-FIELDS-001",
       "given": "user provides fields with at least 1 items",
       "when": "validating input",
-      "then": "array should be accepted"
+      "then": "array should be accepted",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "array should be accepted",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
     },
     {
       "id": "APP-TABLES-FIELDS-002",
       "given": "user provides fields with fewer than 1 items",
       "when": "validating input",
-      "then": "error should enforce minimum items"
+      "then": "error should enforce minimum items",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "error should enforce minimum items",
+            "validateConfig": true,
+            "expectError": "must be within the allowed range"
+          }
+        ]
+      }
     }
   ]
 }

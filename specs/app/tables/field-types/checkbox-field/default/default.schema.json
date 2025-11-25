@@ -1,26 +1,142 @@
 {
   "$id": "default.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "default",
+  "title": "Checkbox Field Default Value",
+  "description": "Default boolean value when no value is provided during INSERT. PostgreSQL DEFAULT constraint with BOOLEAN type for true/false fields.",
   "type": "boolean",
+  "examples": [true, false],
   "x-specs": [
     {
       "id": "APP-FIELD-CHECKBOX-DEFAULT-001",
-      "given": "default is true",
-      "when": "processing entity",
-      "then": "corresponding behavior should be enforced"
+      "given": "checkbox field with default: true",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL DEFAULT constraint provides true",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE features (id SERIAL PRIMARY KEY, name VARCHAR(255), is_enabled BOOLEAN DEFAULT TRUE)",
+            "INSERT INTO features (name) VALUES ('Dark Mode')"
+          ],
+          "fieldConfig": {
+            "name": "is_enabled",
+            "type": "checkbox",
+            "default": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT constraint with TRUE",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='features' AND column_name='is_enabled'",
+            "expected": {
+              "column_default": "true"
+            }
+          },
+          {
+            "description": "INSERT without value uses default true",
+            "executeQuery": "SELECT is_enabled FROM features WHERE name = 'Dark Mode'",
+            "expected": {
+              "is_enabled": true
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-CHECKBOX-DEFAULT-002",
-      "given": "default is false (default: False)",
-      "when": "processing entity",
-      "then": "corresponding behavior should not be enforced"
+      "given": "checkbox field with default: false",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL DEFAULT constraint provides false",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE settings (id SERIAL PRIMARY KEY, key VARCHAR(255), is_active BOOLEAN DEFAULT FALSE)",
+            "INSERT INTO settings (key) VALUES ('notifications')"
+          ],
+          "fieldConfig": {
+            "name": "is_active",
+            "type": "checkbox",
+            "default": false
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT constraint with FALSE",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='settings' AND column_name='is_active'",
+            "expected": {
+              "column_default": "false"
+            }
+          },
+          {
+            "description": "INSERT without value uses default false",
+            "executeQuery": "SELECT is_active FROM settings WHERE key = 'notifications'",
+            "expected": {
+              "is_active": false
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-CHECKBOX-DEFAULT-003",
-      "given": "configuration with default",
-      "when": "validating settings",
-      "then": "boolean value should be accepted"
+      "given": "checkbox field without default specified",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL inserts NULL",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), is_completed BOOLEAN)",
+            "INSERT INTO tasks (title) VALUES ('Task A')"
+          ],
+          "fieldConfig": {
+            "name": "is_completed",
+            "type": "checkbox"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has no DEFAULT constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='tasks' AND column_name='is_completed'",
+            "expected": {
+              "column_default": null
+            }
+          },
+          {
+            "description": "INSERT without value results in NULL",
+            "executeQuery": "SELECT is_completed FROM tasks WHERE title = 'Task A'",
+            "expected": {
+              "is_completed": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-CHECKBOX-DEFAULT-004",
+      "given": "checkbox field with default and explicit value",
+      "when": "INSERT with specific boolean value",
+      "then": "PostgreSQL uses explicit value, ignoring default",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, username VARCHAR(255), is_admin BOOLEAN DEFAULT FALSE)",
+            "INSERT INTO users (username, is_admin) VALUES ('alice', TRUE)"
+          ],
+          "fieldConfig": {
+            "name": "is_admin",
+            "type": "checkbox",
+            "default": false
+          }
+        },
+        "assertions": [
+          {
+            "description": "Explicit value overrides default",
+            "executeQuery": "SELECT is_admin FROM users WHERE username = 'alice'",
+            "expected": {
+              "is_admin": true
+            }
+          }
+        ]
+      }
     }
   ]
 }

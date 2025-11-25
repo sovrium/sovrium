@@ -1,0 +1,114 @@
+{
+  "$id": "sorts.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "View Sorts",
+  "description": "Sorting configuration for view. Supports multi-field sorting with precedence order.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "field": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Name of the field to sort by"
+      },
+      "direction": {
+        "type": "string",
+        "enum": ["asc", "desc"],
+        "default": "asc",
+        "description": "Sort direction: ascending or descending"
+      }
+    },
+    "required": ["field", "direction"],
+    "additionalProperties": false
+  },
+  "examples": [
+    [
+      {
+        "field": "created_at",
+        "direction": "desc"
+      }
+    ],
+    [
+      {
+        "field": "priority",
+        "direction": "asc"
+      },
+      {
+        "field": "created_at",
+        "direction": "desc"
+      }
+    ],
+    [
+      {
+        "field": "name",
+        "direction": "asc"
+      }
+    ]
+  ],
+  "x-specs": [
+    {
+      "id": "APP-TABLES-VIEW-SORTS-001",
+      "given": "a sort by single field with ascending direction",
+      "when": "applying sort to records",
+      "then": "records should be ordered from lowest to highest by that field",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "records should be ordered from lowest to highest by that field",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-TABLES-VIEW-SORTS-002",
+      "given": "a sort by single field with descending direction",
+      "when": "applying sort to records",
+      "then": "records should be ordered from highest to lowest by that field",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "records should be ordered from highest to lowest by that field",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-TABLES-VIEW-SORTS-003",
+      "given": "sorts by multiple fields",
+      "when": "applying sort to records",
+      "then": "records should be ordered by first field, then second field breaks ties, and so on",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "records should be ordered by first field, then second field breaks ties, and so on",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,8 +1,8 @@
 {
   "$id": "formula.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Formula expression to compute the value. Supports field references, operators, and functions.",
-  "description": "Formula expression to compute the value. Supports field references, operators, and functions.",
+  "title": "Formula Expression",
+  "description": "Formula expression to compute the value. Supports field references, operators, and functions. Translated to PostgreSQL GENERATED ALWAYS AS expression.",
   "type": "string",
   "examples": [
     "price * quantity",
@@ -14,15 +14,201 @@
   "x-specs": [
     {
       "id": "APP-FIELD-FORMULA-001",
-      "given": "user provides formula with at least 1 characters",
-      "when": "validating input",
-      "then": "value should be accepted"
+      "given": "formula field with arithmetic expression: 'price * quantity'",
+      "when": "field migration creates GENERATED column",
+      "then": "PostgreSQL computes value automatically on INSERT/UPDATE",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE order_items (id SERIAL PRIMARY KEY, product VARCHAR(255), price DECIMAL(10,2), quantity INTEGER, total DECIMAL(15,2) GENERATED ALWAYS AS (price * quantity) STORED)",
+            "INSERT INTO order_items (product, price, quantity) VALUES ('Widget', 19.99, 5), ('Gadget', 49.50, 2)"
+          ],
+          "fieldConfig": {
+            "name": "total",
+            "type": "formula",
+            "formula": "price * quantity",
+            "resultType": "number"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column is GENERATED type",
+            "executeQuery": "SELECT is_generated FROM information_schema.columns WHERE table_name='order_items' AND column_name='total'",
+            "expected": {
+              "is_generated": "ALWAYS"
+            }
+          },
+          {
+            "description": "Formula computes automatically (19.99 * 5)",
+            "executeQuery": "SELECT total FROM order_items WHERE product = 'Widget'",
+            "expected": {
+              "total": 99.95
+            }
+          },
+          {
+            "description": "Cannot manually insert into GENERATED column",
+            "executeQuery": "INSERT INTO order_items (product, price, quantity, total) VALUES ('Invalid', 10.00, 1, 999.99)",
+            "expectError": "cannot insert into column \"total\""
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-FORMULA-002",
-      "given": "user provides formula shorter than 1 chars",
-      "when": "validating input",
-      "then": "error should require minimum length"
+      "given": "formula field with string concatenation: 'CONCAT(first_name, \" \", last_name)'",
+      "when": "formula uses text functions",
+      "then": "PostgreSQL CONCAT function generates full name",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, first_name VARCHAR(255), last_name VARCHAR(255), full_name TEXT GENERATED ALWAYS AS (CONCAT(first_name, ' ', last_name)) STORED)",
+            "INSERT INTO employees (first_name, last_name) VALUES ('John', 'Doe'), ('Jane', 'Smith')"
+          ],
+          "fieldConfig": {
+            "name": "full_name",
+            "type": "formula",
+            "formula": "CONCAT(first_name, ' ', last_name)",
+            "resultType": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "String concatenation works",
+            "executeQuery": "SELECT full_name FROM employees WHERE first_name = 'John'",
+            "expected": {
+              "full_name": "John Doe"
+            }
+          },
+          {
+            "description": "Formula updates when source fields change",
+            "executeQuery": "UPDATE employees SET last_name = 'Johnson' WHERE first_name = 'John' RETURNING full_name",
+            "expected": {
+              "full_name": "John Johnson"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-FORMULA-003",
+      "given": "formula field with conditional: 'CASE WHEN status = \"active\" THEN \"Yes\" ELSE \"No\" END'",
+      "when": "formula uses CASE expression",
+      "then": "PostgreSQL evaluates condition and returns result",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE accounts (id SERIAL PRIMARY KEY, username VARCHAR(255), status VARCHAR(50), is_active TEXT GENERATED ALWAYS AS (CASE WHEN status = 'active' THEN 'Yes' ELSE 'No' END) STORED)",
+            "INSERT INTO accounts (username, status) VALUES ('user1', 'active'), ('user2', 'inactive'), ('user3', 'pending')"
+          ],
+          "fieldConfig": {
+            "name": "is_active",
+            "type": "formula",
+            "formula": "CASE WHEN status = 'active' THEN 'Yes' ELSE 'No' END",
+            "resultType": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Condition evaluates to 'Yes' for active",
+            "executeQuery": "SELECT is_active FROM accounts WHERE username = 'user1'",
+            "expected": {
+              "is_active": "Yes"
+            }
+          },
+          {
+            "description": "Condition evaluates to 'No' for non-active",
+            "executeQuery": "SELECT is_active FROM accounts WHERE username = 'user2'",
+            "expected": {
+              "is_active": "No"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-FORMULA-004",
+      "given": "formula field with function: 'ROUND(total * 0.15, 2)' (15% tax)",
+      "when": "formula uses ROUND function",
+      "then": "PostgreSQL computes rounded tax value",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE invoices (id SERIAL PRIMARY KEY, subtotal DECIMAL(15,2), tax DECIMAL(15,2) GENERATED ALWAYS AS (ROUND(subtotal * 0.15, 2)) STORED)",
+            "INSERT INTO invoices (subtotal) VALUES (100.00), (49.99), (1234.56)"
+          ],
+          "fieldConfig": {
+            "name": "tax",
+            "type": "formula",
+            "formula": "ROUND(total * 0.15, 2)",
+            "resultType": "number"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Tax calculated and rounded (100 * 0.15)",
+            "executeQuery": "SELECT tax FROM invoices WHERE subtotal = 100.00",
+            "expected": {
+              "tax": 15.0
+            }
+          },
+          {
+            "description": "Tax rounded to 2 decimals (49.99 * 0.15)",
+            "executeQuery": "SELECT tax FROM invoices WHERE subtotal = 49.99",
+            "expected": {
+              "tax": 7.5
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-FORMULA-005",
+      "given": "formula field with empty string",
+      "when": "field configuration validation runs",
+      "then": "error should require minimum length 1 character",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "result",
+            "type": "formula",
+            "formula": "",
+            "resultType": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Empty formula rejected",
+            "validateConfig": true,
+            "expectError": "formula must have at least 1 character"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-FORMULA-006",
+      "given": "formula field with invalid SQL syntax",
+      "when": "migration attempts to create GENERATED column",
+      "then": "PostgreSQL returns syntax error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE test (id SERIAL PRIMARY KEY, value INTEGER, result INTEGER GENERATED ALWAYS AS (INVALID SYNTAX) STORED)"
+          ],
+          "fieldConfig": {
+            "name": "result",
+            "type": "formula",
+            "formula": "INVALID SYNTAX",
+            "resultType": "number"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Invalid formula syntax rejected by PostgreSQL",
+            "executeQuery": "CREATE TABLE test (id SERIAL PRIMARY KEY, value INTEGER, result INTEGER GENERATED ALWAYS AS (INVALID SYNTAX) STORED)",
+            "expectError": "syntax error"
+          }
+        ]
+      }
     }
   ]
 }

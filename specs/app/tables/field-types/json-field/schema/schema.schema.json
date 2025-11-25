@@ -9,13 +9,43 @@
       "id": "APP-FIELD-JSON-SCHEMA-001",
       "given": "user configures schema",
       "when": "validating input",
-      "then": "value should meet schema requirements"
+      "then": "value should meet schema requirements",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "value should meet schema requirements",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-JSON-SCHEMA-002",
       "given": "schema is set",
       "when": "processing configuration",
-      "then": "value should be used correctly"
+      "then": "value should be used correctly",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "value should be used correctly",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
     }
   ]
 }

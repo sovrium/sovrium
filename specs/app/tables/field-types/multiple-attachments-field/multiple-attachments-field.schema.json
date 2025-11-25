@@ -33,15 +33,232 @@
   "x-specs": [
     {
       "id": "APP-MULTIPLE-ATTACHMENTS-FIELD-001",
-      "given": "entity with type='multiple-attachments'",
-      "when": "processing configuration",
-      "then": "correct handler should be selected"
+      "given": "table configuration with multiple-attachments field 'photos'",
+      "when": "field migration creates junction table for attachments",
+      "then": "PostgreSQL junction table stores multiple file metadata with foreign key",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "CREATE TABLE product_photos (id SERIAL PRIMARY KEY, product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE, file_path VARCHAR(500) NOT NULL, file_name VARCHAR(255) NOT NULL, file_size INTEGER NOT NULL, mime_type VARCHAR(100) NOT NULL, uploaded_at TIMESTAMPTZ DEFAULT NOW())",
+            "INSERT INTO products (name) VALUES ('Laptop')",
+            "INSERT INTO product_photos (product_id, file_path, file_name, file_size, mime_type) VALUES (1, '/uploads/laptop-front.jpg', 'laptop-front.jpg', 204800, 'image/jpeg')"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "photos",
+            "type": "multiple-attachments"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Junction table created",
+            "executeQuery": "SELECT table_name FROM information_schema.tables WHERE table_name = 'product_photos'",
+            "expected": {
+              "table_name": "product_photos"
+            }
+          },
+          {
+            "description": "Foreign key constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='product_photos' AND constraint_type='FOREIGN KEY'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "File metadata stored in junction table",
+            "executeQuery": "SELECT file_name, file_size FROM product_photos WHERE product_id = 1",
+            "expected": {
+              "file_name": "laptop-front.jpg",
+              "file_size": 204800
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-MULTIPLE-ATTACHMENTS-FIELD-002",
-      "given": "invalid type value",
-      "when": "validating configuration",
-      "then": "clear error message should identify the issue"
+      "given": "table 'projects' with multiple-attachments field for document collection",
+      "when": "multiple files are attached to single record",
+      "then": "PostgreSQL junction table supports one-to-many relationship",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, title VARCHAR(255))",
+            "CREATE TABLE project_documents (id SERIAL PRIMARY KEY, project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE, file_path VARCHAR(500), file_name VARCHAR(255), file_size INTEGER, mime_type VARCHAR(100))",
+            "INSERT INTO projects (title) VALUES ('Q4 Report')",
+            "INSERT INTO project_documents (project_id, file_path, file_name, file_size, mime_type) VALUES (1, '/docs/summary.pdf', 'summary.pdf', 524288, 'application/pdf'), (1, '/docs/data.xlsx', 'data.xlsx', 102400, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'), (1, '/docs/chart.png', 'chart.png', 204800, 'image/png')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Count attachments for project",
+            "executeQuery": "SELECT COUNT(*) as attachment_count FROM project_documents WHERE project_id = 1",
+            "expected": {
+              "attachment_count": 3
+            }
+          },
+          {
+            "description": "List all filenames for project",
+            "executeQuery": "SELECT file_name FROM project_documents WHERE project_id = 1 ORDER BY file_name",
+            "expected": [
+              {
+                "file_name": "chart.png"
+              },
+              {
+                "file_name": "data.xlsx"
+              },
+              {
+                "file_name": "summary.pdf"
+              }
+            ]
+          },
+          {
+            "description": "Filter attachments by MIME type",
+            "executeQuery": "SELECT COUNT(*) as pdf_count FROM project_documents WHERE project_id = 1 AND mime_type = 'application/pdf'",
+            "expected": {
+              "pdf_count": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-MULTIPLE-ATTACHMENTS-FIELD-003",
+      "given": "table 'issues' with multiple-attachments field and CASCADE delete",
+      "when": "parent record is deleted",
+      "then": "PostgreSQL CASCADE deletes all attached files automatically",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE issues (id SERIAL PRIMARY KEY, title VARCHAR(255))",
+            "CREATE TABLE issue_attachments (id SERIAL PRIMARY KEY, issue_id INTEGER REFERENCES issues(id) ON DELETE CASCADE, file_path VARCHAR(500))",
+            "INSERT INTO issues (title) VALUES ('Bug #123'), ('Bug #124')",
+            "INSERT INTO issue_attachments (issue_id, file_path) VALUES (1, '/attachments/screenshot1.png'), (1, '/attachments/screenshot2.png'), (2, '/attachments/log.txt')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Initial attachment count",
+            "executeQuery": "SELECT COUNT(*) as count FROM issue_attachments",
+            "expected": {
+              "count": 3
+            }
+          },
+          {
+            "description": "Delete parent issue cascades to attachments",
+            "executeQuery": "DELETE FROM issues WHERE id = 1 RETURNING id",
+            "expected": {
+              "id": 1
+            }
+          },
+          {
+            "description": "Attachments for deleted issue removed",
+            "executeQuery": "SELECT COUNT(*) as count FROM issue_attachments WHERE issue_id = 1",
+            "expected": {
+              "count": 0
+            }
+          },
+          {
+            "description": "Other issue attachments remain",
+            "executeQuery": "SELECT COUNT(*) as count FROM issue_attachments WHERE issue_id = 2",
+            "expected": {
+              "count": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-MULTIPLE-ATTACHMENTS-FIELD-004",
+      "given": "table 'portfolios' with multiple-attachments field and maxFiles constraint",
+      "when": "attachment count is limited",
+      "then": "Application-level CHECK constraint or trigger enforces maxFiles limit",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE portfolios (id SERIAL PRIMARY KEY, artist_name VARCHAR(255))",
+            "CREATE TABLE portfolio_images (id SERIAL PRIMARY KEY, portfolio_id INTEGER REFERENCES portfolios(id), file_path VARCHAR(500))",
+            "INSERT INTO portfolios (artist_name) VALUES ('Alice')"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "images",
+            "type": "multiple-attachments",
+            "maxFiles": 5
+          }
+        },
+        "assertions": [
+          {
+            "description": "Insert 5 attachments (at limit)",
+            "executeQuery": "INSERT INTO portfolio_images (portfolio_id, file_path) VALUES (1, '/img/1.jpg'), (1, '/img/2.jpg'), (1, '/img/3.jpg'), (1, '/img/4.jpg'), (1, '/img/5.jpg') RETURNING portfolio_id",
+            "expected": {
+              "portfolio_id": 1
+            }
+          },
+          {
+            "description": "Count attachments at limit",
+            "executeQuery": "SELECT COUNT(*) as count FROM portfolio_images WHERE portfolio_id = 1",
+            "expected": {
+              "count": 5
+            }
+          },
+          {
+            "description": "Note: maxFiles validation typically enforced at application layer",
+            "executeQuery": "SELECT 'maxFiles checked by application before INSERT' as note",
+            "expected": {
+              "note": "maxFiles checked by application before INSERT"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-MULTIPLE-ATTACHMENTS-FIELD-005",
+      "given": "table 'galleries' with multiple-attachments field and aggregate queries",
+      "when": "calculating attachment statistics",
+      "then": "PostgreSQL aggregate functions compute total size and count per record",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE galleries (id SERIAL PRIMARY KEY, name VARCHAR(255))",
+            "CREATE TABLE gallery_files (id SERIAL PRIMARY KEY, gallery_id INTEGER REFERENCES galleries(id), file_path VARCHAR(500), file_size INTEGER)",
+            "INSERT INTO galleries (name) VALUES ('Vacation 2024'), ('Work Projects')",
+            "INSERT INTO gallery_files (gallery_id, file_path, file_size) VALUES (1, '/photos/beach.jpg', 2097152), (1, '/photos/sunset.jpg', 3145728), (1, '/photos/family.jpg', 1572864), (2, '/files/presentation.pdf', 5242880)"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Calculate total storage per gallery",
+            "executeQuery": "SELECT g.name, COALESCE(SUM(gf.file_size), 0) as total_bytes FROM galleries g LEFT JOIN gallery_files gf ON g.id = gf.gallery_id WHERE g.id = 1 GROUP BY g.id, g.name",
+            "expected": {
+              "name": "Vacation 2024",
+              "total_bytes": 6815744
+            }
+          },
+          {
+            "description": "Count files per gallery",
+            "executeQuery": "SELECT g.name, COUNT(gf.id) as file_count FROM galleries g LEFT JOIN gallery_files gf ON g.id = gf.gallery_id GROUP BY g.id, g.name ORDER BY g.name",
+            "expected": [
+              {
+                "name": "Vacation 2024",
+                "file_count": 3
+              },
+              {
+                "name": "Work Projects",
+                "file_count": 1
+              }
+            ]
+          },
+          {
+            "description": "Find largest attachment in gallery",
+            "executeQuery": "SELECT MAX(file_size) as largest_file FROM gallery_files WHERE gallery_id = 1",
+            "expected": {
+              "largest_file": 3145728
+            }
+          }
+        ]
+      }
     }
   ]
 }

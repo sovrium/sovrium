@@ -38,15 +38,206 @@
   "x-specs": [
     {
       "id": "APP-PERCENTAGE-FIELD-001",
-      "given": "a Percentage Field is configured",
-      "when": "validating schema",
-      "then": "type must be 'percentage'"
+      "given": "table configuration with percentage field 'completion'",
+      "when": "field migration creates column",
+      "then": "PostgreSQL NUMERIC(5, 2) column is created for percentage storage (0-100)",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE tasks (id SERIAL PRIMARY KEY)",
+          "fieldConfig": {
+            "id": 1,
+            "name": "completion",
+            "type": "percentage"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column created as NUMERIC(5, 2) for percentage",
+            "executeQuery": "SELECT column_name, data_type, numeric_precision, numeric_scale FROM information_schema.columns WHERE table_name='tasks' AND column_name='completion'",
+            "expected": {
+              "column_name": "completion",
+              "data_type": "numeric",
+              "numeric_precision": 5,
+              "numeric_scale": 2
+            }
+          },
+          {
+            "description": "Percentage value can be inserted",
+            "executeQuery": "INSERT INTO tasks (completion) VALUES (75.50) RETURNING completion",
+            "expected": {
+              "completion": "75.50"
+            }
+          },
+          {
+            "description": "Zero percentage can be inserted",
+            "executeQuery": "INSERT INTO tasks (completion) VALUES (0.00) RETURNING completion",
+            "expected": {
+              "completion": "0.00"
+            }
+          },
+          {
+            "description": "Full completion (100%) can be inserted",
+            "executeQuery": "INSERT INTO tasks (completion) VALUES (100.00) RETURNING completion",
+            "expected": {
+              "completion": "100.00"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-PERCENTAGE-FIELD-002",
-      "given": "type is set to 'percentage'",
-      "when": "processing field",
-      "then": "it should be treated as a Percentage Field"
+      "given": "table 'progress_reports' with percentage field 'score' (min=0, max=100)",
+      "when": "CHECK constraint enforces 0-100% range",
+      "then": "PostgreSQL rejects values outside 0-100 range",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE progress_reports (id SERIAL PRIMARY KEY, score NUMERIC(5, 2) CHECK (score >= 0 AND score <= 100))"
+        },
+        "assertions": [
+          {
+            "description": "CHECK constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%score%'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Valid percentage within range succeeds",
+            "executeQuery": "INSERT INTO progress_reports (score) VALUES (85.25) RETURNING score",
+            "expected": {
+              "score": "85.25"
+            }
+          },
+          {
+            "description": "Negative percentage rejected",
+            "executeQuery": "INSERT INTO progress_reports (score) VALUES (-1.00)",
+            "expectError": "violates check constraint"
+          },
+          {
+            "description": "Percentage above 100 rejected",
+            "executeQuery": "INSERT INTO progress_reports (score) VALUES (100.01)",
+            "expectError": "violates check constraint"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-PERCENTAGE-FIELD-003",
+      "given": "table 'discounts' with percentage field 'rate' (required, unique)",
+      "when": "constraints are applied",
+      "then": "PostgreSQL enforces NOT NULL and UNIQUE constraints",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE discounts (id SERIAL PRIMARY KEY, rate NUMERIC(5, 2) UNIQUE NOT NULL)",
+            "INSERT INTO discounts (rate) VALUES (15.00)"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "NOT NULL constraint enforced",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='discounts' AND column_name='rate'",
+            "expected": {
+              "is_nullable": "NO"
+            }
+          },
+          {
+            "description": "UNIQUE constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='discounts' AND constraint_type='UNIQUE' AND constraint_name LIKE '%rate%'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Duplicate percentage rejected",
+            "executeQuery": "INSERT INTO discounts (rate) VALUES (15.00)",
+            "expectError": "duplicate key value violates unique constraint"
+          },
+          {
+            "description": "NULL insertion fails",
+            "executeQuery": "INSERT INTO discounts (rate) VALUES (NULL)",
+            "expectError": "violates not-null constraint"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-PERCENTAGE-FIELD-004",
+      "given": "table 'metrics' with percentage field 'success_rate' and default value 0.00",
+      "when": "row inserted without providing success_rate value",
+      "then": "PostgreSQL applies DEFAULT value 0.00",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE metrics (id SERIAL PRIMARY KEY, success_rate NUMERIC(5, 2) DEFAULT 0.00)",
+          "fieldConfig": {
+            "id": 1,
+            "name": "success_rate",
+            "type": "percentage",
+            "default": 0.0
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT value",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='metrics' AND column_name='success_rate'",
+            "expected": {
+              "column_default": "0.00"
+            }
+          },
+          {
+            "description": "INSERT without success_rate uses default",
+            "executeQuery": "INSERT INTO metrics (id) VALUES (DEFAULT) RETURNING success_rate",
+            "expected": {
+              "success_rate": "0.00"
+            }
+          },
+          {
+            "description": "Explicit value overrides default",
+            "executeQuery": "INSERT INTO metrics (success_rate) VALUES (95.75) RETURNING success_rate",
+            "expected": {
+              "success_rate": "95.75"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-PERCENTAGE-FIELD-005",
+      "given": "table configuration with percentage field 'conversion_rate', indexed=true",
+      "when": "index is created on the percentage field",
+      "then": "PostgreSQL btree index exists for fast percentage queries",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE campaigns (id SERIAL PRIMARY KEY, conversion_rate NUMERIC(5, 2) NOT NULL)",
+            "CREATE INDEX idx_campaigns_conversion ON campaigns(conversion_rate)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "conversion_rate",
+            "type": "percentage",
+            "indexed": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists in pg_indexes",
+            "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_campaigns_conversion'",
+            "expected": {
+              "indexname": "idx_campaigns_conversion",
+              "tablename": "campaigns"
+            }
+          },
+          {
+            "description": "Index uses btree for range queries and sorting",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_campaigns_conversion'",
+            "expected": {
+              "indexdef": "CREATE INDEX idx_campaigns_conversion ON public.campaigns USING btree (conversion_rate)"
+            }
+          }
+        ]
+      }
     }
   ]
 }

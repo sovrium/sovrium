@@ -27,15 +27,201 @@
   "x-specs": [
     {
       "id": "APP-COLOR-FIELD-001",
-      "given": "entity with type='color'",
-      "when": "processing configuration",
-      "then": "correct handler should be selected"
+      "given": "table configuration with color field 'primary_color'",
+      "when": "field migration creates VARCHAR column for hex color",
+      "then": "PostgreSQL VARCHAR column stores hex color values",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE themes (id SERIAL PRIMARY KEY, primary_color VARCHAR(7) CHECK (primary_color ~ '^#[0-9A-Fa-f]{6}$'))",
+          "fieldConfig": {
+            "id": 1,
+            "name": "primary_color",
+            "type": "color"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column created as VARCHAR(7)",
+            "executeQuery": "SELECT column_name, data_type, character_maximum_length FROM information_schema.columns WHERE table_name='themes' AND column_name='primary_color'",
+            "expected": {
+              "column_name": "primary_color",
+              "data_type": "character varying",
+              "character_maximum_length": 7
+            }
+          },
+          {
+            "description": "Valid hex color can be inserted",
+            "executeQuery": "INSERT INTO themes (primary_color) VALUES ('#FF5733') RETURNING primary_color",
+            "expected": {
+              "primary_color": "#FF5733"
+            }
+          },
+          {
+            "description": "CHECK constraint validates hex format",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%primary_color%'",
+            "expected": {
+              "count": 1
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-COLOR-FIELD-002",
-      "given": "invalid type value",
-      "when": "validating configuration",
-      "then": "clear error message should identify the issue"
+      "given": "table 'products' with color field and format validation",
+      "when": "invalid color format is inserted",
+      "then": "PostgreSQL CHECK constraint rejects non-hex values",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE products (id SERIAL PRIMARY KEY, color VARCHAR(7) CHECK (color ~ '^#[0-9A-Fa-f]{6}$'))"
+        },
+        "assertions": [
+          {
+            "description": "Valid uppercase hex color succeeds",
+            "executeQuery": "INSERT INTO products (color) VALUES ('#ABCDEF') RETURNING color",
+            "expected": {
+              "color": "#ABCDEF"
+            }
+          },
+          {
+            "description": "Valid lowercase hex color succeeds",
+            "executeQuery": "INSERT INTO products (color) VALUES ('#123abc') RETURNING color",
+            "expected": {
+              "color": "#123abc"
+            }
+          },
+          {
+            "description": "Invalid color format rejected (missing #)",
+            "executeQuery": "INSERT INTO products (color) VALUES ('FF5733')",
+            "expectError": "violates check constraint"
+          },
+          {
+            "description": "Invalid color format rejected (wrong length)",
+            "executeQuery": "INSERT INTO products (color) VALUES ('#FFF')",
+            "expectError": "violates check constraint"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-COLOR-FIELD-003",
+      "given": "table 'brands' with color field and default value",
+      "when": "row inserted without providing color",
+      "then": "PostgreSQL applies DEFAULT hex color",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE brands (id SERIAL PRIMARY KEY, accent_color VARCHAR(7) DEFAULT '#000000' CHECK (accent_color ~ '^#[0-9A-Fa-f]{6}$'))",
+          "fieldConfig": {
+            "id": 1,
+            "name": "accent_color",
+            "type": "color",
+            "default": "#000000"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT value",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='brands' AND column_name='accent_color'",
+            "expected": {
+              "column_default": "'#000000'::character varying"
+            }
+          },
+          {
+            "description": "INSERT without color uses default",
+            "executeQuery": "INSERT INTO brands (id) VALUES (DEFAULT) RETURNING accent_color",
+            "expected": {
+              "accent_color": "#000000"
+            }
+          },
+          {
+            "description": "Explicit value overrides default",
+            "executeQuery": "INSERT INTO brands (accent_color) VALUES ('#FF0000') RETURNING accent_color",
+            "expected": {
+              "accent_color": "#FF0000"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-COLOR-FIELD-004",
+      "given": "table 'categories' with color field for querying",
+      "when": "filtering records by color value",
+      "then": "PostgreSQL supports exact and pattern matching on hex colors",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE categories (id SERIAL PRIMARY KEY, name VARCHAR(255), tag_color VARCHAR(7))",
+            "INSERT INTO categories (name, tag_color) VALUES ('Urgent', '#FF0000'), ('Important', '#FF5500'), ('Normal', '#0000FF')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Find category by exact color",
+            "executeQuery": "SELECT name FROM categories WHERE tag_color = '#FF0000'",
+            "expected": {
+              "name": "Urgent"
+            }
+          },
+          {
+            "description": "Find categories with red tones (pattern match)",
+            "executeQuery": "SELECT COUNT(*) as count FROM categories WHERE tag_color LIKE '#FF%'",
+            "expected": {
+              "count": 2
+            }
+          },
+          {
+            "description": "Order categories by color value",
+            "executeQuery": "SELECT name FROM categories ORDER BY tag_color",
+            "expected": [
+              {
+                "name": "Normal"
+              },
+              {
+                "name": "Urgent"
+              },
+              {
+                "name": "Important"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-COLOR-FIELD-005",
+      "given": "table 'ui_elements' with color field (required, unique)",
+      "when": "constraints are applied",
+      "then": "PostgreSQL enforces NOT NULL and UNIQUE on color column",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE ui_elements (id SERIAL PRIMARY KEY, element_color VARCHAR(7) UNIQUE NOT NULL CHECK (element_color ~ '^#[0-9A-Fa-f]{6}$'))",
+            "INSERT INTO ui_elements (element_color) VALUES ('#ABCDEF')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "NOT NULL constraint enforced",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='ui_elements' AND column_name='element_color'",
+            "expected": {
+              "is_nullable": "NO"
+            }
+          },
+          {
+            "description": "UNIQUE constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='ui_elements' AND constraint_type='UNIQUE' AND constraint_name LIKE '%element_color%'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Duplicate color rejected",
+            "executeQuery": "INSERT INTO ui_elements (element_color) VALUES ('#ABCDEF')",
+            "expectError": "duplicate key value violates unique constraint"
+          }
+        ]
+      }
     }
   ]
 }

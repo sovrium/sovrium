@@ -6,15 +6,128 @@
   "x-specs": [
     {
       "id": "APP-FIELD-INTEGER-DEFAULT-001",
-      "given": "user provides default",
-      "when": "validating input",
-      "then": "numeric value should be accepted"
+      "given": "integer field with default: 0",
+      "when": "field migration creates column with DEFAULT constraint",
+      "then": "PostgreSQL automatically sets value to 0 when not provided",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE counters (id SERIAL PRIMARY KEY, name VARCHAR(255), value INTEGER DEFAULT 0)",
+            "INSERT INTO counters (name) VALUES ('counter1'), ('counter2')"
+          ],
+          "fieldConfig": {
+            "name": "value",
+            "type": "integer",
+            "default": 0
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='counters' AND column_name='value'",
+            "expected": {
+              "column_default": "0"
+            }
+          },
+          {
+            "description": "Default value applied when not provided",
+            "executeQuery": "SELECT value FROM counters WHERE name = 'counter1'",
+            "expected": {
+              "value": 0
+            }
+          },
+          {
+            "description": "Explicit value overrides default",
+            "executeQuery": "INSERT INTO counters (name, value) VALUES ('counter3', 42) RETURNING value",
+            "expected": {
+              "value": 42
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-INTEGER-DEFAULT-002",
-      "given": "user provides non-numeric default",
-      "when": "validating input",
-      "then": "error should require number"
+      "given": "integer field with default: 100",
+      "when": "INSERT without value",
+      "then": "PostgreSQL uses default value 100",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255), stock INTEGER DEFAULT 100)",
+            "INSERT INTO products (name) VALUES ('Product 1')"
+          ],
+          "fieldConfig": {
+            "name": "stock",
+            "type": "integer",
+            "default": 100
+          }
+        },
+        "assertions": [
+          {
+            "description": "Default value is 100",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='products' AND column_name='stock'",
+            "expected": {
+              "column_default": "100"
+            }
+          },
+          {
+            "description": "Default applied to inserted record",
+            "executeQuery": "SELECT stock FROM products WHERE name = 'Product 1'",
+            "expected": {
+              "stock": 100
+            }
+          },
+          {
+            "description": "Explicit 0 allowed (overrides default)",
+            "executeQuery": "INSERT INTO products (name, stock) VALUES ('Product 2', 0) RETURNING stock",
+            "expected": {
+              "stock": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-INTEGER-DEFAULT-003",
+      "given": "integer field with no default specified",
+      "when": "INSERT without value",
+      "then": "PostgreSQL uses NULL (if nullable) or rejects (if required)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE items (id SERIAL PRIMARY KEY, quantity INTEGER)",
+            "INSERT INTO items (id) VALUES (1)"
+          ],
+          "fieldConfig": {
+            "name": "quantity",
+            "type": "integer"
+          }
+        },
+        "assertions": [
+          {
+            "description": "No DEFAULT constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='items' AND column_name='quantity'",
+            "expected": {
+              "column_default": null
+            }
+          },
+          {
+            "description": "NULL used when no default and no value",
+            "executeQuery": "SELECT quantity FROM items WHERE id = 1",
+            "expected": {
+              "quantity": null
+            }
+          },
+          {
+            "description": "Explicit value succeeds",
+            "executeQuery": "INSERT INTO items (quantity) VALUES (5) RETURNING quantity",
+            "expected": {
+              "quantity": 5
+            }
+          }
+        ]
+      }
     }
   ]
 }

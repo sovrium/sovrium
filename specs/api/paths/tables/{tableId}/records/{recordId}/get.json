@@ -42,15 +42,503 @@
   "x-specs": [
     {
       "id": "API-TABLES-RECORDS-GET-001",
-      "given": "A running server with existing record",
+      "given": "Table 'users' with record ID=1",
       "when": "User requests record by ID",
-      "then": "Response should be 200 OK with record data"
+      "then": "Returns 200 with complete record data",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL, name VARCHAR(255), phone VARCHAR(50), created_at TIMESTAMP DEFAULT NOW())",
+            "INSERT INTO users (email, name, phone) VALUES ('john.doe@example.com', 'John Doe', '555-0100') RETURNING id"
+          ],
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": {
+              "Authorization": "Bearer test_token"
+            },
+            "pathParams": { "tableId": 1, "recordId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns record with all fields",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "email": { "type": "string" },
+                "name": { "type": "string" },
+                "phone": { "type": "string" },
+                "created_at": { "type": "string" }
+              },
+              "required": ["id", "email"]
+            },
+            "validateResponseData": {
+              "id": 1,
+              "email": "john.doe@example.com",
+              "name": "John Doe",
+              "phone": "555-0100"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "API-TABLES-RECORDS-GET-002",
-      "given": "A running server",
+      "given": "Table 'users' exists but record ID=9999 does not",
       "when": "User requests non-existent record",
-      "then": "Response should be 404 Not Found"
+      "then": "Returns 404 Not Found",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL)"
+          ],
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records/9999",
+            "headers": {
+              "Authorization": "Bearer test_token"
+            },
+            "pathParams": { "tableId": 1, "recordId": 9999 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 when record does not exist",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Record not found"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-GET-PERMISSIONS-UNAUTHORIZED-001",
+      "given": "An unauthenticated user",
+      "when": "User attempts to fetch a record without auth token",
+      "then": "Returns 401 Unauthorized error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, email, organization_id) VALUES (1, 'Alice Cooper', 'alice@example.com', 'org_123')"
+          ],
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records/1",
+            "pathParams": { "tableId": 1, "recordId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 when no auth token provided",
+            "expectedStatus": 401,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-GET-PERMISSIONS-FORBIDDEN-VIEWER-001",
+      "given": "A viewer user without read permission on table",
+      "when": "Viewer attempts to fetch a record",
+      "then": "Returns 403 Forbidden error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, email, organization_id) VALUES (1, 'Alice Cooper', 'alice@example.com', 'org_123')"
+          ],
+          "authUser": {
+            "id": 3,
+            "organizationId": "org_123",
+            "role": "viewer"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "viewer": {
+                "table": { "read": false, "create": false, "update": false, "delete": false }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": { "Authorization": "Bearer viewer_token" },
+            "pathParams": { "tableId": 1, "recordId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 when viewer lacks read permission",
+            "expectedStatus": 403,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            },
+            "validateResponseData": {
+              "error": "Forbidden",
+              "message": "You do not have permission to read records from this table"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-GET-PERMISSIONS-ORG-ISOLATION-001",
+      "given": "An admin user from organization org_123",
+      "when": "Admin attempts to fetch record from organization org_456",
+      "then": "Returns 404 Not Found (organization isolation)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, email, organization_id) VALUES (1, 'Alice Cooper', 'alice@example.com', 'org_456')"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123"
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": { "Authorization": "Bearer admin_token" },
+            "pathParams": { "tableId": 1, "recordId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 when record belongs to different organization",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Record not found"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-GET-PERMISSIONS-FIELD-FILTER-MEMBER-001",
+      "given": "A member user with field-level restrictions (salary field hidden)",
+      "when": "Member fetches a record",
+      "then": "Returns 200 with salary field excluded from response",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, email, salary, organization_id) VALUES (1, 'Alice Cooper', 'alice@example.com', 85000, 'org_123')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": { "Authorization": "Bearer member_token" },
+            "pathParams": { "tableId": 1, "recordId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns record with salary field filtered out",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "name": { "type": "string" },
+                "email": { "type": "string" },
+                "organization_id": { "type": "string" }
+              },
+              "required": ["id", "name", "email", "organization_id"]
+            },
+            "validateResponseData": {
+              "id": 1,
+              "name": "Alice Cooper",
+              "email": "alice@example.com",
+              "organization_id": "org_123"
+            },
+            "validateResponseDataExcluded": ["salary"]
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-GET-PERMISSIONS-FIELD-FILTER-VIEWER-001",
+      "given": "A viewer user with stricter field-level restrictions (salary and email hidden)",
+      "when": "Viewer fetches a record",
+      "then": "Returns 200 with salary and email fields excluded",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, email, salary, organization_id) VALUES (1, 'Bob Smith', 'bob@example.com', 95000, 'org_456')"
+          ],
+          "authUser": {
+            "id": 3,
+            "organizationId": "org_456",
+            "role": "viewer"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_456",
+            "permissions": {
+              "viewer": {
+                "table": { "read": true, "create": false, "update": false, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": false },
+                  "email": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": { "Authorization": "Bearer viewer_token" },
+            "pathParams": { "tableId": 1, "recordId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns record with salary and email fields filtered out",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "name": { "type": "string" },
+                "organization_id": { "type": "string" }
+              },
+              "required": ["id", "name", "organization_id"]
+            },
+            "validateResponseData": {
+              "id": 1,
+              "name": "Bob Smith",
+              "organization_id": "org_456"
+            },
+            "validateResponseDataExcluded": ["salary", "email"]
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-GET-PERMISSIONS-ADMIN-FULL-ACCESS-001",
+      "given": "An admin user with full read permissions",
+      "when": "Admin fetches a record from their organization",
+      "then": "Returns 200 with all fields visible",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, email, salary, organization_id) VALUES (1, 'Charlie Davis', 'charlie@example.com', 120000, 'org_789')"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_789",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_789",
+            "permissions": {
+              "admin": {
+                "table": { "read": true, "create": true, "update": true, "delete": true },
+                "fields": {
+                  "salary": { "read": true, "write": true }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": { "Authorization": "Bearer admin_token" },
+            "pathParams": { "tableId": 1, "recordId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns record with all fields visible",
+            "expectedStatus": 200,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "name": { "type": "string" },
+                "email": { "type": "string" },
+                "salary": { "type": "number" },
+                "organization_id": { "type": "string" }
+              },
+              "required": ["id", "name", "email", "salary", "organization_id"]
+            },
+            "validateResponseData": {
+              "id": 1,
+              "name": "Charlie Davis",
+              "email": "charlie@example.com",
+              "salary": 120000,
+              "organization_id": "org_789"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-GET-PERMISSIONS-CROSS-ORG-PREVENTION-001",
+      "given": "A record with organization_id='org_456' and admin from org_123",
+      "when": "Admin attempts to fetch record from different organization",
+      "then": "Returns 404 Not Found (not 403 - prevents org enumeration)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, email, organization_id) VALUES (1, 'Eve Wilson', 'eve@example.com', 'org_456')"
+          ],
+          "authUser": {
+            "id": 1,
+            "organizationId": "org_123",
+            "role": "admin"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "admin": {
+                "table": { "read": true, "create": true, "update": true, "delete": true }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": { "Authorization": "Bearer admin_token" },
+            "pathParams": { "tableId": 1, "recordId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 to prevent organization enumeration",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Record not found"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-TABLES-RECORDS-GET-PERMISSIONS-COMBINED-SCENARIO-001",
+      "given": "A member with field restrictions tries to fetch record from different org",
+      "when": "Member attempts GET with both permission and org violations",
+      "then": "Returns 404 Not Found (org isolation checked first)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2), organization_id VARCHAR(255))",
+            "INSERT INTO employees (id, name, email, salary, organization_id) VALUES (1, 'Frank Moore', 'frank@example.com', 75000, 'org_456')"
+          ],
+          "authUser": {
+            "id": 2,
+            "organizationId": "org_123",
+            "role": "member"
+          },
+          "tableConfig": {
+            "id": 1,
+            "name": "employees",
+            "organizationId": "org_123",
+            "permissions": {
+              "member": {
+                "table": { "read": true, "create": true, "update": true, "delete": false },
+                "fields": {
+                  "salary": { "read": false, "write": false }
+                }
+              }
+            }
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/tables/1/records/1",
+            "headers": { "Authorization": "Bearer member_token" },
+            "pathParams": { "tableId": 1, "recordId": 1 }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 (org isolation checked before field permissions)",
+            "expectedStatus": 404,
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" }
+              },
+              "required": ["error"]
+            },
+            "validateResponseData": {
+              "error": "Record not found"
+            }
+          }
+        ]
+      }
     }
   ]
 }

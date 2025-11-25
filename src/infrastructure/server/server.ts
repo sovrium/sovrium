@@ -33,8 +33,8 @@ export interface ServerConfig {
   readonly hostname?: string
   readonly renderHomePage: (app: App, detectedLanguage?: string) => string
   readonly renderPage: (app: App, path: string, detectedLanguage?: string) => string | undefined
-  readonly renderNotFoundPage: () => string
-  readonly renderErrorPage: () => string
+  readonly renderNotFoundPage: (app?: App, detectedLanguage?: string) => string
+  readonly renderErrorPage: (app?: App, detectedLanguage?: string) => string
 }
 
 /**
@@ -70,13 +70,13 @@ export function createHonoApp(config: HonoAppConfig): Readonly<Hono> {
 
   // Add error handlers
   return honoWithRoutes
-    .notFound((c) => c.html(renderNotFoundPage(), 404))
+    .notFound((c) => c.html(renderNotFoundPage(app), 404))
     .onError((error, c) => {
       // Fire-and-forget error logging (onError handler is synchronous)
       Effect.runPromise(Console.error('Server error:', error)).catch(() => {
         // Silently ignore logging failures to prevent unhandled promise rejections
       })
-      return c.html(renderErrorPage(), 500)
+      return c.html(renderErrorPage(app), 500)
     })
 }
 

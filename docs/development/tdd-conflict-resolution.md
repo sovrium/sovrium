@@ -6,7 +6,6 @@ The TDD automation pipeline can encounter merge conflicts when:
 
 1. Multiple PRs modify the same files (parallel spec processing)
 2. Main branch advances while a PR is still pending CI validation
-3. Local spec processing (tdd-local-orchestrator) runs parallel to GitHub queue
 
 **Example**: PR #1481 (APP-BLOCKS-006) has conflicts with PR #1482 (APP-THEME-COLORS-APPLICATION-005)
 
@@ -118,7 +117,7 @@ Use GitHub labels to coordinate parallel work.
 1. Before processing spec, check files it will modify:
 
    ```bash
-   # In queue processor or tdd-local-orchestrator
+   # In queue processor
    SPEC_FILES=$(grep -l "APP-BLOCKS-006" specs/**/*.spec.ts | xargs grep -l "test.fixme")
    ```
 
@@ -179,8 +178,7 @@ gh pr merge --auto --squash
 ### Phase 2: Update Workflows (Strategy 1)
 
 1. Update `.github/workflows/claude-tdd.yml` with rebase step
-2. Update `tdd-local-orchestrator` agent with same logic
-3. Document rebase process in CLAUDE.md
+2. Document rebase process in CLAUDE.md
 
 ### Phase 3: Add Protections (Strategy 3)
 

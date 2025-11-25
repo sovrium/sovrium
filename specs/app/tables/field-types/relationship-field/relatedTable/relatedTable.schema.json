@@ -2,21 +2,150 @@
   "$id": "relatedTable.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Name of the related table",
-  "description": "Name of the related table",
+  "description": "Name of the related table to establish foreign key relationship. Must reference an existing table name in the database. Used to create FOREIGN KEY constraints pointing to the specified table's primary key.",
   "type": "string",
   "minLength": 1,
   "x-specs": [
     {
       "id": "APP-FIELD-RELATIONSHIP-RELATEDTABLE-001",
-      "given": "user provides relatedTable with at least 1 characters",
-      "when": "validating input",
-      "then": "value should be accepted"
+      "given": "relationship field with relatedTable: 'customers' (existing table)",
+      "when": "field migration creates FOREIGN KEY constraint",
+      "then": "PostgreSQL creates foreign key referencing customers table",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255))",
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50), customer_id INTEGER REFERENCES customers(id))",
+            "INSERT INTO customers (name, email) VALUES ('Alice', 'alice@example.com'), ('Bob', 'bob@example.com')",
+            "INSERT INTO orders (order_number, customer_id) VALUES ('ORD-001', 1), ('ORD-002', 2)"
+          ],
+          "fieldConfig": {
+            "name": "customer_id",
+            "type": "relationship",
+            "relatedTable": "customers"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Foreign key constraint exists referencing customers table",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'FOREIGN KEY' AND table_name = 'orders'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Foreign key references customers table primary key",
+            "executeQuery": "SELECT kcu.column_name, ccu.table_name AS foreign_table_name, ccu.column_name AS foreign_column_name FROM information_schema.key_column_usage AS kcu JOIN information_schema.constraint_column_usage AS ccu ON kcu.constraint_name = ccu.constraint_name WHERE kcu.table_name = 'orders' AND kcu.column_name = 'customer_id'",
+            "expected": {
+              "column_name": "customer_id",
+              "foreign_table_name": "customers",
+              "foreign_column_name": "id"
+            }
+          },
+          {
+            "description": "Valid foreign key value accepted",
+            "executeQuery": "SELECT order_number FROM orders WHERE customer_id = 1",
+            "expected": {
+              "order_number": "ORD-001"
+            }
+          },
+          {
+            "description": "Invalid foreign key value rejected (non-existent customer)",
+            "executeQuery": "INSERT INTO orders (order_number, customer_id) VALUES ('ORD-999', 9999)",
+            "expectError": "violates foreign key constraint"
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-RELATIONSHIP-RELATEDTABLE-002",
-      "given": "user provides relatedTable shorter than 1 chars",
-      "when": "validating input",
-      "then": "error should require minimum length"
+      "given": "relationship field with relatedTable: 'nonexistent_table'",
+      "when": "field migration attempts to create FOREIGN KEY",
+      "then": "PostgreSQL returns error for non-existent table",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50), invalid_ref INTEGER REFERENCES nonexistent_table(id))"
+          ],
+          "fieldConfig": {
+            "name": "invalid_ref",
+            "type": "relationship",
+            "relatedTable": "nonexistent_table"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Foreign key to non-existent table rejected",
+            "executeQuery": "CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50), invalid_ref INTEGER REFERENCES nonexistent_table(id))",
+            "expectError": "relation \"nonexistent_table\" does not exist"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-RELATIONSHIP-RELATEDTABLE-003",
+      "given": "relationship field with empty relatedTable value",
+      "when": "field configuration validation runs",
+      "then": "error should require minimum length 1 character",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "customer_id",
+            "type": "relationship",
+            "relatedTable": ""
+          }
+        },
+        "assertions": [
+          {
+            "description": "Empty relatedTable rejected",
+            "validateConfig": true,
+            "expectError": "relatedTable must have at least 1 character"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-RELATIONSHIP-RELATEDTABLE-004",
+      "given": "relationship field referencing table with composite primary key",
+      "when": "field migration creates FOREIGN KEY",
+      "then": "PostgreSQL creates foreign key with multiple columns referencing composite key",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE locations (country_code CHAR(2), region_code CHAR(3), name VARCHAR(255), PRIMARY KEY (country_code, region_code))",
+            "CREATE TABLE stores (id SERIAL PRIMARY KEY, store_name VARCHAR(255), location_country CHAR(2), location_region CHAR(3), FOREIGN KEY (location_country, location_region) REFERENCES locations(country_code, region_code))",
+            "INSERT INTO locations (country_code, region_code, name) VALUES ('US', 'NYC', 'New York'), ('US', 'LAX', 'Los Angeles')",
+            "INSERT INTO stores (store_name, location_country, location_region) VALUES ('Store A', 'US', 'NYC')"
+          ],
+          "fieldConfig": {
+            "name": "location",
+            "type": "relationship",
+            "relatedTable": "locations",
+            "foreignKeyColumns": ["location_country", "location_region"]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Composite foreign key constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'FOREIGN KEY' AND table_name = 'stores'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Valid composite foreign key accepted",
+            "executeQuery": "SELECT store_name FROM stores WHERE location_country = 'US' AND location_region = 'NYC'",
+            "expected": {
+              "store_name": "Store A"
+            }
+          },
+          {
+            "description": "Invalid composite foreign key rejected",
+            "executeQuery": "INSERT INTO stores (store_name, location_country, location_region) VALUES ('Store B', 'US', 'XXX')",
+            "expectError": "violates foreign key constraint"
+          }
+        ]
+      }
     }
   ]
 }

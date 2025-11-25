@@ -55,52 +55,198 @@
   "x-specs": [
     {
       "id": "APP-FIELD-TIME-001",
-      "title": "Create record with valid time field",
-      "given": "a table with a time field",
-      "when": "user creates a record with a valid time value (HH:mm:ss)",
-      "then": "the record is created successfully with the time stored in ISO 8601 format"
+      "given": "table configuration with time field 'opening_time'",
+      "when": "field migration creates column",
+      "then": "PostgreSQL TIME column is created for clock times",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE stores (id SERIAL PRIMARY KEY)",
+          "fieldConfig": {
+            "id": 1,
+            "name": "opening_time",
+            "type": "time"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column created as TIME type",
+            "executeQuery": "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='stores' AND column_name='opening_time'",
+            "expected": {
+              "column_name": "opening_time",
+              "data_type": "time without time zone",
+              "is_nullable": "YES"
+            }
+          },
+          {
+            "description": "Valid time can be inserted",
+            "executeQuery": "INSERT INTO stores (opening_time) VALUES ('09:00:00') RETURNING opening_time",
+            "expected": {
+              "opening_time": "09:00:00"
+            }
+          },
+          {
+            "description": "24-hour format supported",
+            "executeQuery": "INSERT INTO stores (opening_time) VALUES ('14:30:45') RETURNING opening_time",
+            "expected": {
+              "opening_time": "14:30:45"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-TIME-002",
-      "title": "Reject invalid time format",
-      "given": "a table with a time field",
-      "when": "user provides a time in invalid format (e.g., '10:30 AM' instead of '10:30:00')",
-      "then": "validation error is returned with message 'Time must be in HH:mm:ss format'"
+      "given": "table 'appointments' with time field 'slot_time'",
+      "when": "time range queries are performed",
+      "then": "PostgreSQL TIME type supports comparison and ordering",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE appointments (id SERIAL PRIMARY KEY, slot_time TIME)",
+            "INSERT INTO appointments (slot_time) VALUES ('08:00:00'), ('12:30:00'), ('17:45:00')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Find times after specific time",
+            "executeQuery": "SELECT COUNT(*) as count FROM appointments WHERE slot_time > '12:00:00'",
+            "expected": {
+              "count": 2
+            }
+          },
+          {
+            "description": "Find times between range",
+            "executeQuery": "SELECT COUNT(*) as count FROM appointments WHERE slot_time BETWEEN '08:00:00' AND '13:00:00'",
+            "expected": {
+              "count": 2
+            }
+          },
+          {
+            "description": "Order by time ascending",
+            "executeQuery": "SELECT slot_time::TEXT FROM appointments ORDER BY slot_time ASC LIMIT 1",
+            "expected": {
+              "slot_time": "08:00:00"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-TIME-003",
-      "title": "Display time in 12-hour format",
-      "given": "a time field with format 'hh:mm A'",
-      "when": "user views a record with time '14:30:00'",
-      "then": "the time is displayed as '02:30 PM'"
+      "given": "table 'schedules' with time field 'start_time' (required, unique)",
+      "when": "constraints are applied",
+      "then": "PostgreSQL enforces NOT NULL and UNIQUE constraints",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE schedules (id SERIAL PRIMARY KEY, start_time TIME UNIQUE NOT NULL)",
+            "INSERT INTO schedules (start_time) VALUES ('10:00:00')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "NOT NULL constraint enforced",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='schedules' AND column_name='start_time'",
+            "expected": {
+              "is_nullable": "NO"
+            }
+          },
+          {
+            "description": "UNIQUE constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='schedules' AND constraint_type='UNIQUE' AND constraint_name LIKE '%start_time%'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Duplicate time rejected",
+            "executeQuery": "INSERT INTO schedules (start_time) VALUES ('10:00:00')",
+            "expectError": "duplicate key value violates unique constraint"
+          },
+          {
+            "description": "NULL time insertion fails",
+            "executeQuery": "INSERT INTO schedules (start_time) VALUES (NULL)",
+            "expectError": "violates not-null constraint"
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-TIME-004",
-      "title": "Apply default value on record creation",
-      "given": "a time field with default value '09:00:00'",
-      "when": "user creates a record without providing a time value",
-      "then": "the field is populated with '09:00:00'"
+      "given": "table 'meetings' with time field 'default_time' and default value '09:00:00'",
+      "when": "row inserted without providing default_time value",
+      "then": "PostgreSQL applies DEFAULT value '09:00:00'",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE meetings (id SERIAL PRIMARY KEY, default_time TIME DEFAULT '09:00:00')",
+          "fieldConfig": {
+            "id": 1,
+            "name": "default_time",
+            "type": "time",
+            "default": "09:00:00"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT value",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='meetings' AND column_name='default_time'",
+            "expected": {
+              "column_default": "'09:00:00'::time without time zone"
+            }
+          },
+          {
+            "description": "INSERT without default_time uses default",
+            "executeQuery": "INSERT INTO meetings (id) VALUES (DEFAULT) RETURNING default_time",
+            "expected": {
+              "default_time": "09:00:00"
+            }
+          },
+          {
+            "description": "Explicit value overrides default",
+            "executeQuery": "INSERT INTO meetings (default_time) VALUES ('15:30:00') RETURNING default_time",
+            "expected": {
+              "default_time": "15:30:00"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-TIME-005",
-      "title": "Enforce required validation",
-      "given": "a required time field",
-      "when": "user attempts to create a record without providing a time value",
-      "then": "validation error is returned with message 'Time is required'"
-    },
-    {
-      "id": "APP-FIELD-TIME-006",
-      "title": "Reject invalid time values",
-      "given": "a table with a time field",
-      "when": "user provides an invalid time like '25:00:00' (hour > 23)",
-      "then": "validation error is returned with message 'Invalid time: hours must be 00-23'"
-    },
-    {
-      "id": "APP-FIELD-TIME-007",
-      "title": "Support millisecond precision",
-      "given": "a table with a time field",
-      "when": "user creates a record with time '10:30:45.123'",
-      "then": "the milliseconds (.123) are preserved in storage and retrieval"
+      "given": "table configuration with time field 'shift_start', indexed=true",
+      "when": "index is created on the time field",
+      "then": "PostgreSQL btree index exists for fast time queries",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE shifts (id SERIAL PRIMARY KEY, shift_start TIME NOT NULL)",
+            "CREATE INDEX idx_shifts_start ON shifts(shift_start)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "shift_start",
+            "type": "time",
+            "indexed": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists in pg_indexes",
+            "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_shifts_start'",
+            "expected": {
+              "indexname": "idx_shifts_start",
+              "tablename": "shifts"
+            }
+          },
+          {
+            "description": "Index uses btree for time range queries",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_shifts_start'",
+            "expected": {
+              "indexdef": "CREATE INDEX idx_shifts_start ON public.shifts USING btree (shift_start)"
+            }
+          }
+        ]
+      }
     }
   ]
 }

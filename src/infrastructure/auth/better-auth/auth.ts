@@ -7,7 +7,7 @@
 
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { openAPI } from 'better-auth/plugins'
+import { openAPI, admin, organization } from 'better-auth/plugins'
 import { db } from '../../database/drizzle/db'
 
 export const auth = betterAuth({
@@ -90,5 +90,7 @@ export const auth = betterAuth({
     openAPI({
       disableDefaultReference: true, // Use unified Scalar UI instead
     }),
+    admin(),
+    organization(),
   ],
 })

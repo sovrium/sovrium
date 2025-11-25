@@ -55,45 +55,198 @@
   "x-specs": [
     {
       "id": "APP-FIELD-DATE-001",
-      "title": "Create record with valid date field",
-      "given": "a table with a date field",
-      "when": "user creates a record with a valid date value (YYYY-MM-DD)",
-      "then": "the record is created successfully with the date stored in ISO 8601 format"
+      "given": "table configuration with date field 'birth_date'",
+      "when": "field migration creates column",
+      "then": "PostgreSQL DATE column is created for calendar dates",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE employees (id SERIAL PRIMARY KEY)",
+          "fieldConfig": {
+            "id": 1,
+            "name": "birth_date",
+            "type": "date"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column created as DATE type",
+            "executeQuery": "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='employees' AND column_name='birth_date'",
+            "expected": {
+              "column_name": "birth_date",
+              "data_type": "date",
+              "is_nullable": "YES"
+            }
+          },
+          {
+            "description": "Valid date can be inserted",
+            "executeQuery": "INSERT INTO employees (birth_date) VALUES ('1990-05-15') RETURNING birth_date",
+            "expected": {
+              "birth_date": "1990-05-15"
+            }
+          },
+          {
+            "description": "Date stored in ISO 8601 format (YYYY-MM-DD)",
+            "executeQuery": "SELECT birth_date::TEXT as date_string FROM employees WHERE id = 1",
+            "expected": {
+              "date_string": "1990-05-15"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-DATE-002",
-      "title": "Reject invalid date format",
-      "given": "a table with a date field",
-      "when": "user provides a date in invalid format (e.g., '12-31-2024' instead of '2024-12-31')",
-      "then": "validation error is returned with message 'Date must be in YYYY-MM-DD format'"
+      "given": "table 'projects' with date field 'deadline'",
+      "when": "date range queries are performed",
+      "then": "PostgreSQL DATE type supports comparison and ordering",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, deadline DATE)",
+            "INSERT INTO projects (deadline) VALUES ('2024-01-15'), ('2024-06-30'), ('2024-12-31')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Find dates after specific date",
+            "executeQuery": "SELECT COUNT(*) as count FROM projects WHERE deadline > '2024-06-01'",
+            "expected": {
+              "count": 2
+            }
+          },
+          {
+            "description": "Find dates between range",
+            "executeQuery": "SELECT COUNT(*) as count FROM projects WHERE deadline BETWEEN '2024-01-01' AND '2024-06-30'",
+            "expected": {
+              "count": 2
+            }
+          },
+          {
+            "description": "Order by date ascending",
+            "executeQuery": "SELECT deadline::TEXT FROM projects ORDER BY deadline ASC LIMIT 1",
+            "expected": {
+              "deadline": "2024-01-15"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-DATE-003",
-      "title": "Display date in custom format",
-      "given": "a date field with format 'MM/DD/YYYY'",
-      "when": "user views a record with date '2024-12-31'",
-      "then": "the date is displayed as '12/31/2024'"
+      "given": "table 'events' with date field 'event_date' (required, unique)",
+      "when": "constraints are applied",
+      "then": "PostgreSQL enforces NOT NULL and UNIQUE constraints",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE events (id SERIAL PRIMARY KEY, event_date DATE UNIQUE NOT NULL)",
+            "INSERT INTO events (event_date) VALUES ('2024-12-25')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "NOT NULL constraint enforced",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='events' AND column_name='event_date'",
+            "expected": {
+              "is_nullable": "NO"
+            }
+          },
+          {
+            "description": "UNIQUE constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='events' AND constraint_type='UNIQUE' AND constraint_name LIKE '%event_date%'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Duplicate date rejected",
+            "executeQuery": "INSERT INTO events (event_date) VALUES ('2024-12-25')",
+            "expectError": "duplicate key value violates unique constraint"
+          },
+          {
+            "description": "NULL date insertion fails",
+            "executeQuery": "INSERT INTO events (event_date) VALUES (NULL)",
+            "expectError": "violates not-null constraint"
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-DATE-004",
-      "title": "Apply default value on record creation",
-      "given": "a date field with default value 'today'",
-      "when": "user creates a record without providing a date value",
-      "then": "the field is populated with today's date in ISO 8601 format"
+      "given": "table 'registrations' with date field 'signup_date' and default value CURRENT_DATE",
+      "when": "row inserted without providing signup_date value",
+      "then": "PostgreSQL applies DEFAULT value as current date",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE registrations (id SERIAL PRIMARY KEY, signup_date DATE DEFAULT CURRENT_DATE)",
+          "fieldConfig": {
+            "id": 1,
+            "name": "signup_date",
+            "type": "date",
+            "default": "today"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT value CURRENT_DATE",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='registrations' AND column_name='signup_date'",
+            "expected": {
+              "column_default": "CURRENT_DATE"
+            }
+          },
+          {
+            "description": "INSERT without signup_date uses current date",
+            "executeQuery": "INSERT INTO registrations (id) VALUES (DEFAULT) RETURNING signup_date = CURRENT_DATE as is_today",
+            "expected": {
+              "is_today": true
+            }
+          },
+          {
+            "description": "Explicit value overrides default",
+            "executeQuery": "INSERT INTO registrations (signup_date) VALUES ('2024-01-01') RETURNING signup_date",
+            "expected": {
+              "signup_date": "2024-01-01"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-DATE-005",
-      "title": "Enforce required validation",
-      "given": "a required date field",
-      "when": "user attempts to create a record without providing a date value",
-      "then": "validation error is returned with message 'Date is required'"
-    },
-    {
-      "id": "APP-FIELD-DATE-006",
-      "title": "Reject invalid calendar dates",
-      "given": "a table with a date field",
-      "when": "user provides an invalid date like '2024-02-30'",
-      "then": "validation error is returned with message 'Invalid date: February 30th does not exist'"
+      "given": "table configuration with date field 'anniversary', indexed=true",
+      "when": "index is created on the date field",
+      "then": "PostgreSQL btree index exists for fast date queries",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE memberships (id SERIAL PRIMARY KEY, anniversary DATE NOT NULL)",
+            "CREATE INDEX idx_memberships_anniversary ON memberships(anniversary)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "anniversary",
+            "type": "date",
+            "indexed": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists in pg_indexes",
+            "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_memberships_anniversary'",
+            "expected": {
+              "indexname": "idx_memberships_anniversary",
+              "tablename": "memberships"
+            }
+          },
+          {
+            "description": "Index uses btree for date range queries",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_memberships_anniversary'",
+            "expected": {
+              "indexdef": "CREATE INDEX idx_memberships_anniversary ON public.memberships USING btree (anniversary)"
+            }
+          }
+        ]
+      }
     }
   ]
 }

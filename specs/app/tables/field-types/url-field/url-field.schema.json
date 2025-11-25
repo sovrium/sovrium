@@ -32,33 +32,177 @@
   "x-specs": [
     {
       "id": "APP-FIELD-URL-001",
-      "given": "I create a URL field",
-      "when": "I enter a valid URL with http:// or https://",
-      "then": "it should accept the input"
+      "given": "table configuration with url field 'website'",
+      "when": "field migration creates column",
+      "then": "PostgreSQL VARCHAR(255) column is created for URL storage",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE companies (id SERIAL PRIMARY KEY)",
+          "fieldConfig": {
+            "id": 1,
+            "name": "website",
+            "type": "url"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column created as VARCHAR(255)",
+            "executeQuery": "SELECT column_name, data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='companies' AND column_name='website'",
+            "expected": {
+              "column_name": "website",
+              "data_type": "character varying",
+              "character_maximum_length": 255,
+              "is_nullable": "YES"
+            }
+          },
+          {
+            "description": "Valid URL with protocol can be inserted",
+            "executeQuery": "INSERT INTO companies (website) VALUES ('https://example.com') RETURNING website",
+            "expected": {
+              "website": "https://example.com"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-URL-002",
-      "given": "I create a URL field",
-      "when": "I enter text without protocol",
-      "then": "it should show validation error"
+      "given": "table 'products' with url field 'product_url'",
+      "when": "insert URLs with different protocols (http, https)",
+      "then": "both protocols are stored correctly in VARCHAR column",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE products (id SERIAL PRIMARY KEY, product_url VARCHAR(255))"
+        },
+        "assertions": [
+          {
+            "description": "HTTPS URL insertion succeeds",
+            "executeQuery": "INSERT INTO products (product_url) VALUES ('https://secure.example.com/product/123') RETURNING product_url",
+            "expected": {
+              "product_url": "https://secure.example.com/product/123"
+            }
+          },
+          {
+            "description": "HTTP URL insertion succeeds",
+            "executeQuery": "INSERT INTO products (product_url) VALUES ('http://legacy.example.com/item') RETURNING product_url",
+            "expected": {
+              "product_url": "http://legacy.example.com/item"
+            }
+          },
+          {
+            "description": "Both URLs stored correctly",
+            "executeQuery": "SELECT COUNT(*) as count FROM products WHERE product_url LIKE 'http%://%'",
+            "expected": {
+              "count": 2
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-URL-003",
-      "given": "I create a URL field",
-      "when": "I view the record",
-      "then": "the URL should display as a clickable link"
+      "given": "table 'links' with url field 'url' (required, unique), existing row url='https://example.com'",
+      "when": "attempt to insert duplicate url='https://example.com'",
+      "then": "PostgreSQL UNIQUE constraint rejects insertion",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE links (id SERIAL PRIMARY KEY, url VARCHAR(255) UNIQUE NOT NULL)",
+            "INSERT INTO links (url) VALUES ('https://example.com')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "UNIQUE constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='links' AND constraint_type='UNIQUE' AND constraint_name LIKE '%url%'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Duplicate URL rejected",
+            "executeQuery": "INSERT INTO links (url) VALUES ('https://example.com')",
+            "expectError": "duplicate key value violates unique constraint"
+          },
+          {
+            "description": "Database still contains only 1 row",
+            "executeQuery": "SELECT COUNT(*) as count FROM links",
+            "expected": {
+              "count": 1
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-URL-FIELD-004",
-      "given": "a URL Field is configured",
-      "when": "validating schema",
-      "then": "type must be 'url'"
+      "given": "table 'resources' with required url field 'resource_url'",
+      "when": "attempt to insert NULL value for required resource_url",
+      "then": "PostgreSQL NOT NULL constraint rejects insertion",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE resources (id SERIAL PRIMARY KEY, resource_url VARCHAR(255) NOT NULL)"
+        },
+        "assertions": [
+          {
+            "description": "NOT NULL constraint enforced",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='resources' AND column_name='resource_url'",
+            "expected": {
+              "is_nullable": "NO"
+            }
+          },
+          {
+            "description": "Valid URL insertion succeeds",
+            "executeQuery": "INSERT INTO resources (resource_url) VALUES ('https://cdn.example.com/file.pdf') RETURNING resource_url",
+            "expected": {
+              "resource_url": "https://cdn.example.com/file.pdf"
+            }
+          },
+          {
+            "description": "NULL URL insertion fails",
+            "executeQuery": "INSERT INTO resources (resource_url) VALUES (NULL)",
+            "expectError": "violates not-null constraint"
+          }
+        ]
+      }
     },
     {
       "id": "APP-URL-FIELD-005",
-      "given": "type is set to 'url'",
-      "when": "processing field",
-      "then": "it should be treated as a URL Field"
+      "given": "table configuration with url field, indexed=true",
+      "when": "index is created on the url field",
+      "then": "PostgreSQL btree index exists for fast URL lookups",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE bookmarks (id SERIAL PRIMARY KEY, url VARCHAR(255) UNIQUE NOT NULL)",
+            "CREATE INDEX idx_bookmarks_url ON bookmarks(url)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "url",
+            "type": "url",
+            "unique": true,
+            "indexed": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists in pg_indexes",
+            "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_bookmarks_url'",
+            "expected": {
+              "indexname": "idx_bookmarks_url",
+              "tablename": "bookmarks"
+            }
+          },
+          {
+            "description": "Index uses btree for URL searching",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_bookmarks_url'",
+            "expected": {
+              "indexdef": "CREATE INDEX idx_bookmarks_url ON public.bookmarks USING btree (url)"
+            }
+          }
+        ]
+      }
     }
   ]
 }

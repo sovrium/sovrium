@@ -32,33 +32,183 @@
   "x-specs": [
     {
       "id": "APP-FIELD-SINGLE-LINE-TEXT-001",
-      "given": "I create a single-line text field",
-      "when": "I add a record",
-      "then": "it should accept text without line breaks"
+      "given": "table configuration with single-line-text field 'title'",
+      "when": "field migration creates column",
+      "then": "PostgreSQL VARCHAR(255) column is created",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE products (id SERIAL PRIMARY KEY)",
+          "fieldConfig": {
+            "id": 1,
+            "name": "title",
+            "type": "single-line-text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column created as VARCHAR(255)",
+            "executeQuery": "SELECT column_name, data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='title'",
+            "expected": {
+              "column_name": "title",
+              "data_type": "character varying",
+              "character_maximum_length": 255,
+              "is_nullable": "YES"
+            }
+          },
+          {
+            "description": "Valid text can be inserted",
+            "executeQuery": "INSERT INTO products (title) VALUES ('MacBook Pro 16-inch') RETURNING title",
+            "expected": {
+              "title": "MacBook Pro 16-inch"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-SINGLE-LINE-TEXT-002",
-      "given": "I create a single-line text field with unique constraint",
-      "when": "I add duplicate text",
-      "then": "it should reject the input"
+      "given": "table 'users' with single-line-text field 'username' (required, unique), existing row username='john_doe'",
+      "when": "attempt to insert duplicate username='john_doe'",
+      "then": "PostgreSQL UNIQUE constraint rejects insertion",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, username VARCHAR(255) UNIQUE NOT NULL)",
+            "INSERT INTO users (username) VALUES ('john_doe')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "UNIQUE constraint exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE' AND constraint_name LIKE '%username%'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Duplicate username rejected",
+            "executeQuery": "INSERT INTO users (username) VALUES ('john_doe')",
+            "expectError": "duplicate key value violates unique constraint"
+          },
+          {
+            "description": "Database still contains only 1 row",
+            "executeQuery": "SELECT COUNT(*) as count FROM users",
+            "expected": {
+              "count": 1
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-FIELD-SINGLE-LINE-TEXT-003",
-      "given": "I create a required single-line text field",
-      "when": "I submit without value",
-      "then": "it should show validation error"
+      "given": "table 'tasks' with required single-line-text field 'title'",
+      "when": "attempt to insert NULL value for required title",
+      "then": "PostgreSQL NOT NULL constraint rejects insertion",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL)"
+        },
+        "assertions": [
+          {
+            "description": "NOT NULL constraint enforced",
+            "executeQuery": "SELECT is_nullable FROM information_schema.columns WHERE table_name='tasks' AND column_name='title'",
+            "expected": {
+              "is_nullable": "NO"
+            }
+          },
+          {
+            "description": "Valid title insertion succeeds",
+            "executeQuery": "INSERT INTO tasks (title) VALUES ('Complete project') RETURNING title",
+            "expected": {
+              "title": "Complete project"
+            }
+          },
+          {
+            "description": "NULL title insertion fails",
+            "executeQuery": "INSERT INTO tasks (title) VALUES (NULL)",
+            "expectError": "violates not-null constraint"
+          }
+        ]
+      }
     },
     {
       "id": "APP-SINGLE-LINE-TEXT-FIELD-004",
-      "given": "a Single Line Text Field is configured",
-      "when": "validating schema",
-      "then": "type must be 'single-line-text'"
+      "given": "table configuration with single-line-text field, indexed=true",
+      "when": "index is created on the text field",
+      "then": "PostgreSQL btree index exists for fast text lookups",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, sku VARCHAR(255) UNIQUE NOT NULL)",
+            "CREATE INDEX idx_products_sku ON products(sku)"
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "sku",
+            "type": "single-line-text",
+            "unique": true,
+            "indexed": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Index exists in pg_indexes",
+            "executeQuery": "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_products_sku'",
+            "expected": {
+              "indexname": "idx_products_sku",
+              "tablename": "products"
+            }
+          },
+          {
+            "description": "Index uses btree for text searching",
+            "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_products_sku'",
+            "expected": {
+              "indexdef": "CREATE INDEX idx_products_sku ON public.products USING btree (sku)"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "APP-SINGLE-LINE-TEXT-FIELD-005",
-      "given": "type is set to 'single-line-text'",
-      "when": "processing field",
-      "then": "it should be treated as a Single Line Text Field"
+      "given": "table with single-line-text field 'name' and default value 'Untitled'",
+      "when": "row inserted without providing name value",
+      "then": "PostgreSQL applies DEFAULT value 'Untitled'",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE documents (id SERIAL PRIMARY KEY, name VARCHAR(255) DEFAULT 'Untitled')",
+          "fieldConfig": {
+            "id": 1,
+            "name": "name",
+            "type": "single-line-text",
+            "default": "Untitled"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT value",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='documents' AND column_name='name'",
+            "expected": {
+              "column_default": "'Untitled'::character varying"
+            }
+          },
+          {
+            "description": "INSERT without name uses default",
+            "executeQuery": "INSERT INTO documents (id) VALUES (DEFAULT) RETURNING name",
+            "expected": {
+              "name": "Untitled"
+            }
+          },
+          {
+            "description": "Explicit value overrides default",
+            "executeQuery": "INSERT INTO documents (name) VALUES ('My Document') RETURNING name",
+            "expected": {
+              "name": "My Document"
+            }
+          }
+        ]
+      }
     }
   ]
 }
