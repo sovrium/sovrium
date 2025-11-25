@@ -15,7 +15,7 @@ import type { HoverInteraction } from '@/domain/models/app/page/common/interacti
  */
 function getAnimatableProperties(hover: HoverInteraction): ReadonlyArray<string> {
   return [
-    hover.transform && 'transform',
+    (hover.scale !== undefined || hover.transform) && 'transform',
     hover.opacity !== undefined && 'opacity',
     hover.backgroundColor && 'background-color',
     hover.color && 'color',
@@ -54,6 +54,16 @@ export function buildHoverTransitionStyles(
 }
 
 /**
+ * Converts scale number to transform string
+ *
+ * @param scale - Scale factor (e.g., 1.05)
+ * @returns CSS transform string (e.g., 'scale(1.05)')
+ */
+function scaleToTransform(scale: number): string {
+  return `scale(${scale})`
+}
+
+/**
  * Build hover effect data for component
  *
  * Returns data attributes and style tag content for hover interactions.
@@ -74,10 +84,13 @@ export function buildHoverData(
   | undefined {
   if (!hover) return undefined
 
+  // Convert scale to transform if present (scale takes priority over transform)
+  const transformValue = hover.scale !== undefined ? scaleToTransform(hover.scale) : hover.transform
+
   // Build hover rules list (immutable)
   // Use !important to override inline styles from props.style
   const hoverRules = [
-    hover.transform && `transform: ${hover.transform} !important`,
+    transformValue && `transform: ${transformValue} !important`,
     hover.opacity !== undefined && `opacity: ${hover.opacity} !important`,
     hover.backgroundColor && `background-color: ${hover.backgroundColor} !important`,
     hover.color && `color: ${hover.color} !important`,
