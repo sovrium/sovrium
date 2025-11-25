@@ -28,7 +28,7 @@ Drizzle is already installed in Sovrium:
 ```json
 {
   "dependencies": {
-    "drizzle-orm": "^0.44.7",
+    "drizzle-orm": "^0.45.0",
     "@types/bun": "latest"
   },
   "devDependencies": {

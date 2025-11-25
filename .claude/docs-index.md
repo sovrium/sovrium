@@ -41,12 +41,20 @@
 - `@docs/infrastructure/ui/tanstack-query.md` - TanStack Query
 - `@docs/infrastructure/ui/tanstack-table.md` - TanStack Table
 
+### CSS & Styling
+- `@docs/infrastructure/css/css-compiler.md` - Programmatic Tailwind CSS generation
+- `@docs/infrastructure/css/postcss.md` - PostCSS transformation pipeline (required by Tailwind v4)
+
+### Build Tools
+- `@docs/infrastructure/build/jiti.md` - Runtime TypeScript loader (transitive dependency via Tailwind)
+
 ### Utilities
 (No utilities currently documented - use Effect.DateTime for date handling)
 
 ### Quality & Testing
 - `@docs/infrastructure/quality/eslint.md` - ESLint linting
 - `@docs/infrastructure/quality/prettier.md` - Prettier formatting
+- `@docs/infrastructure/quality/prettier-plugin-tailwindcss.md` - Automatic Tailwind class sorting (Prettier plugin)
 - `@docs/infrastructure/quality/knip.md` - Dead code detection
 - `@docs/infrastructure/testing/bun-test.md` - Unit testing
 - `@docs/infrastructure/testing/react-testing-library.md` - React component testing (RTL + Happy DOM + Bun)

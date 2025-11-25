@@ -16,8 +16,8 @@ Dependencies already configured in `package.json`:
 ```json
 {
   "dependencies": {
-    "tailwindcss": "^4.1.17",
-    "@tailwindcss/postcss": "^4.1.17",
+    "tailwindcss": "^4.1.18",
+    "@tailwindcss/postcss": "^4.1.18",
     "postcss": "^8.5.6",
     "tw-animate-css": "^1.4.0"
   }

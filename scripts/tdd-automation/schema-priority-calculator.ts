@@ -8,13 +8,15 @@
 /**
  * Schema-Based Priority Calculator
  *
- * Processes tests by domain (App → Api → Admin) and schema group in serial,
+ * Processes tests by domain (App → Mig → Static → Api → Admin) and schema group in serial,
  * with regression tests last for each group.
  *
  * Domain priority order:
  * - APP specs: 0-999,999 (highest priority, runs first)
- * - API specs: 1,000,000-1,999,999 (medium priority, runs after APP)
- * - ADMIN specs: 2,000,000-2,999,999 (lowest priority, runs last)
+ * - MIG specs: 1,000,000-1,999,999 (runs after APP)
+ * - STATIC specs: 2,000,000-2,999,999 (runs after MIG)
+ * - API specs: 3,000,000-3,999,999 (runs after STATIC)
+ * - ADMIN specs: 4,000,000-4,999,999 (lowest priority, runs last)
  *
  * Priority calculation within each domain:
  * - Schema groups get base priorities (1000, 2000, 3000, etc.) based on hierarchy
@@ -22,17 +24,20 @@
  * - Regression tests: +900 (ensures they run last in their schema group)
  *
  * Example execution order:
- * - APP-VERSION-001 (1001), APP-VERSION-002 (1002), APP-VERSION-REGRESSION (1900)
- * - APP-NAME-001 (2001), APP-NAME-002 (2002), APP-NAME-REGRESSION (2900)
- * - API-PATHS-HEALTH-001 (1,001,001), API-PATHS-AUTH-001 (1,002,001)
- * - ADMIN-TABLES-001 (2,001,001), ADMIN-TABLES-002 (2,001,002)
+ * - APP-VERSION-001 (1,001), APP-VERSION-002 (1,002), APP-VERSION-REGRESSION (1,900)
+ * - MIG-ERROR-001 (1,000,001), MIG-ERROR-002 (1,000,002)
+ * - STATIC-INDEX-001 (2,001,001), STATIC-INDEX-002 (2,001,002)
+ * - API-PATHS-HEALTH-001 (3,001,001), API-PATHS-AUTH-001 (3,002,001)
+ * - ADMIN-TABLES-001 (4,001,001), ADMIN-TABLES-002 (4,001,002)
  *
  * This ensures:
- * 1. All APP specs complete before API specs
- * 2. All API specs complete before ADMIN specs
- * 3. All tests from same schema are processed together
- * 4. Regression tests validate the schema after all its tests
- * 5. Schema order follows hierarchy (required root → optional root → nested)
+ * 1. All APP specs complete before MIG specs
+ * 2. All MIG specs complete before STATIC specs
+ * 3. All STATIC specs complete before API specs
+ * 4. All API specs complete before ADMIN specs
+ * 5. All tests from same schema are processed together
+ * 6. Regression tests validate the schema after all its tests
+ * 7. Schema order follows hierarchy (required root → optional root → nested)
  */
 
 import * as fs from 'node:fs'
@@ -41,15 +46,17 @@ import * as path from 'node:path'
 /**
  * Spec domain type
  */
-type SpecDomain = 'app' | 'api' | 'admin'
+type SpecDomain = 'migrations' | 'app' | 'static' | 'api' | 'admin'
 
 /**
  * Domain base priorities (in millions to separate domains completely)
  */
 const DOMAIN_BASE_PRIORITIES: Record<SpecDomain, number> = {
   app: 0, // Runs first (0-999,999)
-  api: 1_000_000, // Runs after APP specs (1,000,000-1,999,999)
-  admin: 2_000_000, // Runs after API specs (2,000,000-2,999,999)
+  migrations: 1_000_000, // Runs after APP specs (1,000,000-1,999,999)
+  static: 2_000_000, // Runs after MIG specs (2,000,000-2,999,999)
+  api: 3_000_000, // Runs after STATIC specs (3,000,000-3,999,999)
+  admin: 4_000_000, // Runs after API specs (4,000,000-4,999,999)
 }
 
 /**
@@ -70,12 +77,14 @@ type SchemaHierarchy = Map<string, SchemaProperty>
 /**
  * Detect spec domain from spec ID prefix
  *
- * @param specId Full spec ID (e.g., "APP-VERSION-001", "API-PATHS-HEALTH-001", "ADMIN-TABLES-001")
- * @returns Domain type ('app', 'api', or 'admin')
+ * @param specId Full spec ID (e.g., "MIG-ERROR-001", "APP-VERSION-001", "STATIC-INDEX-001", "API-PATHS-HEALTH-001", "ADMIN-TABLES-001")
+ * @returns Domain type ('migrations', 'app', 'static', 'api', or 'admin')
  */
 function getSpecDomain(specId: string): SpecDomain {
   const prefix = specId.split('-')[0]?.toUpperCase()
+  if (prefix === 'MIG') return 'migrations'
   if (prefix === 'APP') return 'app'
+  if (prefix === 'STATIC') return 'static'
   if (prefix === 'API') return 'api'
   if (prefix === 'ADMIN') return 'admin'
   return 'app' // Default fallback for unknown prefixes
@@ -374,13 +383,17 @@ function calculatePropertyGroupPriority(
 /**
  * Get feature path from spec ID
  * Examples:
+ * - MIG-ERROR-001 → mig/error
+ * - MIG-ERROR-REGRESSION → mig/error
  * - APP-VERSION-001 → app/version
  * - APP-VERSION-REGRESSION → app/version
  * - APP-VERSION-REGRESSION-001 → app/version
  * - APP-THEME-COLORS-001 → app/theme/colors
  * - APP-THEME-COLORS-REGRESSION → app/theme/colors
  * - APP-THEME-COLORS-REGRESSION-001 → app/theme/colors
+ * - STATIC-INDEX-001 → static/index
  * - API-PATHS-HEALTH-001 → api/paths/health
+ * - ADMIN-TABLES-001 → admin/tables
  */
 export function getFeaturePathFromSpecId(specId: string): string {
   // Split by hyphens and convert to lowercase path
@@ -431,11 +444,11 @@ export function createSchemaPriorityCalculator(rootSchemaPath: string): (specId:
 }
 
 /**
- * Calculate simple priority for API and ADMIN specs
+ * Calculate simple priority for MIG, STATIC, API, and ADMIN specs
  * Uses explicit ordering for known endpoints, alphabetical for others
  *
- * @param specId Full spec ID (e.g., "API-PATHS-HEALTH-001", "ADMIN-TABLES-001")
- * @param domain Domain type ('api' or 'admin')
+ * @param specId Full spec ID (e.g., "MIG-ERROR-001", "STATIC-INDEX-001", "API-PATHS-HEALTH-001", "ADMIN-TABLES-001")
+ * @param domain Domain type ('migrations', 'static', 'api', or 'admin')
  * @returns Priority number within domain (0-999,999)
  */
 function calculateSimplePriority(specId: string, domain: SpecDomain): number {
@@ -461,7 +474,7 @@ function calculateSimplePriority(specId: string, domain: SpecDomain): number {
     // Order: health → auth → tables
     featurePriority = calculateApiPathPriority(featurePath)
   } else {
-    // ADMIN domain: alphabetical ordering
+    // MIGRATIONS, STATIC, ADMIN domains: alphabetical ordering
     featurePriority = calculateAlphabeticalPriority(featurePath)
   }
 
@@ -535,12 +548,14 @@ function calculateAlphabeticalPriority(featurePath: string): number {
  * Calculate priority for spec IDs with grouped schema processing
  * This is the main export for TDD automation queue ordering
  *
- * Handles three domains:
- * - APP: Uses JSON Schema hierarchy (app.schema.json)
- * - API: Uses simple alphabetical ordering (OpenAPI structure)
- * - ADMIN: Uses simple alphabetical ordering
+ * Handles five domains:
+ * - APP: Uses JSON Schema hierarchy (app.schema.json) - Runs first
+ * - MIG: Uses simple alphabetical ordering - Runs after APP
+ * - STATIC: Uses simple alphabetical ordering - Runs after MIG
+ * - API: Uses simple alphabetical ordering (OpenAPI structure) - Runs after STATIC
+ * - ADMIN: Uses simple alphabetical ordering - Runs last
  *
- * @param specId Full spec ID (e.g., "APP-VERSION-001", "API-PATHS-HEALTH-001", "ADMIN-TABLES-001")
+ * @param specId Full spec ID (e.g., "APP-VERSION-001", "MIG-ERROR-001", "STATIC-INDEX-001", "API-PATHS-HEALTH-001", "ADMIN-TABLES-001")
  * @param rootSchemaPath Path to the root app.schema.json file
  * @returns Priority number (lower = higher priority)
  */
@@ -556,7 +571,7 @@ export function calculateSpecPriority(specId: string, rootSchemaPath: string): n
     return domainBasePriority + schemaPriority
   }
 
-  // For API and ADMIN domains, use explicit ordering for known paths
+  // For MIG, STATIC, API, and ADMIN domains, use explicit ordering for known paths
   const simplePriority = calculateSimplePriority(specId, domain)
   return domainBasePriority + simplePriority
 }

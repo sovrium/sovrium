@@ -12,7 +12,7 @@
 
 | Library           | Version | Usage                     | Allowed Locations                     | Why                                |
 | ----------------- | ------- | ------------------------- | ------------------------------------- | ---------------------------------- |
-| **Effect Schema** | 3.18.4  | Server validation, domain | All `src/` files (default)            | Project standard, Effect ecosystem |
+| **Effect Schema** | 3.19.5  | Server validation, domain | All `src/` files (default)            | Project standard, Effect ecosystem |
 | **Zod**           | 4.1.12  | OpenAPI + client forms    | `src/domain/models/api/` + forms only | OpenAPI tooling compatibility      |
 
 **Why This Separation Exists**:
