@@ -80,7 +80,6 @@ describe('Style Processor', () => {
       const result = buildFinalClassName({
         type: 'section' as Component['type'],
         className: undefined,
-        theme: undefined,
         substitutedProps: undefined,
         interactions: undefined,
       })
@@ -92,7 +91,6 @@ describe('Style Processor', () => {
         buildFinalClassName({
           type: 'card',
           className: undefined,
-          theme: undefined,
           substitutedProps: undefined,
           interactions: undefined,
         })
@@ -101,7 +99,6 @@ describe('Style Processor', () => {
         buildFinalClassName({
           type: 'badge',
           className: undefined,
-          theme: undefined,
           substitutedProps: undefined,
           interactions: undefined,
         })
@@ -110,7 +107,6 @@ describe('Style Processor', () => {
         buildFinalClassName({
           type: 'btn',
           className: undefined,
-          theme: undefined,
           substitutedProps: undefined,
           interactions: undefined,
         })
@@ -122,7 +118,6 @@ describe('Style Processor', () => {
         buildFinalClassName({
           type: 'section' as Component['type'],
           className: undefined,
-          theme: undefined,
           substitutedProps: undefined,
           interactions: undefined,
         })
@@ -131,7 +126,6 @@ describe('Style Processor', () => {
         buildFinalClassName({
           type: 'container',
           className: undefined,
-          theme: undefined,
           substitutedProps: undefined,
           interactions: undefined,
         })
@@ -142,7 +136,6 @@ describe('Style Processor', () => {
       const result = buildFinalClassName({
         type: 'flex',
         className: undefined,
-        theme: undefined,
         substitutedProps: { align: 'center', gap: 4 },
         interactions: undefined,
       })
@@ -152,25 +145,21 @@ describe('Style Processor', () => {
     })
 
     test('adds grid classes when type is grid', () => {
-      const theme: Theme = {
-        breakpoints: { md: '768px' },
-      }
       const result = buildFinalClassName({
         type: 'grid',
         className: undefined,
-        theme,
-        substitutedProps: undefined,
+        substitutedProps: { columns: 2, responsive: { md: 3 } },
         interactions: undefined,
       })
       expect(result).toContain('grid')
-      expect(result).toContain('md:grid-cols-2')
+      expect(result).toContain('grid-cols-2')
+      expect(result).toContain('md:grid-cols-3')
     })
 
     test('includes custom className when provided', () => {
       const result = buildFinalClassName({
         type: 'card',
         className: 'custom-class',
-        theme: undefined,
         substitutedProps: undefined,
         interactions: undefined,
       })
@@ -178,13 +167,9 @@ describe('Style Processor', () => {
     })
 
     test('combines all applicable classes', () => {
-      const theme: Theme = {
-        breakpoints: { md: '768px' },
-      }
       const result = buildFinalClassName({
         type: 'card',
         className: 'my-custom-class',
-        theme,
         substitutedProps: { some: 'prop' },
         interactions: undefined,
       })
@@ -196,7 +181,6 @@ describe('Style Processor', () => {
       const result = buildFinalClassName({
         type: 'flex',
         className: 'flex-container',
-        theme: undefined,
         substitutedProps: { align: 'center' },
         interactions: undefined,
       })
@@ -209,7 +193,6 @@ describe('Style Processor', () => {
       const result = buildFinalClassName({
         type: 'card',
         className: 'custom',
-        theme: undefined,
         substitutedProps: undefined,
         interactions: undefined,
       })

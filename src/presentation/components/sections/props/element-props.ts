@@ -6,9 +6,8 @@
  */
 
 import { CONTAINER_TYPES } from '../component-renderer.types'
-import { buildFlexClasses, buildGridClasses } from '../styling/component-styling'
+import { buildFlexClasses, buildGridClasses } from '../styling/class-builders'
 import type { Component } from '@/domain/models/app/page/sections'
-import type { Theme } from '@/domain/models/app/theme'
 
 /**
  * Build data-testid based on blockName and instanceIndex
@@ -45,12 +44,11 @@ export function buildTestId(
 const COMPONENT_TYPES_WITH_CSS_CLASSES = new Set(['card', 'badge'])
 
 /**
- * Build final className based on component type and theme
+ * Build final className based on component type
  */
 export function buildClassName(
   type: string,
-  substitutedProps?: Record<string, unknown>,
-  theme?: Theme
+  substitutedProps?: Record<string, unknown>
 ): string | undefined {
   if (type === 'flex') {
     return [buildFlexClasses(substitutedProps), substitutedProps?.className]
@@ -59,7 +57,9 @@ export function buildClassName(
   }
 
   if (type === 'grid') {
-    return [buildGridClasses(theme), substitutedProps?.className].filter(Boolean).join(' ')
+    return [buildGridClasses(substitutedProps), substitutedProps?.className]
+      .filter(Boolean)
+      .join(' ')
   }
 
   // Auto-apply component type as CSS class for types with CSS definitions
