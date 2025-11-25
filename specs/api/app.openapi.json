@@ -42,6 +42,31 @@
         "$ref": "./paths/auth/get-session/get.json"
       }
     },
+    "/api/auth/refresh-session": {
+      "post": {
+        "$ref": "./paths/auth/refresh-session/post.json"
+      }
+    },
+    "/api/auth/list-sessions": {
+      "get": {
+        "$ref": "./paths/auth/list-sessions/get.json"
+      }
+    },
+    "/api/auth/revoke-session": {
+      "post": {
+        "$ref": "./paths/auth/revoke-session/post.json"
+      }
+    },
+    "/api/auth/revoke-other-sessions": {
+      "post": {
+        "$ref": "./paths/auth/revoke-other-sessions/post.json"
+      }
+    },
+    "/api/auth/update-user": {
+      "patch": {
+        "$ref": "./paths/auth/update-user/patch.json"
+      }
+    },
     "/api/auth/request-password-reset": {
       "post": {
         "$ref": "./paths/auth/request-password-reset/post.json"
@@ -50,6 +75,11 @@
     "/api/auth/reset-password": {
       "post": {
         "$ref": "./paths/auth/reset-password/post.json"
+      }
+    },
+    "/api/auth/change-password": {
+      "post": {
+        "$ref": "./paths/auth/change-password/post.json"
       }
     },
     "/api/auth/verify-email": {
@@ -67,9 +97,129 @@
         "$ref": "./paths/auth/change-email/post.json"
       }
     },
-    "/api/auth/change-password": {
+    "/api/auth/admin/list-users": {
+      "get": {
+        "$ref": "./paths/auth/admin/list-users/get.json"
+      }
+    },
+    "/api/auth/admin/get-user": {
+      "get": {
+        "$ref": "./paths/auth/admin/get-user/get.json"
+      }
+    },
+    "/api/auth/admin/create-user": {
       "post": {
-        "$ref": "./paths/auth/change-password/post.json"
+        "$ref": "./paths/auth/admin/create-user/post.json"
+      }
+    },
+    "/api/auth/admin/ban-user": {
+      "post": {
+        "$ref": "./paths/auth/admin/ban-user/post.json"
+      }
+    },
+    "/api/auth/admin/unban-user": {
+      "post": {
+        "$ref": "./paths/auth/admin/unban-user/post.json"
+      }
+    },
+    "/api/auth/admin/set-role": {
+      "post": {
+        "$ref": "./paths/auth/admin/set-role/post.json"
+      }
+    },
+    "/api/auth/admin/set-user-password": {
+      "post": {
+        "$ref": "./paths/auth/admin/set-user-password/post.json"
+      }
+    },
+    "/api/auth/admin/impersonate-user": {
+      "post": {
+        "$ref": "./paths/auth/admin/impersonate-user/post.json"
+      }
+    },
+    "/api/auth/admin/list-user-sessions": {
+      "get": {
+        "$ref": "./paths/auth/admin/list-user-sessions/get.json"
+      }
+    },
+    "/api/auth/admin/revoke-user-session": {
+      "post": {
+        "$ref": "./paths/auth/admin/revoke-user-session/post.json"
+      }
+    },
+    "/api/auth/organization/list-organizations": {
+      "get": {
+        "$ref": "./paths/auth/organization/list-organizations/get.json"
+      }
+    },
+    "/api/auth/organization/get-organization": {
+      "get": {
+        "$ref": "./paths/auth/organization/get-organization/get.json"
+      }
+    },
+    "/api/auth/organization/create-organization": {
+      "post": {
+        "$ref": "./paths/auth/organization/create-organization/post.json"
+      }
+    },
+    "/api/auth/organization/update-organization": {
+      "patch": {
+        "$ref": "./paths/auth/organization/update-organization/patch.json"
+      }
+    },
+    "/api/auth/organization/delete-organization": {
+      "delete": {
+        "$ref": "./paths/auth/organization/delete-organization/delete.json"
+      }
+    },
+    "/api/auth/organization/set-active-organization": {
+      "post": {
+        "$ref": "./paths/auth/organization/set-active-organization/post.json"
+      }
+    },
+    "/api/auth/organization/list-members": {
+      "get": {
+        "$ref": "./paths/auth/organization/list-members/get.json"
+      }
+    },
+    "/api/auth/organization/add-member": {
+      "post": {
+        "$ref": "./paths/auth/organization/add-member/post.json"
+      }
+    },
+    "/api/auth/organization/remove-member": {
+      "delete": {
+        "$ref": "./paths/auth/organization/remove-member/delete.json"
+      }
+    },
+    "/api/auth/organization/update-member-role": {
+      "patch": {
+        "$ref": "./paths/auth/organization/update-member-role/patch.json"
+      }
+    },
+    "/api/auth/organization/invite-member": {
+      "post": {
+        "$ref": "./paths/auth/organization/invite-member/post.json"
+      }
+    },
+    "/api/auth/organization/list-invitations": {
+      "get": {
+        "$ref": "./paths/auth/organization/list-invitations/get.json"
+      }
+    },
+    "/api/auth/organization/accept-invitation": {
+      "post": {
+        "$ref": "./paths/auth/organization/accept-invitation/post.json"
+      }
+    },
+    "/api/auth/organization/reject-invitation": {
+      "post": {
+        "$ref": "./paths/auth/organization/reject-invitation/post.json"
+      }
+    },
+    "/api/auth/organization/cancel-invitation": {
+      "delete": {
+        "$ref": "./paths/auth/organization/cancel-invitation/delete.json"
       }
     },
     "/api/tables": {
@@ -90,6 +240,22 @@
         "$ref": "./paths/tables/{tableId}/records/post.json"
       }
     },
+    "/api/tables/{tableId}/records/batch": {
+      "post": {
+        "$ref": "./paths/tables/{tableId}/records/batch/post.json"
+      },
+      "patch": {
+        "$ref": "./paths/tables/{tableId}/records/batch/patch.json"
+      },
+      "delete": {
+        "$ref": "./paths/tables/{tableId}/records/batch/delete.json"
+      }
+    },
+    "/api/tables/{tableId}/records/upsert": {
+      "post": {
+        "$ref": "./paths/tables/{tableId}/records/upsert/post.json"
+      }
+    },
     "/api/tables/{tableId}/records/{recordId}": {
       "get": {
         "$ref": "./paths/tables/{tableId}/records/{recordId}/get.json"
@@ -99,6 +265,16 @@
       },
       "delete": {
         "$ref": "./paths/tables/{tableId}/records/{recordId}/delete.json"
+      }
+    },
+    "/api/tables/{tableId}/views": {
+      "get": {
+        "$ref": "./paths/tables/{tableId}/views/get.json"
+      }
+    },
+    "/api/tables/{tableId}/views/{viewId}": {
+      "get": {
+        "$ref": "./paths/tables/{tableId}/views/{viewId}/get.json"
       }
     },
     "/api/tables/{tableId}/permissions": {
@@ -170,12 +346,24 @@
       "description": "User authentication and account management"
     },
     {
+      "name": "admin",
+      "description": "Admin user management endpoints"
+    },
+    {
+      "name": "organization",
+      "description": "Organization and team management"
+    },
+    {
       "name": "tables",
       "description": "Table configuration endpoints"
     },
     {
       "name": "records",
       "description": "Record CRUD operations"
+    },
+    {
+      "name": "views",
+      "description": "View configuration and querying"
     },
     {
       "name": "permissions",

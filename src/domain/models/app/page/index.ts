@@ -243,6 +243,44 @@ export const PageSchema = Schema.Struct({
    * - Client configuration
    */
   scripts: Schema.optional(ScriptsSchema),
+
+  /**
+   * Optional page-level variables for substitution in sections
+   *
+   * Variables can be referenced in section content, props, and children using
+   * $variableName syntax. These variables are substituted at runtime.
+   *
+   * Page-level variables provide values for sections without block references.
+   * They complement block-level vars (from $ref with $vars) for direct sections.
+   *
+   * @example
+   * ```typescript
+   * {
+   *   vars: {
+   *     siteName: 'Sovrium',
+   *     primaryColor: 'blue'
+   *   },
+   *   sections: [
+   *     {
+   *       type: 'heading',
+   *       content: 'Welcome to $siteName'  // → 'Welcome to Sovrium'
+   *     },
+   *     {
+   *       type: 'button',
+   *       props: {
+   *         className: 'bg-$primaryColor'  // → 'bg-blue'
+   *       }
+   *     }
+   *   ]
+   * }
+   * ```
+   */
+  vars: Schema.optional(
+    Schema.Record({
+      key: Schema.String,
+      value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean),
+    })
+  ),
 })
 
 /**

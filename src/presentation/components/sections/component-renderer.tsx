@@ -21,6 +21,11 @@ import { mergeResponsiveProps } from './responsive/responsive-props-merger'
 import { buildInteractionProps } from './styling/interaction-props-builder'
 import { resolveI18nContent } from './translations/i18n-content-resolver'
 import { resolveChildTranslation } from './translations/translation-handler'
+import {
+  substituteBlockVariables,
+  substitutePropsVariables,
+  substituteChildrenVariables,
+} from './translations/variable-substitution'
 import type {
   BlockReference,
   SimpleBlockReference,
@@ -36,6 +41,7 @@ import type { Theme } from '@/domain/models/app/theme'
  */
 type ComponentRendererProps = {
   readonly component: Component | SimpleBlockReference | BlockReference
+  readonly pageVars?: Record<string, string | number | boolean>
   readonly blockName?: string
   readonly blockInstanceIndex?: number
   readonly blocks?: Blocks
@@ -66,6 +72,7 @@ function renderBlockReference(
   return (
     <ComponentRenderer
       component={resolved.component}
+      pageVars={props.pageVars}
       blockName={resolved.name}
       blockInstanceIndex={props.blockInstanceIndex}
       blocks={props.blocks}
@@ -96,6 +103,7 @@ function renderChildren(
       <ComponentRenderer
         key={index}
         component={child}
+        pageVars={props.pageVars}
         blocks={props.blocks}
         theme={props.theme}
         languages={props.languages}
@@ -124,6 +132,19 @@ function RenderDirectComponent({
   component: Component
   props: ComponentRendererProps
 }): ReactElement | null {
+  // Apply page-level variable substitution if pageVars are provided
+  const substitutedComponent = props.pageVars
+    ? {
+        ...component,
+        props: substitutePropsVariables(component.props, props.pageVars),
+        children: substituteChildrenVariables(component.children, props.pageVars),
+        content:
+          typeof component.content === 'string'
+            ? (substituteBlockVariables(component.content, props.pageVars) as string)
+            : component.content,
+      }
+    : component
+
   const {
     type,
     props: componentProps,
@@ -132,7 +153,7 @@ function RenderDirectComponent({
     interactions,
     i18n,
     responsive,
-  } = component
+  } = substitutedComponent
   const uniqueId = useId()
   const currentBreakpoint = useBreakpoint()
 
@@ -229,6 +250,7 @@ function RenderDirectComponent({
             <ComponentRenderer
               key={`${breakpoint}-${index}`}
               component={child}
+              pageVars={props.pageVars}
               blocks={props.blocks}
               theme={props.theme}
               languages={props.languages}

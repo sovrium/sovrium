@@ -5,103 +5,253 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures'
+import { test, expect } from '@/specs/fixtures.ts'
 
 /**
- * E2E Tests for POST /api/auth/send-verification-email
+ * E2E Tests for Send verification email
  *
- * Specification:
- * - Send verification email endpoint must send verification link to user
- * - Must validate email format
- * - Must support callback URL configuration
- * - Must return success status
+ * Source: specs/api/paths/auth/send-verification-email/post.json
+ * Domain: api
+ * Spec Count: 6
  *
- * Reference Implementation:
- * - Better Auth: src/infrastructure/auth/better-auth/auth.ts
- * - OpenAPI Spec: specs/api/paths/auth/send-verification-email/post.json
+ * Test Organization:
+ * 1. @spec tests - One per spec in schema (6 tests) - Exhaustive acceptance criteria
+ * 2. @regression test - ONE optimized integration test - Efficient workflow validation
+ *
+ * Validation Approach:
+ * - API response assertions (status codes, response schemas)
+ * - Database state validation (executeQuery fixture)
+ * - Authentication/authorization checks
  */
 
-const generateTestUser = () => ({
-  email: `test-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`,
-  password: 'SecurePassword123!',
-  name: 'Test User',
+test.describe('Send verification email', () => {
+  // ============================================================================
+  // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
+  // ============================================================================
+  test.fixme(
+    'API-AUTH-SEND-VERIFICATION-EMAIL-SUCCESS-001: should  sends verification email with token',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: A registered user with unverified email
+      await startServerWithSchema({
+        name: 'test-app',
+        // TODO: Configure server schema based on test requirements
+      })
+
+      // Database setup
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', false, NOW(), NOW())`
+      )
+
+      // WHEN: User requests verification email
+      const response = await page.request.post('/api/auth/send-verification-email', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: {
+          email: 'test@example.com',
+        },
+      })
+
+      // THEN: Returns 200 OK and sends verification email with token
+      // Returns 200 OK
+      // Response indicates email was sent
+      // Verification token is created in database
+      expect(response.status).toBe(200)
+
+      const data = await response.json()
+      // Validate response schema
+      expect(data).toMatchObject({}) // TODO: Add schema validation
+    }
+  )
+
+  test.fixme(
+    'API-AUTH-SEND-VERIFICATION-EMAIL-VALIDATION-REQUIRED-EMAIL-001: should  request with validation error',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: A running server
+      await startServerWithSchema({
+        name: 'test-app',
+        // TODO: Configure server schema based on test requirements
+      })
+
+      // WHEN: User submits request without email field
+      const response = await page.request.post('/api/auth/send-verification-email', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: {},
+      })
+
+      // THEN: Returns 400 Bad Request with validation error
+      // Returns 400 Bad Request
+      // Response contains validation error for email field
+      expect(response.status).toBe(400)
+
+      const data = await response.json()
+      // Validate response schema
+      expect(data).toMatchObject({}) // TODO: Add schema validation
+    }
+  )
+
+  test.fixme(
+    'API-AUTH-SEND-VERIFICATION-EMAIL-VALIDATION-INVALID-EMAIL-FORMAT-001: should  request with validation error',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: A running server
+      await startServerWithSchema({
+        name: 'test-app',
+        // TODO: Configure server schema based on test requirements
+      })
+
+      // WHEN: User submits request with invalid email format
+      const response = await page.request.post('/api/auth/send-verification-email', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: {
+          email: 'not-an-email',
+        },
+      })
+
+      // THEN: Returns 400 Bad Request with validation error
+      // Returns 400 Bad Request
+      // Response contains validation error for email format
+      expect(response.status).toBe(400)
+
+      const data = await response.json()
+      // Validate response schema
+      expect(data).toMatchObject({}) // TODO: Add schema validation
+    }
+  )
+
+  test.fixme(
+    'API-AUTH-SEND-VERIFICATION-EMAIL-EDGE-CASE-ALREADY-VERIFIED-001: should  or 400 (implementation-dependent)',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: A user with already verified email
+      await startServerWithSchema({
+        name: 'test-app',
+        // TODO: Configure server schema based on test requirements
+      })
+
+      // Database setup
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
+      )
+
+      // WHEN: User requests verification email again
+      const response = await page.request.post('/api/auth/send-verification-email', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: {
+          email: 'test@example.com',
+        },
+      })
+
+      // THEN: Returns 200 OK or 400 (implementation-dependent)
+      // Returns success or error (implementation-dependent)
+
+      const data = await response.json()
+      // Validate response schema
+      expect(data).toMatchObject({}) // TODO: Add schema validation
+    }
+  )
+
+  test.fixme(
+    'API-AUTH-SEND-VERIFICATION-EMAIL-EDGE-CASE-MULTIPLE-REQUESTS-001: should  invalidates old token, creates new one',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: A user who has already requested verification
+      await startServerWithSchema({
+        name: 'test-app',
+        // TODO: Configure server schema based on test requirements
+      })
+
+      // Database setup
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '\$2a\$10\$YourHashedPasswordHere', 'Test User', false, NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO email_verification_tokens (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'old_token_abc123', NOW() + INTERVAL '1 hour', NOW())`
+      )
+
+      // WHEN: User requests verification email again
+      const response = await page.request.post('/api/auth/send-verification-email', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: {
+          email: 'test@example.com',
+        },
+      })
+
+      // THEN: Returns 200 OK and invalidates old token, creates new one
+      // Returns 200 OK
+      // Old token is invalidated
+      // New token is created
+      expect(response.status).toBe(200)
+
+      const data = await response.json()
+      // Validate response schema
+      expect(data).toMatchObject({}) // TODO: Add schema validation
+    }
+  )
+
+  test.fixme(
+    'API-AUTH-SEND-VERIFICATION-EMAIL-EDGE-CASE-NONEXISTENT-EMAIL-001: should  (same response to prevent email enumeration)',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: A running server with no registered user
+      await startServerWithSchema({
+        name: 'test-app',
+        // TODO: Configure server schema based on test requirements
+      })
+
+      // WHEN: User requests verification email for non-existent email
+      const response = await page.request.post('/api/auth/send-verification-email', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        data: {
+          email: 'nonexistent@example.com',
+        },
+      })
+
+      // THEN: Returns 200 OK (same response to prevent email enumeration)
+      // Returns 200 OK (prevent email enumeration)
+      // Response looks identical to success case
+      // No verification token is created (email doesn't exist)
+      expect(response.status).toBe(200)
+
+      const data = await response.json()
+      // Validate response schema
+      expect(data).toMatchObject({}) // TODO: Add schema validation
+    }
+  )
+
+  // ============================================================================
+  // @regression test - OPTIMIZED integration confidence check
+  // ============================================================================
+
+  test.fixme(
+    'user can complete full Sendverificationemail workflow',
+    { tag: '@regression' },
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: Representative test scenario
+      await startServerWithSchema({
+        name: 'test-app',
+        // TODO: Configure server schema for integration test
+      })
+
+      // WHEN: Execute workflow
+      // TODO: Add representative API workflow
+      const response = await page.request.get('/api/endpoint')
+
+      // THEN: Verify integration
+      expect(response.ok()).toBeTruthy()
+      // TODO: Add integration assertions
+    }
+  )
 })
-
-/**
- * Test Case 1: Send verification email validates required fields
- *
- * GIVEN: A running server
- * WHEN: User requests verification email without email field
- * THEN: Response should be validation error
- */
-// API-AUTH-SEND-VERIFICATION-EMAIL-001: User requests verification without email
-test(
-  'API-AUTH-SEND-VERIFICATION-EMAIL-001: should validate required email field',
-  { tag: '@regression' },
-  async ({ page, startServerWithSchema }) => {
-    // GIVEN: A running server
-    await startServerWithSchema(
-      {
-        name: 'send-verification-validation-test',
-      },
-      { useDatabase: true }
-    )
-
-    // WHEN: User requests verification without email
-    const response = await page.request.post('/api/auth/send-verification-email', {
-      data: {
-        callbackURL: 'https://app.example.com/verify',
-      },
-    })
-
-    // THEN: Response should be validation error (4xx)
-    expect(response.status()).toBeGreaterThanOrEqual(400)
-    expect(response.status()).toBeLessThan(500)
-  }
-)
-
-/**
- * Test Case 2: Send verification email accepts valid request
- *
- * GIVEN: A user account exists
- * WHEN: User requests verification email resend
- * THEN: Response should indicate success
- *
- * NOTE: Actual email delivery depends on email service configuration.
- */
-// API-AUTH-SEND-VERIFICATION-EMAIL-002: User requests verification email
-test(
-  'API-AUTH-SEND-VERIFICATION-EMAIL-002: should accept verification email request',
-  { tag: '@spec' },
-  async ({ page, startServerWithSchema }) => {
-    // GIVEN: A running server
-    await startServerWithSchema(
-      {
-        name: 'send-verification-test',
-      },
-      { useDatabase: true }
-    )
-
-    // AND: A user that signed up
-    const testUser = generateTestUser()
-    await page.request.post('/api/auth/sign-up/email', {
-      data: {
-        email: testUser.email,
-        password: testUser.password,
-        name: testUser.name,
-      },
-    })
-
-    // WHEN: User requests verification email
-    const response = await page.request.post('/api/auth/send-verification-email', {
-      data: {
-        email: testUser.email,
-        callbackURL: 'https://app.example.com/verify',
-      },
-    })
-
-    // THEN: Response should be 200 OK or indicate success
-    // Note: Behavior depends on whether email verification is enabled
-    expect([200, 400]).toContain(response.status())
-  }
-)

@@ -33,6 +33,7 @@ function buildDefaultTestId(type: string): string | undefined {
     'hero-section': 'hero-section',
     hero: 'hero',
     text: 'text',
+    icon: 'icon',
   }
   return typeMap[type]
 }

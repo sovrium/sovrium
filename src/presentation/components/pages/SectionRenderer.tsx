@@ -23,6 +23,7 @@ import type { Theme } from '@/domain/models/app/theme'
  */
 export interface SectionRendererProps {
   readonly sections: ReadonlyArray<Component | SimpleBlockReference | BlockReference>
+  readonly pageVars?: Record<string, string | number | boolean>
   readonly theme?: Theme
   readonly blocks?: Blocks
   readonly languages?: Languages
@@ -38,6 +39,7 @@ export interface SectionRendererProps {
  */
 export function SectionRenderer({
   sections,
+  pageVars,
   theme,
   blocks,
   languages,
@@ -50,6 +52,7 @@ export function SectionRenderer({
       <ComponentRenderer
         key={index}
         component={section}
+        pageVars={pageVars}
         blockName={blockInfo?.name}
         blockInstanceIndex={blockInfo?.instanceIndex}
         blocks={blocks}

@@ -47,6 +47,7 @@ export function PageMain({
     >
       <SectionRenderer
         sections={sections}
+        pageVars={page.vars}
         theme={theme}
         blocks={blocks}
         languages={languages}

@@ -24,7 +24,7 @@ test.describe('Variable Reference', () => {
   // One test per spec in schema - defines EXHAUSTIVE acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-PAGES-VARREF-001: should validate variable syntax',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -56,7 +56,7 @@ test.describe('Variable Reference', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-VARREF-002: should accept camelCase variable names',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -88,7 +88,7 @@ test.describe('Variable Reference', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-VARREF-003: should accept variable at start of string',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -120,7 +120,7 @@ test.describe('Variable Reference', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-VARREF-004: should accept variable in middle of string',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -152,7 +152,7 @@ test.describe('Variable Reference', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-VARREF-005: should accept variable at end of string',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -184,7 +184,7 @@ test.describe('Variable Reference', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-VARREF-006: should accept multiple $variable references',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -217,7 +217,7 @@ test.describe('Variable Reference', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-VARREF-007: should accept alphanumeric variable names',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -250,7 +250,7 @@ test.describe('Variable Reference', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-VARREF-008: should support variable composition patterns',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -290,7 +290,7 @@ test.describe('Variable Reference', () => {
   // ONE OPTIMIZED test verifying components work together efficiently
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-PAGES-VARIABLE-REFERENCE-REGRESSION-001: user can complete full variable-reference workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
