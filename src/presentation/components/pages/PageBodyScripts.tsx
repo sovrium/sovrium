@@ -118,6 +118,65 @@ function LanguageSwitcherScripts({
 }
 
 /**
+ * Checks if scroll animation script should be loaded
+ */
+function shouldLoadScrollAnimation(
+  page: Page,
+  theme: Theme | undefined
+): boolean {
+  const hasSections = page.sections && page.sections.length > 0
+  const hasScaleUpAnimation = theme?.animations?.scaleUp
+  return hasSections || !!hasScaleUpAnimation
+}
+
+/**
+ * Renders banner dismiss script if needed
+ */
+function renderBannerScript(page: Page): ReactElement | undefined {
+  if (!page.layout?.banner?.dismissible) {
+    return undefined
+  }
+  return (
+    <script
+      src="/assets/banner-dismiss.js"
+      defer={true}
+    />
+  )
+}
+
+/**
+ * Renders scroll animation script if needed
+ */
+function renderScrollAnimationScript(
+  page: Page,
+  theme: Theme | undefined
+): ReactElement | undefined {
+  if (!shouldLoadScrollAnimation(page, theme)) {
+    return undefined
+  }
+  return (
+    <script
+      src="/assets/scroll-animation.js"
+      defer={true}
+    />
+  )
+}
+
+/**
+ * Renders feature flags window config if configured
+ */
+function renderFeatureFlags(page: Page): ReactElement | undefined {
+  if (!page.scripts?.features) {
+    return undefined
+  }
+  return renderWindowConfig({
+    windowKey: 'FEATURES',
+    data: page.scripts.features,
+    reactKey: 'window-features',
+  })
+}
+
+/**
  * Renders conditional script tags (banner, animation, features)
  */
 function renderConditionalScripts(config: {
@@ -130,19 +189,9 @@ function renderConditionalScripts(config: {
   return (
     <>
       {/* Client-side banner dismiss functionality - inject when banner is dismissible */}
-      {page.layout?.banner?.dismissible && (
-        <script
-          src="/assets/banner-dismiss.js"
-          defer={true}
-        />
-      )}
+      {renderBannerScript(page)}
       {/* Client-side scroll animation functionality - inject when page has sections or theme has scaleUp */}
-      {(page.sections && page.sections.length > 0) || theme?.animations?.scaleUp ? (
-        <script
-          src="/assets/scroll-animation.js"
-          defer={true}
-        />
-      ) : null}
+      {renderScrollAnimationScript(page, theme)}
       {/* Client-side language switcher functionality - always inject when languages configured */}
       {languages && (
         <LanguageSwitcherScripts
@@ -153,12 +202,7 @@ function renderConditionalScripts(config: {
         />
       )}
       {/* Client-side feature flags - inject when features configured */}
-      {page.scripts?.features &&
-        renderWindowConfig({
-          windowKey: 'FEATURES',
-          data: page.scripts.features,
-          reactKey: 'window-features',
-        })}
+      {renderFeatureFlags(page)}
     </>
   )
 }
