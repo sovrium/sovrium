@@ -57,6 +57,19 @@ function renderLink(
 
 /**
  * Render sidebar items immutably with counter tracking
+ *
+ * Counter strategy (functional programming pattern):
+ * - Each item type (link, divider, group) has independent sequential counter
+ * - Counters thread through recursive calls for immutability
+ * - Group counter increments BEFORE processing children (prevents nested ID conflicts)
+ * - Returns tuple: [rendered elements, updated counters] for pure functional composition
+ *
+ * Example flow for nested structure:
+ * 1. Link (counter.link=0) → renders "sidebar-link-0", returns counter.link=1
+ * 2. Group (counter.group=0) → renders "sidebar-group-0"
+ *    - Children start with counter.group=1 (pre-incremented)
+ *    - Nested group renders "sidebar-group-1" (no conflict with parent)
+ * 3. Divider (counter.divider=0) → renders "sidebar-divider", returns counter.divider=1
  */
 function renderItems(
   items: readonly SidebarItem[],
@@ -79,10 +92,17 @@ function renderItems(
   }
 
   if (firstItem.type === 'group') {
+    // Capture current group ID for this level's test ID
     const currentGroupId = counters.group
+
+    // IMPORTANT: Increment group counter BEFORE processing children
+    // This prevents duplicate IDs in nested group structures:
+    // - Parent group gets ID N
+    // - Children start counting from N+1 (not N)
+    // - Supports unlimited nesting depth without ID conflicts
     const [childElements, childCounters] = renderItems(firstItem.children ?? [], {
       ...counters,
-      group: counters.group + 1,
+      group: counters.group + 1, // Pre-increment for children's nested groups
     })
     const element = (
       <details

@@ -10,8 +10,16 @@ import type { Breakpoint } from '@/presentation/hooks/use-breakpoint'
 
 /**
  * Breakpoint order for progressive enhancement (mobile-first)
+ * Shared constant used across all responsive rendering logic
  */
-const BREAKPOINT_ORDER: readonly Breakpoint[] = ['mobile', 'sm', 'md', 'lg', 'xl', '2xl'] as const
+export const BREAKPOINT_ORDER: readonly Breakpoint[] = [
+  'mobile',
+  'sm',
+  'md',
+  'lg',
+  'xl',
+  '2xl',
+] as const
 
 /**
  * Map breakpoints to Tailwind responsive prefixes

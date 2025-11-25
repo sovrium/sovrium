@@ -6,7 +6,7 @@
  */
 
 import { type ReactElement, Fragment } from 'react'
-import { BREAKPOINT_VISIBILITY } from './responsive-visibility-classes'
+import { BREAKPOINT_ORDER } from './responsive-resolver'
 import type { Responsive } from '@/domain/models/app/page/common/responsive'
 import type { Component } from '@/domain/models/app/page/sections'
 
@@ -23,11 +23,6 @@ export interface ResponsiveChildrenRendererProps {
     additionalClassName?: string
   ) => ReactElement
 }
-
-/**
- * Breakpoint order for calculating visibility ranges
- */
-const BREAKPOINT_ORDER = ['mobile', 'sm', 'md', 'lg', 'xl', '2xl'] as const
 
 /**
  * Builds responsive children variants using CSS-based approach

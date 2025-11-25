@@ -75,6 +75,61 @@ describe('Variable Substitution', () => {
         'Alice says: Hello, Alice!'
       )
     })
+
+    // Edge case tests added from audit recommendations
+    test('handles empty string variable values', () => {
+      const vars = { prefix: '', suffix: '' }
+      expect(substituteBlockVariables('$prefix text $suffix', vars)).toBe(' text ')
+    })
+
+    test('handles null values gracefully', () => {
+      const vars = { value: null as unknown as string }
+      expect(substituteBlockVariables('Value: $value', vars)).toBe('Value: null')
+    })
+
+    test('handles variables with underscores', () => {
+      const vars = { my_var: 'value', another_long_var: 'text' }
+      expect(substituteBlockVariables('$my_var and $another_long_var', vars)).toBe('value and text')
+    })
+
+    test('handles variables starting with numbers after letter', () => {
+      const vars = { color1: 'red', size2x: 'large' }
+      expect(substituteBlockVariables('$color1 $size2x', vars)).toBe('red large')
+    })
+
+    test('avoids matching variable names that are prefixes', () => {
+      const vars = { color: 'blue', colorPrimary: 'red', colorCode: 'abc' }
+      expect(substituteBlockVariables('$color', vars)).toBe('blue')
+      expect(substituteBlockVariables('$colorPrimary', vars)).toBe('red')
+      expect(substituteBlockVariables('$colorCode', vars)).toBe('abc')
+      // Should not substitute if exact match doesn't exist
+      expect(substituteBlockVariables('$colors', vars)).toBe('$colors')
+    })
+
+    test('handles very long variable names', () => {
+      const vars = { thisIsAVeryLongVariableNameForTesting: 'works' }
+      expect(substituteBlockVariables('$thisIsAVeryLongVariableNameForTesting', vars)).toBe('works')
+    })
+
+    test('handles special characters in values', () => {
+      const vars = { special: '<div>&"\'</div>' }
+      expect(substituteBlockVariables('HTML: $special', vars)).toBe('HTML: <div>&"\'</div>')
+    })
+
+    test('handles undefined variable references (leaves unchanged)', () => {
+      const vars = { defined: 'value' }
+      expect(substituteBlockVariables('$defined $undefined', vars)).toBe('value $undefined')
+    })
+
+    test('handles empty vars object', () => {
+      const vars = {}
+      expect(substituteBlockVariables('$anyVariable', vars)).toBe('$anyVariable')
+    })
+
+    test('handles consecutive variables without separator', () => {
+      const vars = { first: 'A', second: 'B' }
+      expect(substituteBlockVariables('$first$second', vars)).toBe('AB')
+    })
   })
 
   describe('substitutePropsVariables', () => {
@@ -169,6 +224,57 @@ describe('Variable Substitution', () => {
 
       expect(result).not.toBe(props)
       expect(props).toEqual({ className: '$variant' })
+    })
+
+    // Edge case tests added from audit recommendations
+    test('handles deeply nested objects (stress test)', () => {
+      const vars = { color: 'red', size: 'large' }
+      const props = {
+        level1: {
+          level2: {
+            level3: {
+              level4: {
+                color: '$color',
+                size: '$size',
+              },
+            },
+          },
+        },
+      }
+      const result = substitutePropsVariables(props, vars)
+      expect(result).toEqual({
+        level1: {
+          level2: {
+            level3: {
+              level4: {
+                color: 'red',
+                size: 'large',
+              },
+            },
+          },
+        },
+      })
+    })
+
+    test('handles null prop values', () => {
+      const vars = { title: 'Hello' }
+      const props = { className: '$title', value: null }
+      const result = substitutePropsVariables(props, vars)
+      expect(result).toEqual({ className: 'Hello', value: null })
+    })
+
+    test('handles array values in props (preserves arrays)', () => {
+      const vars = { color: 'red' }
+      const props = { classes: ['static', '$color'] }
+      const result = substitutePropsVariables(props, vars)
+      expect(result).toEqual({ classes: ['static', '$color'] }) // Arrays not substituted
+    })
+
+    test('handles empty string props', () => {
+      const vars = { value: 'replaced' }
+      const props = { className: '', placeholder: '$value' }
+      const result = substitutePropsVariables(props, vars)
+      expect(result).toEqual({ className: '', placeholder: 'replaced' })
     })
   })
 
@@ -275,6 +381,86 @@ describe('Variable Substitution', () => {
 
       expect(result).not.toBe(children)
       expect(children).toEqual(['$title'])
+    })
+
+    // Edge case tests added from audit recommendations
+    test('handles empty children array', () => {
+      const vars = { title: 'Hello' }
+      const children: readonly (Component | string)[] = []
+      const result = substituteChildrenVariables(children, vars)
+      expect(result).toEqual([])
+    })
+
+    test('handles deeply nested component children (stress test)', () => {
+      const vars = { text: 'deep' }
+      const children: readonly Component[] = [
+        {
+          type: 'div',
+          props: {},
+          children: [
+            {
+              type: 'div',
+              props: {},
+              children: [
+                {
+                  type: 'span',
+                  props: {},
+                  content: '$text',
+                },
+              ],
+            },
+          ],
+        },
+      ]
+      const result = substituteChildrenVariables(children, vars)
+      expect(result).toEqual([
+        {
+          type: 'div',
+          props: {},
+          children: [
+            {
+              type: 'div',
+              props: {},
+              children: [
+                {
+                  type: 'span',
+                  props: {},
+                  content: 'deep',
+                },
+              ],
+            },
+          ],
+        },
+      ])
+    })
+
+    test('handles components with both content and children', () => {
+      const vars = { content: 'Content', child: 'Child' }
+      const children: readonly Component[] = [
+        {
+          type: 'div',
+          props: {},
+          content: '$content',
+          children: ['$child'],
+        },
+      ]
+      const result = substituteChildrenVariables(children, vars)
+      expect(result).toEqual([
+        {
+          type: 'div',
+          props: {},
+          content: 'Content',
+          children: ['Child'],
+        },
+      ])
+    })
+
+    test('handles very large children arrays (performance test)', () => {
+      const vars = { item: 'text' }
+      const children: readonly string[] = Array.from({ length: 100 }, () => '$item')
+      const result = substituteChildrenVariables(children, vars)
+      expect(result).toHaveLength(100)
+      expect(result.every((child) => child === 'text')).toBe(true)
     })
   })
 })

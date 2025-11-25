@@ -18,6 +18,40 @@ import type { Preload } from '@/domain/models/app/page/meta/preload'
 import type { Page } from '@/domain/models/app/pages'
 
 /**
+ * Shared helper to render meta tags with configurable attribute type
+ * Eliminates duplication between OpenGraph and Twitter Card rendering
+ *
+ * @param fields - Array of key-value pairs to render as meta tags
+ * @param prefix - Prefix for meta tag name/property (e.g., 'og', 'twitter')
+ * @param attributeType - HTML attribute to use ('property' for OG, 'name' for Twitter)
+ * @returns React fragment with meta tags
+ */
+function renderMetaTags({
+  fields,
+  prefix,
+  attributeType,
+}: {
+  readonly fields: ReadonlyArray<{ readonly key: string; readonly value?: string | number }>
+  readonly prefix: string
+  readonly attributeType: 'property' | 'name'
+}): ReactElement {
+  return (
+    <>
+      {fields.map(
+        ({ key, value }) =>
+          value !== undefined && (
+            <meta
+              key={key}
+              {...{ [attributeType]: `${prefix}:${key}` }}
+              content={String(value)}
+            />
+          )
+      )}
+    </>
+  )
+}
+
+/**
  * Render Open Graph metadata tags
  * Generates <meta property="og:*"> tags for Facebook/LinkedIn sharing
  *
@@ -59,20 +93,7 @@ export function OpenGraphMeta({
     { key: 'audio', value: openGraph.audio },
   ]
 
-  return (
-    <>
-      {fields.map(
-        ({ key, value }) =>
-          value && (
-            <meta
-              key={key}
-              property={`og:${key}`}
-              content={value}
-            />
-          )
-      )}
-    </>
-  )
+  return renderMetaTags({ fields, prefix: 'og', attributeType: 'property' })
 }
 
 /**
@@ -113,20 +134,7 @@ export function TwitterCardMeta({
     { key: 'app:id:googleplay', value: twitterCard.appId?.googlePlay },
   ]
 
-  return (
-    <>
-      {fields.map(
-        ({ key, value }) =>
-          value !== undefined && (
-            <meta
-              key={key}
-              name={`twitter:${key}`}
-              content={String(value)}
-            />
-          )
-      )}
-    </>
-  )
+  return renderMetaTags({ fields, prefix: 'twitter', attributeType: 'name' })
 }
 
 /**

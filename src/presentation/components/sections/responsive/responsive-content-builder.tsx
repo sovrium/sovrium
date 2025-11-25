@@ -7,13 +7,8 @@
 
 import { type ReactElement } from 'react'
 import { dispatchComponentType } from '../rendering/component-type-dispatcher'
-import { BREAKPOINT_VISIBILITY } from './responsive-visibility-classes'
+import { BREAKPOINT_ORDER } from './responsive-resolver'
 import type { Responsive } from '@/domain/models/app/page/common/responsive'
-
-/**
- * Breakpoint order for calculating visibility ranges
- */
-const BREAKPOINT_ORDER = ['mobile', 'sm', 'md', 'lg', 'xl', '2xl'] as const
 
 /**
  * Builds responsive content variants using CSS-based approach (nested span strategy)
