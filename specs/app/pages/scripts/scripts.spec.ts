@@ -19,7 +19,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Client Scripts Configuration', () => {
-  test.fixme(
+  test(
     'APP-PAGES-SCRIPTS-001: should orchestrate client-side script management',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -47,15 +47,16 @@ test.describe('Client Scripts Configuration', () => {
 
       // THEN: it should orchestrate client-side script management
       await expect(page.locator('script[src="https://cdn.example.com/lib.js"]')).toBeAttached()
-      const inlineScript = await page
-        .locator('script')
-        .filter({ hasText: 'console.log("ready")' })
-        .textContent()
-      expect(inlineScript).toContain('console.log("ready")')
+      const scriptContent = await page.evaluate(() => {
+        const scripts = Array.from(document.querySelectorAll('script'))
+        const inlineScript = scripts.find((s) => !s.src && s.innerHTML.includes('console.log("ready")'))
+        return inlineScript?.innerHTML
+      })
+      expect(scriptContent).toContain('console.log("ready")')
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SCRIPTS-002: should enable client-side feature toggles',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -82,7 +83,7 @@ test.describe('Client Scripts Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SCRIPTS-003: should include external JavaScript dependencies',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -112,7 +113,7 @@ test.describe('Client Scripts Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SCRIPTS-004: should inject inline JavaScript code',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -134,15 +135,16 @@ test.describe('Client Scripts Configuration', () => {
       await page.goto('/')
 
       // THEN: it should inject inline JavaScript code
-      const inlineScript = await page
-        .locator('script')
-        .filter({ hasText: 'console.log("Hello")' })
-        .textContent()
-      expect(inlineScript).toContain('console.log("Hello")')
+      const scriptContent = await page.evaluate(() => {
+        const scripts = Array.from(document.querySelectorAll('script'))
+        const inlineScript = scripts.find((s) => !s.src && s.innerHTML.includes('console.log("Hello")'))
+        return inlineScript?.innerHTML
+      })
+      expect(scriptContent).toContain('console.log("Hello")')
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SCRIPTS-005: should provide client-side configuration data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -169,7 +171,7 @@ test.describe('Client Scripts Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SCRIPTS-006: should allow pages without client-side scripts',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -196,7 +198,7 @@ test.describe('Client Scripts Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SCRIPTS-007: should support flexible client configuration',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -224,7 +226,7 @@ test.describe('Client Scripts Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SCRIPTS-008: should enable feature-driven configuration',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -251,7 +253,7 @@ test.describe('Client Scripts Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SCRIPTS-009: should support per-page script customization',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -288,7 +290,7 @@ test.describe('Client Scripts Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SCRIPTS-010: should compose scripts from modular schemas',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -318,7 +320,7 @@ test.describe('Client Scripts Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SCRIPTS-REGRESSION-001: user can complete full Client Scripts workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {

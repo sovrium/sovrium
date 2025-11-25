@@ -231,6 +231,7 @@ function GlobalStyles({ directionStyles }: { readonly directionStyles: string })
 
 /**
  * Renders external and inline scripts for head section
+ * Note: APP_CONFIG is rendered in body-end to merge with inline scripts
  */
 function HeadScripts({ scripts }: { readonly scripts: GroupedScripts }): ReactElement {
   return (

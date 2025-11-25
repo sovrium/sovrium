@@ -252,6 +252,7 @@ export function DynamicPage({
     <html
       lang={langConfig.lang}
       dir={langConfig.direction}
+      {...(page.scripts && { 'data-features': JSON.stringify(page.scripts.features || {}) })}
     >
       <DynamicPageHead
         mergedPage={pageWithMeta}
