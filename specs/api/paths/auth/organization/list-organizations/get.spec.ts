@@ -30,7 +30,7 @@ test.describe('List user organizations', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-LIST-ORGANIZATIONS-SUCCESS-001: should returns 200 OK with all organizations and user\'s roles',
+    "API-ORG-LIST-ORGANIZATIONS-SUCCESS-001: should returns 200 OK with all organizations and user's roles",
     { tag: '@spec' },
     async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: An authenticated user who is member of multiple organizations
@@ -39,34 +39,43 @@ test.describe('List user organizations', () => {
         // TODO: Configure server schema based on test requirements
       })
 
-    // Database setup
-    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`)
-    await executeQuery(`INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Org One', 'org-one', NOW(), NOW())`)
-    await executeQuery(`INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (2, 'Org Two', 'org-two', NOW(), NOW())`)
-    await executeQuery(`INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`)
-    await executeQuery(`INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 2, 1, 'member', NOW())`)
-    await executeQuery(`INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`)
+      // Database setup
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Org One', 'org-one', NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (2, 'Org Two', 'org-two', NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 2, 1, 'member', NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
+      )
 
       // WHEN: User requests list of their organizations
-    const response = await page.request.get('/api/auth/organization/list-organizations', {
-      headers: {
-      },
-    })
+      const response = await page.request.get('/api/auth/organization/list-organizations', {
+        headers: {},
+      })
 
       // THEN: Returns 200 OK with all organizations and user's roles
-    // Returns 200 OK
-    expect(response.status).toBe(200)
+      // Returns 200 OK
+      expect(response.status).toBe(200)
 
-    // Response contains organizations array with roles
-    const data = await response.json()
-    // Validate response schema
-    expect(data).toMatchObject({})  // TODO: Add schema validation
+      // Response contains organizations array with roles
+      const data = await response.json()
+      // Validate response schema
+      expect(data).toMatchObject({}) // TODO: Add schema validation
 
-    // Response includes both organizations
-
+      // Response includes both organizations
     }
   )
-
 
   test.fixme(
     'API-ORG-LIST-ORGANIZATIONS-SUCCESS-EMPTY-001: should returns 200 OK with empty organizations array',
@@ -78,25 +87,26 @@ test.describe('List user organizations', () => {
         // TODO: Configure server schema based on test requirements
       })
 
-    // Database setup
-    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`)
-    await executeQuery(`INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`)
+      // Database setup
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
+      )
 
       // WHEN: User requests list of their organizations
-    const response = await page.request.get('/api/auth/organization/list-organizations', {
-      headers: {
-      },
-    })
+      const response = await page.request.get('/api/auth/organization/list-organizations', {
+        headers: {},
+      })
 
       // THEN: Returns 200 OK with empty organizations array
-    // Returns 200 OK
-    expect(response.status).toBe(200)
+      // Returns 200 OK
+      expect(response.status).toBe(200)
 
-    // Response contains empty organizations array
-
+      // Response contains empty organizations array
     }
   )
-
 
   test.fixme(
     'API-ORG-LIST-ORGANIZATIONS-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
@@ -108,25 +118,22 @@ test.describe('List user organizations', () => {
         // TODO: Configure server schema based on test requirements
       })
 
-
       // WHEN: Unauthenticated user attempts to list organizations
-    const response = await page.request.get('/api/auth/organization/list-organizations')
+      const response = await page.request.get('/api/auth/organization/list-organizations')
 
       // THEN: Returns 401 Unauthorized
-    // Returns 401 Unauthorized
-    expect(response.status).toBe(401)
+      // Returns 401 Unauthorized
+      expect(response.status).toBe(401)
 
-    // Response contains error about missing authentication
-    const data = await response.json()
-    // Validate response schema
-    expect(data).toMatchObject({})  // TODO: Add schema validation
-
+      // Response contains error about missing authentication
+      const data = await response.json()
+      // Validate response schema
+      expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
 
-
   test.fixme(
-    'API-ORG-LIST-ORGANIZATIONS-SECURITY-ISOLATION-001: should returns 200 OK with only User A\'s organizations (User B\'s not visible)',
+    "API-ORG-LIST-ORGANIZATIONS-SECURITY-ISOLATION-001: should returns 200 OK with only User A's organizations (User B's not visible)",
     { tag: '@spec' },
     async ({ page, startServerWithSchema, _executeQuery }) => {
       // GIVEN: Two users with different organizations
@@ -135,32 +142,43 @@ test.describe('List user organizations', () => {
         // TODO: Configure server schema based on test requirements
       })
 
-    // Database setup
-    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user1@example.com', '$2a$10$YourHashedPasswordHere', 'User 1', true, NOW(), NOW())`)
-    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'user2@example.com', '$2a$10$YourHashedPasswordHere', 'User 2', true, NOW(), NOW())`)
-    await executeQuery(`INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'User 1 Org', 'user1-org', NOW(), NOW())`)
-    await executeQuery(`INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (2, 'User 2 Org', 'user2-org', NOW(), NOW())`)
-    await executeQuery(`INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`)
-    await executeQuery(`INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 2, 2, 'owner', NOW())`)
-    await executeQuery(`INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user1_token', NOW() + INTERVAL '7 days', NOW())`)
+      // Database setup
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user1@example.com', '$2a$10$YourHashedPasswordHere', 'User 1', true, NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'user2@example.com', '$2a$10$YourHashedPasswordHere', 'User 2', true, NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'User 1 Org', 'user1-org', NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (2, 'User 2 Org', 'user2-org', NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 2, 2, 'owner', NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user1_token', NOW() + INTERVAL '7 days', NOW())`
+      )
 
       // WHEN: User A requests list of organizations
-    const response = await page.request.get('/api/auth/organization/list-organizations', {
-      headers: {
-      },
-    })
+      const response = await page.request.get('/api/auth/organization/list-organizations', {
+        headers: {},
+      })
 
       // THEN: Returns 200 OK with only User A's organizations (User B's not visible)
-    // Returns 200 OK
-    expect(response.status).toBe(200)
+      // Returns 200 OK
+      expect(response.status).toBe(200)
 
-    // Response contains only User 1's organization
+      // Response contains only User 1's organization
 
-    // Response does not include User 2's organization
-
+      // Response does not include User 2's organization
     }
   )
-
 
   test.fixme(
     'API-ORG-LIST-ORGANIZATIONS-SUCCESS-ROLE-DISPLAY-001: should returns 200 OK with correct role for each organization',
@@ -172,36 +190,49 @@ test.describe('List user organizations', () => {
         // TODO: Configure server schema based on test requirements
       })
 
-    // Database setup
-    await executeQuery(`INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`)
-    await executeQuery(`INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Owned Org', 'owned-org', NOW(), NOW())`)
-    await executeQuery(`INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (2, 'Admin Org', 'admin-org', NOW(), NOW())`)
-    await executeQuery(`INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (3, 'Member Org', 'member-org', NOW(), NOW())`)
-    await executeQuery(`INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`)
-    await executeQuery(`INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 2, 1, 'admin', NOW())`)
-    await executeQuery(`INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (3, 3, 1, 'member', NOW())`)
-    await executeQuery(`INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`)
+      // Database setup
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Owned Org', 'owned-org', NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (2, 'Admin Org', 'admin-org', NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (3, 'Member Org', 'member-org', NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 2, 1, 'admin', NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (3, 3, 1, 'member', NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
+      )
 
       // WHEN: User requests list of organizations
-    const response = await page.request.get('/api/auth/organization/list-organizations', {
-      headers: {
-      },
-    })
+      const response = await page.request.get('/api/auth/organization/list-organizations', {
+        headers: {},
+      })
 
       // THEN: Returns 200 OK with correct role for each organization
-    // Returns 200 OK
-    expect(response.status).toBe(200)
+      // Returns 200 OK
+      expect(response.status).toBe(200)
 
-    // Response includes all 3 organizations with correct roles
+      // Response includes all 3 organizations with correct roles
 
-    // Each organization has correct role attribute
-    const data = await response.json()
-    // Validate response schema
-    expect(data).toMatchObject({})  // TODO: Add schema validation
-
+      // Each organization has correct role attribute
+      const data = await response.json()
+      // Validate response schema
+      expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
-
 
   // ============================================================================
   // @regression test - OPTIMIZED integration confidence check
@@ -226,5 +257,4 @@ test.describe('List user organizations', () => {
       // TODO: Add integration assertions
     }
   )
-
 })
