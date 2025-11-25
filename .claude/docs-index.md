@@ -30,6 +30,7 @@
 - `@docs/infrastructure/framework/hono.md` - Hono web framework
 - `@docs/infrastructure/api/hono-rpc-openapi.md` - Hono RPC client + OpenAPI documentation (dual-track pattern)
 - `@docs/infrastructure/api/zod-hono-openapi.md` - Zod + Hono + OpenAPI integration (ESLint enforcement, usage patterns)
+- `@docs/infrastructure/api/scalar-api-reference.md` - Scalar API Reference (interactive API documentation UI)
 - `@docs/infrastructure/framework/better-auth.md` - Authentication
 - `@docs/infrastructure/database/drizzle.md` - Drizzle ORM
 
@@ -50,6 +51,7 @@
 - `@docs/infrastructure/testing/bun-test.md` - Unit testing
 - `@docs/infrastructure/testing/react-testing-library.md` - React component testing (RTL + Happy DOM + Bun)
 - `@docs/infrastructure/testing/playwright.md` - E2E testing
+- `@docs/infrastructure/testing/testcontainers.md` - Docker-based test database isolation
 
 ### CI/CD & Release
 - `@docs/infrastructure/cicd/workflows.md` - GitHub Actions
