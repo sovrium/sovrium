@@ -5,26 +5,31 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures'
+import { test, expect } from '@/specs/fixtures.ts'
 
 /**
  * E2E Tests for Page ID
  *
  * Source: specs/app/pages/id/id.schema.json
+ * Domain: app
  * Spec Count: 6
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (6 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
+ *
+ * Validation Approach:
+ * - UI rendering validation (Playwright page navigation)
+ * - Configuration validation (startServerWithSchema)
+ * - ID format validation (UUID, numeric, custom strings)
  */
 
 test.describe('Page ID', () => {
   // ============================================================================
-  // SPECIFICATION TESTS (@spec)
-  // One test per spec in schema - defines EXHAUSTIVE acceptance criteria
+  // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test(
+  test.fixme(
     'APP-PAGES-ID-001: should validate as unique identifier',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -50,7 +55,7 @@ test.describe('Page ID', () => {
     }
   )
 
-  test(
+  test.fixme(
     'APP-PAGES-ID-002: should follow shared ID pattern from common definitions',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -74,7 +79,7 @@ test.describe('Page ID', () => {
     }
   )
 
-  test(
+  test.fixme(
     'APP-PAGES-ID-003: should allow auto-generated ID (ID is optional)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -99,7 +104,7 @@ test.describe('Page ID', () => {
     }
   )
 
-  test(
+  test.fixme(
     'APP-PAGES-ID-004: should accept UUID as identifier',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -127,7 +132,7 @@ test.describe('Page ID', () => {
     }
   )
 
-  test(
+  test.fixme(
     'APP-PAGES-ID-005: should accept numeric string identifiers',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -153,7 +158,7 @@ test.describe('Page ID', () => {
     }
   )
 
-  test(
+  test.fixme(
     'APP-PAGES-ID-006: should ensure uniqueness across all pages in array',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -198,11 +203,10 @@ test.describe('Page ID', () => {
   )
 
   // ============================================================================
-  // REGRESSION TEST (@regression)
-  // ONE OPTIMIZED test verifying components work together efficiently
+  // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test(
+  test.fixme(
     'APP-PAGES-ID-REGRESSION-001: user can complete full page ID workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {

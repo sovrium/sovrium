@@ -19,7 +19,8 @@ import { test, expect } from '@/specs/fixtures.ts'
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  *
  * Validation Approach:
- * - Configuration validation (validateConfig)
+ * - Configuration validation (startServerWithSchema)
+ * - Database validation (executeQuery for verification)
  * - ID uniqueness and read-only constraints
  */
 
@@ -31,9 +32,25 @@ test.describe('Table ID', () => {
   test.fixme(
     'APP-TABLES-ID-001: should be unique within the parent collection',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: a new entity is created
-      await executeQuery(`CREATE TABLE test_entities (id SERIAL PRIMARY KEY, name VARCHAR(255))`)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_entities',
+            name: 'test_entities',
+            fields: [
+              {
+                id: 1,
+                name: 'name',
+                type: 'single-line-text',
+                required: true,
+              },
+            ],
+          },
+        ],
+      })
 
       // WHEN: the system assigns an ID
       const entity1 = await executeQuery(
@@ -57,9 +74,26 @@ test.describe('Table ID', () => {
   test.fixme(
     'APP-TABLES-ID-002: should prevent changes (read-only constraint)',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: an entity exists
-      await executeQuery(`CREATE TABLE test_entities (id SERIAL PRIMARY KEY, name VARCHAR(255))`)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_entities',
+            name: 'test_entities',
+            fields: [
+              {
+                id: 1,
+                name: 'name',
+                type: 'single-line-text',
+                required: true,
+              },
+            ],
+          },
+        ],
+      })
+
       const entity = await executeQuery(
         `INSERT INTO test_entities (name) VALUES ('Test Entity') RETURNING id`
       )
@@ -82,9 +116,26 @@ test.describe('Table ID', () => {
   test.fixme(
     'APP-TABLES-ID-003: should retrieve entity successfully when ID is valid',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: a client requests an entity by ID
-      await executeQuery(`CREATE TABLE test_entities (id SERIAL PRIMARY KEY, name VARCHAR(255))`)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_entities',
+            name: 'test_entities',
+            fields: [
+              {
+                id: 1,
+                name: 'name',
+                type: 'single-line-text',
+                required: true,
+              },
+            ],
+          },
+        ],
+      })
+
       const entity = await executeQuery(
         `INSERT INTO test_entities (name) VALUES ('Test Entity') RETURNING id, name`
       )
@@ -109,9 +160,25 @@ test.describe('Table ID', () => {
   test.fixme(
     'user can complete full Table ID workflow',
     { tag: '@regression' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Database with entities using auto-generated IDs
-      await executeQuery(`CREATE TABLE products (id SERIAL PRIMARY KEY, sku VARCHAR(255))`)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_products',
+            name: 'products',
+            fields: [
+              {
+                id: 1,
+                name: 'sku',
+                type: 'single-line-text',
+                required: true,
+              },
+            ],
+          },
+        ],
+      })
 
       // WHEN/THEN: Execute representative ID workflow
 
