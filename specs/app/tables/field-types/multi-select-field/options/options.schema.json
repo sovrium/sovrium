@@ -23,12 +23,7 @@
           "fieldConfig": {
             "name": "skills",
             "type": "multi-select",
-            "options": [
-              "JavaScript",
-              "Python",
-              "Go",
-              "Rust"
-            ]
+            "options": ["JavaScript", "Python", "Go", "Rust"]
           }
         },
         "assertions": [
@@ -43,19 +38,14 @@
             "description": "Valid array of options accepted",
             "executeQuery": "SELECT skills FROM developers WHERE name = 'Alice'",
             "expected": {
-              "skills": [
-                "JavaScript",
-                "Python"
-              ]
+              "skills": ["JavaScript", "Python"]
             }
           },
           {
             "description": "Single option stored as array",
             "executeQuery": "INSERT INTO developers (name, skills) VALUES ('Charlie', ARRAY['Python']) RETURNING skills",
             "expected": {
-              "skills": [
-                "Python"
-              ]
+              "skills": ["Python"]
             }
           },
           {
@@ -80,11 +70,7 @@
           "fieldConfig": {
             "name": "tags",
             "type": "multi-select",
-            "options": [
-              "Red",
-              "Green",
-              "Blue"
-            ],
+            "options": ["Red", "Green", "Blue"],
             "required": false
           }
         },
@@ -107,10 +93,7 @@
             "description": "Non-empty valid array accepted",
             "executeQuery": "SELECT tags FROM products WHERE name = 'Product A'",
             "expected": {
-              "tags": [
-                "Red",
-                "Blue"
-              ]
+              "tags": ["Red", "Blue"]
             }
           }
         ]
@@ -152,11 +135,7 @@
           "fieldConfig": {
             "name": "labels",
             "type": "multi-select",
-            "options": [
-              "Feature",
-              "Bug",
-              "Enhancement"
-            ]
+            "options": ["Feature", "Bug", "Enhancement"]
           }
         },
         "assertions": [
@@ -164,21 +143,14 @@
             "description": "All options can be selected simultaneously",
             "executeQuery": "SELECT labels FROM issues WHERE title = 'Issue 1'",
             "expected": {
-              "labels": [
-                "Feature",
-                "Bug",
-                "Enhancement"
-              ]
+              "labels": ["Feature", "Bug", "Enhancement"]
             }
           },
           {
             "description": "Array order preserved",
             "executeQuery": "INSERT INTO issues (title, labels) VALUES ('Issue 2', ARRAY['Enhancement', 'Feature']) RETURNING labels",
             "expected": {
-              "labels": [
-                "Enhancement",
-                "Feature"
-              ]
+              "labels": ["Enhancement", "Feature"]
             }
           },
           {

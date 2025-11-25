@@ -28,12 +28,7 @@
     }
   },
   "description": "Workflow status with customizable options and colors",
-  "required": [
-    "id",
-    "name",
-    "type",
-    "options"
-  ],
+  "required": ["id", "name", "type", "options"],
   "additionalProperties": false,
   "x-specs": [
     {

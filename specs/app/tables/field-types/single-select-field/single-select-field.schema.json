@@ -28,12 +28,7 @@
     }
   },
   "description": "Single selection dropdown from predefined options. Users can choose exactly one value from the list. Useful for status fields (Active, Inactive, Pending), categories, priority levels (High, Medium, Low), and enumerated values. Requires at least one option. Supports default value. Indexing improves filtering by option value.",
-  "required": [
-    "id",
-    "name",
-    "type",
-    "options"
-  ],
+  "required": ["id", "name", "type", "options"],
   "additionalProperties": false,
   "x-specs": [
     {

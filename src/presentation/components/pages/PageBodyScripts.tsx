@@ -118,6 +118,51 @@ function LanguageSwitcherScripts({
 }
 
 /**
+ * Renders banner dismiss script if dismissible
+ */
+function BannerDismissScript({ page }: { readonly page: Page }): ReactElement | undefined {
+  if (!page.layout?.banner?.dismissible) return undefined
+  return (
+    <script
+      src="/assets/banner-dismiss.js"
+      defer={true}
+    />
+  )
+}
+
+/**
+ * Renders scroll animation script if needed
+ */
+function ScrollAnimationScript({
+  page,
+  theme,
+}: {
+  readonly page: Page
+  readonly theme: Theme | undefined
+}): ReactElement | undefined {
+  const needsAnimation = (page.sections && page.sections.length > 0) || theme?.animations?.scaleUp
+  if (!needsAnimation) return undefined
+  return (
+    <script
+      src="/assets/scroll-animation.js"
+      defer={true}
+    />
+  )
+}
+
+/**
+ * Renders feature flags configuration if configured
+ */
+function FeatureFlagsScript({ page }: { readonly page: Page }): ReactElement | undefined {
+  if (!page.scripts?.features) return undefined
+  return renderWindowConfig({
+    windowKey: 'FEATURES',
+    data: page.scripts.features,
+    reactKey: 'window-features',
+  })
+}
+
+/**
  * Renders conditional script tags (banner, animation, features)
  */
 function renderConditionalScripts(config: {
@@ -129,21 +174,11 @@ function renderConditionalScripts(config: {
   const { page, theme, languages, direction } = config
   return (
     <>
-      {/* Client-side banner dismiss functionality - inject when banner is dismissible */}
-      {page.layout?.banner?.dismissible && (
-        <script
-          src="/assets/banner-dismiss.js"
-          defer={true}
-        />
-      )}
-      {/* Client-side scroll animation functionality - inject when page has sections or theme has scaleUp */}
-      {(page.sections && page.sections.length > 0) || theme?.animations?.scaleUp ? (
-        <script
-          src="/assets/scroll-animation.js"
-          defer={true}
-        />
-      ) : null}
-      {/* Client-side language switcher functionality - always inject when languages configured */}
+      <BannerDismissScript page={page} />
+      <ScrollAnimationScript
+        page={page}
+        theme={theme}
+      />
       {languages && (
         <LanguageSwitcherScripts
           page={page}
@@ -152,13 +187,7 @@ function renderConditionalScripts(config: {
           direction={direction}
         />
       )}
-      {/* Client-side feature flags - inject when features configured */}
-      {page.scripts?.features &&
-        renderWindowConfig({
-          windowKey: 'FEATURES',
-          data: page.scripts.features,
-          reactKey: 'window-features',
-        })}
+      <FeatureFlagsScript page={page} />
     </>
   )
 }

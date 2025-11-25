@@ -19,11 +19,7 @@
     }
   },
   "description": "Geographic coordinates (latitude/longitude)",
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {

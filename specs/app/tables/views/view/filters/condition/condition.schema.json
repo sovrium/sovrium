@@ -36,10 +36,7 @@
       "description": "Value to compare against (optional for isEmpty/isNotEmpty operators)"
     }
   },
-  "required": [
-    "field",
-    "operator"
-  ],
+  "required": ["field", "operator"],
   "additionalProperties": false,
   "examples": [
     {
@@ -64,11 +61,7 @@
     {
       "field": "category",
       "operator": "in",
-      "value": [
-        "electronics",
-        "computers",
-        "phones"
-      ]
+      "value": ["electronics", "computers", "phones"]
     }
   ],
   "x-specs": [

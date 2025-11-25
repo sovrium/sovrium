@@ -161,7 +161,9 @@
       "then": "View configuration should be returned with all properties",
       "validation": {
         "setup": {
-          "executeQuery": ["CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, status VARCHAR(50))"],
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, status VARCHAR(50))"
+          ],
           "tableConfig": {
             "id": 1,
             "name": "projects",
@@ -296,7 +298,9 @@
       "then": "All view properties including filters, sorts, and groupBy should be included in response",
       "validation": {
         "setup": {
-          "executeQuery": ["CREATE TABLE projects (id SERIAL PRIMARY KEY, status VARCHAR(50), priority INTEGER, archived BOOLEAN DEFAULT FALSE)"],
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, status VARCHAR(50), priority INTEGER, archived BOOLEAN DEFAULT FALSE)"
+          ],
           "tableConfig": {
             "id": 1,
             "name": "projects",
@@ -351,7 +355,9 @@
       "then": "Fields array with visibility and order should be included in response",
       "validation": {
         "setup": {
-          "executeQuery": ["CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), start_date DATE, end_date DATE)"],
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), start_date DATE, end_date DATE)"
+          ],
           "tableConfig": {
             "id": 1,
             "name": "projects",

@@ -35,11 +35,7 @@
         "$ref": "./permissions/permissions.schema.json"
       }
     },
-    "required": [
-      "id",
-      "name",
-      "fields"
-    ],
+    "required": ["id", "name", "fields"],
     "additionalProperties": false
   },
   "x-specs": [
@@ -201,9 +197,7 @@
               }
             ],
             "primaryKey": {
-              "fields": [
-                "order_id"
-              ]
+              "fields": ["order_id"]
             }
           }
         },
@@ -820,10 +814,7 @@
             "id": 1,
             "name": "status",
             "type": "single-select",
-            "options": [
-              "active",
-              "inactive"
-            ]
+            "options": ["active", "inactive"]
           }
         },
         "assertions": [
@@ -903,10 +894,7 @@
               }
             ],
             "primaryKey": {
-              "fields": [
-                "tenant_id",
-                "user_id"
-              ]
+              "fields": ["tenant_id", "user_id"]
             }
           }
         },

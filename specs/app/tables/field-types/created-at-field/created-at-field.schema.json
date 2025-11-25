@@ -19,11 +19,7 @@
     }
   },
   "description": "Automatically set timestamp when record is created. Read-only field that cannot be modified after creation. Always uses current server time in UTC. Automatically indexed for sorting and filtering by creation time. Useful for audit trails, chronological ordering, and tracking when data was first entered. Displays as formatted datetime in UI.",
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {

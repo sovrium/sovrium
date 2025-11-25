@@ -4,11 +4,7 @@
   "$ref": "../../common/definitions.schema.json#/definitions/id",
   "title": "Table ID",
   "description": "Unique identifier for the table",
-  "examples": [
-    1,
-    2,
-    100
-  ],
+  "examples": [1, 2, 100],
   "x-specs": [
     {
       "id": "APP-TABLES-ID-001",

@@ -22,11 +22,7 @@
     }
   },
   "description": "Color picker for hex colors",
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {

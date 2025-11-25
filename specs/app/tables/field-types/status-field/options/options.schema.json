@@ -17,9 +17,7 @@
         "description": "Hex color code for the status"
       }
     },
-    "required": [
-      "value"
-    ]
+    "required": ["value"]
   },
   "x-specs": [
     {

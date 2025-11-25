@@ -49,7 +49,9 @@ test.describe('Client Scripts Configuration', () => {
       await expect(page.locator('script[src="https://cdn.example.com/lib.js"]')).toBeAttached()
       const scriptContent = await page.evaluate(() => {
         const scripts = Array.from(document.querySelectorAll('script'))
-        const inlineScript = scripts.find((s) => !s.src && s.innerHTML.includes('console.log("ready")'))
+        const inlineScript = scripts.find(
+          (s) => !s.src && s.innerHTML.includes('console.log("ready")')
+        )
         return inlineScript?.innerHTML
       })
       expect(scriptContent).toContain('console.log("ready")')
@@ -137,7 +139,9 @@ test.describe('Client Scripts Configuration', () => {
       // THEN: it should inject inline JavaScript code
       const scriptContent = await page.evaluate(() => {
         const scripts = Array.from(document.querySelectorAll('script'))
-        const inlineScript = scripts.find((s) => !s.src && s.innerHTML.includes('console.log("Hello")'))
+        const inlineScript = scripts.find(
+          (s) => !s.src && s.innerHTML.includes('console.log("Hello")')
+        )
         return inlineScript?.innerHTML
       })
       expect(scriptContent).toContain('console.log("Hello")')

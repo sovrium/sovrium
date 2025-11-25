@@ -18,13 +18,7 @@
     },
     "type": {
       "type": "string",
-      "enum": [
-        "grid",
-        "kanban",
-        "calendar",
-        "gallery",
-        "form"
-      ],
+      "enum": ["grid", "kanban", "calendar", "gallery", "form"],
       "default": "grid",
       "description": "View type determining the display layout"
     },
@@ -50,11 +44,7 @@
       "description": "Whether this is the default view for the table"
     }
   },
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "examples": [
     {

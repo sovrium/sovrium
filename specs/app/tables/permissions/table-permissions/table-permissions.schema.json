@@ -34,16 +34,11 @@
       },
       "update": {
         "type": "roles",
-        "roles": [
-          "admin",
-          "editor"
-        ]
+        "roles": ["admin", "editor"]
       },
       "delete": {
         "type": "roles",
-        "roles": [
-          "admin"
-        ]
+        "roles": ["admin"]
       }
     },
     {
@@ -52,9 +47,7 @@
       },
       "create": {
         "type": "roles",
-        "roles": [
-          "admin"
-        ]
+        "roles": ["admin"]
       }
     }
   ],
@@ -76,9 +69,7 @@
             "table": {
               "read": {
                 "type": "roles",
-                "roles": [
-                  "member"
-                ]
+                "roles": ["member"]
               }
             }
           }
@@ -130,9 +121,7 @@
             "table": {
               "create": {
                 "type": "roles",
-                "roles": [
-                  "admin"
-                ]
+                "roles": ["admin"]
               }
             }
           }

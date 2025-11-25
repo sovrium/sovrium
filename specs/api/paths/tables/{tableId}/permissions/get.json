@@ -417,7 +417,9 @@
       "then": "All write operations should be false (create, update, delete)",
       "validation": {
         "setup": {
-          "executeQuery": ["CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), status VARCHAR(50))"],
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), status VARCHAR(50))"
+          ],
           "authUser": { "id": 4, "role": "viewer" },
           "tableConfig": {
             "id": 1,

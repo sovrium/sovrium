@@ -23,9 +23,7 @@
       "type": "string",
       "const": "date",
       "description": "Field type discriminator for date-only fields",
-      "examples": [
-        "date"
-      ]
+      "examples": ["date"]
     },
     "format": {
       "$ref": "./format/format.schema.json"
@@ -52,11 +50,7 @@
       "format": "MM/DD/YYYY"
     }
   ],
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {

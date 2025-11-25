@@ -19,11 +19,7 @@
     }
   },
   "description": "Automatically updated timestamp whenever record is modified. Read-only field that updates to current server time on every save operation. Always uses UTC. Automatically indexed for sorting by recency. Useful for audit trails, showing last modification time, and detecting stale data. Displays as formatted datetime in UI.",
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {

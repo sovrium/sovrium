@@ -142,7 +142,9 @@
                 "type": "kanban",
                 "filters": {
                   "operator": "AND",
-                  "conditions": [{ "field": "priority", "operator": "greaterThanOrEqual", "value": 4 }]
+                  "conditions": [
+                    { "field": "priority", "operator": "greaterThanOrEqual", "value": 4 }
+                  ]
                 },
                 "groupBy": { "field": "status", "direction": "asc" }
               }

@@ -19,11 +19,7 @@
     }
   },
   "description": "Automatically set reference to the user who created the record. Read-only field that links to user account. Set only once when record is created and never changes. Automatically indexed for filtering by creator. Useful for audit trails, ownership tracking, and permissions. Displays user profile information (name, avatar) in UI.",
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {

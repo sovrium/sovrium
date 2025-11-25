@@ -25,11 +25,7 @@
     }
   },
   "description": "List of values (tags, keywords)",
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -67,11 +63,7 @@
             "description": "Array with multiple items can be inserted",
             "executeQuery": "INSERT INTO articles (tags) VALUES (ARRAY['javascript', 'react', 'typescript']) RETURNING tags",
             "expected": {
-              "tags": [
-                "javascript",
-                "react",
-                "typescript"
-              ]
+              "tags": ["javascript", "react", "typescript"]
             }
           }
         ]
@@ -207,23 +199,14 @@
             "description": "array_append adds element to array",
             "executeQuery": "UPDATE recipes SET ingredients = array_append(ingredients, 'butter') WHERE id = 1 RETURNING ingredients",
             "expected": {
-              "ingredients": [
-                "flour",
-                "sugar",
-                "eggs",
-                "butter"
-              ]
+              "ingredients": ["flour", "sugar", "eggs", "butter"]
             }
           },
           {
             "description": "array_remove removes element from array",
             "executeQuery": "UPDATE recipes SET ingredients = array_remove(ingredients, 'sugar') WHERE id = 1 RETURNING ingredients",
             "expected": {
-              "ingredients": [
-                "flour",
-                "eggs",
-                "butter"
-              ]
+              "ingredients": ["flour", "eggs", "butter"]
             }
           },
           {

@@ -9,15 +9,11 @@
     [
       {
         "name": "idx_user_email",
-        "fields": [
-          "email"
-        ]
+        "fields": ["email"]
       },
       {
         "name": "idx_user_created",
-        "fields": [
-          "created_at"
-        ],
+        "fields": ["created_at"],
         "unique": false
       }
     ]
@@ -35,10 +31,7 @@
         "$ref": "./unique/unique.schema.json"
       }
     },
-    "required": [
-      "name",
-      "fields"
-    ],
+    "required": ["name", "fields"],
     "additionalProperties": false
   },
   "x-specs": [
@@ -56,9 +49,7 @@
           ],
           "indexConfig": {
             "name": "idx_user_email",
-            "fields": [
-              "email"
-            ]
+            "fields": ["email"]
           }
         },
         "assertions": [
@@ -101,10 +92,7 @@
           ],
           "indexConfig": {
             "name": "idx_contacts_name",
-            "fields": [
-              "last_name",
-              "first_name"
-            ]
+            "fields": ["last_name", "first_name"]
           }
         },
         "assertions": [
@@ -153,9 +141,7 @@
           ],
           "indexConfig": {
             "name": "idx_accounts_username",
-            "fields": [
-              "username"
-            ],
+            "fields": ["username"],
             "unique": true
           }
         },
@@ -244,21 +230,15 @@
           "indexConfig": [
             {
               "name": "idx_products_sku",
-              "fields": [
-                "sku"
-              ]
+              "fields": ["sku"]
             },
             {
               "name": "idx_products_category",
-              "fields": [
-                "category"
-              ]
+              "fields": ["category"]
             },
             {
               "name": "idx_products_price",
-              "fields": [
-                "price"
-              ]
+              "fields": ["price"]
             }
           ]
         },
@@ -308,9 +288,7 @@
           ],
           "indexConfig": {
             "name": "idx_events_created_at",
-            "fields": [
-              "created_at"
-            ]
+            "fields": ["created_at"]
           }
         },
         "assertions": [
@@ -367,10 +345,7 @@
           ],
           "indexConfig": {
             "name": "idx_tenant_users_unique",
-            "fields": [
-              "tenant_id",
-              "username"
-            ],
+            "fields": ["tenant_id", "username"],
             "unique": true
           }
         },
@@ -418,10 +393,7 @@
           ],
           "indexConfig": {
             "name": "idx_articles_search",
-            "fields": [
-              "title",
-              "content"
-            ],
+            "fields": ["title", "content"],
             "type": "gin"
           }
         },

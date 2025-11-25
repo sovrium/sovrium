@@ -121,10 +121,7 @@
             "name": "location",
             "type": "relationship",
             "relatedTable": "locations",
-            "foreignKeyColumns": [
-              "location_country",
-              "location_region"
-            ]
+            "foreignKeyColumns": ["location_country", "location_region"]
           }
         },
         "assertions": [

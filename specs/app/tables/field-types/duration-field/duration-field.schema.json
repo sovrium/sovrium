@@ -22,11 +22,7 @@
     }
   },
   "description": "Time duration in hours, minutes, and seconds",
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {

@@ -28,13 +28,7 @@
     }
   },
   "description": "Trigger actions or open URLs",
-  "required": [
-    "id",
-    "name",
-    "type",
-    "label",
-    "action"
-  ],
+  "required": ["id", "name", "type", "label", "action"],
   "additionalProperties": false,
   "x-specs": [
     {

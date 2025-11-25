@@ -27,11 +27,7 @@
     }
   },
   "description": "Text field for web links with URL format validation (http:// or https://). Validates URL structure and protocol without checking if the link is reachable. Stores full URL including protocol. Display shows clickable link in the UI. Required flag makes the field mandatory. Unique constraint ensures no duplicate URLs.",
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {

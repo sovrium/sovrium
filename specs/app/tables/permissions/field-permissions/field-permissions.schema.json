@@ -22,9 +22,7 @@
         "description": "Permission to modify this field's value. If denied, updates to this field are rejected."
       }
     },
-    "required": [
-      "field"
-    ],
+    "required": ["field"],
     "additionalProperties": false
   },
   "examples": [
@@ -43,16 +41,11 @@
         "field": "salary",
         "read": {
           "type": "roles",
-          "roles": [
-            "admin",
-            "hr"
-          ]
+          "roles": ["admin", "hr"]
         },
         "write": {
           "type": "roles",
-          "roles": [
-            "admin"
-          ]
+          "roles": ["admin"]
         }
       }
     ],
@@ -76,9 +69,7 @@
                 "field": "salary",
                 "read": {
                   "type": "roles",
-                  "roles": [
-                    "admin"
-                  ]
+                  "roles": ["admin"]
                 }
               }
             ]
@@ -129,9 +120,7 @@
                 "field": "email",
                 "write": {
                   "type": "roles",
-                  "roles": [
-                    "admin"
-                  ]
+                  "roles": ["admin"]
                 }
               }
             ]
@@ -183,9 +172,7 @@
                 "field": "salary",
                 "read": {
                   "type": "roles",
-                  "roles": [
-                    "admin"
-                  ]
+                  "roles": ["admin"]
                 }
               },
               {
@@ -248,9 +235,7 @@
                 },
                 "write": {
                   "type": "roles",
-                  "roles": [
-                    "admin"
-                  ]
+                  "roles": ["admin"]
                 }
               }
             ]

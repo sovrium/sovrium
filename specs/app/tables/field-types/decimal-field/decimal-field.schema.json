@@ -36,11 +36,7 @@
     }
   },
   "description": "Floating-point number field with configurable decimal precision (0-10 places). Ideal for measurements, scores, ratings, and scientific data. Precision determines how many decimal places are stored and displayed (default: 2). Supports min/max constraints for range validation. Required flag makes the field mandatory.",
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {

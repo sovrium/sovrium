@@ -654,7 +654,7 @@
             "views": [
               {
                 "id": "active_view",
-                "filters": [{"field": "status", "operator": "equals", "value": "active"}]
+                "filters": [{ "field": "status", "operator": "equals", "value": "active" }]
               }
             ]
           },
@@ -864,7 +864,7 @@
             "views": [
               {
                 "id": "active_view",
-                "filters": [{"field": "status", "operator": "equals", "value": "active"}]
+                "filters": [{ "field": "status", "operator": "equals", "value": "active" }]
               }
             ]
           },

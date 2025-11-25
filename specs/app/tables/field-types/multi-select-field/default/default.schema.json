@@ -7,16 +7,7 @@
   "items": {
     "type": "string"
   },
-  "examples": [
-    [
-      "option_1",
-      "option_2"
-    ],
-    [
-      "tag_important"
-    ],
-    []
-  ],
+  "examples": [["option_1", "option_2"], ["tag_important"], []],
   "x-specs": [
     {
       "id": "APP-FIELD-MULTI-SELECT-DEFAULT-001",
@@ -46,10 +37,7 @@
                 "value": "Design"
               }
             ],
-            "default": [
-              "tag_1",
-              "tag_2"
-            ]
+            "default": ["tag_1", "tag_2"]
           }
         },
         "assertions": [
@@ -64,10 +52,7 @@
             "description": "INSERT without value uses default array",
             "executeQuery": "SELECT tags FROM articles WHERE title = 'Article A'",
             "expected": {
-              "tags": [
-                "tag_1",
-                "tag_2"
-              ]
+              "tags": ["tag_1", "tag_2"]
             }
           }
         ]
@@ -190,9 +175,7 @@
                 "value": "Review"
               }
             ],
-            "default": [
-              "flag_1"
-            ]
+            "default": ["flag_1"]
           }
         },
         "assertions": [
@@ -200,10 +183,7 @@
             "description": "Explicit value overrides default",
             "executeQuery": "SELECT flags FROM documents WHERE title = 'Doc A'",
             "expected": {
-              "flags": [
-                "flag_2",
-                "flag_3"
-              ]
+              "flags": ["flag_2", "flag_3"]
             }
           }
         ]

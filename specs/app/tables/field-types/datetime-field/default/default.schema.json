@@ -4,11 +4,7 @@
   "title": "Default DateTime Value",
   "description": "Default value for datetime field when no value is provided. Can be a static ISO 8601 datetime or dynamic keyword 'now' (PostgreSQL CURRENT_TIMESTAMP). Commonly used for created_at, updated_at timestamps.",
   "type": "string",
-  "examples": [
-    "2024-12-31T15:00:00.000Z",
-    "now",
-    "2025-01-01T00:00:00.000Z"
-  ],
+  "examples": ["2024-12-31T15:00:00.000Z", "now", "2025-01-01T00:00:00.000Z"],
   "x-specs": [
     {
       "id": "APP-FIELD-DATETIME-DEFAULT-001",

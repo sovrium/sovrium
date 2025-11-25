@@ -31,12 +31,7 @@
     }
   },
   "description": "Multiple selection field allowing users to choose zero or more options from a predefined list. Displays as checkboxes or multi-select dropdown. Useful for tags, categories, features, skills, and attributes that can have multiple values. Supports maxSelections constraint to limit number of choices. Requires at least one option. Stores values as an array.",
-  "required": [
-    "id",
-    "name",
-    "type",
-    "options"
-  ],
+  "required": ["id", "name", "type", "options"],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -80,19 +75,14 @@
             "description": "Single value can be inserted as array",
             "executeQuery": "INSERT INTO issues (tags) VALUES (ARRAY['Feature']) RETURNING tags",
             "expected": {
-              "tags": [
-                "Feature"
-              ]
+              "tags": ["Feature"]
             }
           },
           {
             "description": "Multiple values can be inserted",
             "executeQuery": "INSERT INTO issues (tags) VALUES (ARRAY['Bug', 'Enhancement']) RETURNING tags",
             "expected": {
-              "tags": [
-                "Bug",
-                "Enhancement"
-              ]
+              "tags": ["Bug", "Enhancement"]
             }
           }
         ]
@@ -201,10 +191,7 @@
             "description": "Explicit values override default",
             "executeQuery": "INSERT INTO projects (stakeholders) VALUES (ARRAY['Manager', 'Developer']) RETURNING stakeholders",
             "expected": {
-              "stakeholders": [
-                "Manager",
-                "Developer"
-              ]
+              "stakeholders": ["Manager", "Developer"]
             }
           }
         ]

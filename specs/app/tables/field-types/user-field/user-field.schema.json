@@ -25,11 +25,7 @@
     }
   },
   "description": "Reference to application users/collaborators for assignments, ownership, and mentions. Links records to user accounts. Set allowMultiple=true to assign multiple users (e.g., project team members), or false for single assignment (e.g., task owner). Automatically indexed for efficient filtering by user. Displays user profile information (name, avatar). Useful for task assignments, record ownership, collaboration, and audit trails.",
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {

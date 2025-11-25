@@ -4,16 +4,7 @@
   "title": "Aggregation function to apply",
   "description": "Aggregation function to compute across related records. Rollup fields aggregate values from child records in one-to-many relationships. Implemented via PostgreSQL aggregate functions: SUM, COUNT, AVG, MIN, MAX, PERCENTILE_CONT (median), STRING_AGG (concat), ARRAY_AGG + DISTINCT (unique).",
   "type": "string",
-  "enum": [
-    "sum",
-    "count",
-    "average",
-    "min",
-    "max",
-    "median",
-    "concat",
-    "unique"
-  ],
+  "enum": ["sum", "count", "average", "min", "max", "median", "concat", "unique"],
   "x-specs": [
     {
       "id": "APP-FIELD-ROLLUP-AGGREGATION-001",

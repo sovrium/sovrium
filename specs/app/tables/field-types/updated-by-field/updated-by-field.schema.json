@@ -19,11 +19,7 @@
     }
   },
   "description": "Automatically updated reference to the user who last modified the record. Read-only field that links to user account. Updates on every save operation to current user. Automatically indexed for filtering by editor. Useful for audit trails, tracking who made recent changes, and collaboration history. Displays user profile information in UI.",
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {

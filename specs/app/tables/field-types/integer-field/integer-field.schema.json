@@ -33,11 +33,7 @@
     }
   },
   "description": "Whole number field without decimal places. Ideal for counts, IDs, quantities, ages, and rankings. Supports min/max constraints for range validation. Required flag makes the field mandatory. Unique constraint ensures no duplicate values. Indexing enables efficient numerical sorting and filtering.",
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {

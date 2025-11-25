@@ -4,10 +4,7 @@
   "title": "Type of action to trigger",
   "description": "Type of action to trigger",
   "type": "string",
-  "enum": [
-    "url",
-    "automation"
-  ],
+  "enum": ["url", "automation"],
   "x-specs": [
     {
       "id": "APP-FIELD-BUTTON-ACTION-001",

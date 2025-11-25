@@ -29,9 +29,7 @@
         "description": "Display order of the field (1 = first column)"
       }
     },
-    "required": [
-      "name"
-    ],
+    "required": ["name"],
     "additionalProperties": false
   },
   "examples": [

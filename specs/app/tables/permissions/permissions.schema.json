@@ -34,9 +34,7 @@
         },
         "delete": {
           "type": "roles",
-          "roles": [
-            "admin"
-          ]
+          "roles": ["admin"]
         }
       },
       "fields": [
@@ -65,10 +63,7 @@
         },
         "create": {
           "type": "roles",
-          "roles": [
-            "admin",
-            "editor"
-          ]
+          "roles": ["admin", "editor"]
         }
       }
     }
@@ -91,9 +86,7 @@
             "table": {
               "read": {
                 "type": "roles",
-                "roles": [
-                  "admin"
-                ]
+                "roles": ["admin"]
               }
             }
           }
@@ -152,9 +145,7 @@
                 "field": "salary",
                 "read": {
                   "type": "roles",
-                  "roles": [
-                    "admin"
-                  ]
+                  "roles": ["admin"]
                 }
               }
             ]

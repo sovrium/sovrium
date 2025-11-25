@@ -23,9 +23,7 @@
       "type": "string",
       "const": "time",
       "description": "Field type discriminator for time-only fields without date component",
-      "examples": [
-        "time"
-      ]
+      "examples": ["time"]
     },
     "format": {
       "$ref": "./format/format.schema.json"
@@ -52,11 +50,7 @@
       "default": "00:30:00"
     }
   ],
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {

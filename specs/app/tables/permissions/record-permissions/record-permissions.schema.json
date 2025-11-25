@@ -10,11 +10,7 @@
     "properties": {
       "action": {
         "type": "string",
-        "enum": [
-          "read",
-          "update",
-          "delete"
-        ],
+        "enum": ["read", "update", "delete"],
         "description": "The action this rule applies to (create not supported - use table-level)"
       },
       "condition": {
@@ -24,10 +20,7 @@
         "description": "Expression with placeholders: {userId}, {userEmail}, {userRole}, {user.customField}. Example: '{userId} = created_by', '{user.department} = department'"
       }
     },
-    "required": [
-      "action",
-      "condition"
-    ],
+    "required": ["action", "condition"],
     "additionalProperties": false
   },
   "examples": [

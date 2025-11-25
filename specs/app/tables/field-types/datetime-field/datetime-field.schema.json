@@ -23,9 +23,7 @@
       "type": "string",
       "const": "datetime",
       "description": "Field type discriminator for datetime fields with both date and time components",
-      "examples": [
-        "datetime"
-      ]
+      "examples": ["datetime"]
     },
     "format": {
       "$ref": "./format/format.schema.json"
@@ -57,11 +55,7 @@
       "format": "MM/DD/YYYY hh:mm A"
     }
   ],
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {

@@ -5,12 +5,7 @@
   "title": "Table Name",
   "description": "Name of the database table",
   "placeholder": "Enter table name",
-  "examples": [
-    "users",
-    "products",
-    "orders",
-    "customers"
-  ],
+  "examples": ["users", "products", "orders", "customers"],
   "pattern": "^[a-z][a-z0-9_]*$",
   "help": "Use lowercase letters, numbers, and underscores. Must start with a letter.",
   "x-specs": [

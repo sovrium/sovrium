@@ -27,11 +27,7 @@
     }
   },
   "description": "Short text input limited to a single line. Ideal for names, titles, labels, and brief identifiers. Text is stored as-is without formatting. Required flag makes the field mandatory. Unique constraint ensures no duplicate values across records. Indexing improves search and filter performance on this field.",
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {

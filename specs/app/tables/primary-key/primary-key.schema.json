@@ -15,10 +15,7 @@
     },
     {
       "type": "composite",
-      "fields": [
-        "tenant_id",
-        "user_id"
-      ]
+      "fields": ["tenant_id", "user_id"]
     }
   ],
   "properties": {
@@ -32,9 +29,7 @@
       "$ref": "./fields/fields.schema.json"
     }
   },
-  "required": [
-    "type"
-  ],
+  "required": ["type"],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -155,10 +150,7 @@
           ],
           "primaryKeyConfig": {
             "type": "composite",
-            "fields": [
-              "tenant_id",
-              "user_id"
-            ]
+            "fields": ["tenant_id", "user_id"]
           }
         },
         "assertions": [
@@ -386,11 +378,7 @@
           ],
           "primaryKeyConfig": {
             "type": "composite",
-            "fields": [
-              "tenant_id",
-              "user_id",
-              "timestamp"
-            ]
+            "fields": ["tenant_id", "user_id", "timestamp"]
           }
         },
         "assertions": [

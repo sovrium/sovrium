@@ -308,10 +308,7 @@
             "id": "contact_info",
             "name": "Contact Info",
             "type": "grid",
-            "visibleFields": [
-              "name",
-              "email"
-            ]
+            "visibleFields": ["name", "email"]
           }
         },
         "assertions": [
