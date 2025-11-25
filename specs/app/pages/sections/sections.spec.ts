@@ -458,7 +458,7 @@ test.describe('Page Sections', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SECTIONS-013: should support form building capabilities',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
