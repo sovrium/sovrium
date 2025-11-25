@@ -45,12 +45,12 @@ test.describe('Sidebar Configuration', () => {
       // WHEN: sidebar is enabled
       await page.goto('/')
 
-      // THEN: it should display sidebar navigation
-      await expect(page.locator('[data-testid="sidebar"]')).toBeVisible()
+      // THEN: it should display sidebar navigation (defaults to left position)
+      await expect(page.locator('[data-testid="sidebar-left"]')).toBeVisible()
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SIDEBAR-002: should render sidebar on left side',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -77,7 +77,7 @@ test.describe('Sidebar Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SIDEBAR-003: should render sidebar on right side',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -104,7 +104,7 @@ test.describe('Sidebar Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SIDEBAR-004: should apply custom sidebar width',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -122,16 +122,16 @@ test.describe('Sidebar Configuration', () => {
         ],
       })
 
-      // WHEN: position is 'right'
+      // WHEN: custom width is set
       await page.goto('/')
 
-      // THEN: it should render sidebar on right side
-      const sidebar = page.locator('[data-testid="sidebar"]')
-      await expect(sidebar).toHaveCSS('width', '320px')
+      // THEN: it should apply custom sidebar width (defaults to left position)
+      const sidebar = page.locator('[data-testid="sidebar-left"]')
+      await expect(sidebar).toHaveCSS('width', '280px')
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SIDEBAR-005: should allow users to collapse/expand sidebar',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -156,11 +156,11 @@ test.describe('Sidebar Configuration', () => {
         ],
       })
 
-      // WHEN: width is '280px'
+      // WHEN: collapsible is true
       await page.goto('/')
 
-      // THEN: it should apply custom sidebar width
-      const sidebar = page.locator('[data-testid="sidebar"]')
+      // THEN: it should allow users to collapse/expand sidebar (defaults to left position)
+      const sidebar = page.locator('[data-testid="sidebar-left"]')
       const toggleButton = page.locator('[data-testid="sidebar-toggle"]')
       await expect(sidebar).toHaveCSS('width', '256px')
       await toggleButton.click()
@@ -168,7 +168,7 @@ test.describe('Sidebar Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SIDEBAR-006: should start in collapsed state',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -194,17 +194,17 @@ test.describe('Sidebar Configuration', () => {
         ],
       })
 
-      // WHEN: collapsible is true (default)
+      // WHEN: defaultCollapsed is true
       await page.goto('/')
 
-      // THEN: it should allow users to collapse/expand sidebar
-      const sidebar = page.locator('[data-testid="sidebar"]')
+      // THEN: it should start in collapsed state (defaults to left position)
+      const sidebar = page.locator('[data-testid="sidebar-left"]')
       await expect(sidebar).toHaveAttribute('data-collapsed', 'true')
       await expect(sidebar).toHaveCSS('width', '64px')
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SIDEBAR-007: should stick during page scroll',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -230,18 +230,18 @@ test.describe('Sidebar Configuration', () => {
         ],
       })
 
-      // WHEN: defaultCollapsed is true
+      // WHEN: sticky is true
       await page.goto('/')
 
-      // THEN: it should start in collapsed state
-      const sidebar = page.locator('[data-testid="sidebar"]')
+      // THEN: it should stick during page scroll
+      const sidebar = page.locator('[data-testid="sidebar-left"]')
       await expect(sidebar).toHaveCSS('position', 'sticky')
       await page.evaluate(() => window.scrollTo(0, 1000))
       await expect(sidebar).toBeInViewport()
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SIDEBAR-008: should render clickable sidebar link',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -278,7 +278,7 @@ test.describe('Sidebar Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SIDEBAR-009: should render collapsible group with nested items',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -324,7 +324,7 @@ test.describe('Sidebar Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SIDEBAR-010: should render visual separator between sections',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -360,7 +360,7 @@ test.describe('Sidebar Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SIDEBAR-011: should support unlimited nesting for sidebar hierarchy',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -398,20 +398,19 @@ test.describe('Sidebar Configuration', () => {
         ],
       })
 
-      // WHEN: item type is 'divider'
+      // WHEN: groups can contain nested groups
       await page.goto('/')
 
-      // THEN: it should render visual separator between sections
+      // THEN: it should support unlimited nesting for sidebar hierarchy
       const topGroup = page.locator('[data-testid="sidebar-group-0"]')
       await topGroup.click()
-      const nestedGroup = page
-        .locator('[data-testid="sidebar-group-0"] button')
-        .filter({ hasText: 'Getting Started' })
+      const nestedGroup = page.locator('[data-testid="sidebar-group-1"]')
       await expect(nestedGroup).toBeVisible()
+      await expect(nestedGroup).toContainText('Getting Started')
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SIDEBAR-012: should enable documentation and admin-style layouts',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -436,11 +435,11 @@ test.describe('Sidebar Configuration', () => {
         ],
       })
 
-      // WHEN: groups can contain nested groups or links
+      // WHEN: sidebar has multiple features enabled
       await page.goto('/')
 
-      // THEN: it should support unlimited nesting for sidebar hierarchy
-      const sidebar = page.locator('[data-testid="sidebar"]')
+      // THEN: it should enable documentation and admin-style layouts (defaults to left position)
+      const sidebar = page.locator('[data-testid="sidebar-left"]')
       await expect(sidebar).toBeVisible()
       await expect(sidebar).toHaveCSS('position', 'sticky')
       await expect(page.locator('[data-testid="sidebar-toggle"]')).toBeVisible()
@@ -490,8 +489,8 @@ test.describe('Sidebar Configuration', () => {
 
       await page.goto('/')
 
-      // Verify sidebar visible
-      const sidebar = page.locator('[data-testid="sidebar"]')
+      // Verify sidebar visible (position is 'left')
+      const sidebar = page.locator('[data-testid="sidebar-left"]')
       await expect(sidebar).toBeVisible()
 
       // Verify link click

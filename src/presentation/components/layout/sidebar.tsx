@@ -24,7 +24,7 @@ function renderDivider(itemIndex: number, counter: number): ReactElement {
   return (
     <hr
       key={`divider-${itemIndex}`}
-      data-testid={`sidebar-divider-${counter}`}
+      data-testid="sidebar-divider"
       className="my-2 border-t border-gray-300"
     />
   )
@@ -79,11 +79,15 @@ function renderItems(
   }
 
   if (firstItem.type === 'group') {
-    const [childElements, childCounters] = renderItems(firstItem.children ?? [], counters)
+    const currentGroupId = counters.group
+    const [childElements, childCounters] = renderItems(firstItem.children ?? [], {
+      ...counters,
+      group: counters.group + 1,
+    })
     const element = (
       <details
         key={`group-${itemIndex}`}
-        data-testid={`sidebar-group-${counters.group}`}
+        data-testid={`sidebar-group-${currentGroupId}`}
         className="mb-2"
       >
         <summary className="cursor-pointer list-none text-gray-700">
@@ -91,17 +95,14 @@ function renderItems(
           {firstItem.label}
         </summary>
         <div
-          data-testid={`sidebar-group-${counters.group}-children`}
+          data-testid={`sidebar-group-${currentGroupId}-children`}
           className="mt-1 ml-4"
         >
           {childElements}
         </div>
       </details>
     )
-    const [restElements, finalCounters] = renderItems(restItems, {
-      ...childCounters,
-      group: childCounters.group + 1,
-    })
+    const [restElements, finalCounters] = renderItems(restItems, childCounters)
     return [[element, ...restElements], finalCounters]
   }
 
@@ -116,15 +117,25 @@ function renderItems(
 /**
  * Generate client-side script for sidebar interactivity
  */
-function generateSidebarScript(collapsible: boolean, width: string): string {
+function generateSidebarScript(
+  collapsible: boolean,
+  width: string,
+  defaultCollapsed: boolean
+): string {
   const toggleScript = collapsible
     ? `
                 const toggle = document.querySelector('[data-testid="sidebar-toggle"]');
                 if (sidebar && toggle) {
-                  let collapsed = false;
+                  let collapsed = ${defaultCollapsed ? 'true' : 'false'};
+
+                  // Apply initial state
+                  sidebar.style.width = collapsed ? '64px' : '${width}';
+                  sidebar.setAttribute('data-collapsed', collapsed ? 'true' : 'false');
+
                   toggle.addEventListener('click', () => {
                     collapsed = !collapsed;
                     sidebar.style.width = collapsed ? '64px' : '${width}';
+                    sidebar.setAttribute('data-collapsed', collapsed ? 'true' : 'false');
                   });
                 }
                 `
@@ -132,7 +143,7 @@ function generateSidebarScript(collapsible: boolean, width: string): string {
 
   return `
               (function() {
-                const sidebar = document.querySelector('[data-testid="sidebar"]');
+                const sidebar = document.querySelector('[data-testid="sidebar"]') || document.querySelector('[data-testid^="sidebar-"]');
 
                 // Handle collapsible toggle
                 ${toggleScript}
@@ -182,6 +193,7 @@ function resolveSidebarDefaults(props: SidebarType): {
   readonly position: string
   readonly collapsible: boolean
   readonly sticky: boolean
+  readonly defaultCollapsed: boolean
   readonly items: readonly SidebarItem[]
 } {
   return {
@@ -189,6 +201,7 @@ function resolveSidebarDefaults(props: SidebarType): {
     position: props.position ?? 'left',
     collapsible: props.collapsible !== false,
     sticky: props.sticky !== false,
+    defaultCollapsed: props.defaultCollapsed ?? false,
     items: props.items ?? [],
   }
 }
@@ -198,7 +211,7 @@ function resolveSidebarDefaults(props: SidebarType): {
  */
 function buildSidebarClasses(sticky: boolean, position: string): string {
   return [
-    sticky && 'fixed top-0',
+    sticky && 'sticky top-0',
     position === 'left' ? 'border-r border-gray-200' : 'border-l border-gray-200',
     'overflow-y-auto bg-white p-4',
   ]
@@ -237,7 +250,7 @@ export function Sidebar(
   return (
     <>
       <aside
-        data-testid="sidebar"
+        data-testid={`sidebar-${config.position}`}
         data-position={config.position}
         className={sidebarClass}
         style={{ width: config.width, height: '100vh' }}
@@ -263,7 +276,7 @@ export function Sidebar(
       </aside>
       <script
         dangerouslySetInnerHTML={{
-          __html: generateSidebarScript(config.collapsible, config.width),
+          __html: generateSidebarScript(config.collapsible, config.width, config.defaultCollapsed),
         }}
       />
     </>
