@@ -15,8 +15,8 @@ import { extractBlockReference, renderBlockReferenceError } from './blocks/block
 import { resolveBlock } from './blocks/block-resolution'
 import { buildComponentProps } from './props/component-builder'
 import { dispatchComponentType } from './rendering/component-type-dispatcher'
-import { buildResponsiveContentVariants } from './responsive/responsive-content-builder'
 import { buildResponsiveChildrenVariants } from './responsive/responsive-children-builder'
+import { buildResponsiveContentVariants } from './responsive/responsive-content-builder'
 import { mergeResponsiveProps } from './responsive/responsive-props-merger'
 import { buildInteractionProps } from './styling/interaction-props-builder'
 import { resolveI18nContent } from './translations/i18n-content-resolver'
@@ -222,7 +222,8 @@ function RenderDirectComponent({
         baseChildren: baseRenderedChildren,
         renderChild: (child, index, breakpoint) => {
           if (typeof child === 'string') {
-            return resolveChildTranslation(child, props.currentLang, props.languages)
+            const resolvedText = resolveChildTranslation(child, props.currentLang, props.languages)
+            return <Fragment key={`${breakpoint}-${index}`}>{resolvedText}</Fragment>
           }
           return (
             <ComponentRenderer

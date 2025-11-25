@@ -7,27 +7,8 @@
 
 import { type ReactElement } from 'react'
 import { dispatchComponentType } from '../rendering/component-type-dispatcher'
+import { BREAKPOINT_VISIBILITY } from './responsive-visibility-classes'
 import type { Responsive } from '@/domain/models/app/page/common/responsive'
-
-/**
- * Breakpoint visibility class mappings for responsive content
- *
- * Each breakpoint defines CSS classes that control when content is shown or hidden:
- * - mobile: visible <640px, hidden ≥640px
- * - sm: hidden <640px, visible 640-767px, hidden ≥768px
- * - md: hidden <768px, visible 768-1023px, hidden ≥1024px
- * - lg: hidden <1024px, visible 1024-1279px, hidden ≥1280px
- * - xl: hidden <1280px, visible 1280-1535px, hidden ≥1536px
- * - 2xl: hidden <1536px, visible ≥1536px
- */
-const BREAKPOINT_VISIBILITY: Record<string, { show: string; hide: string }> = {
-  mobile: { show: 'block sm:hidden', hide: 'hidden' },
-  sm: { show: 'hidden sm:block md:hidden', hide: 'hidden sm:hidden' },
-  md: { show: 'hidden md:block lg:hidden', hide: 'hidden md:hidden' },
-  lg: { show: 'hidden lg:block xl:hidden', hide: 'hidden lg:hidden' },
-  xl: { show: 'hidden xl:block 2xl:hidden', hide: 'hidden xl:hidden' },
-  '2xl': { show: 'hidden 2xl:block', hide: 'hidden 2xl:hidden' },
-}
 
 /**
  * Builds responsive content variants using CSS-based approach (nested span strategy)

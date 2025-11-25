@@ -19,6 +19,7 @@ import * as Renderers from '../renderers/element-renderers'
 import { convertBadgeProps, parseHTMLContent } from './component-registry-helpers'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { Component } from '@/domain/models/app/page/sections'
+import type { ReactElement } from 'react'
 
 /**
  * Creates a renderer for card components
@@ -419,7 +420,7 @@ export const COMPONENT_REGISTRY: Partial<Record<Component['type'], ComponentRend
       type: 'nav',
       props: navProps,
       content: content,
-      children: defaultChildren as readonly import('react').ReactElement[],
+      children: defaultChildren as readonly ReactElement[],
       interactions: interactions,
     })
   },
