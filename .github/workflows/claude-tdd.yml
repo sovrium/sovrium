@@ -607,14 +607,14 @@ jobs:
                 --repo "$REPO" \
                 --title "🚨 TDD Automation: High Failure Rate ($FAILED_COUNT specs failed in 24h)" \
                 --label "incident,high-failure-rate,tdd-automation,priority:high" \
-                --body "$(cat <<EOF
+                --body "$(cat <<'EOF'
 ## 🚨 High TDD Spec Failure Rate
 
-**Failed Specs (24h)**: $FAILED_COUNT
-**Threshold**: 5
+Failed Specs (24h): ${FAILED_COUNT}
+Threshold: 5
 
 ### Recent Failures
-$FAILED_SPECS
+${FAILED_SPECS}
 
 ### Investigation Steps
 1. Check for common error patterns: \`gh issue list --label tdd-spec:failed --limit 20\`

@@ -19,7 +19,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Structured Data', () => {
-  test.fixme(
+  test(
     'APP-PAGES-STRUCTUREDDATA-001: should include Organization structured data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -57,7 +57,7 @@ test.describe('Structured Data', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-STRUCTUREDDATA-002: should include Person structured data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -94,7 +94,7 @@ test.describe('Structured Data', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-STRUCTUREDDATA-003: should include LocalBusiness structured data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -131,7 +131,7 @@ test.describe('Structured Data', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-STRUCTUREDDATA-004: should include Product structured data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -168,7 +168,7 @@ test.describe('Structured Data', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-STRUCTUREDDATA-005: should include Article structured data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -205,7 +205,7 @@ test.describe('Structured Data', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-STRUCTUREDDATA-006: should include BreadcrumbList structured data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -249,7 +249,7 @@ test.describe('Structured Data', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-STRUCTUREDDATA-007: should include FAQPage structured data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -286,7 +286,7 @@ test.describe('Structured Data', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-STRUCTUREDDATA-008: should include EducationEvent structured data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -323,7 +323,7 @@ test.describe('Structured Data', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-STRUCTUREDDATA-009: should support multiple Schema.org types on same page',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -371,7 +371,7 @@ test.describe('Structured Data', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-STRUCTUREDDATA-010: should enable rich search results and enhanced SERP display',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

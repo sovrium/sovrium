@@ -1,0 +1,156 @@
+/**
+ * Copyright (c) 2025 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { test, expect } from '@/specs/fixtures.ts'
+
+/**
+ * E2E Tests for List table views
+ *
+ * Source: specs/api/paths/tables/{tableId}/views/get.json
+ * Domain: api
+ * Spec Count: 4
+ *
+ * Test Organization:
+ * 1. @spec tests - One per spec in schema (4 tests) - Exhaustive acceptance criteria
+ * 2. @regression test - ONE optimized integration test - Efficient workflow validation
+ */
+
+test.describe('List table views', () => {
+  // ============================================================================
+  // @spec tests (one per spec) - EXHAUSTIVE coverage
+  // ============================================================================
+
+  test.fixme(
+    'API-TABLES-VIEWS-LIST-001: should return all views with complete configurations',
+    { tag: '@spec' },
+    async ({ request }) => {
+      // GIVEN: A table with configured views
+      // TODO: Setup table with 3 views (grid default, grid filtered, kanban grouped)
+
+      // WHEN: User requests list of views
+      const response = await request.get('/api/tables/1/views', {
+        headers: {
+          Authorization: 'Bearer test_token',
+        },
+      })
+
+      // THEN: All views should be returned with complete configurations
+      expect(response.status()).toBe(200)
+
+      const data = await response.json()
+      expect(Array.isArray(data)).toBe(true)
+      expect(data.length).toBeGreaterThanOrEqual(3)
+
+      // Validate view schema
+      for (const view of data) {
+        expect(view).toHaveProperty('id')
+        expect(view).toHaveProperty('name')
+        expect(view).toHaveProperty('type')
+        expect(typeof view.id).toBe('string')
+        expect(typeof view.name).toBe('string')
+        expect(typeof view.type).toBe('string')
+      }
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-VIEWS-LIST-002: should return empty array',
+    { tag: '@spec' },
+    async ({ request }) => {
+      // GIVEN: A table with no views configured
+      // TODO: CREATE TABLE users (id SERIAL PRIMARY KEY)
+
+      // WHEN: User requests list of views
+      const response = await request.get('/api/tables/1/views', {
+        headers: {
+          Authorization: 'Bearer test_token',
+        },
+      })
+
+      // THEN: An empty array should be returned
+      expect(response.status()).toBe(200)
+
+      const data = await response.json()
+      expect(Array.isArray(data)).toBe(true)
+      expect(data.length).toBe(0)
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-VIEWS-LIST-003: should return 404 Not Found',
+    { tag: '@spec' },
+    async ({ request }) => {
+      // GIVEN: A non-existent table ID
+      // No setup needed
+
+      // WHEN: User requests list of views
+      const response = await request.get('/api/tables/9999/views', {
+        headers: {
+          Authorization: 'Bearer test_token',
+        },
+      })
+
+      // THEN: 404 Not Found error should be returned
+      expect(response.status()).toBe(404)
+
+      const data = await response.json()
+      expect(data).toHaveProperty('error')
+      expect(data.error).toBe('Table not found')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-VIEWS-LIST-004: should return 401 Unauthorized',
+    { tag: '@spec' },
+    async ({ request }) => {
+      // GIVEN: A table with configured views
+      // TODO: CREATE TABLE projects (id SERIAL PRIMARY KEY)
+
+      // WHEN: Unauthenticated user requests list of views
+      const response = await request.get('/api/tables/1/views')
+
+      // THEN: Response should be 401 Unauthorized
+      expect(response.status()).toBe(401)
+
+      const data = await response.json()
+      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('message')
+    }
+  )
+
+  // ============================================================================
+  // @regression test (exactly one) - OPTIMIZED integration
+  // ============================================================================
+
+  test.fixme(
+    'user can complete full views list workflow',
+    { tag: '@regression' },
+    async ({ request }) => {
+      // GIVEN: Application with representative views configuration
+      // TODO: Setup one table with representative views
+
+      // WHEN/THEN: Streamlined workflow testing integration points
+      // Test successful retrieval
+      const successResponse = await request.get('/api/tables/1/views', {
+        headers: {
+          Authorization: 'Bearer test_token',
+        },
+      })
+      expect(successResponse.status()).toBe(200)
+      const views = await successResponse.json()
+      expect(Array.isArray(views)).toBe(true)
+
+      // Test not found error
+      const notFoundResponse = await request.get('/api/tables/9999/views', {
+        headers: {
+          Authorization: 'Bearer test_token',
+        },
+      })
+      expect(notFoundResponse.status()).toBe(404)
+    }
+  )
+})
