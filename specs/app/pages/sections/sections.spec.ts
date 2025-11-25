@@ -139,7 +139,7 @@ test.describe('Page Sections', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SECTIONS-004: should support unlimited nesting depth for component tree',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
