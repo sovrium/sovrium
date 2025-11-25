@@ -291,7 +291,7 @@ test.describe('Page Sections', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SECTIONS-009: should reference and instantiate reusable block with variables',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -300,11 +300,9 @@ test.describe('Page Sections', () => {
         name: 'test-app',
         blocks: [
           {
-            id: 'section-header',
-            structure: {
-              type: 'section',
-              children: [{ type: 'text', props: { level: 'h2' }, content: '$title' }],
-            },
+            name: 'section-header',
+            type: 'section',
+            children: [{ type: 'text', props: { level: 'h2' }, content: '$title' }],
           },
         ],
         pages: [
