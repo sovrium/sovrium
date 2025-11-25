@@ -1,0 +1,498 @@
+{
+  "summary": "Cancel organization invitation",
+  "description": "Cancels a pending invitation. Only organization owners and admins who sent the invitation can cancel it.",
+  "operationId": "cancelInvitation",
+  "tags": ["organization"],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "requestBody": {
+    "required": true,
+    "content": {
+      "application/json": {
+        "schema": {
+          "type": "object",
+          "required": ["invitationId"],
+          "properties": {
+            "invitationId": {
+              "type": "string",
+              "description": "The ID of the invitation to cancel",
+              "example": "inv_789ghi"
+            }
+          }
+        }
+      }
+    }
+  },
+  "responses": {
+    "200": {
+      "description": "Success - Invitation cancelled",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "required": ["success"],
+            "properties": {
+              "success": {
+                "type": "boolean",
+                "example": true
+              }
+            }
+          },
+          "examples": {
+            "invitationCancelled": {
+              "summary": "Invitation cancelled successfully",
+              "value": {
+                "success": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "400": {
+      "$ref": "../../../../components/responses/ValidationError.json"
+    },
+    "401": {
+      "description": "Unauthorized - User not authenticated",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    },
+    "403": {
+      "description": "Forbidden - User does not have permission to cancel invitations",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    },
+    "404": {
+      "description": "Not Found - Invitation not found or user not member of organization",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    },
+    "409": {
+      "$ref": "../../../../components/responses/ConflictError.json"
+    }
+  },
+  "x-specs": [
+    {
+      "id": "API-ORG-CANCEL-INVITATION-SUCCESS-001",
+      "given": "An authenticated organization owner and a pending invitation",
+      "when": "Owner cancels the invitation",
+      "then": "Returns 200 OK and invitation status updated to cancelled",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())",
+            "INSERT INTO organization_invitations (id, organization_id, email, role, token, status, expires_at, created_at) VALUES (1, 1, 'invitee@example.com', 'member', 'invite_token_123', 'pending', NOW() + INTERVAL '7 days', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/auth/organization/cancel-invitation",
+            "headers": {
+              "Authorization": "Bearer owner_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "invitationId": "1"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Response contains success flag",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "success": { "type": "boolean" }
+              },
+              "required": ["success"]
+            }
+          },
+          {
+            "description": "Invitation status updated to cancelled",
+            "validateDatabaseState": {
+              "query": "SELECT status FROM organization_invitations WHERE id = 1",
+              "expectedRows": 1,
+              "rowValidation": {
+                "status": {
+                  "equals": "cancelled"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-CANCEL-INVITATION-VALIDATION-REQUIRED-INVITATION-ID-001",
+      "given": "An authenticated organization owner",
+      "when": "Owner submits request without invitationId",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/auth/organization/cancel-invitation",
+            "headers": {
+              "Authorization": "Bearer owner_token",
+              "Content-Type": "application/json"
+            },
+            "body": {}
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for invitationId field",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-CANCEL-INVITATION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001",
+      "given": "A running server",
+      "when": "Unauthenticated user attempts to cancel invitation",
+      "then": "Returns 401 Unauthorized",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/auth/organization/cancel-invitation",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "invitationId": "1"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 Unauthorized",
+            "expectedStatus": 401
+          },
+          {
+            "description": "Response contains error about missing authentication",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-CANCEL-INVITATION-PERMISSIONS-FORBIDDEN-REGULAR-MEMBER-001",
+      "given": "An authenticated regular member (not owner/admin)",
+      "when": "Member attempts to cancel invitation",
+      "then": "Returns 403 Forbidden",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'member@example.com', '$2a$10$YourHashedPasswordHere', 'Member User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'member', NOW())",
+            "INSERT INTO organization_invitations (id, organization_id, email, role, token, status, expires_at, created_at) VALUES (1, 1, 'invitee@example.com', 'member', 'invite_token_123', 'pending', NOW() + INTERVAL '7 days', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'member_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/auth/organization/cancel-invitation",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "invitationId": "1"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 Forbidden",
+            "expectedStatus": 403
+          },
+          {
+            "description": "Response contains error about insufficient permissions",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-CANCEL-INVITATION-NOT-FOUND-001",
+      "given": "An authenticated organization owner",
+      "when": "Owner attempts to cancel non-existent invitation",
+      "then": "Returns 404 Not Found",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/auth/organization/cancel-invitation",
+            "headers": {
+              "Authorization": "Bearer owner_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "invitationId": "999"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 Not Found",
+            "expectedStatus": 404
+          },
+          {
+            "description": "Response contains error about invitation not found",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-CANCEL-INVITATION-CONFLICT-ALREADY-ACCEPTED-001",
+      "given": "An authenticated organization owner and an accepted invitation",
+      "when": "Owner attempts to cancel already accepted invitation",
+      "then": "Returns 409 Conflict",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'member@example.com', '$2a$10$YourHashedPasswordHere', 'Member User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 1, 2, 'member', NOW())",
+            "INSERT INTO organization_invitations (id, organization_id, email, role, token, status, expires_at, created_at) VALUES (1, 1, 'member@example.com', 'member', 'invite_token_123', 'accepted', NOW() + INTERVAL '7 days', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/auth/organization/cancel-invitation",
+            "headers": {
+              "Authorization": "Bearer owner_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "invitationId": "1"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 409 Conflict",
+            "expectedStatus": 409
+          },
+          {
+            "description": "Response contains error about invitation already accepted",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-CANCEL-INVITATION-EDGE-CASE-ALREADY-CANCELLED-001",
+      "given": "An authenticated organization owner and an already cancelled invitation",
+      "when": "Owner attempts to cancel the same invitation again",
+      "then": "Returns 409 Conflict",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())",
+            "INSERT INTO organization_invitations (id, organization_id, email, role, token, status, expires_at, created_at) VALUES (1, 1, 'invitee@example.com', 'member', 'invite_token_123', 'cancelled', NOW() + INTERVAL '7 days', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/auth/organization/cancel-invitation",
+            "headers": {
+              "Authorization": "Bearer owner_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "invitationId": "1"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 409 Conflict",
+            "expectedStatus": 409
+          },
+          {
+            "description": "Response contains error about invitation already cancelled",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-CANCEL-INVITATION-SECURITY-CROSS-ORG-PREVENTION-001",
+      "given": "An authenticated owner of one organization and an invitation from different organization",
+      "when": "Owner attempts to cancel invitation from another organization",
+      "then": "Returns 404 Not Found (prevent organization enumeration)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner1@example.com', '$2a$10$YourHashedPasswordHere', 'Owner 1', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'owner2@example.com', '$2a$10$YourHashedPasswordHere', 'Owner 2', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Org One', 'org-one', NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (2, 'Org Two', 'org-two', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 2, 2, 'owner', NOW())",
+            "INSERT INTO organization_invitations (id, organization_id, email, role, token, status, expires_at, created_at) VALUES (1, 2, 'invitee@example.com', 'member', 'invite_token_123', 'pending', NOW() + INTERVAL '7 days', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner1_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/auth/organization/cancel-invitation",
+            "headers": {
+              "Authorization": "Bearer owner1_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "invitationId": "1"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 Not Found (prevent organization enumeration)",
+            "expectedStatus": 404
+          },
+          {
+            "description": "Response contains error about invitation not found",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          },
+          {
+            "description": "Invitation remains pending in its organization",
+            "validateDatabaseState": {
+              "query": "SELECT status FROM organization_invitations WHERE id = 1",
+              "expectedRows": 1,
+              "rowValidation": {
+                "status": {
+                  "equals": "pending"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

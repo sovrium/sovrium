@@ -1,0 +1,387 @@
+{
+  "summary": "List organization members",
+  "description": "Retrieves all members of an organization with their roles and user information. User must be a member of the organization.",
+  "operationId": "listMembers",
+  "tags": ["organization"],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "parameters": [
+    {
+      "name": "organizationId",
+      "in": "query",
+      "description": "The ID of the organization",
+      "required": true,
+      "schema": {
+        "type": "string",
+        "example": "org_123abc"
+      }
+    }
+  ],
+  "responses": {
+    "200": {
+      "description": "Success - Returns list of members",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "required": ["members"],
+            "properties": {
+              "members": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["userId", "email", "name", "role", "joinedAt"],
+                  "properties": {
+                    "userId": {
+                      "type": "string",
+                      "description": "User ID"
+                    },
+                    "email": {
+                      "type": "string",
+                      "format": "email",
+                      "description": "User email"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "User name"
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": ["owner", "admin", "member", "viewer"],
+                      "description": "Member role in organization"
+                    },
+                    "joinedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "When the user joined the organization"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "examples": {
+            "membersList": {
+              "summary": "Organization members",
+              "value": {
+                "members": [
+                  {
+                    "userId": "user_123abc",
+                    "email": "owner@example.com",
+                    "name": "Owner User",
+                    "role": "owner",
+                    "joinedAt": "2025-01-15T10:00:00Z"
+                  },
+                  {
+                    "userId": "user_456def",
+                    "email": "member@example.com",
+                    "name": "Member User",
+                    "role": "member",
+                    "joinedAt": "2025-01-16T14:30:00Z"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "400": {
+      "$ref": "../../../../components/responses/ValidationError.json"
+    },
+    "401": {
+      "description": "Unauthorized - User not authenticated",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    },
+    "404": {
+      "description": "Not Found - Organization not found or user is not a member",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    }
+  },
+  "x-specs": [
+    {
+      "id": "API-ORG-LIST-MEMBERS-SUCCESS-001",
+      "given": "An authenticated user who is member of organization with multiple members",
+      "when": "User requests list of organization members",
+      "then": "Returns 200 OK with all members and their roles",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (3, 'member@example.com', '$2a$10$YourHashedPasswordHere', 'Member User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'member', NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 1, 2, 'owner', NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (3, 1, 3, 'member', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/auth/organization/list-members?organizationId=1",
+            "headers": {
+              "Authorization": "Bearer user_token"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Response contains members array with roles",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "members": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "userId": { "type": "string" },
+                      "email": { "type": "string" },
+                      "name": { "type": "string" },
+                      "role": { "type": "string" },
+                      "joinedAt": { "type": "string" }
+                    },
+                    "required": ["userId", "email", "name", "role", "joinedAt"]
+                  }
+                }
+              },
+              "required": ["members"]
+            }
+          },
+          {
+            "description": "Response includes all 3 members",
+            "validateResponseData": {
+              "members.length": {
+                "equals": 3
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-LIST-MEMBERS-VALIDATION-REQUIRED-ORGANIZATION-ID-001",
+      "given": "An authenticated user",
+      "when": "User requests members without organizationId parameter",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/auth/organization/list-members",
+            "headers": {
+              "Authorization": "Bearer user_token"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for organizationId parameter",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-LIST-MEMBERS-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001",
+      "given": "A running server",
+      "when": "Unauthenticated user attempts to list members",
+      "then": "Returns 401 Unauthorized",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/auth/organization/list-members?organizationId=1"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 Unauthorized",
+            "expectedStatus": 401
+          },
+          {
+            "description": "Response contains error about missing authentication",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-LIST-MEMBERS-NOT-FOUND-001",
+      "given": "An authenticated user",
+      "when": "User requests members of non-existent organization",
+      "then": "Returns 404 Not Found",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/auth/organization/list-members?organizationId=999",
+            "headers": {
+              "Authorization": "Bearer user_token"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 Not Found",
+            "expectedStatus": 404
+          },
+          {
+            "description": "Response contains error about organization not found",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-LIST-MEMBERS-SECURITY-NON-MEMBER-ACCESS-001",
+      "given": "An authenticated user who is not member of an organization",
+      "when": "User attempts to list organization members",
+      "then": "Returns 404 Not Found (not 403 to prevent organization enumeration)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Private Org', 'private-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 2, 'owner', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/auth/organization/list-members?organizationId=1",
+            "headers": {
+              "Authorization": "Bearer user_token"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 Not Found (prevent organization enumeration)",
+            "expectedStatus": 404
+          },
+          {
+            "description": "Response contains error about organization not found",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-LIST-MEMBERS-SECURITY-PASSWORD-EXCLUSION-001",
+      "given": "An authenticated organization member",
+      "when": "User requests list of members",
+      "then": "Returns 200 OK with member data but password field excluded for security",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'member@example.com', '$2a$10$SecretHash', 'Member User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 1, 2, 'member', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/auth/organization/list-members?organizationId=1",
+            "headers": {
+              "Authorization": "Bearer user_token"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Response excludes password_hash field for security",
+            "validateResponseData": {
+              "members[0]": {
+                "notHasKey": "password_hash"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,327 @@
+{
+  "summary": "Get organization details",
+  "description": "Retrieves detailed information about a specific organization. User must be a member of the organization.",
+  "operationId": "getOrganization",
+  "tags": ["organization"],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "parameters": [
+    {
+      "name": "organizationId",
+      "in": "query",
+      "description": "The ID of the organization to retrieve",
+      "required": true,
+      "schema": {
+        "type": "string",
+        "example": "org_123abc"
+      }
+    }
+  ],
+  "responses": {
+    "200": {
+      "description": "Success - Returns organization details",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "required": ["organization"],
+            "properties": {
+              "organization": {
+                "type": "object",
+                "required": ["id", "name", "slug", "createdAt"],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "slug": {
+                    "type": "string"
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "nullable": true
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "updatedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            }
+          },
+          "examples": {
+            "organizationDetails": {
+              "summary": "Organization details",
+              "value": {
+                "organization": {
+                  "id": "org_123abc",
+                  "name": "Acme Corporation",
+                  "slug": "acme-corp",
+                  "metadata": {
+                    "industry": "Technology"
+                  },
+                  "createdAt": "2025-01-15T10:00:00Z",
+                  "updatedAt": "2025-01-15T10:00:00Z"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "400": {
+      "$ref": "../../../../components/responses/ValidationError.json"
+    },
+    "401": {
+      "description": "Unauthorized - User not authenticated",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    },
+    "404": {
+      "description": "Not Found - Organization not found or user is not a member",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    }
+  },
+  "x-specs": [
+    {
+      "id": "API-ORG-GET-ORGANIZATION-SUCCESS-001",
+      "given": "An authenticated user who is member of an organization",
+      "when": "User requests organization details",
+      "then": "Returns 200 OK with organization data",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, metadata, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', '{\"industry\":\"Technology\"}', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'member', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/auth/organization/get-organization?organizationId=1",
+            "headers": {
+              "Authorization": "Bearer user_token"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Response contains organization details",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "organization": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "name": { "type": "string" },
+                    "slug": { "type": "string" },
+                    "metadata": { "type": "object" }
+                  },
+                  "required": ["id", "name", "slug"]
+                }
+              },
+              "required": ["organization"]
+            }
+          },
+          {
+            "description": "Response includes correct organization data",
+            "validateResponseData": {
+              "organization.name": {
+                "equals": "Test Org"
+              },
+              "organization.slug": {
+                "equals": "test-org"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-GET-ORGANIZATION-VALIDATION-REQUIRED-ORGANIZATION-ID-001",
+      "given": "An authenticated user",
+      "when": "User requests organization without organizationId parameter",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/auth/organization/get-organization",
+            "headers": {
+              "Authorization": "Bearer user_token"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for organizationId parameter",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-GET-ORGANIZATION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001",
+      "given": "A running server",
+      "when": "Unauthenticated user attempts to get organization",
+      "then": "Returns 401 Unauthorized",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/auth/organization/get-organization?organizationId=1"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 Unauthorized",
+            "expectedStatus": 401
+          },
+          {
+            "description": "Response contains error about missing authentication",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-GET-ORGANIZATION-NOT-FOUND-001",
+      "given": "An authenticated user",
+      "when": "User requests non-existent organization",
+      "then": "Returns 404 Not Found",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/auth/organization/get-organization?organizationId=999",
+            "headers": {
+              "Authorization": "Bearer user_token"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 Not Found",
+            "expectedStatus": 404
+          },
+          {
+            "description": "Response contains error about organization not found",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-GET-ORGANIZATION-SECURITY-NON-MEMBER-ACCESS-001",
+      "given": "An authenticated user who is not member of an organization",
+      "when": "User attempts to get organization details",
+      "then": "Returns 404 Not Found (not 403 to prevent organization enumeration)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Private Org', 'private-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 2, 'owner', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "GET",
+            "endpoint": "/api/auth/organization/get-organization?organizationId=1",
+            "headers": {
+              "Authorization": "Bearer user_token"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 Not Found (prevent organization enumeration)",
+            "expectedStatus": 404
+          },
+          {
+            "description": "Response contains error about organization not found",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

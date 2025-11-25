@@ -1,0 +1,433 @@
+{
+  "summary": "Update member role",
+  "description": "Updates the role of an organization member. Only organization owners and admins can update member roles. Cannot update the role of the last owner.",
+  "operationId": "updateMemberRole",
+  "tags": ["organization"],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "requestBody": {
+    "required": true,
+    "content": {
+      "application/json": {
+        "schema": {
+          "type": "object",
+          "required": ["organizationId", "userId", "role"],
+          "properties": {
+            "organizationId": {
+              "type": "string",
+              "description": "The ID of the organization",
+              "example": "org_123abc"
+            },
+            "userId": {
+              "type": "string",
+              "description": "The ID of the member whose role to update",
+              "example": "user_456def"
+            },
+            "role": {
+              "type": "string",
+              "enum": ["admin", "member", "viewer"],
+              "description": "The new role to assign",
+              "example": "admin"
+            }
+          }
+        }
+      }
+    }
+  },
+  "responses": {
+    "200": {
+      "description": "Success - Member role updated",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "required": ["member"],
+            "properties": {
+              "member": {
+                "type": "object",
+                "required": ["userId", "email", "name", "role"],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "examples": {
+            "roleUpdated": {
+              "summary": "Member role updated successfully",
+              "value": {
+                "member": {
+                  "userId": "user_456def",
+                  "email": "member@example.com",
+                  "name": "Member User",
+                  "role": "admin"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "400": {
+      "$ref": "../../../../components/responses/ValidationError.json"
+    },
+    "401": {
+      "description": "Unauthorized - User not authenticated",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    },
+    "403": {
+      "description": "Forbidden - User does not have permission to update roles or attempting to remove last owner",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    },
+    "404": {
+      "description": "Not Found - Organization or member not found",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    }
+  },
+  "x-specs": [
+    {
+      "id": "API-ORG-UPDATE-MEMBER-ROLE-SUCCESS-001",
+      "given": "An authenticated organization owner and an existing member",
+      "when": "Owner updates member role to admin",
+      "then": "Returns 200 OK with updated member data",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'member@example.com', '$2a$10$YourHashedPasswordHere', 'Member User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 1, 2, 'member', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/auth/organization/update-member-role",
+            "headers": {
+              "Authorization": "Bearer owner_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "organizationId": "1",
+              "userId": "2",
+              "role": "admin"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Response contains updated member with new role",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "member": {
+                  "type": "object",
+                  "properties": {
+                    "userId": { "type": "string" },
+                    "role": { "type": "string" }
+                  },
+                  "required": ["userId", "role"]
+                }
+              },
+              "required": ["member"]
+            }
+          },
+          {
+            "description": "Member role is updated in database",
+            "validateDatabaseState": {
+              "query": "SELECT role FROM organization_members WHERE organization_id = 1 AND user_id = 2",
+              "expectedRows": 1,
+              "rowValidation": {
+                "role": {
+                  "equals": "admin"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-UPDATE-MEMBER-ROLE-VALIDATION-REQUIRED-FIELDS-001",
+      "given": "An authenticated organization owner",
+      "when": "Owner submits request without required fields",
+      "then": "Returns 400 Bad Request with validation errors",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/auth/organization/update-member-role",
+            "headers": {
+              "Authorization": "Bearer owner_token",
+              "Content-Type": "application/json"
+            },
+            "body": {}
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for required fields",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-UPDATE-MEMBER-ROLE-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001",
+      "given": "A running server",
+      "when": "Unauthenticated user attempts to update member role",
+      "then": "Returns 401 Unauthorized",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/auth/organization/update-member-role",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "organizationId": "1",
+              "userId": "2",
+              "role": "admin"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 Unauthorized",
+            "expectedStatus": 401
+          },
+          {
+            "description": "Response contains error about missing authentication",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-UPDATE-MEMBER-ROLE-PERMISSIONS-FORBIDDEN-REGULAR-MEMBER-001",
+      "given": "An authenticated regular member (not owner/admin)",
+      "when": "Member attempts to update another member's role",
+      "then": "Returns 403 Forbidden",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'member1@example.com', '$2a$10$YourHashedPasswordHere', 'Member 1', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'member2@example.com', '$2a$10$YourHashedPasswordHere', 'Member 2', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'member', NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 1, 2, 'member', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'member_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/auth/organization/update-member-role",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "organizationId": "1",
+              "userId": "2",
+              "role": "admin"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 Forbidden",
+            "expectedStatus": 403
+          },
+          {
+            "description": "Response contains error about insufficient permissions",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-UPDATE-MEMBER-ROLE-NOT-FOUND-001",
+      "given": "An authenticated organization owner",
+      "when": "Owner attempts to update role of non-existent member",
+      "then": "Returns 404 Not Found",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/auth/organization/update-member-role",
+            "headers": {
+              "Authorization": "Bearer owner_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "organizationId": "1",
+              "userId": "999",
+              "role": "admin"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 Not Found",
+            "expectedStatus": 404
+          },
+          {
+            "description": "Response contains error about member not found",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-UPDATE-MEMBER-ROLE-EDGE-CASE-SAME-ROLE-001",
+      "given": "An authenticated organization owner and an existing admin member",
+      "when": "Owner updates member role to their current role",
+      "then": "Returns 200 OK (idempotent operation)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 1, 2, 'admin', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "PATCH",
+            "endpoint": "/api/auth/organization/update-member-role",
+            "headers": {
+              "Authorization": "Bearer owner_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "organizationId": "1",
+              "userId": "2",
+              "role": "admin"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK (idempotent)",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Member role remains unchanged",
+            "validateDatabaseState": {
+              "query": "SELECT role FROM organization_members WHERE organization_id = 1 AND user_id = 2",
+              "expectedRows": 1,
+              "rowValidation": {
+                "role": {
+                  "equals": "admin"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

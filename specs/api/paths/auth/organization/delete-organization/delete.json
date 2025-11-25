@@ -1,0 +1,379 @@
+{
+  "summary": "Delete organization",
+  "description": "Permanently deletes an organization and all associated data. Only organization owners can delete the organization. This action is irreversible.",
+  "operationId": "deleteOrganization",
+  "tags": ["organization"],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "requestBody": {
+    "required": true,
+    "content": {
+      "application/json": {
+        "schema": {
+          "type": "object",
+          "required": ["organizationId"],
+          "properties": {
+            "organizationId": {
+              "type": "string",
+              "description": "The ID of the organization to delete",
+              "example": "org_123abc"
+            }
+          }
+        }
+      }
+    }
+  },
+  "responses": {
+    "200": {
+      "description": "Success - Organization deleted",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "required": ["status"],
+            "properties": {
+              "status": {
+                "type": "boolean",
+                "enum": [true],
+                "description": "Indicates successful deletion"
+              }
+            }
+          },
+          "examples": {
+            "organizationDeleted": {
+              "summary": "Organization deleted successfully",
+              "value": {
+                "status": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "400": {
+      "$ref": "../../../../components/responses/ValidationError.json"
+    },
+    "401": {
+      "description": "Unauthorized - User not authenticated",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    },
+    "403": {
+      "description": "Forbidden - User does not have permission to delete organization",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    },
+    "404": {
+      "description": "Not Found - Organization not found",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    }
+  },
+  "x-specs": [
+    {
+      "id": "API-ORG-DELETE-ORGANIZATION-SUCCESS-001",
+      "given": "An authenticated organization owner",
+      "when": "Owner deletes the organization",
+      "then": "Returns 200 OK and permanently deletes organization with all members",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'member@example.com', '$2a$10$YourHashedPasswordHere', 'Member User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 1, 2, 'member', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/auth/organization/delete-organization",
+            "headers": {
+              "Authorization": "Bearer owner_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "organizationId": "1"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Response indicates success",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "boolean",
+                  "enum": [true]
+                }
+              },
+              "required": ["status"]
+            }
+          },
+          {
+            "description": "Organization is deleted from database",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM organizations WHERE id = 1 AND deleted_at IS NOT NULL",
+              "expectedRows": 1
+            }
+          },
+          {
+            "description": "All organization members are removed",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM organization_members WHERE organization_id = 1 AND deleted_at IS NOT NULL",
+              "expectedRows": 2
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-DELETE-ORGANIZATION-VALIDATION-REQUIRED-ORGANIZATION-ID-001",
+      "given": "An authenticated organization owner",
+      "when": "Owner submits request without organizationId",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/auth/organization/delete-organization",
+            "headers": {
+              "Authorization": "Bearer owner_token",
+              "Content-Type": "application/json"
+            },
+            "body": {}
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for organizationId field",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-DELETE-ORGANIZATION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001",
+      "given": "A running server",
+      "when": "Unauthenticated user attempts to delete organization",
+      "then": "Returns 401 Unauthorized",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/auth/organization/delete-organization",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "organizationId": "1"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 Unauthorized",
+            "expectedStatus": 401
+          },
+          {
+            "description": "Response contains error about missing authentication",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-DELETE-ORGANIZATION-PERMISSIONS-FORBIDDEN-NON-OWNER-001",
+      "given": "An authenticated organization member (non-owner)",
+      "when": "Member attempts to delete organization",
+      "then": "Returns 403 Forbidden",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'member@example.com', '$2a$10$YourHashedPasswordHere', 'Member User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'member', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'member_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/auth/organization/delete-organization",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "organizationId": "1"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 Forbidden",
+            "expectedStatus": 403
+          },
+          {
+            "description": "Response contains error about insufficient permissions",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-DELETE-ORGANIZATION-NOT-FOUND-001",
+      "given": "An authenticated user",
+      "when": "User attempts to delete non-existent organization",
+      "then": "Returns 404 Not Found",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/auth/organization/delete-organization",
+            "headers": {
+              "Authorization": "Bearer user_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "organizationId": "999"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 Not Found",
+            "expectedStatus": 404
+          },
+          {
+            "description": "Response contains error about organization not found",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-DELETE-ORGANIZATION-SECURITY-CROSS-ORG-PREVENTION-001",
+      "given": "Two organizations with different owners",
+      "when": "Owner A attempts to delete Organization B",
+      "then": "Returns 404 Not Found (not 403 to prevent organization enumeration)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner1@example.com', '$2a$10$YourHashedPasswordHere', 'Owner 1', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'owner2@example.com', '$2a$10$YourHashedPasswordHere', 'Owner 2', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Org A', 'org-a', NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (2, 'Org B', 'org-b', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 2, 2, 'owner', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner1_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "DELETE",
+            "endpoint": "/api/auth/organization/delete-organization",
+            "headers": {
+              "Authorization": "Bearer owner1_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "organizationId": "2"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 Not Found (prevent organization enumeration)",
+            "expectedStatus": 404
+          },
+          {
+            "description": "Organization B remains active (not deleted)",
+            "validateDatabaseState": {
+              "query": "SELECT * FROM organizations WHERE id = 2 AND deleted_at IS NULL",
+              "expectedRows": 1
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

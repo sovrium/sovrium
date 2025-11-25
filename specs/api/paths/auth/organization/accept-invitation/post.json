@@ -1,0 +1,533 @@
+{
+  "summary": "Accept organization invitation",
+  "description": "Accepts a pending invitation to join an organization. The user must be authenticated and the invitation must not be expired.",
+  "operationId": "acceptInvitation",
+  "tags": ["organization"],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "requestBody": {
+    "required": true,
+    "content": {
+      "application/json": {
+        "schema": {
+          "type": "object",
+          "required": ["invitationId"],
+          "properties": {
+            "invitationId": {
+              "type": "string",
+              "description": "The ID of the invitation to accept",
+              "example": "inv_789ghi"
+            }
+          }
+        }
+      }
+    }
+  },
+  "responses": {
+    "200": {
+      "description": "Success - Invitation accepted, user added to organization",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "required": ["organization", "role"],
+            "properties": {
+              "organization": {
+                "type": "object",
+                "required": ["id", "name", "slug"],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "slug": {
+                    "type": "string"
+                  }
+                }
+              },
+              "role": {
+                "type": "string",
+                "description": "Role assigned in the organization"
+              }
+            }
+          },
+          "examples": {
+            "invitationAccepted": {
+              "summary": "Invitation accepted successfully",
+              "value": {
+                "organization": {
+                  "id": "org_123abc",
+                  "name": "Acme Corporation",
+                  "slug": "acme-corp"
+                },
+                "role": "member"
+              }
+            }
+          }
+        }
+      }
+    },
+    "400": {
+      "$ref": "../../../../components/responses/ValidationError.json"
+    },
+    "401": {
+      "description": "Unauthorized - User not authenticated",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    },
+    "404": {
+      "description": "Not Found - Invitation not found",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    },
+    "409": {
+      "$ref": "../../../../components/responses/ConflictError.json"
+    },
+    "410": {
+      "description": "Gone - Invitation expired",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    }
+  },
+  "x-specs": [
+    {
+      "id": "API-ORG-ACCEPT-INVITATION-SUCCESS-001",
+      "given": "An authenticated user and a valid pending invitation",
+      "when": "User accepts the invitation",
+      "then": "Returns 200 OK, user added to organization, invitation marked as accepted",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 2, 'owner', NOW())",
+            "INSERT INTO organization_invitations (id, organization_id, email, role, token, status, expires_at, created_at) VALUES (1, 1, 'user@example.com', 'member', 'invite_token_123', 'pending', NOW() + INTERVAL '7 days', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/organization/accept-invitation",
+            "headers": {
+              "Authorization": "Bearer user_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "invitationId": "1"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 200 OK",
+            "expectedStatus": 200
+          },
+          {
+            "description": "Response contains organization and role",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "organization": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "name": { "type": "string" },
+                    "slug": { "type": "string" }
+                  },
+                  "required": ["id", "name", "slug"]
+                },
+                "role": { "type": "string" }
+              },
+              "required": ["organization", "role"]
+            }
+          },
+          {
+            "description": "User is added to organization with specified role",
+            "validateDatabaseState": {
+              "query": "SELECT user_id, role FROM organization_members WHERE organization_id = 1 AND user_id = 1",
+              "expectedRows": 1,
+              "rowValidation": {
+                "user_id": {
+                  "equals": 1
+                },
+                "role": {
+                  "equals": "member"
+                }
+              }
+            }
+          },
+          {
+            "description": "Invitation status updated to accepted",
+            "validateDatabaseState": {
+              "query": "SELECT status FROM organization_invitations WHERE id = 1",
+              "expectedRows": 1,
+              "rowValidation": {
+                "status": {
+                  "equals": "accepted"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-ACCEPT-INVITATION-VALIDATION-REQUIRED-INVITATION-ID-001",
+      "given": "An authenticated user",
+      "when": "User submits request without invitationId",
+      "then": "Returns 400 Bad Request with validation error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/organization/accept-invitation",
+            "headers": {
+              "Authorization": "Bearer user_token",
+              "Content-Type": "application/json"
+            },
+            "body": {}
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for invitationId field",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-ACCEPT-INVITATION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001",
+      "given": "A running server",
+      "when": "Unauthenticated user attempts to accept invitation",
+      "then": "Returns 401 Unauthorized",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/organization/accept-invitation",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "invitationId": "1"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 Unauthorized",
+            "expectedStatus": 401
+          },
+          {
+            "description": "Response contains error about missing authentication",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-ACCEPT-INVITATION-NOT-FOUND-001",
+      "given": "An authenticated user",
+      "when": "User attempts to accept non-existent invitation",
+      "then": "Returns 404 Not Found",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/organization/accept-invitation",
+            "headers": {
+              "Authorization": "Bearer user_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "invitationId": "999"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 Not Found",
+            "expectedStatus": 404
+          },
+          {
+            "description": "Response contains error about invitation not found",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-ACCEPT-INVITATION-EDGE-CASE-EXPIRED-INVITATION-001",
+      "given": "An authenticated user and an expired invitation",
+      "when": "User attempts to accept expired invitation",
+      "then": "Returns 410 Gone",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 2, 'owner', NOW())",
+            "INSERT INTO organization_invitations (id, organization_id, email, role, token, status, expires_at, created_at) VALUES (1, 1, 'user@example.com', 'member', 'invite_token_123', 'pending', NOW() - INTERVAL '1 day', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/organization/accept-invitation",
+            "headers": {
+              "Authorization": "Bearer user_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "invitationId": "1"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 410 Gone",
+            "expectedStatus": 410
+          },
+          {
+            "description": "Response contains error about expired invitation",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-ACCEPT-INVITATION-CONFLICT-ALREADY-MEMBER-001",
+      "given": "An authenticated user who is already organization member",
+      "when": "User attempts to accept invitation",
+      "then": "Returns 409 Conflict",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'member', NOW())",
+            "INSERT INTO organization_invitations (id, organization_id, email, role, token, status, expires_at, created_at) VALUES (1, 1, 'user@example.com', 'member', 'invite_token_123', 'pending', NOW() + INTERVAL '7 days', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/organization/accept-invitation",
+            "headers": {
+              "Authorization": "Bearer user_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "invitationId": "1"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 409 Conflict",
+            "expectedStatus": 409
+          },
+          {
+            "description": "Response contains error about already being member",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-ACCEPT-INVITATION-SECURITY-EMAIL-MISMATCH-001",
+      "given": "An authenticated user and an invitation for different email",
+      "when": "User attempts to accept invitation not addressed to them",
+      "then": "Returns 404 Not Found (prevent invitation enumeration)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user1@example.com', '$2a$10$YourHashedPasswordHere', 'User 1', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 2, 'owner', NOW())",
+            "INSERT INTO organization_invitations (id, organization_id, email, role, token, status, expires_at, created_at) VALUES (1, 1, 'user2@example.com', 'member', 'invite_token_123', 'pending', NOW() + INTERVAL '7 days', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user1_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/organization/accept-invitation",
+            "headers": {
+              "Authorization": "Bearer user1_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "invitationId": "1"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 Not Found (prevent invitation enumeration)",
+            "expectedStatus": 404
+          },
+          {
+            "description": "Response contains error about invitation not found",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          },
+          {
+            "description": "Invitation remains pending",
+            "validateDatabaseState": {
+              "query": "SELECT status FROM organization_invitations WHERE id = 1",
+              "expectedRows": 1,
+              "rowValidation": {
+                "status": {
+                  "equals": "pending"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-ACCEPT-INVITATION-EDGE-CASE-ALREADY-ACCEPTED-001",
+      "given": "An authenticated user and an invitation already accepted",
+      "when": "User attempts to accept the same invitation again",
+      "then": "Returns 409 Conflict",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'member', NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 1, 2, 'owner', NOW())",
+            "INSERT INTO organization_invitations (id, organization_id, email, role, token, status, expires_at, created_at) VALUES (1, 1, 'user@example.com', 'member', 'invite_token_123', 'accepted', NOW() + INTERVAL '7 days', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/organization/accept-invitation",
+            "headers": {
+              "Authorization": "Bearer user_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "invitationId": "1"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 409 Conflict",
+            "expectedStatus": 409
+          },
+          {
+            "description": "Response contains error about invitation already accepted",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

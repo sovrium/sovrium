@@ -1,0 +1,443 @@
+{
+  "summary": "Add member to organization",
+  "description": "Adds an existing user as a member of the organization. Only organization owners and admins can add members. User must already exist in the system.",
+  "operationId": "addMember",
+  "tags": ["organization"],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "requestBody": {
+    "required": true,
+    "content": {
+      "application/json": {
+        "schema": {
+          "type": "object",
+          "required": ["organizationId", "userId"],
+          "properties": {
+            "organizationId": {
+              "type": "string",
+              "description": "The ID of the organization",
+              "example": "org_123abc"
+            },
+            "userId": {
+              "type": "string",
+              "description": "The ID of the user to add",
+              "example": "user_456def"
+            },
+            "role": {
+              "type": "string",
+              "enum": ["admin", "member", "viewer"],
+              "default": "member",
+              "description": "Role to assign to the new member",
+              "example": "member"
+            }
+          }
+        }
+      }
+    }
+  },
+  "responses": {
+    "201": {
+      "description": "Success - Member added",
+      "content": {
+        "application/json": {
+          "schema": {
+            "type": "object",
+            "required": ["member"],
+            "properties": {
+              "member": {
+                "type": "object",
+                "required": ["userId", "email", "name", "role", "joinedAt"],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string"
+                  },
+                  "joinedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            }
+          },
+          "examples": {
+            "memberAdded": {
+              "summary": "Member added successfully",
+              "value": {
+                "member": {
+                  "userId": "user_456def",
+                  "email": "newmember@example.com",
+                  "name": "New Member",
+                  "role": "member",
+                  "joinedAt": "2025-01-15T12:00:00Z"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "400": {
+      "$ref": "../../../../components/responses/ValidationError.json"
+    },
+    "401": {
+      "description": "Unauthorized - User not authenticated",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    },
+    "403": {
+      "description": "Forbidden - User does not have permission to add members",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    },
+    "404": {
+      "description": "Not Found - Organization or user not found",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "../../../../components/schemas/Error.json"
+          }
+        }
+      }
+    },
+    "409": {
+      "$ref": "../../../../components/responses/ConflictError.json"
+    }
+  },
+  "x-specs": [
+    {
+      "id": "API-ORG-ADD-MEMBER-SUCCESS-001",
+      "given": "An authenticated organization owner and an existing user",
+      "when": "Owner adds user as member",
+      "then": "Returns 201 Created with member data",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'newmember@example.com', '$2a$10$YourHashedPasswordHere', 'New Member', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/organization/add-member",
+            "headers": {
+              "Authorization": "Bearer owner_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "organizationId": "1",
+              "userId": "2",
+              "role": "member"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 201 Created",
+            "expectedStatus": 201
+          },
+          {
+            "description": "Response contains member data",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "member": {
+                  "type": "object",
+                  "properties": {
+                    "userId": { "type": "string" },
+                    "email": { "type": "string" },
+                    "name": { "type": "string" },
+                    "role": { "type": "string" }
+                  },
+                  "required": ["userId", "email", "name", "role"]
+                }
+              },
+              "required": ["member"]
+            }
+          },
+          {
+            "description": "Member is added to database",
+            "validateDatabaseState": {
+              "query": "SELECT user_id, role FROM organization_members WHERE organization_id = 1 AND user_id = 2",
+              "expectedRows": 1,
+              "rowValidation": {
+                "user_id": {
+                  "equals": 2
+                },
+                "role": {
+                  "equals": "member"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-ADD-MEMBER-VALIDATION-REQUIRED-FIELDS-001",
+      "given": "An authenticated organization owner",
+      "when": "Owner submits request without required fields",
+      "then": "Returns 400 Bad Request with validation errors",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/organization/add-member",
+            "headers": {
+              "Authorization": "Bearer owner_token",
+              "Content-Type": "application/json"
+            },
+            "body": {}
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 400 Bad Request",
+            "expectedStatus": 400
+          },
+          {
+            "description": "Response contains validation error for required fields",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-ADD-MEMBER-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001",
+      "given": "A running server",
+      "when": "Unauthenticated user attempts to add member",
+      "then": "Returns 401 Unauthorized",
+      "validation": {
+        "setup": {
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/organization/add-member",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "organizationId": "1",
+              "userId": "2",
+              "role": "member"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 401 Unauthorized",
+            "expectedStatus": 401
+          },
+          {
+            "description": "Response contains error about missing authentication",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-ADD-MEMBER-PERMISSIONS-FORBIDDEN-REGULAR-MEMBER-001",
+      "given": "An authenticated regular member (not owner/admin)",
+      "when": "Member attempts to add another member",
+      "then": "Returns 403 Forbidden",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'member@example.com', '$2a$10$YourHashedPasswordHere', 'Member User', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'newuser@example.com', '$2a$10$YourHashedPasswordHere', 'New User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'member', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'member_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/organization/add-member",
+            "headers": {
+              "Authorization": "Bearer member_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "organizationId": "1",
+              "userId": "2",
+              "role": "member"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 403 Forbidden",
+            "expectedStatus": 403
+          },
+          {
+            "description": "Response contains error about insufficient permissions",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-ADD-MEMBER-NOT-FOUND-USER-001",
+      "given": "An authenticated organization owner",
+      "when": "Owner attempts to add non-existent user",
+      "then": "Returns 404 Not Found",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/organization/add-member",
+            "headers": {
+              "Authorization": "Bearer owner_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "organizationId": "1",
+              "userId": "999",
+              "role": "member"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 404 Not Found",
+            "expectedStatus": 404
+          },
+          {
+            "description": "Response contains error about user not found",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "API-ORG-ADD-MEMBER-CONFLICT-ALREADY-MEMBER-001",
+      "given": "An authenticated organization owner and a user who is already member",
+      "when": "Owner attempts to add existing member",
+      "then": "Returns 409 Conflict error",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())",
+            "INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'existing@example.com', '$2a$10$YourHashedPasswordHere', 'Existing Member', true, NOW(), NOW())",
+            "INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())",
+            "INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 1, 2, 'member', NOW())",
+            "INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())"
+          ],
+          "authUser": {
+            "id": 1,
+            "sessionId": 1,
+            "organizationId": 1
+          },
+          "apiRequest": {
+            "method": "POST",
+            "endpoint": "/api/auth/organization/add-member",
+            "headers": {
+              "Authorization": "Bearer owner_token",
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "organizationId": "1",
+              "userId": "2",
+              "role": "member"
+            }
+          }
+        },
+        "assertions": [
+          {
+            "description": "Returns 409 Conflict",
+            "expectedStatus": 409
+          },
+          {
+            "description": "Response contains error about user already being member",
+            "expectedSchema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "code": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
