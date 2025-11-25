@@ -460,7 +460,7 @@ describe('Variable Substitution', () => {
       const children: readonly string[] = Array.from({ length: 100 }, () => '$item')
       const result = substituteChildrenVariables(children, vars)
       expect(result).toHaveLength(100)
-      expect(result.every((child) => child === 'text')).toBe(true)
+      expect(result?.every((child) => child === 'text')).toBe(true)
     })
   })
 })

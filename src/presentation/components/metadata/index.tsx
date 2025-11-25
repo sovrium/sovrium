@@ -103,26 +103,27 @@ export function OpenGraphMeta({
  * @param twitterCard - Twitter card configuration
  * @returns Array of field key-value pairs
  */
+// eslint-disable-next-line complexity
 function buildTwitterCardFields(
   twitterCard: NonNullable<Page['meta']>['twitter']
 ): ReadonlyArray<{ readonly key: string; readonly value?: string | number }> {
   return [
-    { key: 'card', value: twitterCard.card },
-    { key: 'title', value: twitterCard.title },
-    { key: 'description', value: twitterCard.description },
-    { key: 'image', value: twitterCard.image },
-    { key: 'image:alt', value: twitterCard.imageAlt },
-    { key: 'site', value: twitterCard.site },
-    { key: 'creator', value: twitterCard.creator },
-    { key: 'player', value: twitterCard.player },
-    { key: 'player:width', value: twitterCard.playerWidth },
-    { key: 'player:height', value: twitterCard.playerHeight },
-    { key: 'app:name:iphone', value: twitterCard.appName?.iPhone },
-    { key: 'app:name:ipad', value: twitterCard.appName?.iPad },
-    { key: 'app:name:googleplay', value: twitterCard.appName?.googlePlay },
-    { key: 'app:id:iphone', value: twitterCard.appId?.iPhone },
-    { key: 'app:id:ipad', value: twitterCard.appId?.iPad },
-    { key: 'app:id:googleplay', value: twitterCard.appId?.googlePlay },
+    { key: 'card', value: twitterCard?.card },
+    { key: 'title', value: twitterCard?.title },
+    { key: 'description', value: twitterCard?.description },
+    { key: 'image', value: twitterCard?.image },
+    { key: 'image:alt', value: twitterCard?.imageAlt },
+    { key: 'site', value: twitterCard?.site },
+    { key: 'creator', value: twitterCard?.creator },
+    { key: 'player', value: twitterCard?.player },
+    { key: 'player:width', value: twitterCard?.playerWidth },
+    { key: 'player:height', value: twitterCard?.playerHeight },
+    { key: 'app:name:iphone', value: twitterCard?.appName?.iPhone },
+    { key: 'app:name:ipad', value: twitterCard?.appName?.iPad },
+    { key: 'app:name:googleplay', value: twitterCard?.appName?.googlePlay },
+    { key: 'app:id:iphone', value: twitterCard?.appId?.iPhone },
+    { key: 'app:id:ipad', value: twitterCard?.appId?.iPad },
+    { key: 'app:id:googleplay', value: twitterCard?.appId?.googlePlay },
   ]
 }
 

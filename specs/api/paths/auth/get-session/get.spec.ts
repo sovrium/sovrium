@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Get current session
@@ -32,7 +33,7 @@ test.describe('Get current session', () => {
   test.fixme(
     'API-AUTH-GET-SESSION-SUCCESS-001: should returns 200 OK with session and user data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user with active session
       await startServerWithSchema({
         name: 'test-app',
@@ -70,7 +71,7 @@ test.describe('Get current session', () => {
   test.fixme(
     'API-AUTH-GET-SESSION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -94,7 +95,7 @@ test.describe('Get current session', () => {
   test.fixme(
     'API-AUTH-GET-SESSION-PERMISSIONS-UNAUTHORIZED-INVALID-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -122,7 +123,7 @@ test.describe('Get current session', () => {
   test.fixme(
     'API-AUTH-GET-SESSION-PERMISSIONS-UNAUTHORIZED-EXPIRED-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user with expired session token
       await startServerWithSchema({
         name: 'test-app',
@@ -158,7 +159,7 @@ test.describe('Get current session', () => {
   test.fixme(
     'API-AUTH-GET-SESSION-EDGE-CASE-SESSION-METADATA-001: should returns session with IP address and user agent metadata',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user with session metadata
       await startServerWithSchema({
         name: 'test-app',
@@ -195,7 +196,7 @@ test.describe('Get current session', () => {
   test.fixme(
     'user can complete full getSession workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

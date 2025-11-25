@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Admin: Set user role
@@ -32,7 +33,7 @@ test.describe('Admin: Set user role', () => {
   test.fixme(
     'API-ADMIN-SET-ROLE-SUCCESS-001: should returns 200 OK with updated user data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user and an existing user with viewer role
       await startServerWithSchema({
         name: 'test-app',
@@ -77,7 +78,7 @@ test.describe('Admin: Set user role', () => {
   test.fixme(
     'API-ADMIN-SET-ROLE-VALIDATION-REQUIRED-FIELDS-001: should returns 400 Bad Request with validation errors',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -111,7 +112,7 @@ test.describe('Admin: Set user role', () => {
   test.fixme(
     'API-ADMIN-SET-ROLE-VALIDATION-INVALID-ROLE-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -152,7 +153,7 @@ test.describe('Admin: Set user role', () => {
   test.fixme(
     'API-ADMIN-SET-ROLE-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -182,7 +183,7 @@ test.describe('Admin: Set user role', () => {
   test.fixme(
     'API-ADMIN-SET-ROLE-PERMISSIONS-FORBIDDEN-NON-ADMIN-001: should returns 403 Forbidden',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -223,7 +224,7 @@ test.describe('Admin: Set user role', () => {
   test.fixme(
     'API-ADMIN-SET-ROLE-NOT-FOUND-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -261,7 +262,7 @@ test.describe('Admin: Set user role', () => {
   test.fixme(
     'API-ADMIN-SET-ROLE-EDGE-CASE-PROMOTE-TO-ADMIN-001: should returns 200 OK and user gains admin privileges',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user and a member user
       await startServerWithSchema({
         name: 'test-app',
@@ -301,7 +302,7 @@ test.describe('Admin: Set user role', () => {
   test.fixme(
     'API-ADMIN-SET-ROLE-EDGE-CASE-SAME-ROLE-001: should returns 200 OK (idempotent operation)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user and a member user
       await startServerWithSchema({
         name: 'test-app',
@@ -345,7 +346,7 @@ test.describe('Admin: Set user role', () => {
   test.fixme(
     'user can complete full adminSetRole workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

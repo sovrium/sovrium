@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Verify email address
@@ -31,7 +32,7 @@ test.describe('Verify email address', () => {
   test.fixme(
     'API-AUTH-VERIFY-EMAIL-SUCCESS-001: should  marks email as verified',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user with valid verification token
       await startServerWithSchema({
         name: 'test-app',
@@ -65,7 +66,7 @@ test.describe('Verify email address', () => {
   test.fixme(
     'API-AUTH-VERIFY-EMAIL-VALIDATION-REQUIRED-TOKEN-001: should  request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -89,7 +90,7 @@ test.describe('Verify email address', () => {
   test.fixme(
     'API-AUTH-VERIFY-EMAIL-PERMISSIONS-INVALID-TOKEN-001: should  (or 400 depending on better auth version)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -112,7 +113,7 @@ test.describe('Verify email address', () => {
   test.fixme(
     'API-AUTH-VERIFY-EMAIL-PERMISSIONS-EXPIRED-TOKEN-001: should  (or 400 depending on better auth version)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user with expired verification token
       await startServerWithSchema({
         name: 'test-app',
@@ -143,7 +144,7 @@ test.describe('Verify email address', () => {
   test.fixme(
     'API-AUTH-VERIFY-EMAIL-SECURITY-TOKEN-REUSE-PREVENTION-001: should  (token already used)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user who has already verified their email
       await startServerWithSchema({
         name: 'test-app',
@@ -174,7 +175,7 @@ test.describe('Verify email address', () => {
   test.fixme(
     'API-AUTH-VERIFY-EMAIL-EDGE-CASE-ALREADY-VERIFIED-001: should  or 400 (implementation-dependent)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user with already verified email and unused token
       await startServerWithSchema({
         name: 'test-app',
@@ -208,7 +209,7 @@ test.describe('Verify email address', () => {
   test.fixme(
     'user can complete full Verifyemailaddress workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

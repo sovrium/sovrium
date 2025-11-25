@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for List user organizations
@@ -32,7 +33,7 @@ test.describe('List user organizations', () => {
   test.fixme(
     "API-ORG-LIST-ORGANIZATIONS-SUCCESS-001: should returns 200 OK with all organizations and user's roles",
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user who is member of multiple organizations
       await startServerWithSchema({
         name: 'test-app',
@@ -80,7 +81,7 @@ test.describe('List user organizations', () => {
   test.fixme(
     'API-ORG-LIST-ORGANIZATIONS-SUCCESS-EMPTY-001: should returns 200 OK with empty organizations array',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user who is not member of any organization
       await startServerWithSchema({
         name: 'test-app',
@@ -111,7 +112,7 @@ test.describe('List user organizations', () => {
   test.fixme(
     'API-ORG-LIST-ORGANIZATIONS-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -135,7 +136,7 @@ test.describe('List user organizations', () => {
   test.fixme(
     "API-ORG-LIST-ORGANIZATIONS-SECURITY-ISOLATION-001: should returns 200 OK with only User A's organizations (User B's not visible)",
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Two users with different organizations
       await startServerWithSchema({
         name: 'test-app',
@@ -183,7 +184,7 @@ test.describe('List user organizations', () => {
   test.fixme(
     'API-ORG-LIST-ORGANIZATIONS-SUCCESS-ROLE-DISPLAY-001: should returns 200 OK with correct role for each organization',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user with different roles across organizations
       await startServerWithSchema({
         name: 'test-app',
@@ -241,7 +242,7 @@ test.describe('List user organizations', () => {
   test.fixme(
     'user can complete full listOrganizations workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

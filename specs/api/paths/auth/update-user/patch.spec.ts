@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Update user profile
@@ -32,7 +33,7 @@ test.describe('Update user profile', () => {
   test.fixme(
     'API-AUTH-UPDATE-USER-SUCCESS-001: should returns 200 OK with updated user data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user with valid profile data
       await startServerWithSchema({
         name: 'test-app',
@@ -74,7 +75,7 @@ test.describe('Update user profile', () => {
   test.fixme(
     'API-AUTH-UPDATE-USER-SUCCESS-PARTIAL-UPDATE-001: should returns 200 OK with updated name, image unchanged',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -110,7 +111,7 @@ test.describe('Update user profile', () => {
   test.fixme(
     'API-AUTH-UPDATE-USER-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -139,7 +140,7 @@ test.describe('Update user profile', () => {
   test.fixme(
     'API-AUTH-UPDATE-USER-SECURITY-XSS-PREVENTION-NAME-001: should returns 200 OK with sanitized name (XSS payload neutralized)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -173,7 +174,7 @@ test.describe('Update user profile', () => {
   test.fixme(
     'API-AUTH-UPDATE-USER-EDGE-CASE-UNICODE-NAME-001: should returns 200 OK with Unicode name preserved',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -207,7 +208,7 @@ test.describe('Update user profile', () => {
   test.fixme(
     'API-AUTH-UPDATE-USER-EDGE-CASE-NULL-IMAGE-001: should returns 200 OK with image removed',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user with profile image
       await startServerWithSchema({
         name: 'test-app',
@@ -247,7 +248,7 @@ test.describe('Update user profile', () => {
   test.fixme(
     'user can complete full updateUser workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

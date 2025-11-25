@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /* eslint-disable drizzle/enforce-delete-with-where */
 /**
@@ -33,7 +34,7 @@ test.describe('Remove member from organization', () => {
   test.fixme(
     'API-ORG-REMOVE-MEMBER-SUCCESS-001: should returns 200 OK and member is removed from database',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner and an existing member
       await startServerWithSchema({
         name: 'test-app',
@@ -87,7 +88,7 @@ test.describe('Remove member from organization', () => {
   test.fixme(
     'API-ORG-REMOVE-MEMBER-VALIDATION-REQUIRED-FIELDS-001: should returns 400 Bad Request with validation errors',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -127,7 +128,7 @@ test.describe('Remove member from organization', () => {
   test.fixme(
     'API-ORG-REMOVE-MEMBER-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -157,7 +158,7 @@ test.describe('Remove member from organization', () => {
   test.fixme(
     'API-ORG-REMOVE-MEMBER-PERMISSIONS-FORBIDDEN-REGULAR-MEMBER-001: should returns 403 Forbidden',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated regular member (not owner/admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -207,7 +208,7 @@ test.describe('Remove member from organization', () => {
   test.fixme(
     'API-ORG-REMOVE-MEMBER-NOT-FOUND-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -251,7 +252,7 @@ test.describe('Remove member from organization', () => {
   test.fixme(
     'API-ORG-REMOVE-MEMBER-EDGE-CASE-LAST-OWNER-001: should returns 403 Forbidden to prevent ownerless organization',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner who is the only owner
       await startServerWithSchema({
         name: 'test-app',
@@ -299,7 +300,7 @@ test.describe('Remove member from organization', () => {
   test.fixme(
     'API-ORG-REMOVE-MEMBER-SUCCESS-SELF-REMOVAL-001: should returns 200 OK and member is removed',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization member and multiple owners exist
       await startServerWithSchema({
         name: 'test-app',
@@ -348,7 +349,7 @@ test.describe('Remove member from organization', () => {
   test.fixme(
     'API-ORG-REMOVE-MEMBER-SECURITY-CROSS-ORG-PREVENTION-001: should returns 404 Not Found (prevent organization enumeration)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner and a member from different organization
       await startServerWithSchema({
         name: 'test-app',
@@ -415,7 +416,7 @@ test.describe('Remove member from organization', () => {
   test.fixme(
     'user can complete full removeMember workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

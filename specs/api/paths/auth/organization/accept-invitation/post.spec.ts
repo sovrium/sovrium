@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Accept organization invitation
@@ -32,7 +33,7 @@ test.describe('Accept organization invitation', () => {
   test.fixme(
     'API-ORG-ACCEPT-INVITATION-SUCCESS-001: should returns 200 OK, user added to organization, invitation marked as accepted',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user and a valid pending invitation
       await startServerWithSchema({
         name: 'test-app',
@@ -89,7 +90,7 @@ test.describe('Accept organization invitation', () => {
   test.fixme(
     'API-ORG-ACCEPT-INVITATION-VALIDATION-REQUIRED-INVITATION-ID-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -123,7 +124,7 @@ test.describe('Accept organization invitation', () => {
   test.fixme(
     'API-ORG-ACCEPT-INVITATION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -152,7 +153,7 @@ test.describe('Accept organization invitation', () => {
   test.fixme(
     'API-ORG-ACCEPT-INVITATION-NOT-FOUND-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -189,7 +190,7 @@ test.describe('Accept organization invitation', () => {
   test.fixme(
     'API-ORG-ACCEPT-INVITATION-EDGE-CASE-EXPIRED-INVITATION-001: should returns 410 Gone',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user and an expired invitation
       await startServerWithSchema({
         name: 'test-app',
@@ -238,7 +239,7 @@ test.describe('Accept organization invitation', () => {
   test.fixme(
     'API-ORG-ACCEPT-INVITATION-CONFLICT-ALREADY-MEMBER-001: should returns 409 Conflict',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user who is already organization member
       await startServerWithSchema({
         name: 'test-app',
@@ -284,7 +285,7 @@ test.describe('Accept organization invitation', () => {
   test.fixme(
     'API-ORG-ACCEPT-INVITATION-SECURITY-EMAIL-MISMATCH-001: should returns 404 Not Found (prevent invitation enumeration)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user and an invitation for different email
       await startServerWithSchema({
         name: 'test-app',
@@ -337,7 +338,7 @@ test.describe('Accept organization invitation', () => {
   test.fixme(
     'API-ORG-ACCEPT-INVITATION-EDGE-CASE-ALREADY-ACCEPTED-001: should returns 409 Conflict',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user and an invitation already accepted
       await startServerWithSchema({
         name: 'test-app',
@@ -393,7 +394,7 @@ test.describe('Accept organization invitation', () => {
   test.fixme(
     'user can complete full acceptInvitation workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

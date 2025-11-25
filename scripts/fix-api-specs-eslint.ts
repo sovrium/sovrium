@@ -73,7 +73,7 @@ async function fixFile(filePath: string): Promise<number> {
     const body = match[2]
 
     // Check if executeQuery is a parameter but not used in body
-    if (params.includes('executeQuery') && !body.includes('executeQuery(')) {
+    if (params && body && params.includes('executeQuery') && !body.includes('executeQuery(')) {
       // Replace executeQuery with _executeQuery in this function only
       const oldFunction = match[0]
       const newFunction = oldFunction.replace(/executeQuery(?!\w)/g, '_executeQuery')

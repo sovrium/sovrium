@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Revoke all other sessions
@@ -32,7 +33,7 @@ test.describe('Revoke all other sessions', () => {
   test.fixme(
     'API-AUTH-REVOKE-OTHER-SESSIONS-SUCCESS-001: should returns 200 OK and revokes all sessions except current one',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user with multiple active sessions
       await startServerWithSchema({
         name: 'test-app',
@@ -80,7 +81,7 @@ test.describe('Revoke all other sessions', () => {
   test.fixme(
     'API-AUTH-REVOKE-OTHER-SESSIONS-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -106,7 +107,7 @@ test.describe('Revoke all other sessions', () => {
   test.fixme(
     'API-AUTH-REVOKE-OTHER-SESSIONS-EDGE-CASE-SINGLE-SESSION-001: should returns 200 OK (no sessions to revoke)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user with only current session
       await startServerWithSchema({
         name: 'test-app',
@@ -143,7 +144,7 @@ test.describe('Revoke all other sessions', () => {
   test.fixme(
     'API-AUTH-REVOKE-OTHER-SESSIONS-EDGE-CASE-MULTIPLE-DEVICES-001: should returns 200 OK and revokes all sessions except current device',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user with sessions across multiple devices
       await startServerWithSchema({
         name: 'test-app',
@@ -186,7 +187,7 @@ test.describe('Revoke all other sessions', () => {
   test.fixme(
     "API-AUTH-REVOKE-OTHER-SESSIONS-SECURITY-ISOLATION-001: should returns 200 OK and only revokes User A's sessions (User B unaffected)",
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Two users with multiple sessions each
       await startServerWithSchema({
         name: 'test-app',
@@ -243,7 +244,7 @@ test.describe('Revoke all other sessions', () => {
   test.fixme(
     'user can complete full revokeOtherSessions workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

@@ -36,12 +36,15 @@ import {
 } from '../lib/effect'
 import { getQueuedSpecs, getInProgressSpecs } from './services/queue-operations'
 import { scanForFixmeSpecs } from './services/spec-scanner'
+import type { LoggerService } from '../lib/effect'
 import type { SpecIssue } from './services/types'
 
 /**
  * Close a stale issue with explanatory comment
  */
-const closeStaleIssue = (issue: SpecIssue): Effect.Effect<void, never, CommandService> =>
+const closeStaleIssue = (
+  issue: SpecIssue
+): Effect.Effect<void, never, CommandService | LoggerService> =>
   Effect.gen(function* () {
     const cmd = yield* CommandService
 

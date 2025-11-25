@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /* eslint-disable drizzle/enforce-delete-with-where */
 /**
@@ -33,7 +34,7 @@ test.describe('Cancel organization invitation', () => {
   test.fixme(
     'API-ORG-CANCEL-INVITATION-SUCCESS-001: should returns 200 OK and invitation status updated to cancelled',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner and a pending invitation
       await startServerWithSchema({
         name: 'test-app',
@@ -83,7 +84,7 @@ test.describe('Cancel organization invitation', () => {
   test.fixme(
     'API-ORG-CANCEL-INVITATION-VALIDATION-REQUIRED-INVITATION-ID-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -123,7 +124,7 @@ test.describe('Cancel organization invitation', () => {
   test.fixme(
     'API-ORG-CANCEL-INVITATION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -152,7 +153,7 @@ test.describe('Cancel organization invitation', () => {
   test.fixme(
     'API-ORG-CANCEL-INVITATION-PERMISSIONS-FORBIDDEN-REGULAR-MEMBER-001: should returns 403 Forbidden',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated regular member (not owner/admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -198,7 +199,7 @@ test.describe('Cancel organization invitation', () => {
   test.fixme(
     'API-ORG-CANCEL-INVITATION-NOT-FOUND-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -241,7 +242,7 @@ test.describe('Cancel organization invitation', () => {
   test.fixme(
     'API-ORG-CANCEL-INVITATION-CONFLICT-ALREADY-ACCEPTED-001: should returns 409 Conflict',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner and an accepted invitation
       await startServerWithSchema({
         name: 'test-app',
@@ -293,7 +294,7 @@ test.describe('Cancel organization invitation', () => {
   test.fixme(
     'API-ORG-CANCEL-INVITATION-EDGE-CASE-ALREADY-CANCELLED-001: should returns 409 Conflict',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner and an already cancelled invitation
       await startServerWithSchema({
         name: 'test-app',
@@ -339,7 +340,7 @@ test.describe('Cancel organization invitation', () => {
   test.fixme(
     'API-ORG-CANCEL-INVITATION-SECURITY-CROSS-ORG-PREVENTION-001: should returns 404 Not Found (prevent organization enumeration)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated owner of one organization and an invitation from different organization
       await startServerWithSchema({
         name: 'test-app',
@@ -402,7 +403,7 @@ test.describe('Cancel organization invitation', () => {
   test.fixme(
     'user can complete full cancelInvitation workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, _executeQuery }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',
