@@ -184,7 +184,7 @@ test.describe('Page Sections', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SECTIONS-005: should render text content',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
