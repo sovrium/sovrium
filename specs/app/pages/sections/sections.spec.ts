@@ -508,7 +508,7 @@ test.describe('Page Sections', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SECTIONS-014: should support rich media content',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
