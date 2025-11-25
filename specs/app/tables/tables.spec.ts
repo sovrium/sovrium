@@ -19,10 +19,9 @@ import { test, expect } from '@/specs/fixtures.ts'
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  *
  * Validation Approach:
- * - Database assertions (executeQuery fixture)
- * - PostgreSQL DDL validation (CREATE TABLE, ALTER TABLE, DROP TABLE)
- * - Constraint enforcement (UNIQUE, NOT NULL, CHECK, PRIMARY KEY)
- * - CRUD operations (INSERT, UPDATE, DELETE, SELECT)
+ * - Configuration validation (startServerWithSchema fixture)
+ * - Database assertions (executeQuery fixture for validation)
+ * - PostgreSQL behavior validation (constraints, indexes, CRUD)
  */
 
 test.describe('Data Tables', () => {
@@ -249,12 +248,38 @@ test.describe('Data Tables', () => {
   test.fixme(
     'APP-TABLES-SCHEMA-INTROSPECT-001: should return complete table metadata via introspection queries',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: existing table 'customers' in PostgreSQL with 3 columns
-      await executeQuery(
-        `CREATE TABLE customers (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, name VARCHAR(255) NOT NULL)`
-      )
-      await executeQuery(`CREATE INDEX idx_customers_email ON customers(email)`)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_customers',
+            name: 'customers',
+            fields: [
+              {
+                id: 1,
+                name: 'email',
+                type: 'email',
+                required: true,
+                unique: true,
+              },
+              {
+                id: 2,
+                name: 'name',
+                type: 'single-line-text',
+                required: true,
+              },
+            ],
+            indexes: [
+              {
+                name: 'idx_customers_email',
+                fields: ['email'],
+              },
+            ],
+          },
+        ],
+      })
 
       // WHEN: schema introspection queries are executed
       // THEN: queries return complete table metadata: columns, types, constraints, indexes
@@ -285,11 +310,25 @@ test.describe('Data Tables', () => {
   test.fixme(
     'APP-TABLES-FIELD-TEXT-001: should create PostgreSQL VARCHAR(255) column for single-line-text field',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with single-line-text field
       // WHEN: field migration creates column
-      await executeQuery(`CREATE TABLE items (id SERIAL PRIMARY KEY)`)
-      await executeQuery(`ALTER TABLE items ADD COLUMN title VARCHAR(255)`)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_items',
+            name: 'items',
+            fields: [
+              {
+                id: 1,
+                name: 'title',
+                type: 'single-line-text',
+              },
+            ],
+          },
+        ],
+      })
 
       // THEN: PostgreSQL VARCHAR(255) column is created
       const column = await executeQuery(
@@ -306,11 +345,27 @@ test.describe('Data Tables', () => {
   test.fixme(
     'APP-TABLES-FIELD-EMAIL-001: should create PostgreSQL VARCHAR(255) column with UNIQUE and NOT NULL constraints for email field',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with email field (required, unique)
       // WHEN: field migration creates column
-      await executeQuery(`CREATE TABLE users (id SERIAL PRIMARY KEY)`)
-      await executeQuery(`ALTER TABLE users ADD COLUMN email VARCHAR(255) UNIQUE NOT NULL`)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              {
+                id: 1,
+                name: 'email',
+                type: 'email',
+                required: true,
+                unique: true,
+              },
+            ],
+          },
+        ],
+      })
 
       // THEN: PostgreSQL VARCHAR(255) column with UNIQUE and NOT NULL constraints
       const column = await executeQuery(
@@ -332,13 +387,27 @@ test.describe('Data Tables', () => {
   test.fixme(
     'APP-TABLES-FIELD-INTEGER-001: should create PostgreSQL INTEGER column with CHECK constraint for range',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with integer field with min/max constraints
       // WHEN: field migration creates column
-      await executeQuery(`CREATE TABLE products (id SERIAL PRIMARY KEY)`)
-      await executeQuery(
-        `ALTER TABLE products ADD COLUMN quantity INTEGER CHECK (quantity >= 0 AND quantity <= 10000)`
-      )
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_products',
+            name: 'products',
+            fields: [
+              {
+                id: 1,
+                name: 'quantity',
+                type: 'integer',
+                min: 0,
+                max: 10000,
+              },
+            ],
+          },
+        ],
+      })
 
       // THEN: PostgreSQL INTEGER column with CHECK constraint for range
       const column = await executeQuery(
@@ -359,11 +428,27 @@ test.describe('Data Tables', () => {
   test.fixme(
     'APP-TABLES-FIELD-DECIMAL-001: should create PostgreSQL NUMERIC(10,2) column for decimal field',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with decimal field (precision 10, scale 2)
       // WHEN: field migration creates column
-      await executeQuery(`CREATE TABLE transactions (id SERIAL PRIMARY KEY)`)
-      await executeQuery(`ALTER TABLE transactions ADD COLUMN amount NUMERIC(10,2)`)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_transactions',
+            name: 'transactions',
+            fields: [
+              {
+                id: 1,
+                name: 'amount',
+                type: 'decimal',
+                precision: 10,
+                scale: 2,
+              },
+            ],
+          },
+        ],
+      })
 
       // THEN: PostgreSQL NUMERIC(10,2) column is created
       const column = await executeQuery(
@@ -381,11 +466,26 @@ test.describe('Data Tables', () => {
   test.fixme(
     'APP-TABLES-FIELD-BOOLEAN-001: should create PostgreSQL BOOLEAN column with DEFAULT false for checkbox field',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with checkbox field
       // WHEN: field migration creates column
-      await executeQuery(`CREATE TABLE settings (id SERIAL PRIMARY KEY)`)
-      await executeQuery(`ALTER TABLE settings ADD COLUMN is_active BOOLEAN DEFAULT false`)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_settings',
+            name: 'settings',
+            fields: [
+              {
+                id: 1,
+                name: 'is_active',
+                type: 'checkbox',
+                default: false,
+              },
+            ],
+          },
+        ],
+      })
 
       // THEN: PostgreSQL BOOLEAN column is created with DEFAULT false
       const column = await executeQuery(
@@ -402,11 +502,26 @@ test.describe('Data Tables', () => {
   test.fixme(
     'APP-TABLES-CONSTRAINT-UNIQUE-001: should reject duplicate values with unique constraint violation error',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with UNIQUE constraint on email column, existing row email='john@example.com'
-      await executeQuery(
-        `CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL)`
-      )
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              {
+                id: 1,
+                name: 'email',
+                type: 'email',
+                required: true,
+                unique: true,
+              },
+            ],
+          },
+        ],
+      })
       await executeQuery(`INSERT INTO users (email) VALUES ('john@example.com')`)
 
       // WHEN: attempt to insert duplicate email='john@example.com'
@@ -428,11 +543,32 @@ test.describe('Data Tables', () => {
   test.fixme(
     'APP-TABLES-CONSTRAINT-NOT-NULL-001: should reject NULL values with NOT NULL constraint violation',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with NOT NULL constraint on required field 'title'
-      await executeQuery(
-        `CREATE TABLE products (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL, price NUMERIC)`
-      )
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_products',
+            name: 'products',
+            fields: [
+              {
+                id: 1,
+                name: 'title',
+                type: 'single-line-text',
+                required: true,
+              },
+              {
+                id: 2,
+                name: 'price',
+                type: 'decimal',
+                precision: 10,
+                scale: 2,
+              },
+            ],
+          },
+        ],
+      })
 
       // WHEN: attempt to insert NULL value for title
       // THEN: PostgreSQL rejects insertion with NOT NULL constraint violation
@@ -450,11 +586,31 @@ test.describe('Data Tables', () => {
   test.fixme(
     'APP-TABLES-CONSTRAINT-CHECK-001: should enforce CHECK constraint and reject values outside range',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'inventory' with CHECK constraint (quantity >= 0 AND quantity <= 10000)
-      await executeQuery(
-        `CREATE TABLE inventory (id SERIAL PRIMARY KEY, item_name VARCHAR(255), quantity INTEGER CHECK (quantity >= 0 AND quantity <= 10000))`
-      )
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_inventory',
+            name: 'inventory',
+            fields: [
+              {
+                id: 1,
+                name: 'item_name',
+                type: 'single-line-text',
+              },
+              {
+                id: 2,
+                name: 'quantity',
+                type: 'integer',
+                min: 0,
+                max: 10000,
+              },
+            ],
+          },
+        ],
+      })
 
       // WHEN: attempt to insert values outside allowed range
       // THEN: PostgreSQL enforces CHECK constraint, rejects invalid values
@@ -476,13 +632,33 @@ test.describe('Data Tables', () => {
   test.fixme(
     'APP-TABLES-INDEX-CREATE-001: should create index and allow querying via pg_indexes',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with email field needing fast lookups
       // WHEN: index is created on email column
-      await executeQuery(
-        `CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL)`
-      )
-      await executeQuery(`CREATE INDEX idx_users_email ON users(email)`)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              {
+                id: 1,
+                name: 'email',
+                type: 'email',
+                required: true,
+                unique: true,
+              },
+            ],
+            indexes: [
+              {
+                name: 'idx_users_email',
+                fields: ['email'],
+              },
+            ],
+          },
+        ],
+      })
 
       // THEN: PostgreSQL index exists and can be queried via pg_indexes
       const index = await executeQuery(
@@ -550,13 +726,34 @@ test.describe('Data Tables', () => {
   test.fixme(
     'APP-TABLES-DATA-INSERT-001: should insert data and return row with generated ID',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'customers' with email and name fields
-      // WHEN: valid data is inserted
-      await executeQuery(
-        `CREATE TABLE customers (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, name VARCHAR(255) NOT NULL)`
-      )
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_customers',
+            name: 'customers',
+            fields: [
+              {
+                id: 1,
+                name: 'email',
+                type: 'email',
+                required: true,
+                unique: true,
+              },
+              {
+                id: 2,
+                name: 'name',
+                type: 'single-line-text',
+                required: true,
+              },
+            ],
+          },
+        ],
+      })
 
+      // WHEN: valid data is inserted
       // THEN: PostgreSQL returns inserted row with generated ID
       const insertion = await executeQuery(
         `INSERT INTO customers (email, name) VALUES ('john@example.com', 'John Doe') RETURNING id, email, name`
@@ -574,11 +771,29 @@ test.describe('Data Tables', () => {
   test.fixme(
     'APP-TABLES-DATA-UPDATE-001: should update row and return new value via SELECT',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'customers' with existing row (id=1, name='John Doe')
-      await executeQuery(
-        `CREATE TABLE customers (id SERIAL PRIMARY KEY, email VARCHAR(255), name VARCHAR(255))`
-      )
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_customers',
+            name: 'customers',
+            fields: [
+              {
+                id: 1,
+                name: 'email',
+                type: 'email',
+              },
+              {
+                id: 2,
+                name: 'name',
+                type: 'single-line-text',
+              },
+            ],
+          },
+        ],
+      })
       await executeQuery(
         `INSERT INTO customers (email, name) VALUES ('john@example.com', 'John Doe')`
       )
@@ -600,9 +815,24 @@ test.describe('Data Tables', () => {
   test.fixme(
     'APP-TABLES-DATA-DELETE-001: should delete row and decrease row count',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'customers' with 3 rows
-      await executeQuery(`CREATE TABLE customers (id SERIAL PRIMARY KEY, email VARCHAR(255))`)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_customers',
+            name: 'customers',
+            fields: [
+              {
+                id: 1,
+                name: 'email',
+                type: 'email',
+              },
+            ],
+          },
+        ],
+      })
       await executeQuery(
         `INSERT INTO customers (email) VALUES ('john@example.com'), ('jane@example.com'), ('bob@example.com')`
       )
@@ -625,13 +855,25 @@ test.describe('Data Tables', () => {
   test.fixme(
     'APP-TABLES-FIELD-TIMESTAMP-001: should create PostgreSQL TIMESTAMP column with DEFAULT NOW()',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with created_at field (auto-timestamp)
       // WHEN: field migration creates column
-      await executeQuery(`CREATE TABLE orders (id SERIAL PRIMARY KEY)`)
-      await executeQuery(
-        `ALTER TABLE orders ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`
-      )
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_orders',
+            name: 'orders',
+            fields: [
+              {
+                id: 1,
+                name: 'created_at',
+                type: 'created-at',
+              },
+            ],
+          },
+        ],
+      })
 
       // THEN: PostgreSQL TIMESTAMP column with DEFAULT NOW()
       const column = await executeQuery(
