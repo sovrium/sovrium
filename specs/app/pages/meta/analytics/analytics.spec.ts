@@ -33,7 +33,7 @@ test.describe('Analytics Configuration', () => {
   test(
     'APP-PAGES-ANALYTICS-001: should support multiple analytics providers',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: analytics with providers array
       await startServerWithSchema({
         name: 'test-app',
@@ -69,7 +69,7 @@ test.describe('Analytics Configuration', () => {
   test(
     'APP-PAGES-ANALYTICS-002: should support 6 analytics providers',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: analytics provider with name enum
       const providers = ['google', 'plausible', 'matomo', 'fathom', 'posthog', 'mixpanel']
       for (const provider of providers) {
@@ -98,7 +98,7 @@ test.describe('Analytics Configuration', () => {
   test(
     'APP-PAGES-ANALYTICS-003: should allow enabling/disabling provider',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: analytics provider with enabled toggle
       await startServerWithSchema({
         name: 'test-app',
@@ -134,7 +134,7 @@ test.describe('Analytics Configuration', () => {
   test(
     'APP-PAGES-ANALYTICS-004: should load provider scripts',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: analytics provider with scripts array
       await startServerWithSchema({
         name: 'test-app',
@@ -171,7 +171,7 @@ test.describe('Analytics Configuration', () => {
   test(
     'APP-PAGES-ANALYTICS-005: should load script asynchronously',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: analytics provider script with async
       await startServerWithSchema({
         name: 'test-app',
@@ -209,7 +209,7 @@ test.describe('Analytics Configuration', () => {
   test(
     'APP-PAGES-ANALYTICS-006: should execute provider initialization code',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: analytics provider with initScript
       await startServerWithSchema({
         name: 'test-app',
@@ -248,7 +248,7 @@ test.describe('Analytics Configuration', () => {
   test(
     'APP-PAGES-ANALYTICS-007: should optimize DNS resolution for provider',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: analytics provider with dnsPrefetch
       await startServerWithSchema({
         name: 'test-app',
@@ -282,7 +282,7 @@ test.describe('Analytics Configuration', () => {
   test(
     'APP-PAGES-ANALYTICS-008: should pass configuration to provider',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: analytics provider with config object
       await startServerWithSchema({
         name: 'test-app',
@@ -317,7 +317,7 @@ test.describe('Analytics Configuration', () => {
   test(
     'APP-PAGES-ANALYTICS-009: should configure Google Analytics',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: analytics with Google Analytics provider
       await startServerWithSchema({
         name: 'test-app',
@@ -361,7 +361,7 @@ test.describe('Analytics Configuration', () => {
   test(
     'APP-PAGES-ANALYTICS-010: should configure privacy-friendly Plausible analytics',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: analytics with Plausible provider
       await startServerWithSchema({
         name: 'test-app',
@@ -400,7 +400,7 @@ test.describe('Analytics Configuration', () => {
   test(
     'APP-PAGES-ANALYTICS-011: should support multi-provider analytics',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: analytics with multiple providers
       await startServerWithSchema({
         name: 'test-app',
@@ -446,7 +446,7 @@ test.describe('Analytics Configuration', () => {
   test(
     'APP-PAGES-ANALYTICS-012: should configure event tracking and feature flags',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: analytics provider with PostHog
       await startServerWithSchema({
         name: 'test-app',
@@ -490,7 +490,7 @@ test.describe('Analytics Configuration', () => {
   test(
     'APP-PAGES-META-ANALYTICS-REGRESSION-001: user can complete full analytics workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [

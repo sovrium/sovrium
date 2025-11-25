@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
+ 
 
 /**
  * E2E Tests for Admin: Create user
@@ -33,7 +33,7 @@ test.describe('Admin: Create user', () => {
   test.fixme(
     'API-ADMIN-CREATE-USER-SUCCESS-001: should returns 201 Created with user data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -80,7 +80,7 @@ test.describe('Admin: Create user', () => {
   test.fixme(
     'API-ADMIN-CREATE-USER-SUCCESS-PRE-VERIFIED-001: should returns 201 Created with email pre-verified',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -119,7 +119,7 @@ test.describe('Admin: Create user', () => {
   test.fixme(
     'API-ADMIN-CREATE-USER-VALIDATION-REQUIRED-FIELDS-001: should returns 400 Bad Request with validation errors',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -153,7 +153,7 @@ test.describe('Admin: Create user', () => {
   test.fixme(
     'API-ADMIN-CREATE-USER-VALIDATION-INVALID-EMAIL-FORMAT-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -192,7 +192,7 @@ test.describe('Admin: Create user', () => {
   test.fixme(
     'API-ADMIN-CREATE-USER-VALIDATION-PASSWORD-LENGTH-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -231,7 +231,7 @@ test.describe('Admin: Create user', () => {
   test.fixme(
     'API-ADMIN-CREATE-USER-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -262,7 +262,7 @@ test.describe('Admin: Create user', () => {
   test.fixme(
     'API-ADMIN-CREATE-USER-PERMISSIONS-FORBIDDEN-NON-ADMIN-001: should returns 403 Forbidden',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -301,7 +301,7 @@ test.describe('Admin: Create user', () => {
   test.fixme(
     'API-ADMIN-CREATE-USER-CONFLICT-DUPLICATE-EMAIL-001: should returns 409 Conflict error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
@@ -343,7 +343,7 @@ test.describe('Admin: Create user', () => {
   test.fixme(
     'API-ADMIN-CREATE-USER-SECURITY-XSS-PREVENTION-NAME-001: should returns 201 Created with sanitized name (XSS payload neutralized)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -379,7 +379,7 @@ test.describe('Admin: Create user', () => {
   test.fixme(
     'API-ADMIN-CREATE-USER-EDGE-CASE-UNICODE-NAME-001: should returns 201 Created with Unicode name preserved',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -419,7 +419,7 @@ test.describe('Admin: Create user', () => {
   test.fixme(
     'user can complete full adminCreateUser workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

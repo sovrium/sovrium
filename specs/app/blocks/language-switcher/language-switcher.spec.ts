@@ -28,7 +28,7 @@ test.describe('Language Switcher Block', () => {
   test(
     'APP-BLOCKS-LANGUAGE-SWITCHER-001: should render a dropdown menu with all supported languages',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a language-switcher block with dropdown variant
       await startServerWithSchema({
         name: 'test-app',
@@ -79,7 +79,7 @@ test.describe('Language Switcher Block', () => {
   test(
     'APP-BLOCKS-LANGUAGE-SWITCHER-002: should display flag emojis next to language labels',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a language-switcher block with showFlags enabled
       await startServerWithSchema({
         name: 'test-app',
@@ -128,7 +128,7 @@ test.describe('Language Switcher Block', () => {
   test(
     'APP-BLOCKS-LANGUAGE-SWITCHER-003: should use default variant (dropdown) and no flags',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a language-switcher block with minimal configuration
       await startServerWithSchema({
         name: 'test-app',
@@ -178,7 +178,7 @@ test.describe('Language Switcher Block', () => {
   test(
     'APP-BLOCKS-LANGUAGE-SWITCHER-REGRESSION-001: user can complete full language-switcher workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: complete application configuration with all features
       await startServerWithSchema({
         name: 'test-app',

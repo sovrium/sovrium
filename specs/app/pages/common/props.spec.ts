@@ -27,7 +27,7 @@ test.describe('Component Props', () => {
   test(
     'APP-PAGES-PROPS-001: should accept string property',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: props with string value
       await startServerWithSchema({
         name: 'test-app',
@@ -55,7 +55,7 @@ test.describe('Component Props', () => {
   test(
     'APP-PAGES-PROPS-002: should accept numeric property',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: props with number value
       await startServerWithSchema({
         name: 'test-app',
@@ -80,7 +80,7 @@ test.describe('Component Props', () => {
   test(
     'APP-PAGES-PROPS-003: should accept boolean property',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: props with boolean value
       await startServerWithSchema({
         name: 'test-app',
@@ -105,7 +105,7 @@ test.describe('Component Props', () => {
   test(
     'APP-PAGES-PROPS-004: should accept nested object property',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: props with object value
       await startServerWithSchema({
         name: 'test-app',
@@ -138,7 +138,7 @@ test.describe('Component Props', () => {
   test(
     'APP-PAGES-PROPS-005: should accept array property',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: props with array value
       await startServerWithSchema({
         name: 'test-app',
@@ -166,7 +166,7 @@ test.describe('Component Props', () => {
   test(
     'APP-PAGES-PROPS-006: should accept string with $variable syntax',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: props with variable reference
       await startServerWithSchema({
         name: 'test-app',
@@ -194,7 +194,7 @@ test.describe('Component Props', () => {
   test(
     'APP-PAGES-PROPS-007: should support mixed property types',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: props with multiple properties of different types
       await startServerWithSchema({
         name: 'test-app',
@@ -228,7 +228,7 @@ test.describe('Component Props', () => {
   test(
     'APP-PAGES-PROPS-008: should validate camelCase naming convention',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: props with camelCase property names
       await startServerWithSchema({
         name: 'test-app',
@@ -262,7 +262,7 @@ test.describe('Component Props', () => {
   test(
     'APP-PAGES-PROPS-009: should support multiple variable references across properties',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: props object referencing theme tokens
       await startServerWithSchema({
         name: 'test-app',
@@ -297,7 +297,7 @@ test.describe('Component Props', () => {
   test(
     'APP-PAGES-PROPS-010: should accept empty object for components without props',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: empty props object
       await startServerWithSchema({
         name: 'test-app',
@@ -327,7 +327,7 @@ test.describe('Component Props', () => {
   test(
     'APP-PAGES-PROPS-REGRESSION-011: user can complete full props workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Application with various prop types
       await startServerWithSchema({
         name: 'test-app',

@@ -27,7 +27,7 @@ test.describe('Banner Configuration', () => {
   test(
     'APP-PAGES-BANNER-001: should display banner at top of page',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a banner with enabled set to true
       await startServerWithSchema({
         name: 'test-app',
@@ -55,7 +55,7 @@ test.describe('Banner Configuration', () => {
   test(
     'APP-PAGES-BANNER-002: should render announcement text',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a banner with text content
       await startServerWithSchema({
         name: 'test-app',
@@ -82,7 +82,7 @@ test.describe('Banner Configuration', () => {
   test(
     'APP-PAGES-BANNER-003: should add clickable link to banner',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a banner with link
       await startServerWithSchema({
         name: 'test-app',
@@ -124,7 +124,7 @@ test.describe('Banner Configuration', () => {
   test(
     'APP-PAGES-BANNER-004: should apply CSS gradient as background',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a banner with gradient background
       await startServerWithSchema({
         name: 'test-app',
@@ -157,7 +157,7 @@ test.describe('Banner Configuration', () => {
   test(
     'APP-PAGES-BANNER-005: should apply solid background color',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a banner with solid backgroundColor
       await startServerWithSchema({
         name: 'test-app',
@@ -184,7 +184,7 @@ test.describe('Banner Configuration', () => {
   test(
     'APP-PAGES-BANNER-006: should apply text color for contrast',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a banner with textColor
       await startServerWithSchema({
         name: 'test-app',
@@ -218,7 +218,7 @@ test.describe('Banner Configuration', () => {
   test(
     'APP-PAGES-BANNER-007: should allow users to close banner permanently',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a dismissible banner
       await startServerWithSchema({
         name: 'test-app',
@@ -253,7 +253,7 @@ test.describe('Banner Configuration', () => {
   test(
     'APP-PAGES-BANNER-008: should remain at top during page scroll',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a sticky banner
       await startServerWithSchema({
         name: 'test-app',
@@ -287,7 +287,7 @@ test.describe('Banner Configuration', () => {
   test(
     'APP-PAGES-BANNER-009: should not render banner',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a disabled banner
       await startServerWithSchema({
         name: 'test-app',
@@ -313,7 +313,7 @@ test.describe('Banner Configuration', () => {
   test(
     'APP-PAGES-BANNER-010: should render emojis correctly',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a banner with emoji in text
       await startServerWithSchema({
         name: 'test-app',
@@ -345,7 +345,7 @@ test.describe('Banner Configuration', () => {
   test(
     'APP-PAGES-LAYOUT-BANNER-REGRESSION-001: user can complete full banner workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Application with comprehensive banner system
       await startServerWithSchema({
         name: 'test-app',

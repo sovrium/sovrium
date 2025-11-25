@@ -27,7 +27,7 @@ test.describe('Breakpoints', () => {
   test(
     'APP-THEME-BREAKPOINTS-001: should validate Tailwind breakpoint values',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: standard Tailwind breakpoints (sm, md, lg, xl, 2xl)
       await startServerWithSchema({
         name: 'test-app',
@@ -81,7 +81,7 @@ test.describe('Breakpoints', () => {
   test(
     'APP-THEME-BREAKPOINTS-002: should validate pixel-based breakpoints',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: breakpoint values in pixels
       await startServerWithSchema({
         name: 'test-app',
@@ -121,7 +121,7 @@ test.describe('Breakpoints', () => {
   test(
     'APP-THEME-BREAKPOINTS-003: should validate progressive enhancement strategy',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: mobile-first breakpoint progression
       await startServerWithSchema({
         name: 'test-app',
@@ -159,7 +159,7 @@ test.describe('Breakpoints', () => {
   test(
     'APP-THEME-BREAKPOINTS-004: should validate lowercase naming convention',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: breakpoint with lowercase naming
       await startServerWithSchema({
         name: 'test-app',
@@ -199,7 +199,7 @@ test.describe('Breakpoints', () => {
   test(
     'APP-THEME-BREAKPOINTS-005: should validate custom breakpoint naming',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: custom breakpoints (tablet, desktop, wide)
       await startServerWithSchema({
         name: 'test-app',
@@ -240,7 +240,7 @@ test.describe('Breakpoints', () => {
   test(
     'APP-THEME-BREAKPOINTS-006: should validate consistency across responsive system',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: breakpoints matching responsive.schema.json
       await startServerWithSchema({
         name: 'test-app',
@@ -278,7 +278,7 @@ test.describe('Breakpoints', () => {
   test(
     'APP-THEME-BREAKPOINTS-APPLICATION-001: should render grid with media query at 768px',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: md breakpoint applied to responsive grid
       await startServerWithSchema({
         name: 'test-app',
@@ -319,7 +319,7 @@ test.describe('Breakpoints', () => {
   test(
     'APP-THEME-BREAKPOINTS-APPLICATION-002: should render hamburger menu below 1024px and full menu above',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: lg breakpoint applied to navigation menu
       await startServerWithSchema({
         name: 'test-app',
@@ -360,7 +360,7 @@ test.describe('Breakpoints', () => {
   test(
     'APP-THEME-BREAKPOINTS-APPLICATION-003: should render with increasing padding at each breakpoint',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: multiple breakpoints applied to hero section
       await startServerWithSchema({
         name: 'test-app',
@@ -408,7 +408,7 @@ test.describe('Breakpoints', () => {
   test(
     'APP-THEME-BREAKPOINTS-REGRESSION-001: user can complete full breakpoints workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Application with comprehensive breakpoint system
       await startServerWithSchema({
         name: 'test-app',

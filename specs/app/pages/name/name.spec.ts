@@ -27,7 +27,7 @@ test.describe('Page Name', () => {
   test(
     'APP-PAGES-NAME-001: should validate as internal page name',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a page name as string
       await startServerWithSchema({
         name: 'test-app',
@@ -52,7 +52,7 @@ test.describe('Page Name', () => {
   test(
     'APP-PAGES-NAME-002: should follow shared name pattern from common definitions',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a page name referencing common definition
       // WHEN: schema uses $ref to definitions.schema.json#/definitions/name
       // THEN: it should follow shared name pattern from common definitions
@@ -75,7 +75,7 @@ test.describe('Page Name', () => {
   test(
     'APP-PAGES-NAME-003: should accept simple lowercase names',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a descriptive page name
       await startServerWithSchema({
         name: 'test-app',
@@ -100,7 +100,7 @@ test.describe('Page Name', () => {
   test(
     'APP-PAGES-NAME-004: should accept single-word page identifiers',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a multi-word page name
       await startServerWithSchema({
         name: 'test-app',
@@ -133,7 +133,7 @@ test.describe('Page Name', () => {
   test(
     'APP-PAGES-NAME-005: should accept snake_case names with underscores',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a page name with underscores (snake_case)
       await startServerWithSchema({
         name: 'test-app',
@@ -166,7 +166,7 @@ test.describe('Page Name', () => {
   test(
     'APP-PAGES-NAME-006: should provide examples for typical page names',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: common page names (home, about, pricing, contact)
       await startServerWithSchema({
         name: 'test-app',
@@ -232,7 +232,7 @@ test.describe('Page Name', () => {
   test(
     'APP-PAGES-NAME-008: should serve as internal identifier separate from URL path',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: page names across multiple pages
       await startServerWithSchema({
         name: 'test-app',
@@ -276,7 +276,7 @@ test.describe('Page Name', () => {
   test(
     'APP-PAGES-NAME-REGRESSION-001: user can complete full page name workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Application with various page name formats (snake_case)
       await startServerWithSchema({
         name: 'test-app',

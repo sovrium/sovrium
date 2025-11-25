@@ -22,7 +22,7 @@ test.describe('Organization Schema', () => {
   test(
     'APP-PAGES-ORGANIZATION-001: should validate minimal Organization structured data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Organization with required properties
       await startServerWithSchema({
         name: 'test-app',
@@ -60,7 +60,7 @@ test.describe('Organization Schema', () => {
   test(
     'APP-PAGES-ORGANIZATION-002: should specify Schema.org vocabulary',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Organization with @context
       await startServerWithSchema({
         name: 'test-app',
@@ -97,7 +97,7 @@ test.describe('Organization Schema', () => {
   test(
     'APP-PAGES-ORGANIZATION-003: should identify entity as Organization',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Organization with @type
       await startServerWithSchema({
         name: 'test-app',
@@ -134,7 +134,7 @@ test.describe('Organization Schema', () => {
   test(
     'APP-PAGES-ORGANIZATION-004: should provide organization name',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Organization with name
       await startServerWithSchema({
         name: 'test-app',
@@ -171,7 +171,7 @@ test.describe('Organization Schema', () => {
   test(
     'APP-PAGES-ORGANIZATION-005: should provide organization website URL',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Organization with url
       await startServerWithSchema({
         name: 'test-app',
@@ -209,7 +209,7 @@ test.describe('Organization Schema', () => {
   test(
     'APP-PAGES-ORGANIZATION-006: should provide logo for search results',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Organization with logo
       await startServerWithSchema({
         name: 'test-app',
@@ -247,7 +247,7 @@ test.describe('Organization Schema', () => {
   test(
     'APP-PAGES-ORGANIZATION-007: should support single or multiple organization images',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Organization with image
       await startServerWithSchema({
         name: 'test-app',
@@ -286,7 +286,7 @@ test.describe('Organization Schema', () => {
   test(
     'APP-PAGES-ORGANIZATION-008: should provide contact information',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Organization with contact info
       await startServerWithSchema({
         name: 'test-app',
@@ -326,7 +326,7 @@ test.describe('Organization Schema', () => {
   test(
     'APP-PAGES-ORGANIZATION-009: should include PostalAddress structured data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Organization with address
       await startServerWithSchema({
         name: 'test-app',
@@ -372,7 +372,7 @@ test.describe('Organization Schema', () => {
   test(
     'APP-PAGES-ORGANIZATION-010: should link organization to social profiles',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Organization with social profiles
       await startServerWithSchema({
         name: 'test-app',
@@ -416,7 +416,7 @@ test.describe('Organization Schema', () => {
   test(
     'APP-PAGES-ORGANIZATION-011: should provide organization history',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Organization with founder info
       await startServerWithSchema({
         name: 'test-app',
@@ -456,7 +456,7 @@ test.describe('Organization Schema', () => {
   test(
     'APP-PAGES-ORGANIZATION-012: should indicate organization size',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Organization with employees count
       await startServerWithSchema({
         name: 'test-app',
@@ -494,7 +494,7 @@ test.describe('Organization Schema', () => {
   test(
     'APP-PAGES-ORGANIZATION-013: should link organization to hosted events',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Organization with event
       await startServerWithSchema({
         name: 'test-app',
@@ -537,7 +537,7 @@ test.describe('Organization Schema', () => {
   test(
     'APP-PAGES-ORGANIZATION-014: should enable Google Knowledge Graph panel in search results',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Organization for knowledge graph
       await startServerWithSchema({
         name: 'test-app',
@@ -577,7 +577,7 @@ test.describe('Organization Schema', () => {
   test(
     'APP-PAGES-META-STRUCTURED-DATA-ORGANIZATION-REGRESSION-001: user can complete full Organization workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [

@@ -7,7 +7,7 @@
 
 import { test, expect } from '@/specs/fixtures'
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
+ 
 
 /**
  * E2E Tests for Database Views Migration
@@ -29,7 +29,7 @@ test.describe('Database Views Migration', () => {
   test.fixme(
     'MIG-VIEW-001: should create view for read-only access',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: table 'users' exists, no views defined
       // WHEN: view 'active_users' added to schema (SELECT * FROM users WHERE active = true)
       // THEN: CREATE VIEW for read-only access
@@ -42,7 +42,7 @@ test.describe('Database Views Migration', () => {
   test.fixme(
     'MIG-VIEW-002: should drop view when removed',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: view 'active_users' exists
       // WHEN: view removed from schema
       // THEN: DROP VIEW when removed
@@ -55,7 +55,7 @@ test.describe('Database Views Migration', () => {
   test.fixme(
     'MIG-VIEW-003: should alter view via drop and create',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: view 'user_summary' exists with query A
       // WHEN: view query modified to query B
       // THEN: ALTER VIEW via DROP and CREATE
@@ -68,7 +68,7 @@ test.describe('Database Views Migration', () => {
   test.fixme(
     'MIG-VIEW-004: should create materialized view',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: table 'orders' exists, no materialized views
       // WHEN: materialized view 'order_stats' added (aggregation query)
       // THEN: CREATE MATERIALIZED VIEW
@@ -81,7 +81,7 @@ test.describe('Database Views Migration', () => {
   test.fixme(
     'MIG-VIEW-005: should refresh materialized view',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: materialized view 'order_stats' exists with stale data
       // WHEN: refresh triggered via schema metadata or manual command
       // THEN: REFRESH MATERIALIZED VIEW
@@ -94,7 +94,7 @@ test.describe('Database Views Migration', () => {
   test.fixme(
     'MIG-VIEW-006: should drop view cascade',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: view 'user_orders' exists, view 'active_orders' depends on it
       // WHEN: view 'user_orders' removed from schema
       // THEN: DROP VIEW CASCADE
@@ -111,7 +111,7 @@ test.describe('Database Views Migration', () => {
   test.fixme(
     'user can complete full views workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: Application configured with representative views scenarios
       // WHEN/THEN: Streamlined workflow testing integration points
 

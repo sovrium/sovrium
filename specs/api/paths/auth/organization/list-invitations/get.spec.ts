@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
+ 
 
 /**
  * E2E Tests for List organization invitations
@@ -33,7 +33,7 @@ test.describe('List organization invitations', () => {
   test.fixme(
     'API-ORG-LIST-INVITATIONS-SUCCESS-001: should returns 200 OK with all invitations regardless of status',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated organization owner and multiple invitations
       await startServerWithSchema({
         name: 'test-app',
@@ -87,7 +87,7 @@ test.describe('List organization invitations', () => {
   test.fixme(
     'API-ORG-LIST-INVITATIONS-SUCCESS-FILTER-PENDING-001: should returns 200 OK with only pending invitations',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated organization owner and multiple invitations with different statuses
       await startServerWithSchema({
         name: 'test-app',
@@ -138,7 +138,7 @@ test.describe('List organization invitations', () => {
   test.fixme(
     'API-ORG-LIST-INVITATIONS-VALIDATION-REQUIRED-ORGANIZATION-ID-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -172,7 +172,7 @@ test.describe('List organization invitations', () => {
   test.fixme(
     'API-ORG-LIST-INVITATIONS-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -198,7 +198,7 @@ test.describe('List organization invitations', () => {
   test.fixme(
     'API-ORG-LIST-INVITATIONS-PERMISSIONS-FORBIDDEN-REGULAR-MEMBER-001: should returns 403 Forbidden',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated regular member (not owner/admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -241,7 +241,7 @@ test.describe('List organization invitations', () => {
   test.fixme(
     'API-ORG-LIST-INVITATIONS-NOT-FOUND-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -278,7 +278,7 @@ test.describe('List organization invitations', () => {
   test.fixme(
     'API-ORG-LIST-INVITATIONS-SECURITY-CROSS-ORG-PREVENTION-001: should returns 404 Not Found (prevent organization enumeration)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated owner of one organization
       await startServerWithSchema({
         name: 'test-app',
@@ -333,7 +333,7 @@ test.describe('List organization invitations', () => {
   test.fixme(
     'API-ORG-LIST-INVITATIONS-EDGE-CASE-EMPTY-LIST-001: should returns 200 OK with empty invitations array',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated organization owner with no invitations
       await startServerWithSchema({
         name: 'test-app',
@@ -377,7 +377,7 @@ test.describe('List organization invitations', () => {
   test.fixme(
     'user can complete full listInvitations workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

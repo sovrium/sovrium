@@ -7,7 +7,7 @@
 
 import { test, expect } from '@/specs/fixtures'
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
+ 
 
 /**
  * E2E Tests for Checksum Optimization
@@ -29,7 +29,7 @@ test.describe('Checksum Optimization', () => {
   test.fixme(
     'MIG-CHECKSUM-001: should save SHA-256 checksum to _sovrium_schema_checksum table when runtime migration executes for first time',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: table schema configuration with no previous checksum
       await executeQuery([
         `CREATE TABLE IF NOT EXISTS _sovrium_schema_checksum (
@@ -88,7 +88,7 @@ test.describe('Checksum Optimization', () => {
   test.fixme(
     'MIG-CHECKSUM-002: should skip migration and complete startup in <100ms when table schema unchanged from previous run',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: table schema unchanged from previous run (checksum matches)
       await executeQuery([
         `CREATE TABLE IF NOT EXISTS _sovrium_schema_checksum (
@@ -146,7 +146,7 @@ test.describe('Checksum Optimization', () => {
   test.fixme(
     'MIG-CHECKSUM-003: should execute full migration and save new checksum when table schema modified',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: table schema modified (new field added)
       await executeQuery([
         `CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255))`,
@@ -212,7 +212,7 @@ test.describe('Checksum Optimization', () => {
   test.fixme(
     'MIG-CHECKSUM-004: should change checksum and trigger re-migration when minor schema change occurs',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: checksum computation includes all schema properties (fields, types, constraints, indexes)
       await executeQuery([
         `CREATE TABLE products (id SERIAL PRIMARY KEY, sku VARCHAR(100))`,
@@ -271,7 +271,7 @@ test.describe('Checksum Optimization', () => {
   test.fixme(
     'user can complete full checksum-optimization workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: Application configured with representative checksum system
       await executeQuery([
         `CREATE TABLE IF NOT EXISTS _sovrium_schema_checksum (

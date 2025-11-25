@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
+ 
 
 /**
  * E2E Tests for Change email address
@@ -33,7 +33,7 @@ test.describe('Change email address', () => {
   test.fixme(
     'API-AUTH-CHANGE-EMAIL-SUCCESS-001: should returns 200 OK and updates email (or sends verification)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated user with valid new email
       await startServerWithSchema({
         name: 'test-app',
@@ -73,7 +73,7 @@ test.describe('Change email address', () => {
   test.fixme(
     'API-AUTH-CHANGE-EMAIL-VALIDATION-REQUIRED-NEW-EMAIL-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -111,7 +111,7 @@ test.describe('Change email address', () => {
   test.fixme(
     'API-AUTH-CHANGE-EMAIL-VALIDATION-INVALID-EMAIL-FORMAT-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -151,7 +151,7 @@ test.describe('Change email address', () => {
   test.fixme(
     'API-AUTH-CHANGE-EMAIL-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -182,7 +182,7 @@ test.describe('Change email address', () => {
   test.fixme(
     'API-AUTH-CHANGE-EMAIL-CONFLICT-EMAIL-IN-USE-001: should returns 409 Conflict error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated user and another user with target email
       await startServerWithSchema({
         name: 'test-app',
@@ -225,7 +225,7 @@ test.describe('Change email address', () => {
   test.fixme(
     'API-AUTH-CHANGE-EMAIL-EDGE-CASE-SAME-EMAIL-001: should returns 200 OK or 400 (implementation-dependent)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -260,7 +260,7 @@ test.describe('Change email address', () => {
   test.fixme(
     'API-AUTH-CHANGE-EMAIL-EDGE-CASE-EMAIL-CASE-INSENSITIVE-001: should returns 409 Conflict (case-insensitive email matching)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated user with lowercase email
       await startServerWithSchema({
         name: 'test-app',
@@ -307,7 +307,7 @@ test.describe('Change email address', () => {
   test.fixme(
     'user can complete full changeEmail workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

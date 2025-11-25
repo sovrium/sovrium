@@ -22,7 +22,7 @@ test.describe('DNS Prefetch', () => {
   test(
     'APP-PAGES-DNS-001: should prefetch DNS for listed domains',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: DNS prefetch array with domains
       await startServerWithSchema({
         name: 'test_app',
@@ -57,7 +57,7 @@ test.describe('DNS Prefetch', () => {
   test(
     'APP-PAGES-DNS-002: should optimize Google Fonts loading',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: DNS prefetch for font domains
       await startServerWithSchema({
         name: 'test-app',
@@ -92,7 +92,7 @@ test.describe('DNS Prefetch', () => {
   test(
     'APP-PAGES-DNS-003: should optimize analytics script loading',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: DNS prefetch for analytics domains
       await startServerWithSchema({
         name: 'test-app',
@@ -124,7 +124,7 @@ test.describe('DNS Prefetch', () => {
   test(
     'APP-PAGES-DNS-004: should optimize CDN resource loading',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: DNS prefetch for CDN domains
       await startServerWithSchema({
         name: 'test-app',
@@ -159,7 +159,7 @@ test.describe('DNS Prefetch', () => {
   test(
     'APP-PAGES-DNS-005: should optimize API request latency',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: DNS prefetch for API domains
       await startServerWithSchema({
         name: 'test-app',
@@ -191,7 +191,7 @@ test.describe('DNS Prefetch', () => {
   test(
     'APP-PAGES-DNS-006: should validate protocol in URL pattern',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: DNS prefetch with http/https protocol
       await startServerWithSchema({
         name: 'test-app',
@@ -225,7 +225,7 @@ test.describe('DNS Prefetch', () => {
   test(
     'APP-PAGES-DNS-007: should prevent duplicate domain entries',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: DNS prefetch with unique items
       await startServerWithSchema({
         name: 'test-app',
@@ -258,7 +258,7 @@ test.describe('DNS Prefetch', () => {
   test(
     'APP-PAGES-DNS-008: should optimize multiple external connections',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: DNS prefetch for multiple third-party services
       await startServerWithSchema({
         name: 'test-app',
@@ -293,7 +293,7 @@ test.describe('DNS Prefetch', () => {
   test(
     'APP-PAGES-DNS-009: should reduce connection latency',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: DNS prefetch before resource fetch
       await startServerWithSchema({
         name: 'test-app',
@@ -325,7 +325,7 @@ test.describe('DNS Prefetch', () => {
   test(
     'APP-PAGES-DNS-010: should improve perceived page load speed',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: DNS prefetch performance benefit
       await startServerWithSchema({
         name: 'test-app',
@@ -356,7 +356,7 @@ test.describe('DNS Prefetch', () => {
   test(
     'APP-PAGES-META-PERFORMANCE-DNS-PREFETCH-REGRESSION-001: user can complete full DNS prefetch workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [

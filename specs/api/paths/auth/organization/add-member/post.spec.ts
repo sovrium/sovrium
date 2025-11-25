@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
+ 
 
 /**
  * E2E Tests for Add member to organization
@@ -33,7 +33,7 @@ test.describe('Add member to organization', () => {
   test.fixme(
     'API-ORG-ADD-MEMBER-SUCCESS-001: should returns 201 Created with member data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated organization owner and an existing user
       await startServerWithSchema({
         name: 'test-app',
@@ -85,7 +85,7 @@ test.describe('Add member to organization', () => {
   test.fixme(
     'API-ORG-ADD-MEMBER-VALIDATION-REQUIRED-FIELDS-001: should returns 400 Bad Request with validation errors',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -125,7 +125,7 @@ test.describe('Add member to organization', () => {
   test.fixme(
     'API-ORG-ADD-MEMBER-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -156,7 +156,7 @@ test.describe('Add member to organization', () => {
   test.fixme(
     'API-ORG-ADD-MEMBER-PERMISSIONS-FORBIDDEN-REGULAR-MEMBER-001: should returns 403 Forbidden',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated regular member (not owner/admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -204,7 +204,7 @@ test.describe('Add member to organization', () => {
   test.fixme(
     'API-ORG-ADD-MEMBER-NOT-FOUND-USER-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -249,7 +249,7 @@ test.describe('Add member to organization', () => {
   test.fixme(
     'API-ORG-ADD-MEMBER-CONFLICT-ALREADY-MEMBER-001: should returns 409 Conflict error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated organization owner and a user who is already member
       await startServerWithSchema({
         name: 'test-app',
@@ -304,7 +304,7 @@ test.describe('Add member to organization', () => {
   test.fixme(
     'user can complete full addMember workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

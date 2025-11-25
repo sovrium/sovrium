@@ -39,7 +39,7 @@ import { test, expect } from '@/specs/fixtures'
 test(
   'API-HEALTH-001: should return 200 OK status and proper JSON structure',
   { tag: '@regression' },
-  async ({ page, startServerWithSchema }) => {
+  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
     // GIVEN: A running server
     await startServerWithSchema({
       name: 'health-test-app',
@@ -68,7 +68,7 @@ test(
 test(
   'API-HEALTH-002: should return JSON with status, timestamp, and app name',
   { tag: '@spec' },
-  async ({ page, startServerWithSchema }) => {
+  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
     // GIVEN: A server with specific app name
     await startServerWithSchema({
       name: 'monitoring-app',
@@ -102,7 +102,7 @@ test(
 test(
   'API-HEALTH-003: should return current timestamp',
   { tag: '@spec' },
-  async ({ page, startServerWithSchema }) => {
+  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
     // GIVEN: A running server
     await startServerWithSchema({
       name: 'timestamp-test',
@@ -132,7 +132,7 @@ test(
 test(
   'API-HEALTH-004: should handle scoped package names in health response',
   { tag: '@spec' },
-  async ({ page, startServerWithSchema }) => {
+  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
     // GIVEN: A server with scoped package name
     await startServerWithSchema({
       name: '@myorg/dashboard',

@@ -27,7 +27,7 @@ test.describe('Reusable Blocks', () => {
   test(
     'APP-BLOCKS-001: should validate blocks array structure',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: reusable blocks array
       await startServerWithSchema({
         name: 'test-app',
@@ -53,7 +53,7 @@ test.describe('Reusable Blocks', () => {
   test(
     'APP-BLOCKS-002: should render same block definition across multiple page locations',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: blocks for DRY principle
       await startServerWithSchema({
         name: 'test-app',
@@ -79,7 +79,7 @@ test.describe('Reusable Blocks', () => {
   test(
     'APP-BLOCKS-003: should render concrete component with substituted values',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: block with variable substitution
       await startServerWithSchema({
         name: 'test-app',
@@ -113,7 +113,7 @@ test.describe('Reusable Blocks', () => {
   test(
     'APP-BLOCKS-004: should render badge with icon and text using substituted values',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: icon-badge block example
       await startServerWithSchema({
         name: 'test-app',
@@ -143,7 +143,7 @@ test.describe('Reusable Blocks', () => {
   test(
     'APP-BLOCKS-005: should render section header with styled title and subtitle',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: section-header block example
       await startServerWithSchema({
         name: 'test-app',
@@ -172,7 +172,7 @@ test.describe('Reusable Blocks', () => {
   test(
     'APP-BLOCKS-006: should provide consistent, reusable components across pages',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: blocks as component library
       await startServerWithSchema({
         name: 'test-app',
@@ -196,7 +196,7 @@ test.describe('Reusable Blocks', () => {
   test(
     'APP-BLOCKS-007: should reflect changes across all block instances on page rebuild',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: blocks with centralized updates
       await startServerWithSchema({
         name: 'test-app',
@@ -222,7 +222,7 @@ test.describe('Reusable Blocks', () => {
   test(
     'APP-BLOCKS-008: should render complex nested component structures',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: blocks for composition
       await startServerWithSchema({
         name: 'test-app',
@@ -248,7 +248,7 @@ test.describe('Reusable Blocks', () => {
   test(
     'APP-BLOCKS-009: should reduce code duplication and simplify pattern updates',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: blocks for maintainability
       await startServerWithSchema({
         name: 'test-app',
@@ -279,7 +279,7 @@ test.describe('Reusable Blocks', () => {
   test(
     'APP-BLOCKS-010: should make blocks available for reference in all page sections',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: blocks array at app level
       await startServerWithSchema({
         name: 'test-app',
@@ -339,7 +339,7 @@ test.describe('Reusable Blocks', () => {
   test(
     'APP-BLOCKS-INTEGRATION-001: should render blocks within page layout with full variable substitution',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: blocks integrated with pages via sections
       await startServerWithSchema({
         name: 'test-app',
@@ -387,7 +387,7 @@ test.describe('Reusable Blocks', () => {
   test(
     'APP-BLOCKS-INTEGRATION-002: should render with design tokens applied from global theme',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: blocks using theme design tokens
       await startServerWithSchema({
         name: 'test-app',
@@ -433,7 +433,7 @@ test.describe('Reusable Blocks', () => {
   test(
     'APP-BLOCKS-INTEGRATION-003: should generate structured data and meta tags from block content',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: blocks containing meta/SEO data for structured content
       await startServerWithSchema({
         name: 'test-app',
@@ -514,7 +514,7 @@ test.describe('Reusable Blocks', () => {
   test(
     'APP-BLOCKS-REGRESSION-001: user can complete full blocks workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         blocks: [

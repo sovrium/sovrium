@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
+ 
 
 /* eslint-disable drizzle/enforce-delete-with-where */
 /**
@@ -34,7 +34,7 @@ test.describe('Delete organization', () => {
   test.fixme(
     'API-ORG-DELETE-ORGANIZATION-SUCCESS-001: should returns 200 OK and permanently deletes organization with all members',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -91,7 +91,7 @@ test.describe('Delete organization', () => {
   test.fixme(
     'API-ORG-DELETE-ORGANIZATION-VALIDATION-REQUIRED-ORGANIZATION-ID-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -125,7 +125,7 @@ test.describe('Delete organization', () => {
   test.fixme(
     'API-ORG-DELETE-ORGANIZATION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -154,7 +154,7 @@ test.describe('Delete organization', () => {
   test.fixme(
     'API-ORG-DELETE-ORGANIZATION-PERMISSIONS-FORBIDDEN-NON-OWNER-001: should returns 403 Forbidden',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated organization member (non-owner)
       await startServerWithSchema({
         name: 'test-app',
@@ -197,7 +197,7 @@ test.describe('Delete organization', () => {
   test.fixme(
     'API-ORG-DELETE-ORGANIZATION-NOT-FOUND-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -234,7 +234,7 @@ test.describe('Delete organization', () => {
   test.fixme(
     'API-ORG-DELETE-ORGANIZATION-SECURITY-CROSS-ORG-PREVENTION-001: should returns 404 Not Found (not 403 to prevent organization enumeration)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: Two organizations with different owners
       await startServerWithSchema({
         name: 'test-app',
@@ -289,7 +289,7 @@ test.describe('Delete organization', () => {
   test.fixme(
     'user can complete full deleteOrganization workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
+ 
 
 /**
  * E2E Tests for Admin: List users
@@ -33,7 +33,7 @@ test.describe('Admin: List users', () => {
   test.fixme(
     'API-ADMIN-LIST-USERS-SUCCESS-001: should returns 200 OK with paginated user list',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated admin user with multiple users in system
       await startServerWithSchema({
         name: 'test-app',
@@ -75,7 +75,7 @@ test.describe('Admin: List users', () => {
   test.fixme(
     'API-ADMIN-LIST-USERS-SUCCESS-PAGINATION-001: should returns 200 OK with paginated results',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated admin user with multiple users in system
       await startServerWithSchema({
         name: 'test-app',
@@ -122,7 +122,7 @@ test.describe('Admin: List users', () => {
   test.fixme(
     'API-ADMIN-LIST-USERS-SUCCESS-SORTING-001: should returns 200 OK with users sorted correctly',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated admin user with multiple users
       await startServerWithSchema({
         name: 'test-app',
@@ -167,7 +167,7 @@ test.describe('Admin: List users', () => {
   test.fixme(
     'API-ADMIN-LIST-USERS-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -191,7 +191,7 @@ test.describe('Admin: List users', () => {
   test.fixme(
     'API-ADMIN-LIST-USERS-PERMISSIONS-FORBIDDEN-NON-ADMIN-001: should returns 403 Forbidden',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -225,7 +225,7 @@ test.describe('Admin: List users', () => {
   test.fixme(
     'API-ADMIN-LIST-USERS-SECURITY-PASSWORD-EXCLUSION-001: should returns 200 OK with users but password field excluded for security',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated admin user with users in system
       await startServerWithSchema({
         name: 'test-app',
@@ -259,7 +259,7 @@ test.describe('Admin: List users', () => {
   test.fixme(
     'API-ADMIN-LIST-USERS-EDGE-CASE-EMPTY-LIST-001: should returns 200 OK with only admin user in list',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated admin user with no other users in system
       await startServerWithSchema({
         name: 'test-app',
@@ -294,7 +294,7 @@ test.describe('Admin: List users', () => {
   test.fixme(
     'user can complete full adminListUsers workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

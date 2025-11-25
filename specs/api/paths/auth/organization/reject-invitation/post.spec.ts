@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
+ 
 
 /**
  * E2E Tests for Reject organization invitation
@@ -33,7 +33,7 @@ test.describe('Reject organization invitation', () => {
   test.fixme(
     'API-ORG-REJECT-INVITATION-SUCCESS-001: should returns 200 OK and invitation status updated to rejected',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated user and a valid pending invitation
       await startServerWithSchema({
         name: 'test-app',
@@ -90,7 +90,7 @@ test.describe('Reject organization invitation', () => {
   test.fixme(
     'API-ORG-REJECT-INVITATION-VALIDATION-REQUIRED-INVITATION-ID-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -124,7 +124,7 @@ test.describe('Reject organization invitation', () => {
   test.fixme(
     'API-ORG-REJECT-INVITATION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -153,7 +153,7 @@ test.describe('Reject organization invitation', () => {
   test.fixme(
     'API-ORG-REJECT-INVITATION-NOT-FOUND-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -190,7 +190,7 @@ test.describe('Reject organization invitation', () => {
   test.fixme(
     'API-ORG-REJECT-INVITATION-EDGE-CASE-EXPIRED-INVITATION-001: should returns 410 Gone',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated user and an expired invitation
       await startServerWithSchema({
         name: 'test-app',
@@ -239,7 +239,7 @@ test.describe('Reject organization invitation', () => {
   test.fixme(
     'API-ORG-REJECT-INVITATION-SECURITY-EMAIL-MISMATCH-001: should returns 404 Not Found (prevent invitation enumeration)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated user and an invitation for different email
       await startServerWithSchema({
         name: 'test-app',
@@ -292,7 +292,7 @@ test.describe('Reject organization invitation', () => {
   test.fixme(
     'API-ORG-REJECT-INVITATION-EDGE-CASE-ALREADY-REJECTED-001: should returns 409 Conflict',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated user and an invitation already rejected
       await startServerWithSchema({
         name: 'test-app',
@@ -345,7 +345,7 @@ test.describe('Reject organization invitation', () => {
   test.fixme(
     'user can complete full rejectInvitation workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

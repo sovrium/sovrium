@@ -22,7 +22,7 @@ test.describe('Favicon Set', () => {
   test(
     'APP-PAGES-FAVICONSET-001: should define browser icon',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a favicon with rel 'icon'
       await startServerWithSchema({
         name: 'test-app',
@@ -52,7 +52,7 @@ test.describe('Favicon Set', () => {
   test(
     'APP-PAGES-FAVICONSET-002: should define Apple touch icon',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a favicon with rel 'apple-touch-icon'
       await startServerWithSchema({
         name: 'test-app',
@@ -84,7 +84,7 @@ test.describe('Favicon Set', () => {
   test(
     'APP-PAGES-FAVICONSET-003: should define Safari mask icon with color',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a favicon with rel 'mask-icon'
       await startServerWithSchema({
         name: 'test-app',
@@ -114,7 +114,7 @@ test.describe('Favicon Set', () => {
   test(
     'APP-PAGES-FAVICONSET-004: should specify icon dimensions for different contexts',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a favicon with sizes attribute
       await startServerWithSchema({
         name: 'test-app',
@@ -148,7 +148,7 @@ test.describe('Favicon Set', () => {
   test(
     'APP-PAGES-FAVICONSET-005: should specify MIME type',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a favicon with type attribute
       await startServerWithSchema({
         name: 'test-app',
@@ -178,7 +178,7 @@ test.describe('Favicon Set', () => {
   test(
     'APP-PAGES-FAVICONSET-006: should define Safari pinned tab color',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a favicon with color for mask-icon
       await startServerWithSchema({
         name: 'test-app',
@@ -209,7 +209,7 @@ test.describe('Favicon Set', () => {
   test(
     'APP-PAGES-FAVICONSET-007: should provide comprehensive multi-device icon support',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a complete favicon set
       await startServerWithSchema({
         name: 'test-app',
@@ -246,7 +246,7 @@ test.describe('Favicon Set', () => {
   test(
     'APP-PAGES-META-FAVICONS-FAVICON-SET-REGRESSION-001: user can complete full favicon set workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [

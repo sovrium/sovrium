@@ -22,7 +22,7 @@ test.describe('Open Graph Metadata', () => {
   test(
     'APP-PAGES-OG-001: should validate minimal Open Graph metadata',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Open Graph with required properties
       await startServerWithSchema({
         name: 'test-app',
@@ -69,7 +69,7 @@ test.describe('Open Graph Metadata', () => {
   test(
     'APP-PAGES-OG-002: should enforce title length for social display',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Open Graph title with maxLength
       await startServerWithSchema({
         name: 'test-app',
@@ -105,7 +105,7 @@ test.describe('Open Graph Metadata', () => {
   test(
     'APP-PAGES-OG-003: should enforce description length for social cards',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Open Graph description with maxLength
       await startServerWithSchema({
         name: 'test-app',
@@ -142,7 +142,7 @@ test.describe('Open Graph Metadata', () => {
   test(
     'APP-PAGES-OG-004: should categorize content type for social platforms',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Open Graph type enum
       const types = ['website', 'article', 'book', 'profile', 'video', 'music']
       for (const type of types) {
@@ -171,7 +171,7 @@ test.describe('Open Graph Metadata', () => {
   test(
     'APP-PAGES-OG-005: should provide social sharing image',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Open Graph image URL
       await startServerWithSchema({
         name: 'test-app',
@@ -210,7 +210,7 @@ test.describe('Open Graph Metadata', () => {
   test(
     'APP-PAGES-OG-006: should provide alternative text for social image',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Open Graph imageAlt
       await startServerWithSchema({
         name: 'test-app',
@@ -250,7 +250,7 @@ test.describe('Open Graph Metadata', () => {
   test(
     'APP-PAGES-OG-007: should distinguish site from page title',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Open Graph siteName
       await startServerWithSchema({
         name: 'test-app',
@@ -289,7 +289,7 @@ test.describe('Open Graph Metadata', () => {
   test(
     'APP-PAGES-OG-008: should specify content language for social platforms',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Open Graph locale
       await startServerWithSchema({
         name: 'test-app',
@@ -326,7 +326,7 @@ test.describe('Open Graph Metadata', () => {
   test(
     'APP-PAGES-OG-009: should provide grammatical article before title',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Open Graph determiner
       await startServerWithSchema({
         name: 'test-app',
@@ -362,7 +362,7 @@ test.describe('Open Graph Metadata', () => {
   test(
     'APP-PAGES-OG-010: should enable video content sharing',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Open Graph video URL
       await startServerWithSchema({
         name: 'test-app',
@@ -402,7 +402,7 @@ test.describe('Open Graph Metadata', () => {
   test(
     'APP-PAGES-OG-011: should enable audio content sharing',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Open Graph audio URL
       await startServerWithSchema({
         name: 'test-app',
@@ -442,7 +442,7 @@ test.describe('Open Graph Metadata', () => {
   test(
     'APP-PAGES-OG-012: should display enhanced social sharing card',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Open Graph rich social preview
       await startServerWithSchema({
         name: 'test-app',
@@ -485,7 +485,7 @@ test.describe('Open Graph Metadata', () => {
   test(
     'APP-PAGES-META-SOCIAL-OPEN-GRAPH-REGRESSION-001: user can complete full Open Graph workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [

@@ -22,7 +22,7 @@ test.describe('Product Schema', () => {
   test(
     'APP-PAGES-PRODUCT-001: should validate minimal Product structured data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Product with required properties
       await startServerWithSchema({
         name: 'test-app',
@@ -60,7 +60,7 @@ test.describe('Product Schema', () => {
   test(
     'APP-PAGES-PRODUCT-002: should provide product identity',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Product with name and description
       await startServerWithSchema({
         name: 'test-app',
@@ -99,7 +99,7 @@ test.describe('Product Schema', () => {
   test(
     'APP-PAGES-PRODUCT-003: should support single or multiple product images',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Product with image
       await startServerWithSchema({
         name: 'test-app',
@@ -143,7 +143,7 @@ test.describe('Product Schema', () => {
   test(
     'APP-PAGES-PRODUCT-004: should identify product manufacturer',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Product with brand
       await startServerWithSchema({
         name: 'test-app',
@@ -182,7 +182,7 @@ test.describe('Product Schema', () => {
   test(
     'APP-PAGES-PRODUCT-005: should provide stock keeping unit',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Product with sku
       await startServerWithSchema({
         name: 'test-app',
@@ -220,7 +220,7 @@ test.describe('Product Schema', () => {
   test(
     'APP-PAGES-PRODUCT-006: should provide standardized product identifier',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Product with gtin
       await startServerWithSchema({
         name: 'test-app',
@@ -258,7 +258,7 @@ test.describe('Product Schema', () => {
   test(
     'APP-PAGES-PRODUCT-007: should provide pricing information',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Product with offers
       await startServerWithSchema({
         name: 'test-app',
@@ -297,7 +297,7 @@ test.describe('Product Schema', () => {
   test(
     'APP-PAGES-PRODUCT-008: should specify product price with currency',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Product with price and priceCurrency
       await startServerWithSchema({
         name: 'test-app',
@@ -336,7 +336,7 @@ test.describe('Product Schema', () => {
   test(
     'APP-PAGES-PRODUCT-009: should show product availability in search results',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Product with availability
       await startServerWithSchema({
         name: 'test-app',
@@ -380,7 +380,7 @@ test.describe('Product Schema', () => {
   test(
     'APP-PAGES-PRODUCT-010: should display star ratings in search results',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Product with aggregateRating
       await startServerWithSchema({
         name: 'test-app',
@@ -424,7 +424,7 @@ test.describe('Product Schema', () => {
   test(
     'APP-PAGES-PRODUCT-011: should enable Google Shopping rich results',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Product for e-commerce SEO
       await startServerWithSchema({
         name: 'test-app',
@@ -474,7 +474,7 @@ test.describe('Product Schema', () => {
   test(
     'APP-PAGES-PRODUCT-012: should display price, availability, and ratings in SERPs',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Product for rich snippets
       await startServerWithSchema({
         name: 'test-app',
@@ -525,7 +525,7 @@ test.describe('Product Schema', () => {
   test(
     'APP-PAGES-META-STRUCTURED-DATA-PRODUCT-REGRESSION-001: user can complete full Product workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [

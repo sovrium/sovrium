@@ -39,7 +39,7 @@ test.describe('Languages Configuration', () => {
   test(
     'APP-LANGUAGES-001: should use English as the only available language',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: an app with default language en-US and one supported language
       await startServerWithSchema({
         name: 'test-app',
@@ -88,7 +88,7 @@ test.describe('Languages Configuration', () => {
   test(
     'APP-LANGUAGES-002: should be able to switch between all three languages',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: an app with default en-US and supported languages [en-US, fr-FR, es-ES]
       await startServerWithSchema({
         name: 'test-app',
@@ -139,7 +139,7 @@ test.describe('Languages Configuration', () => {
   test(
     'APP-LANGUAGES-003: should display the English fallback text',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: an app with translations where French is missing a key
       await startServerWithSchema({
         name: 'test-app',
@@ -218,7 +218,7 @@ test.describe('Languages Configuration', () => {
     test(
       "APP-LANGUAGES-004: should automatically detect and set the browser's preferred language",
       { tag: '@spec' },
-      async ({ page, startServerWithSchema }) => {
+      async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
         // GIVEN: an app with detectBrowser set to true
         await startServerWithSchema({
           name: 'test-app',
@@ -272,7 +272,7 @@ test.describe('Languages Configuration', () => {
     test(
       'APP-LANGUAGES-005: should use the default language without auto-detection',
       { tag: '@spec' },
-      async ({ page, startServerWithSchema }) => {
+      async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
         // GIVEN: an app with detectBrowser set to false
         await startServerWithSchema({
           name: 'test-app',
@@ -319,7 +319,7 @@ test.describe('Languages Configuration', () => {
   test(
     'APP-LANGUAGES-006: should remember the choice in localStorage for future visits',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: an app with persistSelection set to true
       await startServerWithSchema({
         name: 'test-app',
@@ -372,7 +372,7 @@ test.describe('Languages Configuration', () => {
   test(
     'APP-LANGUAGES-007: should not persist the choice and reset to default on next visit',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: an app with persistSelection set to false
       await startServerWithSchema({
         name: 'test-app',
@@ -421,7 +421,7 @@ test.describe('Languages Configuration', () => {
   test(
     'APP-LANGUAGES-008: should flip between LTR and RTL direction',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: an app with supported languages including RTL (ar-SA) and LTR (en-US)
       await startServerWithSchema({
         name: 'test-app',
@@ -471,7 +471,7 @@ test.describe('Languages Configuration', () => {
   test(
     'APP-LANGUAGES-009: should display all languages with their native labels and flags',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: an app with 5+ supported languages from different regions
       await startServerWithSchema({
         name: 'test-app',
@@ -528,7 +528,7 @@ test.describe('Languages Configuration', () => {
     test(
       'APP-LANGUAGES-010: should provide seamless multi-language UX with auto-detection, persistence, and fallback',
       { tag: '@spec' },
-      async ({ page, startServerWithSchema }) => {
+      async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
         // GIVEN: an app with all features enabled (detectBrowser, persistSelection, fallback)
         await startServerWithSchema({
           name: 'test-app',
@@ -648,7 +648,7 @@ test.describe('Languages Configuration', () => {
   test(
     'APP-LANGUAGES-013: should automatically use default language as fallback',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: an app without explicit fallback
       // WHEN: fallback property is omitted
       await startServerWithSchema({
@@ -693,7 +693,7 @@ test.describe('Languages Configuration', () => {
   test(
     'APP-LANGUAGES-014: should show English text when French translation is missing',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: an app with fallback different from default
       // WHEN: default is 'fr-FR' and fallback is 'en-US'
       await startServerWithSchema({
@@ -745,7 +745,7 @@ test.describe('Languages Configuration', () => {
   test(
     'APP-LANGUAGES-INTEGRATION-001: should apply RTL-aware theme tokens for Arabic/Hebrew',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a multi-language app with theme integration
       await startServerWithSchema({
         name: 'test-app',
@@ -802,7 +802,7 @@ test.describe('Languages Configuration', () => {
   test(
     'APP-LANGUAGES-INTEGRATION-002: should update page metadata and content while maintaining state',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a multi-language app with page content
       await startServerWithSchema({
         name: 'test-app',
@@ -869,7 +869,7 @@ test.describe('Languages Configuration', () => {
   test(
     'APP-LANGUAGES-INTEGRATION-003: should generate localized meta tags and structured data per language',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: multi-language pages with localized SEO meta tags
       await startServerWithSchema({
         name: 'test-app',
@@ -1004,7 +1004,7 @@ test.describe('Languages Configuration', () => {
   test(
     'APP-LANGUAGES-015: should resolve translation keys from centralized translations dictionary',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: an app with centralized translations and components using $t: references
       await startServerWithSchema({
         name: 'test-app',
@@ -1071,7 +1071,7 @@ test.describe('Languages Configuration', () => {
   test(
     'APP-LANGUAGES-016: should fall back to default language translation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: an app with centralized translations and a missing translation key
       await startServerWithSchema({
         name: 'test-app',
@@ -1128,7 +1128,7 @@ test.describe('Languages Configuration', () => {
   test(
     'APP-LANGUAGES-018: should organize translations by feature and improve maintainability',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: an app with organized namespace structure in centralized translations
       await startServerWithSchema({
         name: 'test-app',
@@ -1177,7 +1177,7 @@ test.describe('Languages Configuration', () => {
   test(
     'APP-LANGUAGES-019: should resolve translation tokens in children arrays during SSR',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a page with translation tokens ($t:) in children arrays
       await startServerWithSchema({
         name: 'test-app',
@@ -1234,7 +1234,7 @@ test.describe('Languages Configuration', () => {
   test(
     'APP-LANGUAGES-020: should resolve translation tokens in component props during SSR',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a page with translation tokens ($t:) in component props
       await startServerWithSchema({
         name: 'test-app',
@@ -1293,7 +1293,7 @@ test.describe('Languages Configuration', () => {
   test(
     'APP-LANGUAGES-021: should resolve translation tokens in content property during SSR',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a page with translation tokens ($t:) in content property
       await startServerWithSchema({
         name: 'test-app',
@@ -1343,7 +1343,7 @@ test.describe('Languages Configuration', () => {
   test(
     'APP-LANGUAGES-022: should have no $t: symbols anywhere in rendered HTML output',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a complete page with $t: tokens in children, props, and content
       await startServerWithSchema({
         name: 'test-app',
@@ -1447,7 +1447,7 @@ test.describe('Languages Configuration', () => {
   test(
     'APP-LANGUAGES-REGRESSION-001: user can complete full languages workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Application configured with representative multi-language setup
       await startServerWithSchema({
         name: 'test-app',
@@ -1520,7 +1520,7 @@ test.describe('Languages Configuration', () => {
   test(
     'APP-LANGUAGES-SUBDIRECTORY-001: should serve / with default language (cacheable)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: an app with detectBrowser disabled
       await startServerWithSchema({
         name: 'test-app',
@@ -1565,7 +1565,7 @@ test.describe('Languages Configuration', () => {
     test(
       'APP-LANGUAGES-SUBDIRECTORY-001b: should redirect from / to /:lang/ when detected language differs from default',
       { tag: '@spec' },
-      async ({ page, startServerWithSchema }) => {
+      async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
         // GIVEN: an app with detectBrowser enabled and default 'en-US'
         await startServerWithSchema({
           name: 'test-app',
@@ -1608,7 +1608,7 @@ test.describe('Languages Configuration', () => {
   test(
     'APP-LANGUAGES-SUBDIRECTORY-002: should render homepage at /:lang/ with correct language',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: an app with languages configured
       await startServerWithSchema({
         name: 'test-app',
@@ -1648,7 +1648,7 @@ test.describe('Languages Configuration', () => {
   test(
     'APP-LANGUAGES-SUBDIRECTORY-003: should navigate between language subdirectories when switching language',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: an app with languages configured
       await startServerWithSchema({
         name: 'test-app',
@@ -1697,7 +1697,7 @@ test.describe('Languages Configuration', () => {
   test(
     'APP-LANGUAGES-SUBDIRECTORY-004: should return 404 for invalid language subdirectory',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: an app with languages configured
       await startServerWithSchema({
         name: 'test-app',

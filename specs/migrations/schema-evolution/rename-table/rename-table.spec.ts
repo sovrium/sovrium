@@ -7,7 +7,7 @@
 
 import { test, expect } from '@/specs/fixtures'
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
+ 
 
 /**
  * E2E Tests for Rename Table Migration
@@ -29,7 +29,7 @@ test.describe('Rename Table Migration', () => {
   test.fixme(
     'MIG-RENAME-TABLE-001: should alter table rename preserves data, indexes, and constraints',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: existing table 'users' with data and indexes
       // WHEN: table name property changes to 'customers'
       // THEN: ALTER TABLE RENAME preserves data, indexes, and constraints
@@ -42,7 +42,7 @@ test.describe('Rename Table Migration', () => {
   test.fixme(
     'MIG-RENAME-TABLE-002: should automatically updates foreign key references',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: table 'posts' referenced by foreign key from 'comments'
       // WHEN: table name changes to 'articles'
       // THEN: PostgreSQL automatically updates foreign key references
@@ -55,7 +55,7 @@ test.describe('Rename Table Migration', () => {
   test.fixme(
     'MIG-RENAME-TABLE-003: should all indexes and constraints remain functional',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: table 'products' with multiple indexes and constraints
       // WHEN: table renamed to 'items'
       // THEN: All indexes and constraints remain functional
@@ -68,7 +68,7 @@ test.describe('Rename Table Migration', () => {
   test.fixme(
     'MIG-RENAME-TABLE-004: should migration fails with error and transaction rolls back',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: table rename where new name conflicts with existing table
       // WHEN: attempting to rename 'users' to 'customers' but 'customers' exists
       // THEN: Migration fails with error and transaction rolls back
@@ -85,7 +85,7 @@ test.describe('Rename Table Migration', () => {
   test.fixme(
     'user can complete full rename-table workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: Application configured with representative rename-table scenarios
       // WHEN/THEN: Streamlined workflow testing integration points
 

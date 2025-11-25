@@ -27,7 +27,7 @@ test.describe('Language Configuration', () => {
   test(
     'APP-LANGUAGES-CONFIG-001: should be valid with LTR direction by default',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a language config for English (en-US)
       await startServerWithSchema({
         name: 'test-app',
@@ -69,7 +69,7 @@ test.describe('Language Configuration', () => {
   test(
     'APP-LANGUAGES-CONFIG-002: should support right-to-left text rendering',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a language config for Arabic (ar-SA) with rtl direction
       await startServerWithSchema({
         name: 'test-app',
@@ -113,7 +113,7 @@ test.describe('Language Configuration', () => {
   test(
     'APP-LANGUAGES-CONFIG-003: should be valid with 2-letter code',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a language config with 2-letter code (en)
       await startServerWithSchema({
         name: 'test-app',
@@ -154,7 +154,7 @@ test.describe('Language Configuration', () => {
   test(
     'APP-LANGUAGES-CONFIG-004: should be valid with country-specific format',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a language config with 4-letter code (en-US)
       await startServerWithSchema({
         name: 'test-app',
@@ -196,7 +196,7 @@ test.describe('Language Configuration', () => {
   test(
     'APP-LANGUAGES-CONFIG-005: should display the flag in language switcher',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a language config with flag emoji (🇫🇷)
       await startServerWithSchema({
         name: 'test-app',
@@ -241,7 +241,7 @@ test.describe('Language Configuration', () => {
   test(
     'APP-LANGUAGES-CONFIG-006: should load the flag image from the path',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a language config with flag icon path (/flags/es.svg)
       await startServerWithSchema({
         name: 'test-app',
@@ -289,7 +289,7 @@ test.describe('Language Configuration', () => {
   test(
     'APP-LANGUAGES-CONFIG-007: should display correctly in all character sets',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a language config with native language label (Français, Español, العربية)
       await startServerWithSchema({
         name: 'test-app',
@@ -336,7 +336,7 @@ test.describe('Language Configuration', () => {
   test(
     'APP-LANGUAGES-CONFIG-008: should use default LTR direction and no flag',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a minimal language config with only code and label
       await startServerWithSchema({
         name: 'test-app',
@@ -385,7 +385,7 @@ test.describe('Language Configuration', () => {
   test(
     'APP-LANGUAGES-LANGUAGE-CONFIG-REGRESSION-001: user can complete full language-config workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Application configured with representative language configurations
       await startServerWithSchema({
         name: 'test-app',

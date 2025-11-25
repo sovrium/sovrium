@@ -27,7 +27,7 @@ import { test, expect } from '@/specs/fixtures'
 test(
   'APP-DESCRIPTION-001: should display description below app name',
   { tag: '@spec' },
-  async ({ page, startServerWithSchema }) => {
+  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
     // GIVEN: app with name and description
     // Spec: APP-DESCRIPTION-001
     await startServerWithSchema(
@@ -51,7 +51,7 @@ test(
 test(
   'APP-DESCRIPTION-002: should NOT render description element when description property is missing',
   { tag: '@spec' },
-  async ({ page, startServerWithSchema }) => {
+  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
     // GIVEN: app with only name (no description property)
     // Spec: APP-DESCRIPTION-002
     await startServerWithSchema(
@@ -74,7 +74,7 @@ test(
 test(
   'APP-DESCRIPTION-003: should render description AFTER h1 title in DOM order',
   { tag: '@spec' },
-  async ({ page, startServerWithSchema }) => {
+  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
     // GIVEN: app with name and description
     // Spec: APP-DESCRIPTION-003
     await startServerWithSchema(
@@ -108,7 +108,7 @@ test(
 test(
   'APP-DESCRIPTION-004: should display special characters correctly',
   { tag: '@spec' },
-  async ({ page, startServerWithSchema }) => {
+  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
     // GIVEN: app with description containing special characters
     // Spec: APP-DESCRIPTION-004
     await startServerWithSchema(
@@ -131,7 +131,7 @@ test(
 test(
   'APP-DESCRIPTION-005: should display Unicode characters and emojis correctly',
   { tag: '@spec' },
-  async ({ page, startServerWithSchema }) => {
+  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
     // GIVEN: app with description containing Unicode and emojis
     // Spec: APP-DESCRIPTION-005
     await startServerWithSchema(
@@ -154,7 +154,7 @@ test(
 test(
   'APP-DESCRIPTION-006: should wrap long description properly and remain visible',
   { tag: '@spec' },
-  async ({ page, startServerWithSchema }) => {
+  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
     // GIVEN: app with very long description (500+ characters)
     // Spec: APP-DESCRIPTION-006
     const longDescription =
@@ -187,7 +187,7 @@ test(
 test(
   'APP-DESCRIPTION-007: should NOT render description element when description is empty string',
   { tag: '@spec' },
-  async ({ page, startServerWithSchema }) => {
+  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
     // GIVEN: app with empty string description (not undefined)
     // Spec: APP-DESCRIPTION-007
     await startServerWithSchema(
@@ -210,7 +210,7 @@ test(
 test(
   'APP-DESCRIPTION-008: should render description as a paragraph element',
   { tag: '@spec' },
-  async ({ page, startServerWithSchema }) => {
+  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
     // GIVEN: app with description
     // Spec: APP-DESCRIPTION-008
     await startServerWithSchema(
@@ -233,7 +233,7 @@ test(
 test(
   'APP-DESCRIPTION-009: should center description horizontally',
   { tag: '@spec' },
-  async ({ page, startServerWithSchema }) => {
+  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
     // GIVEN: app with description
     // Spec: APP-DESCRIPTION-009
     await startServerWithSchema(
@@ -266,7 +266,7 @@ test(
 test(
   'APP-DESCRIPTION-010: should display description in viewport',
   { tag: '@spec' },
-  async ({ page, startServerWithSchema }) => {
+  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
     // GIVEN: app with description
     // Spec: APP-DESCRIPTION-010
     await startServerWithSchema(
@@ -290,7 +290,7 @@ test(
 test(
   'APP-DESCRIPTION-011: should display text exactly as input without transformation',
   { tag: '@spec' },
-  async ({ page, startServerWithSchema }) => {
+  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
     // GIVEN: app with description containing mixed case, special chars, and whitespace
     // Spec: APP-DESCRIPTION-011
     const originalText = 'MiXeD CaSe!  With   Spaces  & Special@#$%'
@@ -315,7 +315,7 @@ test(
 test(
   'APP-DESCRIPTION-012: should display all elements in correct order: version → title → description',
   { tag: '@spec' },
-  async ({ page, startServerWithSchema }) => {
+  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
     // GIVEN: app with version, name, and description
     // Spec: APP-DESCRIPTION-012
     await startServerWithSchema(
@@ -356,7 +356,7 @@ test(
 test(
   'APP-DESCRIPTION-013: should display full description without truncation for very long text',
   { tag: '@spec' },
-  async ({ page, startServerWithSchema }) => {
+  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
     // GIVEN: app with very long description (1000+ characters)
     // Spec: APP-DESCRIPTION-013
     const veryLongDescription =
@@ -395,7 +395,7 @@ test(
 test(
   'APP-DESCRIPTION-014: should escape HTML tags and display as text',
   { tag: '@spec' },
-  async ({ page, startServerWithSchema }) => {
+  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
     // GIVEN: app with description containing HTML-like tags
     // Spec: APP-DESCRIPTION-014
     await startServerWithSchema(
@@ -423,7 +423,7 @@ test(
 test(
   'APP-DESCRIPTION-015: should have appropriate spacing between title and description',
   { tag: '@spec' },
-  async ({ page, startServerWithSchema }) => {
+  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
     // GIVEN: app with name and description
     // Spec: APP-DESCRIPTION-015
     await startServerWithSchema(
@@ -467,7 +467,7 @@ test(
 test(
   'APP-DESCRIPTION-REGRESSION-001: user can view complete app description in all scenarios',
   { tag: '@regression' },
-  async ({ page, startServerWithSchema }) => {
+  async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
     // ============================================================================
     // SCENARIO GROUP 1: Core layout, styling, and basic text display
     // Covers: APP-DESCRIPTION-001, 003, 004, 005, 008, 009, 010, 011, 015

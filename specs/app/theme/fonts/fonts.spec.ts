@@ -27,7 +27,7 @@ test.describe('Font Configuration', () => {
   test(
     'APP-THEME-FONTS-001: should validate font family as the only required property',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a font with only family defined
       await startServerWithSchema({
         name: 'test-app',
@@ -72,7 +72,7 @@ test.describe('Font Configuration', () => {
   test(
     'APP-THEME-FONTS-002: should validate graceful fallback for missing fonts',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a font with family and fallback stack
       await startServerWithSchema({
         name: 'test-app',
@@ -118,7 +118,7 @@ test.describe('Font Configuration', () => {
   test(
     'APP-THEME-FONTS-003: should validate weight values from 100-900 in increments of 100',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a font with multiple weights [300, 400, 500, 600, 700]
       await startServerWithSchema({
         name: 'test-app',
@@ -218,7 +218,7 @@ test.describe('Font Configuration', () => {
   test(
     'APP-THEME-FONTS-004: should validate normal, italic, or oblique styles',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a font with style set to 'italic'
       await startServerWithSchema({
         name: 'test-app',
@@ -270,7 +270,7 @@ test.describe('Font Configuration', () => {
   test(
     'APP-THEME-FONTS-005: should validate typography metrics for body text',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a font with size '16px' and lineHeight '1.5'
       await startServerWithSchema({
         name: 'test-app',
@@ -319,7 +319,7 @@ test.describe('Font Configuration', () => {
   test(
     'APP-THEME-FONTS-006: should validate character spacing for readability',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a font with letterSpacing '0.05em'
       await startServerWithSchema({
         name: 'test-app',
@@ -375,7 +375,7 @@ test.describe('Font Configuration', () => {
   test(
     'APP-THEME-FONTS-007: should validate none, uppercase, lowercase, or capitalize',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a font with transform 'uppercase'
       await startServerWithSchema({
         name: 'test-app',
@@ -431,7 +431,7 @@ test.describe('Font Configuration', () => {
   test(
     'APP-THEME-FONTS-008: should validate font URL for remote loading',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a font with Google Fonts URL
       await startServerWithSchema({
         name: 'test-app',
@@ -465,7 +465,7 @@ test.describe('Font Configuration', () => {
   test(
     'APP-THEME-FONTS-009: should validate comprehensive typography settings',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a complete font config with all properties
       await startServerWithSchema({
         name: 'test-app',
@@ -518,7 +518,7 @@ test.describe('Font Configuration', () => {
   test(
     'APP-THEME-FONTS-010: should validate semantic font system for all UI contexts',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a theme with multiple font categories (title, body, mono)
       await startServerWithSchema({
         name: 'test-app',
@@ -589,7 +589,7 @@ test.describe('Font Configuration', () => {
   test(
     'APP-THEME-FONTS-APPLICATION-001: should render with body font family and metrics',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: body font applied to paragraph
       await startServerWithSchema({
         name: 'test-app',
@@ -643,7 +643,7 @@ test.describe('Font Configuration', () => {
   test(
     'APP-THEME-FONTS-APPLICATION-002: should render with title font and text transformation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: title font applied to heading
       await startServerWithSchema({
         name: 'test-app',
@@ -706,7 +706,7 @@ test.describe('Font Configuration', () => {
   test(
     'APP-THEME-FONTS-REGRESSION-001: user can complete full fonts workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Application with comprehensive font system
       await startServerWithSchema({
         name: 'test-app',

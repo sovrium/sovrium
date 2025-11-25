@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
+ 
 
 /**
  * E2E Tests for Admin: Impersonate user
@@ -33,7 +33,7 @@ test.describe('Admin: Impersonate user', () => {
   test.fixme(
     'API-ADMIN-IMPERSONATE-USER-SUCCESS-001: should returns 200 OK with impersonation token and user data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
@@ -77,7 +77,7 @@ test.describe('Admin: Impersonate user', () => {
   test.fixme(
     'API-ADMIN-IMPERSONATE-USER-VALIDATION-REQUIRED-USER-ID-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -111,7 +111,7 @@ test.describe('Admin: Impersonate user', () => {
   test.fixme(
     'API-ADMIN-IMPERSONATE-USER-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -140,7 +140,7 @@ test.describe('Admin: Impersonate user', () => {
   test.fixme(
     'API-ADMIN-IMPERSONATE-USER-PERMISSIONS-FORBIDDEN-NON-ADMIN-001: should returns 403 Forbidden',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -180,7 +180,7 @@ test.describe('Admin: Impersonate user', () => {
   test.fixme(
     'API-ADMIN-IMPERSONATE-USER-PERMISSIONS-FORBIDDEN-BANNED-USER-001: should returns 403 Forbidden (cannot impersonate banned users)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated admin user and a banned user
       await startServerWithSchema({
         name: 'test-app',
@@ -220,7 +220,7 @@ test.describe('Admin: Impersonate user', () => {
   test.fixme(
     'API-ADMIN-IMPERSONATE-USER-NOT-FOUND-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -257,7 +257,7 @@ test.describe('Admin: Impersonate user', () => {
   test.fixme(
     'API-ADMIN-IMPERSONATE-USER-SECURITY-AUDIT-TRAIL-001: should returns 200 OK and creates audit trail in session metadata',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
@@ -300,7 +300,7 @@ test.describe('Admin: Impersonate user', () => {
   test.fixme(
     'user can complete full adminImpersonateUser workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

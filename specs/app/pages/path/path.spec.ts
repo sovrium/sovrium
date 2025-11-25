@@ -36,7 +36,7 @@ test.describe('URL Path', () => {
   test(
     'APP-PAGES-PATH-001: should validate as homepage path',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a root path
       await startServerWithSchema({
         name: 'test-app',
@@ -55,7 +55,7 @@ test.describe('URL Path', () => {
   test(
     'APP-PAGES-PATH-002: should follow shared path pattern from common definitions',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a path referencing common definition
       // WHEN: schema uses $ref to definitions.schema.json#/definitions/path
       // THEN: it should follow shared path pattern from common definitions
@@ -73,7 +73,7 @@ test.describe('URL Path', () => {
   test(
     'APP-PAGES-PATH-003: should accept paths with leading slash',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a single-level path
       await startServerWithSchema({
         name: 'test-app',
@@ -107,7 +107,7 @@ test.describe('URL Path', () => {
   test(
     'APP-PAGES-PATH-004: should accept multi-level URL paths',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a nested path
       await startServerWithSchema({
         name: 'test-app',
@@ -140,7 +140,7 @@ test.describe('URL Path', () => {
   test(
     'APP-PAGES-PATH-005: should accept kebab-case URL segments',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a path with kebab-case segments
       await startServerWithSchema({
         name: 'test-app',
@@ -173,7 +173,7 @@ test.describe('URL Path', () => {
   test(
     'APP-PAGES-PATH-006: should provide examples for typical URL patterns',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: common website paths (/, /about, /pricing, /contact)
       await startServerWithSchema({
         name: 'test-app',
@@ -225,7 +225,7 @@ test.describe('URL Path', () => {
   test(
     'APP-PAGES-PATH-008: should ensure unique routing for all pages',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: paths across multiple pages
       await startServerWithSchema({
         name: 'test-app',
@@ -260,7 +260,7 @@ test.describe('URL Path', () => {
   test(
     'APP-PAGES-PATH-009: should map URL to page configuration for rendering',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: path determining page accessibility
       await startServerWithSchema({
         name: 'test-app',
@@ -287,7 +287,7 @@ test.describe('URL Path', () => {
   test(
     'APP-PAGES-PATH-010: should support dynamic route parameters (if applicable)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: path with dynamic segments
       await startServerWithSchema({
         name: 'test-app',
@@ -323,7 +323,7 @@ test.describe('URL Path', () => {
   test(
     'APP-PAGES-PATH-011: DefaultHomePage displays app name, version, description (NO blocks)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: app with NO pages array
       await startServerWithSchema({
         name: 'my-app',
@@ -354,7 +354,7 @@ test.describe('URL Path', () => {
   test(
     'APP-PAGES-PATH-012: DefaultHomePage displays when pages exist but no "/" path',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: app with pages=[{path: '/about'}] (no '/' page)
       await startServerWithSchema({
         name: 'my-app',
@@ -384,7 +384,7 @@ test.describe('URL Path', () => {
   test(
     'APP-PAGES-PATH-013: Custom page renders when "/" path exists',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: app with pages=[{path: '/', sections: [...]}]
       await startServerWithSchema({
         name: 'my-app',
@@ -420,7 +420,7 @@ test.describe('URL Path', () => {
   test(
     'APP-PAGES-PATH-014: DefaultHomePage does NOT render blocks',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: app with blocks=[...] and NO '/' page
       await startServerWithSchema({
         name: 'my-app',
@@ -459,7 +459,7 @@ test.describe('URL Path', () => {
   test(
     'APP-PAGES-PATH-015: Custom "/" page renders blocks from sections',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: app with pages=[{path: '/', sections: [{block: 'hero'}]}]
       await startServerWithSchema({
         name: 'my-app',
@@ -499,7 +499,7 @@ test.describe('URL Path', () => {
   test(
     'APP-PAGES-PATH-016: Custom 404 page renders when user defines page at /404 path',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: app with custom 404 page at path '/404'
       await startServerWithSchema({
         name: 'my-app',
@@ -531,7 +531,7 @@ test.describe('URL Path', () => {
   test(
     'APP-PAGES-PATH-017: Default NotFoundPage renders when no custom 404 page exists',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: app WITHOUT custom 404 page
       await startServerWithSchema({
         name: 'my-app',
@@ -550,7 +550,7 @@ test.describe('URL Path', () => {
   test(
     'APP-PAGES-PATH-018: Custom 500 page renders when user defines page at /500 path',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: app with custom 500 page at path '/500'
       await startServerWithSchema({
         name: 'my-app',
@@ -582,7 +582,7 @@ test.describe('URL Path', () => {
   test(
     'APP-PAGES-PATH-019: Default ErrorPage renders when no custom 500 page exists',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: app WITHOUT custom 500 page
       await startServerWithSchema({
         name: 'my-app',
@@ -606,7 +606,7 @@ test.describe('URL Path', () => {
   test(
     'APP-PAGES-PATH-REGRESSION-001: user can complete full path workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Application with various path patterns
       await startServerWithSchema({
         name: 'test-app',

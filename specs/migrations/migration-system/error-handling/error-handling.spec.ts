@@ -7,7 +7,7 @@
 
 import { test, expect } from '@/specs/fixtures'
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
+ 
 
 /**
  * E2E Tests for Error Handling and Rollback
@@ -29,7 +29,7 @@ test.describe('Error Handling and Rollback', () => {
   test.fixme(
     'MIG-ERROR-001: should rollback PostgreSQL transaction when runtime migration attempts to generate SQL for invalid type',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: table configuration with invalid field type 'INVALID_TYPE'
 
       // WHEN: runtime migration attempts to generate SQL for invalid type
@@ -98,7 +98,7 @@ test.describe('Error Handling and Rollback', () => {
   test.fixme(
     'MIG-ERROR-002: should rollback all changes when migration fails mid-execution',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: multiple tables being created, second table has SQL syntax error
 
       // WHEN: migration fails mid-execution
@@ -167,7 +167,7 @@ test.describe('Error Handling and Rollback', () => {
   test.fixme(
     'MIG-ERROR-003: should rollback transaction when ALTER TABLE operation fails due to constraint violation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: ALTER TABLE operation fails (e.g., adding NOT NULL column without default to non-empty table)
       await executeQuery([
         `CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255))`,
@@ -229,7 +229,7 @@ test.describe('Error Handling and Rollback', () => {
   test.fixme(
     'MIG-ERROR-004: should fail and rollback all table creations when foreign key references non-existent table',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: foreign key reference to non-existent table
 
       // WHEN: creating table with invalid relationship
@@ -276,7 +276,7 @@ test.describe('Error Handling and Rollback', () => {
   test.fixme(
     'MIG-ERROR-005: should abort application startup when database connection error occurs',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: migration system connection to database fails
 
       // WHEN: database connection error occurs
@@ -325,7 +325,7 @@ test.describe('Error Handling and Rollback', () => {
   test.fixme(
     'user can complete full error-handling-and-rollback workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: Application configured with representative error scenarios
 
       // WHEN/THEN: Streamlined workflow testing integration points

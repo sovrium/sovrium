@@ -27,7 +27,7 @@ test.describe('Responsive Variants', () => {
   test(
     'APP-PAGES-RESPONSIVE-001: should apply mobile className and styles',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a heading with mobile-specific props
       await startServerWithSchema({
         name: 'test-app',
@@ -65,7 +65,7 @@ test.describe('Responsive Variants', () => {
   test(
     'APP-PAGES-RESPONSIVE-002: content should update to match each breakpoint',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a heading with different content per breakpoint (mobile, md, lg)
       await startServerWithSchema({
         name: 'test-app',
@@ -112,7 +112,7 @@ test.describe('Responsive Variants', () => {
   test(
     'APP-PAGES-RESPONSIVE-003: component should be hidden on mobile and shown on large screens',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a component with visible false on mobile, visible true on lg
       await startServerWithSchema({
         name: 'test-app',
@@ -153,7 +153,7 @@ test.describe('Responsive Variants', () => {
   test(
     'APP-PAGES-RESPONSIVE-004: should render different child components based on breakpoint',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a component with different children at mobile vs desktop
       await startServerWithSchema({
         name: 'test-app',
@@ -234,7 +234,7 @@ test.describe('Responsive Variants', () => {
   test(
     'APP-PAGES-RESPONSIVE-005: should apply sm-specific props',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a component with props overrides at sm breakpoint
       await startServerWithSchema({
         name: 'test-app',
@@ -278,7 +278,7 @@ test.describe('Responsive Variants', () => {
   test(
     'APP-PAGES-RESPONSIVE-006: should apply md-specific props',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a component with props overrides at md breakpoint
       await startServerWithSchema({
         name: 'test-app',
@@ -321,7 +321,7 @@ test.describe('Responsive Variants', () => {
   test(
     'APP-PAGES-RESPONSIVE-007: should apply xl/2xl-specific props for very wide screens',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a component with props overrides at xl and 2xl breakpoints
       await startServerWithSchema({
         name: 'test-app',
@@ -370,7 +370,7 @@ test.describe('Responsive Variants', () => {
   test(
     'APP-PAGES-RESPONSIVE-008: each breakpoint should override the previous, creating progressive enhancement',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a component with mobile-first progression (mobile → sm → md → lg)
       await startServerWithSchema({
         name: 'test-app',
@@ -423,7 +423,7 @@ test.describe('Responsive Variants', () => {
   test(
     'APP-PAGES-RESPONSIVE-009: all three override types should apply simultaneously at each breakpoint',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a button with props, content, and visible all configured per breakpoint
       await startServerWithSchema({
         name: 'test-app',
@@ -476,7 +476,7 @@ test.describe('Responsive Variants', () => {
   test(
     'APP-PAGES-RESPONSIVE-010: mobile should show hamburger menu, desktop should show full navigation links',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a navigation menu with visible true on mobile, different children on desktop
       await startServerWithSchema({
         name: 'test-app',
@@ -549,7 +549,7 @@ test.describe('Responsive Variants', () => {
   test(
     'APP-PAGES-RESPONSIVE-REGRESSION-001: user can complete full responsive workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Application with CSS-based responsive configuration (className, visibility)
       await startServerWithSchema({
         name: 'test-app',

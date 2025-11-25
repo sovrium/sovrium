@@ -27,7 +27,7 @@ test.describe('Shadows', () => {
   test(
     'APP-THEME-SHADOWS-001: should validate elevation system from subtle to dramatic',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: shadow scale from sm to 2xl
       await startServerWithSchema({
         name: 'test-app',
@@ -97,7 +97,7 @@ test.describe('Shadows', () => {
   test(
     'APP-THEME-SHADOWS-002: should validate rgb(0 0 0 / 0.1) format',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: shadow with rgb color and opacity
       await startServerWithSchema({
         name: 'test-app',
@@ -148,7 +148,7 @@ test.describe('Shadows', () => {
   test(
     'APP-THEME-SHADOWS-003: should validate inset box-shadow',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: inner shadow for inset effects
       await startServerWithSchema({
         name: 'test-app',
@@ -199,7 +199,7 @@ test.describe('Shadows', () => {
   test(
     'APP-THEME-SHADOWS-004: should validate shadow removal',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: shadow 'none' to remove shadows
       await startServerWithSchema({
         name: 'test-app',
@@ -250,7 +250,7 @@ test.describe('Shadows', () => {
   test(
     'APP-THEME-SHADOWS-005: should validate kebab-case convention',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: shadows with kebab-case naming
       await startServerWithSchema({
         name: 'test-app',
@@ -314,7 +314,7 @@ test.describe('Shadows', () => {
   test(
     'APP-THEME-SHADOWS-006: should validate complete shadow system',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: complete shadow system (sm, md, lg, xl, 2xl, inner, none)
       await startServerWithSchema({
         name: 'test-app',
@@ -388,7 +388,7 @@ test.describe('Shadows', () => {
   test(
     'APP-THEME-SHADOWS-APPLICATION-001: should render card with medium box-shadow creating depth',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: md shadow applied to card component
       await startServerWithSchema({
         name: 'test-app',
@@ -434,7 +434,7 @@ test.describe('Shadows', () => {
   test(
     'APP-THEME-SHADOWS-APPLICATION-002: should render modal with dramatic shadow emphasizing importance',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: xl shadow applied to modal overlay
       await startServerWithSchema({
         name: 'test-app',
@@ -480,7 +480,7 @@ test.describe('Shadows', () => {
   test(
     'APP-THEME-SHADOWS-APPLICATION-003: should render input with inset shadow creating depth inward',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: inner shadow applied to input field
       await startServerWithSchema({
         name: 'test-app',
@@ -525,7 +525,7 @@ test.describe('Shadows', () => {
   test(
     'APP-THEME-SHADOWS-APPLICATION-004: should render button with smooth shadow transition creating lift effect',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: shadow transition on button hover interaction
       await startServerWithSchema({
         name: 'test-app',
@@ -574,7 +574,7 @@ test.describe('Shadows', () => {
   test(
     'APP-THEME-SHADOWS-APPLICATION-005: should render button with colored shadow matching brand identity',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: colored shadow for brand accent
       await startServerWithSchema({
         name: 'test-app',
@@ -623,7 +623,7 @@ test.describe('Shadows', () => {
   test(
     'APP-THEME-SHADOWS-APPLICATION-006: should render element with multi-layered shadow creating subtle 3D effect',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: layered shadows for enhanced depth (neumorphism)
       await startServerWithSchema({
         name: 'test-app',
@@ -671,7 +671,7 @@ test.describe('Shadows', () => {
   test(
     'APP-THEME-SHADOWS-APPLICATION-007: should render input with prominent focus shadow for keyboard navigation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: focus ring shadow for accessibility
       await startServerWithSchema({
         name: 'test-app',
@@ -721,7 +721,7 @@ test.describe('Shadows', () => {
   test(
     'APP-THEME-SHADOWS-APPLICATION-008: should render card with appropriate shadow depth per device',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: responsive shadow scaling for mobile vs desktop
       await startServerWithSchema({
         name: 'test-app',
@@ -769,7 +769,7 @@ test.describe('Shadows', () => {
   test(
     'APP-THEME-SHADOWS-APPLICATION-009: should render components with consistent elevation scale',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: shadow elevation hierarchy in component system
       await startServerWithSchema({
         name: 'test-app',
@@ -846,7 +846,7 @@ test.describe('Shadows', () => {
   test(
     'APP-THEME-SHADOWS-APPLICATION-010: should render button with reduced shadow creating pressed-in effect',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: active/pressed shadow state for buttons
       await startServerWithSchema({
         name: 'test-app',
@@ -900,7 +900,7 @@ test.describe('Shadows', () => {
   test(
     'APP-THEME-SHADOWS-REGRESSION-001: user can complete full shadows workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Application with comprehensive shadow system
       await startServerWithSchema({
         name: 'test-app',

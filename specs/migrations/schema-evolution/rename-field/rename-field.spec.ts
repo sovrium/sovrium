@@ -7,7 +7,7 @@
 
 import { test, expect } from '@/specs/fixtures'
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
+ 
 
 /**
  * E2E Tests for Rename Field Migration
@@ -29,7 +29,7 @@ test.describe('Rename Field Migration', () => {
   test.fixme(
     'MIG-ALTER-RENAME-001: should generate RENAME COLUMN instead of DROP+ADD when runtime migration detects rename via field ID',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: table 'users' with field id=1 name='email', field name changed to 'email_address' (same id)
       await executeQuery([
         `CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL UNIQUE)`,
@@ -89,7 +89,7 @@ test.describe('Rename Field Migration', () => {
   test.fixme(
     'MIG-ALTER-RENAME-002: should rename column and automatically update index reference when RENAME COLUMN is executed on indexed field',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: table 'products' with indexed field 'sku' renamed to 'product_code'
       await executeQuery([
         `CREATE TABLE products (id SERIAL PRIMARY KEY, sku VARCHAR(100) NOT NULL UNIQUE)`,
@@ -144,7 +144,7 @@ test.describe('Rename Field Migration', () => {
   test.fixme(
     'MIG-ALTER-RENAME-003: should rename column and preserve foreign key constraint when RENAME COLUMN on foreign key field',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: table 'orders' with foreign key field 'customer_id' renamed to 'client_id'
       await executeQuery([
         `CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255))`,
@@ -220,7 +220,7 @@ test.describe('Rename Field Migration', () => {
   test.fixme(
     'MIG-ALTER-RENAME-004: should rename column but CHECK constraint references old name when RENAME COLUMN on field with CHECK constraint',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: table 'tasks' with field 'status' (CHECK constraint) renamed to 'state'
       await executeQuery([
         `CREATE TABLE tasks (id SERIAL PRIMARY KEY, status VARCHAR(50) CHECK (status IN ('open', 'in_progress', 'done')))`,
@@ -279,7 +279,7 @@ test.describe('Rename Field Migration', () => {
   test.fixme(
     'user can complete full rename-field-migration workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: Application configured with representative rename field scenarios
       await executeQuery([
         `CREATE TABLE data (id SERIAL PRIMARY KEY, old_name VARCHAR(255) NOT NULL)`,

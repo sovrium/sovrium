@@ -27,7 +27,7 @@ test.describe('Block Template', () => {
   test(
     'APP-BLOCKS-BLOCK-001: should validate minimal block definition at build time',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: block with required properties
       await startServerWithSchema({
         name: 'test-app',
@@ -53,7 +53,7 @@ test.describe('Block Template', () => {
   test(
     'APP-BLOCKS-BLOCK-002: should use URL-friendly naming convention for data-testid',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: block name in kebab-case
       await startServerWithSchema({
         name: 'test-app',
@@ -89,7 +89,7 @@ test.describe('Block Template', () => {
   test(
     'APP-BLOCKS-BLOCK-003: should reject invalid names at build time',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: block name pattern validation
       const validBlocks = [
         { name: 'icon-badge', type: 'div' },
@@ -121,7 +121,7 @@ test.describe('Block Template', () => {
   test(
     'APP-BLOCKS-BLOCK-004: should render corresponding HTML element or component',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: block type specification
       await startServerWithSchema({
         name: 'test-app',
@@ -158,7 +158,7 @@ test.describe('Block Template', () => {
   test(
     'APP-BLOCKS-BLOCK-005: should render with properties including variable substitution',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: block with props
       await startServerWithSchema({
         name: 'test-app',
@@ -197,7 +197,7 @@ test.describe('Block Template', () => {
   test(
     'APP-BLOCKS-BLOCK-006: should render nested child components',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: block with children
       await startServerWithSchema({
         name: 'test-app',
@@ -238,7 +238,7 @@ test.describe('Block Template', () => {
   test(
     'APP-BLOCKS-BLOCK-007: should render text content with substituted variables',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: block with content
       await startServerWithSchema({
         name: 'test-app',
@@ -273,7 +273,7 @@ test.describe('Block Template', () => {
   test(
     'APP-BLOCKS-BLOCK-008: should render text element with dynamic styling and content',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: simple text block example
       await startServerWithSchema({
         name: 'test-app',
@@ -308,7 +308,7 @@ test.describe('Block Template', () => {
   test(
     'APP-BLOCKS-BLOCK-009: should render flex container with icon and text components',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: feature-list-item block example
       await startServerWithSchema({
         name: 'test-app',
@@ -352,7 +352,7 @@ test.describe('Block Template', () => {
   test(
     'APP-BLOCKS-BLOCK-010: should render multiple instances with different data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: block as reusable template
       await startServerWithSchema({
         name: 'test-app',
@@ -405,7 +405,7 @@ test.describe('Block Template', () => {
   test(
     'APP-BLOCKS-BLOCK-011: should render complete component with all aspects integrated',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: block composition patterns
       await startServerWithSchema({
         name: 'test-app',
@@ -459,7 +459,7 @@ test.describe('Block Template', () => {
   test(
     'APP-BLOCKS-BLOCK-012: should transform template placeholders into concrete values in DOM',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: block template instantiation
       await startServerWithSchema({
         name: 'test-app',
@@ -500,7 +500,7 @@ test.describe('Block Template', () => {
   test(
     'APP-BLOCKS-BLOCK-REGRESSION-001: user can complete full block workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Application with comprehensive block templates
       await startServerWithSchema({
         name: 'test-app',

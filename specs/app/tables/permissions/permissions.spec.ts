@@ -16,7 +16,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
+ 
 
 /**
  * E2E Tests for Table Permissions
@@ -38,7 +38,7 @@ test.describe('Table Permissions', () => {
   test.fixme(
     'APP-TABLES-PERMISSIONS-001: should deny access before field/record checks when user lacks table-level read permission',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: user without table-level read permission
       await startServerWithSchema({
         name: 'test-app',
@@ -99,7 +99,7 @@ test.describe('Table Permissions', () => {
   test.fixme(
     'APP-TABLES-PERMISSIONS-002: should filter sensitive fields when user has table read permission but restricted field access',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: user with table read permission but restricted field access
       await startServerWithSchema({
         name: 'test-app',
@@ -173,7 +173,7 @@ test.describe('Table Permissions', () => {
   test.fixme(
     'APP-TABLES-PERMISSIONS-003: should apply hierarchical checks (table → field → record filtering) when permissions configured at all three levels',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: permissions configured at all three levels (table + field + record)
       await startServerWithSchema({
         name: 'test-app',
@@ -253,7 +253,7 @@ test.describe('Table Permissions', () => {
   test.fixme(
     'APP-TABLES-PERMISSIONS-004: should block all access by default when table has no permissions configured',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: table with no permissions configured (default deny)
       await startServerWithSchema({
         name: 'test-app',
@@ -306,7 +306,7 @@ test.describe('Table Permissions', () => {
   test.fixme(
     'APP-TABLES-PERMISSIONS-005: should enforce all layers (public access, field filtering, record filtering) with complete permission hierarchy',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: complete permission hierarchy with table=public, field=restricted, record=owner-only
       await startServerWithSchema({
         name: 'test-app',
@@ -387,7 +387,7 @@ test.describe('Table Permissions', () => {
   test.fixme(
     'user can complete full permissions workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: Application configured with representative hierarchical permissions
       await startServerWithSchema({
         name: 'test-app',

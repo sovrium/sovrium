@@ -27,7 +27,7 @@ test.describe('Navigation Configuration', () => {
   test(
     'APP-PAGES-NAV-001: should display logo image',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a navigation with logo
       await startServerWithSchema({
         name: 'test-app',
@@ -57,7 +57,7 @@ test.describe('Navigation Configuration', () => {
   test(
     'APP-PAGES-NAV-002: should use alternative logo for mobile devices',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a navigation with logoMobile
       await startServerWithSchema({
         name: 'test-app',
@@ -94,7 +94,7 @@ test.describe('Navigation Configuration', () => {
   test(
     'APP-PAGES-NAV-003: should provide accessible alt text for logo',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a navigation with logoAlt
       await startServerWithSchema({
         name: 'test-app',
@@ -125,7 +125,7 @@ test.describe('Navigation Configuration', () => {
   test(
     'APP-PAGES-NAV-004: should stick to top on scroll',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a sticky navigation
       await startServerWithSchema({
         name: 'test-app',
@@ -160,7 +160,7 @@ test.describe('Navigation Configuration', () => {
   test(
     'APP-PAGES-NAV-005: should have transparent background (becomes opaque on scroll)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a transparent navigation
       await startServerWithSchema({
         name: 'test-app',
@@ -199,7 +199,7 @@ test.describe('Navigation Configuration', () => {
   test(
     'APP-PAGES-NAV-006: should render desktop navigation menu',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: navigation with desktop links
       await startServerWithSchema({
         name: 'test-app',
@@ -244,7 +244,7 @@ test.describe('Navigation Configuration', () => {
   test(
     'APP-PAGES-NAV-007: should render different links for mobile menu',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: navigation with mobile links
       await startServerWithSchema({
         name: 'test-app',
@@ -290,7 +290,7 @@ test.describe('Navigation Configuration', () => {
   test(
     'APP-PAGES-NAV-008: should render prominent call-to-action button',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: navigation with CTA button
       await startServerWithSchema({
         name: 'test-app',
@@ -330,7 +330,7 @@ test.describe('Navigation Configuration', () => {
   test(
     'APP-PAGES-NAV-009: should display search input in navigation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: navigation with search enabled
       await startServerWithSchema({
         name: 'test-app',
@@ -364,7 +364,7 @@ test.describe('Navigation Configuration', () => {
   test(
     'APP-PAGES-NAV-010: should show user account menu with login/signup links',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: navigation with user menu enabled
       await startServerWithSchema({
         name: 'test-app',
@@ -397,7 +397,7 @@ test.describe('Navigation Configuration', () => {
   test(
     'APP-PAGES-NAV-011: should render minimal navigation with logo',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: navigation with required logo only
       await startServerWithSchema({
         name: 'test-app',
@@ -425,7 +425,7 @@ test.describe('Navigation Configuration', () => {
   test(
     'APP-PAGES-NAV-012: should compose navigation from modular schemas',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: navigation referencing sub-schemas
       await startServerWithSchema({
         name: 'test-app',
@@ -463,7 +463,7 @@ test.describe('Navigation Configuration', () => {
   test(
     'APP-PAGES-LAYOUT-NAVIGATION-REGRESSION-001: user can complete full navigation workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [

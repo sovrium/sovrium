@@ -27,7 +27,7 @@ test.describe('Variable Reference', () => {
   test(
     'APP-PAGES-VARREF-001: should validate variable syntax',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a simple variable reference
       await startServerWithSchema({
         name: 'test-app',
@@ -59,7 +59,7 @@ test.describe('Variable Reference', () => {
   test(
     'APP-PAGES-VARREF-002: should accept camelCase variable names',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a variable reference with camelCase name
       await startServerWithSchema({
         name: 'test-app',
@@ -91,7 +91,7 @@ test.describe('Variable Reference', () => {
   test(
     'APP-PAGES-VARREF-003: should accept variable at start of string',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a string with variable at the start
       await startServerWithSchema({
         name: 'test-app',
@@ -123,7 +123,7 @@ test.describe('Variable Reference', () => {
   test(
     'APP-PAGES-VARREF-004: should accept variable in middle of string',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a string with variable in the middle
       await startServerWithSchema({
         name: 'test-app',
@@ -155,7 +155,7 @@ test.describe('Variable Reference', () => {
   test(
     'APP-PAGES-VARREF-005: should accept variable at end of string',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a string with variable at the end
       await startServerWithSchema({
         name: 'test-app',
@@ -187,7 +187,7 @@ test.describe('Variable Reference', () => {
   test(
     'APP-PAGES-VARREF-006: should accept multiple $variable references',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a string with multiple variables
       await startServerWithSchema({
         name: 'test-app',
@@ -220,7 +220,7 @@ test.describe('Variable Reference', () => {
   test(
     'APP-PAGES-VARREF-007: should accept alphanumeric variable names',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a variable reference with numbers in name
       await startServerWithSchema({
         name: 'test-app',
@@ -253,7 +253,7 @@ test.describe('Variable Reference', () => {
   test(
     'APP-PAGES-VARREF-008: should support variable composition patterns',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: complex variable combination
       await startServerWithSchema({
         name: 'test-app',
@@ -293,7 +293,7 @@ test.describe('Variable Reference', () => {
   test(
     'APP-PAGES-VARIABLE-REFERENCE-REGRESSION-001: user can complete full variable-reference workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Application with comprehensive variable usage
       await startServerWithSchema({
         name: 'test-app',

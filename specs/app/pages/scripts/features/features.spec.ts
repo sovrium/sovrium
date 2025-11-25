@@ -22,7 +22,7 @@ test.describe('Feature Flags', () => {
   test(
     'APP-PAGES-FEATURES-001: should enable simple feature flag',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a feature with boolean value true
       await startServerWithSchema({
         name: 'test-app',
@@ -49,7 +49,7 @@ test.describe('Feature Flags', () => {
   test(
     'APP-PAGES-FEATURES-002: should disable feature',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a feature with boolean value false
       await startServerWithSchema({
         name: 'test-app',
@@ -76,7 +76,7 @@ test.describe('Feature Flags', () => {
   test(
     'APP-PAGES-FEATURES-003: should provide feature with configuration data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a feature with object config
       await startServerWithSchema({
         name: 'test-app',
@@ -109,7 +109,7 @@ test.describe('Feature Flags', () => {
   test(
     'APP-PAGES-FEATURES-004: should toggle feature via enabled boolean',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a feature config with enabled property
       await startServerWithSchema({
         name: 'test-app',
@@ -136,7 +136,7 @@ test.describe('Feature Flags', () => {
   test(
     'APP-PAGES-FEATURES-005: should pass configuration to feature implementation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a feature config with nested config object
       await startServerWithSchema({
         name: 'test-app',
@@ -168,7 +168,7 @@ test.describe('Feature Flags', () => {
   test(
     'APP-PAGES-FEATURES-006: should validate camelCase naming convention',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: features with camelCase naming
       await startServerWithSchema({
         name: 'test-app',
@@ -197,7 +197,7 @@ test.describe('Feature Flags', () => {
   test(
     'APP-PAGES-FEATURES-007: should support both simple and complex feature definitions',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: features with oneOf type (boolean or object)
       await startServerWithSchema({
         name: 'test-app',
@@ -230,7 +230,7 @@ test.describe('Feature Flags', () => {
   test(
     'APP-PAGES-FEATURES-008: should support flexible feature configuration',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: feature config with additionalProperties true
       await startServerWithSchema({
         name: 'test-app',
@@ -262,7 +262,7 @@ test.describe('Feature Flags', () => {
   test(
     'APP-PAGES-FEATURES-009: should enable/disable UI features dynamically',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: common feature flags (darkMode, animations, cookieConsent, liveChat)
       await startServerWithSchema({
         name: 'test-app',
@@ -299,7 +299,7 @@ test.describe('Feature Flags', () => {
   test(
     'APP-PAGES-FEATURES-010: should provide runtime feature detection',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: features accessible in client JavaScript
       await startServerWithSchema({
         name: 'test-app',
@@ -326,7 +326,7 @@ test.describe('Feature Flags', () => {
   test(
     'APP-PAGES-SCRIPTS-FEATURES-REGRESSION-001: user can complete full Feature Flags workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [

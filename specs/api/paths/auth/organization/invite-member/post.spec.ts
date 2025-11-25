@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
+ 
 
 /**
  * E2E Tests for Invite member to organization
@@ -33,7 +33,7 @@ test.describe('Invite member to organization', () => {
   test.fixme(
     'API-ORG-INVITE-MEMBER-SUCCESS-001: should returns 201 Created with invitation token and sends invitation email',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -82,7 +82,7 @@ test.describe('Invite member to organization', () => {
   test.fixme(
     'API-ORG-INVITE-MEMBER-VALIDATION-REQUIRED-FIELDS-001: should returns 400 Bad Request with validation errors',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -122,7 +122,7 @@ test.describe('Invite member to organization', () => {
   test.fixme(
     'API-ORG-INVITE-MEMBER-VALIDATION-INVALID-EMAIL-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -167,7 +167,7 @@ test.describe('Invite member to organization', () => {
   test.fixme(
     'API-ORG-INVITE-MEMBER-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -198,7 +198,7 @@ test.describe('Invite member to organization', () => {
   test.fixme(
     'API-ORG-INVITE-MEMBER-PERMISSIONS-FORBIDDEN-REGULAR-MEMBER-001: should returns 403 Forbidden',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated regular member (not owner/admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -243,7 +243,7 @@ test.describe('Invite member to organization', () => {
   test.fixme(
     'API-ORG-INVITE-MEMBER-NOT-FOUND-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -282,7 +282,7 @@ test.describe('Invite member to organization', () => {
   test.fixme(
     'API-ORG-INVITE-MEMBER-CONFLICT-ALREADY-MEMBER-001: should returns 409 Conflict error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated organization owner and a user who is already a member
       await startServerWithSchema({
         name: 'test-app',
@@ -333,7 +333,7 @@ test.describe('Invite member to organization', () => {
   test.fixme(
     'API-ORG-INVITE-MEMBER-CONFLICT-PENDING-INVITATION-001: should returns 409 Conflict error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated organization owner and an existing pending invitation
       await startServerWithSchema({
         name: 'test-app',
@@ -381,7 +381,7 @@ test.describe('Invite member to organization', () => {
   test.fixme(
     'API-ORG-INVITE-MEMBER-EDGE-CASE-CASE-INSENSITIVE-EMAIL-001: should returns 409 Conflict (case-insensitive email matching)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -436,7 +436,7 @@ test.describe('Invite member to organization', () => {
   test.fixme(
     'user can complete full inviteMember workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema, executeQuery: _executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

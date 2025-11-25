@@ -22,7 +22,7 @@ test.describe('External Scripts', () => {
   test(
     'APP-PAGES-EXTERNAL-001: should load external JavaScript from CDN',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: an external script with src URL
       await startServerWithSchema({
         name: 'test-app',
@@ -52,7 +52,7 @@ test.describe('External Scripts', () => {
   test(
     'APP-PAGES-EXTERNAL-002: should load script asynchronously (non-blocking)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: an external script with async true
       await startServerWithSchema({
         name: 'test-app',
@@ -81,7 +81,7 @@ test.describe('External Scripts', () => {
   test(
     'APP-PAGES-EXTERNAL-003: should defer script execution until DOM loaded',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: an external script with defer true
       await startServerWithSchema({
         name: 'test-app',
@@ -110,7 +110,7 @@ test.describe('External Scripts', () => {
   test(
     "APP-PAGES-EXTERNAL-004: should load script with type='module'",
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -132,7 +132,7 @@ test.describe('External Scripts', () => {
   test(
     'APP-PAGES-EXTERNAL-005: should verify subresource integrity for security',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: an external script with integrity hash
       await startServerWithSchema({
         name: 'test-app',
@@ -163,7 +163,7 @@ test.describe('External Scripts', () => {
   test(
     'APP-PAGES-EXTERNAL-006: should set CORS policy for script loading',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: an external script with crossorigin
       const crossorigins = ['anonymous', 'use-credentials']
       for (const crossorigin of crossorigins) {
@@ -191,7 +191,7 @@ test.describe('External Scripts', () => {
   test(
     'APP-PAGES-EXTERNAL-007: should insert script in document head',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: an external script with position 'head'
       await startServerWithSchema({
         name: 'test-app',
@@ -222,7 +222,7 @@ test.describe('External Scripts', () => {
   test(
     'APP-PAGES-EXTERNAL-008: should insert script at end of body',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: an external script with position 'body-end'
       await startServerWithSchema({
         name: 'test-app',
@@ -253,7 +253,7 @@ test.describe('External Scripts', () => {
   test(
     'APP-PAGES-EXTERNAL-009: should insert script at start of body',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: an external script with position 'body-start'
       await startServerWithSchema({
         name: 'test-app',
@@ -284,7 +284,7 @@ test.describe('External Scripts', () => {
   test(
     'APP-PAGES-EXTERNAL-010: should load multiple external scripts in order',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: external scripts array with multiple libraries
       await startServerWithSchema({
         name: 'test-app',
@@ -322,7 +322,7 @@ test.describe('External Scripts', () => {
   test(
     'APP-PAGES-EXTERNAL-011: should load local JavaScript file',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: external script with relative src
       await startServerWithSchema({
         name: 'test-app',
@@ -348,7 +348,7 @@ test.describe('External Scripts', () => {
   test(
     'APP-PAGES-EXTERNAL-012: should load script with default settings (sync, body-end)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: external script with required src only
       await startServerWithSchema({
         name: 'test-app',
@@ -377,7 +377,7 @@ test.describe('External Scripts', () => {
   test(
     'APP-PAGES-SCRIPTS-EXTERNAL-REGRESSION-001: user can complete full External Scripts workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [

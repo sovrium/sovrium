@@ -22,7 +22,7 @@ test.describe('Education Event Schema', () => {
   test(
     'APP-PAGES-EDUCATIONEVENT-001: should validate minimal EducationEvent structured data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: EducationEvent with required properties
       await startServerWithSchema({
         name: 'test-app',
@@ -59,7 +59,7 @@ test.describe('Education Event Schema', () => {
   test(
     'APP-PAGES-EDUCATIONEVENT-002: should provide event identity',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: EducationEvent with name and description
       await startServerWithSchema({
         name: 'test-app',
@@ -98,7 +98,7 @@ test.describe('Education Event Schema', () => {
   test(
     'APP-PAGES-EDUCATIONEVENT-003: should specify when event begins',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: EducationEvent with startDate
       await startServerWithSchema({
         name: 'test-app',
@@ -135,7 +135,7 @@ test.describe('Education Event Schema', () => {
   test(
     'APP-PAGES-EDUCATIONEVENT-004: should specify when event ends',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: EducationEvent with endDate
       await startServerWithSchema({
         name: 'test-app',
@@ -173,7 +173,7 @@ test.describe('Education Event Schema', () => {
   test(
     'APP-PAGES-EDUCATIONEVENT-005: should specify whether event is in-person, online, or hybrid',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: EducationEvent with eventAttendanceMode
       const modes = [
         'https://schema.org/OfflineEventAttendanceMode',
@@ -214,7 +214,7 @@ test.describe('Education Event Schema', () => {
   test(
     'APP-PAGES-EDUCATIONEVENT-006: should communicate event status',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: EducationEvent with eventStatus
       const statuses = [
         'https://schema.org/EventScheduled',
@@ -256,7 +256,7 @@ test.describe('Education Event Schema', () => {
   test(
     'APP-PAGES-EDUCATIONEVENT-007: should provide event venue information',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: EducationEvent with location
       await startServerWithSchema({
         name: 'test-app',
@@ -299,7 +299,7 @@ test.describe('Education Event Schema', () => {
   test(
     'APP-PAGES-EDUCATIONEVENT-008: should identify event organizer',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: EducationEvent with organizer
       await startServerWithSchema({
         name: 'test-app',
@@ -341,7 +341,7 @@ test.describe('Education Event Schema', () => {
   test(
     'APP-PAGES-EDUCATIONEVENT-009: should provide ticket pricing and availability',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: EducationEvent with offers
       await startServerWithSchema({
         name: 'test-app',
@@ -386,7 +386,7 @@ test.describe('Education Event Schema', () => {
   test(
     'APP-PAGES-EDUCATIONEVENT-010: should specify event ticket price',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: EducationEvent with price and priceCurrency
       await startServerWithSchema({
         name: 'test-app',
@@ -425,7 +425,7 @@ test.describe('Education Event Schema', () => {
   test(
     'APP-PAGES-EDUCATIONEVENT-011: should indicate ticket availability status',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: EducationEvent with availability enum
       const availabilities = [
         'https://schema.org/InStock',
@@ -467,7 +467,7 @@ test.describe('Education Event Schema', () => {
   test(
     'APP-PAGES-EDUCATIONEVENT-012: should specify event capacity limits',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: EducationEvent with capacity
       await startServerWithSchema({
         name: 'test-app',
@@ -507,7 +507,7 @@ test.describe('Education Event Schema', () => {
   test(
     'APP-PAGES-EDUCATIONEVENT-013: should enable Google Events rich results',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: EducationEvent for rich results
       await startServerWithSchema({
         name: 'test-app',
@@ -547,7 +547,7 @@ test.describe('Education Event Schema', () => {
   test(
     'APP-PAGES-EDUCATIONEVENT-014: should display event in Google Search, Maps, and event discovery features',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: EducationEvent for event discovery
       await startServerWithSchema({
         name: 'test-app',
@@ -586,7 +586,7 @@ test.describe('Education Event Schema', () => {
   test(
     'APP-PAGES-META-STRUCTURED-DATA-EDUCATION-EVENT-REGRESSION-001: user can complete full Education Event workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
         pages: [

@@ -27,7 +27,7 @@ test.describe('Click Interaction', () => {
   test(
     'APP-PAGES-INTERACTION-CLICK-001: should play a pulse animation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a button with click animation 'pulse'
       await startServerWithSchema({
         name: 'test-app',
@@ -61,7 +61,7 @@ test.describe('Click Interaction', () => {
   test(
     'APP-PAGES-INTERACTION-CLICK-002: should play a ripple animation from the click point',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a button with click animation 'ripple'
       await startServerWithSchema({
         name: 'test-app',
@@ -95,7 +95,7 @@ test.describe('Click Interaction', () => {
   test(
     'APP-PAGES-INTERACTION-CLICK-003: should navigate to the contact page',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a button with navigate to '/contact'
       await startServerWithSchema({
         name: 'test-app',
@@ -135,7 +135,7 @@ test.describe('Click Interaction', () => {
   test(
     'APP-PAGES-INTERACTION-CLICK-004: should navigate to the pricing section on the same page',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a button with navigate to anchor '#pricing-section'
       await startServerWithSchema({
         name: 'test-app',
@@ -172,7 +172,7 @@ test.describe('Click Interaction', () => {
   test(
     'APP-PAGES-INTERACTION-CLICK-005: should open the URL in the same tab',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a button with openUrl to external site
       await startServerWithSchema({
         name: 'test-app',
@@ -244,7 +244,7 @@ test.describe('Click Interaction', () => {
   test(
     'APP-PAGES-INTERACTION-CLICK-007: should smoothly scroll to the hero section',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a button with scrollTo '#hero-section'
       await startServerWithSchema({
         name: 'test-app',
@@ -284,7 +284,7 @@ test.describe('Click Interaction', () => {
   test(
     'APP-PAGES-INTERACTION-CLICK-008: should show the mobile menu if hidden, or hide it if shown',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a button with toggleElement '#mobile-menu'
       await startServerWithSchema({
         name: 'test-app',
@@ -327,7 +327,7 @@ test.describe('Click Interaction', () => {
   test(
     'APP-PAGES-INTERACTION-CLICK-009: should submit the contact form',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a button with submitForm '#contact-form'
       await startServerWithSchema({
         name: 'test-app',
@@ -369,7 +369,7 @@ test.describe('Click Interaction', () => {
   test(
     'APP-PAGES-INTERACTION-CLICK-010: should play pulse animation then navigate to signup page',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a button with animation 'pulse' and navigate '/signup'
       await startServerWithSchema({
         name: 'test-app',
@@ -410,7 +410,7 @@ test.describe('Click Interaction', () => {
   test(
     'APP-PAGES-INTERACTION-CLICK-011: should play a bounce animation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a button with animation 'bounce'
       await startServerWithSchema({
         name: 'test-app',
@@ -444,7 +444,7 @@ test.describe('Click Interaction', () => {
   test(
     'APP-PAGES-INTERACTION-CLICK-012: should not play any animation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: a button with animation 'none'
       await startServerWithSchema({
         name: 'test-app',
@@ -483,7 +483,7 @@ test.describe('Click Interaction', () => {
   test(
     'APP-PAGES-INTERACTIONS-CLICK-INTERACTION-REGRESSION-001: user can complete full click interaction workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page: _page, startServerWithSchema: _startServerWithSchema }) => {
       // GIVEN: Application with comprehensive click interactions
       await startServerWithSchema({
         name: 'test-app',
