@@ -624,4 +624,4 @@ export const requireAuth = createMiddleware(async (c, next) => {
 - Field Permissions: `authorization-field-level-permissions.md`
 - Org Isolation: `authorization-organization-isolation.md`
 - Error Handling: `authorization-error-handling.md`
-- ADR: `ADR-003-authorization-strategy.md`
+- ADR: `005-authorization-strategy.md`

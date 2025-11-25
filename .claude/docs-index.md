@@ -67,6 +67,8 @@
 
 ## Architecture
 
+### Core Architecture Patterns
+
 - `@docs/architecture/functional-programming.md` - FP principles
 - `@docs/architecture/layer-based-architecture.md` - Layered architecture
 - `@docs/architecture/naming-conventions.md` - Comprehensive naming conventions (files, variables, functions, classes, types)
@@ -75,6 +77,20 @@
 - `@docs/architecture/testing-strategy.md` - F.I.R.S.T principles
 - `@docs/architecture/performance-optimization.md` - Performance patterns
 - `@docs/architecture/security-best-practices.md` - Security guidelines
+
+### Architectural Decision Records (ADRs)
+
+- `@docs/architecture/decisions/001-validation-library-split.md` - ADR 001: Validation library split (Zod for client, Effect Schema for server)
+- `@docs/architecture/decisions/002-domain-feature-isolation.md` - ADR 002: Domain feature isolation patterns
+- `@docs/architecture/decisions/003-runtime-sql-migrations.md` - ADR 003: Runtime SQL migration generation from JSON config
+- `@docs/architecture/decisions/004-presentation-layer-feature-based-structure.md` - ADR 004: Presentation layer feature-based structure
+- `@docs/architecture/decisions/005-authorization-strategy.md` - ADR 005: Authorization strategy for table APIs (RBAC + field-level permissions)
+
+### Cross-Cutting Architecture Patterns
+
+- `@docs/architecture/patterns/config-driven-schema-generation.md` - Config-driven database schema generation pattern
+- `@docs/architecture/patterns/theming-architecture.md` - Domain-driven CSS compilation with Tailwind @theme directive
+- `@docs/architecture/patterns/i18n-centralized-translations.md` - Centralized translations with config-driven i18n
 
 ## Development Workflows
 
@@ -107,6 +123,8 @@ Import: @docs/infrastructure/api/hono-rpc-openapi.md
 ```
 Import: @docs/infrastructure/database/drizzle.md
 Import: @docs/architecture/layer-based-architecture.md
+Import: @docs/architecture/decisions/003-runtime-sql-migrations.md
+Import: @docs/architecture/patterns/config-driven-schema-generation.md
 ```
 
 ### Working with Schemas & Validation

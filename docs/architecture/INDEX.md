@@ -18,12 +18,23 @@ This index provides a comprehensive guide to Sovrium's architecture documentatio
 | **performance-optimization.md** | React 19 Compiler, Effect.ts, Bun optimization   | ESLint React warnings              |
 | **security-best-practices.md**  | Authentication, validation, CSRF/XSS protection  | ESLint Drizzle rules               |
 
+### Architectural Decision Records (ADRs)
+
+| Document                                          | Purpose                                                         | Date       | Status   |
+| ------------------------------------------------- | --------------------------------------------------------------- | ---------- | -------- |
+| **decisions/001-validation-library-split.md**     | Zod for client validation, Effect Schema for server             | 2025-01-20 | Accepted |
+| **decisions/002-domain-feature-isolation.md**     | Strict feature isolation in domain models                       | 2025-01-22 | Accepted |
+| **decisions/003-runtime-sql-migrations.md**       | Runtime SQL generation from JSON config (not Drizzle .ts files) | 2025-01-25 | Accepted |
+| **decisions/004-presentation-layer-structure.md** | Feature-based component organization                            | 2025-01-18 | Accepted |
+| **decisions/005-authorization-strategy.md**       | RBAC + field-level permissions with Better Auth organizations   | 2025-01-25 | Accepted |
+
 ### Cross-Cutting Architecture Patterns
 
-| Document                                      | Purpose                                                      | Enforcement                                 |
-| --------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------- |
-| **patterns/theming-architecture.md**          | Domain-driven CSS compilation with Tailwind @theme directive | ESLint boundaries + functional + TypeScript |
-| **patterns/i18n-centralized-translations.md** | Centralized translations with config-driven i18n             | Effect Schema validation                    |
+| Document                                        | Purpose                                                      | Enforcement                                    |
+| ----------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------- |
+| **patterns/config-driven-schema-generation.md** | Runtime database schema generation from JSON config          | ESLint boundaries + TypeScript + Effect Schema |
+| **patterns/theming-architecture.md**            | Domain-driven CSS compilation with Tailwind @theme directive | ESLint boundaries + functional + TypeScript    |
+| **patterns/i18n-centralized-translations.md**   | Centralized translations with config-driven i18n             | Effect Schema validation                       |
 
 ---
 
@@ -195,6 +206,43 @@ This index provides a comprehensive guide to Sovrium's architecture documentatio
 - Zero variable substitution (direct Tailwind utilities only)
 - Functional compilation with in-memory caching (Effect.Ref)
 - Layer-based architecture integration (domain → infrastructure flow)
+
+---
+
+### Config-Driven Schema Generation / Runtime SQL Migrations
+
+**Architecture Documents**: `patterns/config-driven-schema-generation.md`, `decisions/003-runtime-sql-migrations.md`
+
+**Related Infrastructure**:
+
+- `@docs/infrastructure/database/drizzle.md` - Drizzle ORM for static schemas (Better Auth)
+- `@docs/infrastructure/database/runtime-sql-migrations.md` - Quick reference for runtime migrations
+- `@docs/infrastructure/database/runtime-sql-migrations/` - 9-part deep dive (implementation guide)
+- `@docs/infrastructure/framework/effect.md` - Effect Schema for config validation
+- `@docs/infrastructure/runtime/bun.md` - bun:sql native driver for SQL execution
+- `@docs/infrastructure/quality/eslint.md#architectural-enforcement` - Layer boundaries
+
+**Enforcement**:
+
+- ✅ **eslint-plugin-boundaries**: Infrastructure database layer isolated from application use-cases
+- ✅ **TypeScript strict mode**: Type safety for SQL generator and migration executor
+- ✅ **Effect Schema**: Runtime validation of JSON config (30+ field types)
+- ⚠️ **Manual review**: SQL DDL correctness, transaction handling, checksum optimization
+
+**Key Concepts**:
+
+- JSON config as single source of truth for user-defined tables
+- Direct SQL generation (not Drizzle .ts file generation)
+- Transactional migrations (all-or-nothing with ROLLBACK)
+- Checksum optimization (skip generation if config unchanged)
+- ID-based rename detection (prevents data loss)
+- Virtual fields (formula/rollup) skip column creation
+
+**See Also**:
+
+- [ADR 003: Runtime SQL Migrations](../decisions/003-runtime-sql-migrations.md) - Decision rationale and alternatives
+- [Pattern: Config-Driven Schema Generation](../patterns/config-driven-schema-generation.md) - When to use, trade-offs, examples
+- [E2E Specs](../../../specs/migrations/) - 27 spec tests covering all migration scenarios
 
 ---
 

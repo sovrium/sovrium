@@ -350,27 +350,14 @@ The system implements automatic error recovery:
 - **DO** create PR with `tdd-automation` label and include `Closes #<issue_number>` in PR body (⚠️ no extra text after number)
 - **DO** retry up to 3 times on validation failures
 
-### Completion Checklist (Verify Before Finishing)
+### Completion Checklist
 
-Before considering a TDD spec issue complete, verify ALL of these:
+- [ ] `.fixme()` removed, code implemented, both agents run
+- [ ] Copyright headers added, changes committed/pushed
+- [ ] **⚠️ CRITICAL: PR created** with `tdd-automation` label and `Closes #<issue_number>` in body
+- [ ] Auto-merge enabled after validation passes
 
-- [ ] Branch created automatically by Claude Code (pattern: `claude/issue-{ISSUE_NUMBER}-{timestamp}`)
-- [ ] `.fixme()` removed from the ONE specific test
-- [ ] Code implemented to pass the test
-- [ ] Both agents run (e2e-test-fixer + codebase-refactor-auditor)
-- [ ] Copyright headers added (`bun run license`)
-- [ ] Changes committed with `fix: implement {SPEC-ID}` message
-- [ ] Changes pushed to remote branch
-- [ ] **⚠️ CRITICAL: Pull Request created** with:
-  - `tdd-automation` label
-  - `Closes #<issue_number>` in PR body (no extra text after number)
-  - Proper title: `fix: implement {SPEC-ID}`
-- [ ] **⚠️ CRITICAL: Auto-merge enabled** after validation passes (command: `gh pr merge --auto --squash`)
-- [ ] PR URL verified (check `gh pr list --label tdd-automation`)
-
-**If ANY checkbox is unchecked, the task is NOT complete.**
-
-**Remember**: Issue #1319 failed because PR was not created. Don't repeat this mistake.
+**Remember**: PR creation is mandatory - Issue #1319 failed because PR was not created.
 
 ### Queue System Architecture
 
