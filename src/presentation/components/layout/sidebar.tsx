@@ -116,7 +116,7 @@ function renderItems(
 /**
  * Generate client-side script for sidebar interactivity
  */
-function generateSidebarScript(collapsible: boolean, width: string): string {
+function generateSidebarScript(collapsible: boolean, width: string, position: string): string {
   const toggleScript = collapsible
     ? `
                 const toggle = document.querySelector('[data-testid="sidebar-toggle"]');
@@ -132,7 +132,7 @@ function generateSidebarScript(collapsible: boolean, width: string): string {
 
   return `
               (function() {
-                const sidebar = document.querySelector('[data-testid="sidebar"]');
+                const sidebar = document.querySelector('[data-testid="sidebar-${position}"]');
 
                 // Handle collapsible toggle
                 ${toggleScript}
@@ -237,7 +237,7 @@ export function Sidebar(
   return (
     <>
       <aside
-        data-testid="sidebar"
+        data-testid={`sidebar-${config.position}`}
         data-position={config.position}
         className={sidebarClass}
         style={{ width: config.width, height: '100vh' }}
@@ -263,7 +263,7 @@ export function Sidebar(
       </aside>
       <script
         dangerouslySetInnerHTML={{
-          __html: generateSidebarScript(config.collapsible, config.width),
+          __html: generateSidebarScript(config.collapsible, config.width, config.position),
         }}
       />
     </>

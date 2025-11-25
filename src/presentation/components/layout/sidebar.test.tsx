@@ -15,14 +15,14 @@ describe('Sidebar Component', () => {
       // When
       const html = renderToStaticMarkup(<Sidebar />)
       // Then
-      expect(html).toContain('data-testid="sidebar"')
+      expect(html).toContain('data-testid="sidebar-left"')
       expect(html).toContain('<aside')
     })
     test('renders with default width', () => {
       // When
       const html = renderToStaticMarkup(<Sidebar />)
       // Then
-      expect(html).toContain('data-testid="sidebar"')
+      expect(html).toContain('data-testid="sidebar-left"')
       expect(html).toContain('width:256px')
       expect(html).toContain('height:100vh')
     })
@@ -30,14 +30,14 @@ describe('Sidebar Component', () => {
       // When
       const html = renderToStaticMarkup(<Sidebar width="300px" />)
       // Then
-      expect(html).toContain('data-testid="sidebar"')
+      expect(html).toContain('data-testid="sidebar-left"')
       expect(html).toContain('width:300px')
     })
     test('renders with left position by default', () => {
       // When
       const html = renderToStaticMarkup(<Sidebar />)
       // Then
-      expect(html).toContain('data-testid="sidebar"')
+      expect(html).toContain('data-testid="sidebar-left"')
       expect(html).toContain('data-position="left"')
       expect(html).toContain('border-r')
     })
@@ -45,7 +45,7 @@ describe('Sidebar Component', () => {
       // When
       const html = renderToStaticMarkup(<Sidebar position="right" />)
       // Then
-      expect(html).toContain('data-testid="sidebar"')
+      expect(html).toContain('data-testid="sidebar-right"')
       expect(html).toContain('data-position="right"')
       expect(html).toContain('border-l')
     })
@@ -425,7 +425,7 @@ describe('Sidebar Component', () => {
       // When
       const html = renderToStaticMarkup(<Sidebar items={[]} />)
       // Then
-      expect(html).toContain('data-testid="sidebar"')
+      expect(html).toContain('data-testid="sidebar-left"')
       expect(html).not.toContain('<nav')
       expect(html).not.toContain('<button')
     })
@@ -433,7 +433,7 @@ describe('Sidebar Component', () => {
       // When
       const html = renderToStaticMarkup(<Sidebar />)
       // Then
-      expect(html).toContain('data-testid="sidebar"')
+      expect(html).toContain('data-testid="sidebar-left"')
       expect(html).not.toContain('<nav')
       expect(html).not.toContain('<button')
     })
