@@ -79,6 +79,7 @@ export function renderInlineScriptTag({
 
 /**
  * Renders an inline script tag that exposes configuration data to window object
+ * Merges with existing window property if it already exists
  *
  * SECURITY: Safe use of dangerouslySetInnerHTML
  * - Content: Build-time generated configuration data (JSON.stringify)
@@ -105,7 +106,7 @@ export function renderWindowConfig({
   return React.createElement('script', {
     key: reactKey,
     dangerouslySetInnerHTML: {
-      __html: `window.${windowKey} = ${JSON.stringify(data)};`,
+      __html: `window.${windowKey} = Object.assign({}, window.${windowKey} || {}, ${JSON.stringify(data)});`,
     },
   })
 }
