@@ -16,6 +16,7 @@ import { resolveBlock } from './blocks/block-resolution'
 import { buildComponentProps } from './props/component-builder'
 import { dispatchComponentType } from './rendering/component-type-dispatcher'
 import { buildResponsiveContentVariants } from './responsive/responsive-content-builder'
+import { buildResponsiveChildrenVariants } from './responsive/responsive-children-builder'
 import { mergeResponsiveProps } from './responsive/responsive-props-merger'
 import { buildInteractionProps } from './styling/interaction-props-builder'
 import { resolveI18nContent } from './translations/i18n-content-resolver'
@@ -179,11 +180,6 @@ function RenderDirectComponent({
   const meta = componentProps?.meta as BlockMeta | undefined
   const structuredDataScript = meta ? <StructuredDataFromBlock meta={meta} /> : undefined
 
-  // Inject structured data script as first child if it exists (functional approach)
-  const renderedChildren = structuredDataScript
-    ? ([structuredDataScript, ...baseRenderedChildren] as readonly ReactElement[])
-    : baseRenderedChildren
-
   // Check if component has responsive content overrides
   const hasResponsiveContent =
     responsive &&
@@ -212,6 +208,42 @@ function RenderDirectComponent({
     return responsiveVariants
   }
 
+  // Check if component has responsive children overrides
+  const hasResponsiveChildren =
+    responsive &&
+    Object.values(responsive).some(
+      (override) => (override as VariantOverrides).children !== undefined
+    )
+
+  // Use CSS-based responsive children variants for SSR compatibility
+  const finalRenderedChildren = hasResponsiveChildren
+    ? buildResponsiveChildrenVariants({
+        responsive: responsive!,
+        baseChildren: baseRenderedChildren,
+        renderChild: (child, index, breakpoint) => {
+          if (typeof child === 'string') {
+            return resolveChildTranslation(child, props.currentLang, props.languages)
+          }
+          return (
+            <ComponentRenderer
+              key={`${breakpoint}-${index}`}
+              component={child}
+              blocks={props.blocks}
+              theme={props.theme}
+              languages={props.languages}
+              currentLang={props.currentLang}
+              childIndex={index}
+            />
+          )
+        },
+      })
+    : baseRenderedChildren
+
+  // Inject structured data script as first child if it exists
+  const finalChildren = structuredDataScript
+    ? ([structuredDataScript, ...finalRenderedChildren] as readonly ReactElement[])
+    : finalRenderedChildren
+
   // Default rendering without responsive content
   const renderedComponent = dispatchComponentType({
     type,
@@ -223,7 +255,7 @@ function RenderDirectComponent({
         : typeof mergedContent === 'string'
           ? mergedContent
           : undefined,
-    renderedChildren,
+    renderedChildren: finalChildren,
     theme: props.theme,
     languages: props.languages,
     interactions,

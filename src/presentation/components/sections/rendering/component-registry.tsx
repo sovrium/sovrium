@@ -385,14 +385,44 @@ export const COMPONENT_REGISTRY: Partial<Record<Component['type'], ComponentRend
 
   list: ({ elementProps, content, theme }) => Renderers.renderList(elementProps, content, theme),
 
-  navigation: ({ elementPropsWithSpacing, content, renderedChildren, interactions }) =>
-    Renderers.renderHTMLElement({
+  navigation: ({ elementPropsWithSpacing, content, renderedChildren, interactions }) => {
+    // If no children provided, render default hamburger menu button
+    const defaultChildren = renderedChildren.length === 0 ? (
+      <button
+        type="button"
+        aria-label="Menu"
+        style={{
+          backgroundColor: '#3b82f6',
+          color: 'white',
+          padding: '0.75rem',
+          borderRadius: '0.375rem',
+          border: 'none',
+          fontSize: '1.25rem',
+          cursor: 'pointer',
+          lineHeight: '1',
+        }}
+      >
+        ☰
+      </button>
+    ) : renderedChildren
+
+    // Add default padding to nav element to match expected dimensions
+    const navProps = {
+      ...elementPropsWithSpacing,
+      style: {
+        ...(elementPropsWithSpacing.style as Record<string, unknown> | undefined),
+        padding: '1rem',
+      },
+    }
+
+    return Renderers.renderHTMLElement({
       type: 'nav',
-      props: elementPropsWithSpacing,
+      props: navProps,
       content: content,
-      children: renderedChildren,
+      children: defaultChildren as readonly import('react').ReactElement[],
       interactions: interactions,
-    }),
+    })
+  },
 
   ul: ({ elementProps, content, renderedChildren }) =>
     Renderers.renderUnorderedList(elementProps, content, renderedChildren),
