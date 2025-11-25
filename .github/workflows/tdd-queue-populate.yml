@@ -94,6 +94,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      - name: Close stale issues (tests fixed but issues not closed)
+        if: always()
+        run: |
+          echo "🗑️  Checking for stale issues..."
+          bun run scripts/tdd-automation/close-stale-issues.ts --close
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Display queue status
         if: always()
         run: |

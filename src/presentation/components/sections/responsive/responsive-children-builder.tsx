@@ -19,15 +19,25 @@ export interface ResponsiveChildrenRendererProps {
   readonly renderChild: (
     child: Component | string,
     index: number,
-    breakpoint?: string
+    breakpoint?: string,
+    additionalClassName?: string
   ) => ReactElement
 }
+
+/**
+ * Breakpoint order for calculating visibility ranges
+ */
+const BREAKPOINT_ORDER = ['mobile', 'sm', 'md', 'lg', 'xl', '2xl'] as const
 
 /**
  * Builds responsive children variants using CSS-based approach
  *
  * Renders wrapper divs for each breakpoint's children array.
  * Each wrapper is shown/hidden via Tailwind visibility classes based on viewport width.
+ *
+ * Uses mobile-first approach with upper-bound hiding:
+ * - If next breakpoint has override: hide from next breakpoint (e.g., "block lg:hidden")
+ * - If no next override: show from this breakpoint onwards (e.g., "hidden lg:block")
  *
  * This approach works reliably in E2E tests because:
  * - All children variants rendered server-side
@@ -55,36 +65,36 @@ export function buildResponsiveChildrenVariants({
   baseChildren,
   renderChild,
 }: ResponsiveChildrenRendererProps): readonly ReactElement[] {
-  // Collect all breakpoints with children overrides
-  const breakpointsWithChildren = Object.entries(responsive)
-    .filter(([, overrides]) => overrides.children !== undefined)
-    .map(([bp, overrides]) => ({ breakpoint: bp, children: overrides.children! }))
+  // Collect all breakpoints with children overrides, maintaining order
+  const breakpointsWithChildren = BREAKPOINT_ORDER.filter(
+    (bp) => responsive[bp]?.children !== undefined
+  ).map((bp) => ({ breakpoint: bp, children: responsive[bp]!.children! }))
 
   // If no responsive children overrides, return base children
   if (breakpointsWithChildren.length === 0) {
     return baseChildren ?? []
   }
 
-  // Build wrapper divs for each breakpoint's children
-  const childrenVariants = breakpointsWithChildren.map(({ breakpoint, children }) => {
-    const visibilityClass = BREAKPOINT_VISIBILITY[breakpoint]?.show || 'block'
+  // Build responsive children variants by cloning elements with visibility classes
+  const childrenVariants = breakpointsWithChildren.map(({ breakpoint, children }, index) => {
+    // Determine visibility class based on next breakpoint override
+    // Use max-* utilities for upper bounds (mobile-first approach)
+    const nextBreakpoint = breakpointsWithChildren[index + 1]?.breakpoint
+    const visibilityClass = nextBreakpoint
+      ? breakpoint === 'mobile'
+        ? `max-${nextBreakpoint}:block ${nextBreakpoint}:hidden` // Mobile: show below next BP, hide at/above
+        : `max-${breakpoint}:hidden ${breakpoint}:block max-${nextBreakpoint}:block ${nextBreakpoint}:hidden` // Mid: hide below, show in range, hide above
+      : breakpoint === 'mobile'
+        ? 'block' // Mobile with no next: always visible
+        : `max-${breakpoint}:hidden ${breakpoint}:block` // Last breakpoint: hide below, show at/above
 
-    // Render children for this breakpoint
-    const renderedChildren = children.map((child, index) => renderChild(child, index, breakpoint))
-
-    return (
-      <Fragment key={breakpoint}>
-        {renderedChildren.map((child, index) => (
-          <div
-            key={`${breakpoint}-${index}`}
-            className={visibilityClass}
-            data-responsive-breakpoint={breakpoint}
-          >
-            {child}
-          </div>
-        ))}
-      </Fragment>
+    // Render children for this breakpoint with visibility class passed to renderChild
+    // The renderChild callback will inject the className into the component's props
+    const renderedChildren = children.map((child, childIndex) =>
+      renderChild(child, childIndex, breakpoint, visibilityClass)
     )
+
+    return <Fragment key={breakpoint}>{renderedChildren}</Fragment>
   })
 
   return childrenVariants

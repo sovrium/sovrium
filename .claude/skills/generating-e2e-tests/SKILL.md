@@ -1,7 +1,7 @@
 ---
 name: e2e-test-generator
 description: |
-  Mechanically translates validated x-specs arrays from specification files into co-located Playwright test files. Converts GIVEN-WHEN-THEN specs into executable @spec tests plus ONE optimized @regression test. Supports three domains: app (.schema.json), admin (.json), and api (.openapi.json). Refuses to proceed if x-specs array is missing or invalid. Uses optional validation/application properties for enhanced test generation. Use when user requests "translate specs to tests", "generate Playwright tests from schema", or mentions converting x-specs arrays.
+  Mechanically translates validated x-specs arrays from specification files into co-located Playwright test files. Converts GIVEN-WHEN-THEN specs into executable @spec tests plus ONE optimized @regression test. Supports three domains: app (.schema.json), admin (.json), and api (.json in paths/). Refuses to proceed if x-specs array is missing or invalid. Uses optional validation/application properties for enhanced test generation. Use when user requests "translate specs to tests", "generate Playwright tests from schema", or mentions converting x-specs arrays.
 allowed-tools: [Read, Write, Bash]
 ---
 
@@ -35,12 +35,15 @@ Before translating ANY tests, you MUST verify:
 The skill automatically detects the domain based on directory structure:
 - `specs/app/**/*.schema.json` → **App domain** (JSON Schema files)
 - `specs/admin/**/*.json` → **Admin domain** (Admin specification files)
-- `specs/api/**/*.openapi.json` → **API domain** (OpenAPI specification files)
+- `specs/api/paths/**/*.json` → **API domain** (OpenAPI endpoint files with x-specs)
 
 ```typescript
 // Auto-detect domain and construct schema path
 let schemaPath: string
 let domain: 'app' | 'admin' | 'api'
+
+// Note: For API domain, user provides FULL path from specs/api/
+// Example: "paths/auth/sign-up/email/post" → specs/api/paths/auth/sign-up/email/post.json
 
 // Try app domain first
 schemaPath = `specs/app/${property}/${property}.schema.json`
@@ -52,9 +55,9 @@ else if (fileExists(`specs/admin/${property}/${property}.json`)) {
   schemaPath = `specs/admin/${property}/${property}.json`
   domain = 'admin'
 }
-// Try api domain
-else if (fileExists(`specs/api/${property}/${property}.openapi.json`)) {
-  schemaPath = `specs/api/${property}/${property}.openapi.json`
+// Try api domain (user provides full path from specs/api/)
+else if (fileExists(`specs/api/${property}.json`)) {
+  schemaPath = `specs/api/${property}.json`
   domain = 'api'
 }
 // No matching file found
@@ -65,12 +68,15 @@ else {
   Expected one of:
   - specs/app/${property}/${property}.schema.json (App domain)
   - specs/admin/${property}/${property}.json (Admin domain)
-  - specs/api/${property}/${property}.openapi.json (API domain)
+  - specs/api/${property}.json (API domain - provide full path from specs/api/)
 
   REQUIRED ACTION:
   Create the specification file with an x-specs array before requesting test translation.
 
   NOTE: I am a TRANSLATOR. I cannot create specifications or test scenarios.
+
+  For API domain, provide full path from specs/api/:
+  Example: "paths/auth/sign-up/email/post" for specs/api/paths/auth/sign-up/email/post.json
   `
 }
 
@@ -321,13 +327,13 @@ await expect(page).toHaveScreenshot('tablet-view.png')
 - ✅ **User interactions** (clicks, typing, navigation)
 - ✅ **Form validation** (error messages, field states)
 - ✅ **Business rules** (calculations, permissions)
-- ✅ **API responses** (data validation, status codes)
+- ✅ **API responses** (data validation, status codes) - **PRIMARY for API domain**
 - ✅ **Dynamic behavior** (state changes, real-time updates)
 - ✅ **Specific values** (counters, computed properties)
 
 **Code patterns**:
 ```typescript
-// Behavioral assertions
+// Behavioral assertions (App/Admin domains)
 await expect(page.locator('input[type="email"]')).toHaveValue('user@example.com')
 await expect(page.locator('.error')).toBeVisible()
 await expect(page).toHaveURL('/dashboard')
@@ -336,6 +342,29 @@ await expect(page).toHaveTitle('Dashboard')
 // Business logic
 const price = await page.locator('.total-price').textContent()
 expect(parseFloat(price.replace('$', ''))).toBeGreaterThan(0)
+
+// API response assertions (API domain) - Uses page.request, NOT page.goto()
+const response = await page.request.post('/api/auth/sign-up/email', {
+  headers: { 'Content-Type': 'application/json' },
+  data: { email: 'test@example.com', password: 'SecurePass123!' }
+})
+
+// Status code validation
+expect(response.status).toBe(200)
+
+// Response schema validation
+const data = await response.json()
+expect(data).toMatchObject({
+  user: expect.objectContaining({
+    id: expect.any(String),
+    email: 'test@example.com'
+  }),
+  token: expect.any(String)
+})
+
+// Database state validation (using executeQuery fixture)
+const users = await executeQuery(`SELECT * FROM users WHERE email = 'test@example.com'`)
+expect(users.rows).toHaveLength(1)
 ```
 
 ### 🔍 Head Elements (Special Case for Non-Visible DOM)
@@ -503,6 +532,7 @@ test.fixme(
 | **Interactive widgets** | Combined | - | All three approaches needed |
 | **Animations** | Visual Screenshot | Assertions | Before/after states + timing |
 | **API integration** | Assertions | - | Data validation only |
+| **API endpoints (API domain)** | Assertions + DB validation | - | HTTP status, response schema, database state - uses page.request |
 | **Routing/URLs** | Assertions | - | URL changes and params |
 | **Accessibility** | ARIA Snapshot | - | Purpose-built for a11y |
 | **Responsive design** | Visual Screenshot | ARIA | Visual at breakpoints + structure |
@@ -539,7 +569,7 @@ bun test:e2e --update-snapshots --grep "screenshot"
 ### Step 1: Detect Domain and Read Specification File
 
 ```typescript
-const property = 'name' // from user request
+const property = 'name' // from user request (or full path for API)
 
 // Auto-detect domain based on file existence
 let schemaPath: string
@@ -558,10 +588,12 @@ else if (fileExists(`specs/admin/${property}/${property}.json`)) {
   testFilename = `${property}.spec.ts`
   domain = 'admin'
 }
-// Try api domain
-else if (fileExists(`specs/api/${property}/${property}.openapi.json`)) {
-  schemaPath = `specs/api/${property}/${property}.openapi.json`
-  testFilename = `${property}.spec.ts`
+// Try api domain (user provides full path from specs/api/)
+// Example: property = "paths/auth/sign-up/email/post"
+else if (fileExists(`specs/api/${property}.json`)) {
+  schemaPath = `specs/api/${property}.json`
+  // Extract filename from path (e.g., "post" from "paths/auth/sign-up/email/post")
+  testFilename = `${property.split('/').pop()}.spec.ts`
   domain = 'api'
 }
 else {
@@ -588,7 +620,8 @@ const title = schema.title // Used in test descriptions
 **Test File Location** (domain-specific):
 - App domain: `specs/app/{property}/{property}.spec.ts`
 - Admin domain: `specs/admin/{property}/{property}.spec.ts`
-- API domain: `specs/api/{property}/{property}.spec.ts`
+- API domain: `specs/api/{full-path}.spec.ts` (co-located with .json file)
+  - Example: `specs/api/paths/auth/sign-up/email/post.spec.ts` (next to post.json)
 
 ```typescript
 import { test, expect } from '@/specs/fixtures.ts'
@@ -727,13 +760,64 @@ test.fixme(
 )
 ```
 
+#### Pattern E: API Endpoint Testing (for API domain specs)
+```typescript
+test.fixme(
+  '{spec.id}: should {extract from "then" clause}',
+  { tag: '@spec' },
+  async ({ page, startServerWithSchema, executeQuery }) => {
+    // GIVEN: {spec.given}
+    await startServerWithSchema({
+      name: 'test-app',
+      // TODO: Configure server schema based on test requirements
+    })
+
+    // Database setup (from validation.setup.executeQuery)
+    await executeQuery(
+      `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at)
+       VALUES (1, 'test@example.com', '\\$2a\\$10\\$Hash', 'Test User', true, NOW(), NOW())`
+    )
+    await executeQuery(
+      `INSERT INTO sessions (id, user_id, token, expires_at, created_at)
+       VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())`
+    )
+
+    // WHEN: {spec.when} - Use page.request for API calls
+    const response = await page.request.post('/api/auth/change-email', {
+      headers: {
+        'Authorization': 'Bearer valid_token',
+        'Content-Type': 'application/json',
+      },
+      data: {
+        newEmail: 'new@example.com',
+      },
+    })
+
+    // THEN: {spec.then}
+    // HTTP status validation
+    expect(response.status).toBe(200)
+
+    // Response schema validation
+    const data = await response.json()
+    expect(data).toMatchObject({}) // TODO: Add schema validation
+
+    // Database state validation (if specified in assertions)
+    const updatedUser = await executeQuery(
+      `SELECT email FROM users WHERE id = 1`
+    )
+    expect(updatedUser.rows[0].email).toBe('new@example.com')
+  }
+)
+```
+
 **Key Rules**:
 - Test name: `'{spec.id}: should {extract from "then" clause}'` - MUST start with spec ID followed by colon
-- Format: `APP-NAME-001: should validate name` (NO square brackets, colon after ID)
+- Format: `APP-NAME-001: should validate name` (NO square brackets, colon after ID) or `API-AUTH-SIGN-UP-001: should...`
 - Test body: Follow GIVEN-WHEN-THEN structure
 - Tag: `{ tag: '@spec' }`
 - Modifier: `test.fixme()` (RED phase)
 - **Validation approach**: Choose based on spec type (see Decision Matrix)
+  - **API domain**: ALWAYS use Pattern E (page.request + assertions + DB validation)
 
 ### Step 5: Create ONE OPTIMIZED @regression Test
 

@@ -395,7 +395,13 @@ gh issue list --label "tdd-spec:in-progress"
 
 # View progress dashboard
 cat TDD-PROGRESS.md
+
+# Check for stale issues (tests fixed but issues not closed)
+bun run tdd:close-stale-issues              # Dry run (shows what would be closed)
+bun run tdd:close-stale-issues --close      # Actually close stale issues
 ```
+
+**Stale Issue Cleanup**: The system automatically closes stale issues (tests that have been fixed but issues weren't properly closed) during the daily populate workflow. You can also run it manually using the commands above.
 
 ### If Something Goes Wrong
 

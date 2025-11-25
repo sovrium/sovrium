@@ -241,15 +241,38 @@ function RenderDirectComponent({
     ? buildResponsiveChildrenVariants({
         responsive: responsive!,
         baseChildren: baseRenderedChildren,
-        renderChild: (child, index, breakpoint) => {
+        renderChild: (child, index, breakpoint, additionalClassName) => {
           if (typeof child === 'string') {
             const resolvedText = resolveChildTranslation(child, props.currentLang, props.languages)
-            return <Fragment key={`${breakpoint}-${index}`}>{resolvedText}</Fragment>
+            // Wrap text in span with visibility class for CSS-based hiding
+            return (
+              <span
+                key={`${breakpoint}-${index}`}
+                className={additionalClassName}
+                data-responsive-breakpoint={breakpoint}
+              >
+                {resolvedText}
+              </span>
+            )
           }
+
+          // Inject visibility className into child component's props
+          const childWithVisibility: Component = additionalClassName
+            ? {
+                ...child,
+                props: {
+                  ...(child.props || {}),
+                  className: (child.props as { className?: string } | undefined)?.className
+                    ? `${(child.props as { className: string }).className} ${additionalClassName}`
+                    : additionalClassName,
+                } as Record<string, unknown>,
+              }
+            : child
+
           return (
             <ComponentRenderer
               key={`${breakpoint}-${index}`}
-              component={child}
+              component={childWithVisibility}
               pageVars={props.pageVars}
               blocks={props.blocks}
               theme={props.theme}

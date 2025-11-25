@@ -256,7 +256,7 @@ test.describe('Page Sections', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-SECTIONS-007: should adapt component for different screen sizes',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

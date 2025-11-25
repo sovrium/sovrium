@@ -150,41 +150,7 @@ test.describe('Responsive Variants', () => {
     }
   )
 
-  /**
-   * FIXME: Dynamic responsive children updates in E2E tests
-   *
-   * Root Cause: Playwright's setViewportSize() doesn't reliably trigger React state updates
-   * for responsive children changes. The architecture relies on useBreakpoint() hook with
-   * polling (50ms) + event listeners, which has timing/reliability issues in test environment.
-   *
-   * Technical Details:
-   * - Viewport width DOES change correctly (verified: clientWidth = 1024px)
-   * - useBreakpoint() hook doesn't detect changes reliably in Playwright
-   * - React reconciliation prevents children array updates from forcing re-renders
-   * - 50ms polling + manual resize events + 200ms waits insufficient
-   *
-   * What Works:
-   * - ✅ Initial page load with correct responsive children (SSR works)
-   * - ✅ Responsive props and visibility (CSS-based)
-   *
-   * What Fails:
-   * - ❌ Dynamic viewport changes triggering children updates
-   * - ❌ Dynamic content updates (APP-PAGES-RESPONSIVE-002)
-   * - ❌ Any JavaScript-triggered responsive re-renders in tests
-   *
-   * Recommended Fix: CSS media query-based responsive variants
-   * - Render all responsive variants server-side
-   * - Use CSS media queries for visibility control (like APP-PAGES-RESPONSIVE-003)
-   * - Eliminates JavaScript detection dependency
-   * - 95%+ E2E test reliability
-   * - Estimated effort: 6-9 hours
-   *
-   * Workaround: Real users rarely resize windows dynamically (mobile/desktop are separate devices)
-   *
-   * Priority: Medium (Phase 1 - enhance client-side interactivity)
-   * See architectural audit: https://github.com/sovrium/sovrium/issues/1241#issuecomment-3570585254
-   */
-  test.fixme(
+  test(
     'APP-PAGES-RESPONSIVE-004: should render different child components based on breakpoint',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -229,15 +195,39 @@ test.describe('Responsive Variants', () => {
       // WHEN: viewport changes
       await page.setViewportSize({ width: 375, height: 667 })
       await page.goto('/')
-      await expect(page.locator('button')).toHaveCount(1)
+
+      // Count only visible buttons using Playwright's built-in visibility detection
+      // CSS-based responsive rendering uses display:none for hidden elements
+      const visibleMobileButtons = await page.locator('button').evaluateAll((buttons) =>
+        buttons.filter((btn) => {
+          const style = window.getComputedStyle(btn)
+          return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0'
+        })
+      )
+      expect(visibleMobileButtons.length).toBe(1)
       await expect(page.locator('button').first()).toHaveText('Mobile Button')
 
       await page.setViewportSize({ width: 1024, height: 768 })
 
       // THEN: it should render different child components
-      await expect(page.locator('button')).toHaveCount(2)
-      await expect(page.locator('button').first()).toHaveText('Desktop Button 1')
-      await expect(page.locator('button').last()).toHaveText('Desktop Button 2')
+      const visibleDesktopButtons = await page.locator('button').evaluateAll((buttons) =>
+        buttons.filter((btn) => {
+          const style = window.getComputedStyle(btn)
+          return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0'
+        })
+      )
+      expect(visibleDesktopButtons.length).toBe(2)
+      const allDesktopButtons = await page.locator('button').all()
+      const visibleDesktopTexts = await Promise.all(
+        allDesktopButtons.map(async (btn) => {
+          const isVisible = await btn.isVisible()
+          if (isVisible) return await btn.textContent()
+          return null
+        })
+      )
+      const filteredTexts = visibleDesktopTexts.filter((t) => t !== null)
+      expect(filteredTexts[0]).toBe('Desktop Button 1')
+      expect(filteredTexts[1]).toBe('Desktop Button 2')
     }
   )
 
@@ -430,7 +420,7 @@ test.describe('Responsive Variants', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-RESPONSIVE-009: all three override types should apply simultaneously at each breakpoint',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -472,14 +462,14 @@ test.describe('Responsive Variants', () => {
       const button = page.locator('button')
       await expect(button).toBeVisible()
       await expect(button).toHaveClass(/btn-sm/)
-      await expect(button).toHaveText('Tap Me')
+      await expect(button).toHaveText('Tap Me', { useInnerText: true })
 
       await page.setViewportSize({ width: 1024, height: 768 })
 
       // THEN: all three override types should apply simultaneously
       await expect(button).toBeVisible()
       await expect(button).toHaveClass(/btn-lg/)
-      await expect(button).toHaveText('Click Me')
+      await expect(button).toHaveText('Click Me', { useInnerText: true })
     }
   )
 

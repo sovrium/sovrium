@@ -64,39 +64,54 @@ export function mergeResponsiveProps(
   const mergedChildren = responsiveOverrides?.children ?? children
   const mergedContent = responsiveOverrides?.content ?? content
 
+  // Check if responsive config has content or children overrides
+  // If so, skip visibility classes on parent element (visibility handled by variants)
+  const hasContentOverrides = responsive
+    ? Object.values(responsive).some(
+        (override) => (override as VariantOverrides).content !== undefined
+      )
+    : false
+  const hasChildrenOverrides = responsive
+    ? Object.values(responsive).some(
+        (override) => (override as VariantOverrides).children !== undefined
+      )
+    : false
+
   // Build CSS classes for responsive visibility using Tailwind breakpoint utilities
   // This works without JavaScript by using CSS media queries
   // Strategy: Convert responsive visibility config into appropriate Tailwind classes
-  const visibilityClasses = responsive
-    ? (() => {
-        const visibilityConfig = (Object.entries(responsive) as [string, VariantOverrides][])
-          .filter(([, overrides]) => overrides.visible !== undefined)
-          .reduce<Record<string, boolean>>((acc, [bp, overrides]) => {
-            return { ...acc, [bp]: overrides.visible! }
-          }, {})
+  // Skip visibility classes when content/children overrides exist (handled by variant builders)
+  const visibilityClasses =
+    responsive && !hasContentOverrides && !hasChildrenOverrides
+      ? (() => {
+          const visibilityConfig = (Object.entries(responsive) as [string, VariantOverrides][])
+            .filter(([, overrides]) => overrides.visible !== undefined)
+            .reduce<Record<string, boolean>>((acc, [bp, overrides]) => {
+              return { ...acc, [bp]: overrides.visible! }
+            }, {})
 
-        // For mobile:false + lg:true pattern, use max-lg:hidden
-        if (visibilityConfig.mobile === false && visibilityConfig.lg === true) {
-          return 'max-lg:hidden'
-        }
+          // For mobile:false + lg:true pattern, use max-lg:hidden
+          if (visibilityConfig.mobile === false && visibilityConfig.lg === true) {
+            return 'max-lg:hidden'
+          }
 
-        // For mobile:true + lg:false pattern, use lg:hidden
-        if (visibilityConfig.mobile === true && visibilityConfig.lg === false) {
-          return 'lg:hidden'
-        }
+          // For mobile:true + lg:false pattern, use lg:hidden
+          if (visibilityConfig.mobile === true && visibilityConfig.lg === false) {
+            return 'lg:hidden'
+          }
 
-        // Default fallback: build individual responsive classes
-        return Object.entries(visibilityConfig)
-          .map(([bp, isVisible]) => {
-            if (bp === 'mobile') {
-              return isVisible ? '' : 'max-sm:hidden'
-            }
-            return isVisible ? `${bp}:inline` : `${bp}:hidden`
-          })
-          .filter(Boolean)
-          .join(' ')
-      })()
-    : undefined
+          // Default fallback: build individual responsive classes
+          return Object.entries(visibilityConfig)
+            .map(([bp, isVisible]) => {
+              if (bp === 'mobile') {
+                return isVisible ? '' : 'max-sm:hidden'
+              }
+              return isVisible ? `${bp}:inline` : `${bp}:hidden`
+            })
+            .filter(Boolean)
+            .join(' ')
+        })()
+      : undefined
 
   const mergedPropsWithVisibility = visibilityClasses
     ? {
