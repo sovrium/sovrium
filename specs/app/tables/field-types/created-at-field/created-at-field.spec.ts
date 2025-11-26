@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Created At Field
@@ -24,7 +23,7 @@ test.describe('Created At Field', () => {
   test.fixme(
     'APP-CREATED-AT-FIELD-001: should create PostgreSQL TIMESTAMPTZ column with DEFAULT NOW()',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -50,7 +49,7 @@ test.describe('Created At Field', () => {
   test.fixme(
     'APP-CREATED-AT-FIELD-002: should automatically set timestamp when row is created',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -75,7 +74,7 @@ test.describe('Created At Field', () => {
   test.fixme(
     'APP-CREATED-AT-FIELD-003: should be immutable after creation (no updates allowed)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -105,7 +104,7 @@ test.describe('Created At Field', () => {
   test.fixme(
     'APP-CREATED-AT-FIELD-004: should reject NULL values (always required)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -130,7 +129,7 @@ test.describe('Created At Field', () => {
   test.fixme(
     'APP-CREATED-AT-FIELD-005: should create btree index for fast queries when indexed=true',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -153,9 +152,9 @@ test.describe('Created At Field', () => {
   )
 
   test.fixme(
-    'user can complete full created-at-field workflow',
+    'APP-TABLES-FIELD-CREATED-AT-REGRESSION-001: user can complete full created-at-field workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [

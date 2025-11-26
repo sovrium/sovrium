@@ -159,7 +159,7 @@ test.describe('Duration Field', () => {
   )
 
   test.fixme(
-    'user can complete full duration-field workflow',
+    'APP-TABLES-FIELD-DURATION-REGRESSION-001: user can complete full duration-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({

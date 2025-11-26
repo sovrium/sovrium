@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Array Field
@@ -24,8 +23,17 @@ test.describe('Array Field', () => {
   test.fixme(
     'APP-ARRAY-FIELD-001: should create PostgreSQL TEXT array column',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery('CREATE TABLE articles (id SERIAL PRIMARY KEY, tags TEXT[])')
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_articles',
+            name: 'articles',
+            fields: [{ name: 'tags', type: 'array', itemType: 'text' }],
+          },
+        ],
+      })
 
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='articles' AND column_name='tags'"
@@ -48,11 +56,21 @@ test.describe('Array Field', () => {
   test.fixme(
     'APP-ARRAY-FIELD-002: should support array containment, overlap, and length',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery([
-        'CREATE TABLE posts (id SERIAL PRIMARY KEY, keywords TEXT[])',
-        "INSERT INTO posts (keywords) VALUES (ARRAY['nodejs', 'express']), (ARRAY['nodejs', 'fastify']), (ARRAY['python', 'flask'])",
-      ])
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_posts',
+            name: 'posts',
+            fields: [{ name: 'keywords', type: 'array', itemType: 'text' }],
+          },
+        ],
+      })
+
+      await executeQuery(
+        "INSERT INTO posts (keywords) VALUES (ARRAY['nodejs', 'express']), (ARRAY['nodejs', 'fastify']), (ARRAY['python', 'flask'])"
+      )
 
       const containsValue = await executeQuery(
         "SELECT COUNT(*) as count FROM posts WHERE 'nodejs' = ANY(keywords)"
@@ -74,10 +92,17 @@ test.describe('Array Field', () => {
   test.fixme(
     'APP-ARRAY-FIELD-003: should enforce maximum array size via CHECK constraint',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery(
-        'CREATE TABLE datasets (id SERIAL PRIMARY KEY, numbers INTEGER[] CHECK (array_length(numbers, 1) <= 10))'
-      )
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_datasets',
+            name: 'datasets',
+            fields: [{ name: 'numbers', type: 'array', itemType: 'integer', maxItems: 10 }],
+          },
+        ],
+      })
 
       const maxItems = await executeQuery(
         'INSERT INTO datasets (numbers) VALUES (ARRAY[1,2,3,4,5,6,7,8,9,10]) RETURNING array_length(numbers, 1) as length'
@@ -98,11 +123,17 @@ test.describe('Array Field', () => {
   test.fixme(
     'APP-ARRAY-FIELD-004: should create GIN index for efficient array queries',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery([
-        'CREATE TABLE documents (id SERIAL PRIMARY KEY, categories TEXT[])',
-        'CREATE INDEX idx_documents_categories ON documents USING GIN(categories)',
-      ])
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_documents',
+            name: 'documents',
+            fields: [{ name: 'categories', type: 'array', itemType: 'text', indexed: true }],
+          },
+        ],
+      })
 
       const indexInfo = await executeQuery(
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_documents_categories'"
@@ -122,11 +153,21 @@ test.describe('Array Field', () => {
   test.fixme(
     'APP-ARRAY-FIELD-005: should support dynamic array manipulation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery([
-        'CREATE TABLE recipes (id SERIAL PRIMARY KEY, ingredients TEXT[])',
-        "INSERT INTO recipes (ingredients) VALUES (ARRAY['flour', 'sugar', 'eggs'])",
-      ])
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_recipes',
+            name: 'recipes',
+            fields: [{ name: 'ingredients', type: 'array', itemType: 'text' }],
+          },
+        ],
+      })
+
+      await executeQuery(
+        "INSERT INTO recipes (ingredients) VALUES (ARRAY['flour', 'sugar', 'eggs'])"
+      )
 
       const arrayAppend = await executeQuery(
         "UPDATE recipes SET ingredients = array_append(ingredients, 'butter') WHERE id = 1 RETURNING ingredients"
@@ -146,9 +187,9 @@ test.describe('Array Field', () => {
   )
 
   test.fixme(
-    'user can complete full array-field workflow',
+    'APP-TABLES-FIELD-ARRAY-REGRESSION-001: user can complete full array-field workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [

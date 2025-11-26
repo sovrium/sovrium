@@ -186,7 +186,7 @@ test.describe('Rename Field Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full rename-field-migration workflow',
+    'APP-TABLES-MIGRATION-RENAME-FIELD-REGRESSION-001: user can complete full rename-field-migration workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with field that has constraints and index

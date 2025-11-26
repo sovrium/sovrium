@@ -223,7 +223,7 @@ test.describe('Phone Number Field', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full phone-number-field workflow',
+    'APP-TABLES-FIELD-PHONE-NUMBER-REGRESSION-001: user can complete full phone-number-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative phone-number field

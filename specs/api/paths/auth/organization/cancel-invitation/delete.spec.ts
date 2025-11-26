@@ -403,7 +403,7 @@ test.describe('Cancel organization invitation', () => {
   test.fixme(
     'user can complete full cancelInvitation workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

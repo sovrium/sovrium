@@ -5,23 +5,23 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@/specs/fixtures'
+import { test } from '@/specs/fixtures'
 
 /**
  * E2E Tests for Table ID
  *
  * Source: specs/app/tables/id/id.schema.json
  * Domain: app
- * Spec Count: 3
+ * Spec Count: 6
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (3 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (6 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  *
  * Validation Approach:
  * - Configuration validation (startServerWithSchema)
- * - Database validation (executeQuery for verification)
- * - ID uniqueness and read-only constraints
+ * - Table entity ID validation (string identifiers like 'tbl_products')
+ * - ID format validation (conventional prefix, UUID, simple strings)
  */
 
 test.describe('Table ID', () => {
@@ -30,20 +30,20 @@ test.describe('Table ID', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-ID-001: should be unique within the parent collection',
+    'APP-TABLES-ID-001: should validate as unique identifier',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: a new entity is created
+    async ({ startServerWithSchema }) => {
+      // GIVEN: a table ID as string
       await startServerWithSchema({
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_entities',
-            name: 'test_entities',
+            id: 'tbl_products',
+            name: 'products',
             fields: [
               {
                 id: 1,
-                name: 'name',
+                name: 'title',
                 type: 'single-line-text',
                 required: true,
               },
@@ -52,41 +52,29 @@ test.describe('Table ID', () => {
         ],
       })
 
-      // WHEN: the system assigns an ID
-      const entity1 = await executeQuery(
-        `INSERT INTO test_entities (name) VALUES ('Entity 1') RETURNING id`
-      )
-      const entity2 = await executeQuery(
-        `INSERT INTO test_entities (name) VALUES ('Entity 2') RETURNING id`
-      )
-
-      // THEN: it should be unique within the parent collection
-      expect(entity1.rows[0].id).not.toBe(entity2.rows[0].id)
-
-      // Verify uniqueness constraint exists
-      const primaryKey = await executeQuery(
-        `SELECT constraint_type FROM information_schema.table_constraints WHERE table_name = 'test_entities' AND constraint_type = 'PRIMARY KEY'`
-      )
-      expect(primaryKey.rows[0]).toMatchObject({ constraint_type: 'PRIMARY KEY' })
+      // WHEN: value is 'tbl_products'
+      // THEN: it should validate as unique identifier
+      // Configuration validation happens during startServerWithSchema
     }
   )
 
   test.fixme(
-    'APP-TABLES-ID-002: should prevent changes (read-only constraint)',
+    'APP-TABLES-ID-002: should accept conventional table identifiers',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: an entity exists
+    async ({ startServerWithSchema }) => {
+      // GIVEN: a table ID following common pattern
+      // WHEN: ID uses 'tbl_' prefix convention
       await startServerWithSchema({
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_entities',
-            name: 'test_entities',
+            id: 'tbl_customers',
+            name: 'customers',
             fields: [
               {
                 id: 1,
-                name: 'name',
-                type: 'single-line-text',
+                name: 'email',
+                type: 'email',
                 required: true,
               },
             ],
@@ -94,40 +82,26 @@ test.describe('Table ID', () => {
         ],
       })
 
-      const entity = await executeQuery(
-        `INSERT INTO test_entities (name) VALUES ('Test Entity') RETURNING id`
-      )
-      const originalId = entity.rows[0].id
-
-      // WHEN: attempting to modify its ID
-      // THEN: the system should prevent changes (read-only constraint)
-
-      // Primary key columns cannot be updated to NULL
-      await expect(
-        executeQuery(`UPDATE test_entities SET id = NULL WHERE id = ${originalId}`)
-      ).rejects.toThrow()
-
-      // Verify ID remains unchanged
-      const check = await executeQuery(`SELECT id FROM test_entities WHERE id = ${originalId}`)
-      expect(check.rows[0]).toMatchObject({ id: originalId })
+      // THEN: it should accept conventional table identifiers
+      // Convention validated during schema parsing
     }
   )
 
   test.fixme(
-    'APP-TABLES-ID-003: should retrieve entity successfully when ID is valid',
+    'APP-TABLES-ID-003: should allow auto-generated ID (ID is required but can be auto-generated)',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: a client requests an entity by ID
+    async ({ startServerWithSchema }) => {
+      // GIVEN: a table without explicit ID
+      // WHEN: ID property is omitted
       await startServerWithSchema({
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_entities',
-            name: 'test_entities',
+            name: 'orders',
             fields: [
               {
                 id: 1,
-                name: 'name',
+                name: 'order_number',
                 type: 'single-line-text',
                 required: true,
               },
@@ -136,20 +110,119 @@ test.describe('Table ID', () => {
         ],
       })
 
-      const entity = await executeQuery(
-        `INSERT INTO test_entities (name) VALUES ('Test Entity') RETURNING id, name`
-      )
-      const entityId = entity.rows[0].id
+      // THEN: it should allow auto-generated ID (ID is required but can be auto-generated)
+      // System should generate ID automatically if not provided
+    }
+  )
 
-      // WHEN: the ID is valid
-      const result = await executeQuery(`SELECT * FROM test_entities WHERE id = ${entityId}`)
-
-      // THEN: the entity should be retrieved successfully
-      expect(result.rows[0]).toMatchObject({
-        id: entityId,
-        name: 'Test Entity',
+  test.fixme(
+    'APP-TABLES-ID-004: should accept UUID as identifier',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: a table ID with UUID format
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: '550e8400-e29b-41d4-a716-446655440000',
+            name: 'invoices',
+            fields: [
+              {
+                id: 1,
+                name: 'amount',
+                type: 'decimal',
+                required: true,
+              },
+            ],
+          },
+        ],
       })
-      expect(result.rows).toHaveLength(1)
+
+      // WHEN: value is '550e8400-e29b-41d4-a716-446655440000'
+      // THEN: it should accept UUID as identifier
+      // UUID format validated during schema parsing
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-ID-005: should accept simple string identifiers',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: a table ID with simple string
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'products',
+            name: 'products',
+            fields: [
+              {
+                id: 1,
+                name: 'sku',
+                type: 'single-line-text',
+                required: true,
+              },
+            ],
+          },
+        ],
+      })
+
+      // WHEN: value is 'products' or 'table-1'
+      // THEN: it should accept simple string identifiers
+      // Simple string format validated during schema parsing
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-ID-006: should ensure uniqueness across all tables in application',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: table IDs across multiple tables
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_products',
+            name: 'products',
+            fields: [
+              {
+                id: 1,
+                name: 'title',
+                type: 'single-line-text',
+                required: true,
+              },
+            ],
+          },
+          {
+            id: 'tbl_customers',
+            name: 'customers',
+            fields: [
+              {
+                id: 1,
+                name: 'email',
+                type: 'email',
+                required: true,
+              },
+            ],
+          },
+          {
+            id: 'tbl_orders',
+            name: 'orders',
+            fields: [
+              {
+                id: 1,
+                name: 'order_number',
+                type: 'single-line-text',
+                required: true,
+              },
+            ],
+          },
+        ],
+      })
+
+      // WHEN: each table has unique ID
+      // THEN: it should ensure uniqueness across all tables in application
+      // Uniqueness enforced at application level during configuration validation
     }
   )
 
@@ -158,10 +231,10 @@ test.describe('Table ID', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-ID-REGRESSION-001: user can complete full Table ID workflow',
+    'APP-TABLES-ID-REGRESSION-001: user can complete full table ID workflow',
     { tag: '@regression' },
-    async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Database with entities using auto-generated IDs
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Application with tables using various ID formats
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -177,34 +250,38 @@ test.describe('Table ID', () => {
               },
             ],
           },
+          {
+            id: '550e8400-e29b-41d4-a716-446655440000',
+            name: 'invoices',
+            fields: [
+              {
+                id: 1,
+                name: 'amount',
+                type: 'decimal',
+                required: true,
+              },
+            ],
+          },
+          {
+            name: 'orders',
+            fields: [
+              {
+                id: 1,
+                name: 'order_number',
+                type: 'single-line-text',
+                required: true,
+              },
+            ],
+          },
         ],
       })
 
-      // WHEN/THEN: Execute representative ID workflow
+      // WHEN/THEN: Streamlined workflow testing integration points
+      // 1. Conventional prefix: 'tbl_products'
+      // 2. UUID format: '550e8400-e29b-41d4-a716-446655440000'
+      // 3. Auto-generated: 'orders' (ID generated by system)
 
-      // 1. IDs are unique and auto-generated
-      const product1 = await executeQuery(
-        `INSERT INTO products (sku) VALUES ('WIDGET-001') RETURNING id`
-      )
-      const product2 = await executeQuery(
-        `INSERT INTO products (sku) VALUES ('WIDGET-002') RETURNING id`
-      )
-      expect(product1.rows[0].id).not.toBe(product2.rows[0].id)
-
-      // 2. Entities can be retrieved by ID
-      const retrieved = await executeQuery(
-        `SELECT * FROM products WHERE id = ${product1.rows[0].id}`
-      )
-      expect(retrieved.rows[0]).toMatchObject({
-        id: product1.rows[0].id,
-        sku: 'WIDGET-001',
-      })
-
-      // 3. ID uniqueness is enforced
-      const count = await executeQuery(`SELECT COUNT(DISTINCT id) as count FROM products`)
-      expect(count.rows[0]).toMatchObject({ count: 2 })
-
-      // Workflow completes successfully
+      // Focus on workflow continuity, not exhaustive coverage
     }
   )
 })

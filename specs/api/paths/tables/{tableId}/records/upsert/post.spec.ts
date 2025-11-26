@@ -27,16 +27,22 @@ test.describe('Upsert records (create or update)', () => {
   test.fixme(
     'API-RECORDS-UPSERT-001: should return 200 with created=1, updated=1',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table 'users' with existing record (email='john@example.com', name='John')
-      await executeQuery(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE NOT NULL,
-          name VARCHAR(255),
-          status VARCHAR(50)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              { name: 'email', type: 'email', required: true, unique: true },
+              { name: 'name', type: 'single-line-text' },
+              { name: 'status', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO users (email, name, status)
         VALUES ('john@example.com', 'John', 'active')
@@ -86,15 +92,21 @@ test.describe('Upsert records (create or update)', () => {
   test.fixme(
     'API-RECORDS-UPSERT-002: should return 200 with created=2, updated=0',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table 'users' with 0 records
-      await executeQuery(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE NOT NULL,
-          name VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              { name: 'email', type: 'email', required: true, unique: true },
+              { name: 'name', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Upsert with fieldsToMergeOn=['email'] - both records are new
       const response = await request.post('/api/tables/1/records/upsert', {
@@ -135,15 +147,21 @@ test.describe('Upsert records (create or update)', () => {
   test.fixme(
     'API-RECORDS-UPSERT-003: should return 400 with rollback on validation error',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table 'users' with email NOT NULL constraint
-      await executeQuery(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE NOT NULL,
-          name VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              { name: 'email', type: 'email', required: true, unique: true },
+              { name: 'name', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Upsert with 1 valid record and 1 missing email (validation error)
       const response = await request.post('/api/tables/1/records/upsert', {
@@ -181,16 +199,22 @@ test.describe('Upsert records (create or update)', () => {
   test.fixme(
     'API-RECORDS-UPSERT-PERMISSIONS-UNAUTHORIZED-001: should return 401 Unauthorized',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An unauthenticated user
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE,
-          name VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'email', type: 'email', unique: true },
+              { name: 'name', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (email, name, organization_id)
         VALUES ('alice@example.com', 'Alice Cooper', 'org_123')
@@ -225,16 +249,22 @@ test.describe('Upsert records (create or update)', () => {
   test.fixme(
     'API-RECORDS-UPSERT-PERMISSIONS-FORBIDDEN-CREATE-001: should return 403 when member lacks create permission',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member user without create permission
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE,
-          name VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'email', type: 'email', unique: true },
+              { name: 'name', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Member attempts upsert with new records
       const response = await request.post('/api/tables/1/records/upsert', {
@@ -260,16 +290,22 @@ test.describe('Upsert records (create or update)', () => {
   test.fixme(
     'API-RECORDS-UPSERT-PERMISSIONS-FORBIDDEN-UPDATE-001: should return 403 when member lacks update permission',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member user without update permission
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE,
-          name VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'email', type: 'email', unique: true },
+              { name: 'name', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (email, name, organization_id)
         VALUES ('alice@example.com', 'Alice Cooper', 'org_123')
@@ -299,15 +335,21 @@ test.describe('Upsert records (create or update)', () => {
   test.fixme(
     'API-RECORDS-UPSERT-PERMISSIONS-FORBIDDEN-VIEWER-001: should return 403 for viewer',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A viewer user with read-only access
-      await executeQuery(`
-        CREATE TABLE projects (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255) UNIQUE,
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_projects',
+            name: 'projects',
+            fields: [
+              { name: 'name', type: 'single-line-text', unique: true },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Viewer attempts upsert
       const response = await request.post('/api/tables/1/records/upsert', {
@@ -332,16 +374,22 @@ test.describe('Upsert records (create or update)', () => {
   test.fixme(
     'API-RECORDS-UPSERT-PERMISSIONS-ORG-AUTO-INJECT-001: should auto-inject organization_id',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An admin user from org_123 upserting records
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE,
-          name VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'email', type: 'email', unique: true },
+              { name: 'name', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (email, name, organization_id)
         VALUES ('alice@example.com', 'Alice', 'org_123')
@@ -376,17 +424,23 @@ test.describe('Upsert records (create or update)', () => {
   test.fixme(
     'API-RECORDS-UPSERT-PERMISSIONS-FIELD-WRITE-FORBIDDEN-CREATE-001: should return 403 when creating with protected field',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: A member user with field-level write restrictions (salary protected)
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE,
-          name VARCHAR(255),
-          salary DECIMAL(10,2),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'email', type: 'email', unique: true },
+              { name: 'name', type: 'single-line-text' },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Member attempts upsert creating record with protected field
       const response = await request.post('/api/tables/1/records/upsert', {
@@ -412,17 +466,23 @@ test.describe('Upsert records (create or update)', () => {
   test.fixme(
     'API-RECORDS-UPSERT-PERMISSIONS-FIELD-WRITE-FORBIDDEN-UPDATE-001: should return 403 when updating with protected field',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member user with field-level write restrictions (salary protected)
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE,
-          name VARCHAR(255),
-          salary DECIMAL(10,2),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'email', type: 'email', unique: true },
+              { name: 'name', type: 'single-line-text' },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (email, name, salary, organization_id)
         VALUES ('alice@example.com', 'Alice Cooper', 75000, 'org_123')
@@ -452,17 +512,23 @@ test.describe('Upsert records (create or update)', () => {
   test.fixme(
     'API-RECORDS-UPSERT-PERMISSIONS-READONLY-FIELD-001: should return 403 for readonly fields',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: An admin user attempting to set readonly fields
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE,
-          name VARCHAR(255),
-          created_at TIMESTAMP DEFAULT NOW(),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'email', type: 'email', unique: true },
+              { name: 'name', type: 'single-line-text' },
+              { name: 'created_at', type: 'created-at' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Admin upserts with id or created_at in payload
       const response = await request.post('/api/tables/1/records/upsert', {
@@ -488,16 +554,22 @@ test.describe('Upsert records (create or update)', () => {
   test.fixme(
     'API-RECORDS-UPSERT-PERMISSIONS-ORG-OVERRIDE-PREVENTED-001: should return 403 when setting different organization_id',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: A member user attempting to set different organization_id
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE,
-          name VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'email', type: 'email', unique: true },
+              { name: 'name', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Member upserts with organization_id='org_456' in payload
       const response = await request.post('/api/tables/1/records/upsert', {
@@ -529,17 +601,23 @@ test.describe('Upsert records (create or update)', () => {
   test.fixme(
     'API-RECORDS-UPSERT-PERMISSIONS-PARTIAL-FIELD-FILTERING-001: should filter protected fields from response',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member user with field-level read restrictions
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE,
-          name VARCHAR(255),
-          salary DECIMAL(10,2),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'email', type: 'email', unique: true },
+              { name: 'name', type: 'single-line-text' },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (email, name, salary, organization_id)
         VALUES ('alice@example.com', 'Alice', 75000, 'org_123')
@@ -578,17 +656,23 @@ test.describe('Upsert records (create or update)', () => {
   test.fixme(
     'API-RECORDS-UPSERT-PERMISSIONS-ADMIN-FULL-ACCESS-001: should return 200 with all fields for admin',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An admin user with full permissions
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE,
-          name VARCHAR(255),
-          salary DECIMAL(10,2),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'email', type: 'email', unique: true },
+              { name: 'name', type: 'single-line-text' },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (email, name, salary, organization_id)
         VALUES ('charlie@example.com', 'Charlie', 120000, 'org_789')
@@ -625,17 +709,23 @@ test.describe('Upsert records (create or update)', () => {
   test.fixme(
     'API-RECORDS-UPSERT-PERMISSIONS-COMBINED-SCENARIO-001: should enforce combined permissions',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member with create/update permission but field restrictions
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE,
-          name VARCHAR(255),
-          salary DECIMAL(10,2),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'email', type: 'email', unique: true },
+              { name: 'name', type: 'single-line-text' },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (email, name, salary, organization_id) VALUES
           ('alice@example.com', 'Alice', 75000, 'org_123'),
@@ -679,17 +769,23 @@ test.describe('Upsert records (create or update)', () => {
   test.fixme(
     'user can complete full upsert workflow',
     { tag: '@regression' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application with representative table and permission configuration
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE NOT NULL,
-          name VARCHAR(255),
-          salary DECIMAL(10,2),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'email', type: 'email', required: true, unique: true },
+              { name: 'name', type: 'single-line-text' },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN/THEN: Streamlined workflow testing integration points
 

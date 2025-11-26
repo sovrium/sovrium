@@ -28,14 +28,18 @@ test.describe('Delete record', () => {
   test.fixme(
     'API-TABLES-RECORDS-DELETE-001: should return 204 No Content and remove record',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table 'users' with record ID=1
-      await executeQuery(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) NOT NULL
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [{ name: 'email', type: 'email', required: true }],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO users (id, email) VALUES (1, 'test@example.com')
       `)
@@ -59,14 +63,18 @@ test.describe('Delete record', () => {
   test.fixme(
     'API-TABLES-RECORDS-DELETE-002: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table 'users' exists but record ID=9999 does not
-      await executeQuery(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) NOT NULL
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [{ name: 'email', type: 'email', required: true }],
+          },
+        ],
+      })
 
       // WHEN: User attempts to delete non-existent record
       const response = await request.delete('/api/tables/1/records/9999', {
@@ -87,15 +95,21 @@ test.describe('Delete record', () => {
   test.fixme(
     'API-TABLES-RECORDS-DELETE-PERMISSIONS-UNAUTHORIZED-001: should return 401 Unauthorized',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An unauthenticated user
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (id, name, organization_id)
         VALUES (1, 'Alice Cooper', 'org_123')
@@ -120,15 +134,21 @@ test.describe('Delete record', () => {
   test.fixme(
     'API-TABLES-RECORDS-DELETE-PERMISSIONS-FORBIDDEN-MEMBER-001: should return 403 for member without delete permission',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member user without delete permission
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (id, name, organization_id)
         VALUES (1, 'Alice Cooper', 'org_123')
@@ -159,15 +179,21 @@ test.describe('Delete record', () => {
   test.fixme(
     'API-TABLES-RECORDS-DELETE-PERMISSIONS-FORBIDDEN-VIEWER-001: should return 403 for viewer with read-only access',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A viewer user with read-only access
-      await executeQuery(`
-        CREATE TABLE projects (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_projects',
+            name: 'projects',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO projects (id, name, organization_id)
         VALUES (1, 'Project Alpha', 'org_456')
@@ -194,15 +220,21 @@ test.describe('Delete record', () => {
   test.fixme(
     'API-TABLES-RECORDS-DELETE-PERMISSIONS-ORG-ISOLATION-001: should return 404 for cross-org access',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An admin user from organization org_123
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (id, name, organization_id)
         VALUES (1, 'Alice Cooper', 'org_456')
@@ -234,15 +266,21 @@ test.describe('Delete record', () => {
   test.fixme(
     'API-TABLES-RECORDS-DELETE-PERMISSIONS-ADMIN-FULL-ACCESS-001: should return 204 for admin with full access',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An admin user with full delete permissions
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (id, name, organization_id)
         VALUES (1, 'Alice Cooper', 'org_123')
@@ -267,16 +305,22 @@ test.describe('Delete record', () => {
   test.fixme(
     'API-TABLES-RECORDS-DELETE-PERMISSIONS-OWNER-FULL-ACCESS-001: should return 204 for owner with full access',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An owner user with full delete permissions
-      await executeQuery(`
-        CREATE TABLE projects (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          status VARCHAR(50),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_projects',
+            name: 'projects',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'status', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO projects (id, name, status, organization_id)
         VALUES (1, 'Project Alpha', 'active', 'org_789')
@@ -301,16 +345,22 @@ test.describe('Delete record', () => {
   test.fixme(
     'API-TABLES-RECORDS-DELETE-PERMISSIONS-CROSS-ORG-PREVENTION-001: should return 404 to prevent org enumeration',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A record with organization_id='org_456' and admin from org_123
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          email VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'email', type: 'email', required: true },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (id, name, email, organization_id)
         VALUES (1, 'Bob Smith', 'bob@example.com', 'org_456')
@@ -342,15 +392,21 @@ test.describe('Delete record', () => {
   test.fixme(
     'API-TABLES-RECORDS-DELETE-PERMISSIONS-COMBINED-SCENARIO-001: should return 404 when both org and permission violations exist',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member without delete permission tries to delete record from different org
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (id, name, organization_id)
         VALUES (1, 'Alice Cooper', 'org_456')
@@ -379,15 +435,21 @@ test.describe('Delete record', () => {
   test.fixme(
     'user can complete full record deletion workflow',
     { tag: '@regression' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application with representative table and permission configuration
-      await executeQuery(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) NOT NULL,
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              { name: 'email', type: 'email', required: true },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO users (id, email, organization_id) VALUES
           (1, 'admin@example.com', 'org_123'),

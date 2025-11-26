@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Updated At Field
@@ -24,7 +23,7 @@ test.describe('Updated At Field', () => {
   test.fixme(
     'APP-UPDATED-AT-FIELD-001: should create PostgreSQL TIMESTAMPTZ column with DEFAULT NOW()',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -50,7 +49,7 @@ test.describe('Updated At Field', () => {
   test.fixme(
     'APP-UPDATED-AT-FIELD-002: should automatically update timestamp when row is modified',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -85,7 +84,7 @@ test.describe('Updated At Field', () => {
   test.fixme(
     'APP-UPDATED-AT-FIELD-003: should set initial timestamp on creation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -113,7 +112,7 @@ test.describe('Updated At Field', () => {
   test.fixme(
     'APP-UPDATED-AT-FIELD-004: should reject NULL values (always required)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -138,7 +137,7 @@ test.describe('Updated At Field', () => {
   test.fixme(
     'APP-UPDATED-AT-FIELD-005: should create btree index for fast queries when indexed=true',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -161,9 +160,9 @@ test.describe('Updated At Field', () => {
   )
 
   test.fixme(
-    'user can complete full updated-at-field workflow',
+    'APP-TABLES-FIELD-UPDATED-AT-REGRESSION-001: user can complete full updated-at-field workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [

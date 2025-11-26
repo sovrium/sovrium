@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Status Field
@@ -24,9 +23,7 @@ test.describe('Status Field', () => {
   test.fixme(
     'APP-STATUS-FIELD-001: should create PostgreSQL VARCHAR column with CHECK constraint for status values',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery('CREATE TABLE documents (id SERIAL PRIMARY KEY)')
-
+    async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -34,7 +31,6 @@ test.describe('Status Field', () => {
             id: 'tbl_documents',
             name: 'documents',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
               {
                 name: 'workflow_status',
                 type: 'status',
@@ -71,10 +67,29 @@ test.describe('Status Field', () => {
   test.fixme(
     'APP-STATUS-FIELD-002: should reject value not in status options via CHECK constraint',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery(
-        "CREATE TABLE projects (id SERIAL PRIMARY KEY, project_status VARCHAR(50) CHECK (project_status IN ('Planning', 'Active', 'On Hold', 'Completed', 'Cancelled')))"
-      )
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_projects',
+            name: 'projects',
+            fields: [
+              {
+                name: 'project_status',
+                type: 'status',
+                options: [
+                  { value: 'Planning', label: 'Planning' },
+                  { value: 'Active', label: 'Active' },
+                  { value: 'On Hold', label: 'On Hold' },
+                  { value: 'Completed', label: 'Completed' },
+                  { value: 'Cancelled', label: 'Cancelled' },
+                ],
+              },
+            ],
+          },
+        ],
+      })
 
       const planningStatus = await executeQuery(
         "INSERT INTO projects (project_status) VALUES ('Planning') RETURNING project_status"
@@ -95,11 +110,31 @@ test.describe('Status Field', () => {
   test.fixme(
     'APP-STATUS-FIELD-003: should enforce NOT NULL and UNIQUE constraints when required/unique',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery([
-        "CREATE TABLE tasks (id SERIAL PRIMARY KEY, task_status VARCHAR(50) UNIQUE NOT NULL CHECK (task_status IN ('Todo', 'In Progress', 'Blocked', 'Done')))",
-        "INSERT INTO tasks (task_status) VALUES ('Todo')",
-      ])
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_tasks',
+            name: 'tasks',
+            fields: [
+              {
+                name: 'task_status',
+                type: 'status',
+                options: [
+                  { value: 'Todo', label: 'Todo' },
+                  { value: 'In Progress', label: 'In Progress' },
+                  { value: 'Blocked', label: 'Blocked' },
+                  { value: 'Done', label: 'Done' },
+                ],
+                required: true,
+                unique: true,
+              },
+            ],
+          },
+        ],
+      })
+      await executeQuery("INSERT INTO tasks (task_status) VALUES ('Todo')")
 
       const notNullCheck = await executeQuery(
         "SELECT is_nullable FROM information_schema.columns WHERE table_name='tasks' AND column_name='task_status'"
@@ -124,10 +159,30 @@ test.describe('Status Field', () => {
   test.fixme(
     'APP-STATUS-FIELD-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery(
-        "CREATE TABLE orders (id SERIAL PRIMARY KEY, order_status VARCHAR(50) DEFAULT 'Pending' CHECK (order_status IN ('Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled')))"
-      )
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_orders',
+            name: 'orders',
+            fields: [
+              {
+                name: 'order_status',
+                type: 'status',
+                options: [
+                  { value: 'Pending', label: 'Pending' },
+                  { value: 'Processing', label: 'Processing' },
+                  { value: 'Shipped', label: 'Shipped' },
+                  { value: 'Delivered', label: 'Delivered' },
+                  { value: 'Cancelled', label: 'Cancelled' },
+                ],
+                default: 'Pending',
+              },
+            ],
+          },
+        ],
+      })
 
       const defaultCheck = await executeQuery(
         "SELECT column_default FROM information_schema.columns WHERE table_name='orders' AND column_name='order_status'"
@@ -149,11 +204,30 @@ test.describe('Status Field', () => {
   test.fixme(
     'APP-STATUS-FIELD-005: should create btree index for fast status filtering when indexed=true',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery([
-        "CREATE TABLE requests (id SERIAL PRIMARY KEY, approval_status VARCHAR(50) NOT NULL CHECK (approval_status IN ('Submitted', 'Under Review', 'Approved', 'Rejected')))",
-        'CREATE INDEX idx_requests_status ON requests(approval_status)',
-      ])
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_requests',
+            name: 'requests',
+            fields: [
+              {
+                name: 'approval_status',
+                type: 'status',
+                options: [
+                  { value: 'Submitted', label: 'Submitted' },
+                  { value: 'Under Review', label: 'Under Review' },
+                  { value: 'Approved', label: 'Approved' },
+                  { value: 'Rejected', label: 'Rejected' },
+                ],
+                required: true,
+                indexed: true,
+              },
+            ],
+          },
+        ],
+      })
 
       const indexInfo = await executeQuery(
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_requests_status'"
@@ -171,9 +245,9 @@ test.describe('Status Field', () => {
   )
 
   test.fixme(
-    'user can complete full status-field workflow',
+    'APP-TABLES-FIELD-STATUS-REGRESSION-001: user can complete full status-field workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [

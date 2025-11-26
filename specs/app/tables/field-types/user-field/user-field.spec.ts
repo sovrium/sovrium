@@ -24,7 +24,7 @@ test.describe('User Field', () => {
   test.fixme(
     'APP-USER-FIELD-001: should create PostgreSQL INTEGER column with FOREIGN KEY to users',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255))',
         "INSERT INTO users (name, email) VALUES ('Alice Johnson', 'alice@example.com'), ('Bob Smith', 'bob@example.com')",
@@ -66,7 +66,7 @@ test.describe('User Field', () => {
   test.fixme(
     'APP-USER-FIELD-002: should enforce valid user foreign key references',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO users (name) VALUES ('John Doe')",
@@ -106,7 +106,7 @@ test.describe('User Field', () => {
   test.fixme(
     'APP-USER-FIELD-003: should support multiple user assignments via junction table',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO users (name) VALUES ('Alice'), ('Bob'), ('Charlie')",
@@ -140,7 +140,7 @@ test.describe('User Field', () => {
   test.fixme(
     'APP-USER-FIELD-004: should return user profile data via JOIN',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), avatar_url VARCHAR(500))',
         "INSERT INTO users (name, email, avatar_url) VALUES ('Sarah Connor', 'sarah@example.com', 'https://example.com/avatars/sarah.jpg')",
@@ -183,7 +183,7 @@ test.describe('User Field', () => {
   test.fixme(
     'APP-USER-FIELD-005: should create btree index for fast user filtering when indexed=true',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         'CREATE TABLE pull_requests (id SERIAL PRIMARY KEY, title VARCHAR(255), reviewer INTEGER REFERENCES users(id))',
@@ -206,9 +206,9 @@ test.describe('User Field', () => {
   )
 
   test.fixme(
-    'user can complete full user-field workflow',
+    'APP-TABLES-FIELD-USER-REGRESSION-001: user can complete full user-field workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255))',
         "INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com'), ('Bob', 'bob@example.com')",

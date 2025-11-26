@@ -73,7 +73,7 @@ test.describe('Refresh session token', () => {
   test.fixme(
     'API-AUTH-REFRESH-SESSION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -197,7 +197,7 @@ test.describe('Refresh session token', () => {
   test.fixme(
     'user can complete full refreshSession workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

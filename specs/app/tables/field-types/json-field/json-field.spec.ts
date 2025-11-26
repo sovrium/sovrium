@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for JSON Field
@@ -24,8 +23,17 @@ test.describe('JSON Field', () => {
   test.fixme(
     'APP-JSON-FIELD-001: should create PostgreSQL JSONB column for structured JSON data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery('CREATE TABLE products (id SERIAL PRIMARY KEY, metadata JSONB)')
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_products',
+            name: 'products',
+            fields: [{ name: 'metadata', type: 'json' }],
+          },
+        ],
+      })
 
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='products' AND column_name='metadata'"
@@ -48,11 +56,21 @@ test.describe('JSON Field', () => {
   test.fixme(
     'APP-JSON-FIELD-002: should support -> and ->> operators for field extraction',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery([
-        'CREATE TABLE settings (id SERIAL PRIMARY KEY, config JSONB)',
-        'INSERT INTO settings (config) VALUES (\'{"theme": "dark", "notifications": {"email": true, "sms": false}}\')',
-      ])
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_settings',
+            name: 'settings',
+            fields: [{ name: 'config', type: 'json' }],
+          },
+        ],
+      })
+
+      await executeQuery(
+        'INSERT INTO settings (config) VALUES (\'{"theme": "dark", "notifications": {"email": true, "sms": false}}\')'
+      )
 
       const jsonExtract = await executeQuery(
         "SELECT config -> 'theme' as theme FROM settings WHERE id = 1"
@@ -74,12 +92,21 @@ test.describe('JSON Field', () => {
   test.fixme(
     'APP-JSON-FIELD-003: should support containment and existence operators',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery([
-        'CREATE TABLE users (id SERIAL PRIMARY KEY, preferences JSONB)',
-        'INSERT INTO users (preferences) VALUES (\'{"language": "en", "timezone": "UTC"}\')',
-        'INSERT INTO users (preferences) VALUES (\'{"language": "fr", "timezone": "Europe/Paris"}\')',
-      ])
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [{ name: 'preferences', type: 'json' }],
+          },
+        ],
+      })
+
+      await executeQuery(
+        'INSERT INTO users (preferences) VALUES (\'{"language": "en", "timezone": "UTC"}\'), (\'{"language": "fr", "timezone": "Europe/Paris"}\')'
+      )
 
       const languageFilter = await executeQuery(
         "SELECT COUNT(*) as count FROM users WHERE preferences ->> 'language' = 'en'"
@@ -101,11 +128,17 @@ test.describe('JSON Field', () => {
   test.fixme(
     'APP-JSON-FIELD-004: should create GIN index for efficient JSON queries',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery([
-        'CREATE TABLE documents (id SERIAL PRIMARY KEY, data JSONB)',
-        'CREATE INDEX idx_documents_data ON documents USING GIN(data)',
-      ])
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_documents',
+            name: 'documents',
+            fields: [{ name: 'data', type: 'json', indexed: true }],
+          },
+        ],
+      })
 
       const indexInfo = await executeQuery(
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_documents_data'"
@@ -125,11 +158,19 @@ test.describe('JSON Field', () => {
   test.fixme(
     'APP-JSON-FIELD-005: should support in-place JSON field updates',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery([
-        'CREATE TABLE events (id SERIAL PRIMARY KEY, payload JSONB)',
-        'INSERT INTO events (payload) VALUES (\'{"type": "click", "count": 1}\')',
-      ])
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_events',
+            name: 'events',
+            fields: [{ name: 'payload', type: 'json' }],
+          },
+        ],
+      })
+
+      await executeQuery('INSERT INTO events (payload) VALUES (\'{"type": "click", "count": 1}\')')
 
       const initialValue = await executeQuery('SELECT payload FROM events WHERE id = 1')
       expect(initialValue.payload).toEqual({ type: 'click', count: 1 })
@@ -147,9 +188,9 @@ test.describe('JSON Field', () => {
   )
 
   test.fixme(
-    'user can complete full json-field workflow',
+    'APP-TABLES-FIELD-JSON-REGRESSION-001: user can complete full json-field workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [

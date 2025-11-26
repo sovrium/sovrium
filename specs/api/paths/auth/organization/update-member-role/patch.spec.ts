@@ -309,7 +309,7 @@ test.describe('Update member role', () => {
   test.fixme(
     'user can complete full updateMemberRole workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

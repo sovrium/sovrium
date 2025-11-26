@@ -211,7 +211,7 @@ test.describe('Email Field', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full email-field workflow',
+    'APP-TABLES-FIELD-EMAIL-REGRESSION-001: user can complete full email-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative email field

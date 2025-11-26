@@ -6,27 +6,44 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 test.describe('Button Field', () => {
   test.fixme(
     'APP-BUTTON-FIELD-001: should not create database column (UI-only field)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery('CREATE TABLE records (id SERIAL PRIMARY KEY)')
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_records',
+            name: 'records',
+            fields: [{ name: 'action_button', type: 'button', action: 'customAction' }],
+          },
+        ],
+      })
       const columns = await executeQuery(
         "SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='records'"
       )
-      expect(columns.count).toBe(1)
+      expect(columns.count).toBe(1) // Only id column
     }
   )
 
   test.fixme(
     'APP-BUTTON-FIELD-002: should store button action configuration in table metadata',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_tasks',
+            name: 'tasks',
+            fields: [{ name: 'complete_button', type: 'button', action: 'markComplete' }],
+          },
+        ],
+      })
       await executeQuery([
-        'CREATE TABLE tasks (id SERIAL PRIMARY KEY)',
         'CREATE TABLE field_metadata (table_name VARCHAR(255), field_name VARCHAR(255), config JSONB)',
         "INSERT INTO field_metadata VALUES ('tasks', 'complete_button', '{\"action\": \"markComplete\"}'::JSONB)",
       ])
@@ -40,12 +57,27 @@ test.describe('Button Field', () => {
   test.fixme(
     'APP-BUTTON-FIELD-003: should trigger server-side action on button click',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery([
-        "CREATE TABLE jobs (id SERIAL PRIMARY KEY, status VARCHAR(50) DEFAULT 'pending')",
-        'INSERT INTO jobs DEFAULT VALUES',
-        "UPDATE jobs SET status = 'completed' WHERE id = 1",
-      ])
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_jobs',
+            name: 'jobs',
+            fields: [
+              {
+                name: 'status',
+                type: 'status',
+                options: [{ value: 'pending' }, { value: 'completed' }],
+                default: 'pending',
+              },
+              { name: 'complete_button', type: 'button', action: 'markComplete' },
+            ],
+          },
+        ],
+      })
+      await executeQuery('INSERT INTO jobs DEFAULT VALUES')
+      await executeQuery("UPDATE jobs SET status = 'completed' WHERE id = 1")
       const status = await executeQuery('SELECT status FROM jobs WHERE id = 1')
       expect(status.status).toBe('completed')
     }
@@ -54,11 +86,30 @@ test.describe('Button Field', () => {
   test.fixme(
     'APP-BUTTON-FIELD-004: should support conditional button visibility based on record state',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery([
-        'CREATE TABLE orders (id SERIAL PRIMARY KEY, status VARCHAR(50))',
-        "INSERT INTO orders (status) VALUES ('pending'), ('shipped')",
-      ])
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_orders',
+            name: 'orders',
+            fields: [
+              {
+                name: 'status',
+                type: 'status',
+                options: [{ value: 'pending' }, { value: 'shipped' }],
+              },
+              {
+                name: 'ship_button',
+                type: 'button',
+                action: 'ship',
+                visibleWhen: 'status == "pending"',
+              },
+            ],
+          },
+        ],
+      })
+      await executeQuery("INSERT INTO orders (status) VALUES ('pending'), ('shipped')")
       const shippable = await executeQuery(
         "SELECT COUNT(*) as count FROM orders WHERE status = 'pending'"
       )
@@ -69,7 +120,17 @@ test.describe('Button Field', () => {
   test.fixme(
     'APP-BUTTON-FIELD-005: should log button action execution in audit trail',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_records',
+            name: 'records',
+            fields: [{ name: 'action_button', type: 'button', action: 'customAction' }],
+          },
+        ],
+      })
       await executeQuery([
         'CREATE TABLE audit_log (id SERIAL PRIMARY KEY, action VARCHAR(255), timestamp TIMESTAMPTZ DEFAULT NOW())',
         "INSERT INTO audit_log (action) VALUES ('button_clicked')",
@@ -80,14 +141,29 @@ test.describe('Button Field', () => {
   )
 
   test.fixme(
-    'user can complete full button-field workflow',
+    'APP-TABLES-FIELD-BUTTON-REGRESSION-001: user can complete full button-field workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery([
-        "CREATE TABLE items (id SERIAL PRIMARY KEY, status VARCHAR(50) DEFAULT 'draft')",
-        'INSERT INTO items DEFAULT VALUES',
-        "UPDATE items SET status = 'published' WHERE id = 1",
-      ])
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_items',
+            name: 'items',
+            fields: [
+              {
+                name: 'status',
+                type: 'status',
+                options: [{ value: 'draft' }, { value: 'published' }],
+                default: 'draft',
+              },
+              { name: 'publish_button', type: 'button', action: 'publish' },
+            ],
+          },
+        ],
+      })
+      await executeQuery('INSERT INTO items DEFAULT VALUES')
+      await executeQuery("UPDATE items SET status = 'published' WHERE id = 1")
       const item = await executeQuery('SELECT status FROM items WHERE id = 1')
       expect(item.status).toBe('published')
     }

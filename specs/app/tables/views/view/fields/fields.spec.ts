@@ -163,7 +163,7 @@ test.describe('View Fields', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full view-fields workflow',
+    'APP-TABLES-VIEW-FIELDS-REGRESSION-001: user can complete full view-fields workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative field configuration

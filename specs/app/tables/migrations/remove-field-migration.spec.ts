@@ -178,7 +178,7 @@ test.describe('Remove Field Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full remove-field-migration workflow',
+    'APP-TABLES-MIGRATION-REMOVE-FIELD-REGRESSION-001: user can complete full remove-field-migration workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with multiple fields including constrained field

@@ -27,17 +27,23 @@ test.describe('Get record by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-GET-001: should return 200 with complete record data',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table 'users' with record ID=1
-      await executeQuery(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) NOT NULL,
-          name VARCHAR(255),
-          phone VARCHAR(50),
-          created_at TIMESTAMP DEFAULT NOW()
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              { name: 'email', type: 'email', required: true },
+              { name: 'name', type: 'single-line-text' },
+              { name: 'phone', type: 'phone-number' },
+              { name: 'created_at', type: 'created-at' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO users (email, name, phone)
         VALUES ('john.doe@example.com', 'John Doe', '555-0100')
@@ -65,14 +71,18 @@ test.describe('Get record by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-GET-002: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table 'users' exists but record ID=9999 does not
-      await executeQuery(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) NOT NULL
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [{ name: 'email', type: 'email', required: true }],
+          },
+        ],
+      })
 
       // WHEN: User requests non-existent record
       const response = await request.get('/api/tables/1/records/9999', {
@@ -92,16 +102,22 @@ test.describe('Get record by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-GET-PERMISSIONS-UNAUTHORIZED-001: should return 401 Unauthorized',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An unauthenticated user
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          email VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'email', type: 'email', required: true },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (id, name, email, organization_id)
         VALUES (1, 'Alice Cooper', 'alice@example.com', 'org_123')
@@ -118,14 +134,18 @@ test.describe('Get record by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-GET-PERMISSIONS-FORBIDDEN-001: should return 403 Forbidden',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: User without read permission
-      await executeQuery(`
-        CREATE TABLE confidential (
-          id SERIAL PRIMARY KEY,
-          data TEXT
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_confidential',
+            name: 'confidential',
+            fields: [{ name: 'data', type: 'long-text' }],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO confidential (id, data)
         VALUES (1, 'Secret Information')
@@ -149,15 +169,21 @@ test.describe('Get record by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-GET-PERMISSIONS-ORG-ISOLATION-001: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: User from different organization
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (id, name, organization_id)
         VALUES (1, 'John Doe', 'org_456')
@@ -181,16 +207,22 @@ test.describe('Get record by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-GET-PERMISSIONS-FIELD-FILTER-ADMIN-001: should return all fields for admin',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Admin user with full field access
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          email VARCHAR(255),
-          salary DECIMAL(10,2)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'email', type: 'email', required: true },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (id, name, email, salary)
         VALUES (1, 'John Doe', 'john@example.com', 75000)
@@ -218,16 +250,22 @@ test.describe('Get record by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-GET-PERMISSIONS-FIELD-FILTER-MEMBER-001: should exclude salary field for member',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Member user without salary field read permission
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          email VARCHAR(255),
-          salary DECIMAL(10,2)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'email', type: 'email', required: true },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (id, name, email, salary)
         VALUES (1, 'Jane Smith', 'jane@example.com', 85000)
@@ -254,17 +292,23 @@ test.describe('Get record by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-GET-PERMISSIONS-FIELD-FILTER-VIEWER-001: should return minimal fields for viewer',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Viewer with limited field access
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          email VARCHAR(255),
-          phone VARCHAR(50),
-          salary DECIMAL(10,2)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'email', type: 'email', required: true },
+              { name: 'phone', type: 'phone-number' },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (id, name, email, phone, salary)
         VALUES (1, 'Bob Wilson', 'bob@example.com', '555-0200', 95000)
@@ -292,17 +336,23 @@ test.describe('Get record by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-GET-PERMISSIONS-COMBINED-001: should apply both org and field filtering',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Multi-tenant table with field permissions
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          email VARCHAR(255),
-          salary DECIMAL(10,2),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'email', type: 'email', required: true },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (id, name, email, salary, organization_id)
         VALUES
@@ -332,16 +382,22 @@ test.describe('Get record by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-GET-PERMISSIONS-READONLY-FIELD-001: should include readonly fields in response',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with readonly system fields
-      await executeQuery(`
-        CREATE TABLE tasks (
-          id SERIAL PRIMARY KEY,
-          title VARCHAR(255),
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_tasks',
+            name: 'tasks',
+            fields: [
+              { name: 'title', type: 'single-line-text' },
+              { name: 'created_at', type: 'created-at' },
+              { name: 'updated_at', type: 'updated-at' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO tasks (id, title)
         VALUES (1, 'Important Task')
@@ -372,15 +428,21 @@ test.describe('Get record by ID', () => {
   test.fixme(
     'user can complete full get record workflow',
     { tag: '@regression' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with record and permissions
-      await executeQuery(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) NOT NULL,
-          name VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              { name: 'email', type: 'email', required: true },
+              { name: 'name', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO users (email, name)
         VALUES ('test@example.com', 'Test User')

@@ -203,7 +203,7 @@ test.describe('Currency Field', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full currency-field workflow',
+    'APP-TABLES-FIELD-CURRENCY-REGRESSION-001: user can complete full currency-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative currency field

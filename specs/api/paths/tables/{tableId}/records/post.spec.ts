@@ -27,16 +27,22 @@ test.describe('Create new record', () => {
   test.fixme(
     'API-TABLES-RECORDS-CREATE-001: should return 201 Created with record data',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server with valid table
-      await executeQuery(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE NOT NULL,
-          first_name VARCHAR(255),
-          last_name VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              { name: 'email', type: 'email', required: true, unique: true },
+              { name: 'first_name', type: 'single-line-text' },
+              { name: 'last_name', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: User creates record with valid data
       const response = await request.post('/api/tables/1/records', {
@@ -99,15 +105,21 @@ test.describe('Create new record', () => {
   test.fixme(
     'API-TABLES-RECORDS-CREATE-003: should return 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: A table with required email field
-      await executeQuery(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE NOT NULL,
-          first_name VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              { name: 'email', type: 'email', required: true, unique: true },
+              { name: 'first_name', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: User creates record without required field
       const response = await request.post('/api/tables/1/records', {
@@ -132,15 +144,23 @@ test.describe('Create new record', () => {
   test.fixme(
     'API-TABLES-RECORDS-CREATE-004: should return 409 Conflict',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A table with unique email constraint and existing record
-      await executeQuery(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE NOT NULL,
-          first_name VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              { name: 'email', type: 'email', required: true, unique: true },
+              { name: 'first_name', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
+
+      // Seed test data
       await executeQuery(`
         INSERT INTO users (email, first_name)
         VALUES ('existing@example.com', 'Jane')
@@ -176,14 +196,18 @@ test.describe('Create new record', () => {
   test.fixme(
     'API-TABLES-RECORDS-CREATE-005: should return 401 Unauthorized',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: A valid table
-      await executeQuery(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) NOT NULL
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [{ name: 'email', type: 'email', required: true }],
+          },
+        ],
+      })
 
       // WHEN: Unauthenticated user attempts to create record
       const response = await request.post('/api/tables/1/records', {
@@ -203,14 +227,18 @@ test.describe('Create new record', () => {
   test.fixme(
     'API-TABLES-RECORDS-CREATE-PERMISSIONS-FORBIDDEN-MEMBER-001: should return 403 Forbidden',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: A member user without create permission for the table
-      await executeQuery(`
-        CREATE TABLE projects (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_projects',
+            name: 'projects',
+            fields: [{ name: 'name', type: 'single-line-text' }],
+          },
+        ],
+      })
 
       // WHEN: Member attempts to create a record
       const response = await request.post('/api/tables/1/records', {
@@ -234,14 +262,18 @@ test.describe('Create new record', () => {
   test.fixme(
     'API-TABLES-RECORDS-CREATE-PERMISSIONS-FORBIDDEN-VIEWER-001: should return 403 Forbidden',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: A viewer user without create permission
-      await executeQuery(`
-        CREATE TABLE tasks (
-          id SERIAL PRIMARY KEY,
-          title VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_tasks',
+            name: 'tasks',
+            fields: [{ name: 'title', type: 'single-line-text' }],
+          },
+        ],
+      })
 
       // WHEN: Viewer attempts to create a record
       const response = await request.post('/api/tables/1/records', {
@@ -266,14 +298,18 @@ test.describe('Create new record', () => {
   test.fixme(
     'API-TABLES-RECORDS-CREATE-PERMISSIONS-ORG-ISOLATION-001: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: A user from organization A attempting to create in organization B's table
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [{ name: 'name', type: 'single-line-text' }],
+          },
+        ],
+      })
 
       // WHEN: User attempts to create record in different organization's table
       const response = await request.post('/api/tables/1/records', {
@@ -297,16 +333,22 @@ test.describe('Create new record', () => {
   test.fixme(
     'API-TABLES-RECORDS-CREATE-PERMISSIONS-FIELD-WRITE-ADMIN-001: should return 201 Created with all fields',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: An admin user with write access to all fields including sensitive
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          email VARCHAR(255),
-          salary DECIMAL(10,2)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'email', type: 'email' },
+              { name: 'salary', type: 'decimal' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Admin creates record with sensitive field (salary)
       const response = await request.post('/api/tables/1/records', {
@@ -335,16 +377,22 @@ test.describe('Create new record', () => {
   test.fixme(
     'API-TABLES-RECORDS-CREATE-PERMISSIONS-FIELD-WRITE-FORBIDDEN-001: should return 403 Forbidden',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: A member user attempting to create with write-protected field
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          email VARCHAR(255),
-          salary DECIMAL(10,2)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'email', type: 'email' },
+              { name: 'salary', type: 'decimal' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Member includes salary field in create request
       const response = await request.post('/api/tables/1/records', {
@@ -372,15 +420,21 @@ test.describe('Create new record', () => {
   test.fixme(
     'API-TABLES-RECORDS-CREATE-PERMISSIONS-FIELD-WRITE-VIEWER-001: should return 403 Forbidden',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: A viewer user with very limited write permissions
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          email VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'email', type: 'email' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Viewer attempts to create with write-protected fields
       const response = await request.post('/api/tables/1/records', {
@@ -406,15 +460,21 @@ test.describe('Create new record', () => {
   test.fixme(
     'API-TABLES-RECORDS-CREATE-PERMISSIONS-READONLY-FIELD-001: should return 403 Forbidden',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: User attempts to set system-managed readonly fields
-      await executeQuery(`
-        CREATE TABLE tasks (
-          id SERIAL PRIMARY KEY,
-          title VARCHAR(255),
-          created_at TIMESTAMP DEFAULT NOW()
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_tasks',
+            name: 'tasks',
+            fields: [
+              { name: 'title', type: 'single-line-text' },
+              { name: 'created_at', type: 'datetime', default: 'NOW()' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Create request includes id or created_at fields
       const response = await request.post('/api/tables/1/records', {
@@ -441,18 +501,24 @@ test.describe('Create new record', () => {
   test.fixme(
     'API-TABLES-RECORDS-CREATE-PERMISSIONS-FIELD-WRITE-MULTIPLE-001: should return 403 for first forbidden field',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: Multiple fields with different write permission levels
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          email VARCHAR(255),
-          phone VARCHAR(50),
-          salary DECIMAL(10,2),
-          ssn VARCHAR(11)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'email', type: 'email' },
+              { name: 'phone', type: 'phone-number' },
+              { name: 'salary', type: 'decimal' },
+              { name: 'ssn', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: User creates with mix of permitted and forbidden fields
       const response = await request.post('/api/tables/1/records', {
@@ -481,15 +547,21 @@ test.describe('Create new record', () => {
   test.fixme(
     'API-TABLES-RECORDS-CREATE-PERMISSIONS-ORG-AUTO-INJECT-001: should auto-inject organization_id',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: User creates record in multi-tenant table
-      await executeQuery(`
-        CREATE TABLE projects (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          organization_id VARCHAR(255) NOT NULL
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_projects',
+            name: 'projects',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text', required: true },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Organization ID field exists in table
       const response = await request.post('/api/tables/1/records', {
@@ -520,15 +592,21 @@ test.describe('Create new record', () => {
   test.fixme(
     'API-TABLES-RECORDS-CREATE-PERMISSIONS-ORG-OVERRIDE-PREVENTED-001: should return 403 Forbidden',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: User attempts to create record with different organization_id
-      await executeQuery(`
-        CREATE TABLE projects (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_projects',
+            name: 'projects',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Request body includes organization_id different from user's org
       const response = await request.post('/api/tables/1/records', {
@@ -554,17 +632,23 @@ test.describe('Create new record', () => {
   test.fixme(
     'API-TABLES-RECORDS-CREATE-PERMISSIONS-COMBINED-001: should return 201 with filtered fields',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: Organization isolation, field write restrictions, and table permission all apply
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          email VARCHAR(255),
-          salary DECIMAL(10,2),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'email', type: 'email' },
+              { name: 'salary', type: 'decimal' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Member creates record with only permitted fields
       const response = await request.post('/api/tables/1/records', {
@@ -592,16 +676,22 @@ test.describe('Create new record', () => {
   test.fixme(
     'API-TABLES-RECORDS-CREATE-PERMISSIONS-PARTIAL-DATA-001: should use database defaults',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: User creates record with only permitted fields
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255) NOT NULL,
-          email VARCHAR(255),
-          salary DECIMAL(10,2) DEFAULT 50000
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text', required: true },
+              { name: 'email', type: 'email' },
+              { name: 'salary', type: 'decimal', default: '50000' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Some fields are omitted due to write restrictions
       const response = await request.post('/api/tables/1/records', {
@@ -637,16 +727,22 @@ test.describe('Create new record', () => {
   test.fixme(
     'user can complete full record creation workflow',
     { tag: '@regression' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with permissions and validation
-      await executeQuery(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE NOT NULL,
-          name VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              { name: 'email', type: 'email', required: true, unique: true },
+              { name: 'name', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN/THEN: Create valid record
       const response = await request.post('/api/tables/1/records', {

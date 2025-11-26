@@ -419,7 +419,7 @@ test.describe('Admin: Create user', () => {
   test.fixme(
     'user can complete full adminCreateUser workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

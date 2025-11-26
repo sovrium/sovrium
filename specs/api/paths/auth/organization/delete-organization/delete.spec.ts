@@ -289,7 +289,7 @@ test.describe('Delete organization', () => {
   test.fixme(
     'user can complete full deleteOrganization workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

@@ -27,17 +27,23 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-001: should return 200 with array of 3 records and pagination',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table 'projects' with 3 records
-      await executeQuery(`
-        CREATE TABLE projects (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255) NOT NULL,
-          status VARCHAR(50) DEFAULT 'active',
-          priority INTEGER DEFAULT 1,
-          created_at TIMESTAMP DEFAULT NOW()
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_projects',
+            name: 'projects',
+            fields: [
+              { name: 'name', type: 'single-line-text', required: true },
+              { name: 'status', type: 'single-line-text', default: 'active' },
+              { name: 'priority', type: 'integer', default: 1 },
+              { name: 'created_at', type: 'created-at' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO projects (name, status, priority)
         VALUES
@@ -88,15 +94,21 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-003: should return 200 with only 2 active records',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with 5 records (2 active, 3 completed)
-      await executeQuery(`
-        CREATE TABLE tasks (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255) NOT NULL,
-          status VARCHAR(50) NOT NULL
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_tasks',
+            name: 'tasks',
+            fields: [
+              { name: 'name', type: 'single-line-text', required: true },
+              { name: 'status', type: 'single-line-text', required: true },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO tasks (name, status)
         VALUES
@@ -132,15 +144,21 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-004: should return 200 with records in descending priority order',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with 3 records having different priorities
-      await executeQuery(`
-        CREATE TABLE projects (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          priority INTEGER
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_projects',
+            name: 'projects',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'priority', type: 'integer' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO projects (name, priority)
         VALUES
@@ -173,17 +191,23 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-005: should return 200 with records containing only specified fields',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with multiple fields
-      await executeQuery(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          email VARCHAR(255),
-          phone VARCHAR(50),
-          address TEXT
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'email', type: 'email', required: true },
+              { name: 'phone', type: 'phone-number' },
+              { name: 'address', type: 'long-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO users (name, email, phone, address)
         VALUES ('John Doe', 'john@example.com', '555-0100', '123 Main St')
@@ -215,14 +239,18 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-006: should return 200 with records 41-60 and correct pagination',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with 100 records
-      await executeQuery(`
-        CREATE TABLE items (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_items',
+            name: 'items',
+            fields: [{ name: 'name', type: 'single-line-text' }],
+          },
+        ],
+      })
 
       const insertValues = Array.from({ length: 100 }, (_, i) => `('Item ${i + 1}')`).join(',')
       await executeQuery(`INSERT INTO items (name) VALUES ${insertValues}`)
@@ -252,15 +280,21 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-007: should return 200 with records filtered by view',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with records and a predefined view
-      await executeQuery(`
-        CREATE TABLE projects (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          status VARCHAR(50)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_projects',
+            name: 'projects',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'status', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO projects (name, status)
         VALUES
@@ -290,15 +324,21 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-008: should return 200 with records grouped by status',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with records having different status values
-      await executeQuery(`
-        CREATE TABLE tasks (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          status VARCHAR(50)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_tasks',
+            name: 'tasks',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'status', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO tasks (name, status)
         VALUES
@@ -328,16 +368,22 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-009: should return 200 with aggregation results',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with numeric fields
-      await executeQuery(`
-        CREATE TABLE projects (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          budget DECIMAL(10,2),
-          priority INTEGER
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_projects',
+            name: 'projects',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'budget', type: 'currency', currency: 'USD' },
+              { name: 'priority', type: 'integer' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO projects (name, budget, priority)
         VALUES
@@ -374,16 +420,22 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-010: should return 200 with records matching formula',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with multiple fields
-      await executeQuery(`
-        CREATE TABLE tasks (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          status VARCHAR(50),
-          priority INTEGER
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_tasks',
+            name: 'tasks',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'status', type: 'single-line-text' },
+              { name: 'priority', type: 'integer' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO tasks (name, status, priority)
         VALUES
@@ -414,15 +466,21 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-011: should return 200 with multi-field sort applied',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with multiple sortable fields
-      await executeQuery(`
-        CREATE TABLE projects (
-          id SERIAL PRIMARY KEY,
-          priority INTEGER,
-          created_at TIMESTAMP
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_projects',
+            name: 'projects',
+            fields: [
+              { name: 'priority', type: 'integer' },
+              { name: 'created_at', type: 'created-at' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO projects (priority, created_at)
         VALUES
@@ -454,16 +512,22 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-012: should return 200 with both view and explicit filters',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with view and additional filter
-      await executeQuery(`
-        CREATE TABLE projects (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          status VARCHAR(50),
-          priority INTEGER
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_projects',
+            name: 'projects',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'status', type: 'single-line-text' },
+              { name: 'priority', type: 'integer' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO projects (name, status, priority)
         VALUES
@@ -493,14 +557,18 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-PERMISSIONS-UNAUTHORIZED-001: should return 401 Unauthorized',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: A valid table
-      await executeQuery(`
-        CREATE TABLE projects (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_projects',
+            name: 'projects',
+            fields: [{ name: 'name', type: 'single-line-text' }],
+          },
+        ],
+      })
 
       // WHEN: Unauthenticated user requests records
       const response = await request.get('/api/tables/1/records')
@@ -513,14 +581,18 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-PERMISSIONS-FORBIDDEN-001: should return 403 Forbidden',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: User without read permission
-      await executeQuery(`
-        CREATE TABLE confidential (
-          id SERIAL PRIMARY KEY,
-          data TEXT
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_confidential',
+            name: 'confidential',
+            fields: [{ name: 'data', type: 'long-text' }],
+          },
+        ],
+      })
 
       // WHEN: User without permission requests records
       const response = await request.get('/api/tables/1/records', {
@@ -537,14 +609,18 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-PERMISSIONS-ORG-ISOLATION-001: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: User from different organization
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [{ name: 'name', type: 'single-line-text' }],
+          },
+        ],
+      })
 
       // WHEN: User attempts to list records from different org's table
       const response = await request.get('/api/tables/1/records', {
@@ -561,16 +637,22 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-PERMISSIONS-FIELD-FILTER-ADMIN-001: should return all fields for admin',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Admin user with full field access
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          email VARCHAR(255),
-          salary DECIMAL(10,2)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'email', type: 'email', required: true },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (name, email, salary)
         VALUES ('John Doe', 'john@example.com', 75000)
@@ -594,16 +676,22 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-PERMISSIONS-FIELD-FILTER-MEMBER-001: should exclude salary field for member',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Member user without salary field read permission
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          email VARCHAR(255),
-          salary DECIMAL(10,2)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'email', type: 'email', required: true },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (name, email, salary)
         VALUES ('John Doe', 'john@example.com', 75000)
@@ -629,17 +717,23 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-PERMISSIONS-FIELD-FILTER-VIEWER-001: should return minimal fields for viewer',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Viewer with limited field access
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          email VARCHAR(255),
-          phone VARCHAR(50),
-          salary DECIMAL(10,2)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'email', type: 'email', required: true },
+              { name: 'phone', type: 'phone-number' },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (name, email, phone, salary)
         VALUES ('John Doe', 'john@example.com', '555-0100', 75000)
@@ -666,15 +760,21 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-PERMISSIONS-ORG-FILTER-001: should auto-filter by organization',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Multi-tenant table with records from different orgs
-      await executeQuery(`
-        CREATE TABLE projects (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_projects',
+            name: 'projects',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO projects (name, organization_id)
         VALUES
@@ -701,16 +801,22 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-PERMISSIONS-COMBINED-001: should apply both org and field filtering',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Multi-tenant table with field permissions
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          salary DECIMAL(10,2),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (name, salary, organization_id)
         VALUES
@@ -738,15 +844,21 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-PERMISSIONS-EMPTY-RESULT-001: should return empty array with 200',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: User with valid permissions but no matching records
-      await executeQuery(`
-        CREATE TABLE projects (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_projects',
+            name: 'projects',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: User requests records (no data in their org)
       const response = await request.get('/api/tables/1/records', {
@@ -767,15 +879,21 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-PERMISSIONS-FIELD-PAGINATION-001: should paginate with field filtering',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Member with field restrictions and large dataset
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          salary DECIMAL(10,2)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+            ],
+          },
+        ],
+      })
 
       const insertValues = Array.from(
         { length: 50 },
@@ -809,15 +927,21 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-PERMISSIONS-SORTING-001: should return 403 when sorting by inaccessible field',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: User attempts to sort by restricted field
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          salary DECIMAL(10,2)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Member sorts by salary (field they cannot read)
       const response = await request.get('/api/tables/1/records', {
@@ -841,15 +965,21 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-PERMISSIONS-FILTERING-001: should return 403 when filtering by inaccessible field',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: User attempts to filter by restricted field
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          salary DECIMAL(10,2)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Member filters by salary (field they cannot read)
       const response = await request.get('/api/tables/1/records', {
@@ -876,15 +1006,21 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-PERMISSIONS-AGGREGATING-001: should return 403 when aggregating inaccessible field',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: User attempts to aggregate restricted field
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          salary DECIMAL(10,2)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Member aggregates salary (field they cannot read)
       const response = await request.get('/api/tables/1/records', {
@@ -911,16 +1047,22 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-PERMISSIONS-AGGREGATE-ALLOWED-001: should return aggregations for accessible fields',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: User aggregates only accessible fields
-      await executeQuery(`
-        CREATE TABLE projects (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          priority INTEGER,
-          budget DECIMAL(10,2)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_projects',
+            name: 'projects',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'priority', type: 'integer' },
+              { name: 'budget', type: 'currency', currency: 'USD' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO projects (name, priority, budget)
         VALUES
@@ -959,16 +1101,22 @@ test.describe('List records in table', () => {
   test.fixme(
     'user can complete full list records workflow',
     { tag: '@regression' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with records and permissions
-      await executeQuery(`
-        CREATE TABLE projects (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          status VARCHAR(50),
-          priority INTEGER
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_projects',
+            name: 'projects',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'status', type: 'single-line-text' },
+              { name: 'priority', type: 'integer' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO projects (name, status, priority)
         VALUES

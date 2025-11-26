@@ -364,7 +364,7 @@ test.describe('Admin: Revoke user session', () => {
   test.fixme(
     'user can complete full adminRevokeUserSession workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

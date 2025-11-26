@@ -27,16 +27,22 @@ test.describe('Batch create records', () => {
   test.fixme(
     'API-RECORDS-BATCH-001: should return 201 with created=3 and records array',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table 'users' exists with 0 records
-      await executeQuery(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE NOT NULL,
-          name VARCHAR(255),
-          created_at TIMESTAMP DEFAULT NOW()
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              { name: 'email', type: 'email', required: true, unique: true },
+              { name: 'name', type: 'single-line-text' },
+              { name: 'created_at', type: 'created-at' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Batch create 3 valid records with returnRecords=true
       const response = await request.post('/api/tables/1/records/batch', {
@@ -81,15 +87,21 @@ test.describe('Batch create records', () => {
   test.fixme(
     'API-RECORDS-BATCH-002: should return 201 with created=2 and no records array',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: Table 'users' exists
-      await executeQuery(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) NOT NULL,
-          name VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              { name: 'email', type: 'email', required: true },
+              { name: 'name', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Batch create 2 records with returnRecords=false
       const response = await request.post('/api/tables/1/records/batch', {
@@ -125,15 +137,21 @@ test.describe('Batch create records', () => {
   test.fixme(
     'API-RECORDS-BATCH-003: should return 400 with rollback on validation error',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table 'users' with email NOT NULL constraint
-      await executeQuery(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) NOT NULL,
-          name VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              { name: 'email', type: 'email', required: true },
+              { name: 'name', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Batch create with 1 valid record and 1 missing email
       const response = await request.post('/api/tables/1/records/batch', {
@@ -170,15 +188,21 @@ test.describe('Batch create records', () => {
   test.fixme(
     'API-RECORDS-BATCH-PERMISSIONS-UNAUTHORIZED-001: should return 401 Unauthorized',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: An unauthenticated user
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: User attempts batch create without auth token
       const response = await request.post('/api/tables/1/records/batch', {
@@ -202,15 +226,21 @@ test.describe('Batch create records', () => {
   test.fixme(
     'API-RECORDS-BATCH-PERMISSIONS-FORBIDDEN-MEMBER-001: should return 403 for member without create permission',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: A member user without create permission
-      await executeQuery(`
-        CREATE TABLE projects (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_projects',
+            name: 'projects',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Member attempts batch create
       const response = await request.post('/api/tables/1/records/batch', {
@@ -237,15 +267,21 @@ test.describe('Batch create records', () => {
   test.fixme(
     'API-RECORDS-BATCH-PERMISSIONS-FORBIDDEN-VIEWER-001: should return 403 for viewer',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: A viewer user with read-only access
-      await executeQuery(`
-        CREATE TABLE documents (
-          id SERIAL PRIMARY KEY,
-          title VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_documents',
+            name: 'documents',
+            fields: [
+              { name: 'title', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Viewer attempts batch create
       const response = await request.post('/api/tables/1/records/batch', {
@@ -270,16 +306,22 @@ test.describe('Batch create records', () => {
   test.fixme(
     'API-RECORDS-BATCH-PERMISSIONS-ORG-AUTO-INJECT-001: should auto-inject organization_id for all records',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: An admin user from org_123
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          email VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'email', type: 'email' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Admin batch creates records without specifying organization_id
       const response = await request.post('/api/tables/1/records/batch', {
@@ -309,16 +351,22 @@ test.describe('Batch create records', () => {
   test.fixme(
     'API-RECORDS-BATCH-PERMISSIONS-FIELD-WRITE-FORBIDDEN-001: should return 403 when creating with protected field',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: A member user with field-level write restrictions (salary protected)
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          salary DECIMAL(10,2),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Member attempts batch create with protected field
       const response = await request.post('/api/tables/1/records/batch', {
@@ -348,16 +396,22 @@ test.describe('Batch create records', () => {
   test.fixme(
     'API-RECORDS-BATCH-PERMISSIONS-READONLY-FIELD-001: should return 403 for readonly fields',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: An admin user attempting to set readonly fields
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          created_at TIMESTAMP DEFAULT NOW(),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'created_at', type: 'created-at' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Admin batch creates with id in payload
       const response = await request.post('/api/tables/1/records/batch', {
@@ -384,15 +438,21 @@ test.describe('Batch create records', () => {
   test.fixme(
     'API-RECORDS-BATCH-PERMISSIONS-ORG-OVERRIDE-PREVENTED-001: should return 403 when setting different organization_id',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: A member user attempting to set different organization_id
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Member batch creates with organization_id='org_456' in payload
       const response = await request.post('/api/tables/1/records/batch', {
@@ -419,17 +479,23 @@ test.describe('Batch create records', () => {
   test.fixme(
     'API-RECORDS-BATCH-PERMISSIONS-PARTIAL-FIELD-FILTERING-001: should filter protected fields from response',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: A member user with field-level read restrictions
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          email VARCHAR(255),
-          salary DECIMAL(10,2),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'email', type: 'email' },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Member batch creates records successfully
       const response = await request.post('/api/tables/1/records/batch', {
@@ -463,16 +529,22 @@ test.describe('Batch create records', () => {
   test.fixme(
     'API-RECORDS-BATCH-PERMISSIONS-ADMIN-FULL-ACCESS-001: should return 201 with all fields for admin',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: An admin user with full permissions
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          salary DECIMAL(10,2),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Admin batch creates records with all fields
       const response = await request.post('/api/tables/1/records/batch', {
@@ -504,17 +576,23 @@ test.describe('Batch create records', () => {
   test.fixme(
     'API-RECORDS-BATCH-PERMISSIONS-COMBINED-SCENARIO-001: should enforce combined permissions',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: A member with create permission but field restrictions
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          email VARCHAR(255),
-          salary DECIMAL(10,2),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'email', type: 'email' },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Member batch creates with only permitted fields
       const response = await request.post('/api/tables/1/records/batch', {
@@ -548,15 +626,21 @@ test.describe('Batch create records', () => {
   test.fixme(
     'API-RECORDS-BATCH-PERMISSIONS-DUPLICATE-PREVENTION-001: should return 400 for duplicate unique field values',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with unique email constraint
-      await executeQuery(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE NOT NULL,
-          name VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              { name: 'email', type: 'email', required: true, unique: true },
+              { name: 'name', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN: Batch create with duplicate email values
       const response = await request.post('/api/tables/1/records/batch', {
@@ -588,14 +672,18 @@ test.describe('Batch create records', () => {
   test.fixme(
     'API-RECORDS-BATCH-PERMISSIONS-PAYLOAD-LIMIT-001: should return 413 when exceeding 1000 record limit',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: Table exists
-      await executeQuery(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) NOT NULL
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [{ name: 'email', type: 'email', required: true }],
+          },
+        ],
+      })
 
       // WHEN: Batch create with 1001 records
       const records = Array.from({ length: 1001 }, (_, i) => ({
@@ -630,17 +718,23 @@ test.describe('Batch create records', () => {
   test.fixme(
     'user can complete full batch create workflow',
     { tag: '@regression' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application with representative table and permission configuration
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255) NOT NULL,
-          email VARCHAR(255) UNIQUE NOT NULL,
-          salary DECIMAL(10,2),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text', required: true },
+              { name: 'email', type: 'email', required: true, unique: true },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
 
       // WHEN/THEN: Streamlined workflow testing integration points
 

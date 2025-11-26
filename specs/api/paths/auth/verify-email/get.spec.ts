@@ -66,7 +66,7 @@ test.describe('Verify email address', () => {
   test.fixme(
     'API-AUTH-VERIFY-EMAIL-VALIDATION-REQUIRED-TOKEN-001: should  request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -209,7 +209,7 @@ test.describe('Verify email address', () => {
   test.fixme(
     'user can complete full Verifyemailaddress workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

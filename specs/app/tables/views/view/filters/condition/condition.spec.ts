@@ -253,7 +253,7 @@ test.describe('Filter Condition', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full filter-condition workflow',
+    'APP-TABLES-VIEW-FILTERS-CONDITION-REGRESSION-001: user can complete full filter-condition workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative filter conditions

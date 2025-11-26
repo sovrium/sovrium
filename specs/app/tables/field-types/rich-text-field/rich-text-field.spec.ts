@@ -24,8 +24,17 @@ test.describe('Rich Text Field', () => {
   test.fixme(
     'APP-RICH-TEXT-FIELD-001: should create PostgreSQL TEXT column for markdown/rich text storage',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery('CREATE TABLE posts (id SERIAL PRIMARY KEY, content TEXT)')
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_posts',
+            name: 'posts',
+            fields: [{ name: 'content', type: 'rich-text' }],
+          },
+        ],
+      })
 
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='posts' AND column_name='content'"
@@ -48,10 +57,17 @@ test.describe('Rich Text Field', () => {
   test.fixme(
     'APP-RICH-TEXT-FIELD-002: should enforce maximum length via CHECK constraint',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery(
-        'CREATE TABLE articles (id SERIAL PRIMARY KEY, summary TEXT CHECK (LENGTH(summary) <= 500))'
-      )
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_articles',
+            name: 'articles',
+            fields: [{ name: 'summary', type: 'rich-text', maxLength: 500 }],
+          },
+        ],
+      })
 
       const withinLimit = await executeQuery(
         "INSERT INTO articles (summary) VALUES (REPEAT('a', 500)) RETURNING LENGTH(summary) as length"
@@ -67,11 +83,17 @@ test.describe('Rich Text Field', () => {
   test.fixme(
     'APP-RICH-TEXT-FIELD-003: should support full-text search with GIN index',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery([
-        'CREATE TABLE pages (id SERIAL PRIMARY KEY, body TEXT)',
-        "CREATE INDEX idx_pages_body_fulltext ON pages USING GIN(to_tsvector('english', body))",
-      ])
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_pages',
+            name: 'pages',
+            fields: [{ name: 'body', type: 'rich-text', fullTextSearch: true }],
+          },
+        ],
+      })
 
       const indexInfo = await executeQuery(
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_pages_body_fulltext'"
@@ -91,13 +113,21 @@ test.describe('Rich Text Field', () => {
   test.fixme(
     'APP-RICH-TEXT-FIELD-004: should enable full-text search with to_tsvector and to_tsquery',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery([
-        'CREATE TABLE comments (id SERIAL PRIMARY KEY, message TEXT)',
-        "INSERT INTO comments (message) VALUES ('This is a great product!')",
-        "INSERT INTO comments (message) VALUES ('I love the design and features')",
-        "INSERT INTO comments (message) VALUES ('Not happy with the service')",
-      ])
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_comments',
+            name: 'comments',
+            fields: [{ name: 'message', type: 'rich-text' }],
+          },
+        ],
+      })
+
+      await executeQuery(
+        "INSERT INTO comments (message) VALUES ('This is a great product!'), ('I love the design and features'), ('Not happy with the service')"
+      )
 
       const productSearch = await executeQuery(
         "SELECT COUNT(*) as count FROM comments WHERE to_tsvector('english', message) @@ to_tsquery('english', 'product')"
@@ -114,11 +144,19 @@ test.describe('Rich Text Field', () => {
   test.fixme(
     'APP-RICH-TEXT-FIELD-005: should enforce NOT NULL and UNIQUE constraints',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery([
-        'CREATE TABLE documents (id SERIAL PRIMARY KEY, slug TEXT UNIQUE NOT NULL)',
-        "INSERT INTO documents (slug) VALUES ('my-first-document')",
-      ])
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_documents',
+            name: 'documents',
+            fields: [{ name: 'slug', type: 'rich-text', required: true, unique: true }],
+          },
+        ],
+      })
+
+      await executeQuery("INSERT INTO documents (slug) VALUES ('my-first-document')")
 
       const notNullCheck = await executeQuery(
         "SELECT is_nullable FROM information_schema.columns WHERE table_name='documents' AND column_name='slug'"
@@ -137,7 +175,7 @@ test.describe('Rich Text Field', () => {
   )
 
   test.fixme(
-    'user can complete full rich-text-field workflow',
+    'APP-TABLES-FIELD-RICH-TEXT-REGRESSION-001: user can complete full rich-text-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({

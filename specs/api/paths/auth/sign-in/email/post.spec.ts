@@ -68,7 +68,7 @@ test.describe('Sign in with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-IN-EMAIL-VALIDATION-REQUIRED-EMAIL-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -97,7 +97,7 @@ test.describe('Sign in with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-IN-EMAIL-VALIDATION-REQUIRED-PASSWORD-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -296,7 +296,7 @@ test.describe('Sign in with email and password', () => {
   test.fixme(
     'user can complete full signInEmail workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

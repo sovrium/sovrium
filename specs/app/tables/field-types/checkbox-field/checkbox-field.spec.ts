@@ -205,7 +205,7 @@ test.describe('Checkbox Field', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full checkbox-field workflow',
+    'APP-TABLES-FIELD-CHECKBOX-REGRESSION-001: user can complete full checkbox-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative checkbox field

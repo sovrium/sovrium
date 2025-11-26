@@ -294,7 +294,7 @@ test.describe('Admin: List users', () => {
   test.fixme(
     'user can complete full adminListUsers workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

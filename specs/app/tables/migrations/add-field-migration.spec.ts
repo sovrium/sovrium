@@ -29,10 +29,25 @@ test.describe('Add Field Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: a table schema with existing fields
-      await executeQuery([
-        'CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) NOT NULL)',
-        "INSERT INTO users (email) VALUES ('user@example.com')",
-      ])
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              {
+                name: 'email',
+                type: 'email',
+                required: true,
+              },
+            ],
+          },
+        ],
+      })
+
+      // Seed test data
+      await executeQuery("INSERT INTO users (email) VALUES ('user@example.com')")
 
       // WHEN: a new required field is added to the schema
       await startServerWithSchema({
@@ -43,12 +58,9 @@ test.describe('Add Field Migration', () => {
             name: 'users',
             fields: [
               {
-                name: 'id',
-                type: 'integer',
-              },
-              {
                 name: 'email',
                 type: 'email',
+                required: true,
               },
               {
                 name: 'name',
@@ -87,10 +99,25 @@ test.describe('Add Field Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: a table schema with existing fields
-      await executeQuery([
-        'CREATE TABLE products (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL)',
-        "INSERT INTO products (title) VALUES ('Product A')",
-      ])
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_products',
+            name: 'products',
+            fields: [
+              {
+                name: 'title',
+                type: 'single-line-text',
+                required: true,
+              },
+            ],
+          },
+        ],
+      })
+
+      // Seed test data
+      await executeQuery("INSERT INTO products (title) VALUES ('Product A')")
 
       // WHEN: a new optional field is added to the schema
       await startServerWithSchema({
@@ -100,10 +127,6 @@ test.describe('Add Field Migration', () => {
             id: 'tbl_products',
             name: 'products',
             fields: [
-              {
-                name: 'id',
-                type: 'integer',
-              },
               {
                 name: 'title',
                 type: 'single-line-text',
@@ -139,10 +162,25 @@ test.describe('Add Field Migration', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: a table schema with existing fields
-      await executeQuery([
-        'CREATE TABLE orders (id SERIAL PRIMARY KEY, amount DECIMAL(10,2) NOT NULL)',
-        'INSERT INTO orders (amount) VALUES (100.00)',
-      ])
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_orders',
+            name: 'orders',
+            fields: [
+              {
+                name: 'amount',
+                type: 'decimal',
+                required: true,
+              },
+            ],
+          },
+        ],
+      })
+
+      // Seed test data
+      await executeQuery('INSERT INTO orders (amount) VALUES (100.00)')
 
       // WHEN: a new field with default value is added
       await startServerWithSchema({
@@ -152,10 +190,6 @@ test.describe('Add Field Migration', () => {
             id: 'tbl_orders',
             name: 'orders',
             fields: [
-              {
-                name: 'id',
-                type: 'integer',
-              },
               {
                 name: 'amount',
                 type: 'decimal',
@@ -174,9 +208,7 @@ test.describe('Add Field Migration', () => {
       // THEN: the system should apply default value to existing records
 
       // Existing records should have default value
-      const status = await executeQuery(
-        'SELECT status FROM orders WHERE amount = 100.00'
-      )
+      const status = await executeQuery('SELECT status FROM orders WHERE amount = 100.00')
       expect(status.status).toBe('pending')
 
       // Column should have DEFAULT constraint
@@ -192,14 +224,28 @@ test.describe('Add Field Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full add-field-migration workflow',
+    'APP-TABLES-MIGRATION-ADD-FIELD-REGRESSION-001: user can complete full add-field-migration workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with existing data
-      await executeQuery([
-        'CREATE TABLE test_table (id SERIAL PRIMARY KEY, existing_field VARCHAR(255))',
-        "INSERT INTO test_table (existing_field) VALUES ('existing_value')",
-      ])
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_test',
+            name: 'test_table',
+            fields: [
+              {
+                name: 'existing_field',
+                type: 'single-line-text',
+              },
+            ],
+          },
+        ],
+      })
+
+      // Seed test data
+      await executeQuery("INSERT INTO test_table (existing_field) VALUES ('existing_value')")
 
       // WHEN/THEN: Add field with migration
 
@@ -211,10 +257,6 @@ test.describe('Add Field Migration', () => {
             id: 'tbl_test',
             name: 'test_table',
             fields: [
-              {
-                name: 'id',
-                type: 'integer',
-              },
               {
                 name: 'existing_field',
                 type: 'single-line-text',
@@ -236,9 +278,7 @@ test.describe('Add Field Migration', () => {
       expect(nullable.is_nullable).toBe('NO')
 
       // Verify existing data preserved
-      const existingData = await executeQuery(
-        'SELECT COUNT(*) as count FROM test_table'
-      )
+      const existingData = await executeQuery('SELECT COUNT(*) as count FROM test_table')
       expect(existingData.count).toBeGreaterThan(0)
 
       // Workflow completes successfully

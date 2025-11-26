@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Multi Select Field
@@ -24,7 +23,7 @@ test.describe('Multi Select Field', () => {
   test.fixme(
     'APP-MULTI-SELECT-FIELD-001: should create PostgreSQL TEXT ARRAY column for multi select storage',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -60,7 +59,7 @@ test.describe('Multi Select Field', () => {
   test.fixme(
     'APP-MULTI-SELECT-FIELD-002: should allow storing multiple values from predefined options',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -93,7 +92,7 @@ test.describe('Multi Select Field', () => {
   test.fixme(
     'APP-MULTI-SELECT-FIELD-003: should reject NULL value when multi-select field is required',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -127,7 +126,7 @@ test.describe('Multi Select Field', () => {
   test.fixme(
     'APP-MULTI-SELECT-FIELD-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -157,7 +156,7 @@ test.describe('Multi Select Field', () => {
   test.fixme(
     'APP-MULTI-SELECT-FIELD-005: should create GIN index for fast array queries when multi-select field has indexed=true',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -186,9 +185,9 @@ test.describe('Multi Select Field', () => {
   )
 
   test.fixme(
-    'user can complete full multi-select-field workflow',
+    'APP-TABLES-FIELD-MULTI-SELECT-REGRESSION-001: user can complete full multi-select-field workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [

@@ -24,7 +24,7 @@ test.describe('Rollup Field', () => {
   test.fixme(
     'APP-ROLLUP-FIELD-001: should calculate SUM aggregation from related records',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO customers (name) VALUES ('Alice'), ('Bob')",
@@ -52,7 +52,7 @@ test.describe('Rollup Field', () => {
   test.fixme(
     'APP-ROLLUP-FIELD-002: should return COUNT aggregation of related records',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO projects (name) VALUES ('Website Redesign'), ('Mobile App')",
@@ -80,7 +80,7 @@ test.describe('Rollup Field', () => {
   test.fixme(
     'APP-ROLLUP-FIELD-003: should support AVG, MIN, MAX statistical aggregations',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO products (name) VALUES ('Laptop')",
@@ -108,7 +108,7 @@ test.describe('Rollup Field', () => {
   test.fixme(
     'APP-ROLLUP-FIELD-004: should efficiently aggregate across multiple parent records with GROUP BY',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE departments (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO departments (name) VALUES ('Engineering'), ('Sales'), ('Marketing')",
@@ -135,7 +135,7 @@ test.describe('Rollup Field', () => {
   test.fixme(
     'APP-ROLLUP-FIELD-005: should create VIEW to encapsulate rollup aggregation logic',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE accounts (id SERIAL PRIMARY KEY, account_name VARCHAR(255))',
         "INSERT INTO accounts (account_name) VALUES ('Acme Corp'), ('Tech Inc')",
@@ -162,9 +162,9 @@ test.describe('Rollup Field', () => {
   )
 
   test.fixme(
-    'user can complete full rollup-field workflow',
+    'APP-TABLES-FIELD-ROLLUP-REGRESSION-001: user can complete full rollup-field workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE categories (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO categories (name) VALUES ('Electronics')",

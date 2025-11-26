@@ -6,14 +6,22 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 test.describe('Color Field', () => {
   test.fixme(
     'APP-COLOR-FIELD-001: should create VARCHAR(7) column for hex color storage',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery('CREATE TABLE themes (id SERIAL PRIMARY KEY, primary_color VARCHAR(7))')
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_themes',
+            name: 'themes',
+            fields: [{ name: 'primary_color', type: 'color' }],
+          },
+        ],
+      })
       const column = await executeQuery(
         "SELECT character_maximum_length FROM information_schema.columns WHERE table_name='themes' AND column_name='primary_color'"
       )
@@ -24,10 +32,17 @@ test.describe('Color Field', () => {
   test.fixme(
     'APP-COLOR-FIELD-002: should enforce hex color format via CHECK constraint',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery(
-        "CREATE TABLE colors (id SERIAL PRIMARY KEY, value VARCHAR(7) CHECK (value ~ '^#[0-9A-Fa-f]{6}$'))"
-      )
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_colors',
+            name: 'colors',
+            fields: [{ name: 'value', type: 'color' }],
+          },
+        ],
+      })
       await expect(executeQuery("INSERT INTO colors (value) VALUES ('invalid')")).rejects.toThrow(
         /violates check constraint/
       )
@@ -37,11 +52,18 @@ test.describe('Color Field', () => {
   test.fixme(
     'APP-COLOR-FIELD-003: should store valid hex color values',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery([
-        'CREATE TABLE palettes (id SERIAL PRIMARY KEY, color VARCHAR(7))',
-        "INSERT INTO palettes (color) VALUES ('#FF5733'), ('#3498DB')",
-      ])
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_palettes',
+            name: 'palettes',
+            fields: [{ name: 'color', type: 'color' }],
+          },
+        ],
+      })
+      await executeQuery("INSERT INTO palettes (color) VALUES ('#FF5733'), ('#3498DB')")
       const colors = await executeQuery('SELECT color FROM palettes ORDER BY id')
       expect(colors).toEqual([{ color: '#FF5733' }, { color: '#3498DB' }])
     }
@@ -50,11 +72,18 @@ test.describe('Color Field', () => {
   test.fixme(
     'APP-COLOR-FIELD-004: should support NULL for optional colors',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery([
-        'CREATE TABLE items (id SERIAL PRIMARY KEY, accent_color VARCHAR(7))',
-        'INSERT INTO items (accent_color) VALUES (NULL)',
-      ])
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_items',
+            name: 'items',
+            fields: [{ name: 'accent_color', type: 'color' }],
+          },
+        ],
+      })
+      await executeQuery('INSERT INTO items (accent_color) VALUES (NULL)')
       const result = await executeQuery('SELECT accent_color FROM items WHERE id = 1')
       expect(result.accent_color).toBeNull()
     }
@@ -63,10 +92,17 @@ test.describe('Color Field', () => {
   test.fixme(
     'APP-COLOR-FIELD-005: should require NOT NULL when color is required',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery(
-        'CREATE TABLE brands (id SERIAL PRIMARY KEY, brand_color VARCHAR(7) NOT NULL)'
-      )
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_brands',
+            name: 'brands',
+            fields: [{ name: 'brand_color', type: 'color', required: true }],
+          },
+        ],
+      })
       await expect(executeQuery('INSERT INTO brands (brand_color) VALUES (NULL)')).rejects.toThrow(
         /violates not-null constraint/
       )
@@ -74,13 +110,20 @@ test.describe('Color Field', () => {
   )
 
   test.fixme(
-    'user can complete full color-field workflow',
+    'APP-TABLES-FIELD-COLOR-REGRESSION-001: user can complete full color-field workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery([
-        'CREATE TABLE data (id SERIAL PRIMARY KEY, color VARCHAR(7))',
-        "INSERT INTO data (color) VALUES ('#ABCDEF')",
-      ])
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_data',
+            name: 'data',
+            fields: [{ name: 'color', type: 'color' }],
+          },
+        ],
+      })
+      await executeQuery("INSERT INTO data (color) VALUES ('#ABCDEF')")
       const result = await executeQuery('SELECT color FROM data WHERE id = 1')
       expect(result.color).toBe('#ABCDEF')
     }

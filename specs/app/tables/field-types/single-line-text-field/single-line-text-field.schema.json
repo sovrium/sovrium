@@ -309,6 +309,438 @@
           }
         ]
       }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-LINE-TEXT-009",
+      "given": "table with single-line-text field and 1000 records",
+      "when": "bulk insert of 1000 records is performed",
+      "then": "PostgreSQL handles bulk insert efficiently without errors",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE products (id SERIAL PRIMARY KEY, sku VARCHAR(255))"
+        },
+        "assertions": [
+          {
+            "description": "Bulk insert 1000 records successfully",
+            "executeQuery": "INSERT INTO products (sku) SELECT 'SKU-' || generate_series(1, 1000) RETURNING COUNT(*) OVER() as total",
+            "expected": {
+              "total": 1000
+            }
+          },
+          {
+            "description": "All records inserted correctly",
+            "executeQuery": "SELECT COUNT(*) as count FROM products",
+            "expected": {
+              "count": 1000
+            }
+          },
+          {
+            "description": "Sample records have correct format",
+            "executeQuery": "SELECT sku FROM products WHERE id IN (1, 500, 1000) ORDER BY id",
+            "expected": [{ "sku": "SKU-1" }, { "sku": "SKU-500" }, { "sku": "SKU-1000" }]
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-LINE-TEXT-010",
+      "given": "table with indexed single-line-text field and 10000 records",
+      "when": "query searches for specific text value",
+      "then": "PostgreSQL uses btree index for fast lookup",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE inventory (id SERIAL PRIMARY KEY, product_code VARCHAR(255))",
+            "CREATE INDEX idx_product_code ON inventory(product_code)",
+            "INSERT INTO inventory (product_code) SELECT 'PROD-' || generate_series(1, 10000)"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Index exists on product_code",
+            "executeQuery": "SELECT indexname FROM pg_indexes WHERE tablename='inventory' AND indexname='idx_product_code'",
+            "expected": {
+              "indexname": "idx_product_code"
+            }
+          },
+          {
+            "description": "Query finds specific record efficiently",
+            "executeQuery": "SELECT product_code FROM inventory WHERE product_code = 'PROD-5000'",
+            "expected": {
+              "product_code": "PROD-5000"
+            }
+          },
+          {
+            "description": "Range query returns correct count",
+            "executeQuery": "SELECT COUNT(*) as count FROM inventory WHERE product_code >= 'PROD-1000' AND product_code < 'PROD-2000'",
+            "expected": {
+              "count": 1000
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-LINE-TEXT-011",
+      "given": "table with single-line-text field and 5000 records",
+      "when": "LIKE pattern search is performed on large dataset",
+      "then": "PostgreSQL executes text search and returns matching records",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE articles (id SERIAL PRIMARY KEY, title VARCHAR(255))",
+            "INSERT INTO articles (title) SELECT CASE WHEN i % 10 = 0 THEN 'Featured Article ' || i ELSE 'Regular Article ' || i END FROM generate_series(1, 5000) i"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Dataset has 5000 records",
+            "executeQuery": "SELECT COUNT(*) as count FROM articles",
+            "expected": {
+              "count": 5000
+            }
+          },
+          {
+            "description": "LIKE search finds featured articles",
+            "executeQuery": "SELECT COUNT(*) as count FROM articles WHERE title LIKE 'Featured%'",
+            "expected": {
+              "count": 500
+            }
+          },
+          {
+            "description": "LIKE search with % wildcard returns correct results",
+            "executeQuery": "SELECT title FROM articles WHERE title LIKE '%Article 100' ORDER BY id LIMIT 1",
+            "expected": {
+              "title": "Regular Article 100"
+            }
+          },
+          {
+            "description": "Case-insensitive ILIKE search works correctly",
+            "executeQuery": "SELECT COUNT(*) as count FROM articles WHERE title ILIKE '%FEATURED%'",
+            "expected": {
+              "count": 500
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-LINE-TEXT-012",
+      "given": "table with unique single-line-text field and concurrent insert attempts",
+      "when": "two transactions attempt to insert the same unique value simultaneously",
+      "then": "PostgreSQL UNIQUE constraint prevents duplicate insertion and one transaction fails",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE users (id SERIAL PRIMARY KEY, username VARCHAR(255) UNIQUE NOT NULL)"
+        },
+        "assertions": [
+          {
+            "description": "First transaction inserts successfully",
+            "executeQuery": "INSERT INTO users (username) VALUES ('concurrent_user') RETURNING username",
+            "expected": {
+              "username": "concurrent_user"
+            }
+          },
+          {
+            "description": "Second concurrent insert with same value fails",
+            "executeQuery": "INSERT INTO users (username) VALUES ('concurrent_user')",
+            "expectError": "duplicate key value violates unique constraint"
+          },
+          {
+            "description": "Only one record exists after concurrent attempts",
+            "executeQuery": "SELECT COUNT(*) as count FROM users WHERE username = 'concurrent_user'",
+            "expected": {
+              "count": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-LINE-TEXT-013",
+      "given": "table with single-line-text field and active transaction updating record",
+      "when": "UPDATE modifies a text field value",
+      "then": "PostgreSQL applies row-level locking and ensures data consistency",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, sku VARCHAR(255) UNIQUE NOT NULL)",
+            "INSERT INTO products (sku) VALUES ('PROD-001')"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Record exists before update",
+            "executeQuery": "SELECT sku FROM products WHERE id = 1",
+            "expected": {
+              "sku": "PROD-001"
+            }
+          },
+          {
+            "description": "UPDATE modifies the text field",
+            "executeQuery": "UPDATE products SET sku = 'PROD-001-UPDATED' WHERE id = 1 RETURNING sku",
+            "expected": {
+              "sku": "PROD-001-UPDATED"
+            }
+          },
+          {
+            "description": "Updated value persists after transaction",
+            "executeQuery": "SELECT sku FROM products WHERE id = 1",
+            "expected": {
+              "sku": "PROD-001-UPDATED"
+            }
+          },
+          {
+            "description": "Old value no longer exists",
+            "executeQuery": "SELECT COUNT(*) as count FROM products WHERE sku = 'PROD-001'",
+            "expected": {
+              "count": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-LINE-TEXT-014",
+      "given": "table with single-line-text field and multiple concurrent inserts",
+      "when": "1000 concurrent inserts are attempted with unique values",
+      "then": "PostgreSQL handles concurrent writes without data loss or corruption",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE events (id SERIAL PRIMARY KEY, event_code VARCHAR(255) UNIQUE NOT NULL)"
+        },
+        "assertions": [
+          {
+            "description": "Bulk concurrent inserts complete successfully",
+            "executeQuery": "INSERT INTO events (event_code) SELECT 'EVENT-' || generate_series(1, 1000) RETURNING COUNT(*) OVER() as total",
+            "expected": {
+              "total": 1000
+            }
+          },
+          {
+            "description": "All records have unique values",
+            "executeQuery": "SELECT COUNT(DISTINCT event_code) as unique_count FROM events",
+            "expected": {
+              "unique_count": 1000
+            }
+          },
+          {
+            "description": "Total record count matches inserts",
+            "executeQuery": "SELECT COUNT(*) as count FROM events",
+            "expected": {
+              "count": 1000
+            }
+          },
+          {
+            "description": "No duplicate records exist",
+            "executeQuery": "SELECT COUNT(*) as duplicate_count FROM (SELECT event_code, COUNT(*) as cnt FROM events GROUP BY event_code HAVING COUNT(*) > 1) duplicates",
+            "expected": {
+              "duplicate_count": 0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-LINE-TEXT-015",
+      "given": "table with single-line-text field accepting empty strings",
+      "when": "empty string is inserted into nullable field",
+      "then": "PostgreSQL stores empty string as distinct from NULL",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE items (id SERIAL PRIMARY KEY, description VARCHAR(255))"
+        },
+        "assertions": [
+          {
+            "description": "Empty string can be inserted",
+            "executeQuery": "INSERT INTO items (description) VALUES ('') RETURNING description",
+            "expected": {
+              "description": ""
+            }
+          },
+          {
+            "description": "NULL can be inserted separately",
+            "executeQuery": "INSERT INTO items (description) VALUES (NULL) RETURNING description",
+            "expected": {
+              "description": null
+            }
+          },
+          {
+            "description": "Empty string is distinct from NULL",
+            "executeQuery": "SELECT COUNT(*) as empty_count FROM items WHERE description = ''",
+            "expected": {
+              "empty_count": 1
+            }
+          },
+          {
+            "description": "NULL count is separate from empty string",
+            "executeQuery": "SELECT COUNT(*) as null_count FROM items WHERE description IS NULL",
+            "expected": {
+              "null_count": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-LINE-TEXT-016",
+      "given": "table with single-line-text field handling whitespace",
+      "when": "strings with whitespace-only content or leading/trailing spaces are inserted",
+      "then": "PostgreSQL preserves whitespace without trimming",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE content (id SERIAL PRIMARY KEY, text VARCHAR(255))"
+        },
+        "assertions": [
+          {
+            "description": "Whitespace-only string preserved",
+            "executeQuery": "INSERT INTO content (text) VALUES ('   ') RETURNING text, LENGTH(text) as len",
+            "expected": {
+              "text": "   ",
+              "len": 3
+            }
+          },
+          {
+            "description": "Leading whitespace preserved",
+            "executeQuery": "INSERT INTO content (text) VALUES ('  leading') RETURNING text",
+            "expected": {
+              "text": "  leading"
+            }
+          },
+          {
+            "description": "Trailing whitespace preserved",
+            "executeQuery": "INSERT INTO content (text) VALUES ('trailing  ') RETURNING text",
+            "expected": {
+              "text": "trailing  "
+            }
+          },
+          {
+            "description": "Mixed whitespace preserved",
+            "executeQuery": "INSERT INTO content (text) VALUES ('  both sides  ') RETURNING text, LENGTH(text) as len",
+            "expected": {
+              "text": "  both sides  ",
+              "len": 14
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-LINE-TEXT-017",
+      "given": "table with single-line-text field storing minimal and maximal length strings",
+      "when": "single character and 255 character strings are inserted",
+      "then": "PostgreSQL accepts both boundary values correctly",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE boundaries (id SERIAL PRIMARY KEY, value VARCHAR(255))"
+        },
+        "assertions": [
+          {
+            "description": "Single character (minimum non-empty) accepted",
+            "executeQuery": "INSERT INTO boundaries (value) VALUES ('a') RETURNING value, LENGTH(value) as len",
+            "expected": {
+              "value": "a",
+              "len": 1
+            }
+          },
+          {
+            "description": "Exactly 255 characters (maximum) accepted",
+            "executeQuery": "INSERT INTO boundaries (value) VALUES (REPEAT('b', 255)) RETURNING LENGTH(value) as len",
+            "expected": {
+              "len": 255
+            }
+          },
+          {
+            "description": "Both boundary records exist",
+            "executeQuery": "SELECT COUNT(*) as count FROM boundaries",
+            "expected": {
+              "count": 2
+            }
+          },
+          {
+            "description": "Maximum length value can be retrieved",
+            "executeQuery": "SELECT LEFT(value, 10) as prefix, LENGTH(value) as len FROM boundaries WHERE id = 2",
+            "expected": {
+              "prefix": "bbbbbbbbbb",
+              "len": 255
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-LINE-TEXT-018",
+      "given": "table with required single-line-text field",
+      "when": "empty string is inserted into NOT NULL field",
+      "then": "PostgreSQL accepts empty string as valid non-NULL value",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE required_fields (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL)"
+        },
+        "assertions": [
+          {
+            "description": "Empty string satisfies NOT NULL constraint",
+            "executeQuery": "INSERT INTO required_fields (name) VALUES ('') RETURNING name",
+            "expected": {
+              "name": ""
+            }
+          },
+          {
+            "description": "Empty string is not NULL",
+            "executeQuery": "SELECT name IS NULL as is_null FROM required_fields WHERE id = 1",
+            "expected": {
+              "is_null": false
+            }
+          },
+          {
+            "description": "NULL value is rejected",
+            "executeQuery": "INSERT INTO required_fields (name) VALUES (NULL)",
+            "expectError": "violates not-null constraint"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-LINE-TEXT-019",
+      "given": "table with single-line-text field containing special boundary characters",
+      "when": "strings with newlines, tabs, and control characters are inserted",
+      "then": "PostgreSQL stores control characters without interpretation",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE special_chars (id SERIAL PRIMARY KEY, content VARCHAR(255))"
+        },
+        "assertions": [
+          {
+            "description": "Tab character preserved",
+            "executeQuery": "INSERT INTO special_chars (content) VALUES ('before\tafter') RETURNING content",
+            "expected": {
+              "content": "before\tafter"
+            }
+          },
+          {
+            "description": "Newline character preserved",
+            "executeQuery": "INSERT INTO special_chars (content) VALUES ('line1\nline2') RETURNING content",
+            "expected": {
+              "content": "line1\nline2"
+            }
+          },
+          {
+            "description": "Carriage return preserved",
+            "executeQuery": "INSERT INTO special_chars (content) VALUES ('before\rafter') RETURNING content",
+            "expected": {
+              "content": "before\rafter"
+            }
+          },
+          {
+            "description": "Mixed control characters preserved",
+            "executeQuery": "INSERT INTO special_chars (content) VALUES ('tab\tthen\nnewline') RETURNING content, LENGTH(content) as len",
+            "expected": {
+              "content": "tab\tthen\nnewline",
+              "len": 15
+            }
+          }
+        ]
+      }
     }
   ]
 }

@@ -218,7 +218,7 @@ test.describe('URL Field', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full url-field workflow',
+    'APP-TABLES-FIELD-URL-REGRESSION-001: user can complete full url-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative url field

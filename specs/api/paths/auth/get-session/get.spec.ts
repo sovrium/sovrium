@@ -71,7 +71,7 @@ test.describe('Get current session', () => {
   test.fixme(
     'API-AUTH-GET-SESSION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -196,7 +196,7 @@ test.describe('Get current session', () => {
   test.fixme(
     'user can complete full getSession workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

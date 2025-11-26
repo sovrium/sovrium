@@ -239,7 +239,7 @@ test.describe('Admin: Get user by ID', () => {
   test.fixme(
     'user can complete full adminGetUser workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

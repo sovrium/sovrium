@@ -283,7 +283,7 @@ test.describe('List organization members', () => {
   test.fixme(
     'user can complete full listMembers workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

@@ -345,7 +345,7 @@ test.describe('Reject organization invitation', () => {
   test.fixme(
     'user can complete full rejectInvitation workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

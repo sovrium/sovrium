@@ -161,7 +161,7 @@ test.describe('Time Field', () => {
   )
 
   test.fixme(
-    'user can complete full time-field workflow',
+    'APP-TABLES-FIELD-TIME-REGRESSION-001: user can complete full time-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({

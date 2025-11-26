@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Percentage Field
@@ -28,7 +27,7 @@ test.describe('Percentage Field', () => {
   test.fixme(
     'APP-PERCENTAGE-FIELD-001: should create PostgreSQL DECIMAL column for percentage storage when table configuration has percentage field',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with percentage field 'completion'
       await startServerWithSchema({
         name: 'test-app',
@@ -63,7 +62,7 @@ test.describe('Percentage Field', () => {
   test.fixme(
     'APP-PERCENTAGE-FIELD-002: should reject values outside min/max range when CHECK constraint enforces range validation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with percentage field 'progress' (min=0, max=100)
       await startServerWithSchema({
         name: 'test-app',
@@ -99,7 +98,7 @@ test.describe('Percentage Field', () => {
   test.fixme(
     'APP-PERCENTAGE-FIELD-003: should enforce NOT NULL and UNIQUE constraints when percentage field is required and unique',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with percentage field 'score' (required, unique)
       await startServerWithSchema({
         name: 'test-app',
@@ -137,7 +136,7 @@ test.describe('Percentage Field', () => {
   test.fixme(
     'APP-PERCENTAGE-FIELD-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with percentage field 'discount' and default value 10.0
       await startServerWithSchema({
         name: 'test-app',
@@ -170,7 +169,7 @@ test.describe('Percentage Field', () => {
   test.fixme(
     'APP-PERCENTAGE-FIELD-005: should create btree index for fast queries when percentage field has indexed=true',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with percentage field 'rating', indexed=true
       await startServerWithSchema({
         name: 'test-app',
@@ -203,9 +202,9 @@ test.describe('Percentage Field', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full percentage-field workflow',
+    'APP-TABLES-FIELD-PERCENTAGE-REGRESSION-001: user can complete full percentage-field workflow',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative percentage field
       await startServerWithSchema({
         name: 'test-app',

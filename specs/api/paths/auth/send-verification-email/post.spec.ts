@@ -69,7 +69,7 @@ test.describe('Send verification email', () => {
   test.fixme(
     'API-AUTH-SEND-VERIFICATION-EMAIL-VALIDATION-REQUIRED-EMAIL-001: should  request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -203,7 +203,7 @@ test.describe('Send verification email', () => {
   test.fixme(
     'API-AUTH-SEND-VERIFICATION-EMAIL-EDGE-CASE-NONEXISTENT-EMAIL-001: should  (same response to prevent email enumeration)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server with no registered user
       await startServerWithSchema({
         name: 'test-app',
@@ -239,7 +239,7 @@ test.describe('Send verification email', () => {
   test.fixme(
     'user can complete full Sendverificationemail workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

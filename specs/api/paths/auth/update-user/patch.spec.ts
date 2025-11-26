@@ -248,7 +248,7 @@ test.describe('Update user profile', () => {
   test.fixme(
     'user can complete full updateUser workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Geolocation Field
@@ -24,8 +23,17 @@ test.describe('Geolocation Field', () => {
   test.fixme(
     'APP-GEOLOCATION-FIELD-001: should create PostgreSQL POINT type for latitude/longitude storage',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery('CREATE TABLE locations (id SERIAL PRIMARY KEY, coordinates POINT)')
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_locations',
+            name: 'locations',
+            fields: [{ name: 'coordinates', type: 'geolocation' }],
+          },
+        ],
+      })
 
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='locations' AND column_name='coordinates'"
@@ -49,13 +57,24 @@ test.describe('Geolocation Field', () => {
   test.fixme(
     'APP-GEOLOCATION-FIELD-002: should support distance calculations with <-> operator',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery([
-        'CREATE TABLE stores (id SERIAL PRIMARY KEY, name VARCHAR(255), location POINT)',
-        "INSERT INTO stores (name, location) VALUES ('Store A', POINT(40.7128, -74.0060))",
-        "INSERT INTO stores (name, location) VALUES ('Store B', POINT(40.7589, -73.9851))",
-        "INSERT INTO stores (name, location) VALUES ('Store C', POINT(34.0522, -118.2437))",
-      ])
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_stores',
+            name: 'stores',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'location', type: 'geolocation' },
+            ],
+          },
+        ],
+      })
+
+      await executeQuery(
+        "INSERT INTO stores (name, location) VALUES ('Store A', POINT(40.7128, -74.0060)), ('Store B', POINT(40.7589, -73.9851)), ('Store C', POINT(34.0522, -118.2437))"
+      )
 
       const nearestStore = await executeQuery(
         'SELECT name, location <-> POINT(40.7128, -74.0060) as distance FROM stores ORDER BY distance LIMIT 1'
@@ -78,11 +97,17 @@ test.describe('Geolocation Field', () => {
   test.fixme(
     'APP-GEOLOCATION-FIELD-003: should create GiST index for spatial queries',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery([
-        'CREATE TABLE places (id SERIAL PRIMARY KEY, position POINT)',
-        'CREATE INDEX idx_places_position ON places USING GIST(position)',
-      ])
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_places',
+            name: 'places',
+            fields: [{ name: 'position', type: 'geolocation', indexed: true }],
+          },
+        ],
+      })
 
       const indexInfo = await executeQuery(
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_places_position'"
@@ -102,13 +127,24 @@ test.describe('Geolocation Field', () => {
   test.fixme(
     'APP-GEOLOCATION-FIELD-004: should support bounding box queries with box containment',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery([
-        'CREATE TABLE venues (id SERIAL PRIMARY KEY, name VARCHAR(255), coords POINT)',
-        "INSERT INTO venues (name, coords) VALUES ('Venue 1', POINT(40.7128, -74.0060))",
-        "INSERT INTO venues (name, coords) VALUES ('Venue 2', POINT(40.7589, -73.9851))",
-        "INSERT INTO venues (name, coords) VALUES ('Venue 3', POINT(34.0522, -118.2437))",
-      ])
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_venues',
+            name: 'venues',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'coords', type: 'geolocation' },
+            ],
+          },
+        ],
+      })
+
+      await executeQuery(
+        "INSERT INTO venues (name, coords) VALUES ('Venue 1', POINT(40.7128, -74.0060)), ('Venue 2', POINT(40.7589, -73.9851)), ('Venue 3', POINT(34.0522, -118.2437))"
+      )
 
       const withinBoundingBox = await executeQuery(
         'SELECT COUNT(*) as count FROM venues WHERE box(POINT(40.0, -75.0), POINT(41.0, -73.0)) @> coords'
@@ -125,11 +161,19 @@ test.describe('Geolocation Field', () => {
   test.fixme(
     'APP-GEOLOCATION-FIELD-005: should enforce NOT NULL and UNIQUE constraints on POINT column',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery([
-        'CREATE TABLE addresses (id SERIAL PRIMARY KEY, location POINT UNIQUE NOT NULL)',
-        'INSERT INTO addresses (location) VALUES (POINT(40.7128, -74.0060))',
-      ])
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_addresses',
+            name: 'addresses',
+            fields: [{ name: 'location', type: 'geolocation', required: true, unique: true }],
+          },
+        ],
+      })
+
+      await executeQuery('INSERT INTO addresses (location) VALUES (POINT(40.7128, -74.0060))')
 
       const notNullCheck = await executeQuery(
         "SELECT is_nullable FROM information_schema.columns WHERE table_name='addresses' AND column_name='location'"
@@ -148,9 +192,9 @@ test.describe('Geolocation Field', () => {
   )
 
   test.fixme(
-    'user can complete full geolocation-field workflow',
+    'APP-TABLES-FIELD-GEOLOCATION-REGRESSION-001: user can complete full geolocation-field workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [

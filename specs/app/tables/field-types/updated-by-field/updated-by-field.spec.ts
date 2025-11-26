@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Updated By Field
@@ -24,14 +23,27 @@ test.describe('Updated By Field', () => {
   test.fixme(
     'APP-UPDATED-BY-FIELD-001: should create PostgreSQL INTEGER NOT NULL column with FOREIGN KEY and trigger',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
+      // Create external users table
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO users (name) VALUES ('Alice'), ('Bob')",
-        'CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255), updated_by INTEGER NOT NULL REFERENCES users(id))',
-        'CREATE OR REPLACE FUNCTION update_updated_by_column() RETURNS TRIGGER AS $$ BEGIN NEW.updated_by = NEW.updated_by; RETURN NEW; END; $$ LANGUAGE plpgsql',
-        'CREATE TRIGGER set_updated_by BEFORE UPDATE ON products FOR EACH ROW EXECUTE FUNCTION update_updated_by_column()',
       ])
+
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_products',
+            name: 'products',
+            fields: [
+              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'name', type: 'single-line-text' },
+              { name: 'updated_by', type: 'updated-by' },
+            ],
+          },
+        ],
+      })
 
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='updated_by'"
@@ -55,7 +67,7 @@ test.describe('Updated By Field', () => {
   test.fixme(
     'APP-UPDATED-BY-FIELD-002: should reflect the most recent editor user ID',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO users (name) VALUES ('Alice'), ('Bob'), ('Charlie')",
@@ -102,7 +114,7 @@ test.describe('Updated By Field', () => {
   test.fixme(
     'APP-UPDATED-BY-FIELD-003: should support efficient filtering by last editor',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO users (name) VALUES ('Alice'), ('Bob')",
@@ -153,7 +165,7 @@ test.describe('Updated By Field', () => {
   test.fixme(
     'APP-UPDATED-BY-FIELD-004: should support dual audit trail with created_by',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO users (name) VALUES ('Alice'), ('Bob')",
@@ -198,12 +210,24 @@ test.describe('Updated By Field', () => {
   test.fixme(
     'APP-UPDATED-BY-FIELD-005: should create btree index for fast editor filtering when indexed=true',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      await executeQuery([
-        'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
-        'CREATE TABLE articles (id SERIAL PRIMARY KEY, content TEXT, updated_by INTEGER NOT NULL REFERENCES users(id))',
-        'CREATE INDEX idx_articles_updated_by ON articles(updated_by)',
-      ])
+    async ({ startServerWithSchema, executeQuery }) => {
+      // Create external users table
+      await executeQuery('CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))')
+
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_articles',
+            name: 'articles',
+            fields: [
+              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'content', type: 'long-text' },
+              { name: 'updated_by', type: 'updated-by', indexed: true },
+            ],
+          },
+        ],
+      })
 
       const indexInfo = await executeQuery(
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_articles_updated_by'"
@@ -221,9 +245,9 @@ test.describe('Updated By Field', () => {
   )
 
   test.fixme(
-    'user can complete full updated-by-field workflow',
+    'APP-TABLES-FIELD-UPDATED-BY-REGRESSION-001: user can complete full updated-by-field workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO users (name) VALUES ('Alice'), ('Bob')",

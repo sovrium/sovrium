@@ -300,7 +300,7 @@ test.describe('Admin: Impersonate user', () => {
   test.fixme(
     'user can complete full adminImpersonateUser workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

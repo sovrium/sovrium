@@ -325,7 +325,7 @@ test.describe('Update organization', () => {
   test.fixme(
     'user can complete full updateOrganization workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

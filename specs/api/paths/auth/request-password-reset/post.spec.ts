@@ -69,7 +69,7 @@ test.describe('Request password reset', () => {
   test.fixme(
     'API-AUTH-REQUEST-PASSWORD-RESET-SECURITY-NONEXISTENT-EMAIL-001: should  (same response to prevent email enumeration)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server with no registered user
       await startServerWithSchema({
         name: 'test-app',
@@ -101,7 +101,7 @@ test.describe('Request password reset', () => {
   test.fixme(
     'API-AUTH-REQUEST-PASSWORD-RESET-VALIDATION-REQUIRED-EMAIL-001: should  request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -278,7 +278,7 @@ test.describe('Request password reset', () => {
   test.fixme(
     'user can complete full Requestpasswordreset workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

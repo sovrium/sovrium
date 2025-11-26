@@ -166,7 +166,7 @@ test.describe('View Filters', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full view-filters workflow',
+    'APP-TABLES-VIEW-FILTERS-REGRESSION-001: user can complete full view-filters workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative filters

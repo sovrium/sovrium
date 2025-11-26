@@ -27,17 +27,23 @@ test.describe('Batch update records', () => {
   test.fixme(
     'API-RECORDS-BATCH-005: should return 200 with updated=2 and records array',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table 'users' with records ID=1 and ID=2
-      await executeQuery(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) UNIQUE NOT NULL,
-          name VARCHAR(255),
-          status VARCHAR(50),
-          updated_at TIMESTAMP DEFAULT NOW()
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              { name: 'email', type: 'email', required: true, unique: true },
+              { name: 'name', type: 'single-line-text' },
+              { name: 'status', type: 'single-line-text' },
+              { name: 'updated_at', type: 'updated-at' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO users (id, email, name, status) VALUES
           (1, 'john@example.com', 'John', 'active'),
@@ -86,15 +92,21 @@ test.describe('Batch update records', () => {
   test.fixme(
     'API-RECORDS-BATCH-006: should return 200 with updated=2 and no records array',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table 'users' with records
-      await executeQuery(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          status VARCHAR(50)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'status', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO users (id, name, status) VALUES
           (1, 'User One', 'active'),
@@ -129,15 +141,21 @@ test.describe('Batch update records', () => {
   test.fixme(
     'API-RECORDS-BATCH-007: should return 400 with rollback on validation error',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with NOT NULL constraint
-      await executeQuery(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) NOT NULL,
-          name VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [
+              { name: 'email', type: 'email', required: true },
+              { name: 'name', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO users (id, email, name) VALUES
           (1, 'user1@example.com', 'User One'),
@@ -174,15 +192,21 @@ test.describe('Batch update records', () => {
   test.fixme(
     'API-RECORDS-BATCH-PERMISSIONS-UNAUTHORIZED-002: should return 401 Unauthorized',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An unauthenticated user
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (id, name, organization_id) VALUES
           (1, 'Alice', 'org_123')
@@ -214,15 +238,21 @@ test.describe('Batch update records', () => {
   test.fixme(
     'API-RECORDS-BATCH-PERMISSIONS-FORBIDDEN-MEMBER-002: should return 403 for member without update permission',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member user without update permission
-      await executeQuery(`
-        CREATE TABLE projects (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_projects',
+            name: 'projects',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO projects (id, name, organization_id) VALUES
           (1, 'Project Alpha', 'org_123')
@@ -253,15 +283,21 @@ test.describe('Batch update records', () => {
   test.fixme(
     'API-RECORDS-BATCH-PERMISSIONS-FORBIDDEN-VIEWER-002: should return 403 for viewer',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A viewer user with read-only access
-      await executeQuery(`
-        CREATE TABLE documents (
-          id SERIAL PRIMARY KEY,
-          title VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_documents',
+            name: 'documents',
+            fields: [
+              { name: 'title', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO documents (id, title, organization_id) VALUES
           (1, 'Doc 1', 'org_456')
@@ -290,15 +326,21 @@ test.describe('Batch update records', () => {
   test.fixme(
     'API-RECORDS-BATCH-PERMISSIONS-ORG-ISOLATION-002: should return 404 for cross-org update',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Records from different organization
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (id, name, organization_id) VALUES
           (1, 'Alice', 'org_456'),
@@ -334,16 +376,22 @@ test.describe('Batch update records', () => {
   test.fixme(
     'API-RECORDS-BATCH-PERMISSIONS-FIELD-WRITE-FORBIDDEN-002: should return 403 when updating protected field',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member user with field-level write restrictions
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          salary DECIMAL(10,2),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (id, name, salary, organization_id) VALUES
           (1, 'Alice', 75000, 'org_123'),
@@ -378,15 +426,21 @@ test.describe('Batch update records', () => {
   test.fixme(
     'API-RECORDS-BATCH-PERMISSIONS-READONLY-FIELD-002: should return 403 for readonly fields',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with readonly fields
-      await executeQuery(`
-        CREATE TABLE tasks (
-          id SERIAL PRIMARY KEY,
-          title VARCHAR(255),
-          created_at TIMESTAMP DEFAULT NOW()
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_tasks',
+            name: 'tasks',
+            fields: [
+              { name: 'title', type: 'single-line-text' },
+              { name: 'created_at', type: 'created-at' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task 1')
       `)
@@ -416,15 +470,21 @@ test.describe('Batch update records', () => {
   test.fixme(
     'API-RECORDS-BATCH-PERMISSIONS-ORG-OVERRIDE-PREVENTED-002: should return 403 when changing organization_id',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Member attempts to change organization_id
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (id, name, organization_id) VALUES
           (1, 'Alice', 'org_123')
@@ -455,17 +515,23 @@ test.describe('Batch update records', () => {
   test.fixme(
     'API-RECORDS-BATCH-PERMISSIONS-PARTIAL-FIELD-FILTERING-002: should filter protected fields from response',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member user with field-level read restrictions
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          email VARCHAR(255),
-          salary DECIMAL(10,2),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'email', type: 'email' },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (id, name, email, salary, organization_id) VALUES
           (1, 'Alice', 'alice@example.com', 75000, 'org_123'),
@@ -504,16 +570,22 @@ test.describe('Batch update records', () => {
   test.fixme(
     'API-RECORDS-BATCH-PERMISSIONS-ADMIN-FULL-ACCESS-002: should return 200 with all fields for admin',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An admin user with full permissions
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          salary DECIMAL(10,2),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (id, name, salary, organization_id) VALUES
           (1, 'Charlie', 120000, 'org_789'),
@@ -548,17 +620,23 @@ test.describe('Batch update records', () => {
   test.fixme(
     'API-RECORDS-BATCH-PERMISSIONS-COMBINED-SCENARIO-002: should enforce combined permissions',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member with update permission but field restrictions
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          email VARCHAR(255),
-          salary DECIMAL(10,2),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'email', type: 'email' },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (id, name, email, salary, organization_id) VALUES
           (1, 'Alice', 'alice@example.com', 75000, 'org_123'),
@@ -595,14 +673,18 @@ test.describe('Batch update records', () => {
   test.fixme(
     'API-RECORDS-BATCH-PERMISSIONS-PARTIAL-UPDATE-SUCCESS-001: should update only found records',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Some records exist, others don't
-      await executeQuery(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_users',
+            name: 'users',
+            fields: [{ name: 'name', type: 'single-line-text' }],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO users (id, name) VALUES (1, 'User One')
       `)
@@ -637,16 +719,22 @@ test.describe('Batch update records', () => {
   test.fixme(
     'API-RECORDS-BATCH-PERMISSIONS-FIELD-RESPONSE-FILTER-001: should exclude unreadable fields from response',
     { tag: '@spec' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Member updates with field-level read restrictions
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255),
-          salary DECIMAL(10,2),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text' },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (id, name, salary, organization_id) VALUES
           (1, 'David', 72000, 'org_123')
@@ -681,17 +769,23 @@ test.describe('Batch update records', () => {
   test.fixme(
     'user can complete full batch update workflow',
     { tag: '@regression' },
-    async ({ request, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application with representative table and permission configuration
-      await executeQuery(`
-        CREATE TABLE employees (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255) NOT NULL,
-          email VARCHAR(255) UNIQUE NOT NULL,
-          salary DECIMAL(10,2),
-          organization_id VARCHAR(255)
-        )
-      `)
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 'tbl_employees',
+            name: 'employees',
+            fields: [
+              { name: 'name', type: 'single-line-text', required: true },
+              { name: 'email', type: 'email', required: true, unique: true },
+              { name: 'salary', type: 'currency', currency: 'USD' },
+              { name: 'organization_id', type: 'single-line-text' },
+            ],
+          },
+        ],
+      })
       await executeQuery(`
         INSERT INTO employees (id, name, email, salary, organization_id) VALUES
           (1, 'John Doe', 'john@example.com', 75000, 'org_123'),

@@ -70,7 +70,7 @@ test.describe('Sign out user', () => {
   test.fixme(
     'API-AUTH-SIGN-OUT-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -205,7 +205,7 @@ test.describe('Sign out user', () => {
   test.fixme(
     'user can complete full Signoutuser workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

@@ -174,7 +174,7 @@ test.describe('View Sorts', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full view-sorts workflow',
+    'APP-TABLES-VIEW-SORTS-REGRESSION-001: user can complete full view-sorts workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative sorting
