@@ -128,13 +128,13 @@
       }
     },
     "400": {
-      "$ref": "../../../../../../components/responses/BatchValidationError.json"
+      "$ref": "../../../../../components/responses/BatchValidationError.json"
     },
     "403": {
-      "$ref": "../../../../../../components/responses/PermissionDenied.json"
+      "$ref": "../../../../../components/responses/PermissionDenied.json"
     },
     "404": {
-      "$ref": "../../../../../../components/responses/NotFound.json"
+      "$ref": "../../../../../components/responses/NotFound.json"
     },
     "413": {
       "description": "Payload too large - Exceeds 1000 record limit",
@@ -160,7 +160,7 @@
       }
     },
     "500": {
-      "$ref": "../../../../../../components/responses/InternalError.json"
+      "$ref": "../../../../../components/responses/InternalError.json"
     }
   },
   "x-specs": [

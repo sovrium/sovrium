@@ -325,6 +325,21 @@
       },
       "Unauthorized": {
         "$ref": "./components/responses/Unauthorized.json"
+      },
+      "InternalError": {
+        "$ref": "./components/responses/InternalError.json"
+      },
+      "NotFound": {
+        "$ref": "./components/responses/NotFound.json"
+      },
+      "BatchValidationError": {
+        "$ref": "./components/responses/BatchValidationError.json"
+      },
+      "PermissionDenied": {
+        "$ref": "./components/responses/PermissionDenied.json"
+      },
+      "ViewNotFound": {
+        "$ref": "./components/responses/ViewNotFound.json"
       }
     },
     "securitySchemes": {
