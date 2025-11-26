@@ -220,7 +220,7 @@ test.describe('Percentage Field', () => {
 
   test.fixme(
     'APP-TABLES-FIELD-PERCENTAGE-REGRESSION-001: user can complete full percentage-field workflow',
-    { tag: '@spec' },
+    { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative percentage field
       await startServerWithSchema({

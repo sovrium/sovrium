@@ -379,27 +379,8 @@ function analyzeQuality(file: SpecFile): QualityIssue[] {
     })
   }
 
-  // Check for sequential spec IDs
-  const specIds = specTests.map((t) => t.id).filter(Boolean) as string[]
-  if (specIds.length > 1) {
-    const idNumbers = specIds.map((id) => {
-      const numMatch = id.match(/(\d{3})$/)
-      return numMatch?.[1] ? parseInt(numMatch[1], 10) : 0
-    })
-
-    for (let i = 1; i < idNumbers.length; i++) {
-      const current = idNumbers[i]
-      const previous = idNumbers[i - 1]
-      if (current !== undefined && previous !== undefined && current !== previous + 1) {
-        issues.push({
-          type: 'suggestion',
-          code: 'NON_SEQUENTIAL_IDS',
-          message: `Spec IDs are not sequential (gap between ${specIds[i - 1]} and ${specIds[i]})`,
-        })
-        break
-      }
-    }
-  }
+  // Note: NON_SEQUENTIAL_IDS check removed - category-based naming (SUCCESS, VALIDATION,
+  // PERMISSIONS, etc.) is intentional and more descriptive than sequential numbers
 
   return issues
 }
