@@ -27,11 +27,7 @@
     }
   },
   "description": "Multi-line text input for paragraphs, descriptions, notes, and comments. Supports line breaks and longer content. Text is stored as-is without rich formatting (no bold, italics, etc.). Required flag makes the field mandatory. Indexing improves search performance but may be slower for very long content.",
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {

@@ -22,11 +22,7 @@
     }
   },
   "description": "Flexible JSON field for storing structured data objects. Accepts any valid JSON (objects, arrays, primitives). Optionally provide a JSON Schema for validation to enforce structure and types. Useful for storing configuration objects, API responses, flexible attributes, and dynamic data that doesn't fit rigid schema. Displays with syntax highlighting and formatting in UI. Can be queried using JSON path expressions.",
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -66,11 +62,7 @@
             "description": "JSON array can be inserted",
             "executeQuery": "INSERT INTO products (metadata) VALUES ('[1, 2, 3]') RETURNING metadata",
             "expected": {
-              "metadata": [
-                1,
-                2,
-                3
-              ]
+              "metadata": [1, 2, 3]
             }
           }
         ]

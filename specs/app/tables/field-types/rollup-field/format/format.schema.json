@@ -4,10 +4,5 @@
   "title": "Rollup Field Display Format",
   "description": "Display format hint for rollup aggregation results. Rollup fields compute aggregations across related records. Format controls result presentation: currency (monetary values), number (numeric), percentage (0-100%), date (datetime results).",
   "type": "string",
-  "examples": [
-    "currency",
-    "number",
-    "percentage",
-    "date"
-  ]
+  "examples": ["currency", "number", "percentage", "date"]
 }

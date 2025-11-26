@@ -33,11 +33,7 @@
     }
   },
   "description": "Ratio field displayed as percentage (0-100%). Stores value as decimal (0.0-1.0 or 0-100 depending on configuration). Display adds % symbol automatically. Supports min/max constraints for range validation (typically 0-100). Required flag makes the field mandatory. Useful for completion rates, discounts, and probability values.",
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {

@@ -22,13 +22,7 @@
     }
   },
   "description": "Display field values from related records through a relationship. Specify relationshipField (the relationship field in current table) and relatedField (the field to display from related table). Read-only field that automatically shows current value from linked record. Updates when related record changes. Useful for showing related data without duplicating storage (e.g., showing customer name in order, category name in product). More efficient than copying data.",
-  "required": [
-    "id",
-    "name",
-    "type",
-    "relationshipField",
-    "relatedField"
-  ],
+  "required": ["id", "name", "type", "relationshipField", "relatedField"],
   "additionalProperties": false,
   "x-specs": [
     {

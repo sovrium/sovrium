@@ -27,11 +27,7 @@
       "$ref": "./default/default.schema.json"
     }
   },
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {

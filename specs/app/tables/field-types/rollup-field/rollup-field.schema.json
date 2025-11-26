@@ -28,14 +28,7 @@
     }
   },
   "description": "Aggregate values from related records through a relationship field. Reference a relationshipField in the current table and a relatedField in the linked table. Apply aggregation functions: sum (add all values), count (count records), average (mean value), min (smallest value), max (largest value), median (middle value), concat (join text values), unique (count distinct values). Optionally set display format for the result. Read-only field that automatically updates when related data changes. Useful for totals, counts, statistics from child records.",
-  "required": [
-    "id",
-    "name",
-    "type",
-    "relationshipField",
-    "relatedField",
-    "aggregation"
-  ],
+  "required": ["id", "name", "type", "relationshipField", "relatedField", "aggregation"],
   "additionalProperties": false,
   "x-specs": [
     {

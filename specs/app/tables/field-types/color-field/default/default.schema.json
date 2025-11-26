@@ -5,11 +5,5 @@
   "description": "Default hex color value when no value is provided during INSERT. PostgreSQL DEFAULT constraint with VARCHAR type for hex color format (#RRGGBB).",
   "type": "string",
   "pattern": "^#[0-9a-fA-F]{6}$",
-  "examples": [
-    "#FF0000",
-    "#00FF00",
-    "#0000FF",
-    "#FFFFFF",
-    "#000000"
-  ]
+  "examples": ["#FF0000", "#00FF00", "#0000FF", "#FFFFFF", "#000000"]
 }

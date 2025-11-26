@@ -5,11 +5,5 @@
   "description": "Display format for time values. Controls how times are presented to users, not how they are stored. Storage always uses ISO 8601 (HH:mm:ss or HH:mm:ss.sss). Common formats: HH:mm (24-hour), hh:mm A (12-hour with AM/PM), HH:mm:ss (24-hour with seconds).",
   "type": "string",
   "default": "HH:mm",
-  "examples": [
-    "HH:mm",
-    "hh:mm A",
-    "HH:mm:ss",
-    "hh:mm:ss A",
-    "HH:mm:ss.SSS"
-  ]
+  "examples": ["HH:mm", "hh:mm A", "HH:mm:ss", "hh:mm:ss A", "HH:mm:ss.SSS"]
 }

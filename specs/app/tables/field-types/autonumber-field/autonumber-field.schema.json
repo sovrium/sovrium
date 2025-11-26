@@ -25,11 +25,7 @@
     }
   },
   "description": "Auto-incrementing unique number (read-only)",
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {

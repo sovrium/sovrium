@@ -25,11 +25,7 @@
     }
   },
   "description": "Single file upload field with configurable storage backend. Supports local filesystem or S3-compatible cloud storage. Configure maxSize limit (in bytes, default 10MB), allowedTypes using MIME types or wildcards (e.g., image/*, application/pdf). Useful for profile pictures, documents, invoices, and single-file attachments. For S3 provider, bucket name is required.",
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {

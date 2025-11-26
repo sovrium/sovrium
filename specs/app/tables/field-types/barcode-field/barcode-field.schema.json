@@ -22,11 +22,7 @@
     }
   },
   "description": "Display and scan barcodes",
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {

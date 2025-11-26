@@ -5,10 +5,5 @@
   "description": "Expected data type of the formula result. Determines PostgreSQL column type for GENERATED column: text→TEXT, number→DECIMAL, boolean→BOOLEAN, date→DATE.",
   "type": "string",
   "default": "text",
-  "enum": [
-    "text",
-    "number",
-    "boolean",
-    "date"
-  ]
+  "enum": ["text", "number", "boolean", "date"]
 }

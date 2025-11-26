@@ -22,11 +22,7 @@
     }
   },
   "description": "Visual progress bar (0-100%)",
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {

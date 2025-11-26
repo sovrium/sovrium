@@ -7,14 +7,5 @@
   "items": {
     "type": "string"
   },
-  "examples": [
-    [
-      "option_1",
-      "option_2"
-    ],
-    [
-      "tag_important"
-    ],
-    []
-  ]
+  "examples": [["option_1", "option_2"], ["tag_important"], []]
 }

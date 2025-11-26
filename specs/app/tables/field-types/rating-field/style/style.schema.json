@@ -5,9 +5,5 @@
   "description": "Visual style for the rating",
   "type": "string",
   "default": "star",
-  "enum": [
-    "star",
-    "number",
-    "heart"
-  ]
+  "enum": ["star", "number", "heart"]
 }

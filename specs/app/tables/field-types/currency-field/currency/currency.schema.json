@@ -5,11 +5,5 @@
   "description": "Currency code (ISO 4217)",
   "type": "string",
   "default": "USD",
-  "examples": [
-    "USD",
-    "EUR",
-    "GBP",
-    "JPY",
-    "CAD"
-  ]
+  "examples": ["USD", "EUR", "GBP", "JPY", "CAD"]
 }

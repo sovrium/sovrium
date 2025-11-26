@@ -5,8 +5,5 @@
   "description": "Type of items in the array",
   "type": "string",
   "default": "text",
-  "enum": [
-    "text",
-    "number"
-  ]
+  "enum": ["text", "number"]
 }

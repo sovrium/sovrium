@@ -22,11 +22,7 @@
     }
   },
   "description": "Formatted text with markdown support",
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {

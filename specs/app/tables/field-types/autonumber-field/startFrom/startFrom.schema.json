@@ -6,10 +6,5 @@
   "type": "integer",
   "default": 1,
   "minimum": 1,
-  "examples": [
-    1,
-    100,
-    1000,
-    10000
-  ]
+  "examples": [1, 100, 1000, 10000]
 }

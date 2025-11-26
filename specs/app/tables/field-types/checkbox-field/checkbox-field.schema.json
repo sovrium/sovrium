@@ -25,11 +25,7 @@
     }
   },
   "description": "Boolean checkbox field for true/false values. Displays as a toggleable checkbox in forms and checkmark/cross in tables. Useful for status flags (active/inactive, published/draft), feature toggles, and yes/no questions. Supports default value. Cannot be required (defaults to false).",
-  "required": [
-    "id",
-    "name",
-    "type"
-  ],
+  "required": ["id", "name", "type"],
   "additionalProperties": false,
   "x-specs": [
     {

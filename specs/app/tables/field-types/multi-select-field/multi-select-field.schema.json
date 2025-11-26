@@ -31,12 +31,7 @@
     }
   },
   "description": "Multiple selection field allowing users to choose zero or more options from a predefined list. Displays as checkboxes or multi-select dropdown. Useful for tags, categories, features, skills, and attributes that can have multiple values. Supports maxSelections constraint to limit number of choices. Requires at least one option. Stores values as an array.",
-  "required": [
-    "id",
-    "name",
-    "type",
-    "options"
-  ],
+  "required": ["id", "name", "type", "options"],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -80,19 +75,14 @@
             "description": "Single value can be inserted as array",
             "executeQuery": "INSERT INTO issues (tags) VALUES (ARRAY['Feature']) RETURNING tags",
             "expected": {
-              "tags": [
-                "Feature"
-              ]
+              "tags": ["Feature"]
             }
           },
           {
             "description": "Multiple values can be inserted",
             "executeQuery": "INSERT INTO issues (tags) VALUES (ARRAY['Bug', 'Enhancement']) RETURNING tags",
             "expected": {
-              "tags": [
-                "Bug",
-                "Enhancement"
-              ]
+              "tags": ["Bug", "Enhancement"]
             }
           }
         ]
@@ -201,10 +191,7 @@
             "description": "Explicit values override default",
             "executeQuery": "INSERT INTO projects (stakeholders) VALUES (ARRAY['Manager', 'Developer']) RETURNING stakeholders",
             "expected": {
-              "stakeholders": [
-                "Manager",
-                "Developer"
-              ]
+              "stakeholders": ["Manager", "Developer"]
             }
           }
         ]
@@ -275,10 +262,7 @@
                 "value": "Design"
               }
             ],
-            "default": [
-              "tag_1",
-              "tag_2"
-            ]
+            "default": ["tag_1", "tag_2"]
           }
         },
         "assertions": [
@@ -293,10 +277,7 @@
             "description": "INSERT without value uses default array",
             "executeQuery": "SELECT tags FROM articles WHERE title = 'Article A'",
             "expected": {
-              "tags": [
-                "tag_1",
-                "tag_2"
-              ]
+              "tags": ["tag_1", "tag_2"]
             }
           }
         ]
@@ -419,9 +400,7 @@
                 "value": "Review"
               }
             ],
-            "default": [
-              "flag_1"
-            ]
+            "default": ["flag_1"]
           }
         },
         "assertions": [
@@ -429,10 +408,7 @@
             "description": "Explicit value overrides default",
             "executeQuery": "SELECT flags FROM documents WHERE title = 'Doc A'",
             "expected": {
-              "flags": [
-                "flag_2",
-                "flag_3"
-              ]
+              "flags": ["flag_2", "flag_3"]
             }
           }
         ]
@@ -494,12 +470,7 @@
           "fieldConfig": {
             "name": "skills",
             "type": "multi-select",
-            "options": [
-              "JavaScript",
-              "Python",
-              "Go",
-              "Rust"
-            ]
+            "options": ["JavaScript", "Python", "Go", "Rust"]
           }
         },
         "assertions": [
@@ -514,19 +485,14 @@
             "description": "Valid array of options accepted",
             "executeQuery": "SELECT skills FROM developers WHERE name = 'Alice'",
             "expected": {
-              "skills": [
-                "JavaScript",
-                "Python"
-              ]
+              "skills": ["JavaScript", "Python"]
             }
           },
           {
             "description": "Single option stored as array",
             "executeQuery": "INSERT INTO developers (name, skills) VALUES ('Charlie', ARRAY['Python']) RETURNING skills",
             "expected": {
-              "skills": [
-                "Python"
-              ]
+              "skills": ["Python"]
             }
           },
           {
@@ -551,11 +517,7 @@
           "fieldConfig": {
             "name": "tags",
             "type": "multi-select",
-            "options": [
-              "Red",
-              "Green",
-              "Blue"
-            ],
+            "options": ["Red", "Green", "Blue"],
             "required": false
           }
         },
@@ -578,10 +540,7 @@
             "description": "Non-empty valid array accepted",
             "executeQuery": "SELECT tags FROM products WHERE name = 'Product A'",
             "expected": {
-              "tags": [
-                "Red",
-                "Blue"
-              ]
+              "tags": ["Red", "Blue"]
             }
           }
         ]
@@ -623,11 +582,7 @@
           "fieldConfig": {
             "name": "labels",
             "type": "multi-select",
-            "options": [
-              "Feature",
-              "Bug",
-              "Enhancement"
-            ]
+            "options": ["Feature", "Bug", "Enhancement"]
           }
         },
         "assertions": [
@@ -635,21 +590,14 @@
             "description": "All options can be selected simultaneously",
             "executeQuery": "SELECT labels FROM issues WHERE title = 'Issue 1'",
             "expected": {
-              "labels": [
-                "Feature",
-                "Bug",
-                "Enhancement"
-              ]
+              "labels": ["Feature", "Bug", "Enhancement"]
             }
           },
           {
             "description": "Array order preserved",
             "executeQuery": "INSERT INTO issues (title, labels) VALUES ('Issue 2', ARRAY['Enhancement', 'Feature']) RETURNING labels",
             "expected": {
-              "labels": [
-                "Enhancement",
-                "Feature"
-              ]
+              "labels": ["Enhancement", "Feature"]
             }
           },
           {

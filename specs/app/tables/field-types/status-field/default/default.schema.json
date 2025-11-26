@@ -4,11 +4,5 @@
   "title": "Status Field Default Value",
   "description": "Default status value when no value is provided during INSERT. PostgreSQL DEFAULT constraint with VARCHAR type for status tracking (similar to single-select but with workflow semantics).",
   "type": "string",
-  "examples": [
-    "todo",
-    "in_progress",
-    "done",
-    "active",
-    "archived"
-  ]
+  "examples": ["todo", "in_progress", "done", "active", "archived"]
 }

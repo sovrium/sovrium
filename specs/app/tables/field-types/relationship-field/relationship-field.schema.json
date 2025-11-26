@@ -37,13 +37,7 @@
     }
   },
   "description": "Foreign key relationship to another table creating associations between entities. Supports three relationship types: one-to-one (single unique reference), one-to-many (single reference to many records), many-to-many (junction table for bidirectional references). Configure onDelete behavior (cascade deletes related, set-null clears reference, restrict prevents deletion, no-action does nothing). Configure onUpdate behavior for key changes. Specify displayField to show human-readable value from related table. Automatically indexed for query performance.",
-  "required": [
-    "id",
-    "name",
-    "type",
-    "relatedTable",
-    "relationType"
-  ],
+  "required": ["id", "name", "type", "relatedTable", "relationType"],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -1439,10 +1433,7 @@
             "name": "location",
             "type": "relationship",
             "relatedTable": "locations",
-            "foreignKeyColumns": [
-              "location_country",
-              "location_region"
-            ]
+            "foreignKeyColumns": ["location_country", "location_region"]
           }
         },
         "assertions": [
