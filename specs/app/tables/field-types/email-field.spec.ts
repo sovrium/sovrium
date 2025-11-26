@@ -143,7 +143,7 @@ test.describe('Email Field', () => {
   )
 
   test.fixme(
-    'APP-EMAIL-FIELD-004: should reject NULL value when table has required email field',
+    'APP-FIELD-EMAIL-004: should reject NULL value when table has required email field',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'subscribers' with required email field 'email'
@@ -184,7 +184,7 @@ test.describe('Email Field', () => {
   )
 
   test.fixme(
-    'APP-EMAIL-FIELD-005: should create btree index for fast email lookups when email field has indexed=true',
+    'APP-FIELD-EMAIL-005: should create btree index for fast email lookups when email field has indexed=true',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with email field, indexed=true
@@ -229,7 +229,7 @@ test.describe('Email Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-EMAIL-REGRESSION-001: user can complete full email-field workflow',
+    'APP-FIELD-EMAIL-006: user can complete full email-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative email field

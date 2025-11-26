@@ -370,7 +370,7 @@ test.describe('Table-Level Permissions', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-PERMISSIONS-TABLE-REGRESSION-001: user can complete full table-permissions workflow',
+    'APP-TABLES-TABLE-PERMISSIONS-006: user can complete full table-permissions workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative table-level permissions

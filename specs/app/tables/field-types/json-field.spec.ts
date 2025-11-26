@@ -202,7 +202,7 @@ test.describe('JSON Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-JSON-REGRESSION-001: user can complete full json-field workflow',
+    'APP-JSON-FIELD-006: user can complete full json-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

@@ -289,7 +289,7 @@ test.describe('Page Name', () => {
   // ============================================================================
 
   test(
-    'APP-PAGES-NAME-REGRESSION-001: user can complete full page name workflow',
+    'APP-PAGES-NAME-009: user can complete full page name workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application with various page name formats (snake_case)

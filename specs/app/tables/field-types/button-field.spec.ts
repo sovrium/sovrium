@@ -192,7 +192,7 @@ test.describe('Button Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-BUTTON-REGRESSION-001: user can complete full button-field workflow',
+    'APP-BUTTON-FIELD-006: user can complete full button-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

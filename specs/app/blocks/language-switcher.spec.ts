@@ -179,7 +179,7 @@ test.describe('Language Switcher Block', () => {
   // ============================================================================
 
   test(
-    'APP-BLOCKS-LANGUAGE-SWITCHER-REGRESSION-001: user can complete full language-switcher workflow',
+    'APP-BLOCKS-LANGUAGE-SWITCHER-004: user can complete full language-switcher workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: complete application configuration with all features

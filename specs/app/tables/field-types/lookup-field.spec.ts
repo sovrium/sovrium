@@ -189,7 +189,7 @@ test.describe('Lookup Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-LOOKUP-REGRESSION-001: user can complete full lookup-field workflow',
+    'APP-LOOKUP-FIELD-006: user can complete full lookup-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

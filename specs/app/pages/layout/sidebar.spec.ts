@@ -456,7 +456,7 @@ test.describe('Sidebar Configuration', () => {
   // ============================================================================
 
   test(
-    'APP-PAGES-LAYOUT-SIDEBAR-REGRESSION-001: user can complete full sidebar workflow',
+    'APP-PAGES-SIDEBAR-013: user can complete full sidebar workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: app configuration

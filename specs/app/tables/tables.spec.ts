@@ -30,7 +30,7 @@ test.describe('Data Tables', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-SCHEMA-CREATE-001: should create PostgreSQL table with columns when table configuration is applied',
+    'APP-TABLES-001: should create PostgreSQL table with columns when table configuration is applied',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: empty PostgreSQL database
@@ -78,7 +78,7 @@ test.describe('Data Tables', () => {
   )
 
   test.fixme(
-    'APP-TABLES-SCHEMA-FIELDS-001: should create PostgreSQL table with correct column types for different field types',
+    'APP-TABLES-002: should create PostgreSQL table with correct column types for different field types',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with 5 different field types (text, email, integer, decimal, boolean)
@@ -147,7 +147,7 @@ test.describe('Data Tables', () => {
   )
 
   test.fixme(
-    'APP-TABLES-SCHEMA-PK-001: should create PRIMARY KEY constraint on custom primary key field',
+    'APP-TABLES-003: should create PRIMARY KEY constraint on custom primary key field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with explicit primary key field
@@ -190,7 +190,7 @@ test.describe('Data Tables', () => {
   )
 
   test.fixme(
-    'APP-TABLES-SCHEMA-CONSTRAINTS-001: should enforce all constraints (UNIQUE, NOT NULL, CHECK)',
+    'APP-TABLES-004: should enforce all constraints (UNIQUE, NOT NULL, CHECK)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with multiple constraints (UNIQUE, NOT NULL, CHECK)
@@ -253,7 +253,7 @@ test.describe('Data Tables', () => {
   )
 
   test.fixme(
-    'APP-TABLES-SCHEMA-INTROSPECT-001: should return complete table metadata via introspection queries',
+    'APP-TABLES-005: should return complete table metadata via introspection queries',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: existing table 'customers' in PostgreSQL with 3 columns
@@ -318,7 +318,7 @@ test.describe('Data Tables', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TEXT-001: should create PostgreSQL VARCHAR(255) column for single-line-text field',
+    'APP-TABLES-006: should create PostgreSQL VARCHAR(255) column for single-line-text field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with single-line-text field
@@ -354,7 +354,7 @@ test.describe('Data Tables', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-EMAIL-001: should create PostgreSQL VARCHAR(255) column with UNIQUE and NOT NULL constraints for email field',
+    'APP-TABLES-007: should create PostgreSQL VARCHAR(255) column with UNIQUE and NOT NULL constraints for email field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with email field (required, unique)
@@ -398,7 +398,7 @@ test.describe('Data Tables', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-INTEGER-001: should create PostgreSQL INTEGER column with CHECK constraint for range',
+    'APP-TABLES-008: should create PostgreSQL INTEGER column with CHECK constraint for range',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with integer field with min/max constraints
@@ -441,7 +441,7 @@ test.describe('Data Tables', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-DECIMAL-001: should create PostgreSQL NUMERIC(10,2) column for decimal field',
+    'APP-TABLES-009: should create PostgreSQL NUMERIC(10,2) column for decimal field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with decimal field (precision 10, scale 2)
@@ -479,7 +479,7 @@ test.describe('Data Tables', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-BOOLEAN-001: should create PostgreSQL BOOLEAN column with DEFAULT false for checkbox field',
+    'APP-TABLES-010: should create PostgreSQL BOOLEAN column with DEFAULT false for checkbox field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with checkbox field
@@ -516,7 +516,7 @@ test.describe('Data Tables', () => {
   )
 
   test.fixme(
-    'APP-TABLES-CONSTRAINT-UNIQUE-001: should reject duplicate values with unique constraint violation error',
+    'APP-TABLES-011: should reject duplicate values with unique constraint violation error',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with UNIQUE constraint on email column, existing row email='john@example.com'
@@ -560,7 +560,7 @@ test.describe('Data Tables', () => {
   )
 
   test.fixme(
-    'APP-TABLES-CONSTRAINT-NOT-NULL-001: should reject NULL values with NOT NULL constraint violation',
+    'APP-TABLES-012: should reject NULL values with NOT NULL constraint violation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with NOT NULL constraint on required field 'title'
@@ -604,7 +604,7 @@ test.describe('Data Tables', () => {
   )
 
   test.fixme(
-    'APP-TABLES-CONSTRAINT-CHECK-001: should enforce CHECK constraint and reject values outside range',
+    'APP-TABLES-013: should enforce CHECK constraint and reject values outside range',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'inventory' with CHECK constraint (quantity >= 0 AND quantity <= 10000)
@@ -653,7 +653,7 @@ test.describe('Data Tables', () => {
   )
 
   test.fixme(
-    'APP-TABLES-INDEX-CREATE-001: should create index and allow querying via pg_indexes',
+    'APP-TABLES-014: should create index and allow querying via pg_indexes',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with email field needing fast lookups
@@ -696,7 +696,7 @@ test.describe('Data Tables', () => {
   )
 
   test.fixme(
-    'APP-TABLES-MIGRATION-ALTER-001: should alter table and add new column with correct type',
+    'APP-TABLES-015: should alter table and add new column with correct type',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: existing table 'customers' with 2 columns
@@ -761,7 +761,7 @@ test.describe('Data Tables', () => {
   )
 
   test.fixme(
-    'APP-TABLES-MIGRATION-DROP-001: should drop column and reduce table to remaining columns',
+    'APP-TABLES-016: should drop column and reduce table to remaining columns',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: existing table 'temp_data' with columns id, data, status
@@ -821,7 +821,7 @@ test.describe('Data Tables', () => {
   )
 
   test.fixme(
-    'APP-TABLES-DATA-INSERT-001: should insert data and return row with generated ID',
+    'APP-TABLES-017: should insert data and return row with generated ID',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'customers' with email and name fields
@@ -868,7 +868,7 @@ test.describe('Data Tables', () => {
   )
 
   test.fixme(
-    'APP-TABLES-DATA-UPDATE-001: should update row and return new value via SELECT',
+    'APP-TABLES-018: should update row and return new value via SELECT',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'customers' with existing row (id=1, name='John Doe')
@@ -914,7 +914,7 @@ test.describe('Data Tables', () => {
   )
 
   test.fixme(
-    'APP-TABLES-DATA-DELETE-001: should delete row and decrease row count',
+    'APP-TABLES-019: should delete row and decrease row count',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'customers' with 3 rows
@@ -956,7 +956,7 @@ test.describe('Data Tables', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-TIMESTAMP-001: should create PostgreSQL TIMESTAMP column with DEFAULT NOW()',
+    'APP-TABLES-020: should create PostgreSQL TIMESTAMP column with DEFAULT NOW()',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with created_at field (auto-timestamp)
@@ -997,7 +997,7 @@ test.describe('Data Tables', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-SELECT-001: should create VARCHAR column with CHECK constraint for enum values',
+    'APP-TABLES-021: should create VARCHAR column with CHECK constraint for enum values',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with single-select field with options ['active', 'inactive']
@@ -1039,7 +1039,7 @@ test.describe('Data Tables', () => {
   )
 
   test.fixme(
-    'APP-TABLES-DROP-001: should remove table completely via DROP TABLE',
+    'APP-TABLES-022: should remove table completely via DROP TABLE',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: existing table 'obsolete_data' in database
@@ -1081,7 +1081,7 @@ test.describe('Data Tables', () => {
   )
 
   test.fixme(
-    'APP-TABLES-COMPOSITE-PK-001: should create PRIMARY KEY constraint spanning multiple columns',
+    'APP-TABLES-023: should create PRIMARY KEY constraint spanning multiple columns',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with composite primary key on (tenant_id, user_id)
@@ -1131,7 +1131,7 @@ test.describe('Data Tables', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-REGRESSION-001: user can complete full Data Tables workflow',
+    'APP-TABLES-024: user can complete full Data Tables workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Database with representative table configuration

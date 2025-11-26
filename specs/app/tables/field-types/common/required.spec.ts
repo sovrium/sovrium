@@ -214,7 +214,7 @@ test.describe('Required Field Property', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-REQUIRED-REGRESSION-001: user can complete full required-field workflow',
+    'APP-FIELD-REQUIRED-005: user can complete full required-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative required fields

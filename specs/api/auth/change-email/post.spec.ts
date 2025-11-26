@@ -31,7 +31,7 @@ test.describe('Change email address', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-CHANGE-EMAIL-SUCCESS-001: should returns 200 OK and updates email (or sends verification)',
+    'API-AUTH-CHANGE-EMAIL-001: should returns 200 OK and updates email (or sends verification)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user with valid new email
@@ -72,7 +72,7 @@ test.describe('Change email address', () => {
   )
 
   test.fixme(
-    'API-AUTH-CHANGE-EMAIL-VALIDATION-REQUIRED-NEW-EMAIL-001: should returns 400 Bad Request with validation error',
+    'API-AUTH-CHANGE-EMAIL-002: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -111,7 +111,7 @@ test.describe('Change email address', () => {
   )
 
   test.fixme(
-    'API-AUTH-CHANGE-EMAIL-VALIDATION-INVALID-EMAIL-FORMAT-001: should returns 400 Bad Request with validation error',
+    'API-AUTH-CHANGE-EMAIL-003: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -152,7 +152,7 @@ test.describe('Change email address', () => {
   )
 
   test.fixme(
-    'API-AUTH-CHANGE-EMAIL-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
+    'API-AUTH-CHANGE-EMAIL-004: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -184,7 +184,7 @@ test.describe('Change email address', () => {
   )
 
   test.fixme(
-    'API-AUTH-CHANGE-EMAIL-CONFLICT-EMAIL-IN-USE-001: should returns 409 Conflict error',
+    'API-AUTH-CHANGE-EMAIL-005: should returns 409 Conflict error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user and another user with target email
@@ -228,7 +228,7 @@ test.describe('Change email address', () => {
   )
 
   test.fixme(
-    'API-AUTH-CHANGE-EMAIL-EDGE-CASE-SAME-EMAIL-001: should returns 200 OK or 400 (implementation-dependent)',
+    'API-AUTH-CHANGE-EMAIL-006: should returns 200 OK or 400 (implementation-dependent)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -263,7 +263,7 @@ test.describe('Change email address', () => {
   )
 
   test.fixme(
-    'API-AUTH-CHANGE-EMAIL-EDGE-CASE-EMAIL-CASE-INSENSITIVE-001: should returns 409 Conflict (case-insensitive email matching)',
+    'API-AUTH-CHANGE-EMAIL-007: should returns 409 Conflict (case-insensitive email matching)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user with lowercase email

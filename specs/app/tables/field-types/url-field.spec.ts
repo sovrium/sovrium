@@ -151,7 +151,7 @@ test.describe('URL Field', () => {
   )
 
   test.fixme(
-    'APP-URL-FIELD-004: should reject NULL value when table has required url field',
+    'APP-FIELD-URL-004: should reject NULL value when table has required url field',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'resources' with required url field 'resource_url'
@@ -192,7 +192,7 @@ test.describe('URL Field', () => {
   )
 
   test.fixme(
-    'APP-URL-FIELD-005: should create btree index for fast URL lookups when url field has indexed=true',
+    'APP-FIELD-URL-005: should create btree index for fast URL lookups when url field has indexed=true',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with url field, indexed=true
@@ -237,7 +237,7 @@ test.describe('URL Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-URL-REGRESSION-001: user can complete full url-field workflow',
+    'APP-FIELD-URL-006: user can complete full url-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative url field

@@ -411,7 +411,7 @@ test.describe('Static Site Generation', () => {
   )
 
   test(
-    'STATIC-GENERATION-REGRESSION-001: complete static generation workflow',
+    'STATIC-GENERATION-007: complete static generation workflow',
     { tag: '@regression' },
     async ({ generateStaticSite, page }) => {
       // GIVEN: complete app configuration with theme, pages, and sections

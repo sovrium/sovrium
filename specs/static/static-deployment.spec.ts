@@ -433,7 +433,7 @@ test.describe('Static Site Generation - Deployment Features', () => {
   )
 
   test(
-    'STATIC-DEPLOY-005b: should NOT generate CNAME for github.io URLs',
+    'STATIC-DEPLOY-006: should NOT generate CNAME for github.io URLs',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
       // GIVEN: app configured for GitHub Pages with github.io URL
@@ -468,7 +468,7 @@ test.describe('Static Site Generation - Deployment Features', () => {
   )
 
   test(
-    'STATIC-DEPLOY-REGRESSION-001: complete deployment workflow',
+    'STATIC-DEPLOY-007: complete deployment workflow',
     { tag: '@regression' },
     async ({ generateStaticSite, page }) => {
       // GIVEN: complete app with all deployment features

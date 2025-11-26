@@ -32,7 +32,7 @@ test.describe('Remove member from organization', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-REMOVE-MEMBER-SUCCESS-001: should returns 200 OK and member is removed from database',
+    'API-ORG-REMOVE-MEMBER-001: should returns 200 OK and member is removed from database',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner and an existing member
@@ -87,7 +87,7 @@ test.describe('Remove member from organization', () => {
   )
 
   test.fixme(
-    'API-ORG-REMOVE-MEMBER-VALIDATION-REQUIRED-FIELDS-001: should returns 400 Bad Request with validation errors',
+    'API-ORG-REMOVE-MEMBER-002: should returns 400 Bad Request with validation errors',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner
@@ -128,7 +128,7 @@ test.describe('Remove member from organization', () => {
   )
 
   test.fixme(
-    'API-ORG-REMOVE-MEMBER-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
+    'API-ORG-REMOVE-MEMBER-003: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -159,7 +159,7 @@ test.describe('Remove member from organization', () => {
   )
 
   test.fixme(
-    'API-ORG-REMOVE-MEMBER-PERMISSIONS-FORBIDDEN-REGULAR-MEMBER-001: should returns 403 Forbidden',
+    'API-ORG-REMOVE-MEMBER-004: should returns 403 Forbidden',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated regular member (not owner/admin)
@@ -210,7 +210,7 @@ test.describe('Remove member from organization', () => {
   )
 
   test.fixme(
-    'API-ORG-REMOVE-MEMBER-NOT-FOUND-001: should returns 404 Not Found',
+    'API-ORG-REMOVE-MEMBER-005: should returns 404 Not Found',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner
@@ -255,7 +255,7 @@ test.describe('Remove member from organization', () => {
   )
 
   test.fixme(
-    'API-ORG-REMOVE-MEMBER-EDGE-CASE-LAST-OWNER-001: should returns 403 Forbidden to prevent ownerless organization',
+    'API-ORG-REMOVE-MEMBER-006: should returns 403 Forbidden to prevent ownerless organization',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner who is the only owner
@@ -304,7 +304,7 @@ test.describe('Remove member from organization', () => {
   )
 
   test.fixme(
-    'API-ORG-REMOVE-MEMBER-SUCCESS-SELF-REMOVAL-001: should returns 200 OK and member is removed',
+    'API-ORG-REMOVE-MEMBER-007: should returns 200 OK and member is removed',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization member and multiple owners exist
@@ -353,7 +353,7 @@ test.describe('Remove member from organization', () => {
   )
 
   test.fixme(
-    'API-ORG-REMOVE-MEMBER-SECURITY-CROSS-ORG-PREVENTION-001: should returns 404 Not Found (prevent organization enumeration)',
+    'API-ORG-REMOVE-MEMBER-008: should returns 404 Not Found (prevent organization enumeration)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner and a member from different organization

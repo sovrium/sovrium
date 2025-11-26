@@ -212,7 +212,7 @@ test.describe('DateTime Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-DATETIME-REGRESSION-001: user can complete full datetime-field workflow',
+    'APP-DATETIME-FIELD-006: user can complete full datetime-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative datetime field

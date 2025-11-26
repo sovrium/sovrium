@@ -146,7 +146,7 @@ test.describe('Long Text Field', () => {
   )
 
   test.fixme(
-    'APP-LONG-TEXT-FIELD-004: should create btree index for text search performance when long-text field has indexed=true',
+    'APP-FIELD-LONG-TEXT-004: should create btree index for text search performance when long-text field has indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with long-text field, indexed=true
@@ -187,7 +187,7 @@ test.describe('Long Text Field', () => {
   )
 
   test.fixme(
-    'APP-LONG-TEXT-FIELD-005: should apply DEFAULT value when row inserted without providing value',
+    'APP-FIELD-LONG-TEXT-005: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with long-text field 'notes' and default value 'No notes'
@@ -233,7 +233,7 @@ test.describe('Long Text Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-LONG-TEXT-REGRESSION-001: user can complete full long-text-field workflow',
+    'APP-FIELD-LONG-TEXT-006: user can complete full long-text-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative long-text field

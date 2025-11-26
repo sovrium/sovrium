@@ -117,7 +117,7 @@ test.describe('Barcode Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-BARCODE-REGRESSION-001: user can complete full barcode-field workflow',
+    'APP-BARCODE-FIELD-006: user can complete full barcode-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

@@ -596,7 +596,7 @@ test.describe('Database Indexes', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-INDEXES-REGRESSION-001: user can complete full Database Indexes workflow',
+    'APP-TABLES-INDEXES-009: user can complete full Database Indexes workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Database with representative index configurations

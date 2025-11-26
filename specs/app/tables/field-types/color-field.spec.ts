@@ -105,7 +105,7 @@ test.describe('Color Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-COLOR-REGRESSION-001: user can complete full color-field workflow',
+    'APP-COLOR-FIELD-006: user can complete full color-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

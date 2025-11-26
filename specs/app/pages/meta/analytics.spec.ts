@@ -493,7 +493,7 @@ test.describe('Analytics Configuration', () => {
   // ============================================================================
 
   test(
-    'APP-PAGES-META-ANALYTICS-REGRESSION-001: user can complete full analytics workflow',
+    'APP-PAGES-ANALYTICS-013: user can complete full analytics workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: app configuration

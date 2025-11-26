@@ -26,7 +26,7 @@ test.describe('Delete record', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-001: should return 204 No Content and remove record',
+    'API-TABLES-RECORDS-001: should return 204 No Content and remove record',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table 'users' with record ID=1
@@ -62,7 +62,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-002: should return 404 Not Found',
+    'API-TABLES-RECORDS-002: should return 404 Not Found',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: Table 'users' exists but record ID=9999 does not
@@ -95,7 +95,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-PERMISSIONS-UNAUTHORIZED-001: should return 401 Unauthorized',
+    'API-TABLES-RECORDS-003: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An unauthenticated user
@@ -136,7 +136,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-PERMISSIONS-FORBIDDEN-MEMBER-001: should return 403 for member without delete permission',
+    'API-TABLES-RECORDS-004: should return 403 for member without delete permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member user without delete permission
@@ -183,7 +183,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-PERMISSIONS-FORBIDDEN-VIEWER-001: should return 403 for viewer with read-only access',
+    'API-TABLES-RECORDS-005: should return 403 for viewer with read-only access',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A viewer user with read-only access
@@ -225,7 +225,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-PERMISSIONS-ORG-ISOLATION-001: should return 404 for cross-org access',
+    'API-TABLES-RECORDS-006: should return 404 for cross-org access',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An admin user from organization org_123
@@ -273,7 +273,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-PERMISSIONS-ADMIN-FULL-ACCESS-001: should return 204 for admin with full access',
+    'API-TABLES-RECORDS-007: should return 204 for admin with full access',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An admin user with full delete permissions
@@ -313,7 +313,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-PERMISSIONS-OWNER-FULL-ACCESS-001: should return 204 for owner with full access',
+    'API-TABLES-RECORDS-008: should return 204 for owner with full access',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An owner user with full delete permissions
@@ -354,7 +354,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-PERMISSIONS-CROSS-ORG-PREVENTION-001: should return 404 to prevent org enumeration',
+    'API-TABLES-RECORDS-009: should return 404 to prevent org enumeration',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A record with organization_id='org_456' and admin from org_123
@@ -403,7 +403,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-PERMISSIONS-COMBINED-SCENARIO-001: should return 404 when both org and permission violations exist',
+    'API-TABLES-RECORDS-010: should return 404 when both org and permission violations exist',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member without delete permission tries to delete record from different org

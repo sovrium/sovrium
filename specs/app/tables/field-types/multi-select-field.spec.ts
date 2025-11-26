@@ -218,7 +218,7 @@ test.describe('Multi Select Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-MULTI-SELECT-REGRESSION-001: user can complete full multi-select-field workflow',
+    'APP-MULTI-SELECT-FIELD-006: user can complete full multi-select-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

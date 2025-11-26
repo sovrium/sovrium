@@ -31,7 +31,7 @@ test.describe('Refresh session token', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-REFRESH-SESSION-SUCCESS-001: should returns 200 OK with new token and extended expiration',
+    'API-AUTH-REFRESH-SESSION-001: should returns 200 OK with new token and extended expiration',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user with valid session token
@@ -72,7 +72,7 @@ test.describe('Refresh session token', () => {
   )
 
   test.fixme(
-    'API-AUTH-REFRESH-SESSION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
+    'API-AUTH-REFRESH-SESSION-002: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
@@ -99,7 +99,7 @@ test.describe('Refresh session token', () => {
   )
 
   test.fixme(
-    'API-AUTH-REFRESH-SESSION-PERMISSIONS-UNAUTHORIZED-INVALID-TOKEN-001: should returns 401 Unauthorized',
+    'API-AUTH-REFRESH-SESSION-003: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -126,7 +126,7 @@ test.describe('Refresh session token', () => {
   )
 
   test.fixme(
-    'API-AUTH-REFRESH-SESSION-PERMISSIONS-UNAUTHORIZED-EXPIRED-TOKEN-001: should returns 401 Unauthorized (cannot refresh expired session)',
+    'API-AUTH-REFRESH-SESSION-004: should returns 401 Unauthorized (cannot refresh expired session)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user with expired session token
@@ -161,7 +161,7 @@ test.describe('Refresh session token', () => {
   )
 
   test.fixme(
-    'API-AUTH-REFRESH-SESSION-EDGE-CASE-OLD-TOKEN-INVALIDATION-001: should returns 401 Unauthorized (old token is invalidated)',
+    'API-AUTH-REFRESH-SESSION-005: should returns 401 Unauthorized (old token is invalidated)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user who has refreshed their session

@@ -484,7 +484,7 @@ test.describe('Click Interaction', () => {
   // ============================================================================
 
   test(
-    'APP-PAGES-INTERACTIONS-CLICK-INTERACTION-REGRESSION-001: user can complete full click interaction workflow',
+    'APP-PAGES-INTERACTION-CLICK-013: user can complete full click interaction workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application with comprehensive click interactions

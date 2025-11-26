@@ -31,7 +31,7 @@ test.describe('Revoke all other sessions', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-REVOKE-OTHER-SESSIONS-SUCCESS-001: should returns 200 OK and revokes all sessions except current one',
+    'API-AUTH-REVOKE-OTHER-SESSIONS-001: should returns 200 OK and revokes all sessions except current one',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user with multiple active sessions
@@ -80,7 +80,7 @@ test.describe('Revoke all other sessions', () => {
   )
 
   test.fixme(
-    'API-AUTH-REVOKE-OTHER-SESSIONS-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
+    'API-AUTH-REVOKE-OTHER-SESSIONS-002: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -107,7 +107,7 @@ test.describe('Revoke all other sessions', () => {
   )
 
   test.fixme(
-    'API-AUTH-REVOKE-OTHER-SESSIONS-EDGE-CASE-SINGLE-SESSION-001: should returns 200 OK (no sessions to revoke)',
+    'API-AUTH-REVOKE-OTHER-SESSIONS-003: should returns 200 OK (no sessions to revoke)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user with only current session
@@ -144,7 +144,7 @@ test.describe('Revoke all other sessions', () => {
   )
 
   test.fixme(
-    'API-AUTH-REVOKE-OTHER-SESSIONS-EDGE-CASE-MULTIPLE-DEVICES-001: should returns 200 OK and revokes all sessions except current device',
+    'API-AUTH-REVOKE-OTHER-SESSIONS-004: should returns 200 OK and revokes all sessions except current device',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user with sessions across multiple devices
@@ -187,7 +187,7 @@ test.describe('Revoke all other sessions', () => {
   )
 
   test.fixme(
-    "API-AUTH-REVOKE-OTHER-SESSIONS-SECURITY-ISOLATION-001: should returns 200 OK and only revokes User A's sessions (User B unaffected)",
+    "API-AUTH-REVOKE-OTHER-SESSIONS-005: should returns 200 OK and only revokes User A's sessions (User B unaffected)",
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Two users with multiple sessions each

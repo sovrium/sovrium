@@ -350,7 +350,7 @@ test.describe('Inline Scripts', () => {
   )
 
   test(
-    'APP-PAGES-SCRIPTS-INLINE-REGRESSION-001: user can complete full Inline Scripts workflow',
+    'APP-PAGES-INLINE-011: user can complete full Inline Scripts workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: app configuration

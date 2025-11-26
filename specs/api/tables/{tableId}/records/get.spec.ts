@@ -562,7 +562,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-PERMISSIONS-UNAUTHORIZED-001: should return 401 Unauthorized',
+    'API-TABLES-RECORDS-LIST-013: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: A valid table
@@ -582,7 +582,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-PERMISSIONS-FORBIDDEN-001: should return 403 Forbidden',
+    'API-TABLES-RECORDS-LIST-014: should return 403 Forbidden',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: User without read permission
@@ -606,7 +606,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-PERMISSIONS-ORG-ISOLATION-001: should return 404 Not Found',
+    'API-TABLES-RECORDS-LIST-015: should return 404 Not Found',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: User from different organization
@@ -634,7 +634,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-PERMISSIONS-FIELD-FILTER-ADMIN-001: should return all fields for admin',
+    'API-TABLES-RECORDS-LIST-016: should return all fields for admin',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Admin user with full field access
@@ -674,7 +674,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-PERMISSIONS-FIELD-FILTER-MEMBER-001: should exclude salary field for member',
+    'API-TABLES-RECORDS-LIST-017: should exclude salary field for member',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Member user without salary field read permission
@@ -716,7 +716,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-PERMISSIONS-FIELD-FILTER-VIEWER-001: should return minimal fields for viewer',
+    'API-TABLES-RECORDS-LIST-018: should return minimal fields for viewer',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Viewer with limited field access
@@ -760,7 +760,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-PERMISSIONS-ORG-FILTER-001: should auto-filter by organization',
+    'API-TABLES-RECORDS-LIST-019: should auto-filter by organization',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Multi-tenant table with records from different orgs
@@ -802,7 +802,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-PERMISSIONS-COMBINED-001: should apply both org and field filtering',
+    'API-TABLES-RECORDS-LIST-020: should apply both org and field filtering',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Multi-tenant table with field permissions
@@ -846,7 +846,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-PERMISSIONS-EMPTY-RESULT-001: should return empty array with 200',
+    'API-TABLES-RECORDS-LIST-021: should return empty array with 200',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: User with valid permissions but no matching records
@@ -882,7 +882,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-PERMISSIONS-FIELD-PAGINATION-001: should paginate with field filtering',
+    'API-TABLES-RECORDS-LIST-022: should paginate with field filtering',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Member with field restrictions and large dataset
@@ -931,7 +931,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-PERMISSIONS-SORTING-001: should return 403 when sorting by inaccessible field',
+    'API-TABLES-RECORDS-LIST-023: should return 403 when sorting by inaccessible field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: User attempts to sort by restricted field
@@ -970,7 +970,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-PERMISSIONS-FILTERING-001: should return 403 when filtering by inaccessible field',
+    'API-TABLES-RECORDS-LIST-024: should return 403 when filtering by inaccessible field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: User attempts to filter by restricted field
@@ -1012,7 +1012,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-PERMISSIONS-AGGREGATING-001: should return 403 when aggregating inaccessible field',
+    'API-TABLES-RECORDS-LIST-025: should return 403 when aggregating inaccessible field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: User attempts to aggregate restricted field
@@ -1054,7 +1054,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-PERMISSIONS-AGGREGATE-ALLOWED-001: should return aggregations for accessible fields',
+    'API-TABLES-RECORDS-LIST-026: should return aggregations for accessible fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: User aggregates only accessible fields

@@ -219,7 +219,7 @@ test.describe('Decimal Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-DECIMAL-REGRESSION-001: user can complete full decimal-field workflow',
+    'APP-DECIMAL-FIELD-006: user can complete full decimal-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative decimal field

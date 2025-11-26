@@ -298,7 +298,7 @@ test(
 // ============================================================================
 
 test(
-  'APP-NAME-REGRESSION-001: user can view app name with all display requirements across different configurations',
+  'APP-NAME-013: user can view app name with all display requirements across different configurations',
   { tag: '@regression' },
   async ({ page, startServerWithSchema }) => {
     // OPTIMIZED REGRESSION TEST

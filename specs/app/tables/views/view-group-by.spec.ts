@@ -169,7 +169,7 @@ test.describe('View Group By', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-VIEW-GROUP-BY-REGRESSION-001: user can complete full view-group-by workflow',
+    'APP-TABLES-VIEW-GROUP-BY-004: user can complete full view-group-by workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative grouping

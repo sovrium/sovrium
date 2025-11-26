@@ -561,7 +561,7 @@ test.describe('Spacing Configuration', () => {
   )
 
   test(
-    'APP-THEME-SPACING-APPLICATION-001: should render with vertical padding creating rhythm',
+    'APP-THEME-SPACING-011: should render with vertical padding creating rhythm',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: section spacing applied to page section
@@ -604,7 +604,7 @@ test.describe('Spacing Configuration', () => {
   )
 
   test(
-    'APP-THEME-SPACING-APPLICATION-002: should render centered with max-width constraint',
+    'APP-THEME-SPACING-012: should render centered with max-width constraint',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: container spacing applied to content wrapper
@@ -647,7 +647,7 @@ test.describe('Spacing Configuration', () => {
   )
 
   test(
-    'APP-THEME-SPACING-APPLICATION-003: should render with spacing between flex items',
+    'APP-THEME-SPACING-013: should render with spacing between flex items',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: gap spacing applied to flex container
@@ -698,7 +698,7 @@ test.describe('Spacing Configuration', () => {
   // ============================================================================
 
   test(
-    'APP-THEME-SPACING-REGRESSION-001: user can complete full spacing workflow',
+    'APP-THEME-SPACING-014: user can complete full spacing workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application with comprehensive spacing system

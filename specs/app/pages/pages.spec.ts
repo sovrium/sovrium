@@ -435,7 +435,7 @@ test.describe('Pages', () => {
   )
 
   test(
-    'APP-PAGES-INTEGRATION-001: should apply global theme to page elements without page-level theme config',
+    'APP-PAGES-013: should apply global theme to page elements without page-level theme config',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: a page with theme integration
@@ -471,7 +471,7 @@ test.describe('Pages', () => {
   )
 
   test(
-    'APP-PAGES-INTEGRATION-002: should adapt page content based on selected language without page-level translations',
+    'APP-PAGES-014: should adapt page content based on selected language without page-level translations',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: a page with language integration
@@ -515,7 +515,7 @@ test.describe('Pages', () => {
   )
 
   test(
-    'APP-PAGES-INTEGRATION-003: should compose pages from reusable blocks without duplicating block definitions',
+    'APP-PAGES-015: should compose pages from reusable blocks without duplicating block definitions',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: a page with blocks integration
@@ -563,7 +563,7 @@ test.describe('Pages', () => {
   )
 
   test(
-    'APP-PAGES-INTEGRATION-004: should support responsive design via className utilities without separate mobile pages',
+    'APP-PAGES-016: should support responsive design via className utilities without separate mobile pages',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: a page with responsive integration
@@ -603,7 +603,7 @@ test.describe('Pages', () => {
   )
 
   test(
-    'APP-PAGES-INTEGRATION-005: should demonstrate end-to-end integration of all page-building features',
+    'APP-PAGES-017: should demonstrate end-to-end integration of all page-building features',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: a complete app with pages, theme, blocks, languages, and responsive
@@ -668,7 +668,7 @@ test.describe('Pages', () => {
   // ============================================================================
 
   test(
-    'APP-PAGES-REGRESSION-001: user can complete full pages workflow',
+    'APP-PAGES-018: user can complete full pages workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application with complete page system

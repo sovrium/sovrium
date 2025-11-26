@@ -487,7 +487,7 @@ test.describe('Person Schema', () => {
   )
 
   test(
-    'APP-PAGES-META-STRUCTURED-DATA-PERSON-REGRESSION-001: user can complete full Person workflow',
+    'APP-PAGES-PERSON-013: user can complete full Person workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: app configuration

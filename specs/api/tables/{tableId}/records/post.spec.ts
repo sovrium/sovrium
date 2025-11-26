@@ -231,7 +231,7 @@ test.describe('Create new record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-PERMISSIONS-FORBIDDEN-MEMBER-001: should return 403 Forbidden',
+    'API-TABLES-RECORDS-CREATE-006: should return 403 Forbidden',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: A member user without create permission for the table
@@ -263,7 +263,7 @@ test.describe('Create new record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-PERMISSIONS-FORBIDDEN-VIEWER-001: should return 403 Forbidden',
+    'API-TABLES-RECORDS-CREATE-007: should return 403 Forbidden',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: A viewer user without create permission
@@ -296,7 +296,7 @@ test.describe('Create new record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-PERMISSIONS-ORG-ISOLATION-001: should return 404 Not Found',
+    'API-TABLES-RECORDS-CREATE-008: should return 404 Not Found',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: A user from organization A attempting to create in organization B's table
@@ -328,7 +328,7 @@ test.describe('Create new record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-PERMISSIONS-FIELD-WRITE-ADMIN-001: should return 201 Created with all fields',
+    'API-TABLES-RECORDS-CREATE-009: should return 201 Created with all fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: An admin user with write access to all fields including sensitive
@@ -373,7 +373,7 @@ test.describe('Create new record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-PERMISSIONS-FIELD-WRITE-FORBIDDEN-001: should return 403 Forbidden',
+    'API-TABLES-RECORDS-CREATE-010: should return 403 Forbidden',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: A member user attempting to create with write-protected field
@@ -417,7 +417,7 @@ test.describe('Create new record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-PERMISSIONS-FIELD-WRITE-VIEWER-001: should return 403 Forbidden',
+    'API-TABLES-RECORDS-CREATE-011: should return 403 Forbidden',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: A viewer user with very limited write permissions
@@ -458,7 +458,7 @@ test.describe('Create new record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-PERMISSIONS-READONLY-FIELD-001: should return 403 Forbidden',
+    'API-TABLES-RECORDS-CREATE-012: should return 403 Forbidden',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: User attempts to set system-managed readonly fields
@@ -500,7 +500,7 @@ test.describe('Create new record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-PERMISSIONS-FIELD-WRITE-MULTIPLE-001: should return 403 for first forbidden field',
+    'API-TABLES-RECORDS-CREATE-013: should return 403 for first forbidden field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: Multiple fields with different write permission levels
@@ -547,7 +547,7 @@ test.describe('Create new record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-PERMISSIONS-ORG-AUTO-INJECT-001: should auto-inject organization_id',
+    'API-TABLES-RECORDS-CREATE-014: should auto-inject organization_id',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: User creates record in multi-tenant table
@@ -594,7 +594,7 @@ test.describe('Create new record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-PERMISSIONS-ORG-OVERRIDE-PREVENTED-001: should return 403 Forbidden',
+    'API-TABLES-RECORDS-CREATE-015: should return 403 Forbidden',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: User attempts to create record with different organization_id
@@ -635,7 +635,7 @@ test.describe('Create new record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-PERMISSIONS-COMBINED-001: should return 201 with filtered fields',
+    'API-TABLES-RECORDS-CREATE-016: should return 201 with filtered fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: Organization isolation, field write restrictions, and table permission all apply
@@ -680,7 +680,7 @@ test.describe('Create new record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-CREATE-PERMISSIONS-PARTIAL-DATA-001: should use database defaults',
+    'API-TABLES-RECORDS-CREATE-017: should use database defaults',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: User creates record with only permitted fields

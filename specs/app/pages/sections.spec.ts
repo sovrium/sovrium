@@ -294,7 +294,7 @@ test.describe('Page Sections', () => {
   )
 
   test(
-    'APP-PAGES-SECTIONS-009: should reference and instantiate reusable block with variables',
+    'APP-PAGES-SECTIONS-008: should reference and instantiate reusable block with variables',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: a block reference in sections
@@ -335,7 +335,7 @@ test.describe('Page Sections', () => {
   )
 
   test(
-    'APP-PAGES-SECTIONS-010: should support hybrid section composition',
+    'APP-PAGES-SECTIONS-009: should support hybrid section composition',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: sections with mixed direct components and block references
@@ -377,7 +377,7 @@ test.describe('Page Sections', () => {
   )
 
   test(
-    'APP-PAGES-SECTIONS-011: should build complex layouts through component composition',
+    'APP-PAGES-SECTIONS-010: should build complex layouts through component composition',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: a complex nested section tree
@@ -433,7 +433,7 @@ test.describe('Page Sections', () => {
   )
 
   test(
-    'APP-PAGES-SECTIONS-012: should combine interactive and responsive features',
+    'APP-PAGES-SECTIONS-011: should combine interactive and responsive features',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: a section with multiple optional properties
@@ -466,7 +466,7 @@ test.describe('Page Sections', () => {
   )
 
   test(
-    'APP-PAGES-SECTIONS-013: should support form building capabilities',
+    'APP-PAGES-SECTIONS-012: should support form building capabilities',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: sections with form components
@@ -516,7 +516,7 @@ test.describe('Page Sections', () => {
   )
 
   test(
-    'APP-PAGES-SECTIONS-014: should support rich media content',
+    'APP-PAGES-SECTIONS-013: should support rich media content',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: sections with media components
@@ -559,7 +559,7 @@ test.describe('Page Sections', () => {
   )
 
   test(
-    'APP-PAGES-SECTIONS-REGRESSION-001: user can complete full Page Sections workflow',
+    'APP-PAGES-SECTIONS-014: user can complete full Page Sections workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: app configuration

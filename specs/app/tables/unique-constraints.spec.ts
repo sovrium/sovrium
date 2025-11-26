@@ -124,7 +124,7 @@ test.describe('Unique Constraints', () => {
   )
 
   test.fixme(
-    'APP-TABLES-UNIQUECONSTRAINTS-FIELDS-001: should create composite unique index with 2 fields (minimum required)',
+    'APP-TABLES-UNIQUECONSTRAINTS-003: should create composite unique index with 2 fields (minimum required)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: unique constraint with 2 fields (minimum required)
@@ -176,7 +176,7 @@ test.describe('Unique Constraints', () => {
   )
 
   test.fixme(
-    'APP-TABLES-UNIQUECONSTRAINTS-FIELDS-002: should create multi-column unique index with 3+ fields',
+    'APP-TABLES-UNIQUECONSTRAINTS-004: should create multi-column unique index with 3+ fields',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: unique constraint with 3+ fields
@@ -237,7 +237,7 @@ test.describe('Unique Constraints', () => {
   )
 
   test.fixme(
-    'APP-TABLES-UNIQUECONSTRAINTS-NAME-001: should accept constraint name matching pattern when creating unique constraint with valid name',
+    'APP-TABLES-UNIQUECONSTRAINTS-005: should accept constraint name matching pattern when creating unique constraint with valid name',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: constraint name matching pattern '^uq_[a-z][a-z0-9_]*$'
@@ -282,7 +282,7 @@ test.describe('Unique Constraints', () => {
   )
 
   test.fixme(
-    'APP-TABLES-UNIQUECONSTRAINTS-NAME-002: should accept but lowercase the name when constraint name has invalid characters',
+    'APP-TABLES-UNIQUECONSTRAINTS-006: should accept but lowercase the name when constraint name has invalid characters',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: constraint name with invalid characters (spaces, uppercase)
@@ -327,7 +327,7 @@ test.describe('Unique Constraints', () => {
   )
 
   test.fixme(
-    'APP-TABLES-UNIQUECONSTRAINTS-NAME-003: should preserve constraint name exactly as created when querying metadata',
+    'APP-TABLES-UNIQUECONSTRAINTS-007: should preserve constraint name exactly as created when querying metadata',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: unique constraint with specific name
@@ -376,7 +376,7 @@ test.describe('Unique Constraints', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-UNIQUECONSTRAINTS-REGRESSION-001: user can complete full Unique Constraints workflow',
+    'APP-TABLES-UNIQUECONSTRAINTS-008: user can complete full Unique Constraints workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Database with representative unique constraint configurations

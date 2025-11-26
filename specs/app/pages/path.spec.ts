@@ -632,7 +632,7 @@ test.describe('URL Path', () => {
   // ============================================================================
 
   test(
-    'APP-PAGES-PATH-REGRESSION-001: user can complete full path workflow',
+    'APP-PAGES-PATH-020: user can complete full path workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application with various path patterns

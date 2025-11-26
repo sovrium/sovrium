@@ -30,7 +30,7 @@ test.describe('Request password reset', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
   test.fixme(
-    'API-AUTH-REQUEST-PASSWORD-RESET-SUCCESS-001: should  sends reset email with token',
+    'API-AUTH-REQUEST-PASSWORD-RESET-001: should  sends reset email with token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A registered user with valid email
@@ -69,7 +69,7 @@ test.describe('Request password reset', () => {
   )
 
   test.fixme(
-    'API-AUTH-REQUEST-PASSWORD-RESET-SECURITY-NONEXISTENT-EMAIL-001: should  (same response to prevent email enumeration)',
+    'API-AUTH-REQUEST-PASSWORD-RESET-002: should  (same response to prevent email enumeration)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server with no registered user
@@ -103,7 +103,7 @@ test.describe('Request password reset', () => {
   )
 
   test.fixme(
-    'API-AUTH-REQUEST-PASSWORD-RESET-VALIDATION-REQUIRED-EMAIL-001: should  request with validation error',
+    'API-AUTH-REQUEST-PASSWORD-RESET-003: should  request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
@@ -133,7 +133,7 @@ test.describe('Request password reset', () => {
   )
 
   test.fixme(
-    'API-AUTH-REQUEST-PASSWORD-RESET-VALIDATION-INVALID-EMAIL-FORMAT-001: should  request with validation error',
+    'API-AUTH-REQUEST-PASSWORD-RESET-004: should  request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -165,7 +165,7 @@ test.describe('Request password reset', () => {
   )
 
   test.fixme(
-    'API-AUTH-REQUEST-PASSWORD-RESET-EDGE-CASE-EMAIL-CASE-INSENSITIVE-001: should  sends reset email (case-insensitive matching)',
+    'API-AUTH-REQUEST-PASSWORD-RESET-005: should  sends reset email (case-insensitive matching)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A registered user with lowercase email
@@ -202,7 +202,7 @@ test.describe('Request password reset', () => {
   )
 
   test.fixme(
-    'API-AUTH-REQUEST-PASSWORD-RESET-EDGE-CASE-MULTIPLE-REQUESTS-001: should  invalidates old token, creates new one',
+    'API-AUTH-REQUEST-PASSWORD-RESET-006: should  invalidates old token, creates new one',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user who has already requested password reset
@@ -244,7 +244,7 @@ test.describe('Request password reset', () => {
   )
 
   test.fixme(
-    'API-AUTH-REQUEST-PASSWORD-RESET-EDGE-CASE-REDIRECT-URL-001: should  includes redirect url in reset email',
+    'API-AUTH-REQUEST-PASSWORD-RESET-007: should  includes redirect url in reset email',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A registered user

@@ -409,7 +409,7 @@ test.describe('Table Permissions', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-PERMISSIONS-REGRESSION-001: user can complete full permissions workflow',
+    'APP-TABLES-PERMISSIONS-006: user can complete full permissions workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative hierarchical permissions

@@ -188,7 +188,7 @@ test.describe('Rating Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-RATING-REGRESSION-001: user can complete full rating-field workflow',
+    'APP-RATING-FIELD-006: user can complete full rating-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

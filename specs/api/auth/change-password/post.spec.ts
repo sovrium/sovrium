@@ -30,7 +30,7 @@ test.describe('Change password', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
   test.fixme(
-    'API-AUTH-CHANGE-PASSWORD-SUCCESS-001: should  password is updated',
+    'API-AUTH-CHANGE-PASSWORD-001: should  password is updated',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user with valid current password
@@ -74,7 +74,7 @@ test.describe('Change password', () => {
   )
 
   test.fixme(
-    'API-AUTH-CHANGE-PASSWORD-SUCCESS-REVOKE-SESSIONS-001: should  with new token and revokes all other sessions',
+    'API-AUTH-CHANGE-PASSWORD-002: should  with new token and revokes all other sessions',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user with multiple active sessions
@@ -125,7 +125,7 @@ test.describe('Change password', () => {
   )
 
   test.fixme(
-    'API-AUTH-CHANGE-PASSWORD-VALIDATION-REQUIRED-NEW-PASSWORD-001: should  request with validation error',
+    'API-AUTH-CHANGE-PASSWORD-003: should  request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -166,7 +166,7 @@ test.describe('Change password', () => {
   )
 
   test.fixme(
-    'API-AUTH-CHANGE-PASSWORD-VALIDATION-REQUIRED-CURRENT-PASSWORD-001: should  request with validation error',
+    'API-AUTH-CHANGE-PASSWORD-004: should  request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -207,7 +207,7 @@ test.describe('Change password', () => {
   )
 
   test.fixme(
-    'API-AUTH-CHANGE-PASSWORD-VALIDATION-PASSWORD-TOO-SHORT-001: should  request with validation error',
+    'API-AUTH-CHANGE-PASSWORD-005: should  request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -249,7 +249,7 @@ test.describe('Change password', () => {
   )
 
   test.fixme(
-    'API-AUTH-CHANGE-PASSWORD-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should',
+    'API-AUTH-CHANGE-PASSWORD-006: should',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -282,7 +282,7 @@ test.describe('Change password', () => {
   )
 
   test.fixme(
-    'API-AUTH-CHANGE-PASSWORD-PERMISSIONS-UNAUTHORIZED-WRONG-PASSWORD-001: should  (or 400 bad request depending on better auth version)',
+    'API-AUTH-CHANGE-PASSWORD-007: should  (or 400 bad request depending on better auth version)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -323,7 +323,7 @@ test.describe('Change password', () => {
   )
 
   test.fixme(
-    'API-AUTH-CHANGE-PASSWORD-EDGE-CASE-SAME-PASSWORD-001: should  (same password allowed) or 400 (rejected)',
+    'API-AUTH-CHANGE-PASSWORD-008: should  (same password allowed) or 400 (rejected)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user

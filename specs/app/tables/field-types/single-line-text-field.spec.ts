@@ -130,7 +130,7 @@ test.describe('Single Line Text Field', () => {
   )
 
   test.fixme(
-    'APP-SINGLE-LINE-TEXT-FIELD-004: should create btree index for fast text lookups',
+    'APP-FIELD-SINGLE-LINE-TEXT-004: should create btree index for fast text lookups',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN/WHEN: table configuration with single-line-text field, indexed=true
@@ -174,7 +174,7 @@ test.describe('Single Line Text Field', () => {
   )
 
   test.fixme(
-    'APP-SINGLE-LINE-TEXT-FIELD-005: should apply DEFAULT value when row inserted without value',
+    'APP-FIELD-SINGLE-LINE-TEXT-005: should apply DEFAULT value when row inserted without value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN/WHEN: table with single-line-text field 'name' and default value 'Untitled'
@@ -742,7 +742,7 @@ test.describe('Single Line Text Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-REGRESSION-001: user can complete full single-line-text-field workflow',
+    'APP-FIELD-SINGLE-LINE-TEXT-020: user can complete full single-line-text-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN/WHEN: Table with comprehensive text field configuration

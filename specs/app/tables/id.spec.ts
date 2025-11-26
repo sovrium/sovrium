@@ -232,7 +232,7 @@ test.describe('Table ID', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-ID-REGRESSION-001: user can complete full table ID workflow',
+    'APP-TABLES-ID-007: user can complete full table ID workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema }) => {
       // GIVEN: Application with tables using various ID formats

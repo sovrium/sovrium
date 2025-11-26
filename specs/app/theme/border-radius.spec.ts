@@ -402,7 +402,7 @@ test.describe('Border Radius', () => {
   )
 
   test(
-    'APP-THEME-RADIUS-APPLICATION-001: should render button with 0.375rem border-radius creating soft corners',
+    'APP-THEME-RADIUS-007: should render button with 0.375rem border-radius creating soft corners',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: md radius applied to button component
@@ -453,7 +453,7 @@ test.describe('Border Radius', () => {
   )
 
   test(
-    'APP-THEME-RADIUS-APPLICATION-002: should render image as circle with 9999px border-radius',
+    'APP-THEME-RADIUS-008: should render image as circle with 9999px border-radius',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: full radius applied to avatar image
@@ -492,7 +492,7 @@ test.describe('Border Radius', () => {
   )
 
   test(
-    'APP-THEME-RADIUS-APPLICATION-003: should render card with 0.5rem border-radius creating soft edges',
+    'APP-THEME-RADIUS-009: should render card with 0.5rem border-radius creating soft edges',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: lg radius applied to card component
@@ -543,7 +543,7 @@ test.describe('Border Radius', () => {
   )
 
   test(
-    'APP-THEME-RADIUS-APPLICATION-004: should apply smaller radius on mobile for better touch targets and larger radius on desktop for visual polish',
+    'APP-THEME-RADIUS-010: should apply smaller radius on mobile for better touch targets and larger radius on desktop for visual polish',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: responsive border-radius varying by breakpoint
@@ -595,7 +595,7 @@ test.describe('Border Radius', () => {
   )
 
   test(
-    'APP-THEME-RADIUS-APPLICATION-005: should render element with custom radius on each corner creating arrow-like shape',
+    'APP-THEME-RADIUS-011: should render element with custom radius on each corner creating arrow-like shape',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: per-corner border-radius for complex shapes
@@ -638,7 +638,7 @@ test.describe('Border Radius', () => {
   )
 
   test(
-    'APP-THEME-RADIUS-APPLICATION-006: should render badge as pill with fully rounded left and right edges',
+    'APP-THEME-RADIUS-012: should render badge as pill with fully rounded left and right edges',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: full radius for badge and pill-shaped components
@@ -689,7 +689,7 @@ test.describe('Border Radius', () => {
   )
 
   test(
-    'APP-THEME-RADIUS-APPLICATION-007: should apply appropriate radius for each image context',
+    'APP-THEME-RADIUS-013: should apply appropriate radius for each image context',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: radius patterns for image components (avatar vs thumbnail vs hero)
@@ -760,7 +760,7 @@ test.describe('Border Radius', () => {
   )
 
   test(
-    'APP-THEME-RADIUS-APPLICATION-008: should apply radius to create cohesive nested component design',
+    'APP-THEME-RADIUS-014: should apply radius to create cohesive nested component design',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: card component hierarchy with coordinated border-radius across parent and children
@@ -835,7 +835,7 @@ test.describe('Border Radius', () => {
   // ============================================================================
 
   test(
-    'APP-THEME-BORDER-RADIUS-REGRESSION-001: user can complete full border-radius workflow',
+    'APP-THEME-RADIUS-015: user can complete full border-radius workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application with comprehensive border-radius system

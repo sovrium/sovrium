@@ -102,7 +102,7 @@ test.describe('Get record by ID', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-GET-PERMISSIONS-UNAUTHORIZED-001: should return 401 Unauthorized',
+    'API-TABLES-RECORDS-GET-003: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An unauthenticated user
@@ -134,7 +134,7 @@ test.describe('Get record by ID', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-GET-PERMISSIONS-FORBIDDEN-001: should return 403 Forbidden',
+    'API-TABLES-RECORDS-GET-004: should return 403 Forbidden',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: User without read permission
@@ -166,7 +166,7 @@ test.describe('Get record by ID', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-GET-PERMISSIONS-ORG-ISOLATION-001: should return 404 Not Found',
+    'API-TABLES-RECORDS-GET-005: should return 404 Not Found',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: User from different organization
@@ -205,7 +205,7 @@ test.describe('Get record by ID', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-GET-PERMISSIONS-FIELD-FILTER-ADMIN-001: should return all fields for admin',
+    'API-TABLES-RECORDS-GET-006: should return all fields for admin',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Admin user with full field access
@@ -249,7 +249,7 @@ test.describe('Get record by ID', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-GET-PERMISSIONS-FIELD-FILTER-MEMBER-001: should exclude salary field for member',
+    'API-TABLES-RECORDS-GET-007: should exclude salary field for member',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Member user without salary field read permission
@@ -292,7 +292,7 @@ test.describe('Get record by ID', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-GET-PERMISSIONS-FIELD-FILTER-VIEWER-001: should return minimal fields for viewer',
+    'API-TABLES-RECORDS-GET-008: should return minimal fields for viewer',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Viewer with limited field access
@@ -337,7 +337,7 @@ test.describe('Get record by ID', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-GET-PERMISSIONS-COMBINED-001: should apply both org and field filtering',
+    'API-TABLES-RECORDS-GET-009: should apply both org and field filtering',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Multi-tenant table with field permissions
@@ -384,7 +384,7 @@ test.describe('Get record by ID', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-GET-PERMISSIONS-READONLY-FIELD-001: should include readonly fields in response',
+    'API-TABLES-RECORDS-GET-010: should include readonly fields in response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with readonly system fields

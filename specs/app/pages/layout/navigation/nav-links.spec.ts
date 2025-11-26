@@ -405,7 +405,7 @@ test.describe('Navigation Links', () => {
   // ============================================================================
 
   test(
-    'APP-PAGES-LAYOUT-NAVIGATION-NAV-LINKS-REGRESSION-001: user can complete full nav links workflow',
+    'APP-PAGES-NAVLINKS-011: user can complete full nav links workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: app configuration

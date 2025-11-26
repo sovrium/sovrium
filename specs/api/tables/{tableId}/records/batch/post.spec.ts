@@ -25,7 +25,7 @@ test.describe('Batch create records', () => {
   // ============================================================================
 
   test.fixme(
-    'API-RECORDS-BATCH-001: should return 201 with created=3 and records array',
+    'API-RECORDS-001: should return 201 with created=3 and records array',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table 'users' exists with 0 records
@@ -87,7 +87,7 @@ test.describe('Batch create records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-002: should return 201 with created=2 and no records array',
+    'API-RECORDS-002: should return 201 with created=2 and no records array',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: Table 'users' exists
@@ -138,7 +138,7 @@ test.describe('Batch create records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-003: should return 400 with rollback on validation error',
+    'API-RECORDS-003: should return 400 with rollback on validation error',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table 'users' with email NOT NULL constraint
@@ -191,7 +191,7 @@ test.describe('Batch create records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-PERMISSIONS-UNAUTHORIZED-001: should return 401 Unauthorized',
+    'API-RECORDS-004: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: An unauthenticated user
@@ -230,7 +230,7 @@ test.describe('Batch create records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-PERMISSIONS-FORBIDDEN-MEMBER-001: should return 403 for member without create permission',
+    'API-RECORDS-005: should return 403 for member without create permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: A member user without create permission
@@ -272,7 +272,7 @@ test.describe('Batch create records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-PERMISSIONS-FORBIDDEN-VIEWER-001: should return 403 for viewer',
+    'API-RECORDS-006: should return 403 for viewer',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: A viewer user with read-only access
@@ -312,7 +312,7 @@ test.describe('Batch create records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-PERMISSIONS-ORG-AUTO-INJECT-001: should auto-inject organization_id for all records',
+    'API-RECORDS-007: should auto-inject organization_id for all records',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: An admin user from org_123
@@ -358,7 +358,7 @@ test.describe('Batch create records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-PERMISSIONS-FIELD-WRITE-FORBIDDEN-001: should return 403 when creating with protected field',
+    'API-RECORDS-008: should return 403 when creating with protected field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: A member user with field-level write restrictions (salary protected)
@@ -404,7 +404,7 @@ test.describe('Batch create records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-PERMISSIONS-READONLY-FIELD-001: should return 403 for readonly fields',
+    'API-RECORDS-009: should return 403 for readonly fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: An admin user attempting to set readonly fields
@@ -447,7 +447,7 @@ test.describe('Batch create records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-PERMISSIONS-ORG-OVERRIDE-PREVENTED-001: should return 403 when setting different organization_id',
+    'API-RECORDS-010: should return 403 when setting different organization_id',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: A member user attempting to set different organization_id
@@ -489,7 +489,7 @@ test.describe('Batch create records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-PERMISSIONS-PARTIAL-FIELD-FILTERING-001: should filter protected fields from response',
+    'API-RECORDS-011: should filter protected fields from response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: A member user with field-level read restrictions
@@ -541,7 +541,7 @@ test.describe('Batch create records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-PERMISSIONS-ADMIN-FULL-ACCESS-001: should return 201 with all fields for admin',
+    'API-RECORDS-012: should return 201 with all fields for admin',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: An admin user with full permissions
@@ -589,7 +589,7 @@ test.describe('Batch create records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-PERMISSIONS-COMBINED-SCENARIO-001: should enforce combined permissions',
+    'API-RECORDS-013: should enforce combined permissions',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: A member with create permission but field restrictions
@@ -641,7 +641,7 @@ test.describe('Batch create records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-PERMISSIONS-DUPLICATE-PREVENTION-001: should return 400 for duplicate unique field values',
+    'API-RECORDS-014: should return 400 for duplicate unique field values',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with unique email constraint
@@ -689,7 +689,7 @@ test.describe('Batch create records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-PERMISSIONS-PAYLOAD-LIMIT-001: should return 413 when exceeding 1000 record limit',
+    'API-RECORDS-015: should return 413 when exceeding 1000 record limit',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: Table exists

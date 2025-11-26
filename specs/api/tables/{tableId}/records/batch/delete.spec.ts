@@ -26,7 +26,7 @@ test.describe('Batch delete records', () => {
   // ============================================================================
 
   test.fixme(
-    'API-RECORDS-BATCH-009: should return 200 with deleted count',
+    'API-RECORDS-001: should return 200 with deleted count',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table 'users' with 3 records (ID=1, ID=2, ID=3)
@@ -85,7 +85,7 @@ test.describe('Batch delete records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-010: should return 404 and rollback transaction',
+    'API-RECORDS-002: should return 404 and rollback transaction',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table 'users' with record ID=1 only
@@ -134,7 +134,7 @@ test.describe('Batch delete records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-011: should return 413 Payload Too Large',
+    'API-RECORDS-003: should return 413 Payload Too Large',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: Table 'users' exists
@@ -171,7 +171,7 @@ test.describe('Batch delete records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-DELETE-PERMISSIONS-UNAUTHORIZED-001: should return 401 Unauthorized',
+    'API-RECORDS-004: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An unauthenticated user
@@ -217,7 +217,7 @@ test.describe('Batch delete records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-DELETE-PERMISSIONS-FORBIDDEN-MEMBER-001: should return 403 for member without delete permission',
+    'API-RECORDS-005: should return 403 for member without delete permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member user without delete permission
@@ -269,7 +269,7 @@ test.describe('Batch delete records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-DELETE-PERMISSIONS-FORBIDDEN-VIEWER-001: should return 403 for viewer',
+    'API-RECORDS-006: should return 403 for viewer',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A viewer user with read-only access
@@ -314,7 +314,7 @@ test.describe('Batch delete records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-DELETE-PERMISSIONS-ORG-ISOLATION-001: should return 404 for cross-org records',
+    'API-RECORDS-007: should return 404 for cross-org records',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An admin user from org_123 with records from org_456
@@ -365,7 +365,7 @@ test.describe('Batch delete records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-DELETE-PERMISSIONS-ADMIN-FULL-ACCESS-001: should return 200 for admin with full access',
+    'API-RECORDS-008: should return 200 for admin with full access',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An admin user with full delete permissions
@@ -425,7 +425,7 @@ test.describe('Batch delete records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-DELETE-PERMISSIONS-OWNER-FULL-ACCESS-001: should return 200 for owner',
+    'API-RECORDS-009: should return 200 for owner',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An owner user with full delete permissions
@@ -478,7 +478,7 @@ test.describe('Batch delete records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-DELETE-PERMISSIONS-CROSS-ORG-PREVENTION-001: should return 404 to prevent cross-org deletes',
+    'API-RECORDS-010: should return 404 to prevent cross-org deletes',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member from org_123 with records from different org
@@ -522,7 +522,7 @@ test.describe('Batch delete records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-DELETE-PERMISSIONS-COMBINED-SCENARIO-001: should return 404 when both org and permission violations exist',
+    'API-RECORDS-011: should return 404 when both org and permission violations exist',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member without delete permission tries to delete records from different org

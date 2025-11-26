@@ -31,7 +31,7 @@ test.describe('Admin: Ban user', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ADMIN-BAN-USER-SUCCESS-001: should returns 200 OK and bans user with all sessions revoked',
+    'API-ADMIN-BAN-USER-001: should returns 200 OK and bans user with all sessions revoked',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user and an active user
@@ -83,7 +83,7 @@ test.describe('Admin: Ban user', () => {
   )
 
   test.fixme(
-    'API-ADMIN-BAN-USER-SUCCESS-WITH-REASON-001: should returns 200 OK and stores ban reason',
+    'API-ADMIN-BAN-USER-002: should returns 200 OK and stores ban reason',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user and an active user
@@ -123,7 +123,7 @@ test.describe('Admin: Ban user', () => {
   )
 
   test.fixme(
-    'API-ADMIN-BAN-USER-VALIDATION-REQUIRED-USER-ID-001: should returns 400 Bad Request with validation error',
+    'API-ADMIN-BAN-USER-003: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user
@@ -158,7 +158,7 @@ test.describe('Admin: Ban user', () => {
   )
 
   test.fixme(
-    'API-ADMIN-BAN-USER-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
+    'API-ADMIN-BAN-USER-004: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -188,7 +188,7 @@ test.describe('Admin: Ban user', () => {
   )
 
   test.fixme(
-    'API-ADMIN-BAN-USER-PERMISSIONS-FORBIDDEN-NON-ADMIN-001: should returns 403 Forbidden',
+    'API-ADMIN-BAN-USER-005: should returns 403 Forbidden',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated regular user (non-admin)
@@ -229,7 +229,7 @@ test.describe('Admin: Ban user', () => {
   )
 
   test.fixme(
-    'API-ADMIN-BAN-USER-NOT-FOUND-001: should returns 404 Not Found',
+    'API-ADMIN-BAN-USER-006: should returns 404 Not Found',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user
@@ -267,7 +267,7 @@ test.describe('Admin: Ban user', () => {
   )
 
   test.fixme(
-    'API-ADMIN-BAN-USER-EDGE-CASE-ALREADY-BANNED-001: should returns 200 OK (idempotent operation)',
+    'API-ADMIN-BAN-USER-007: should returns 200 OK (idempotent operation)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user and an already banned user

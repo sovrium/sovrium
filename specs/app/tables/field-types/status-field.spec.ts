@@ -285,7 +285,7 @@ test.describe('Status Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-STATUS-REGRESSION-001: user can complete full status-field workflow',
+    'APP-STATUS-FIELD-006: user can complete full status-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

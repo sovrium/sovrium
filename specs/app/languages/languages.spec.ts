@@ -756,7 +756,7 @@ test.describe('Languages Configuration', () => {
   )
 
   test(
-    'APP-LANGUAGES-INTEGRATION-001: should apply RTL-aware theme tokens for Arabic/Hebrew',
+    'APP-LANGUAGES-015: should apply RTL-aware theme tokens for Arabic/Hebrew',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: a multi-language app with theme integration
@@ -817,7 +817,7 @@ test.describe('Languages Configuration', () => {
   )
 
   test(
-    'APP-LANGUAGES-INTEGRATION-002: should update page metadata and content while maintaining state',
+    'APP-LANGUAGES-016: should update page metadata and content while maintaining state',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: a multi-language app with page content
@@ -889,7 +889,7 @@ test.describe('Languages Configuration', () => {
   )
 
   test(
-    'APP-LANGUAGES-INTEGRATION-003: should generate localized meta tags and structured data per language',
+    'APP-LANGUAGES-017: should generate localized meta tags and structured data per language',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: multi-language pages with localized SEO meta tags
@@ -1034,7 +1034,7 @@ test.describe('Languages Configuration', () => {
   )
 
   test(
-    'APP-LANGUAGES-015: should resolve translation keys from centralized translations dictionary',
+    'APP-LANGUAGES-018: should resolve translation keys from centralized translations dictionary',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: an app with centralized translations and components using $t: references
@@ -1104,7 +1104,7 @@ test.describe('Languages Configuration', () => {
   )
 
   test(
-    'APP-LANGUAGES-016: should fall back to default language translation',
+    'APP-LANGUAGES-019: should fall back to default language translation',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: an app with centralized translations and a missing translation key
@@ -1163,7 +1163,7 @@ test.describe('Languages Configuration', () => {
   )
 
   test(
-    'APP-LANGUAGES-018: should organize translations by feature and improve maintainability',
+    'APP-LANGUAGES-020: should organize translations by feature and improve maintainability',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: an app with organized namespace structure in centralized translations
@@ -1212,7 +1212,7 @@ test.describe('Languages Configuration', () => {
   )
 
   test(
-    'APP-LANGUAGES-019: should resolve translation tokens in children arrays during SSR',
+    'APP-LANGUAGES-021: should resolve translation tokens in children arrays during SSR',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: a page with translation tokens ($t:) in children arrays
@@ -1270,7 +1270,7 @@ test.describe('Languages Configuration', () => {
   )
 
   test(
-    'APP-LANGUAGES-020: should resolve translation tokens in component props during SSR',
+    'APP-LANGUAGES-022: should resolve translation tokens in component props during SSR',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: a page with translation tokens ($t:) in component props
@@ -1330,7 +1330,7 @@ test.describe('Languages Configuration', () => {
   )
 
   test(
-    'APP-LANGUAGES-021: should resolve translation tokens in content property during SSR',
+    'APP-LANGUAGES-023: should resolve translation tokens in content property during SSR',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: a page with translation tokens ($t:) in content property
@@ -1381,7 +1381,7 @@ test.describe('Languages Configuration', () => {
   )
 
   test(
-    'APP-LANGUAGES-022: should have no $t: symbols anywhere in rendered HTML output',
+    'APP-LANGUAGES-024: should have no $t: symbols anywhere in rendered HTML output',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: a complete page with $t: tokens in children, props, and content
@@ -1489,7 +1489,7 @@ test.describe('Languages Configuration', () => {
   // ============================================================================
 
   test(
-    'APP-LANGUAGES-REGRESSION-001: user can complete full languages workflow',
+    'APP-LANGUAGES-030: user can complete full languages workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application configured with representative multi-language setup
@@ -1567,7 +1567,7 @@ test.describe('Languages Configuration', () => {
   // ============================================================================
 
   test(
-    'APP-LANGUAGES-SUBDIRECTORY-001: should serve / with default language (cacheable)',
+    'APP-LANGUAGES-025: should serve / with default language (cacheable)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: an app with detectBrowser disabled
@@ -1612,7 +1612,7 @@ test.describe('Languages Configuration', () => {
     test.use({ browserLocale: 'fr-FR' })
 
     test(
-      'APP-LANGUAGES-SUBDIRECTORY-001b: should redirect from / to /:lang/ when detected language differs from default',
+      'APP-LANGUAGES-026: should redirect from / to /:lang/ when detected language differs from default',
       { tag: '@spec' },
       async ({ page, startServerWithSchema }) => {
         // GIVEN: an app with detectBrowser enabled and default 'en-US'
@@ -1655,7 +1655,7 @@ test.describe('Languages Configuration', () => {
   })
 
   test(
-    'APP-LANGUAGES-SUBDIRECTORY-002: should render homepage at /:lang/ with correct language',
+    'APP-LANGUAGES-027: should render homepage at /:lang/ with correct language',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: an app with languages configured
@@ -1695,7 +1695,7 @@ test.describe('Languages Configuration', () => {
   )
 
   test(
-    'APP-LANGUAGES-SUBDIRECTORY-003: should navigate between language subdirectories when switching language',
+    'APP-LANGUAGES-028: should navigate between language subdirectories when switching language',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: an app with languages configured
@@ -1745,7 +1745,7 @@ test.describe('Languages Configuration', () => {
   )
 
   test(
-    'APP-LANGUAGES-SUBDIRECTORY-004: should return 404 for invalid language subdirectory',
+    'APP-LANGUAGES-029: should return 404 for invalid language subdirectory',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: an app with languages configured

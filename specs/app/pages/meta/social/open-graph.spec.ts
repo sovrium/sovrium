@@ -487,7 +487,7 @@ test.describe('Open Graph Metadata', () => {
   )
 
   test(
-    'APP-PAGES-META-SOCIAL-OPEN-GRAPH-REGRESSION-001: user can complete full Open Graph workflow',
+    'APP-PAGES-OG-013: user can complete full Open Graph workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: app configuration

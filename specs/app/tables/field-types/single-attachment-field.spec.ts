@@ -135,7 +135,7 @@ test.describe('Single Attachment Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-SINGLE-ATTACHMENT-REGRESSION-001: user can complete full single-attachment-field workflow',
+    'APP-SINGLE-ATTACHMENT-FIELD-006: user can complete full single-attachment-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

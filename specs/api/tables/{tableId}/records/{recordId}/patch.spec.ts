@@ -119,7 +119,7 @@ test.describe('Update record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPDATE-PERMISSIONS-UNAUTHORIZED-001: should return 401 Unauthorized',
+    'API-TABLES-RECORDS-UPDATE-003: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An unauthenticated user (no Bearer token)
@@ -155,7 +155,7 @@ test.describe('Update record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPDATE-PERMISSIONS-FORBIDDEN-MEMBER-001: should return 403 for member without update permission',
+    'API-TABLES-RECORDS-UPDATE-004: should return 403 for member without update permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member user without update permission for the table
@@ -193,7 +193,7 @@ test.describe('Update record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPDATE-PERMISSIONS-FORBIDDEN-VIEWER-001: should return 403 for viewer',
+    'API-TABLES-RECORDS-UPDATE-005: should return 403 for viewer',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A viewer user without update permission
@@ -236,7 +236,7 @@ test.describe('Update record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPDATE-PERMISSIONS-ORG-ISOLATION-001: should return 404 for cross-org access',
+    'API-TABLES-RECORDS-UPDATE-006: should return 404 for cross-org access',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user from organization A attempting to update record from organization B
@@ -280,7 +280,7 @@ test.describe('Update record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPDATE-PERMISSIONS-FIELD-WRITE-ADMIN-001: should allow admin to update sensitive fields',
+    'API-TABLES-RECORDS-UPDATE-007: should allow admin to update sensitive fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An admin user with write access to all fields including sensitive
@@ -330,7 +330,7 @@ test.describe('Update record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPDATE-PERMISSIONS-FIELD-WRITE-FORBIDDEN-001: should return 403 when updating protected field',
+    'API-TABLES-RECORDS-UPDATE-008: should return 403 when updating protected field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member user attempting to update write-protected field
@@ -385,7 +385,7 @@ test.describe('Update record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPDATE-PERMISSIONS-READONLY-FIELD-001: should return 403 for readonly fields',
+    'API-TABLES-RECORDS-UPDATE-009: should return 403 for readonly fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: User attempts to update system-managed readonly fields
@@ -432,7 +432,7 @@ test.describe('Update record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPDATE-PERMISSIONS-PARTIAL-UPDATE-001: should update only permitted fields',
+    'API-TABLES-RECORDS-UPDATE-010: should update only permitted fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Member user updates only permitted fields
@@ -491,7 +491,7 @@ test.describe('Update record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPDATE-PERMISSIONS-ORG-OVERRIDE-PREVENTED-001: should return 403 when changing organization_id',
+    'API-TABLES-RECORDS-UPDATE-011: should return 403 when changing organization_id',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: User attempts to change record's organization_id
@@ -543,7 +543,7 @@ test.describe('Update record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPDATE-PERMISSIONS-COMBINED-001: should enforce combined permissions',
+    'API-TABLES-RECORDS-UPDATE-012: should enforce combined permissions',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Organization isolation, field write restrictions, and table permission all apply
@@ -600,7 +600,7 @@ test.describe('Update record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPDATE-PERMISSIONS-FIELD-WRITE-MULTIPLE-001: should return 403 for first forbidden field',
+    'API-TABLES-RECORDS-UPDATE-013: should return 403 for first forbidden field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Multiple fields with different write permission levels
@@ -658,7 +658,7 @@ test.describe('Update record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPDATE-PERMISSIONS-FIELD-RESPONSE-FILTER-001: should exclude unreadable fields from response',
+    'API-TABLES-RECORDS-UPDATE-014: should exclude unreadable fields from response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Member updates record and has field-level read restrictions

@@ -340,7 +340,7 @@ test.describe('Reusable Blocks', () => {
   )
 
   test(
-    'APP-BLOCKS-INTEGRATION-001: should render blocks within page layout with full variable substitution',
+    'APP-BLOCKS-012: should render blocks within page layout with full variable substitution',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: blocks integrated with pages via sections
@@ -389,7 +389,7 @@ test.describe('Reusable Blocks', () => {
   )
 
   test(
-    'APP-BLOCKS-INTEGRATION-002: should render with design tokens applied from global theme',
+    'APP-BLOCKS-013: should render with design tokens applied from global theme',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: blocks using theme design tokens
@@ -435,7 +435,7 @@ test.describe('Reusable Blocks', () => {
   )
 
   test(
-    'APP-BLOCKS-INTEGRATION-003: should generate structured data and meta tags from block content',
+    'APP-BLOCKS-014: should generate structured data and meta tags from block content',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: blocks containing meta/SEO data for structured content
@@ -519,7 +519,7 @@ test.describe('Reusable Blocks', () => {
   // ============================================================================
 
   test(
-    'APP-BLOCKS-REGRESSION-001: user can complete full blocks workflow',
+    'APP-BLOCKS-015: user can complete full blocks workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: app configuration

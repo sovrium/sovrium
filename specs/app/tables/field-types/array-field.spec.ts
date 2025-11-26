@@ -217,7 +217,7 @@ test.describe('Array Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-ARRAY-REGRESSION-001: user can complete full array-field workflow',
+    'APP-ARRAY-FIELD-006: user can complete full array-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

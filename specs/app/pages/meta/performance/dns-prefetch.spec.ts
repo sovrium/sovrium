@@ -359,7 +359,7 @@ test.describe('DNS Prefetch', () => {
   )
 
   test(
-    'APP-PAGES-META-PERFORMANCE-DNS-PREFETCH-REGRESSION-001: user can complete full DNS prefetch workflow',
+    'APP-PAGES-DNS-011: user can complete full DNS prefetch workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: app configuration

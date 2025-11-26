@@ -31,7 +31,7 @@ test.describe('List user organizations', () => {
   // ============================================================================
 
   test.fixme(
-    "API-ORG-LIST-ORGANIZATIONS-SUCCESS-001: should returns 200 OK with all organizations and user's roles",
+    "API-ORG-LIST-ORGANIZATIONS-001: should returns 200 OK with all organizations and user's roles",
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user who is member of multiple organizations
@@ -80,7 +80,7 @@ test.describe('List user organizations', () => {
   )
 
   test.fixme(
-    'API-ORG-LIST-ORGANIZATIONS-SUCCESS-EMPTY-001: should returns 200 OK with empty organizations array',
+    'API-ORG-LIST-ORGANIZATIONS-002: should returns 200 OK with empty organizations array',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user who is not member of any organization
@@ -111,7 +111,7 @@ test.describe('List user organizations', () => {
   )
 
   test.fixme(
-    'API-ORG-LIST-ORGANIZATIONS-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
+    'API-ORG-LIST-ORGANIZATIONS-003: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -136,7 +136,7 @@ test.describe('List user organizations', () => {
   )
 
   test.fixme(
-    "API-ORG-LIST-ORGANIZATIONS-SECURITY-ISOLATION-001: should returns 200 OK with only User A's organizations (User B's not visible)",
+    "API-ORG-LIST-ORGANIZATIONS-004: should returns 200 OK with only User A's organizations (User B's not visible)",
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Two users with different organizations
@@ -184,7 +184,7 @@ test.describe('List user organizations', () => {
   )
 
   test.fixme(
-    'API-ORG-LIST-ORGANIZATIONS-SUCCESS-ROLE-DISPLAY-001: should returns 200 OK with correct role for each organization',
+    'API-ORG-LIST-ORGANIZATIONS-005: should returns 200 OK with correct role for each organization',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user with different roles across organizations

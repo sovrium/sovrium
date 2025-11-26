@@ -563,7 +563,7 @@ test.describe('Responsive Variants', () => {
   // ============================================================================
 
   test(
-    'APP-PAGES-RESPONSIVE-REGRESSION-001: user can complete full responsive workflow',
+    'APP-PAGES-RESPONSIVE-011: user can complete full responsive workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application with CSS-based responsive configuration (className, visibility)

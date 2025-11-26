@@ -196,7 +196,7 @@ test.describe('Rich Text Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-RICH-TEXT-REGRESSION-001: user can complete full rich-text-field workflow',
+    'APP-RICH-TEXT-FIELD-006: user can complete full rich-text-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

@@ -407,7 +407,7 @@ test.describe('Shadows', () => {
   )
 
   test(
-    'APP-THEME-SHADOWS-APPLICATION-001: should render card with medium box-shadow creating depth',
+    'APP-THEME-SHADOWS-007: should render card with medium box-shadow creating depth',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: md shadow applied to card component
@@ -455,7 +455,7 @@ test.describe('Shadows', () => {
   )
 
   test(
-    'APP-THEME-SHADOWS-APPLICATION-002: should render modal with dramatic shadow emphasizing importance',
+    'APP-THEME-SHADOWS-008: should render modal with dramatic shadow emphasizing importance',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: xl shadow applied to modal overlay
@@ -503,7 +503,7 @@ test.describe('Shadows', () => {
   )
 
   test(
-    'APP-THEME-SHADOWS-APPLICATION-003: should render input with inset shadow creating depth inward',
+    'APP-THEME-SHADOWS-009: should render input with inset shadow creating depth inward',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: inner shadow applied to input field
@@ -550,7 +550,7 @@ test.describe('Shadows', () => {
   )
 
   test(
-    'APP-THEME-SHADOWS-APPLICATION-004: should render button with smooth shadow transition creating lift effect',
+    'APP-THEME-SHADOWS-010: should render button with smooth shadow transition creating lift effect',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: shadow transition on button hover interaction
@@ -601,7 +601,7 @@ test.describe('Shadows', () => {
   )
 
   test(
-    'APP-THEME-SHADOWS-APPLICATION-005: should render button with colored shadow matching brand identity',
+    'APP-THEME-SHADOWS-011: should render button with colored shadow matching brand identity',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: colored shadow for brand accent
@@ -652,7 +652,7 @@ test.describe('Shadows', () => {
   )
 
   test(
-    'APP-THEME-SHADOWS-APPLICATION-006: should render element with multi-layered shadow creating subtle 3D effect',
+    'APP-THEME-SHADOWS-012: should render element with multi-layered shadow creating subtle 3D effect',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: layered shadows for enhanced depth (neumorphism)
@@ -702,7 +702,7 @@ test.describe('Shadows', () => {
   )
 
   test(
-    'APP-THEME-SHADOWS-APPLICATION-007: should render input with prominent focus shadow for keyboard navigation',
+    'APP-THEME-SHADOWS-013: should render input with prominent focus shadow for keyboard navigation',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: focus ring shadow for accessibility
@@ -754,7 +754,7 @@ test.describe('Shadows', () => {
   )
 
   test(
-    'APP-THEME-SHADOWS-APPLICATION-008: should render card with appropriate shadow depth per device',
+    'APP-THEME-SHADOWS-014: should render card with appropriate shadow depth per device',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: responsive shadow scaling for mobile vs desktop
@@ -804,7 +804,7 @@ test.describe('Shadows', () => {
   )
 
   test(
-    'APP-THEME-SHADOWS-APPLICATION-009: should render components with consistent elevation scale',
+    'APP-THEME-SHADOWS-015: should render components with consistent elevation scale',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: shadow elevation hierarchy in component system
@@ -884,7 +884,7 @@ test.describe('Shadows', () => {
   )
 
   test(
-    'APP-THEME-SHADOWS-APPLICATION-010: should render button with reduced shadow creating pressed-in effect',
+    'APP-THEME-SHADOWS-016: should render button with reduced shadow creating pressed-in effect',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: active/pressed shadow state for buttons
@@ -940,7 +940,7 @@ test.describe('Shadows', () => {
   // ============================================================================
 
   test(
-    'APP-THEME-SHADOWS-REGRESSION-001: user can complete full shadows workflow',
+    'APP-THEME-SHADOWS-017: user can complete full shadows workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application with comprehensive shadow system

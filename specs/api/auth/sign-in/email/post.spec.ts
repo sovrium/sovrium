@@ -31,7 +31,7 @@ test.describe('Sign in with email and password', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-SIGN-IN-EMAIL-SUCCESS-001: should returns 200 OK with session token and user data',
+    'API-AUTH-SIGN-IN-EMAIL-001: should returns 200 OK with session token and user data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A registered user with valid credentials
@@ -67,7 +67,7 @@ test.describe('Sign in with email and password', () => {
   )
 
   test.fixme(
-    'API-AUTH-SIGN-IN-EMAIL-VALIDATION-REQUIRED-EMAIL-001: should returns 400 Bad Request with validation error',
+    'API-AUTH-SIGN-IN-EMAIL-002: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
@@ -97,7 +97,7 @@ test.describe('Sign in with email and password', () => {
   )
 
   test.fixme(
-    'API-AUTH-SIGN-IN-EMAIL-VALIDATION-REQUIRED-PASSWORD-001: should returns 400 Bad Request with validation error',
+    'API-AUTH-SIGN-IN-EMAIL-003: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
@@ -127,7 +127,7 @@ test.describe('Sign in with email and password', () => {
   )
 
   test.fixme(
-    'API-AUTH-SIGN-IN-EMAIL-VALIDATION-INVALID-EMAIL-FORMAT-001: should returns 400 Bad Request with validation error',
+    'API-AUTH-SIGN-IN-EMAIL-004: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -158,7 +158,7 @@ test.describe('Sign in with email and password', () => {
   )
 
   test.fixme(
-    'API-AUTH-SIGN-IN-EMAIL-PERMISSIONS-INVALID-CREDENTIALS-WRONG-PASSWORD-001: should returns 401 Unauthorized with generic error to prevent enumeration',
+    'API-AUTH-SIGN-IN-EMAIL-005: should returns 401 Unauthorized with generic error to prevent enumeration',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A registered user
@@ -194,7 +194,7 @@ test.describe('Sign in with email and password', () => {
   )
 
   test.fixme(
-    'API-AUTH-SIGN-IN-EMAIL-PERMISSIONS-INVALID-CREDENTIALS-NONEXISTENT-EMAIL-001: should returns 401 Unauthorized with same generic error to prevent enumeration',
+    'API-AUTH-SIGN-IN-EMAIL-006: should returns 401 Unauthorized with same generic error to prevent enumeration',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server with no registered user
@@ -225,7 +225,7 @@ test.describe('Sign in with email and password', () => {
   )
 
   test.fixme(
-    'API-AUTH-SIGN-IN-EMAIL-EDGE-CASE-EMAIL-CASE-INSENSITIVE-001: should returns 200 OK with session token (case-insensitive matching)',
+    'API-AUTH-SIGN-IN-EMAIL-007: should returns 200 OK with session token (case-insensitive matching)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A registered user with lowercase email
@@ -261,7 +261,7 @@ test.describe('Sign in with email and password', () => {
   )
 
   test.fixme(
-    'API-AUTH-SIGN-IN-EMAIL-EDGE-CASE-REMEMBER-ME-001: should returns 200 OK with extended session token',
+    'API-AUTH-SIGN-IN-EMAIL-008: should returns 200 OK with extended session token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A registered user

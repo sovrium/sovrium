@@ -796,7 +796,7 @@ test.describe('Color Palette', () => {
   )
 
   test(
-    'APP-THEME-COLORS-APPLICATION-001: should render button with primary background color',
+    'APP-THEME-COLORS-011: should render button with primary background color',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: primary color used in button component
@@ -834,7 +834,7 @@ test.describe('Color Palette', () => {
   )
 
   test(
-    'APP-THEME-COLORS-APPLICATION-002: should render darker blue on hover',
+    'APP-THEME-COLORS-012: should render darker blue on hover',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: primary-hover color used on button:hover
@@ -871,7 +871,7 @@ test.describe('Color Palette', () => {
   )
 
   test(
-    'APP-THEME-COLORS-APPLICATION-003: should render text with theme text color',
+    'APP-THEME-COLORS-013: should render text with theme text color',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: text color used in typography
@@ -907,7 +907,7 @@ test.describe('Color Palette', () => {
   )
 
   test(
-    'APP-THEME-COLORS-APPLICATION-004: should render green alert indicating success state',
+    'APP-THEME-COLORS-014: should render green alert indicating success state',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: success color used in alert
@@ -947,7 +947,7 @@ test.describe('Color Palette', () => {
   )
 
   test(
-    'APP-THEME-COLORS-APPLICATION-005: should create visual hierarchy through tonal variation',
+    'APP-THEME-COLORS-015: should create visual hierarchy through tonal variation',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: gray scale used in UI hierarchy
@@ -1060,7 +1060,7 @@ test.describe('Color Palette', () => {
   // ============================================================================
 
   test(
-    'APP-THEME-COLORS-REGRESSION-001: user can complete full colors workflow',
+    'APP-THEME-COLORS-016: user can complete full colors workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application with comprehensive color palette

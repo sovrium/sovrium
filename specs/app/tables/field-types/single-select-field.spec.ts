@@ -214,7 +214,7 @@ test.describe('Single Select Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-SINGLE-SELECT-REGRESSION-001: user can complete full single-select-field workflow',
+    'APP-SINGLE-SELECT-FIELD-006: user can complete full single-select-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

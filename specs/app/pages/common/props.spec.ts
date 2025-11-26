@@ -325,7 +325,7 @@ test.describe('Component Props', () => {
   // ============================================================================
 
   test(
-    'APP-PAGES-PROPS-REGRESSION-011: user can complete full props workflow',
+    'APP-PAGES-PROPS-011: user can complete full props workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application with various prop types

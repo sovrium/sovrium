@@ -31,7 +31,7 @@ test.describe('Update organization', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-UPDATE-ORGANIZATION-SUCCESS-001: should returns 200 OK with updated organization data',
+    'API-ORG-UPDATE-ORGANIZATION-001: should returns 200 OK with updated organization data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner
@@ -81,7 +81,7 @@ test.describe('Update organization', () => {
   )
 
   test.fixme(
-    'API-ORG-UPDATE-ORGANIZATION-SUCCESS-PARTIAL-UPDATE-001: should returns 200 OK with name updated, slug unchanged',
+    'API-ORG-UPDATE-ORGANIZATION-002: should returns 200 OK with name updated, slug unchanged',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner
@@ -124,7 +124,7 @@ test.describe('Update organization', () => {
   )
 
   test.fixme(
-    'API-ORG-UPDATE-ORGANIZATION-VALIDATION-REQUIRED-ORGANIZATION-ID-001: should returns 400 Bad Request with validation error',
+    'API-ORG-UPDATE-ORGANIZATION-003: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner
@@ -162,7 +162,7 @@ test.describe('Update organization', () => {
   )
 
   test.fixme(
-    'API-ORG-UPDATE-ORGANIZATION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
+    'API-ORG-UPDATE-ORGANIZATION-004: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -193,7 +193,7 @@ test.describe('Update organization', () => {
   )
 
   test.fixme(
-    'API-ORG-UPDATE-ORGANIZATION-PERMISSIONS-FORBIDDEN-NON-OWNER-001: should returns 403 Forbidden',
+    'API-ORG-UPDATE-ORGANIZATION-005: should returns 403 Forbidden',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization member (non-owner)
@@ -238,7 +238,7 @@ test.describe('Update organization', () => {
   )
 
   test.fixme(
-    'API-ORG-UPDATE-ORGANIZATION-NOT-FOUND-001: should returns 404 Not Found',
+    'API-ORG-UPDATE-ORGANIZATION-006: should returns 404 Not Found',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -277,7 +277,7 @@ test.describe('Update organization', () => {
   )
 
   test.fixme(
-    'API-ORG-UPDATE-ORGANIZATION-CONFLICT-DUPLICATE-SLUG-001: should returns 409 Conflict error',
+    'API-ORG-UPDATE-ORGANIZATION-007: should returns 409 Conflict error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner and another existing organization

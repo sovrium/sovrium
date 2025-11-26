@@ -375,7 +375,7 @@ test.describe('Animation Configuration', () => {
   )
 
   test(
-    'APP-THEME-ANIMATIONS-APPLICATION-001: should render modal with fade-in animation on mount',
+    'APP-THEME-ANIMATIONS-009: should render modal with fade-in animation on mount',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: fadeIn animation applied to modal component
@@ -416,7 +416,7 @@ test.describe('Animation Configuration', () => {
   )
 
   test(
-    'APP-THEME-ANIMATIONS-APPLICATION-002: should render badge with pulsing animation loop',
+    'APP-THEME-ANIMATIONS-010: should render badge with pulsing animation loop',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: pulse animation applied to notification badge
@@ -457,7 +457,7 @@ test.describe('Animation Configuration', () => {
   )
 
   test(
-    'APP-THEME-ANIMATIONS-APPLICATION-003: should render button with CSS transition on hover',
+    'APP-THEME-ANIMATIONS-011: should render button with CSS transition on hover',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: transition animation applied to button hover state
@@ -498,7 +498,7 @@ test.describe('Animation Configuration', () => {
   )
 
   test(
-    'APP-THEME-ANIMATIONS-APPLICATION-004: should render hero content sliding up and fading in',
+    'APP-THEME-ANIMATIONS-012: should render hero content sliding up and fading in',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: fadeInUp entrance animation applied to hero section
@@ -549,7 +549,7 @@ test.describe('Animation Configuration', () => {
   )
 
   test(
-    'APP-THEME-ANIMATIONS-APPLICATION-005: should render sidebar sliding in from left',
+    'APP-THEME-ANIMATIONS-013: should render sidebar sliding in from left',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: slideIn entrance animation applied to sidebar
@@ -598,7 +598,7 @@ test.describe('Animation Configuration', () => {
   )
 
   test(
-    'APP-THEME-ANIMATIONS-APPLICATION-006: should render toast fading out before removal',
+    'APP-THEME-ANIMATIONS-014: should render toast fading out before removal',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: fadeOut exit animation applied to toast notification
@@ -647,7 +647,7 @@ test.describe('Animation Configuration', () => {
   )
 
   test(
-    'APP-THEME-ANIMATIONS-APPLICATION-007: should render card scaling up when scrolled into view',
+    'APP-THEME-ANIMATIONS-015: should render card scaling up when scrolled into view',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: scaleUp entrance animation on scroll-triggered card reveal
@@ -698,7 +698,7 @@ test.describe('Animation Configuration', () => {
   )
 
   test(
-    'APP-THEME-ANIMATIONS-APPLICATION-008: should render button gently floating up and down',
+    'APP-THEME-ANIMATIONS-016: should render button gently floating up and down',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: float animation applied to floating action button (FAB)
@@ -747,7 +747,7 @@ test.describe('Animation Configuration', () => {
   )
 
   test(
-    'APP-THEME-ANIMATIONS-APPLICATION-009: should render button scaling up smoothly on hover',
+    'APP-THEME-ANIMATIONS-017: should render button scaling up smoothly on hover',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: hover animation for button scale interaction
@@ -789,7 +789,7 @@ test.describe('Animation Configuration', () => {
   )
 
   test(
-    'APP-THEME-ANIMATIONS-APPLICATION-010: should render list items appearing one after another',
+    'APP-THEME-ANIMATIONS-018: should render list items appearing one after another',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: stagger animation for list items
@@ -839,7 +839,7 @@ test.describe('Animation Configuration', () => {
   )
 
   test(
-    'APP-THEME-ANIMATIONS-APPLICATION-011: should render spinner rotating infinitely',
+    'APP-THEME-ANIMATIONS-019: should render spinner rotating infinitely',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: rotate animation for loading spinner
@@ -888,7 +888,7 @@ test.describe('Animation Configuration', () => {
   )
 
   test(
-    'APP-THEME-ANIMATIONS-APPLICATION-012: should render input shaking horizontally to indicate error',
+    'APP-THEME-ANIMATIONS-020: should render input shaking horizontally to indicate error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: shake animation for form validation error
@@ -940,7 +940,7 @@ test.describe('Animation Configuration', () => {
   )
 
   test(
-    'APP-THEME-ANIMATIONS-APPLICATION-013: should render background moving slower than foreground (parallax effect)',
+    'APP-THEME-ANIMATIONS-021: should render background moving slower than foreground (parallax effect)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: parallax scroll animation for background image
@@ -987,7 +987,7 @@ test.describe('Animation Configuration', () => {
   )
 
   test(
-    'APP-THEME-ANIMATIONS-APPLICATION-014: should render text appearing one character at a time',
+    'APP-THEME-ANIMATIONS-022: should render text appearing one character at a time',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: typewriter animation for text reveal
@@ -1036,7 +1036,7 @@ test.describe('Animation Configuration', () => {
   )
 
   test(
-    'APP-THEME-ANIMATIONS-APPLICATION-015: should disable animations or use simplified versions',
+    'APP-THEME-ANIMATIONS-023: should disable animations or use simplified versions',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: reduced motion preference respected
@@ -1086,7 +1086,7 @@ test.describe('Animation Configuration', () => {
   // ============================================================================
 
   test(
-    'APP-THEME-ANIMATIONS-REGRESSION-001: user can complete full animations workflow',
+    'APP-THEME-ANIMATIONS-024: user can complete full animations workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application with comprehensive animation system

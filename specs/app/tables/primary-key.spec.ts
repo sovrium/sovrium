@@ -545,7 +545,7 @@ test.describe('Primary Key', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-PRIMARYKEY-REGRESSION-001: user can complete full Primary Key workflow',
+    'APP-TABLES-PRIMARYKEY-009: user can complete full Primary Key workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Database with representative primary key configurations

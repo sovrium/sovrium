@@ -499,7 +499,7 @@ test.describe('Theme Configuration', () => {
   )
 
   test(
-    'APP-THEME-INTEGRATION-001: should render cohesive UI with all theme tokens applied together',
+    'APP-THEME-009: should render cohesive UI with all theme tokens applied together',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: a complete theme with multiple design tokens used in page component
@@ -572,7 +572,7 @@ test.describe('Theme Configuration', () => {
   )
 
   test(
-    'APP-THEME-INTEGRATION-002: should maintain visual consistency across entire page layout',
+    'APP-THEME-010: should maintain visual consistency across entire page layout',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: a theme used across multiple page sections
@@ -627,7 +627,7 @@ test.describe('Theme Configuration', () => {
   )
 
   test(
-    'APP-THEME-INTEGRATION-003: should render adaptive layouts that respond to screen size',
+    'APP-THEME-011: should render adaptive layouts that respond to screen size',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: a theme with responsive breakpoints integrated with component layouts
@@ -685,7 +685,7 @@ test.describe('Theme Configuration', () => {
   )
 
   test(
-    'APP-THEME-INTEGRATION-004: should create cohesive branded motion with theme-aware animations',
+    'APP-THEME-012: should create cohesive branded motion with theme-aware animations',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: theme with animations that use theme color tokens for motion design
@@ -782,7 +782,7 @@ test.describe('Theme Configuration', () => {
   // ============================================================================
 
   test(
-    'APP-THEME-REGRESSION-001: user can complete full theme workflow',
+    'APP-THEME-013: user can complete full theme workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application configured with comprehensive theme system

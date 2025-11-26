@@ -285,7 +285,7 @@ test.describe('Updated By Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-UPDATED-BY-REGRESSION-001: user can complete full updated-by-field workflow',
+    'APP-UPDATED-BY-FIELD-006: user can complete full updated-by-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

@@ -31,7 +31,7 @@ test.describe('Create organization', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-CREATE-ORGANIZATION-SUCCESS-001: should returns 201 Created with organization data and user is set as owner',
+    'API-ORG-CREATE-ORGANIZATION-001: should returns 201 Created with organization data and user is set as owner',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -78,7 +78,7 @@ test.describe('Create organization', () => {
   )
 
   test.fixme(
-    'API-ORG-CREATE-ORGANIZATION-SUCCESS-AUTO-SLUG-001: should returns 201 Created with auto-generated slug from name',
+    'API-ORG-CREATE-ORGANIZATION-002: should returns 201 Created with auto-generated slug from name',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -112,7 +112,7 @@ test.describe('Create organization', () => {
   )
 
   test.fixme(
-    'API-ORG-CREATE-ORGANIZATION-VALIDATION-REQUIRED-NAME-001: should returns 400 Bad Request with validation error',
+    'API-ORG-CREATE-ORGANIZATION-003: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -147,7 +147,7 @@ test.describe('Create organization', () => {
   )
 
   test.fixme(
-    'API-ORG-CREATE-ORGANIZATION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
+    'API-ORG-CREATE-ORGANIZATION-004: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -177,7 +177,7 @@ test.describe('Create organization', () => {
   )
 
   test.fixme(
-    'API-ORG-CREATE-ORGANIZATION-CONFLICT-DUPLICATE-SLUG-001: should returns 409 Conflict error',
+    'API-ORG-CREATE-ORGANIZATION-005: should returns 409 Conflict error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user and an existing organization

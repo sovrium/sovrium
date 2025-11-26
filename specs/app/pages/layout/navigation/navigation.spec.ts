@@ -466,7 +466,7 @@ test.describe('Navigation Configuration', () => {
   // ============================================================================
 
   test(
-    'APP-PAGES-LAYOUT-NAVIGATION-REGRESSION-001: user can complete full navigation workflow',
+    'APP-PAGES-NAV-013: user can complete full navigation workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: app configuration

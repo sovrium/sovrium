@@ -30,7 +30,7 @@ test.describe('Reset password', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
   test.fixme(
-    'API-AUTH-RESET-PASSWORD-SUCCESS-001: should  password is updated',
+    'API-AUTH-RESET-PASSWORD-001: should  password is updated',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user with valid reset token
@@ -74,7 +74,7 @@ test.describe('Reset password', () => {
   )
 
   test.fixme(
-    'API-AUTH-RESET-PASSWORD-VALIDATION-REQUIRED-NEW-PASSWORD-001: should  request with validation error',
+    'API-AUTH-RESET-PASSWORD-002: should  request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user with valid reset token
@@ -114,7 +114,7 @@ test.describe('Reset password', () => {
   )
 
   test.fixme(
-    'API-AUTH-RESET-PASSWORD-VALIDATION-PASSWORD-TOO-SHORT-001: should  request with validation error',
+    'API-AUTH-RESET-PASSWORD-003: should  request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user with valid reset token
@@ -155,7 +155,7 @@ test.describe('Reset password', () => {
   )
 
   test.fixme(
-    'API-AUTH-RESET-PASSWORD-PERMISSIONS-INVALID-TOKEN-001: should  (or 400 depending on better auth version)',
+    'API-AUTH-RESET-PASSWORD-004: should  (or 400 depending on better auth version)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -187,7 +187,7 @@ test.describe('Reset password', () => {
   )
 
   test.fixme(
-    'API-AUTH-RESET-PASSWORD-PERMISSIONS-EXPIRED-TOKEN-001: should  (or 400 depending on better auth version)',
+    'API-AUTH-RESET-PASSWORD-005: should  (or 400 depending on better auth version)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user with expired reset token
@@ -227,7 +227,7 @@ test.describe('Reset password', () => {
   )
 
   test.fixme(
-    'API-AUTH-RESET-PASSWORD-SECURITY-TOKEN-REUSE-PREVENTION-001: should  (token already used)',
+    'API-AUTH-RESET-PASSWORD-006: should  (token already used)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user who has already used their reset token
@@ -267,7 +267,7 @@ test.describe('Reset password', () => {
   )
 
   test.fixme(
-    'API-AUTH-RESET-PASSWORD-EDGE-CASE-MISSING-TOKEN-001: should  request with validation error',
+    'API-AUTH-RESET-PASSWORD-007: should  request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -299,7 +299,7 @@ test.describe('Reset password', () => {
   )
 
   test.fixme(
-    'API-AUTH-RESET-PASSWORD-EDGE-CASE-REVOKE-ALL-SESSIONS-001: should  all active sessions are revoked',
+    'API-AUTH-RESET-PASSWORD-008: should  all active sessions are revoked',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user with active sessions and valid reset token

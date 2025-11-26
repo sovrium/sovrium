@@ -590,7 +590,7 @@ test.describe('Education Event Schema', () => {
   )
 
   test(
-    'APP-PAGES-META-STRUCTURED-DATA-EDUCATION-EVENT-REGRESSION-001: user can complete full Education Event workflow',
+    'APP-PAGES-EDUCATIONEVENT-015: user can complete full Education Event workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       await startServerWithSchema({

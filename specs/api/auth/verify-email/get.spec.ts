@@ -30,7 +30,7 @@ test.describe('Verify email address', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
   test.fixme(
-    'API-AUTH-VERIFY-EMAIL-SUCCESS-001: should  marks email as verified',
+    'API-AUTH-VERIFY-EMAIL-001: should  marks email as verified',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user with valid verification token
@@ -66,7 +66,7 @@ test.describe('Verify email address', () => {
   )
 
   test.fixme(
-    'API-AUTH-VERIFY-EMAIL-VALIDATION-REQUIRED-TOKEN-001: should  request with validation error',
+    'API-AUTH-VERIFY-EMAIL-002: should  request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
@@ -91,7 +91,7 @@ test.describe('Verify email address', () => {
   )
 
   test.fixme(
-    'API-AUTH-VERIFY-EMAIL-PERMISSIONS-INVALID-TOKEN-001: should  (or 400 depending on better auth version)',
+    'API-AUTH-VERIFY-EMAIL-003: should  (or 400 depending on better auth version)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -115,7 +115,7 @@ test.describe('Verify email address', () => {
   )
 
   test.fixme(
-    'API-AUTH-VERIFY-EMAIL-PERMISSIONS-EXPIRED-TOKEN-001: should  (or 400 depending on better auth version)',
+    'API-AUTH-VERIFY-EMAIL-004: should  (or 400 depending on better auth version)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user with expired verification token
@@ -147,7 +147,7 @@ test.describe('Verify email address', () => {
   )
 
   test.fixme(
-    'API-AUTH-VERIFY-EMAIL-SECURITY-TOKEN-REUSE-PREVENTION-001: should  (token already used)',
+    'API-AUTH-VERIFY-EMAIL-005: should  (token already used)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user who has already verified their email
@@ -179,7 +179,7 @@ test.describe('Verify email address', () => {
   )
 
   test.fixme(
-    'API-AUTH-VERIFY-EMAIL-EDGE-CASE-ALREADY-VERIFIED-001: should  or 400 (implementation-dependent)',
+    'API-AUTH-VERIFY-EMAIL-006: should  or 400 (implementation-dependent)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user with already verified email and unused token

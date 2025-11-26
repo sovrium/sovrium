@@ -31,7 +31,7 @@ test.describe('List organization members', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-LIST-MEMBERS-SUCCESS-001: should returns 200 OK with all members and their roles',
+    'API-ORG-LIST-MEMBERS-001: should returns 200 OK with all members and their roles',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user who is member of organization with multiple members
@@ -89,7 +89,7 @@ test.describe('List organization members', () => {
   )
 
   test.fixme(
-    'API-ORG-LIST-MEMBERS-VALIDATION-REQUIRED-ORGANIZATION-ID-001: should returns 400 Bad Request with validation error',
+    'API-ORG-LIST-MEMBERS-002: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -124,7 +124,7 @@ test.describe('List organization members', () => {
   )
 
   test.fixme(
-    'API-ORG-LIST-MEMBERS-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
+    'API-ORG-LIST-MEMBERS-003: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -151,7 +151,7 @@ test.describe('List organization members', () => {
   )
 
   test.fixme(
-    'API-ORG-LIST-MEMBERS-NOT-FOUND-001: should returns 404 Not Found',
+    'API-ORG-LIST-MEMBERS-004: should returns 404 Not Found',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -189,7 +189,7 @@ test.describe('List organization members', () => {
   )
 
   test.fixme(
-    'API-ORG-LIST-MEMBERS-SECURITY-NON-MEMBER-ACCESS-001: should returns 404 Not Found (not 403 to prevent organization enumeration)',
+    'API-ORG-LIST-MEMBERS-005: should returns 404 Not Found (not 403 to prevent organization enumeration)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user who is not member of an organization
@@ -236,7 +236,7 @@ test.describe('List organization members', () => {
   )
 
   test.fixme(
-    'API-ORG-LIST-MEMBERS-SECURITY-PASSWORD-EXCLUSION-001: should returns 200 OK with member data but password field excluded for security',
+    'API-ORG-LIST-MEMBERS-006: should returns 200 OK with member data but password field excluded for security',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization member

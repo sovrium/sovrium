@@ -214,7 +214,7 @@ test.describe('Page ID', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-PAGES-ID-REGRESSION-001: user can complete full page ID workflow',
+    'APP-PAGES-ID-007: user can complete full page ID workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application with pages using various ID formats

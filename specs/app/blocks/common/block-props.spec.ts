@@ -668,7 +668,7 @@ test.describe('Block Props', () => {
   // ============================================================================
 
   test(
-    'APP-BLOCKS-BLOCK-PROPS-REGRESSION-001: user can complete full props workflow',
+    'APP-BLOCKS-PROPS-015: user can complete full props workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application with comprehensive block props

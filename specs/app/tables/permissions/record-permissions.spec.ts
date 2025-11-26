@@ -469,7 +469,7 @@ test.describe('Record-Level Permissions', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-PERMISSIONS-RECORD-REGRESSION-001: user can complete full record-permissions workflow',
+    'APP-TABLES-RECORD-PERMISSIONS-007: user can complete full record-permissions workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative record-level permissions

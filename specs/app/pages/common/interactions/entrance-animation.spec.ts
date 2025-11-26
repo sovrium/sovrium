@@ -349,7 +349,7 @@ test.describe('Entrance Animation', () => {
   // ============================================================================
 
   test(
-    'APP-PAGES-INTERACTIONS-ENTRANCE-ANIMATION-REGRESSION-001: user can complete full entrance animation workflow',
+    'APP-PAGES-INTERACTION-ENTRANCE-009: user can complete full entrance animation workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application with comprehensive entrance animations

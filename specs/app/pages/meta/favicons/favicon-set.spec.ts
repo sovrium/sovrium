@@ -244,7 +244,7 @@ test.describe('Favicon Set', () => {
   )
 
   test(
-    'APP-PAGES-META-FAVICONS-FAVICON-SET-REGRESSION-001: user can complete full favicon set workflow',
+    'APP-PAGES-FAVICONSET-008: user can complete full favicon set workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: app configuration

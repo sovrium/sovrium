@@ -168,7 +168,7 @@ test.describe('Table View', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-VIEW-REGRESSION-001: user can complete full view workflow',
+    'APP-TABLES-VIEW-004: user can complete full view workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative view

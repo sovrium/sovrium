@@ -157,7 +157,7 @@ test.describe('Phone Number Field', () => {
   )
 
   test.fixme(
-    'APP-PHONE-NUMBER-FIELD-004: should reject NULL value when table has required phone-number field',
+    'APP-FIELD-PHONE-NUMBER-004: should reject NULL value when table has required phone-number field',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'support_tickets' with required phone-number field 'contact_phone'
@@ -198,7 +198,7 @@ test.describe('Phone Number Field', () => {
   )
 
   test.fixme(
-    'APP-PHONE-NUMBER-FIELD-005: should create btree index for fast phone number lookups when phone-number field has indexed=true',
+    'APP-FIELD-PHONE-NUMBER-005: should create btree index for fast phone number lookups when phone-number field has indexed=true',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with phone-number field, indexed=true
@@ -243,7 +243,7 @@ test.describe('Phone Number Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-PHONE-NUMBER-REGRESSION-001: user can complete full phone-number-field workflow',
+    'APP-FIELD-PHONE-NUMBER-006: user can complete full phone-number-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative phone-number field

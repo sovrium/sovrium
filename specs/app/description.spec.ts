@@ -476,7 +476,7 @@ test(
 // ============================================================================
 
 test(
-  'APP-DESCRIPTION-REGRESSION-001: user can view complete app description in all scenarios',
+  'APP-DESCRIPTION-016: user can view complete app description in all scenarios',
   { tag: '@regression' },
   async ({ page, startServerWithSchema }) => {
     // ============================================================================

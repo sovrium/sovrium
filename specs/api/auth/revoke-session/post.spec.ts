@@ -31,7 +31,7 @@ test.describe('Revoke specific session', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-REVOKE-SESSION-SUCCESS-001: should returns 200 OK and revokes the specified session',
+    'API-AUTH-REVOKE-SESSION-001: should returns 200 OK and revokes the specified session',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user with multiple active sessions
@@ -80,7 +80,7 @@ test.describe('Revoke specific session', () => {
   )
 
   test.fixme(
-    'API-AUTH-REVOKE-SESSION-VALIDATION-REQUIRED-SESSION-ID-001: should returns 400 Bad Request with validation error',
+    'API-AUTH-REVOKE-SESSION-002: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -115,7 +115,7 @@ test.describe('Revoke specific session', () => {
   )
 
   test.fixme(
-    'API-AUTH-REVOKE-SESSION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
+    'API-AUTH-REVOKE-SESSION-003: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -145,7 +145,7 @@ test.describe('Revoke specific session', () => {
   )
 
   test.fixme(
-    'API-AUTH-REVOKE-SESSION-PERMISSIONS-NOT-FOUND-NONEXISTENT-SESSION-001: should returns 404 Not Found',
+    'API-AUTH-REVOKE-SESSION-004: should returns 404 Not Found',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -183,7 +183,7 @@ test.describe('Revoke specific session', () => {
   )
 
   test.fixme(
-    'API-AUTH-REVOKE-SESSION-PERMISSIONS-FORBIDDEN-OTHER-USER-SESSION-001: should returns 404 Not Found (not 403 to prevent session enumeration)',
+    'API-AUTH-REVOKE-SESSION-005: should returns 404 Not Found (not 403 to prevent session enumeration)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Two users with their own sessions
@@ -225,7 +225,7 @@ test.describe('Revoke specific session', () => {
   )
 
   test.fixme(
-    'API-AUTH-REVOKE-SESSION-EDGE-CASE-REVOKE-CURRENT-SESSION-001: should returns 200 OK and revokes current session',
+    'API-AUTH-REVOKE-SESSION-006: should returns 200 OK and revokes current session',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user with current session

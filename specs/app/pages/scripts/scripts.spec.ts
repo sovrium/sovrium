@@ -326,7 +326,7 @@ test.describe('Client Scripts Configuration', () => {
   )
 
   test(
-    'APP-PAGES-SCRIPTS-REGRESSION-001: user can complete full Client Scripts workflow',
+    'APP-PAGES-SCRIPTS-011: user can complete full Client Scripts workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: app configuration

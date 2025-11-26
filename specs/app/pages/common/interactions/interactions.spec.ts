@@ -335,7 +335,7 @@ test.describe('Component Interactions', () => {
   // ============================================================================
 
   test(
-    'APP-PAGES-INTERACTIONS-REGRESSION-001: user can complete full interactions workflow',
+    'APP-PAGES-INTERACTION-MAIN-009: user can complete full interactions workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application with comprehensive interaction system

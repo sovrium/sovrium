@@ -31,7 +31,7 @@ test.describe('Sign up with email and password', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-SIGN-UP-EMAIL-SUCCESS-001: should returns 200 OK with user data and session token',
+    'API-AUTH-SIGN-UP-EMAIL-001: should returns 200 OK with user data and session token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server with no existing users
@@ -67,7 +67,7 @@ test.describe('Sign up with email and password', () => {
   )
 
   test.fixme(
-    'API-AUTH-SIGN-UP-EMAIL-VALIDATION-REQUIRED-NAME-001: should returns 400 Bad Request with validation error',
+    'API-AUTH-SIGN-UP-EMAIL-002: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
@@ -98,7 +98,7 @@ test.describe('Sign up with email and password', () => {
   )
 
   test.fixme(
-    'API-AUTH-SIGN-UP-EMAIL-VALIDATION-REQUIRED-EMAIL-001: should returns 400 Bad Request with validation error',
+    'API-AUTH-SIGN-UP-EMAIL-003: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
@@ -129,7 +129,7 @@ test.describe('Sign up with email and password', () => {
   )
 
   test.fixme(
-    'API-AUTH-SIGN-UP-EMAIL-VALIDATION-REQUIRED-PASSWORD-001: should returns 400 Bad Request with validation error',
+    'API-AUTH-SIGN-UP-EMAIL-004: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
@@ -160,7 +160,7 @@ test.describe('Sign up with email and password', () => {
   )
 
   test.fixme(
-    'API-AUTH-SIGN-UP-EMAIL-VALIDATION-INVALID-EMAIL-FORMAT-001: should returns 400 Bad Request with validation error',
+    'API-AUTH-SIGN-UP-EMAIL-005: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
@@ -192,7 +192,7 @@ test.describe('Sign up with email and password', () => {
   )
 
   test.fixme(
-    'API-AUTH-SIGN-UP-EMAIL-VALIDATION-PASSWORD-TOO-SHORT-001: should returns 400 Bad Request with validation error',
+    'API-AUTH-SIGN-UP-EMAIL-006: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -224,7 +224,7 @@ test.describe('Sign up with email and password', () => {
   )
 
   test.fixme(
-    'API-AUTH-SIGN-UP-EMAIL-CONFLICT-DUPLICATE-EMAIL-001: should returns 409 Conflict error',
+    'API-AUTH-SIGN-UP-EMAIL-007: should returns 409 Conflict error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server with existing user
@@ -261,7 +261,7 @@ test.describe('Sign up with email and password', () => {
   )
 
   test.fixme(
-    'API-AUTH-SIGN-UP-EMAIL-CONFLICT-EMAIL-CASE-INSENSITIVE-001: should returns 409 Conflict error (case-insensitive email matching)',
+    'API-AUTH-SIGN-UP-EMAIL-008: should returns 409 Conflict error (case-insensitive email matching)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server with existing user (lowercase email)
@@ -298,7 +298,7 @@ test.describe('Sign up with email and password', () => {
   )
 
   test.fixme(
-    'API-AUTH-SIGN-UP-EMAIL-SECURITY-XSS-PREVENTION-NAME-001: should returns 200 OK with sanitized name (XSS payload neutralized)',
+    'API-AUTH-SIGN-UP-EMAIL-009: should returns 200 OK with sanitized name (XSS payload neutralized)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
@@ -326,7 +326,7 @@ test.describe('Sign up with email and password', () => {
   )
 
   test.fixme(
-    'API-AUTH-SIGN-UP-EMAIL-EDGE-CASE-UNICODE-NAME-001: should returns 200 OK with Unicode name preserved',
+    'API-AUTH-SIGN-UP-EMAIL-010: should returns 200 OK with Unicode name preserved',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server

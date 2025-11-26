@@ -203,7 +203,7 @@ test.describe('Upsert records (create or update)', () => {
   )
 
   test.fixme(
-    'API-RECORDS-UPSERT-PERMISSIONS-UNAUTHORIZED-001: should return 401 Unauthorized',
+    'API-RECORDS-UPSERT-004: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An unauthenticated user
@@ -255,7 +255,7 @@ test.describe('Upsert records (create or update)', () => {
   )
 
   test.fixme(
-    'API-RECORDS-UPSERT-PERMISSIONS-FORBIDDEN-CREATE-001: should return 403 when member lacks create permission',
+    'API-RECORDS-UPSERT-005: should return 403 when member lacks create permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: A member user without create permission
@@ -297,7 +297,7 @@ test.describe('Upsert records (create or update)', () => {
   )
 
   test.fixme(
-    'API-RECORDS-UPSERT-PERMISSIONS-FORBIDDEN-UPDATE-001: should return 403 when member lacks update permission',
+    'API-RECORDS-UPSERT-006: should return 403 when member lacks update permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member user without update permission
@@ -343,7 +343,7 @@ test.describe('Upsert records (create or update)', () => {
   )
 
   test.fixme(
-    'API-RECORDS-UPSERT-PERMISSIONS-FORBIDDEN-VIEWER-001: should return 403 for viewer',
+    'API-RECORDS-UPSERT-007: should return 403 for viewer',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: A viewer user with read-only access
@@ -383,7 +383,7 @@ test.describe('Upsert records (create or update)', () => {
   )
 
   test.fixme(
-    'API-RECORDS-UPSERT-PERMISSIONS-ORG-AUTO-INJECT-001: should auto-inject organization_id',
+    'API-RECORDS-UPSERT-008: should auto-inject organization_id',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An admin user from org_123 upserting records
@@ -434,7 +434,7 @@ test.describe('Upsert records (create or update)', () => {
   )
 
   test.fixme(
-    'API-RECORDS-UPSERT-PERMISSIONS-FIELD-WRITE-FORBIDDEN-CREATE-001: should return 403 when creating with protected field',
+    'API-RECORDS-UPSERT-009: should return 403 when creating with protected field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: A member user with field-level write restrictions (salary protected)
@@ -477,7 +477,7 @@ test.describe('Upsert records (create or update)', () => {
   )
 
   test.fixme(
-    'API-RECORDS-UPSERT-PERMISSIONS-FIELD-WRITE-FORBIDDEN-UPDATE-001: should return 403 when updating with protected field',
+    'API-RECORDS-UPSERT-010: should return 403 when updating with protected field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member user with field-level write restrictions (salary protected)
@@ -524,7 +524,7 @@ test.describe('Upsert records (create or update)', () => {
   )
 
   test.fixme(
-    'API-RECORDS-UPSERT-PERMISSIONS-READONLY-FIELD-001: should return 403 for readonly fields',
+    'API-RECORDS-UPSERT-011: should return 403 for readonly fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: An admin user attempting to set readonly fields
@@ -567,7 +567,7 @@ test.describe('Upsert records (create or update)', () => {
   )
 
   test.fixme(
-    'API-RECORDS-UPSERT-PERMISSIONS-ORG-OVERRIDE-PREVENTED-001: should return 403 when setting different organization_id',
+    'API-RECORDS-UPSERT-012: should return 403 when setting different organization_id',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: A member user attempting to set different organization_id
@@ -615,7 +615,7 @@ test.describe('Upsert records (create or update)', () => {
   )
 
   test.fixme(
-    'API-RECORDS-UPSERT-PERMISSIONS-PARTIAL-FIELD-FILTERING-001: should filter protected fields from response',
+    'API-RECORDS-UPSERT-013: should filter protected fields from response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member user with field-level read restrictions
@@ -672,7 +672,7 @@ test.describe('Upsert records (create or update)', () => {
   )
 
   test.fixme(
-    'API-RECORDS-UPSERT-PERMISSIONS-ADMIN-FULL-ACCESS-001: should return 200 with all fields for admin',
+    'API-RECORDS-UPSERT-014: should return 200 with all fields for admin',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An admin user with full permissions
@@ -726,7 +726,7 @@ test.describe('Upsert records (create or update)', () => {
   )
 
   test.fixme(
-    'API-RECORDS-UPSERT-PERMISSIONS-COMBINED-SCENARIO-001: should enforce combined permissions',
+    'API-RECORDS-UPSERT-015: should enforce combined permissions',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member with create/update permission but field restrictions

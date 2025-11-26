@@ -298,7 +298,7 @@ test.describe('Variable Reference', () => {
   // ============================================================================
 
   test(
-    'APP-PAGES-VARIABLE-REFERENCE-REGRESSION-001: user can complete full variable-reference workflow',
+    'APP-PAGES-VARREF-009: user can complete full variable-reference workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application with comprehensive variable usage

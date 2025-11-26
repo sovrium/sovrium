@@ -474,7 +474,7 @@ test.describe('FAQ Page Schema', () => {
   )
 
   test(
-    'APP-PAGES-META-STRUCTURED-DATA-FAQ-PAGE-REGRESSION-001: user can complete full FAQ Page workflow',
+    'APP-PAGES-FAQPAGE-011: user can complete full FAQ Page workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: app configuration

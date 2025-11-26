@@ -210,7 +210,7 @@ test(
 // ============================================================================
 
 test(
-  'APP-VERSION-REGRESSION-001: user can view version badge with all SemVer variations',
+  'APP-VERSION-008: user can view version badge with all SemVer variations',
   { tag: '@regression' },
   async ({ page, startServerWithSchema }) => {
     // This test consolidates all 7 @spec tests into one efficient workflow

@@ -174,7 +174,7 @@ test.describe('Created At Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-CREATED-AT-REGRESSION-001: user can complete full created-at-field workflow',
+    'APP-CREATED-AT-FIELD-006: user can complete full created-at-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

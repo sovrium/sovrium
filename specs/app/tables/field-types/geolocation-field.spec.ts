@@ -226,7 +226,7 @@ test.describe('Geolocation Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-GEOLOCATION-REGRESSION-001: user can complete full geolocation-field workflow',
+    'APP-GEOLOCATION-FIELD-006: user can complete full geolocation-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

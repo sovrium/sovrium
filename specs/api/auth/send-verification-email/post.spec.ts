@@ -30,7 +30,7 @@ test.describe('Send verification email', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
   test.fixme(
-    'API-AUTH-SEND-VERIFICATION-EMAIL-SUCCESS-001: should  sends verification email with token',
+    'API-AUTH-SEND-VERIFICATION-EMAIL-001: should  sends verification email with token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A registered user with unverified email
@@ -69,7 +69,7 @@ test.describe('Send verification email', () => {
   )
 
   test.fixme(
-    'API-AUTH-SEND-VERIFICATION-EMAIL-VALIDATION-REQUIRED-EMAIL-001: should  request with validation error',
+    'API-AUTH-SEND-VERIFICATION-EMAIL-002: should  request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
@@ -99,7 +99,7 @@ test.describe('Send verification email', () => {
   )
 
   test.fixme(
-    'API-AUTH-SEND-VERIFICATION-EMAIL-VALIDATION-INVALID-EMAIL-FORMAT-001: should  request with validation error',
+    'API-AUTH-SEND-VERIFICATION-EMAIL-003: should  request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -131,7 +131,7 @@ test.describe('Send verification email', () => {
   )
 
   test.fixme(
-    'API-AUTH-SEND-VERIFICATION-EMAIL-EDGE-CASE-ALREADY-VERIFIED-001: should  or 400 (implementation-dependent)',
+    'API-AUTH-SEND-VERIFICATION-EMAIL-004: should  or 400 (implementation-dependent)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user with already verified email
@@ -166,7 +166,7 @@ test.describe('Send verification email', () => {
   )
 
   test.fixme(
-    'API-AUTH-SEND-VERIFICATION-EMAIL-EDGE-CASE-MULTIPLE-REQUESTS-001: should  invalidates old token, creates new one',
+    'API-AUTH-SEND-VERIFICATION-EMAIL-005: should  invalidates old token, creates new one',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user who has already requested verification
@@ -208,7 +208,7 @@ test.describe('Send verification email', () => {
   )
 
   test.fixme(
-    'API-AUTH-SEND-VERIFICATION-EMAIL-EDGE-CASE-NONEXISTENT-EMAIL-001: should  (same response to prevent email enumeration)',
+    'API-AUTH-SEND-VERIFICATION-EMAIL-006: should  (same response to prevent email enumeration)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server with no registered user

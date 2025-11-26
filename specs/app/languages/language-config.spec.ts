@@ -384,7 +384,7 @@ test.describe('Language Configuration', () => {
   // ============================================================================
 
   test(
-    'APP-LANGUAGES-LANGUAGE-CONFIG-REGRESSION-001: user can complete full language-config workflow',
+    'APP-LANGUAGES-CONFIG-009: user can complete full language-config workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application configured with representative language configurations

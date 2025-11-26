@@ -182,7 +182,7 @@ test.describe('Updated At Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-UPDATED-AT-REGRESSION-001: user can complete full updated-at-field workflow',
+    'APP-UPDATED-AT-FIELD-006: user can complete full updated-at-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

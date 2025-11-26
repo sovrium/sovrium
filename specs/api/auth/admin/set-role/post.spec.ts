@@ -31,7 +31,7 @@ test.describe('Admin: Set user role', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ADMIN-SET-ROLE-SUCCESS-001: should returns 200 OK with updated user data',
+    'API-ADMIN-SET-ROLE-001: should returns 200 OK with updated user data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user and an existing user with viewer role
@@ -77,7 +77,7 @@ test.describe('Admin: Set user role', () => {
   )
 
   test.fixme(
-    'API-ADMIN-SET-ROLE-VALIDATION-REQUIRED-FIELDS-001: should returns 400 Bad Request with validation errors',
+    'API-ADMIN-SET-ROLE-002: should returns 400 Bad Request with validation errors',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user
@@ -112,7 +112,7 @@ test.describe('Admin: Set user role', () => {
   )
 
   test.fixme(
-    'API-ADMIN-SET-ROLE-VALIDATION-INVALID-ROLE-001: should returns 400 Bad Request with validation error',
+    'API-ADMIN-SET-ROLE-003: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user
@@ -154,7 +154,7 @@ test.describe('Admin: Set user role', () => {
   )
 
   test.fixme(
-    'API-ADMIN-SET-ROLE-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
+    'API-ADMIN-SET-ROLE-004: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -185,7 +185,7 @@ test.describe('Admin: Set user role', () => {
   )
 
   test.fixme(
-    'API-ADMIN-SET-ROLE-PERMISSIONS-FORBIDDEN-NON-ADMIN-001: should returns 403 Forbidden',
+    'API-ADMIN-SET-ROLE-005: should returns 403 Forbidden',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated regular user (non-admin)
@@ -227,7 +227,7 @@ test.describe('Admin: Set user role', () => {
   )
 
   test.fixme(
-    'API-ADMIN-SET-ROLE-NOT-FOUND-001: should returns 404 Not Found',
+    'API-ADMIN-SET-ROLE-006: should returns 404 Not Found',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user
@@ -266,7 +266,7 @@ test.describe('Admin: Set user role', () => {
   )
 
   test.fixme(
-    'API-ADMIN-SET-ROLE-EDGE-CASE-PROMOTE-TO-ADMIN-001: should returns 200 OK and user gains admin privileges',
+    'API-ADMIN-SET-ROLE-007: should returns 200 OK and user gains admin privileges',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user and a member user
@@ -306,7 +306,7 @@ test.describe('Admin: Set user role', () => {
   )
 
   test.fixme(
-    'API-ADMIN-SET-ROLE-EDGE-CASE-SAME-ROLE-001: should returns 200 OK (idempotent operation)',
+    'API-ADMIN-SET-ROLE-008: should returns 200 OK (idempotent operation)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user and a member user

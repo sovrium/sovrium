@@ -335,7 +335,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-FORMULA-REGRESSION-001: user can complete full formula-field workflow',
+    'APP-FORMULA-FIELD-006: user can complete full formula-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

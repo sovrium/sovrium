@@ -390,7 +390,7 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
   )
 
   test(
-    'STATIC-I18N-REGRESSION-001: complete multi-language workflow',
+    'STATIC-I18N-005: complete multi-language workflow',
     { tag: '@regression' },
     async ({ generateStaticSite, page }) => {
       // GIVEN: complete multi-language app

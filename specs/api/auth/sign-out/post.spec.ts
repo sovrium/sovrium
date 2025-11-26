@@ -30,7 +30,7 @@ test.describe('Sign out user', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
   test.fixme(
-    'API-AUTH-SIGN-OUT-SUCCESS-001: should  invalidates session token',
+    'API-AUTH-SIGN-OUT-001: should  invalidates session token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user with valid session
@@ -70,7 +70,7 @@ test.describe('Sign out user', () => {
   )
 
   test.fixme(
-    'API-AUTH-SIGN-OUT-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should',
+    'API-AUTH-SIGN-OUT-002: should',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
@@ -99,7 +99,7 @@ test.describe('Sign out user', () => {
   )
 
   test.fixme(
-    'API-AUTH-SIGN-OUT-PERMISSIONS-UNAUTHORIZED-INVALID-TOKEN-001: should',
+    'API-AUTH-SIGN-OUT-003: should',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -129,7 +129,7 @@ test.describe('Sign out user', () => {
   )
 
   test.fixme(
-    'API-AUTH-SIGN-OUT-EDGE-CASE-EXPIRED-TOKEN-001: should',
+    'API-AUTH-SIGN-OUT-004: should',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user with expired session token
@@ -167,7 +167,7 @@ test.describe('Sign out user', () => {
   )
 
   test.fixme(
-    'API-AUTH-SIGN-OUT-EDGE-CASE-TOKEN-REUSE-PREVENTION-001: should  (token is invalidated)',
+    'API-AUTH-SIGN-OUT-005: should  (token is invalidated)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user who has just signed out

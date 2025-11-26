@@ -269,7 +269,7 @@ test.describe('Indexed Field Property', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-INDEXED-REGRESSION-001: user can complete full indexed-field workflow',
+    'APP-FIELD-INDEXED-006: user can complete full indexed-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative indexed fields

@@ -209,7 +209,7 @@ test.describe('Date Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-DATE-REGRESSION-001: user can complete full date-field workflow',
+    'APP-DATE-FIELD-006: user can complete full date-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative date field

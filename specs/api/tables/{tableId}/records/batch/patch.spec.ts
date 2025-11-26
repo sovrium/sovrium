@@ -25,7 +25,7 @@ test.describe('Batch update records', () => {
   // ============================================================================
 
   test.fixme(
-    'API-RECORDS-BATCH-005: should return 200 with updated=2 and records array',
+    'API-RECORDS-001: should return 200 with updated=2 and records array',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table 'users' with records ID=1 and ID=2
@@ -92,7 +92,7 @@ test.describe('Batch update records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-006: should return 200 with updated=2 and no records array',
+    'API-RECORDS-002: should return 200 with updated=2 and no records array',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table 'users' with records
@@ -142,7 +142,7 @@ test.describe('Batch update records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-007: should return 400 with rollback on validation error',
+    'API-RECORDS-003: should return 400 with rollback on validation error',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with NOT NULL constraint
@@ -195,7 +195,7 @@ test.describe('Batch update records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-PERMISSIONS-UNAUTHORIZED-002: should return 401 Unauthorized',
+    'API-RECORDS-004: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An unauthenticated user
@@ -243,7 +243,7 @@ test.describe('Batch update records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-PERMISSIONS-FORBIDDEN-MEMBER-002: should return 403 for member without update permission',
+    'API-RECORDS-005: should return 403 for member without update permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member user without update permission
@@ -289,7 +289,7 @@ test.describe('Batch update records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-PERMISSIONS-FORBIDDEN-VIEWER-002: should return 403 for viewer',
+    'API-RECORDS-006: should return 403 for viewer',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A viewer user with read-only access
@@ -333,7 +333,7 @@ test.describe('Batch update records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-PERMISSIONS-ORG-ISOLATION-002: should return 404 for cross-org update',
+    'API-RECORDS-007: should return 404 for cross-org update',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Records from different organization
@@ -385,7 +385,7 @@ test.describe('Batch update records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-PERMISSIONS-FIELD-WRITE-FORBIDDEN-002: should return 403 when updating protected field',
+    'API-RECORDS-008: should return 403 when updating protected field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member user with field-level write restrictions
@@ -436,7 +436,7 @@ test.describe('Batch update records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-PERMISSIONS-READONLY-FIELD-002: should return 403 for readonly fields',
+    'API-RECORDS-009: should return 403 for readonly fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with readonly fields
@@ -481,7 +481,7 @@ test.describe('Batch update records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-PERMISSIONS-ORG-OVERRIDE-PREVENTED-002: should return 403 when changing organization_id',
+    'API-RECORDS-010: should return 403 when changing organization_id',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Member attempts to change organization_id
@@ -527,7 +527,7 @@ test.describe('Batch update records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-PERMISSIONS-PARTIAL-FIELD-FILTERING-002: should filter protected fields from response',
+    'API-RECORDS-011: should filter protected fields from response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member user with field-level read restrictions
@@ -584,7 +584,7 @@ test.describe('Batch update records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-PERMISSIONS-ADMIN-FULL-ACCESS-002: should return 200 with all fields for admin',
+    'API-RECORDS-012: should return 200 with all fields for admin',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An admin user with full permissions
@@ -635,7 +635,7 @@ test.describe('Batch update records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-PERMISSIONS-COMBINED-SCENARIO-002: should enforce combined permissions',
+    'API-RECORDS-013: should enforce combined permissions',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member with update permission but field restrictions
@@ -690,7 +690,7 @@ test.describe('Batch update records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-PERMISSIONS-PARTIAL-UPDATE-SUCCESS-001: should update only found records',
+    'API-RECORDS-014: should update only found records',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Some records exist, others don't
@@ -734,7 +734,7 @@ test.describe('Batch update records', () => {
   )
 
   test.fixme(
-    'API-RECORDS-BATCH-PERMISSIONS-FIELD-RESPONSE-FILTER-001: should exclude unreadable fields from response',
+    'API-RECORDS-015: should exclude unreadable fields from response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Member updates with field-level read restrictions

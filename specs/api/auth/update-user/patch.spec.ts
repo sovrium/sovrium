@@ -31,7 +31,7 @@ test.describe('Update user profile', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-UPDATE-USER-SUCCESS-001: should returns 200 OK with updated user data',
+    'API-AUTH-UPDATE-USER-001: should returns 200 OK with updated user data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user with valid profile data
@@ -74,7 +74,7 @@ test.describe('Update user profile', () => {
   )
 
   test.fixme(
-    'API-AUTH-UPDATE-USER-SUCCESS-PARTIAL-UPDATE-001: should returns 200 OK with updated name, image unchanged',
+    'API-AUTH-UPDATE-USER-002: should returns 200 OK with updated name, image unchanged',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -110,7 +110,7 @@ test.describe('Update user profile', () => {
   )
 
   test.fixme(
-    'API-AUTH-UPDATE-USER-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
+    'API-AUTH-UPDATE-USER-003: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -140,7 +140,7 @@ test.describe('Update user profile', () => {
   )
 
   test.fixme(
-    'API-AUTH-UPDATE-USER-SECURITY-XSS-PREVENTION-NAME-001: should returns 200 OK with sanitized name (XSS payload neutralized)',
+    'API-AUTH-UPDATE-USER-004: should returns 200 OK with sanitized name (XSS payload neutralized)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -174,7 +174,7 @@ test.describe('Update user profile', () => {
   )
 
   test.fixme(
-    'API-AUTH-UPDATE-USER-EDGE-CASE-UNICODE-NAME-001: should returns 200 OK with Unicode name preserved',
+    'API-AUTH-UPDATE-USER-005: should returns 200 OK with Unicode name preserved',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -208,7 +208,7 @@ test.describe('Update user profile', () => {
   )
 
   test.fixme(
-    'API-AUTH-UPDATE-USER-EDGE-CASE-NULL-IMAGE-001: should returns 200 OK with image removed',
+    'API-AUTH-UPDATE-USER-006: should returns 200 OK with image removed',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user with profile image

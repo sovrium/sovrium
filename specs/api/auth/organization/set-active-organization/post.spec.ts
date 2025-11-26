@@ -31,7 +31,7 @@ test.describe('Set active organization', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-SET-ACTIVE-ORGANIZATION-SUCCESS-001: should returns 200 OK and updates session with active organization',
+    'API-ORG-SET-ACTIVE-ORGANIZATION-001: should returns 200 OK and updates session with active organization',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user who is member of multiple organizations
@@ -85,7 +85,7 @@ test.describe('Set active organization', () => {
   )
 
   test.fixme(
-    'API-ORG-SET-ACTIVE-ORGANIZATION-VALIDATION-REQUIRED-ORGANIZATION-ID-001: should returns 400 Bad Request with validation error',
+    'API-ORG-SET-ACTIVE-ORGANIZATION-002: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -120,7 +120,7 @@ test.describe('Set active organization', () => {
   )
 
   test.fixme(
-    'API-ORG-SET-ACTIVE-ORGANIZATION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
+    'API-ORG-SET-ACTIVE-ORGANIZATION-003: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -150,7 +150,7 @@ test.describe('Set active organization', () => {
   )
 
   test.fixme(
-    'API-ORG-SET-ACTIVE-ORGANIZATION-NOT-FOUND-001: should returns 404 Not Found',
+    'API-ORG-SET-ACTIVE-ORGANIZATION-004: should returns 404 Not Found',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -188,7 +188,7 @@ test.describe('Set active organization', () => {
   )
 
   test.fixme(
-    'API-ORG-SET-ACTIVE-ORGANIZATION-SECURITY-NON-MEMBER-ACCESS-001: should returns 404 Not Found (not 403 to prevent organization enumeration)',
+    'API-ORG-SET-ACTIVE-ORGANIZATION-005: should returns 404 Not Found (not 403 to prevent organization enumeration)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user who is not member of an organization

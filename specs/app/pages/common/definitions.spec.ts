@@ -385,7 +385,7 @@ test.describe('Common Definitions', () => {
   // ============================================================================
 
   test(
-    'APP-PAGES-DEFINITIONS-REGRESSION-013: user can complete full definitions workflow',
+    'APP-PAGES-DEFINITIONS-013: user can complete full definitions workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application using various common definitions

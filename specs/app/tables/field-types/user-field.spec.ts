@@ -243,7 +243,7 @@ test.describe('User Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-USER-REGRESSION-001: user can complete full user-field workflow',
+    'APP-USER-FIELD-006: user can complete full user-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

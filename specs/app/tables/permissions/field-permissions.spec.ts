@@ -452,7 +452,7 @@ test.describe('Field-Level Permissions', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-PERMISSIONS-FIELD-REGRESSION-001: user can complete full field-permissions workflow',
+    'APP-TABLES-FIELD-PERMISSIONS-007: user can complete full field-permissions workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative field-level permissions

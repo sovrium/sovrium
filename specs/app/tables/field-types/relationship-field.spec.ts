@@ -198,7 +198,7 @@ test.describe('Relationship Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-RELATIONSHIP-REGRESSION-001: user can complete full relationship-field workflow',
+    'APP-RELATIONSHIP-FIELD-011: user can complete full relationship-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

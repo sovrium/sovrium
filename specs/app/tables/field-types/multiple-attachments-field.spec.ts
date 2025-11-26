@@ -132,7 +132,7 @@ test.describe('Multiple Attachments Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-MULTIPLE-ATTACHMENTS-REGRESSION-001: user can complete full multiple-attachments-field workflow',
+    'APP-MULTIPLE-ATTACHMENTS-FIELD-006: user can complete full multiple-attachments-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

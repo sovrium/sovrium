@@ -31,7 +31,7 @@ test.describe('Admin: Set user password', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ADMIN-SET-USER-PASSWORD-SUCCESS-001: should returns 200 OK and updates user password',
+    'API-ADMIN-SET-USER-PASSWORD-001: should returns 200 OK and updates user password',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user and an existing user
@@ -81,7 +81,7 @@ test.describe('Admin: Set user password', () => {
   )
 
   test.fixme(
-    'API-ADMIN-SET-USER-PASSWORD-SUCCESS-REVOKE-SESSIONS-001: should returns 200 OK and revokes all user sessions',
+    'API-ADMIN-SET-USER-PASSWORD-002: should returns 200 OK and revokes all user sessions',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user and a user with multiple sessions
@@ -132,7 +132,7 @@ test.describe('Admin: Set user password', () => {
   )
 
   test.fixme(
-    'API-ADMIN-SET-USER-PASSWORD-VALIDATION-REQUIRED-FIELDS-001: should returns 400 Bad Request with validation errors',
+    'API-ADMIN-SET-USER-PASSWORD-003: should returns 400 Bad Request with validation errors',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user
@@ -167,7 +167,7 @@ test.describe('Admin: Set user password', () => {
   )
 
   test.fixme(
-    'API-ADMIN-SET-USER-PASSWORD-VALIDATION-PASSWORD-LENGTH-001: should returns 400 Bad Request with validation error',
+    'API-ADMIN-SET-USER-PASSWORD-004: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user
@@ -209,7 +209,7 @@ test.describe('Admin: Set user password', () => {
   )
 
   test.fixme(
-    'API-ADMIN-SET-USER-PASSWORD-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
+    'API-ADMIN-SET-USER-PASSWORD-005: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -240,7 +240,7 @@ test.describe('Admin: Set user password', () => {
   )
 
   test.fixme(
-    'API-ADMIN-SET-USER-PASSWORD-PERMISSIONS-FORBIDDEN-NON-ADMIN-001: should returns 403 Forbidden',
+    'API-ADMIN-SET-USER-PASSWORD-006: should returns 403 Forbidden',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated regular user (non-admin)
@@ -282,7 +282,7 @@ test.describe('Admin: Set user password', () => {
   )
 
   test.fixme(
-    'API-ADMIN-SET-USER-PASSWORD-NOT-FOUND-001: should returns 404 Not Found',
+    'API-ADMIN-SET-USER-PASSWORD-007: should returns 404 Not Found',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user

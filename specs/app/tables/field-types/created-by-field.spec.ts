@@ -269,7 +269,7 @@ test.describe('Created By Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-CREATED-BY-REGRESSION-001: user can complete full created-by-field workflow',
+    'APP-CREATED-BY-FIELD-006: user can complete full created-by-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // Create external users table and seed data

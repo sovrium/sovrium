@@ -462,7 +462,7 @@ test.describe('Block Children', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-BLOCKS-BLOCK-CHILDREN-REGRESSION-001: user can complete full children workflow',
+    'APP-BLOCKS-CHILDREN-011: user can complete full children workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application with complex nested children

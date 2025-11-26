@@ -359,7 +359,7 @@ test.describe('Page Layout', () => {
   // ============================================================================
 
   test(
-    'APP-PAGES-LAYOUT-REGRESSION-001: user can complete full layout workflow',
+    'APP-PAGES-LAYOUT-009: user can complete full layout workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application with various layout patterns

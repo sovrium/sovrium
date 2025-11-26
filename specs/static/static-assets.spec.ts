@@ -306,7 +306,7 @@ test.describe('Static Site Generation - Asset Management', () => {
   )
 
   test(
-    'STATIC-ASSETS-REGRESSION-001: complete asset management workflow',
+    'STATIC-ASSETS-005: complete asset management workflow',
     { tag: '@regression' },
     async ({ generateStaticSite, page }) => {
       // GIVEN: complete app with various asset types

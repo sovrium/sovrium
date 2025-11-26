@@ -254,7 +254,7 @@ test.describe('Integer Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-INTEGER-REGRESSION-001: user can complete full integer-field workflow',
+    'APP-INTEGER-FIELD-006: user can complete full integer-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative integer field

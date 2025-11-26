@@ -195,7 +195,7 @@ test.describe('Rollup Field', () => {
   )
 
   test.fixme(
-    'APP-TABLES-FIELD-ROLLUP-REGRESSION-001: user can complete full rollup-field workflow',
+    'APP-ROLLUP-FIELD-006: user can complete full rollup-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

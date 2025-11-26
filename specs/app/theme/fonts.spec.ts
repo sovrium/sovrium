@@ -614,7 +614,7 @@ test.describe('Font Configuration', () => {
   )
 
   test(
-    'APP-THEME-FONTS-APPLICATION-001: should render with body font family and metrics',
+    'APP-THEME-FONTS-011: should render with body font family and metrics',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: body font applied to paragraph
@@ -671,7 +671,7 @@ test.describe('Font Configuration', () => {
   )
 
   test(
-    'APP-THEME-FONTS-APPLICATION-002: should render with title font and text transformation',
+    'APP-THEME-FONTS-012: should render with title font and text transformation',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: title font applied to heading
@@ -737,7 +737,7 @@ test.describe('Font Configuration', () => {
   // ============================================================================
 
   test(
-    'APP-THEME-FONTS-REGRESSION-001: user can complete full fonts workflow',
+    'APP-THEME-FONTS-013: user can complete full fonts workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application with comprehensive font system

@@ -26,7 +26,7 @@ test.describe('View Fields', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-VIEW-FIELDS-001: should show only configured visible fields when a view has specific fields configured as visible',
+    'APP-TABLES-VIEW-001: should show only configured visible fields when a view has specific fields configured as visible',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: a view with specific fields configured as visible
@@ -72,7 +72,7 @@ test.describe('View Fields', () => {
   )
 
   test.fixme(
-    'APP-TABLES-VIEW-FIELDS-002: should display fields in the specified order when a view has fields configured with custom order',
+    'APP-TABLES-VIEW-002: should display fields in the specified order when a view has fields configured with custom order',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: a view with fields configured with custom order
@@ -119,7 +119,7 @@ test.describe('View Fields', () => {
   )
 
   test.fixme(
-    'APP-TABLES-VIEW-FIELDS-003: should not show field when a view has a field marked as visible: false',
+    'APP-TABLES-VIEW-003: should not show field when a view has a field marked as visible: false',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: a view with a field marked as visible: false
@@ -166,7 +166,7 @@ test.describe('View Fields', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-VIEW-FIELDS-REGRESSION-001: user can complete full view-fields workflow',
+    'APP-TABLES-VIEW-004: user can complete full view-fields workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative field configuration

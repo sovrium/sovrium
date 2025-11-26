@@ -252,7 +252,7 @@ test.describe('Unique Field Property', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-FIELD-UNIQUE-REGRESSION-001: user can complete full unique-field workflow',
+    'APP-FIELD-UNIQUE-006: user can complete full unique-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative unique fields

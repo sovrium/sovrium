@@ -575,7 +575,7 @@ test.describe('Organization Schema', () => {
   )
 
   test(
-    'APP-PAGES-META-STRUCTURED-DATA-ORGANIZATION-REGRESSION-001: user can complete full Organization workflow',
+    'APP-PAGES-ORGANIZATION-015: user can complete full Organization workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: app configuration
