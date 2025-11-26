@@ -30,10 +30,14 @@
         "nav.pricing": "Pricing",
         "nav.contact": "Contact",
 
+        "hero.badge": "Now in Public Beta",
         "hero.title": "Build Your Next App with Sovrium",
         "hero.subtitle": "A modern, configuration-driven platform for rapid application development",
         "hero.cta.primary": "Get Started",
         "hero.cta.secondary": "Learn More",
+        "hero.stats.apps": "Apps Built",
+        "hero.stats.developers": "Developers",
+        "hero.stats.uptime": "Uptime",
 
         "features.title": "Why Choose Sovrium?",
         "features.subtitle": "Everything you need to build modern applications",
@@ -50,12 +54,34 @@
         "feature.3.description": "Built on modern reactive patterns. Your app stays fast and responsive as it grows.",
         "feature.3.icon": "⚡",
 
+        "howItWorks.badge": "How It Works",
+        "howItWorks.title": "From Idea to Production in Minutes",
+        "howItWorks.subtitle": "Three simple steps to launch your application",
+
+        "step.1.number": "1",
+        "step.1.title": "Define Your Schema",
+        "step.1.description": "Describe your data models, relationships, and business rules in a simple JSON format.",
+
+        "step.2.number": "2",
+        "step.2.title": "Customize & Extend",
+        "step.2.description": "Add custom logic, integrations, and branding. Everything is fully customizable.",
+
+        "step.3.number": "3",
+        "step.3.title": "Deploy & Scale",
+        "step.3.description": "Push to production with one command. Scale automatically as your users grow.",
+
         "cta.title": "Ready to get started?",
         "cta.subtitle": "Join thousands of developers building with Sovrium",
         "cta.button": "Start Building Now",
+        "cta.note": "No credit card required",
 
         "footer.copyright": "© 2025 Sovrium",
-        "footer.rights": "All rights reserved"
+        "footer.rights": "All rights reserved",
+        "footer.product": "Product",
+        "footer.resources": "Resources",
+        "footer.company": "Company",
+        "footer.madeWith": "Made with",
+        "footer.inFrance": "in France"
       },
       "fr": {
         "nav.home": "Accueil",
@@ -63,10 +89,14 @@
         "nav.pricing": "Tarifs",
         "nav.contact": "Contact",
 
+        "hero.badge": "Maintenant en Bêta Publique",
         "hero.title": "Créez votre prochaine application avec Sovrium",
         "hero.subtitle": "Une plateforme moderne pilotée par configuration pour le développement d'applications rapide",
         "hero.cta.primary": "Commencer",
         "hero.cta.secondary": "En savoir plus",
+        "hero.stats.apps": "Apps Créées",
+        "hero.stats.developers": "Développeurs",
+        "hero.stats.uptime": "Disponibilité",
 
         "features.title": "Pourquoi choisir Sovrium?",
         "features.subtitle": "Tout ce dont vous avez besoin pour créer des applications modernes",
@@ -83,12 +113,34 @@
         "feature.3.description": "Construit sur des patterns réactifs modernes. Votre app reste rapide en grandissant.",
         "feature.3.icon": "⚡",
 
+        "howItWorks.badge": "Comment Ça Marche",
+        "howItWorks.title": "De l'Idée à la Production en Minutes",
+        "howItWorks.subtitle": "Trois étapes simples pour lancer votre application",
+
+        "step.1.number": "1",
+        "step.1.title": "Définissez Votre Schéma",
+        "step.1.description": "Décrivez vos modèles de données, relations et règles métier en format JSON simple.",
+
+        "step.2.number": "2",
+        "step.2.title": "Personnalisez & Étendez",
+        "step.2.description": "Ajoutez logique personnalisée, intégrations et branding. Tout est personnalisable.",
+
+        "step.3.number": "3",
+        "step.3.title": "Déployez & Scalez",
+        "step.3.description": "Passez en production en une commande. Scalez automatiquement avec vos utilisateurs.",
+
         "cta.title": "Prêt à commencer?",
         "cta.subtitle": "Rejoignez des milliers de développeurs construisant avec Sovrium",
         "cta.button": "Commencer maintenant",
+        "cta.note": "Aucune carte de crédit requise",
 
         "footer.copyright": "© 2025 Sovrium",
-        "footer.rights": "Tous droits réservés"
+        "footer.rights": "Tous droits réservés",
+        "footer.product": "Produit",
+        "footer.resources": "Ressources",
+        "footer.company": "Entreprise",
+        "footer.madeWith": "Fait avec",
+        "footer.inFrance": "en France"
       }
     }
   },
@@ -99,11 +151,26 @@
       "primary-hover": "#2563eb",
       "primary-light": "#dbeafe",
       "secondary": "#7c3aed",
+      "secondary-light": "#ede9fe",
       "background": "#ffffff",
+      "background-alt": "#f8fafc",
       "text": "#0f172a",
       "text-secondary": "#475569",
+      "text-muted": "#64748b",
       "border": "#e2e8f0",
-      "gray-900": "#111827"
+      "gray-50": "#f8fafc",
+      "gray-100": "#f1f5f9",
+      "gray-200": "#e2e8f0",
+      "gray-300": "#cbd5e1",
+      "gray-400": "#94a3b8",
+      "gray-500": "#64748b",
+      "gray-600": "#475569",
+      "gray-700": "#334155",
+      "gray-800": "#1e293b",
+      "gray-900": "#111827",
+      "success": "#10b981",
+      "warning": "#f59e0b",
+      "error": "#ef4444"
     },
     "fonts": {
       "sans": {
@@ -121,6 +188,19 @@
         "lineHeight": "1.1",
         "letterSpacing": "-0.02em"
       }
+    },
+    "borderRadius": {
+      "sm": "0.25rem",
+      "md": "0.5rem",
+      "lg": "0.75rem",
+      "xl": "1rem",
+      "full": "9999px"
+    },
+    "shadows": {
+      "sm": "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+      "md": "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+      "lg": "0 10px 15px -3px rgb(0 0 0 / 0.1)",
+      "xl": "0 20px 25px -5px rgb(0 0 0 / 0.1)"
     }
   },
 
@@ -129,46 +209,61 @@
       "name": "hero-section",
       "type": "div",
       "props": {
-        "data-block": "hero-section"
+        "data-block": "hero-section",
+        "className": "text-center max-w-4xl mx-auto"
       },
       "children": [
         {
           "type": "h1",
+          "props": {
+            "className": "text-5xl font-bold mb-6"
+          },
           "content": "$title"
         },
         {
           "type": "p",
+          "props": {
+            "className": "text-xl text-gray-600 mb-8"
+          },
           "content": "$subtitle"
         },
         {
-          "type": "button",
+          "type": "div",
           "props": {
-            "className": "px-6 py-3 rounded-lg transition-colors",
-            "style": {
-              "backgroundColor": "#3b82f6",
-              "color": "#ffffff"
-            }
+            "className": "flex gap-4 justify-center"
           },
-          "interactions": {
-            "hover": {
-              "backgroundColor": "#2563eb"
+          "children": [
+            {
+              "type": "button",
+              "props": {
+                "className": "px-6 py-3 rounded-lg transition-colors font-semibold",
+                "style": {
+                  "backgroundColor": "#3b82f6",
+                  "color": "#ffffff"
+                }
+              },
+              "interactions": {
+                "hover": {
+                  "backgroundColor": "#2563eb"
+                }
+              },
+              "content": "$ctaPrimary"
+            },
+            {
+              "type": "button",
+              "props": {
+                "className": "px-6 py-3 rounded-lg transition-colors font-semibold",
+                "style": {
+                  "borderWidth": "2px",
+                  "borderStyle": "solid",
+                  "borderColor": "#3b82f6",
+                  "color": "#3b82f6",
+                  "backgroundColor": "transparent"
+                }
+              },
+              "content": "$ctaSecondary"
             }
-          },
-          "content": "$ctaPrimary"
-        },
-        {
-          "type": "button",
-          "props": {
-            "className": "px-6 py-3 rounded-lg transition-colors",
-            "style": {
-              "borderWidth": "2px",
-              "borderStyle": "solid",
-              "borderColor": "#3b82f6",
-              "color": "#3b82f6",
-              "backgroundColor": "transparent"
-            }
-          },
-          "content": "$ctaSecondary"
+          ]
         }
       ]
     },
@@ -177,19 +272,69 @@
       "type": "div",
       "props": {
         "data-block": "feature-card",
-        "className": "p-6 border rounded-lg"
+        "className": "p-6 border rounded-xl bg-white hover:shadow-lg transition-shadow"
       },
       "children": [
         {
           "type": "div",
+          "props": {
+            "className": "text-4xl mb-4"
+          },
           "content": "$icon"
         },
         {
           "type": "h3",
+          "props": {
+            "className": "text-xl font-semibold mb-2"
+          },
           "content": "$title"
         },
         {
           "type": "p",
+          "props": {
+            "className": "text-gray-600"
+          },
+          "content": "$description"
+        }
+      ]
+    },
+    {
+      "name": "step-card",
+      "type": "div",
+      "props": {
+        "data-block": "step-card",
+        "className": "text-center"
+      },
+      "children": [
+        {
+          "type": "div",
+          "props": {
+            "className": "w-16 h-16 rounded-full bg-primary text-white flex items-center justify-center text-2xl font-bold mx-auto mb-4",
+            "style": {
+              "backgroundColor": "#3b82f6",
+              "color": "#ffffff",
+              "width": "4rem",
+              "height": "4rem",
+              "borderRadius": "9999px",
+              "display": "flex",
+              "alignItems": "center",
+              "justifyContent": "center"
+            }
+          },
+          "content": "$number"
+        },
+        {
+          "type": "h3",
+          "props": {
+            "className": "text-xl font-semibold mb-2"
+          },
+          "content": "$title"
+        },
+        {
+          "type": "p",
+          "props": {
+            "className": "text-gray-600"
+          },
           "content": "$description"
         }
       ]
@@ -199,9 +344,20 @@
       "type": "button",
       "props": {
         "data-block": "cta-button",
-        "className": "px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors"
+        "className": "px-8 py-4 bg-white text-primary rounded-xl font-semibold hover:bg-gray-50 transition-colors shadow-lg",
+        "style": {
+          "backgroundColor": "#ffffff",
+          "color": "#3b82f6"
+        }
       },
       "content": "$label"
+    },
+    {
+      "name": "language-switcher",
+      "type": "language-switcher",
+      "props": {
+        "variant": "dropdown"
+      }
     }
   ],
 
@@ -217,58 +373,85 @@
       "sections": [
         {
           "type": "nav",
+          "props": {
+            "className": "fixed top-0 left-0 right-0 z-50 px-6 py-4",
+            "style": {
+              "backgroundColor": "rgba(255, 255, 255, 0.95)",
+              "backdropFilter": "blur(8px)",
+              "borderBottom": "1px solid #e2e8f0"
+            }
+          },
           "children": [
-            {
-              "type": "span",
-              "props": {
-                "className": "text-xl font-bold",
-                "style": {
-                  "color": "#3b82f6"
-                }
-              },
-              "content": "Sovrium"
-            },
-            {
-              "type": "a",
-              "props": {
-                "href": "#home"
-              },
-              "content": "$t:nav.home"
-            },
-            {
-              "type": "a",
-              "props": {
-                "href": "#features"
-              },
-              "content": "$t:nav.features"
-            },
-            {
-              "type": "a",
-              "props": {
-                "href": "#pricing"
-              },
-              "content": "$t:nav.pricing"
-            },
-            {
-              "type": "a",
-              "props": {
-                "href": "#contact"
-              },
-              "content": "$t:nav.contact"
-            },
             {
               "type": "div",
               "props": {
-                "data-testid": "language-switcher"
+                "className": "max-w-7xl mx-auto flex justify-between items-center"
               },
               "children": [
                 {
-                  "type": "button",
-                  "content": "English"
+                  "type": "span",
+                  "props": {
+                    "className": "text-xl font-bold",
+                    "style": {
+                      "color": "#3b82f6"
+                    }
+                  },
+                  "content": "Sovrium"
                 },
                 {
-                  "type": "button",
-                  "content": "Français"
+                  "type": "div",
+                  "props": {
+                    "className": "flex items-center gap-8"
+                  },
+                  "children": [
+                    {
+                      "type": "a",
+                      "props": {
+                        "href": "#home",
+                        "className": "font-medium hover:text-primary transition-colors",
+                        "style": {
+                          "color": "#0f172a"
+                        }
+                      },
+                      "content": "$t:nav.home"
+                    },
+                    {
+                      "type": "a",
+                      "props": {
+                        "href": "#features",
+                        "className": "font-medium hover:text-primary transition-colors",
+                        "style": {
+                          "color": "#0f172a"
+                        }
+                      },
+                      "content": "$t:nav.features"
+                    },
+                    {
+                      "type": "a",
+                      "props": {
+                        "href": "#pricing",
+                        "className": "font-medium hover:text-primary transition-colors",
+                        "style": {
+                          "color": "#0f172a"
+                        }
+                      },
+                      "content": "$t:nav.pricing"
+                    },
+                    {
+                      "type": "a",
+                      "props": {
+                        "href": "#contact",
+                        "className": "font-medium hover:text-primary transition-colors",
+                        "style": {
+                          "color": "#0f172a"
+                        }
+                      },
+                      "content": "$t:nav.contact"
+                    },
+                    {
+                      "block": "language-switcher"
+                    }
+                  ]
                 }
               ]
             }
@@ -277,52 +460,191 @@
         {
           "type": "section",
           "props": {
-            "id": "home"
+            "id": "home",
+            "className": "pt-32 pb-20 px-6",
+            "style": {
+              "background": "linear-gradient(to bottom, #f8fafc, #ffffff)"
+            }
           },
           "children": [
             {
               "type": "div",
               "props": {
-                "data-block": "hero-section"
+                "className": "max-w-5xl mx-auto"
               },
               "children": [
                 {
-                  "type": "h1",
-                  "content": "$t:hero.title"
-                },
-                {
-                  "type": "p",
-                  "content": "$t:hero.subtitle"
-                },
-                {
-                  "type": "button",
+                  "type": "div",
                   "props": {
-                    "className": "px-6 py-3 rounded-lg transition-colors",
-                    "style": {
-                      "backgroundColor": "#3b82f6",
-                      "color": "#ffffff"
-                    }
+                    "data-block": "hero-section",
+                    "className": "text-center"
                   },
-                  "interactions": {
-                    "hover": {
-                      "backgroundColor": "#2563eb"
+                  "children": [
+                    {
+                      "type": "span",
+                      "props": {
+                        "className": "inline-block px-4 py-1.5 rounded-full text-sm font-medium mb-6",
+                        "style": {
+                          "backgroundColor": "#dbeafe",
+                          "color": "#3b82f6"
+                        }
+                      },
+                      "content": "$t:hero.badge"
+                    },
+                    {
+                      "type": "h1",
+                      "props": {
+                        "className": "text-5xl font-bold mb-6",
+                        "style": {
+                          "color": "#0f172a"
+                        }
+                      },
+                      "content": "$t:hero.title"
+                    },
+                    {
+                      "type": "p",
+                      "props": {
+                        "className": "text-xl mb-10 max-w-2xl mx-auto",
+                        "style": {
+                          "color": "#475569"
+                        }
+                      },
+                      "content": "$t:hero.subtitle"
+                    },
+                    {
+                      "type": "div",
+                      "props": {
+                        "className": "flex gap-4 justify-center mb-16"
+                      },
+                      "children": [
+                        {
+                          "type": "button",
+                          "props": {
+                            "className": "px-6 py-3 rounded-lg transition-colors font-semibold shadow-lg",
+                            "style": {
+                              "backgroundColor": "#3b82f6",
+                              "color": "#ffffff"
+                            }
+                          },
+                          "interactions": {
+                            "hover": {
+                              "backgroundColor": "#2563eb"
+                            }
+                          },
+                          "content": "$t:hero.cta.primary"
+                        },
+                        {
+                          "type": "button",
+                          "props": {
+                            "className": "px-6 py-3 rounded-lg transition-colors font-semibold",
+                            "style": {
+                              "borderWidth": "2px",
+                              "borderStyle": "solid",
+                              "borderColor": "#3b82f6",
+                              "color": "#3b82f6",
+                              "backgroundColor": "transparent"
+                            }
+                          },
+                          "content": "$t:hero.cta.secondary"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "div",
+                      "props": {
+                        "className": "flex justify-center gap-12 pt-8",
+                        "style": {
+                          "borderTop": "1px solid #e2e8f0"
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "div",
+                          "props": {
+                            "className": "text-center"
+                          },
+                          "children": [
+                            {
+                              "type": "div",
+                              "props": {
+                                "className": "text-3xl font-bold",
+                                "style": {
+                                  "color": "#0f172a"
+                                }
+                              },
+                              "content": "2,500+"
+                            },
+                            {
+                              "type": "div",
+                              "props": {
+                                "className": "text-sm",
+                                "style": {
+                                  "color": "#64748b"
+                                }
+                              },
+                              "content": "$t:hero.stats.apps"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "div",
+                          "props": {
+                            "className": "text-center"
+                          },
+                          "children": [
+                            {
+                              "type": "div",
+                              "props": {
+                                "className": "text-3xl font-bold",
+                                "style": {
+                                  "color": "#0f172a"
+                                }
+                              },
+                              "content": "10,000+"
+                            },
+                            {
+                              "type": "div",
+                              "props": {
+                                "className": "text-sm",
+                                "style": {
+                                  "color": "#64748b"
+                                }
+                              },
+                              "content": "$t:hero.stats.developers"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "div",
+                          "props": {
+                            "className": "text-center"
+                          },
+                          "children": [
+                            {
+                              "type": "div",
+                              "props": {
+                                "className": "text-3xl font-bold",
+                                "style": {
+                                  "color": "#0f172a"
+                                }
+                              },
+                              "content": "99.9%"
+                            },
+                            {
+                              "type": "div",
+                              "props": {
+                                "className": "text-sm",
+                                "style": {
+                                  "color": "#64748b"
+                                }
+                              },
+                              "content": "$t:hero.stats.uptime"
+                            }
+                          ]
+                        }
+                      ]
                     }
-                  },
-                  "content": "$t:hero.cta.primary"
-                },
-                {
-                  "type": "button",
-                  "props": {
-                    "className": "px-6 py-3 rounded-lg transition-colors",
-                    "style": {
-                      "borderWidth": "2px",
-                      "borderStyle": "solid",
-                      "borderColor": "#3b82f6",
-                      "color": "#3b82f6",
-                      "backgroundColor": "transparent"
-                    }
-                  },
-                  "content": "$t:hero.cta.secondary"
+                  ]
                 }
               ]
             }
@@ -331,46 +653,199 @@
         {
           "type": "section",
           "props": {
-            "id": "features"
+            "id": "features",
+            "className": "py-24 px-6",
+            "style": {
+              "backgroundColor": "#ffffff"
+            }
           },
           "children": [
             {
-              "type": "h2",
-              "content": "$t:features.title"
-            },
-            {
-              "type": "p",
-              "content": "$t:features.subtitle"
-            },
-            {
-              "block": "feature-card",
-              "vars": {
-                "icon": "$t:feature.1.icon",
-                "title": "$t:feature.1.title",
-                "description": "$t:feature.1.description"
-              }
-            },
-            {
-              "block": "feature-card",
-              "vars": {
-                "icon": "$t:feature.2.icon",
-                "title": "$t:feature.2.title",
-                "description": "$t:feature.2.description"
-              }
-            },
-            {
-              "block": "feature-card",
-              "vars": {
-                "icon": "$t:feature.3.icon",
-                "title": "$t:feature.3.title",
-                "description": "$t:feature.3.description"
-              }
+              "type": "div",
+              "props": {
+                "className": "max-w-7xl mx-auto"
+              },
+              "children": [
+                {
+                  "type": "div",
+                  "props": {
+                    "className": "text-center mb-16"
+                  },
+                  "children": [
+                    {
+                      "type": "span",
+                      "props": {
+                        "className": "inline-block px-4 py-1.5 rounded-full text-sm font-medium mb-4",
+                        "style": {
+                          "backgroundColor": "#ede9fe",
+                          "color": "#7c3aed"
+                        }
+                      },
+                      "content": "Features"
+                    },
+                    {
+                      "type": "h2",
+                      "props": {
+                        "className": "text-4xl font-bold mb-4",
+                        "style": {
+                          "color": "#0f172a"
+                        }
+                      },
+                      "content": "$t:features.title"
+                    },
+                    {
+                      "type": "p",
+                      "props": {
+                        "className": "text-xl max-w-2xl mx-auto",
+                        "style": {
+                          "color": "#475569"
+                        }
+                      },
+                      "content": "$t:features.subtitle"
+                    }
+                  ]
+                },
+                {
+                  "type": "div",
+                  "props": {
+                    "className": "feature-grid",
+                    "style": {
+                      "display": "grid",
+                      "gridTemplateColumns": "repeat(auto-fit, minmax(280px, 1fr))",
+                      "gap": "1.5rem"
+                    }
+                  },
+                  "children": [
+                    {
+                      "block": "feature-card",
+                      "vars": {
+                        "icon": "$t:feature.1.icon",
+                        "title": "$t:feature.1.title",
+                        "description": "$t:feature.1.description"
+                      }
+                    },
+                    {
+                      "block": "feature-card",
+                      "vars": {
+                        "icon": "$t:feature.2.icon",
+                        "title": "$t:feature.2.title",
+                        "description": "$t:feature.2.description"
+                      }
+                    },
+                    {
+                      "block": "feature-card",
+                      "vars": {
+                        "icon": "$t:feature.3.icon",
+                        "title": "$t:feature.3.title",
+                        "description": "$t:feature.3.description"
+                      }
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },
         {
           "type": "section",
           "props": {
+            "id": "how-it-works",
+            "className": "py-24 px-6",
+            "style": {
+              "backgroundColor": "#f8fafc"
+            }
+          },
+          "children": [
+            {
+              "type": "div",
+              "props": {
+                "className": "max-w-7xl mx-auto"
+              },
+              "children": [
+                {
+                  "type": "div",
+                  "props": {
+                    "className": "text-center mb-16"
+                  },
+                  "children": [
+                    {
+                      "type": "span",
+                      "props": {
+                        "className": "inline-block px-4 py-1.5 rounded-full text-sm font-medium mb-4",
+                        "style": {
+                          "backgroundColor": "#d1fae5",
+                          "color": "#059669"
+                        }
+                      },
+                      "content": "$t:howItWorks.badge"
+                    },
+                    {
+                      "type": "h2",
+                      "props": {
+                        "className": "text-4xl font-bold mb-4",
+                        "style": {
+                          "color": "#0f172a"
+                        }
+                      },
+                      "content": "$t:howItWorks.title"
+                    },
+                    {
+                      "type": "p",
+                      "props": {
+                        "className": "text-xl",
+                        "style": {
+                          "color": "#475569"
+                        }
+                      },
+                      "content": "$t:howItWorks.subtitle"
+                    }
+                  ]
+                },
+                {
+                  "type": "div",
+                  "props": {
+                    "style": {
+                      "display": "grid",
+                      "gridTemplateColumns": "repeat(auto-fit, minmax(280px, 1fr))",
+                      "gap": "3rem"
+                    }
+                  },
+                  "children": [
+                    {
+                      "block": "step-card",
+                      "vars": {
+                        "number": "$t:step.1.number",
+                        "title": "$t:step.1.title",
+                        "description": "$t:step.1.description"
+                      }
+                    },
+                    {
+                      "block": "step-card",
+                      "vars": {
+                        "number": "$t:step.2.number",
+                        "title": "$t:step.2.title",
+                        "description": "$t:step.2.description"
+                      }
+                    },
+                    {
+                      "block": "step-card",
+                      "vars": {
+                        "number": "$t:step.3.number",
+                        "title": "$t:step.3.title",
+                        "description": "$t:step.3.description"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "props": {
+            "id": "cta",
+            "className": "py-24 px-6",
             "style": {
               "backgroundColor": "#3b82f6",
               "color": "#ffffff"
@@ -378,24 +853,63 @@
           },
           "children": [
             {
-              "type": "h2",
-              "content": "$t:cta.title"
-            },
-            {
-              "type": "p",
-              "content": "$t:cta.subtitle"
-            },
-            {
-              "block": "cta-button",
-              "vars": {
-                "label": "$t:cta.button"
-              }
+              "type": "div",
+              "props": {
+                "className": "max-w-4xl mx-auto text-center"
+              },
+              "children": [
+                {
+                  "type": "h2",
+                  "props": {
+                    "className": "text-4xl font-bold mb-6",
+                    "style": {
+                      "color": "#ffffff"
+                    }
+                  },
+                  "content": "$t:cta.title"
+                },
+                {
+                  "type": "p",
+                  "props": {
+                    "className": "text-xl mb-10",
+                    "style": {
+                      "color": "rgba(255, 255, 255, 0.9)"
+                    }
+                  },
+                  "content": "$t:cta.subtitle"
+                },
+                {
+                  "type": "div",
+                  "props": {
+                    "className": "flex flex-col items-center gap-4"
+                  },
+                  "children": [
+                    {
+                      "block": "cta-button",
+                      "vars": {
+                        "label": "$t:cta.button"
+                      }
+                    },
+                    {
+                      "type": "p",
+                      "props": {
+                        "className": "text-sm",
+                        "style": {
+                          "color": "rgba(255, 255, 255, 0.8)"
+                        }
+                      },
+                      "content": "$t:cta.note"
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },
         {
           "type": "section",
           "props": {
+            "className": "py-16 px-6",
             "style": {
               "backgroundColor": "#111827",
               "color": "#ffffff"
@@ -403,12 +917,291 @@
           },
           "children": [
             {
-              "type": "p",
-              "content": "$t:footer.copyright"
-            },
-            {
-              "type": "p",
-              "content": "$t:footer.rights"
+              "type": "div",
+              "props": {
+                "className": "max-w-7xl mx-auto"
+              },
+              "children": [
+                {
+                  "type": "div",
+                  "props": {
+                    "style": {
+                      "display": "grid",
+                      "gridTemplateColumns": "repeat(auto-fit, minmax(200px, 1fr))",
+                      "gap": "3rem",
+                      "paddingBottom": "3rem",
+                      "borderBottom": "1px solid #374151"
+                    }
+                  },
+                  "children": [
+                    {
+                      "type": "div",
+                      "children": [
+                        {
+                          "type": "div",
+                          "props": {
+                            "className": "flex items-center gap-2 mb-4"
+                          },
+                          "children": [
+                            {
+                              "type": "span",
+                              "props": {
+                                "className": "text-2xl"
+                              },
+                              "content": "⚡"
+                            },
+                            {
+                              "type": "span",
+                              "props": {
+                                "className": "text-xl font-bold"
+                              },
+                              "content": "Sovrium"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "p",
+                          "props": {
+                            "className": "text-sm",
+                            "style": {
+                              "color": "#9ca3af"
+                            }
+                          },
+                          "content": "A modern, configuration-driven platform for rapid application development"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "div",
+                      "children": [
+                        {
+                          "type": "h4",
+                          "props": {
+                            "className": "font-semibold mb-4"
+                          },
+                          "content": "$t:footer.product"
+                        },
+                        {
+                          "type": "div",
+                          "props": {
+                            "className": "space-y-2"
+                          },
+                          "children": [
+                            {
+                              "type": "div",
+                              "children": [
+                                {
+                                  "type": "a",
+                                  "props": {
+                                    "href": "#features",
+                                    "style": {
+                                      "color": "#9ca3af"
+                                    }
+                                  },
+                                  "content": "Features"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "div",
+                              "children": [
+                                {
+                                  "type": "a",
+                                  "props": {
+                                    "href": "#pricing",
+                                    "style": {
+                                      "color": "#9ca3af"
+                                    }
+                                  },
+                                  "content": "Pricing"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "div",
+                              "children": [
+                                {
+                                  "type": "a",
+                                  "props": {
+                                    "href": "#",
+                                    "style": {
+                                      "color": "#9ca3af"
+                                    }
+                                  },
+                                  "content": "Changelog"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "div",
+                      "children": [
+                        {
+                          "type": "h4",
+                          "props": {
+                            "className": "font-semibold mb-4"
+                          },
+                          "content": "$t:footer.resources"
+                        },
+                        {
+                          "type": "div",
+                          "props": {
+                            "className": "space-y-2"
+                          },
+                          "children": [
+                            {
+                              "type": "div",
+                              "children": [
+                                {
+                                  "type": "a",
+                                  "props": {
+                                    "href": "#",
+                                    "style": {
+                                      "color": "#9ca3af"
+                                    }
+                                  },
+                                  "content": "Documentation"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "div",
+                              "children": [
+                                {
+                                  "type": "a",
+                                  "props": {
+                                    "href": "#",
+                                    "style": {
+                                      "color": "#9ca3af"
+                                    }
+                                  },
+                                  "content": "Guides"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "div",
+                              "children": [
+                                {
+                                  "type": "a",
+                                  "props": {
+                                    "href": "#",
+                                    "style": {
+                                      "color": "#9ca3af"
+                                    }
+                                  },
+                                  "content": "API Reference"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "div",
+                      "children": [
+                        {
+                          "type": "h4",
+                          "props": {
+                            "className": "font-semibold mb-4"
+                          },
+                          "content": "$t:footer.company"
+                        },
+                        {
+                          "type": "div",
+                          "props": {
+                            "className": "space-y-2"
+                          },
+                          "children": [
+                            {
+                              "type": "div",
+                              "children": [
+                                {
+                                  "type": "a",
+                                  "props": {
+                                    "href": "#",
+                                    "style": {
+                                      "color": "#9ca3af"
+                                    }
+                                  },
+                                  "content": "About"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "div",
+                              "children": [
+                                {
+                                  "type": "a",
+                                  "props": {
+                                    "href": "#",
+                                    "style": {
+                                      "color": "#9ca3af"
+                                    }
+                                  },
+                                  "content": "Blog"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "div",
+                              "children": [
+                                {
+                                  "type": "a",
+                                  "props": {
+                                    "href": "#contact",
+                                    "style": {
+                                      "color": "#9ca3af"
+                                    }
+                                  },
+                                  "content": "Contact"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "div",
+                  "props": {
+                    "style": {
+                      "display": "flex",
+                      "justifyContent": "space-between",
+                      "alignItems": "center",
+                      "paddingTop": "2rem",
+                      "flexWrap": "wrap",
+                      "gap": "1rem"
+                    }
+                  },
+                  "children": [
+                    {
+                      "type": "p",
+                      "props": {
+                        "style": {
+                          "color": "#9ca3af"
+                        }
+                      },
+                      "content": "$t:footer.copyright"
+                    },
+                    {
+                      "type": "p",
+                      "props": {
+                        "style": {
+                          "color": "#9ca3af"
+                        }
+                      },
+                      "content": "$t:footer.rights"
+                    }
+                  ]
+                }
+              ]
             }
           ]
         }
