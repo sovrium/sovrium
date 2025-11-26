@@ -6,6 +6,7 @@
  */
 
 /* eslint-disable @typescript-eslint/ban-ts-comment */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // @ts-nocheck
 /**
 
@@ -107,11 +108,7 @@ test.describe('Table View', () => {
   test.fixme(
     'APP-TABLES-VIEW-003: should be applied automatically when view marked as isDefault: true and no specific view is requested via API',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: a view marked as isDefault: true
       await startServerWithSchema({
         name: 'test-app',
@@ -168,11 +165,7 @@ test.describe('Table View', () => {
   test.fixme(
     'user can complete full view workflow',
     { tag: '@regression' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative view
       await startServerWithSchema({
         name: 'test-app',

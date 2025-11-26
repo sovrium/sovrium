@@ -6,6 +6,7 @@
  */
 
 /* eslint-disable @typescript-eslint/ban-ts-comment */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // @ts-nocheck
 /**
 
@@ -37,11 +38,7 @@ test.describe('Field-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-FIELD-PERMISSIONS-001: should exclude salary column for non-admin users when field salary has read permission restricted to admin role',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: field 'salary' with read permission restricted to 'admin' role
       await startServerWithSchema({
         name: 'test-app',
@@ -108,11 +105,7 @@ test.describe('Field-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-FIELD-PERMISSIONS-002: should reject modification when user with member role attempts to update field email with write permission restricted to admin role',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: field 'email' with write permission restricted to 'admin' role
       await startServerWithSchema({
         name: 'test-app',
@@ -172,11 +165,7 @@ test.describe('Field-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-FIELD-PERMISSIONS-003: should include only columns user has permission to read when multiple fields have different read permissions',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: multiple fields with different read permissions (email: authenticated, salary: admin, department: public)
       await startServerWithSchema({
         name: 'test-app',
@@ -260,11 +249,7 @@ test.describe('Field-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-FIELD-PERMISSIONS-004: should include status field for all users when field status has public read but admin-only write permission',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: field 'status' with public read but admin-only write permission
       await startServerWithSchema({
         name: 'test-app',
@@ -327,11 +312,7 @@ test.describe('Field-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-FIELD-PERMISSIONS-005: should deny UPDATE when non-owner attempts to update field notes with custom condition write permission (owner only)',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: field 'notes' with custom condition write permission (owner only)
       await startServerWithSchema({
         name: 'test-app',
@@ -391,11 +372,7 @@ test.describe('Field-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-FIELD-PERMISSIONS-006: should include field in SELECT (inherits table-level permissions) when field created_at has no read permission specified',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: field 'created_at' with no read permission specified (inherit from table)
       await startServerWithSchema({
         name: 'test-app',
@@ -453,11 +430,7 @@ test.describe('Field-Level Permissions', () => {
   test.fixme(
     'user can complete full field-permissions workflow',
     { tag: '@regression' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative field-level permissions
       await startServerWithSchema({
         name: 'test-app',

@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Update member role
@@ -32,11 +33,7 @@ test.describe('Update member role', () => {
   test.fixme(
     'API-ORG-UPDATE-MEMBER-ROLE-SUCCESS-001: should returns 200 OK with updated member data',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner and an existing member
       await startServerWithSchema({
         name: 'test-app',
@@ -91,11 +88,7 @@ test.describe('Update member role', () => {
   test.fixme(
     'API-ORG-UPDATE-MEMBER-ROLE-VALIDATION-REQUIRED-FIELDS-001: should returns 400 Bad Request with validation errors',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -135,11 +128,7 @@ test.describe('Update member role', () => {
   test.fixme(
     'API-ORG-UPDATE-MEMBER-ROLE-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -170,11 +159,7 @@ test.describe('Update member role', () => {
   test.fixme(
     'API-ORG-UPDATE-MEMBER-ROLE-PERMISSIONS-FORBIDDEN-REGULAR-MEMBER-001: should returns 403 Forbidden',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated regular member (not owner/admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -225,11 +210,7 @@ test.describe('Update member role', () => {
   test.fixme(
     'API-ORG-UPDATE-MEMBER-ROLE-NOT-FOUND-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -274,11 +255,7 @@ test.describe('Update member role', () => {
   test.fixme(
     'API-ORG-UPDATE-MEMBER-ROLE-EDGE-CASE-SAME-ROLE-001: should returns 200 OK (idempotent operation)',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner and an existing admin member
       await startServerWithSchema({
         name: 'test-app',
@@ -332,11 +309,7 @@ test.describe('Update member role', () => {
   test.fixme(
     'user can complete full updateMemberRole workflow',
     { tag: '@regression' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

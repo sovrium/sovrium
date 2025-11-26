@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Single Line Text Field
@@ -27,11 +28,7 @@ test.describe('Single Line Text Field', () => {
   test.fixme(
     'APP-FIELD-SINGLE-LINE-TEXT-001: should create PostgreSQL VARCHAR(255) column when table configuration has single-line-text field',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with single-line-text field 'title'
       await startServerWithSchema({
         name: 'test-app',
@@ -69,11 +66,7 @@ test.describe('Single Line Text Field', () => {
   test.fixme(
     'APP-FIELD-SINGLE-LINE-TEXT-002: should reject duplicate username when table has single-line-text field with unique constraint',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with single-line-text field 'username' (required, unique), existing row username='john_doe'
       await startServerWithSchema({
         name: 'test-app',
@@ -110,11 +103,7 @@ test.describe('Single Line Text Field', () => {
   test.fixme(
     'APP-FIELD-SINGLE-LINE-TEXT-003: should reject NULL value when table has required single-line-text field',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'tasks' with required single-line-text field 'title'
       await startServerWithSchema({
         name: 'test-app',
@@ -151,11 +140,7 @@ test.describe('Single Line Text Field', () => {
   test.fixme(
     'APP-SINGLE-LINE-TEXT-FIELD-004: should create btree index for fast text lookups when single-line-text field has indexed=true',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with single-line-text field, indexed=true
       await startServerWithSchema({
         name: 'test-app',
@@ -191,11 +176,7 @@ test.describe('Single Line Text Field', () => {
   test.fixme(
     'APP-SINGLE-LINE-TEXT-FIELD-005: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table with single-line-text field 'name' and default value 'Untitled'
       await startServerWithSchema({
         name: 'test-app',
@@ -237,11 +218,7 @@ test.describe('Single Line Text Field', () => {
   test.fixme(
     'user can complete full single-line-text-field workflow',
     { tag: '@regression' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative single-line-text field
       await startServerWithSchema({
         name: 'test-app',

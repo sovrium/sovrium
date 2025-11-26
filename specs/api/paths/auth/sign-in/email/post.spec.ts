@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Sign in with email and password
@@ -32,11 +33,7 @@ test.describe('Sign in with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-IN-EMAIL-SUCCESS-001: should returns 200 OK with session token and user data',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A registered user with valid credentials
       await startServerWithSchema({
         name: 'test-app',
@@ -71,11 +68,7 @@ test.describe('Sign in with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-IN-EMAIL-VALIDATION-REQUIRED-EMAIL-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -104,11 +97,7 @@ test.describe('Sign in with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-IN-EMAIL-VALIDATION-REQUIRED-PASSWORD-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -137,11 +126,7 @@ test.describe('Sign in with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-IN-EMAIL-VALIDATION-INVALID-EMAIL-FORMAT-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -171,11 +156,7 @@ test.describe('Sign in with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-IN-EMAIL-PERMISSIONS-INVALID-CREDENTIALS-WRONG-PASSWORD-001: should returns 401 Unauthorized with generic error to prevent enumeration',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A registered user
       await startServerWithSchema({
         name: 'test-app',
@@ -210,11 +191,7 @@ test.describe('Sign in with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-IN-EMAIL-PERMISSIONS-INVALID-CREDENTIALS-NONEXISTENT-EMAIL-001: should returns 401 Unauthorized with same generic error to prevent enumeration',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server with no registered user
       await startServerWithSchema({
         name: 'test-app',
@@ -244,11 +221,7 @@ test.describe('Sign in with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-IN-EMAIL-EDGE-CASE-EMAIL-CASE-INSENSITIVE-001: should returns 200 OK with session token (case-insensitive matching)',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A registered user with lowercase email
       await startServerWithSchema({
         name: 'test-app',
@@ -283,11 +256,7 @@ test.describe('Sign in with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-IN-EMAIL-EDGE-CASE-REMEMBER-ME-001: should returns 200 OK with extended session token',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A registered user
       await startServerWithSchema({
         name: 'test-app',
@@ -327,11 +296,7 @@ test.describe('Sign in with email and password', () => {
   test.fixme(
     'user can complete full signInEmail workflow',
     { tag: '@regression' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

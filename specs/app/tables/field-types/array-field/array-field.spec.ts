@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Array Field
@@ -23,11 +24,7 @@ test.describe('Array Field', () => {
   test.fixme(
     'APP-ARRAY-FIELD-001: should create PostgreSQL TEXT array column',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await executeQuery('CREATE TABLE articles (id SERIAL PRIMARY KEY, tags TEXT[])')
 
       const columnInfo = await executeQuery(
@@ -51,11 +48,7 @@ test.describe('Array Field', () => {
   test.fixme(
     'APP-ARRAY-FIELD-002: should support array containment, overlap, and length',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE posts (id SERIAL PRIMARY KEY, keywords TEXT[])',
         "INSERT INTO posts (keywords) VALUES (ARRAY['nodejs', 'express']), (ARRAY['nodejs', 'fastify']), (ARRAY['python', 'flask'])",
@@ -81,11 +74,7 @@ test.describe('Array Field', () => {
   test.fixme(
     'APP-ARRAY-FIELD-003: should enforce maximum array size via CHECK constraint',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await executeQuery(
         'CREATE TABLE datasets (id SERIAL PRIMARY KEY, numbers INTEGER[] CHECK (array_length(numbers, 1) <= 10))'
       )
@@ -109,11 +98,7 @@ test.describe('Array Field', () => {
   test.fixme(
     'APP-ARRAY-FIELD-004: should create GIN index for efficient array queries',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE documents (id SERIAL PRIMARY KEY, categories TEXT[])',
         'CREATE INDEX idx_documents_categories ON documents USING GIN(categories)',
@@ -137,11 +122,7 @@ test.describe('Array Field', () => {
   test.fixme(
     'APP-ARRAY-FIELD-005: should support dynamic array manipulation',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE recipes (id SERIAL PRIMARY KEY, ingredients TEXT[])',
         "INSERT INTO recipes (ingredients) VALUES (ARRAY['flour', 'sugar', 'eggs'])",
@@ -167,11 +148,7 @@ test.describe('Array Field', () => {
   test.fixme(
     'user can complete full array-field workflow',
     { tag: '@regression' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [

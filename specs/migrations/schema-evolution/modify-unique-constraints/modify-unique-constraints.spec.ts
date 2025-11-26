@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Modify Unique Constraints Migration
@@ -27,11 +28,7 @@ test.describe('Modify Unique Constraints Migration', () => {
   test.fixme(
     'MIG-MODIFY-UNIQUE-001: should alter table add constraint unique creates constraint',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with email field (not unique)
       // WHEN: unique constraint added to 'uniqueConstraints' property
       // THEN: ALTER TABLE ADD CONSTRAINT UNIQUE creates constraint
@@ -44,11 +41,7 @@ test.describe('Modify Unique Constraints Migration', () => {
   test.fixme(
     'MIG-MODIFY-UNIQUE-002: should alter table drop constraint removes constraint',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'accounts' with existing unique constraint on username
       // WHEN: unique constraint removed from 'uniqueConstraints' property
       // THEN: ALTER TABLE DROP CONSTRAINT removes constraint
@@ -61,11 +54,7 @@ test.describe('Modify Unique Constraints Migration', () => {
   test.fixme(
     'MIG-MODIFY-UNIQUE-003: should alter table add constraint unique (col1, col2) enforces multi-column uniqueness',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'tenant_users' with no unique constraints
       // WHEN: composite unique constraint on (tenant_id, email) added
       // THEN: ALTER TABLE ADD CONSTRAINT UNIQUE (col1, col2) enforces multi-column uniqueness
@@ -78,11 +67,7 @@ test.describe('Modify Unique Constraints Migration', () => {
   test.fixme(
     'MIG-MODIFY-UNIQUE-004: should migration fails with data validation error and rolls back',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with duplicate data in 'sku' field
       // WHEN: attempting to add unique constraint on field with duplicates
       // THEN: Migration fails with data validation error and rolls back
@@ -95,11 +80,7 @@ test.describe('Modify Unique Constraints Migration', () => {
   test.fixme(
     'MIG-MODIFY-UNIQUE-005: should drop old constraint and add new composite constraint',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with existing unique constraint uq_orders_number
       // WHEN: constraint fields modified from (order_number) to (order_number, tenant_id)
       // THEN: DROP old constraint and ADD new composite constraint
@@ -116,11 +97,7 @@ test.describe('Modify Unique Constraints Migration', () => {
   test.fixme(
     'user can complete full modify-unique-constraints workflow',
     { tag: '@regression' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative modify-unique-constraints scenarios
       // WHEN/THEN: Streamlined workflow testing integration points
 

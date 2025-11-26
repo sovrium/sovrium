@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Sign out user
@@ -31,11 +32,7 @@ test.describe('Sign out user', () => {
   test.fixme(
     'API-AUTH-SIGN-OUT-SUCCESS-001: should  invalidates session token',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user with valid session
       await startServerWithSchema({
         name: 'test-app',
@@ -73,11 +70,7 @@ test.describe('Sign out user', () => {
   test.fixme(
     'API-AUTH-SIGN-OUT-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -105,11 +98,7 @@ test.describe('Sign out user', () => {
   test.fixme(
     'API-AUTH-SIGN-OUT-PERMISSIONS-UNAUTHORIZED-INVALID-TOKEN-001: should',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -138,11 +127,7 @@ test.describe('Sign out user', () => {
   test.fixme(
     'API-AUTH-SIGN-OUT-EDGE-CASE-EXPIRED-TOKEN-001: should',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user with expired session token
       await startServerWithSchema({
         name: 'test-app',
@@ -179,11 +164,7 @@ test.describe('Sign out user', () => {
   test.fixme(
     'API-AUTH-SIGN-OUT-EDGE-CASE-TOKEN-REUSE-PREVENTION-001: should  (token is invalidated)',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user who has just signed out
       await startServerWithSchema({
         name: 'test-app',
@@ -224,11 +205,7 @@ test.describe('Sign out user', () => {
   test.fixme(
     'user can complete full Signoutuser workflow',
     { tag: '@regression' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

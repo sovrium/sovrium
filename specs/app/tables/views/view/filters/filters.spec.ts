@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for View Filters
@@ -27,11 +28,7 @@ test.describe('View Filters', () => {
   test.fixme(
     'APP-TABLES-VIEW-FILTERS-001: should include only records matching all conditions when filters have AND operator and multiple conditions',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: filters with AND operator and multiple conditions
       await startServerWithSchema({
         name: 'test-app',
@@ -78,11 +75,7 @@ test.describe('View Filters', () => {
   test.fixme(
     'APP-TABLES-VIEW-FILTERS-002: should include records matching at least one condition when filters have OR operator',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: filters with OR operator and multiple conditions
       await startServerWithSchema({
         name: 'test-app',
@@ -129,11 +122,7 @@ test.describe('View Filters', () => {
   test.fixme(
     'APP-TABLES-VIEW-FILTERS-003: should use AND operator by default when filters have no operator specified',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: filters with no operator specified
       await startServerWithSchema({
         name: 'test-app',
@@ -179,11 +168,7 @@ test.describe('View Filters', () => {
   test.fixme(
     'user can complete full view-filters workflow',
     { tag: '@regression' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative filters
       await startServerWithSchema({
         name: 'test-app',

@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for DateTime Field
@@ -27,11 +28,7 @@ test.describe('DateTime Field', () => {
   test.fixme(
     'APP-DATETIME-FIELD-001: should create PostgreSQL TIMESTAMPTZ column when table configuration has datetime field',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with datetime field 'created_at'
       await startServerWithSchema({
         name: 'test-app',
@@ -66,11 +63,7 @@ test.describe('DateTime Field', () => {
   test.fixme(
     'APP-DATETIME-FIELD-002: should store date and time with timezone information',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table with datetime field 'timestamp'
       await startServerWithSchema({
         name: 'test-app',
@@ -102,11 +95,7 @@ test.describe('DateTime Field', () => {
   test.fixme(
     'APP-DATETIME-FIELD-003: should reject NULL value when datetime field is required',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table with required datetime field 'published_at'
       await startServerWithSchema({
         name: 'test-app',
@@ -143,11 +132,7 @@ test.describe('DateTime Field', () => {
   test.fixme(
     'APP-DATETIME-FIELD-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table with datetime field 'updated_at' and default value NOW()
       await startServerWithSchema({
         name: 'test-app',
@@ -180,11 +165,7 @@ test.describe('DateTime Field', () => {
   test.fixme(
     'APP-DATETIME-FIELD-005: should create btree index for fast queries when datetime field has indexed=true',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with datetime field 'created_at', indexed=true
       await startServerWithSchema({
         name: 'test-app',
@@ -219,11 +200,7 @@ test.describe('DateTime Field', () => {
   test.fixme(
     'user can complete full datetime-field workflow',
     { tag: '@regression' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative datetime field
       await startServerWithSchema({
         name: 'test-app',

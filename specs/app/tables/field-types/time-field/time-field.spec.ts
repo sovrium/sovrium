@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Time Field
@@ -23,11 +24,7 @@ test.describe('Time Field', () => {
   test.fixme(
     'APP-TIME-FIELD-001: should create PostgreSQL TIME column when table configuration has time field',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -58,11 +55,7 @@ test.describe('Time Field', () => {
   test.fixme(
     'APP-TIME-FIELD-002: should store time values without date component',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -91,11 +84,7 @@ test.describe('Time Field', () => {
   test.fixme(
     'APP-TIME-FIELD-003: should reject NULL value when time field is required',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -124,11 +113,7 @@ test.describe('Time Field', () => {
   test.fixme(
     'APP-TIME-FIELD-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -153,11 +138,7 @@ test.describe('Time Field', () => {
   test.fixme(
     'APP-TIME-FIELD-005: should create btree index for fast queries when time field has indexed=true',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -182,11 +163,7 @@ test.describe('Time Field', () => {
   test.fixme(
     'user can complete full time-field workflow',
     { tag: '@regression' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [

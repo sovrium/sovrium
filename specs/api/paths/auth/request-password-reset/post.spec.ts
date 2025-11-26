@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Request password reset
@@ -31,11 +32,7 @@ test.describe('Request password reset', () => {
   test.fixme(
     'API-AUTH-REQUEST-PASSWORD-RESET-SUCCESS-001: should  sends reset email with token',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A registered user with valid email
       await startServerWithSchema({
         name: 'test-app',
@@ -72,11 +69,7 @@ test.describe('Request password reset', () => {
   test.fixme(
     'API-AUTH-REQUEST-PASSWORD-RESET-SECURITY-NONEXISTENT-EMAIL-001: should  (same response to prevent email enumeration)',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server with no registered user
       await startServerWithSchema({
         name: 'test-app',
@@ -108,11 +101,7 @@ test.describe('Request password reset', () => {
   test.fixme(
     'API-AUTH-REQUEST-PASSWORD-RESET-VALIDATION-REQUIRED-EMAIL-001: should  request with validation error',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -141,11 +130,7 @@ test.describe('Request password reset', () => {
   test.fixme(
     'API-AUTH-REQUEST-PASSWORD-RESET-VALIDATION-INVALID-EMAIL-FORMAT-001: should  request with validation error',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -176,11 +161,7 @@ test.describe('Request password reset', () => {
   test.fixme(
     'API-AUTH-REQUEST-PASSWORD-RESET-EDGE-CASE-EMAIL-CASE-INSENSITIVE-001: should  sends reset email (case-insensitive matching)',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A registered user with lowercase email
       await startServerWithSchema({
         name: 'test-app',
@@ -216,11 +197,7 @@ test.describe('Request password reset', () => {
   test.fixme(
     'API-AUTH-REQUEST-PASSWORD-RESET-EDGE-CASE-MULTIPLE-REQUESTS-001: should  invalidates old token, creates new one',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user who has already requested password reset
       await startServerWithSchema({
         name: 'test-app',
@@ -260,11 +237,7 @@ test.describe('Request password reset', () => {
   test.fixme(
     'API-AUTH-REQUEST-PASSWORD-RESET-EDGE-CASE-REDIRECT-URL-001: should  includes redirect url in reset email',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A registered user
       await startServerWithSchema({
         name: 'test-app',
@@ -305,11 +278,7 @@ test.describe('Request password reset', () => {
   test.fixme(
     'user can complete full Requestpasswordreset workflow',
     { tag: '@regression' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

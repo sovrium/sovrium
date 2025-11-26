@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Progress Field
@@ -23,11 +24,7 @@ test.describe('Progress Field', () => {
   test.fixme(
     'APP-PROGRESS-FIELD-001: should create PostgreSQL INTEGER column for progress percentage storage',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -58,11 +55,7 @@ test.describe('Progress Field', () => {
   test.fixme(
     'APP-PROGRESS-FIELD-002: should enforce 0-100 range constraint for progress values',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -95,11 +88,7 @@ test.describe('Progress Field', () => {
   test.fixme(
     'user can complete full progress-field workflow',
     { tag: '@regression' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [

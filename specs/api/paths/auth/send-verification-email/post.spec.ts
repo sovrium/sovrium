@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Send verification email
@@ -31,11 +32,7 @@ test.describe('Send verification email', () => {
   test.fixme(
     'API-AUTH-SEND-VERIFICATION-EMAIL-SUCCESS-001: should  sends verification email with token',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A registered user with unverified email
       await startServerWithSchema({
         name: 'test-app',
@@ -72,11 +69,7 @@ test.describe('Send verification email', () => {
   test.fixme(
     'API-AUTH-SEND-VERIFICATION-EMAIL-VALIDATION-REQUIRED-EMAIL-001: should  request with validation error',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -105,11 +98,7 @@ test.describe('Send verification email', () => {
   test.fixme(
     'API-AUTH-SEND-VERIFICATION-EMAIL-VALIDATION-INVALID-EMAIL-FORMAT-001: should  request with validation error',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -140,11 +129,7 @@ test.describe('Send verification email', () => {
   test.fixme(
     'API-AUTH-SEND-VERIFICATION-EMAIL-EDGE-CASE-ALREADY-VERIFIED-001: should  or 400 (implementation-dependent)',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user with already verified email
       await startServerWithSchema({
         name: 'test-app',
@@ -178,11 +163,7 @@ test.describe('Send verification email', () => {
   test.fixme(
     'API-AUTH-SEND-VERIFICATION-EMAIL-EDGE-CASE-MULTIPLE-REQUESTS-001: should  invalidates old token, creates new one',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A user who has already requested verification
       await startServerWithSchema({
         name: 'test-app',
@@ -222,11 +203,7 @@ test.describe('Send verification email', () => {
   test.fixme(
     'API-AUTH-SEND-VERIFICATION-EMAIL-EDGE-CASE-NONEXISTENT-EMAIL-001: should  (same response to prevent email enumeration)',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server with no registered user
       await startServerWithSchema({
         name: 'test-app',
@@ -262,11 +239,7 @@ test.describe('Send verification email', () => {
   test.fixme(
     'user can complete full Sendverificationemail workflow',
     { tag: '@regression' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

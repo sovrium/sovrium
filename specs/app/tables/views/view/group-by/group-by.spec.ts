@@ -27,11 +27,7 @@ test.describe('View Group By', () => {
   test.fixme(
     'APP-TABLES-VIEW-GROUP-BY-001: should organize records into groups by status values when a view is grouped by status field',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: a view grouped by status field
       await startServerWithSchema({
         name: 'test-app',
@@ -76,11 +72,7 @@ test.describe('View Group By', () => {
   test.fixme(
     'APP-TABLES-VIEW-GROUP-BY-002: should order groups alphabetically/numerically from lowest to highest when a view is grouped by field with ascending direction',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: a view grouped by field with ascending direction
       await startServerWithSchema({
         name: 'test-app',
@@ -126,11 +118,7 @@ test.describe('View Group By', () => {
   test.fixme(
     'APP-TABLES-VIEW-GROUP-BY-003: should order groups from highest to lowest when a view is grouped by field with descending direction',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: a view grouped by field with descending direction
       await startServerWithSchema({
         name: 'test-app',
@@ -180,11 +168,7 @@ test.describe('View Group By', () => {
   test.fixme(
     'user can complete full view-group-by workflow',
     { tag: '@regression' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative grouping
       await startServerWithSchema({
         name: 'test-app',

@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Create organization
@@ -32,11 +33,7 @@ test.describe('Create organization', () => {
   test.fixme(
     'API-ORG-CREATE-ORGANIZATION-SUCCESS-001: should returns 201 Created with organization data and user is set as owner',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -82,11 +79,7 @@ test.describe('Create organization', () => {
   test.fixme(
     'API-ORG-CREATE-ORGANIZATION-SUCCESS-AUTO-SLUG-001: should returns 201 Created with auto-generated slug from name',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -120,11 +113,7 @@ test.describe('Create organization', () => {
   test.fixme(
     'API-ORG-CREATE-ORGANIZATION-VALIDATION-REQUIRED-NAME-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -158,11 +147,7 @@ test.describe('Create organization', () => {
   test.fixme(
     'API-ORG-CREATE-ORGANIZATION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -191,11 +176,7 @@ test.describe('Create organization', () => {
   test.fixme(
     'API-ORG-CREATE-ORGANIZATION-CONFLICT-DUPLICATE-SLUG-001: should returns 409 Conflict error',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user and an existing organization
       await startServerWithSchema({
         name: 'test-app',
@@ -240,11 +221,7 @@ test.describe('Create organization', () => {
   test.fixme(
     'user can complete full createOrganization workflow',
     { tag: '@regression' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

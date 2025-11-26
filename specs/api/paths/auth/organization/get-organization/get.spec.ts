@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Get organization details
@@ -32,11 +33,7 @@ test.describe('Get organization details', () => {
   test.fixme(
     'API-ORG-GET-ORGANIZATION-SUCCESS-001: should returns 200 OK with organization data',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user who is member of an organization
       await startServerWithSchema({
         name: 'test-app',
@@ -81,11 +78,7 @@ test.describe('Get organization details', () => {
   test.fixme(
     'API-ORG-GET-ORGANIZATION-VALIDATION-REQUIRED-ORGANIZATION-ID-001: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -119,11 +112,7 @@ test.describe('Get organization details', () => {
   test.fixme(
     'API-ORG-GET-ORGANIZATION-PERMISSIONS-UNAUTHORIZED-NO-TOKEN-001: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -149,11 +138,7 @@ test.describe('Get organization details', () => {
   test.fixme(
     'API-ORG-GET-ORGANIZATION-NOT-FOUND-001: should returns 404 Not Found',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -190,11 +175,7 @@ test.describe('Get organization details', () => {
   test.fixme(
     'API-ORG-GET-ORGANIZATION-SECURITY-NON-MEMBER-ACCESS-001: should returns 404 Not Found (not 403 to prevent organization enumeration)',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user who is not member of an organization
       await startServerWithSchema({
         name: 'test-app',
@@ -244,11 +225,7 @@ test.describe('Get organization details', () => {
   test.fixme(
     'user can complete full getOrganization workflow',
     { tag: '@regression' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',

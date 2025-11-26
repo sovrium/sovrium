@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Rich Text Field
@@ -23,11 +24,7 @@ test.describe('Rich Text Field', () => {
   test.fixme(
     'APP-RICH-TEXT-FIELD-001: should create PostgreSQL TEXT column for markdown/rich text storage',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await executeQuery('CREATE TABLE posts (id SERIAL PRIMARY KEY, content TEXT)')
 
       const columnInfo = await executeQuery(
@@ -51,11 +48,7 @@ test.describe('Rich Text Field', () => {
   test.fixme(
     'APP-RICH-TEXT-FIELD-002: should enforce maximum length via CHECK constraint',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await executeQuery(
         'CREATE TABLE articles (id SERIAL PRIMARY KEY, summary TEXT CHECK (LENGTH(summary) <= 500))'
       )
@@ -74,11 +67,7 @@ test.describe('Rich Text Field', () => {
   test.fixme(
     'APP-RICH-TEXT-FIELD-003: should support full-text search with GIN index',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE pages (id SERIAL PRIMARY KEY, body TEXT)',
         "CREATE INDEX idx_pages_body_fulltext ON pages USING GIN(to_tsvector('english', body))",
@@ -102,11 +91,7 @@ test.describe('Rich Text Field', () => {
   test.fixme(
     'APP-RICH-TEXT-FIELD-004: should enable full-text search with to_tsvector and to_tsquery',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE comments (id SERIAL PRIMARY KEY, message TEXT)',
         "INSERT INTO comments (message) VALUES ('This is a great product!')",
@@ -129,11 +114,7 @@ test.describe('Rich Text Field', () => {
   test.fixme(
     'APP-RICH-TEXT-FIELD-005: should enforce NOT NULL and UNIQUE constraints',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE documents (id SERIAL PRIMARY KEY, slug TEXT UNIQUE NOT NULL)',
         "INSERT INTO documents (slug) VALUES ('my-first-document')",
@@ -158,11 +139,7 @@ test.describe('Rich Text Field', () => {
   test.fixme(
     'user can complete full rich-text-field workflow',
     { tag: '@regression' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [

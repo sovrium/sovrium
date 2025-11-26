@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for View Sorts
@@ -27,11 +28,7 @@ test.describe('View Sorts', () => {
   test.fixme(
     'APP-TABLES-VIEW-SORTS-001: should order records from lowest to highest by that field when sort is by single field with ascending direction',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: a sort by single field with ascending direction
       await startServerWithSchema({
         name: 'test-app',
@@ -75,11 +72,7 @@ test.describe('View Sorts', () => {
   test.fixme(
     'APP-TABLES-VIEW-SORTS-002: should order records from highest to lowest by that field when sort is by single field with descending direction',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: a sort by single field with descending direction
       await startServerWithSchema({
         name: 'test-app',
@@ -123,11 +116,7 @@ test.describe('View Sorts', () => {
   test.fixme(
     'APP-TABLES-VIEW-SORTS-003: should order records by first field, then second field breaks ties, and so on when sorts by multiple fields',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: sorts by multiple fields
       await startServerWithSchema({
         name: 'test-app',
@@ -187,11 +176,7 @@ test.describe('View Sorts', () => {
   test.fixme(
     'user can complete full view-sorts workflow',
     { tag: '@regression' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative sorting
       await startServerWithSchema({
         name: 'test-app',

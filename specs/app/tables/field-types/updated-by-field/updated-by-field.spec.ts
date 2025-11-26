@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Updated By Field
@@ -23,11 +24,7 @@ test.describe('Updated By Field', () => {
   test.fixme(
     'APP-UPDATED-BY-FIELD-001: should create PostgreSQL INTEGER NOT NULL column with FOREIGN KEY and trigger',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO users (name) VALUES ('Alice'), ('Bob')",
@@ -58,11 +55,7 @@ test.describe('Updated By Field', () => {
   test.fixme(
     'APP-UPDATED-BY-FIELD-002: should reflect the most recent editor user ID',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO users (name) VALUES ('Alice'), ('Bob'), ('Charlie')",
@@ -109,11 +102,7 @@ test.describe('Updated By Field', () => {
   test.fixme(
     'APP-UPDATED-BY-FIELD-003: should support efficient filtering by last editor',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO users (name) VALUES ('Alice'), ('Bob')",
@@ -164,11 +153,7 @@ test.describe('Updated By Field', () => {
   test.fixme(
     'APP-UPDATED-BY-FIELD-004: should support dual audit trail with created_by',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO users (name) VALUES ('Alice'), ('Bob')",
@@ -213,11 +198,7 @@ test.describe('Updated By Field', () => {
   test.fixme(
     'APP-UPDATED-BY-FIELD-005: should create btree index for fast editor filtering when indexed=true',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         'CREATE TABLE articles (id SERIAL PRIMARY KEY, content TEXT, updated_by INTEGER NOT NULL REFERENCES users(id))',
@@ -242,11 +223,7 @@ test.describe('Updated By Field', () => {
   test.fixme(
     'user can complete full updated-by-field workflow',
     { tag: '@regression' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO users (name) VALUES ('Alice'), ('Bob')",

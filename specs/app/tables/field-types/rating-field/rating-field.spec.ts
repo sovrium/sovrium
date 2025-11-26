@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Rating Field
@@ -23,11 +24,7 @@ test.describe('Rating Field', () => {
   test.fixme(
     'APP-RATING-FIELD-001: should create PostgreSQL INTEGER column for rating storage when table configuration has rating field',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -58,11 +55,7 @@ test.describe('Rating Field', () => {
   test.fixme(
     'APP-RATING-FIELD-002: should enforce range constraint for rating values (typically 1-5)',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -95,11 +88,7 @@ test.describe('Rating Field', () => {
   test.fixme(
     'APP-RATING-FIELD-003: should reject NULL value when rating field is required',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -128,11 +117,7 @@ test.describe('Rating Field', () => {
   test.fixme(
     'APP-RATING-FIELD-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -157,11 +142,7 @@ test.describe('Rating Field', () => {
   test.fixme(
     'APP-RATING-FIELD-005: should create btree index for fast queries when rating field has indexed=true',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -186,11 +167,7 @@ test.describe('Rating Field', () => {
   test.fixme(
     'user can complete full rating-field workflow',
     { tag: '@regression' },
-    async ({
-      page,
-      startServerWithSchema,
-      executeQuery,
-    }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
