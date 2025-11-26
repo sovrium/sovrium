@@ -22,6 +22,9 @@
     },
     "style": {
       "$ref": "./style/style.schema.json"
+    },
+    "indexed": {
+      "$ref": "../common/indexed/indexed.schema.json"
     }
   },
   "description": "Star/icon rating field for user feedback and scoring. Configure maxRating (typically 5 or 10), display icon (star, heart, thumbs-up), and whether to allow half-ratings. Stores numeric value (1 to maxRating). Useful for product reviews, satisfaction scores, priority levels, and quality assessments. Displays as interactive icon picker in forms and static icons in tables.",
@@ -195,7 +198,15 @@
             "CREATE TABLE feedback (id SERIAL PRIMARY KEY, satisfaction SMALLINT NOT NULL CHECK (satisfaction >= 1 AND satisfaction <= 5))",
             "CREATE INDEX idx_feedback_satisfaction ON feedback(satisfaction)",
             "INSERT INTO feedback (satisfaction) VALUES (4), (5), (3), (5), (4)"
-          ]
+          ],
+          "fieldConfig": {
+            "id": 1,
+            "name": "satisfaction",
+            "type": "rating",
+            "max": 5,
+            "required": true,
+            "indexed": true
+          }
         },
         "assertions": [
           {

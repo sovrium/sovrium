@@ -19,6 +19,9 @@
     },
     "schema": {
       "$ref": "./schema/schema.schema.json"
+    },
+    "indexed": {
+      "$ref": "../common/indexed/indexed.schema.json"
     }
   },
   "description": "Flexible JSON field for storing structured data objects. Accepts any valid JSON (objects, arrays, primitives). Optionally provide a JSON Schema for validation to enforce structure and types. Useful for storing configuration objects, API responses, flexible attributes, and dynamic data that doesn't fit rigid schema. Displays with syntax highlighting and formatting in UI. Can be queried using JSON path expressions.",

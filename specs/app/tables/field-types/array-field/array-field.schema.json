@@ -22,6 +22,9 @@
     },
     "maxItems": {
       "$ref": "./maxItems/maxItems.schema.json"
+    },
+    "indexed": {
+      "$ref": "../common/indexed/indexed.schema.json"
     }
   },
   "description": "List of values (tags, keywords)",

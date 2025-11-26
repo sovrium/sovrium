@@ -19,6 +19,9 @@
     },
     "format": {
       "$ref": "./format/format.schema.json"
+    },
+    "indexed": {
+      "$ref": "../common/indexed/indexed.schema.json"
     }
   },
   "description": "Display and scan barcodes",

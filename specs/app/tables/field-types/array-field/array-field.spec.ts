@@ -197,9 +197,12 @@ test.describe('Array Field', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'items', type: 'array', itemType: 'text' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

@@ -16,6 +16,9 @@
     "type": {
       "type": "string",
       "const": "geolocation"
+    },
+    "indexed": {
+      "$ref": "../common/indexed/indexed.schema.json"
     }
   },
   "description": "Geographic coordinates (latitude/longitude)",
