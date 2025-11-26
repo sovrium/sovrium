@@ -359,15 +359,19 @@ test.describe('Component Props', () => {
 
       // Verify string prop with variable
       const card = page.locator('div.card')
+      // THEN: assertion
       await expect(card).toHaveClass(/p-6/)
 
       // Verify color variable
+      // THEN: assertion
       await expect(card).toHaveAttribute('data-color', 'primary')
 
       // Verify boolean prop
+      // THEN: assertion
       await expect(card).toHaveAttribute('data-enabled', 'true')
 
       // Verify numeric prop
+      // THEN: assertion
       await expect(card).toHaveAttribute('data-size', '20')
 
       // Focus on workflow continuity, not exhaustive coverage

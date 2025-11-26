@@ -111,6 +111,7 @@ test.describe('External Scripts', () => {
     "APP-PAGES-EXTERNAL-004: should load script with type='module'",
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -123,8 +124,10 @@ test.describe('External Scripts', () => {
           },
         ],
       })
+      // WHEN: user navigates to the page
       await page.goto('/')
       const script = page.locator('script[src="./js/app.js"]')
+      // THEN: assertion
       await expect(script).toHaveAttribute('type', 'module')
     }
   )
@@ -181,8 +184,10 @@ test.describe('External Scripts', () => {
             },
           ],
         })
+        // WHEN: user navigates to the page
         await page.goto('/')
         const script = page.locator('script[src="https://cdn.example.com/lib.js"]')
+        // THEN: assertion
         await expect(script).toHaveAttribute('crossorigin', crossorigin)
       }
     }
@@ -312,9 +317,11 @@ test.describe('External Scripts', () => {
       await expect(
         page.locator('script[src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"]')
       ).toBeAttached()
+      // THEN: assertion
       await expect(
         page.locator('script[src="https://cdn.jsdelivr.net/npm/chart.js"]')
       ).toBeAttached()
+      // THEN: assertion
       await expect(page.locator('script[src="./js/app.js"]')).toBeAttached()
     }
   )

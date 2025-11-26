@@ -77,6 +77,7 @@ test.describe('Update member role', () => {
       // Response contains updated member with new role
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // Member role is updated in database
@@ -121,6 +122,7 @@ test.describe('Update member role', () => {
       // Response contains validation error for required fields
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -152,6 +154,7 @@ test.describe('Update member role', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -203,6 +206,7 @@ test.describe('Update member role', () => {
       // Response contains error about insufficient permissions
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -248,6 +252,7 @@ test.describe('Update member role', () => {
       // Response contains error about member not found
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

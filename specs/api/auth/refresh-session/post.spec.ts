@@ -60,6 +60,7 @@ test.describe('Refresh session token', () => {
       // Response contains new token and expiration
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // New token is different from old token
@@ -92,6 +93,7 @@ test.describe('Refresh session token', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -118,6 +120,7 @@ test.describe('Refresh session token', () => {
       // Response contains error about invalid token
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -152,6 +155,7 @@ test.describe('Refresh session token', () => {
       // Response contains error about expired token
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -186,6 +190,7 @@ test.describe('Refresh session token', () => {
       // Response indicates token is no longer valid
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

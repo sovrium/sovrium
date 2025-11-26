@@ -47,6 +47,7 @@ test.describe('Single Line Text Field', () => {
         is_nullable: 'YES',
       })
 
+      // WHEN: querying the database
       const validInsert = await executeQuery(
         "INSERT INTO products (title) VALUES ('MacBook Pro 16-inch') RETURNING title"
       )
@@ -80,13 +81,16 @@ test.describe('Single Line Text Field', () => {
       const uniqueConstraint = await executeQuery(
         "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE' AND constraint_name LIKE '%username%'"
       )
+      // THEN: assertion
       expect(uniqueConstraint.count).toBe(1)
 
+      // THEN: assertion
       await expect(
         executeQuery("INSERT INTO users (username) VALUES ('john_doe')")
       ).rejects.toThrow(/duplicate key value violates unique constraint/)
 
       const rowCount = await executeQuery('SELECT COUNT(*) as count FROM users')
+      // THEN: assertion
       expect(rowCount.count).toBe(1)
     }
   )
@@ -113,6 +117,7 @@ test.describe('Single Line Text Field', () => {
       )
       expect(notNullCheck.is_nullable).toBe('NO')
 
+      // WHEN: querying the database
       const validInsert = await executeQuery(
         "INSERT INTO tasks (title) VALUES ('Complete project') RETURNING title"
       )
@@ -158,6 +163,7 @@ test.describe('Single Line Text Field', () => {
         tablename: 'products',
       })
 
+      // WHEN: executing query
       const indexDef = await executeQuery(
         "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_products_sku'"
       )
@@ -189,6 +195,7 @@ test.describe('Single Line Text Field', () => {
       )
       expect(defaultCheck.column_default).toBe("'Untitled'::character varying")
 
+      // WHEN: querying the database
       const defaultInsert = await executeQuery(
         'INSERT INTO documents (id) VALUES (DEFAULT) RETURNING name'
       )
@@ -219,11 +226,13 @@ test.describe('Single Line Text Field', () => {
       )
       expect(emojiInsert.content).toBe('Hello 👋 World 🌍')
 
+      // WHEN: querying the database
       const i18nInsert = await executeQuery(
         "INSERT INTO posts (content) VALUES ('Привет мир 你好世界 مرحبا العالم') RETURNING content"
       )
       expect(i18nInsert.content).toBe('Привет мир 你好世界 مرحبا العالم')
 
+      // WHEN: querying the database
       const symbolsInsert = await executeQuery(
         "INSERT INTO posts (content) VALUES ('Price: €100 ¥500 £50 ©2024') RETURNING content"
       )
@@ -253,6 +262,7 @@ test.describe('Single Line Text Field', () => {
       )
       expect(atLimit.len).toBe(255)
 
+      // WHEN/THEN: executing query and asserting error
       await expect(
         executeQuery("INSERT INTO notes (short_note) VALUES (REPEAT('b', 300))")
       ).rejects.toThrow(/value too long for type character varying\(255\)/)
@@ -281,6 +291,7 @@ test.describe('Single Line Text Field', () => {
       )
       expect(quotesInsert.message).toBe("O'Brien's message")
 
+      // WHEN: querying the database
       const backslashInsert = await executeQuery(
         "INSERT INTO messages (message) VALUES ('Path: C:\\Users\\Documents\\file.txt') RETURNING message"
       )
@@ -314,9 +325,11 @@ test.describe('Single Line Text Field', () => {
       )
       expect(bulkInsert.total).toBe(1000)
 
+      // WHEN: querying the database
       const totalCount = await executeQuery('SELECT COUNT(*) as count FROM products')
       expect(totalCount.count).toBe(1000)
 
+      // WHEN: querying the database
       const sampleRecords = await executeQuery(
         'SELECT sku FROM products WHERE id IN (1, 500, 1000) ORDER BY id'
       )
@@ -351,11 +364,13 @@ test.describe('Single Line Text Field', () => {
       )
       expect(indexCheck.indexname).toBe('idx_product_code')
 
+      // WHEN: executing query
       const specificRecord = await executeQuery(
         "SELECT product_code FROM inventory WHERE product_code = 'PROD-5000'"
       )
       expect(specificRecord.product_code).toBe('PROD-5000')
 
+      // WHEN: executing query
       const rangeQuery = await executeQuery(
         "SELECT COUNT(*) as count FROM inventory WHERE product_code >= 'PROD-1000' AND product_code < 'PROD-2000'"
       )
@@ -388,16 +403,19 @@ test.describe('Single Line Text Field', () => {
       const totalRecords = await executeQuery('SELECT COUNT(*) as count FROM articles')
       expect(totalRecords.count).toBe(5000)
 
+      // WHEN: executing query
       const featuredCount = await executeQuery(
         "SELECT COUNT(*) as count FROM articles WHERE title LIKE 'Featured%'"
       )
       expect(featuredCount.count).toBe(500)
 
+      // WHEN: executing query
       const wildcardSearch = await executeQuery(
         "SELECT title FROM articles WHERE title LIKE '%Article 100' ORDER BY id LIMIT 1"
       )
       expect(wildcardSearch.title).toBe('Regular Article 100')
 
+      // WHEN: executing query
       const caseInsensitive = await executeQuery(
         "SELECT COUNT(*) as count FROM articles WHERE title ILIKE '%FEATURED%'"
       )
@@ -429,10 +447,12 @@ test.describe('Single Line Text Field', () => {
       )
       expect(firstInsert.username).toBe('concurrent_user')
 
+      // WHEN/THEN: executing query and asserting error
       await expect(
         executeQuery("INSERT INTO users (username) VALUES ('concurrent_user')")
       ).rejects.toThrow(/duplicate key value violates unique constraint/)
 
+      // WHEN: executing query
       const finalCount = await executeQuery(
         "SELECT COUNT(*) as count FROM users WHERE username = 'concurrent_user'"
       )
@@ -465,14 +485,17 @@ test.describe('Single Line Text Field', () => {
       const beforeUpdate = await executeQuery('SELECT sku FROM products WHERE id = 1')
       expect(beforeUpdate.sku).toBe('PROD-001')
 
+      // WHEN: executing query
       const updateResult = await executeQuery(
         "UPDATE products SET sku = 'PROD-001-UPDATED' WHERE id = 1 RETURNING sku"
       )
       expect(updateResult.sku).toBe('PROD-001-UPDATED')
 
+      // WHEN: executing query
       const afterUpdate = await executeQuery('SELECT sku FROM products WHERE id = 1')
       expect(afterUpdate.sku).toBe('PROD-001-UPDATED')
 
+      // WHEN: executing query
       const oldValueCount = await executeQuery(
         "SELECT COUNT(*) as count FROM products WHERE sku = 'PROD-001'"
       )
@@ -504,6 +527,7 @@ test.describe('Single Line Text Field', () => {
       )
       expect(bulkInsert.total).toBe(1000)
 
+      // WHEN: querying the database
       const uniqueCount = await executeQuery(
         'SELECT COUNT(DISTINCT event_code) as unique_count FROM events'
       )
@@ -541,6 +565,7 @@ test.describe('Single Line Text Field', () => {
       )
       expect(emptyInsert.description).toBe('')
 
+      // WHEN: querying the database
       const nullInsert = await executeQuery(
         'INSERT INTO items (description) VALUES (NULL) RETURNING description'
       )
@@ -577,11 +602,13 @@ test.describe('Single Line Text Field', () => {
       expect(whitespaceOnly.text).toBe('   ')
       expect(whitespaceOnly.len).toBe(3)
 
+      // WHEN: querying the database
       const leadingSpace = await executeQuery(
         "INSERT INTO content (text) VALUES ('  leading') RETURNING text"
       )
       expect(leadingSpace.text).toBe('  leading')
 
+      // WHEN: querying the database
       const trailingSpace = await executeQuery(
         "INSERT INTO content (text) VALUES ('trailing  ') RETURNING text"
       )
@@ -618,6 +645,7 @@ test.describe('Single Line Text Field', () => {
       expect(singleChar.value).toBe('a')
       expect(singleChar.len).toBe(1)
 
+      // WHEN: querying the database
       const maxLength = await executeQuery(
         "INSERT INTO boundaries (value) VALUES (REPEAT('b', 255)) RETURNING LENGTH(value) as len"
       )
@@ -656,6 +684,7 @@ test.describe('Single Line Text Field', () => {
       )
       expect(emptyString.name).toBe('')
 
+      // WHEN: querying the database
       const notNullCheck = await executeQuery(
         'SELECT name IS NULL as is_null FROM required_fields WHERE id = 1'
       )
@@ -689,6 +718,7 @@ test.describe('Single Line Text Field', () => {
       )
       expect(tabChar.content).toBe('before\tafter')
 
+      // WHEN: querying the database
       const newlineChar = await executeQuery(
         "INSERT INTO special_chars (content) VALUES ('line1\nline2') RETURNING content"
       )
@@ -750,6 +780,7 @@ test.describe('Single Line Text Field', () => {
 
       // Test constraints (representative: unique)
       await executeQuery("INSERT INTO data (text_field) VALUES ('unique_value')")
+      // WHEN/THEN: executing query and asserting error
       await expect(
         executeQuery("INSERT INTO data (text_field) VALUES ('unique_value')")
       ).rejects.toThrow(/duplicate key value violates unique constraint/)
@@ -764,6 +795,7 @@ test.describe('Single Line Text Field', () => {
       await executeQuery(
         "INSERT INTO data (text_field) SELECT 'Bulk-' || i FROM generate_series(1, 500) i"
       )
+      // WHEN: executing query
       const searchResult = await executeQuery(
         "SELECT text_field FROM data WHERE text_field = 'Bulk-250'"
       )

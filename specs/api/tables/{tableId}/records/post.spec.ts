@@ -61,6 +61,7 @@ test.describe('Create new record', () => {
       expect(response.status()).toBe(201)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('id')
       expect(data.email).toBe('john.doe@example.com')
       expect(data.first_name).toBe('John')
@@ -70,6 +71,7 @@ test.describe('Create new record', () => {
       const result = await executeQuery(`
         SELECT * FROM users WHERE email = 'john.doe@example.com'
       `)
+      // THEN: assertion
       expect(result.rows).toHaveLength(1)
       expect(result.rows[0].first_name).toBe('John')
       expect(result.rows[0].last_name).toBe('Doe')
@@ -97,6 +99,7 @@ test.describe('Create new record', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data.error).toBe('Table not found')
     }
@@ -136,6 +139,7 @@ test.describe('Create new record', () => {
       expect(response.status()).toBe(400)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data.error).toBe('Validation error')
     }
@@ -182,6 +186,7 @@ test.describe('Create new record', () => {
       expect(response.status()).toBe(409)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data.error).toBe('Unique constraint violation')
 
@@ -189,6 +194,7 @@ test.describe('Create new record', () => {
       const result = await executeQuery(`
         SELECT COUNT(*) as count FROM users WHERE email = 'existing@example.com'
       `)
+      // THEN: assertion
       expect(result.rows[0].count).toBe('1')
     }
   )
@@ -251,6 +257,7 @@ test.describe('Create new record', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Forbidden')
     }
   )
@@ -282,6 +289,7 @@ test.describe('Create new record', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Forbidden')
       expect(data.message).toBe('You do not have permission to create records in this table')
     }
@@ -314,6 +322,7 @@ test.describe('Create new record', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Table not found')
     }
   )
@@ -355,6 +364,7 @@ test.describe('Create new record', () => {
       expect(response.status()).toBe(201)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('id')
       expect(data.name).toBe('John Doe')
       expect(data.email).toBe('john@example.com')
@@ -399,6 +409,7 @@ test.describe('Create new record', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Forbidden')
       expect(data.message).toBe("Cannot write to field 'salary': insufficient permissions")
       expect(data.field).toBe('salary')
@@ -440,6 +451,7 @@ test.describe('Create new record', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Forbidden')
       expect(data.field).toBe('email')
     }
@@ -481,6 +493,7 @@ test.describe('Create new record', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Forbidden')
       expect(data.message).toBe("Cannot write to readonly field 'id'")
     }
@@ -527,6 +540,7 @@ test.describe('Create new record', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Forbidden')
       expect(data).toHaveProperty('field')
     }
@@ -566,6 +580,7 @@ test.describe('Create new record', () => {
       expect(response.status()).toBe(201)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.name).toBe('Alpha Project')
       expect(data.organization_id).toBe('org_123')
 
@@ -573,6 +588,7 @@ test.describe('Create new record', () => {
       const result = await executeQuery(`
         SELECT organization_id FROM projects WHERE name = 'Alpha Project'
       `)
+      // THEN: assertion
       expect(result.rows[0].organization_id).toBe('org_123')
     }
   )
@@ -612,6 +628,7 @@ test.describe('Create new record', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Forbidden')
       expect(data.message).toBe('Cannot create record for a different organization')
     }
@@ -654,6 +671,7 @@ test.describe('Create new record', () => {
       expect(response.status()).toBe(201)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.name).toBe('Carol Davis')
       expect(data.email).toBe('carol@example.com')
       expect(data.organization_id).toBe('org_123')
@@ -697,6 +715,7 @@ test.describe('Create new record', () => {
       expect(response.status()).toBe(201)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.name).toBe('David Lee')
       expect(data.email).toBe('david@example.com')
 
@@ -704,6 +723,7 @@ test.describe('Create new record', () => {
       const result = await executeQuery(`
         SELECT salary FROM employees WHERE name = 'David Lee'
       `)
+      // THEN: assertion
       expect(result.rows[0].salary).toBe('50000')
     }
   )
@@ -744,9 +764,11 @@ test.describe('Create new record', () => {
         },
       })
 
+      // THEN: assertion
       expect(response.status()).toBe(201)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('id')
       expect(data.email).toBe('user@example.com')
       expect(data.name).toBe('Test User')
@@ -755,6 +777,7 @@ test.describe('Create new record', () => {
       const result = await executeQuery(`
         SELECT * FROM users WHERE email = 'user@example.com'
       `)
+      // THEN: assertion
       expect(result.rows).toHaveLength(1)
     }
   )

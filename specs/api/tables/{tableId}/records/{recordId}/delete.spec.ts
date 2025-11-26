@@ -56,6 +56,7 @@ test.describe('Delete record', () => {
 
       // Verify record no longer exists in database
       const result = await executeQuery(`SELECT COUNT(*) as count FROM users WHERE id=1`)
+      // THEN: assertion
       expect(result.rows[0].count).toBe(0)
     }
   )
@@ -87,6 +88,7 @@ test.describe('Delete record', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data.error).toBe('Record not found')
     }
@@ -122,11 +124,13 @@ test.describe('Delete record', () => {
       expect(response.status()).toBe(401)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
 
       // Verify record remains in database (not deleted)
       const result = await executeQuery(`SELECT COUNT(*) as count FROM employees WHERE id=1`)
+      // THEN: assertion
       expect(result.rows[0].count).toBe(1)
     }
   )
@@ -165,6 +169,7 @@ test.describe('Delete record', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
       expect(data.error).toBe('Forbidden')
@@ -172,6 +177,7 @@ test.describe('Delete record', () => {
 
       // Verify record remains in database
       const result = await executeQuery(`SELECT COUNT(*) as count FROM employees WHERE id=1`)
+      // THEN: assertion
       expect(result.rows[0].count).toBe(1)
     }
   )
@@ -210,6 +216,7 @@ test.describe('Delete record', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
       expect(data.error).toBe('Forbidden')
@@ -251,6 +258,7 @@ test.describe('Delete record', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data.error).toBe('Record not found')
 
@@ -259,6 +267,7 @@ test.describe('Delete record', () => {
         SELECT COUNT(*) as count FROM employees
         WHERE id=1 AND organization_id='org_456'
       `)
+      // THEN: assertion
       expect(result.rows[0].count).toBe(1)
     }
   )
@@ -298,6 +307,7 @@ test.describe('Delete record', () => {
 
       // Verify record is deleted from database
       const result = await executeQuery(`SELECT COUNT(*) as count FROM employees WHERE id=1`)
+      // THEN: assertion
       expect(result.rows[0].count).toBe(0)
     }
   )
@@ -338,6 +348,7 @@ test.describe('Delete record', () => {
 
       // Verify record is deleted from database
       const result = await executeQuery(`SELECT COUNT(*) as count FROM projects WHERE id=1`)
+      // THEN: assertion
       expect(result.rows[0].count).toBe(0)
     }
   )
@@ -377,6 +388,7 @@ test.describe('Delete record', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data.error).toBe('Record not found')
 
@@ -385,6 +397,7 @@ test.describe('Delete record', () => {
         SELECT COUNT(*) as count FROM employees
         WHERE id=1 AND organization_id='org_456'
       `)
+      // THEN: assertion
       expect(result.rows[0].count).toBe(1)
     }
   )
@@ -423,6 +436,7 @@ test.describe('Delete record', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data.error).toBe('Record not found')
     }
@@ -464,10 +478,12 @@ test.describe('Delete record', () => {
           Authorization: 'Bearer admin_token',
         },
       })
+      // THEN: assertion
       expect(successResponse.status()).toBe(204)
 
       // Verify deletion
       const verifyDelete = await executeQuery(`SELECT COUNT(*) as count FROM users WHERE id=1`)
+      // THEN: assertion
       expect(verifyDelete.rows[0].count).toBe(0)
 
       // Test record not found
@@ -476,6 +492,7 @@ test.describe('Delete record', () => {
           Authorization: 'Bearer admin_token',
         },
       })
+      // THEN: assertion
       expect(notFoundResponse.status()).toBe(404)
 
       // Test permission denied
@@ -484,10 +501,12 @@ test.describe('Delete record', () => {
           Authorization: 'Bearer member_token',
         },
       })
+      // THEN: assertion
       expect(forbiddenResponse.status()).toBe(403)
 
       // Test unauthorized
       const unauthorizedResponse = await request.delete('/api/tables/1/records/2')
+      // THEN: assertion
       expect(unauthorizedResponse.status()).toBe(401)
     }
   )

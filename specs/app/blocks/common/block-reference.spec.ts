@@ -378,6 +378,7 @@ test.describe('Block Reference', () => {
       await expect(alert).toHaveClass(/alert-success/)
       await expect(alert).toHaveText('Saved successfully!')
       const html = await alert.innerHTML()
+      // THEN: assertion
       expect(html).not.toContain('$')
     }
   )
@@ -431,6 +432,7 @@ test.describe('Block Reference', () => {
         'src',
         '/alice.jpg'
       )
+      // THEN: assertion
       await expect(page.locator('[data-testid="block-team-member-1"] h4')).toHaveText('Bob')
       await expect(page.locator('[data-testid="block-team-member-2"] h4')).toHaveText('Carol')
     }
@@ -558,9 +560,11 @@ test.describe('Block Reference', () => {
       await page.goto('/')
 
       // Verify page renders with blocks schema validated
+      // THEN: assertion
       await expect(page.locator('h1')).toHaveText('Block Reference Test')
 
       // Verify features section
+      // THEN: assertion
       await expect(page.locator('section#features h2')).toHaveText('Features')
       await expect(page.locator('h3').first()).toHaveText('Fast')
 

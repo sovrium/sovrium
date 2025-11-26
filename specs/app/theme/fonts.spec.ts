@@ -55,8 +55,10 @@ test.describe('Font Configuration', () => {
 
       // 1. Verify CSS compilation contains font family
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--font-body: Inter')
 
       // 2. Visual validation captures font rendering
@@ -65,6 +67,7 @@ test.describe('Font Configuration', () => {
 
       // 3. Verify base layer applies font-sans to body
       const fontFamily = await body.evaluate((el) => window.getComputedStyle(el).fontFamily)
+      // THEN: assertion
       expect(fontFamily).toContain('Inter')
     }
   )
@@ -101,8 +104,10 @@ test.describe('Font Configuration', () => {
 
       // 1. Verify CSS compilation contains font family with fallback
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--font-body: Inter, system-ui, sans-serif')
 
       // 2. Visual validation captures font rendering
@@ -111,6 +116,7 @@ test.describe('Font Configuration', () => {
 
       // 3. Verify computed font stack includes fallback
       const fontFamily = await body.evaluate((el) => window.getComputedStyle(el).fontFamily)
+      // THEN: assertion
       expect(fontFamily).toMatch(/Inter|system-ui|sans-serif/)
     }
   )
@@ -193,8 +199,10 @@ test.describe('Font Configuration', () => {
 
       // 1. Verify CSS compilation contains font family
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--font-body: Inter, sans-serif')
 
       // 2. Visual validation shows weight progression
@@ -210,6 +218,7 @@ test.describe('Font Configuration', () => {
       const bold = page.locator('[data-testid="font-weights"] > div').nth(4)
       const lightWeight = await light.evaluate((el) => window.getComputedStyle(el).fontWeight)
       const boldWeight = await bold.evaluate((el) => window.getComputedStyle(el).fontWeight)
+      // THEN: assertion
       expect(lightWeight).toBe('300')
       expect(boldWeight).toBe('700')
     }
@@ -253,8 +262,10 @@ test.describe('Font Configuration', () => {
 
       // 1. Verify CSS compilation contains font family
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--font-title: Georgia')
 
       // 2. Visual validation captures italic style
@@ -263,6 +274,7 @@ test.describe('Font Configuration', () => {
 
       // 3. Verify computed font style
       const fontStyle = await heading.evaluate((el) => window.getComputedStyle(el).fontStyle)
+      // THEN: assertion
       expect(fontStyle).toBe('italic')
     }
   )
@@ -300,8 +312,10 @@ test.describe('Font Configuration', () => {
 
       // 1. Verify CSS compilation contains font definition
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--font-body: Inter')
 
       // 2. Visual validation captures typography metrics
@@ -311,6 +325,7 @@ test.describe('Font Configuration', () => {
       // 3. Verify computed font metrics
       const fontSize = await body.evaluate((el) => window.getComputedStyle(el).fontSize)
       const lineHeight = await body.evaluate((el) => window.getComputedStyle(el).lineHeight)
+      // THEN: assertion
       expect(fontSize).toBe('16px')
       expect(lineHeight).toBe('24px') // 16px * 1.5 = 24px
     }
@@ -355,8 +370,10 @@ test.describe('Font Configuration', () => {
 
       // 1. Verify CSS compilation contains font definition
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--font-title: Bely Display, Georgia, serif')
 
       // 2. Visual validation captures letter spacing
@@ -367,6 +384,7 @@ test.describe('Font Configuration', () => {
       const letterSpacing = await heading.evaluate(
         (el) => window.getComputedStyle(el).letterSpacing
       )
+      // THEN: assertion
       expect(letterSpacing).not.toBe('normal')
       expect(letterSpacing).not.toBe('0px')
     }
@@ -414,8 +432,10 @@ test.describe('Font Configuration', () => {
 
       // 1. Verify CSS compilation contains font definition
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--font-label: Inter, sans-serif')
 
       // 2. Visual validation captures text transform
@@ -424,6 +444,7 @@ test.describe('Font Configuration', () => {
 
       // 3. Verify computed text transform
       const textTransform = await label.evaluate((el) => window.getComputedStyle(el).textTransform)
+      // THEN: assertion
       expect(textTransform).toBe('uppercase')
     }
   )
@@ -501,8 +522,10 @@ test.describe('Font Configuration', () => {
 
       // 1. Verify CSS compilation contains font family with fallback
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--font-body: Inter, system-ui, sans-serif')
 
       // 2. Visual validation captures comprehensive typography
@@ -511,6 +534,7 @@ test.describe('Font Configuration', () => {
 
       // 3. Verify font URL is loaded
       const linkTag = page.locator('link[href*="fonts.googleapis.com"]')
+      // THEN: assertion
       await expect(linkTag).toHaveAttribute('rel', 'stylesheet')
     }
   )
@@ -566,8 +590,10 @@ test.describe('Font Configuration', () => {
 
       // 1. Verify CSS compilation contains all font categories
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--font-title: Bely Display, Georgia, serif')
       expect(css).toContain('--font-body: Inter, system-ui, sans-serif')
       expect(css).toContain('--font-mono: JetBrains Mono, monospace')
@@ -581,6 +607,7 @@ test.describe('Font Configuration', () => {
       // 3. Verify computed font families for different contexts
       const headingFont = await heading.evaluate((el) => window.getComputedStyle(el).fontFamily)
       const bodyFont = await body.evaluate((el) => window.getComputedStyle(el).fontFamily)
+      // THEN: assertion
       expect(headingFont).toMatch(/Bely Display|Georgia/)
       expect(bodyFont).toMatch(/Inter|system-ui/)
     }
@@ -624,8 +651,10 @@ test.describe('Font Configuration', () => {
 
       // 1. Verify CSS compilation contains body font
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--font-body: Inter, sans-serif')
 
       // 2. Visual validation captures paragraph rendering
@@ -635,6 +664,7 @@ test.describe('Font Configuration', () => {
       // 3. Verify computed font properties on paragraph
       const fontFamily = await paragraph.evaluate((el) => window.getComputedStyle(el).fontFamily)
       const fontSize = await paragraph.evaluate((el) => window.getComputedStyle(el).fontSize)
+      // THEN: assertion
       expect(fontFamily).toContain('Inter')
       expect(fontSize).toBe('16px')
     }
@@ -678,8 +708,10 @@ test.describe('Font Configuration', () => {
 
       // 1. Verify CSS compilation contains title font
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--font-title: Bely Display, Georgia, serif')
 
       // 2. Visual validation captures heading with transform
@@ -693,6 +725,7 @@ test.describe('Font Configuration', () => {
       const letterSpacing = await heading.evaluate(
         (el) => window.getComputedStyle(el).letterSpacing
       )
+      // THEN: assertion
       expect(textTransform).toBe('lowercase')
       expect(letterSpacing).not.toBe('normal')
     }
@@ -777,13 +810,16 @@ test.describe('Font Configuration', () => {
 
       // 1. Verify CSS compilation contains all font categories
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--font-title: Bely Display, Georgia, serif')
       expect(css).toContain('--font-body: Inter, sans-serif')
       expect(css).toContain('--font-mono: JetBrains Mono, monospace')
 
       // 2. Structure validation (ARIA)
+      // THEN: assertion
       await expect(page.locator('[data-testid="font-system"]')).toMatchAriaSnapshot(`
         - group:
           - heading "Welcome to Sovrium" [level=1]

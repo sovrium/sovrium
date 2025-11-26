@@ -101,6 +101,7 @@ test.describe('Animation Configuration', () => {
       const animValue = await page
         .locator('[data-testid="animation-slideIn"]')
         .evaluate((el) => window.getComputedStyle(el).animation)
+      // THEN: assertion
       expect(animValue).toContain('slide-in')
     }
   )
@@ -832,6 +833,7 @@ test.describe('Animation Configuration', () => {
       const list = page.locator('[data-testid="feature-list"]')
       await expect(list).toBeVisible()
       const items = list.locator('[role="listitem"]')
+      // THEN: assertion
       await expect(items.first()).toBeVisible()
     }
   )
@@ -979,6 +981,7 @@ test.describe('Animation Configuration', () => {
       const heroSection = page.locator('[data-testid="hero-section"]')
       await expect(heroSection).toBeVisible()
       const background = page.locator('[data-testid="hero-background"]')
+      // THEN: assertion
       await expect(background).toBeVisible()
     }
   )
@@ -1072,6 +1075,7 @@ test.describe('Animation Configuration', () => {
       const modal = page.locator('[data-testid="modal"]')
       await expect(modal).toBeVisible()
       const opacity = await modal.evaluate((el) => window.getComputedStyle(el).opacity)
+      // THEN: assertion
       expect(opacity).toBe('1')
     }
   )
@@ -1138,12 +1142,15 @@ test.describe('Animation Configuration', () => {
 
       // 1. Verify CSS compilation contains animation definitions
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
       // Animations may generate @keyframes or CSS custom properties
+      // THEN: assertion
       expect(css.length).toBeGreaterThan(1000) // Tailwind CSS with animations is substantial
 
       // 2. Structure validation (ARIA)
+      // THEN: assertion
       await expect(page.locator('[data-testid="modal"]')).toBeVisible()
       await expect(page.locator('[data-testid="badge"]')).toBeVisible()
       await expect(page.locator('[data-testid="button"]')).toBeVisible()

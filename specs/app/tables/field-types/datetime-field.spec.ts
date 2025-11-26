@@ -50,6 +50,7 @@ test.describe('DateTime Field', () => {
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='posts' AND column_name='created_at'"
       )
+      // THEN: assertion
       expect(columnInfo.column_name).toBe('created_at')
       expect(columnInfo.data_type).toMatch(/timestamp/)
       expect(columnInfo.is_nullable).toBe('YES')
@@ -57,6 +58,7 @@ test.describe('DateTime Field', () => {
       const validInsert = await executeQuery(
         "INSERT INTO posts (created_at) VALUES ('2024-06-15 14:30:00+00') RETURNING created_at"
       )
+      // THEN: assertion
       expect(validInsert.created_at).toBeTruthy()
     }
   )
@@ -88,6 +90,7 @@ test.describe('DateTime Field', () => {
       ])
 
       const results = await executeQuery('SELECT timestamp FROM events ORDER BY timestamp')
+      // THEN: assertion
       expect(results.length).toBe(2)
       expect(results[0].timestamp).toBeTruthy()
       expect(results[1].timestamp).toBeTruthy()
@@ -119,13 +122,16 @@ test.describe('DateTime Field', () => {
       const notNullCheck = await executeQuery(
         "SELECT is_nullable FROM information_schema.columns WHERE table_name='articles' AND column_name='published_at'"
       )
+      // THEN: assertion
       expect(notNullCheck.is_nullable).toBe('NO')
 
       const validInsert = await executeQuery(
         "INSERT INTO articles (published_at) VALUES ('2024-06-30 12:00:00+00') RETURNING published_at"
       )
+      // THEN: assertion
       expect(validInsert.published_at).toBeTruthy()
 
+      // THEN: assertion
       await expect(
         executeQuery('INSERT INTO articles (published_at) VALUES (NULL)')
       ).rejects.toThrow(/violates not-null constraint/)
@@ -157,11 +163,13 @@ test.describe('DateTime Field', () => {
       const defaultInsert = await executeQuery(
         'INSERT INTO records (id) VALUES (DEFAULT) RETURNING updated_at'
       )
+      // THEN: assertion
       expect(defaultInsert.updated_at).toBeTruthy()
 
       const explicitInsert = await executeQuery(
         "INSERT INTO records (updated_at) VALUES ('2024-01-01 00:00:00+00') RETURNING updated_at"
       )
+      // THEN: assertion
       expect(explicitInsert.updated_at).toBeTruthy()
     }
   )
@@ -191,6 +199,7 @@ test.describe('DateTime Field', () => {
       const indexExists = await executeQuery(
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_logs_created_at'"
       )
+      // THEN: assertion
       expect(indexExists).toEqual({
         indexname: 'idx_logs_created_at',
         tablename: 'logs',
@@ -226,6 +235,7 @@ test.describe('DateTime Field', () => {
       const columnInfo = await executeQuery(
         "SELECT data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='datetime_field'"
       )
+      // THEN: assertion
       expect(columnInfo.data_type).toMatch(/timestamp/)
       expect(columnInfo.is_nullable).toBe('NO')
 
@@ -238,6 +248,7 @@ test.describe('DateTime Field', () => {
       const rangeQuery = await executeQuery(
         "SELECT COUNT(*) as count FROM data WHERE datetime_field >= '2024-06-15 10:00:00+00' AND datetime_field <= '2024-06-15 15:00:00+00'"
       )
+      // THEN: assertion
       expect(rangeQuery.count).toBe(2)
     }
   )

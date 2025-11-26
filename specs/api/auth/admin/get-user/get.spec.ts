@@ -63,6 +63,7 @@ test.describe('Admin: Get user by ID', () => {
       // Response contains user details
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // Response includes correct user data
@@ -99,6 +100,7 @@ test.describe('Admin: Get user by ID', () => {
       // Response contains validation error for userId parameter
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -123,6 +125,7 @@ test.describe('Admin: Get user by ID', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -160,6 +163,7 @@ test.describe('Admin: Get user by ID', () => {
       // Response contains error about insufficient permissions
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -194,6 +198,7 @@ test.describe('Admin: Get user by ID', () => {
       // Response contains error about user not found
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

@@ -271,6 +271,7 @@ test.describe('Twitter Card Metadata', () => {
       const twitterDesc = await page
         .locator('meta[name="twitter:description"]')
         .getAttribute('content')
+      // THEN: assertion
       expect(twitterDesc?.length).toBeLessThanOrEqual(200)
     }
   )
@@ -465,6 +466,7 @@ test.describe('Twitter Card Metadata', () => {
         'content',
         'summary_large_image'
       )
+      // THEN: assertion
       await expect(page.locator('meta[name="twitter:title"]')).toBeAttached()
       await expect(page.locator('meta[name="twitter:description"]')).toBeAttached()
       await expect(page.locator('meta[name="twitter:image"]')).toBeAttached()
@@ -477,6 +479,7 @@ test.describe('Twitter Card Metadata', () => {
     'APP-PAGES-META-SOCIAL-TWITTER-CARD-REGRESSION-001: user can complete full Twitter Card workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -502,10 +505,12 @@ test.describe('Twitter Card Metadata', () => {
         ],
       })
 
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // Enhanced meta tag validation with explicit content checks
       // Verify required property
+      // THEN: assertion
       await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
         'content',
         'summary_large_image'

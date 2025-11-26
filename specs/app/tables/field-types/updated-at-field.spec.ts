@@ -24,6 +24,7 @@ test.describe('Updated At Field', () => {
     'APP-UPDATED-AT-FIELD-001: should create PostgreSQL TIMESTAMPTZ column with DEFAULT NOW()',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -39,10 +40,13 @@ test.describe('Updated At Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type, column_default FROM information_schema.columns WHERE table_name='records' AND column_name='updated_at'"
       )
+      // THEN: assertion
       expect(columnInfo.data_type).toMatch(/timestamp/)
+      // THEN: assertion
       expect(columnInfo.column_default).toMatch(/now/)
     }
   )
@@ -51,6 +55,7 @@ test.describe('Updated At Field', () => {
     'APP-UPDATED-AT-FIELD-002: should automatically update timestamp when row is modified',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -67,6 +72,7 @@ test.describe('Updated At Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const insert = await executeQuery(
         "INSERT INTO posts (title) VALUES ('Initial') RETURNING id, updated_at"
       )
@@ -77,6 +83,7 @@ test.describe('Updated At Field', () => {
       await executeQuery(`UPDATE posts SET title = 'Updated' WHERE id = ${insert.id}`)
 
       const updated = await executeQuery(`SELECT updated_at FROM posts WHERE id = ${insert.id}`)
+      // THEN: assertion
       expect(new Date(updated.updated_at).getTime()).toBeGreaterThan(
         new Date(initialTimestamp).getTime()
       )
@@ -87,6 +94,7 @@ test.describe('Updated At Field', () => {
     'APP-UPDATED-AT-FIELD-003: should set initial timestamp on creation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -102,12 +110,15 @@ test.describe('Updated At Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const insert = await executeQuery(
         'INSERT INTO items (id) VALUES (DEFAULT) RETURNING updated_at'
       )
+      // THEN: assertion
       expect(insert.updated_at).toBeTruthy()
 
       const created = new Date(insert.updated_at)
+      // THEN: assertion
       expect(created.getFullYear()).toBeGreaterThan(2020)
     }
   )
@@ -116,6 +127,7 @@ test.describe('Updated At Field', () => {
     'APP-UPDATED-AT-FIELD-004: should reject NULL values (always required)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -131,9 +143,11 @@ test.describe('Updated At Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const notNullCheck = await executeQuery(
         "SELECT is_nullable FROM information_schema.columns WHERE table_name='events' AND column_name='updated_at'"
       )
+      // THEN: assertion
       expect(notNullCheck.is_nullable).toBe('NO')
     }
   )
@@ -142,6 +156,7 @@ test.describe('Updated At Field', () => {
     'APP-UPDATED-AT-FIELD-005: should create btree index for fast queries when indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -157,9 +172,11 @@ test.describe('Updated At Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const indexExists = await executeQuery(
         "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_audit_updated_at'"
       )
+      // THEN: assertion
       expect(indexExists.indexname).toBe('idx_audit_updated_at')
     }
   )
@@ -168,6 +185,7 @@ test.describe('Updated At Field', () => {
     'APP-TABLES-FIELD-UPDATED-AT-REGRESSION-001: user can complete full updated-at-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -184,6 +202,7 @@ test.describe('Updated At Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const insert = await executeQuery(
         "INSERT INTO data (value) VALUES ('v1') RETURNING id, updated_at"
       )
@@ -193,6 +212,7 @@ test.describe('Updated At Field', () => {
       await executeQuery(`UPDATE data SET value = 'v2' WHERE id = ${insert.id}`)
 
       const final = await executeQuery(`SELECT updated_at FROM data WHERE id = ${insert.id}`)
+      // THEN: assertion
       expect(new Date(final.updated_at).getTime()).toBeGreaterThan(new Date(initial).getTime())
     }
   )

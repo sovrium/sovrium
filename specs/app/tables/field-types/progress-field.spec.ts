@@ -25,6 +25,7 @@ test.describe('Progress Field', () => {
     'APP-PROGRESS-FIELD-001: should create PostgreSQL INTEGER column for progress percentage storage',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -40,15 +41,19 @@ test.describe('Progress Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='tasks' AND column_name='progress'"
       )
+      // THEN: assertion
       expect(columnInfo.data_type).toBe('integer')
+      // THEN: assertion
       expect(columnInfo.is_nullable).toBe('YES')
 
       const validInsert = await executeQuery(
         'INSERT INTO tasks (progress) VALUES (75) RETURNING progress'
       )
+      // THEN: assertion
       expect(validInsert.progress).toBe(75)
     }
   )
@@ -57,6 +62,7 @@ test.describe('Progress Field', () => {
     'APP-PROGRESS-FIELD-002: should enforce 0-100 range constraint for progress values',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -72,15 +78,19 @@ test.describe('Progress Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const validInsert = await executeQuery(
         'INSERT INTO projects (completion) VALUES (50) RETURNING completion'
       )
+      // THEN: assertion
       expect(validInsert.completion).toBe(50)
 
+      // THEN: assertion
       await expect(executeQuery('INSERT INTO projects (completion) VALUES (-1)')).rejects.toThrow(
         /violates check constraint/
       )
 
+      // THEN: assertion
       await expect(executeQuery('INSERT INTO projects (completion) VALUES (101)')).rejects.toThrow(
         /violates check constraint/
       )
@@ -91,6 +101,7 @@ test.describe('Progress Field', () => {
     'APP-TABLES-FIELD-PROGRESS-REGRESSION-001: user can complete full progress-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -106,8 +117,11 @@ test.describe('Progress Field', () => {
         ],
       })
 
+      // WHEN: executing query
       await executeQuery('INSERT INTO data (progress_field) VALUES (25), (50), (100)')
+      // WHEN: querying the database
       const results = await executeQuery('SELECT AVG(progress_field) as avg FROM data')
+      // THEN: assertion
       expect(parseFloat(results.avg)).toBeCloseTo(58.33, 1)
     }
   )

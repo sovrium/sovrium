@@ -24,6 +24,7 @@ test.describe('Multi Select Field', () => {
     'APP-MULTI-SELECT-FIELD-001: should create PostgreSQL TEXT ARRAY column for multi select storage',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -44,16 +45,22 @@ test.describe('Multi Select Field', () => {
         ],
       })
 
+      // WHEN: executing query
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='tags'"
       )
+      // THEN: assertion
       expect(columnInfo.data_type).toMatch(/ARRAY|array/)
+      // THEN: assertion
       expect(columnInfo.is_nullable).toBe('YES')
 
+      // WHEN: executing query
       const validInsert = await executeQuery(
         "INSERT INTO products (tags) VALUES (ARRAY['new', 'sale']) RETURNING tags"
       )
+      // THEN: assertion
       expect(validInsert.tags).toContain('new')
+      // THEN: assertion
       expect(validInsert.tags).toContain('sale')
     }
   )
@@ -62,6 +69,7 @@ test.describe('Multi Select Field', () => {
     'APP-MULTI-SELECT-FIELD-002: should allow storing multiple values from predefined options',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -82,13 +90,18 @@ test.describe('Multi Select Field', () => {
         ],
       })
 
+      // GIVEN: table configuration
       await executeQuery([
         "INSERT INTO articles (categories) VALUES (ARRAY['tech', 'business']), (ARRAY['health']), (ARRAY['tech', 'sports', 'business'])",
       ])
 
+      // WHEN: executing query
       const results = await executeQuery('SELECT categories FROM articles ORDER BY id')
+      // THEN: assertion
       expect(results.length).toBe(3)
+      // THEN: assertion
       expect(results[0].categories.length).toBe(2)
+      // THEN: assertion
       expect(results[2].categories.length).toBe(3)
     }
   )
@@ -97,6 +110,7 @@ test.describe('Multi Select Field', () => {
     'APP-MULTI-SELECT-FIELD-003: should reject NULL value when multi-select field is required',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -118,11 +132,14 @@ test.describe('Multi Select Field', () => {
         ],
       })
 
+      // WHEN: executing query
       const notNullCheck = await executeQuery(
         "SELECT is_nullable FROM information_schema.columns WHERE table_name='projects' AND column_name='skills'"
       )
+      // THEN: assertion
       expect(notNullCheck.is_nullable).toBe('NO')
 
+      // WHEN: executing query
       await expect(executeQuery('INSERT INTO projects (skills) VALUES (NULL)')).rejects.toThrow(
         /violates not-null constraint/
       )
@@ -133,6 +150,7 @@ test.describe('Multi Select Field', () => {
     'APP-MULTI-SELECT-FIELD-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -154,9 +172,11 @@ test.describe('Multi Select Field', () => {
         ],
       })
 
+      // WHEN: executing query
       const defaultInsert = await executeQuery(
         'INSERT INTO users (id) VALUES (DEFAULT) RETURNING roles'
       )
+      // THEN: assertion
       expect(defaultInsert.roles).toContain('user')
     }
   )
@@ -165,6 +185,7 @@ test.describe('Multi Select Field', () => {
     'APP-MULTI-SELECT-FIELD-005: should create GIN index for fast array queries when multi-select field has indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -187,9 +208,11 @@ test.describe('Multi Select Field', () => {
         ],
       })
 
+      // WHEN: executing query
       const indexExists = await executeQuery(
         "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_posts_tags'"
       )
+      // THEN: assertion
       expect(indexExists.indexname).toBe('idx_posts_tags')
     }
   )
@@ -198,6 +221,7 @@ test.describe('Multi Select Field', () => {
     'APP-TABLES-FIELD-MULTI-SELECT-REGRESSION-001: user can complete full multi-select-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -220,15 +244,20 @@ test.describe('Multi Select Field', () => {
         ],
       })
 
+      // WHEN: executing query
       await executeQuery("INSERT INTO data (multiselect_field) VALUES (ARRAY['opt1', 'opt3'])")
+      // WHEN: executing query
       const stored = await executeQuery('SELECT multiselect_field FROM data WHERE id = 1')
+      // THEN: assertion
       expect(stored.multiselect_field).toContain('opt1')
+      // THEN: assertion
       expect(stored.multiselect_field).toContain('opt3')
 
       // Query using array contains operator
       const matching = await executeQuery(
         "SELECT COUNT(*) as count FROM data WHERE multiselect_field @> ARRAY['opt1']"
       )
+      // THEN: assertion
       expect(matching.count).toBe(1)
     }
   )

@@ -65,18 +65,21 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.deleted).toBe(2)
 
       // Verify deleted records no longer exist
       const deletedCheck = await executeQuery(`
         SELECT COUNT(*) as count FROM users WHERE id IN (1, 2)
       `)
+      // THEN: assertion
       expect(deletedCheck.rows[0].count).toBe(0)
 
       // Verify remaining record still exists
       const remainingCheck = await executeQuery(`
         SELECT COUNT(*) as count FROM users WHERE id=3
       `)
+      // THEN: assertion
       expect(remainingCheck.rows[0].count).toBe(1)
     }
   )
@@ -118,12 +121,14 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBeDefined()
 
       // Verify no records deleted due to transaction rollback
       const rollbackCheck = await executeQuery(`
         SELECT COUNT(*) as count FROM users WHERE id=1
       `)
+      // THEN: assertion
       expect(rollbackCheck.rows[0].count).toBe(1)
     }
   )
@@ -160,6 +165,7 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(413)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('PayloadTooLarge')
     }
   )
@@ -205,6 +211,7 @@ test.describe('Batch delete records', () => {
       const result = await executeQuery(`
         SELECT COUNT(*) as count FROM employees
       `)
+      // THEN: assertion
       expect(result.rows[0].count).toBe(2)
     }
   )
@@ -248,6 +255,7 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Forbidden')
       expect(data.message).toBe('You do not have permission to delete records in this table')
 
@@ -255,6 +263,7 @@ test.describe('Batch delete records', () => {
       const result = await executeQuery(`
         SELECT COUNT(*) as count FROM employees
       `)
+      // THEN: assertion
       expect(result.rows[0].count).toBe(2)
     }
   )
@@ -298,6 +307,7 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Forbidden')
       expect(data.message).toBe('You do not have permission to delete records in this table')
     }
@@ -342,12 +352,14 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Record not found')
 
       // Verify no records deleted (original values preserved)
       const result = await executeQuery(`
         SELECT COUNT(*) as count FROM employees WHERE organization_id='org_456'
       `)
+      // THEN: assertion
       expect(result.rows[0].count).toBe(2)
     }
   )
@@ -393,18 +405,21 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.deleted).toBe(2)
 
       // Verify records are deleted from database
       const deletedCheck = await executeQuery(`
         SELECT COUNT(*) as count FROM employees WHERE id IN (1, 2)
       `)
+      // THEN: assertion
       expect(deletedCheck.rows[0].count).toBe(0)
 
       // Verify remaining record still exists
       const remainingCheck = await executeQuery(`
         SELECT COUNT(*) as count FROM employees WHERE id=3
       `)
+      // THEN: assertion
       expect(remainingCheck.rows[0].count).toBe(1)
     }
   )
@@ -450,12 +465,14 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.deleted).toBe(2)
 
       // Verify records are deleted from database
       const result = await executeQuery(`
         SELECT COUNT(*) as count FROM projects WHERE id IN (1, 2)
       `)
+      // THEN: assertion
       expect(result.rows[0].count).toBe(0)
     }
   )
@@ -499,6 +516,7 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Record not found')
     }
   )
@@ -542,6 +560,7 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Record not found')
     }
   )
@@ -589,14 +608,17 @@ test.describe('Batch delete records', () => {
           ids: [1, 2, 3],
         },
       })
+      // THEN: assertion
       expect(successResponse.status()).toBe(200)
       const result = await successResponse.json()
+      // THEN: assertion
       expect(result.deleted).toBe(3)
 
       // Verify deletion
       const afterDelete = await executeQuery(`
         SELECT COUNT(*) as count FROM tasks WHERE id IN (1, 2, 3)
       `)
+      // THEN: assertion
       expect(afterDelete.rows[0].count).toBe(0)
 
       // 2. Transaction rollback on partial failure
@@ -609,12 +631,14 @@ test.describe('Batch delete records', () => {
           ids: [4, 9999],
         },
       })
+      // THEN: assertion
       expect(rollbackResponse.status()).toBe(404)
 
       // Verify rollback - record 4 should still exist
       const afterRollback = await executeQuery(`
         SELECT COUNT(*) as count FROM tasks WHERE id=4
       `)
+      // THEN: assertion
       expect(afterRollback.rows[0].count).toBe(1)
 
       // 3. Test payload size limit
@@ -627,6 +651,7 @@ test.describe('Batch delete records', () => {
           ids: Array.from({ length: 1001 }, (_, i) => i + 1),
         },
       })
+      // THEN: assertion
       expect(tooLargeResponse.status()).toBe(413)
 
       // Workflow completes successfully

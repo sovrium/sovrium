@@ -59,12 +59,14 @@ test.describe('Checksum Optimization', () => {
       const tableCheck = await executeQuery(
         `SELECT table_name FROM information_schema.tables WHERE table_name = '_sovrium_schema_checksum'`
       )
+      // THEN: assertion
       expect(tableCheck.table_name).toBe('_sovrium_schema_checksum')
 
       // Checksum saved as singleton row
       const singletonCheck = await executeQuery(
         `SELECT id, LENGTH(checksum) as checksum_length FROM _sovrium_schema_checksum WHERE id = 'singleton'`
       )
+      // THEN: assertion
       expect(singletonCheck.id).toBe('singleton')
       expect(singletonCheck.checksum_length).toBe(64)
 
@@ -72,6 +74,7 @@ test.describe('Checksum Optimization', () => {
       const validSha256 = await executeQuery(
         `SELECT checksum ~ '^[0-9a-f]{64}$' as valid_sha256 FROM _sovrium_schema_checksum WHERE id = 'singleton'`
       )
+      // THEN: assertion
       expect(validSha256.valid_sha256).toBe(true)
     }
   )
@@ -113,6 +116,7 @@ test.describe('Checksum Optimization', () => {
 
       // Performance check: startup < 100ms (when migrations skipped)
       // Note: This assertion validates the optimization goal
+      // THEN: assertion
       expect(executionTime).toBeLessThan(100)
 
       // Verify checksum comparison logic
@@ -120,6 +124,7 @@ test.describe('Checksum Optimization', () => {
         `SELECT checksum FROM _sovrium_schema_checksum WHERE id = 'singleton'`
       )
       // Checksum should remain unchanged if schema matches
+      // THEN: assertion
       expect(savedChecksum.checksum).toBe(
         'abc123previoushash0000000000000000000000000000000000000000000000'
       )
@@ -164,6 +169,7 @@ test.describe('Checksum Optimization', () => {
       const columnCheck = await executeQuery(
         `SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'name'`
       )
+      // THEN: assertion
       expect(columnCheck.column_name).toBe('name')
 
       // New checksum saved after successful migration
@@ -171,6 +177,7 @@ test.describe('Checksum Optimization', () => {
         `SELECT checksum != 'oldchecksumbeforechange00000000000000000000000000000000000000000' as checksum_updated
          FROM _sovrium_schema_checksum WHERE id = 'singleton'`
       )
+      // THEN: assertion
       expect(checksumUpdated.checksum_updated).toBe(true)
 
       // Updated timestamp reflects migration
@@ -178,6 +185,7 @@ test.describe('Checksum Optimization', () => {
         `SELECT updated_at > (NOW() - INTERVAL '5 seconds') as recently_updated
          FROM _sovrium_schema_checksum WHERE id = 'singleton'`
       )
+      // THEN: assertion
       expect(timestampCheck.recently_updated).toBe(true)
     }
   )
@@ -218,6 +226,7 @@ test.describe('Checksum Optimization', () => {
       const indexCheck = await executeQuery(
         `SELECT indexname FROM pg_indexes WHERE tablename = 'products' AND indexname LIKE '%sku%'`
       )
+      // THEN: assertion
       expect(indexCheck.indexname).toContain('sku')
 
       // New checksum saved with index included
@@ -225,6 +234,7 @@ test.describe('Checksum Optimization', () => {
         `SELECT checksum != 'checksumwithoutindex000000000000000000000000000000000000000000' as updated
          FROM _sovrium_schema_checksum WHERE id = 'singleton'`
       )
+      // THEN: assertion
       expect(checksumUpdated.updated).toBe(true)
     }
   )
@@ -267,6 +277,7 @@ test.describe('Checksum Optimization', () => {
       const initialChecksum = await executeQuery(
         `SELECT checksum FROM _sovrium_schema_checksum WHERE id = 'singleton'`
       )
+      // THEN: assertion
       expect(initialChecksum.checksum).toMatch(/^[0-9a-f]{64}$/)
 
       // Second run with same schema: Skip migrations (fast startup)
@@ -287,6 +298,7 @@ test.describe('Checksum Optimization', () => {
       const executionTime = Date.now() - startTime
 
       // Performance: Startup < 100ms when unchanged
+      // THEN: assertion
       expect(executionTime).toBeLessThan(100)
 
       // Focus on workflow continuity, not exhaustive coverage

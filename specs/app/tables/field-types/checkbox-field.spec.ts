@@ -50,6 +50,7 @@ test.describe('Checkbox Field', () => {
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='users' AND column_name='is_active'"
       )
+      // THEN: assertion
       expect(columnInfo).toEqual({
         column_name: 'is_active',
         data_type: 'boolean',
@@ -59,11 +60,13 @@ test.describe('Checkbox Field', () => {
       const trueInsert = await executeQuery(
         'INSERT INTO users (is_active) VALUES (TRUE) RETURNING is_active'
       )
+      // THEN: assertion
       expect(trueInsert.is_active).toBe(true)
 
       const falseInsert = await executeQuery(
         'INSERT INTO users (is_active) VALUES (FALSE) RETURNING is_active'
       )
+      // THEN: assertion
       expect(falseInsert.is_active).toBe(false)
     }
   )
@@ -93,6 +96,7 @@ test.describe('Checkbox Field', () => {
       await executeQuery(['INSERT INTO tasks (completed) VALUES (TRUE), (FALSE), (NULL)'])
 
       const results = await executeQuery('SELECT id, completed FROM tasks ORDER BY id')
+      // THEN: assertion
       expect(results).toEqual([
         { id: 1, completed: true },
         { id: 2, completed: false },
@@ -126,13 +130,16 @@ test.describe('Checkbox Field', () => {
       const notNullCheck = await executeQuery(
         "SELECT is_nullable FROM information_schema.columns WHERE table_name='registrations' AND column_name='terms_accepted'"
       )
+      // THEN: assertion
       expect(notNullCheck.is_nullable).toBe('NO')
 
       const validInsert = await executeQuery(
         'INSERT INTO registrations (terms_accepted) VALUES (TRUE) RETURNING terms_accepted'
       )
+      // THEN: assertion
       expect(validInsert.terms_accepted).toBe(true)
 
+      // THEN: assertion
       await expect(
         executeQuery('INSERT INTO registrations (terms_accepted) VALUES (NULL)')
       ).rejects.toThrow(/violates not-null constraint/)
@@ -164,11 +171,13 @@ test.describe('Checkbox Field', () => {
       const defaultInsert = await executeQuery(
         'INSERT INTO features (id) VALUES (DEFAULT) RETURNING enabled'
       )
+      // THEN: assertion
       expect(defaultInsert.enabled).toBe(false)
 
       const explicitInsert = await executeQuery(
         'INSERT INTO features (enabled) VALUES (TRUE) RETURNING enabled'
       )
+      // THEN: assertion
       expect(explicitInsert.enabled).toBe(true)
     }
   )
@@ -198,6 +207,7 @@ test.describe('Checkbox Field', () => {
       const indexExists = await executeQuery(
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_posts_published'"
       )
+      // THEN: assertion
       expect(indexExists).toEqual({
         indexname: 'idx_posts_published',
         tablename: 'posts',
@@ -240,12 +250,14 @@ test.describe('Checkbox Field', () => {
       const columnInfo = await executeQuery(
         "SELECT data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='checkbox_field'"
       )
+      // THEN: assertion
       expect(columnInfo.data_type).toBe('boolean')
       expect(columnInfo.is_nullable).toBe('NO')
 
       // Test boolean values
       await executeQuery('INSERT INTO data (checkbox_field) VALUES (TRUE)')
       const stored = await executeQuery('SELECT checkbox_field FROM data WHERE id = 1')
+      // THEN: assertion
       expect(stored.checkbox_field).toBe(true)
 
       // Test filtering by boolean
@@ -253,6 +265,7 @@ test.describe('Checkbox Field', () => {
       const filtered = await executeQuery(
         'SELECT COUNT(*) as count FROM data WHERE checkbox_field = TRUE'
       )
+      // THEN: assertion
       expect(filtered.count).toBe(1)
     }
   )

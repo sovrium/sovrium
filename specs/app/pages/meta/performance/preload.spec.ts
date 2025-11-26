@@ -345,6 +345,7 @@ test.describe('Resource Preloading', () => {
     'APP-PAGES-META-PERFORMANCE-PRELOAD-REGRESSION-001: user can complete full preload workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -372,9 +373,11 @@ test.describe('Resource Preloading', () => {
         ],
       })
 
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // Verify all preload links
+      // THEN: assertion
       await expect(page.locator('link[rel="preload"]')).toHaveCount(4)
       await expect(page.locator('link[rel="preload"][as="style"]')).toBeAttached()
       await expect(page.locator('link[rel="preload"][as="font"]')).toBeAttached()

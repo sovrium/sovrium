@@ -63,8 +63,10 @@ test.describe('Color Palette', () => {
 
       // 1. Verify CSS compilation contains theme colors
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--color-primary: #007bff')
       expect(css).toContain('--color-secondary: #6c757d')
 
@@ -81,6 +83,7 @@ test.describe('Color Palette', () => {
       const element = page.locator('[data-testid="color-primary"]')
       const bgColor = await element.evaluate((el) => window.getComputedStyle(el).backgroundColor)
       const textColor = await element.evaluate((el) => window.getComputedStyle(el).color)
+      // THEN: assertion
       expect(bgColor).toBe('rgb(0, 123, 255)') // #007bff
       expect(textColor).toBe('rgb(108, 117, 125)') // #6c757d
     }
@@ -132,8 +135,10 @@ test.describe('Color Palette', () => {
 
       // 1. Verify CSS compilation contains theme color with opacity
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--color-primary-transparent: #007bff80')
 
       // 2. Visual validation captures transparency effect
@@ -185,8 +190,10 @@ test.describe('Color Palette', () => {
 
       // 1. Verify CSS compilation contains RGB color
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--color-danger: rgb(255, 0, 0)')
 
       // 2. Visual validation captures RGB color rendering
@@ -201,6 +208,7 @@ test.describe('Color Palette', () => {
       // 3. Verify computed style matches RGB color
       const element = page.locator('[data-testid="color-danger"]')
       const bgColor = await element.evaluate((el) => window.getComputedStyle(el).backgroundColor)
+      // THEN: assertion
       expect(bgColor).toBe('rgb(255, 0, 0)')
     }
   )
@@ -243,8 +251,10 @@ test.describe('Color Palette', () => {
 
       // 1. Verify CSS compilation contains RGBA color
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--color-danger-semi: rgba(255, 0, 0, 0.5)')
 
       // 2. Visual validation captures RGBA transparency
@@ -259,6 +269,7 @@ test.describe('Color Palette', () => {
       // 3. Verify computed style matches RGBA color
       const element = page.locator('[data-testid="color-danger-semi"]')
       const bgColor = await element.evaluate((el) => window.getComputedStyle(el).backgroundColor)
+      // THEN: assertion
       expect(bgColor).toBe('rgba(255, 0, 0, 0.5)')
     }
   )
@@ -301,8 +312,10 @@ test.describe('Color Palette', () => {
 
       // 1. Verify CSS compilation contains HSL color
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--color-primary: hsl(210, 100%, 50%)')
 
       // 2. Visual validation captures HSL color rendering
@@ -317,6 +330,7 @@ test.describe('Color Palette', () => {
       // 3. Verify computed style matches HSL color
       const element = page.locator('[data-testid="color-primary"]')
       const bgColor = await element.evaluate((el) => window.getComputedStyle(el).backgroundColor)
+      // THEN: assertion
       expect(bgColor).toBe('rgb(0, 128, 255)') // hsl(210, 100%, 50%) converts to this RGB
     }
   )
@@ -359,8 +373,10 @@ test.describe('Color Palette', () => {
 
       // 1. Verify CSS compilation contains HSLA color
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--color-primary-overlay: hsla(210, 100%, 50%, 0.8)')
 
       // 2. Visual validation captures HSLA transparency
@@ -375,6 +391,7 @@ test.describe('Color Palette', () => {
       // 3. Verify computed style matches HSLA color
       const element = page.locator('[data-testid="color-primary-overlay"]')
       const bgColor = await element.evaluate((el) => window.getComputedStyle(el).backgroundColor)
+      // THEN: assertion
       expect(bgColor).toBe('rgba(0, 128, 255, 0.8)')
     }
   )
@@ -449,8 +466,10 @@ test.describe('Color Palette', () => {
 
       // 1. Verify CSS compilation contains all color variants
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--color-primary: #007bff')
       expect(css).toContain('--color-primary-hover: #0056b3')
       expect(css).toContain('--color-primary-light: #e7f1ff')
@@ -545,8 +564,10 @@ test.describe('Color Palette', () => {
 
       // 1. Verify CSS compilation contains all gray scale colors
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--color-gray-100: #f8f9fa')
       expect(css).toContain('--color-gray-300: #dee2e6')
       expect(css).toContain('--color-gray-500: #adb5bd')
@@ -666,8 +687,10 @@ test.describe('Color Palette', () => {
 
       // 1. Verify CSS compilation contains all semantic colors
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--color-primary: #007bff')
       expect(css).toContain('--color-secondary: #6c757d')
       expect(css).toContain('--color-success: #28a745')
@@ -752,8 +775,10 @@ test.describe('Color Palette', () => {
 
       // 1. Verify CSS compilation contains kebab-case color names
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--color-primary: #007bff')
       expect(css).toContain('--color-text-primary: #212529')
       expect(css).toContain('--color-background-light: #f8f9fa')
@@ -992,8 +1017,10 @@ test.describe('Color Palette', () => {
 
       // 1. Verify CSS compilation contains gray scale colors
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--color-gray-100: #f8f9fa')
       expect(css).toContain('--color-gray-300: #dee2e6')
       expect(css).toContain('--color-gray-500: #adb5bd')
@@ -1004,21 +1031,25 @@ test.describe('Color Palette', () => {
       const pageBgColor = await pageBackground.evaluate(
         (el) => window.getComputedStyle(el).backgroundColor
       )
+      // THEN: assertion
       expect(pageBgColor).toBe('rgb(248, 249, 250)') // gray-100
 
       // 3. Card border: gray-300 (#dee2e6)
       const card = page.locator('[data-testid="card"]')
       const cardBorderColor = await card.evaluate((el) => window.getComputedStyle(el).borderColor)
+      // THEN: assertion
       expect(cardBorderColor).toBe('rgb(222, 226, 230)') // gray-300
 
       // 4. Placeholder text: gray-500 (#adb5bd)
       const placeholder = page.locator('[data-testid="placeholder"]')
       const placeholderColor = await placeholder.evaluate((el) => window.getComputedStyle(el).color)
+      // THEN: assertion
       expect(placeholderColor).toBe('rgb(173, 181, 189)') // gray-500
 
       // 5. Heading text: gray-900 (#212529)
       const heading = page.locator('[data-testid="heading"]')
       const headingColor = await heading.evaluate((el) => window.getComputedStyle(el).color)
+      // THEN: assertion
       expect(headingColor).toBe('rgb(33, 37, 41)') // gray-900
     }
   )
@@ -1078,14 +1109,18 @@ test.describe('Color Palette', () => {
 
       // Verify text color
       const heading = page.locator('h1')
+      // THEN: assertion
       await expect(heading).toHaveText('Welcome')
       const textColor = await heading.evaluate((el) => window.getComputedStyle(el).color)
+      // THEN: assertion
       expect(textColor).toContain('33, 37, 41')
 
       // Verify button color
       const button = page.locator('[data-testid="cta-button"]')
+      // THEN: assertion
       await expect(button).toBeVisible()
       const btnColor = await button.evaluate((el) => window.getComputedStyle(el).backgroundColor)
+      // THEN: assertion
       expect(btnColor).toContain('0, 123, 255')
 
       // Focus on workflow continuity, not exhaustive coverage

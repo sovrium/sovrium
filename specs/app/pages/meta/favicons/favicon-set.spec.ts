@@ -247,6 +247,7 @@ test.describe('Favicon Set', () => {
     'APP-PAGES-META-FAVICONS-FAVICON-SET-REGRESSION-001: user can complete full favicon set workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -269,9 +270,11 @@ test.describe('Favicon Set', () => {
         ],
       })
 
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // Verify all icon types
+      // THEN: assertion
       await expect(page.locator('link[rel="icon"]')).toHaveCount(2)
       await expect(page.locator('link[rel="apple-touch-icon"]')).toBeAttached()
       await expect(page.locator('link[rel="mask-icon"]')).toBeAttached()

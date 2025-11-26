@@ -456,6 +456,7 @@ test.describe('Breadcrumb Schema', () => {
     'APP-PAGES-META-STRUCTURED-DATA-BREADCRUMB-REGRESSION-001: user can complete full Breadcrumb workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -492,6 +493,7 @@ test.describe('Breadcrumb Schema', () => {
           },
         ],
       })
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // Enhanced JSON-LD validation
@@ -501,6 +503,7 @@ test.describe('Breadcrumb Schema', () => {
       const jsonLd = JSON.parse(scriptContent!)
 
       // Validate JSON-LD structure
+      // THEN: assertion
       expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
       expect(jsonLd).toHaveProperty('@type', 'BreadcrumbList')
       expect(jsonLd).toHaveProperty('itemListElement')

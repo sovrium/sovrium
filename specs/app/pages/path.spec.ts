@@ -65,7 +65,9 @@ test.describe('URL Path', () => {
           { name: 'About', path: '/about', meta: { lang: 'en-US', title: 'About' }, sections: [] },
         ],
       })
+      // WHEN: user navigates to the page
       await page.goto('/about')
+      // THEN: assertion
       await expect(page).toHaveURL('/about')
     }
   )
@@ -96,8 +98,11 @@ test.describe('URL Path', () => {
 
       // WHEN: value is '/about' or '/pricing'
       await page.goto('/about')
+      // THEN: assertion
       await expect(page).toHaveURL('/about')
+      // WHEN: user navigates to the page
       await page.goto('/pricing')
+      // THEN: assertion
       await expect(page).toHaveURL('/pricing')
 
       // THEN: it should accept paths with leading slash
@@ -129,8 +134,11 @@ test.describe('URL Path', () => {
 
       // WHEN: value is '/products/pricing' or '/blog/article'
       await page.goto('/products/pricing')
+      // THEN: assertion
       await expect(page).toHaveURL('/products/pricing')
+      // WHEN: user navigates to the page
       await page.goto('/blog/article')
+      // THEN: assertion
       await expect(page).toHaveURL('/blog/article')
 
       // THEN: it should accept multi-level URL paths
@@ -162,8 +170,11 @@ test.describe('URL Path', () => {
 
       // WHEN: value is '/our-team' or '/contact-us'
       await page.goto('/our-team')
+      // THEN: assertion
       await expect(page).toHaveURL('/our-team')
+      // WHEN: user navigates to the page
       await page.goto('/contact-us')
+      // THEN: assertion
       await expect(page).toHaveURL('/contact-us')
 
       // THEN: it should accept kebab-case URL segments
@@ -197,8 +208,11 @@ test.describe('URL Path', () => {
 
       // WHEN: standard website pages are defined
       await page.goto('/')
+      // THEN: assertion
       await expect(page).toHaveURL('/')
+      // WHEN: user navigates to the page
       await page.goto('/about')
+      // THEN: assertion
       await expect(page).toHaveURL('/about')
 
       // THEN: it should provide examples for typical URL patterns
@@ -250,8 +264,11 @@ test.describe('URL Path', () => {
 
       // WHEN: each page has unique path
       await page.goto('/')
+      // THEN: assertion
       await expect(page.locator('[data-testid="page-home"]')).toBeVisible()
+      // WHEN: user navigates to the page
       await page.goto('/about')
+      // THEN: assertion
       await expect(page.locator('[data-testid="page-about"]')).toBeVisible()
 
       // THEN: it should ensure unique routing for all pages
@@ -310,10 +327,13 @@ test.describe('URL Path', () => {
 
       // WHEN: value is '/blog/:slug' or '/products/:id'
       await page.goto('/blog/hello-world')
+      // THEN: assertion
       await expect(page).toHaveURL('/blog/hello-world')
       await expect(page.locator('[data-slug="hello-world"]')).toBeVisible()
 
+      // WHEN: user navigates to the page
       await page.goto('/products/123')
+      // THEN: assertion
       await expect(page).toHaveURL('/products/123')
       await expect(page.locator('[data-product-id="123"]')).toBeVisible()
 
@@ -348,6 +368,7 @@ test.describe('URL Path', () => {
       await expect(page.locator('[data-testid="app-description"]')).toHaveText('My app description')
 
       // CRITICAL: Blocks should NOT be rendered (bug fix verification)
+      // THEN: assertion
       await expect(page.locator('[data-block="hero"]')).toBeHidden()
     }
   )
@@ -376,7 +397,9 @@ test.describe('URL Path', () => {
       await expect(page.locator('[data-testid="app-name-heading"]')).toHaveText('my-app')
 
       // Verify /about route works
+      // WHEN: user navigates to the page
       await page.goto('/about')
+      // THEN: assertion
       await expect(page).toHaveTitle('About Us')
       await expect(page.locator('h1')).toHaveText('About Us')
     }
@@ -414,6 +437,7 @@ test.describe('URL Path', () => {
       await expect(page.locator('section#hero h1')).toHaveText('Custom Homepage')
 
       // Verify DefaultHomePage is NOT rendered
+      // THEN: assertion
       await expect(page.locator('[data-testid="app-name-heading"]')).toBeHidden()
     }
   )
@@ -450,6 +474,7 @@ test.describe('URL Path', () => {
       await expect(page.locator('[data-testid="app-description"]')).toHaveText('App with blocks')
 
       // CRITICAL: Verify blocks are NOT rendered (bug fix)
+      // THEN: assertion
       await expect(page.locator('[data-block="hero"]')).toBeHidden()
       await expect(page.locator('[data-block="cta"]')).toBeHidden()
       await expect(page.locator('h1').filter({ hasText: 'Hero Block' })).toBeHidden()
@@ -490,9 +515,11 @@ test.describe('URL Path', () => {
       await expect(page.locator('h1')).toHaveText('Welcome Home')
 
       // Verify DefaultHomePage is NOT rendered
+      // THEN: assertion
       await expect(page.locator('[data-testid="app-name-heading"]')).toBeHidden()
 
       // Verify block rendered via sections (NOT from DefaultHomePage)
+      // THEN: assertion
       await expect(page.locator('[data-block="hero"]')).toBeVisible()
     }
   )
@@ -626,15 +653,22 @@ test.describe('URL Path', () => {
 
       // WHEN/THEN: Streamlined workflow testing integration points
       await page.goto('/')
+      // THEN: assertion
       await expect(page).toHaveURL('/')
 
+      // WHEN: user navigates to the page
       await page.goto('/about')
+      // THEN: assertion
       await expect(page).toHaveURL('/about')
 
+      // WHEN: user navigates to the page
       await page.goto('/products/pricing')
+      // THEN: assertion
       await expect(page).toHaveURL('/products/pricing')
 
+      // WHEN: user navigates to the page
       await page.goto('/our-team')
+      // THEN: assertion
       await expect(page).toHaveURL('/our-team')
 
       // Focus on workflow continuity, not exhaustive coverage

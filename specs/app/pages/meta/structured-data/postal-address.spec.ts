@@ -125,8 +125,10 @@ test.describe('Postal Address', () => {
             },
           ],
         })
+        // WHEN: user navigates to the page
         await page.goto('/')
         const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        // THEN: assertion
         expect(scriptContent).toContain(locality)
       }
     }
@@ -162,8 +164,10 @@ test.describe('Postal Address', () => {
             },
           ],
         })
+        // WHEN: user navigates to the page
         await page.goto('/')
         const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        // THEN: assertion
         expect(scriptContent).toContain(region)
       }
     }
@@ -199,8 +203,10 @@ test.describe('Postal Address', () => {
             },
           ],
         })
+        // WHEN: user navigates to the page
         await page.goto('/')
         const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        // THEN: assertion
         expect(scriptContent).toContain(postalCode)
       }
     }
@@ -236,8 +242,10 @@ test.describe('Postal Address', () => {
             },
           ],
         })
+        // WHEN: user navigates to the page
         await page.goto('/')
         const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        // THEN: assertion
         expect(scriptContent).toContain(country)
       }
     }
@@ -296,6 +304,7 @@ test.describe('Postal Address', () => {
     "APP-PAGES-POSTALADDRESS-008: should provide organization's physical address",
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: Organization with PostalAddress
       await startServerWithSchema({
         name: 'test-app',
         pages: [

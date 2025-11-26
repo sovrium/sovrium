@@ -74,6 +74,7 @@ test.describe('Add member to organization', () => {
       // Response contains member data
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // Member is added to database
@@ -118,6 +119,7 @@ test.describe('Add member to organization', () => {
       // Response contains validation error for required fields
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -149,6 +151,7 @@ test.describe('Add member to organization', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -197,6 +200,7 @@ test.describe('Add member to organization', () => {
       // Response contains error about insufficient permissions
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -242,6 +246,7 @@ test.describe('Add member to organization', () => {
       // Response contains error about user not found
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -293,6 +298,7 @@ test.describe('Add member to organization', () => {
       // Response contains error about user already being member
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

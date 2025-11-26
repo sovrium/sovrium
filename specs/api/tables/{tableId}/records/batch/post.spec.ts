@@ -73,6 +73,7 @@ test.describe('Batch create records', () => {
       expect(response.status()).toBe(201)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('created')
       expect(data).toHaveProperty('records')
       expect(data.created).toBe(3)
@@ -80,6 +81,7 @@ test.describe('Batch create records', () => {
 
       // Verify database contains all 3 records
       const result = await executeQuery(`SELECT COUNT(*) as count FROM users`)
+      // THEN: assertion
       expect(result.rows[0].count).toBe(3)
     }
   )
@@ -128,6 +130,7 @@ test.describe('Batch create records', () => {
       expect(response.status()).toBe(201)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('created')
       expect(data.created).toBe(2)
       expect(data).not.toHaveProperty('records')
@@ -176,11 +179,13 @@ test.describe('Batch create records', () => {
       expect(response.status()).toBe(400)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('details')
 
       // Verify no records created due to transaction rollback
       const result = await executeQuery(`SELECT COUNT(*) as count FROM users`)
+      // THEN: assertion
       expect(result.rows[0].count).toBe(0)
     }
   )
@@ -218,6 +223,7 @@ test.describe('Batch create records', () => {
       expect(response.status()).toBe(401)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
     }
@@ -257,6 +263,7 @@ test.describe('Batch create records', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
       expect(data.error).toBe('Forbidden')
@@ -298,6 +305,7 @@ test.describe('Batch create records', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data.error).toBe('Forbidden')
     }
@@ -342,6 +350,7 @@ test.describe('Batch create records', () => {
       expect(response.status()).toBe(201)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.created).toBe(2)
       expect(data.records[0].organization_id).toBe('org_123')
       expect(data.records[1].organization_id).toBe('org_123')
@@ -386,6 +395,7 @@ test.describe('Batch create records', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
       expect(data.error).toBe('Forbidden')
@@ -428,6 +438,7 @@ test.describe('Batch create records', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
       expect(data.error).toBe('Forbidden')
@@ -469,6 +480,7 @@ test.describe('Batch create records', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
       expect(data.error).toBe('Forbidden')
@@ -516,11 +528,13 @@ test.describe('Batch create records', () => {
       expect(response.status()).toBe(201)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.created).toBe(2)
       expect(data.records[0].name).toBe('Alice Cooper')
       expect(data.records[1].name).toBe('Bob Smith')
 
       // Salary field not in response
+      // THEN: assertion
       expect(data.records[0]).not.toHaveProperty('salary')
       expect(data.records[1]).not.toHaveProperty('salary')
     }
@@ -565,6 +579,7 @@ test.describe('Batch create records', () => {
       expect(response.status()).toBe(201)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.created).toBe(2)
       expect(data.records[0].name).toBe('Charlie Brown')
       expect(data.records[0].salary).toBe(130_000)
@@ -614,9 +629,11 @@ test.describe('Batch create records', () => {
       expect(response.status()).toBe(201)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.created).toBe(3)
 
       // Salary field not in response for all records
+      // THEN: assertion
       expect(data.records[0]).not.toHaveProperty('salary')
       expect(data.records[1]).not.toHaveProperty('salary')
       expect(data.records[2]).not.toHaveProperty('salary')
@@ -660,11 +677,13 @@ test.describe('Batch create records', () => {
       expect(response.status()).toBe(400)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('details')
 
       // Verify no records created due to rollback
       const result = await executeQuery(`SELECT COUNT(*) as count FROM users`)
+      // THEN: assertion
       expect(result.rows[0].count).toBe(0)
     }
   )
@@ -704,6 +723,7 @@ test.describe('Batch create records', () => {
       expect(response.status()).toBe(413)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
       expect(data.error).toBe('PayloadTooLarge')
@@ -753,13 +773,16 @@ test.describe('Batch create records', () => {
           returnRecords: true,
         },
       })
+      // THEN: assertion
       expect(successResponse.status()).toBe(201)
       const result = await successResponse.json()
+      // THEN: assertion
       expect(result.created).toBe(3)
       expect(result.records).toHaveLength(3)
 
       // Verify records in database
       const verifyRecords = await executeQuery(`SELECT COUNT(*) as count FROM employees`)
+      // THEN: assertion
       expect(verifyRecords.rows[0].count).toBe(3)
 
       // Test validation error with rollback
@@ -775,10 +798,12 @@ test.describe('Batch create records', () => {
           ],
         },
       })
+      // THEN: assertion
       expect(validationResponse.status()).toBe(400)
 
       // Verify rollback (still 3 records, no new ones)
       const verifyRollback = await executeQuery(`SELECT COUNT(*) as count FROM employees`)
+      // THEN: assertion
       expect(verifyRollback.rows[0].count).toBe(3)
 
       // Test permission denied (member without create permission)
@@ -791,6 +816,7 @@ test.describe('Batch create records', () => {
           records: [{ name: 'Test', email: 'test@example.com' }],
         },
       })
+      // THEN: assertion
       expect(forbiddenResponse.status()).toBe(403)
 
       // Test unauthorized
@@ -802,6 +828,7 @@ test.describe('Batch create records', () => {
           records: [{ name: 'Test', email: 'test@example.com' }],
         },
       })
+      // THEN: assertion
       expect(unauthorizedResponse.status()).toBe(401)
 
       // Test field-level write restriction
@@ -814,6 +841,7 @@ test.describe('Batch create records', () => {
           records: [{ name: 'Test', email: 'test2@example.com', salary: 99_999 }],
         },
       })
+      // THEN: assertion
       expect(fieldForbiddenResponse.status()).toBe(403)
     }
   )

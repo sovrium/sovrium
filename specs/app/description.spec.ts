@@ -92,6 +92,7 @@ test(
     const title = page.locator('h1[data-testid="app-name-heading"]')
     const description = page.locator('[data-testid="app-description"]')
 
+    // THEN: assertion
     await expect(title).toBeVisible()
     await expect(description).toBeVisible()
 
@@ -99,6 +100,7 @@ test(
     const titleBox = await title.boundingBox()
     const descriptionBox = await description.boundingBox()
 
+    // THEN: assertion
     expect(titleBox).not.toBeNull()
     expect(descriptionBox).not.toBeNull()
     expect(titleBox!.y).toBeLessThan(descriptionBox!.y)
@@ -259,6 +261,7 @@ test(
       }
     })
 
+    // THEN: assertion
     expect(styles.textAlign).toBe('center')
   }
 )
@@ -335,6 +338,7 @@ test(
     const title = page.locator('h1[data-testid="app-name-heading"]')
     const description = page.locator('[data-testid="app-description"]')
 
+    // THEN: assertion
     await expect(version).toBeVisible()
     await expect(title).toBeVisible()
     await expect(description).toBeVisible()
@@ -344,10 +348,12 @@ test(
     const titleBox = await title.boundingBox()
     const descriptionBox = await description.boundingBox()
 
+    // THEN: assertion
     expect(versionBox).not.toBeNull()
     expect(titleBox).not.toBeNull()
     expect(descriptionBox).not.toBeNull()
 
+    // THEN: assertion
     expect(versionBox!.y).toBeLessThan(titleBox!.y)
     expect(titleBox!.y).toBeLessThan(descriptionBox!.y)
   }
@@ -388,6 +394,7 @@ test(
       }
     })
 
+    // THEN: assertion
     expect(styles.textOverflow).not.toBe('ellipsis')
   }
 )
@@ -416,6 +423,7 @@ test(
 
     // Verify no script element was created
     const scriptElement = page.locator('script:has-text("alert(1)")')
+    // THEN: assertion
     await expect(scriptElement).toHaveCount(0)
   }
 )
@@ -441,6 +449,7 @@ test(
     const title = page.locator('h1[data-testid="app-name-heading"]')
     const description = page.locator('[data-testid="app-description"]')
 
+    // THEN: assertion
     await expect(title).toBeVisible()
     await expect(description).toBeVisible()
 
@@ -448,10 +457,12 @@ test(
     const titleBox = await title.boundingBox()
     const descriptionBox = await description.boundingBox()
 
+    // THEN: assertion
     expect(titleBox).not.toBeNull()
     expect(descriptionBox).not.toBeNull()
 
     const spacing = descriptionBox!.y - (titleBox!.y + titleBox!.height)
+    // THEN: assertion
     expect(spacing).toBeGreaterThan(0)
   }
 )

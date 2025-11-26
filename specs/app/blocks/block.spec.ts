@@ -150,6 +150,7 @@ test.describe('Block Template', () => {
       await expect(
         page.locator('[data-testid="block-layout"][data-type="container"]')
       ).toBeVisible()
+      // THEN: assertion
       await expect(page.locator('[data-testid="block-row"][data-type="flex"]')).toBeVisible()
       await expect(page.locator('[data-testid="block-cta"][data-type="button"]')).toBeVisible()
     }
@@ -263,6 +264,7 @@ test.describe('Block Template', () => {
       await expect(page.locator('[data-testid="block-alert-message"]')).toHaveText(
         'Operation successful!'
       )
+      // THEN: assertion
       await expect(page.locator('[data-testid="block-alert-message"]')).toHaveClass(/alert/)
     }
   )
@@ -466,6 +468,7 @@ test.describe('Block Template', () => {
       await expect(badge).toHaveClass(/badge-gold/)
       await expect(badge).toHaveText('49/month')
       const html = await badge.innerHTML()
+      // THEN: assertion
       expect(html).not.toContain('$')
     }
   )
@@ -517,15 +520,18 @@ test.describe('Block Template', () => {
 
       // 1. Text block - structure and styling
       const textBlock = page.locator('[data-testid="block-simple-text"]')
+      // THEN: assertion
       await expect(textBlock).toHaveText('Welcome')
       await expect(textBlock).toHaveClass(/text-blue/)
 
       // 2. Feature blocks - ARIA validates nested icon + text structure
+      // THEN: assertion
       await expect(page.locator('[data-testid="block-feature-item-0"]')).toMatchAriaSnapshot(`
         - group:
           - img
           - text: Feature 1
       `)
+      // THEN: assertion
       await expect(page.locator('[data-testid="block-feature-item-1"]')).toMatchAriaSnapshot(`
         - group:
           - img

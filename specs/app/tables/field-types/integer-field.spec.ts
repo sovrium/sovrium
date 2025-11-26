@@ -50,6 +50,7 @@ test.describe('Integer Field', () => {
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='quantity'"
       )
+      // THEN: assertion
       expect(columnInfo).toEqual({
         column_name: 'quantity',
         data_type: 'integer',
@@ -59,11 +60,13 @@ test.describe('Integer Field', () => {
       const positiveInsert = await executeQuery(
         'INSERT INTO products (quantity) VALUES (42) RETURNING quantity'
       )
+      // THEN: assertion
       expect(positiveInsert.quantity).toBe(42)
 
       const negativeInsert = await executeQuery(
         'INSERT INTO products (quantity) VALUES (-10) RETURNING quantity'
       )
+      // THEN: assertion
       expect(negativeInsert.quantity).toBe(-10)
     }
   )
@@ -93,17 +96,21 @@ test.describe('Integer Field', () => {
       const checkConstraint = await executeQuery(
         "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%stock%'"
       )
+      // THEN: assertion
       expect(checkConstraint.count).toBe(1)
 
       const validInsert = await executeQuery(
         'INSERT INTO inventory (stock) VALUES (500) RETURNING stock'
       )
+      // THEN: assertion
       expect(validInsert.stock).toBe(500)
 
+      // THEN: assertion
       await expect(executeQuery('INSERT INTO inventory (stock) VALUES (-1)')).rejects.toThrow(
         /violates check constraint/
       )
 
+      // THEN: assertion
       await expect(executeQuery('INSERT INTO inventory (stock) VALUES (1001)')).rejects.toThrow(
         /violates check constraint/
       )
@@ -130,6 +137,7 @@ test.describe('Integer Field', () => {
         ],
       })
 
+      // GIVEN: table configuration
       await executeQuery(['INSERT INTO orders (order_number) VALUES (1001)'])
 
       // WHEN: constraints are applied
@@ -137,17 +145,21 @@ test.describe('Integer Field', () => {
       const notNullCheck = await executeQuery(
         "SELECT is_nullable FROM information_schema.columns WHERE table_name='orders' AND column_name='order_number'"
       )
+      // THEN: assertion
       expect(notNullCheck.is_nullable).toBe('NO')
 
       const uniqueConstraint = await executeQuery(
         "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='orders' AND constraint_type='UNIQUE' AND constraint_name LIKE '%order_number%'"
       )
+      // THEN: assertion
       expect(uniqueConstraint.count).toBe(1)
 
+      // THEN: assertion
       await expect(executeQuery('INSERT INTO orders (order_number) VALUES (1001)')).rejects.toThrow(
         /duplicate key value violates unique constraint/
       )
 
+      // THEN: assertion
       await expect(executeQuery('INSERT INTO orders (order_number) VALUES (NULL)')).rejects.toThrow(
         /violates not-null constraint/
       )
@@ -179,16 +191,19 @@ test.describe('Integer Field', () => {
       const defaultCheck = await executeQuery(
         "SELECT column_default FROM information_schema.columns WHERE table_name='settings' AND column_name='timeout'"
       )
+      // THEN: assertion
       expect(defaultCheck.column_default).toBe('30')
 
       const defaultInsert = await executeQuery(
         'INSERT INTO settings (id) VALUES (DEFAULT) RETURNING timeout'
       )
+      // THEN: assertion
       expect(defaultInsert.timeout).toBe(30)
 
       const explicitInsert = await executeQuery(
         'INSERT INTO settings (timeout) VALUES (60) RETURNING timeout'
       )
+      // THEN: assertion
       expect(explicitInsert.timeout).toBe(60)
     }
   )
@@ -218,6 +233,7 @@ test.describe('Integer Field', () => {
       const indexExists = await executeQuery(
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_leaderboard_score'"
       )
+      // THEN: assertion
       expect(indexExists).toEqual({
         indexname: 'idx_leaderboard_score',
         tablename: 'leaderboard',
@@ -226,6 +242,7 @@ test.describe('Integer Field', () => {
       const indexDef = await executeQuery(
         "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_leaderboard_score'"
       )
+      // THEN: assertion
       expect(indexDef.indexdef).toBe(
         'CREATE INDEX idx_leaderboard_score ON public.leaderboard USING btree (score)'
       )
@@ -270,10 +287,12 @@ test.describe('Integer Field', () => {
       const columnInfo = await executeQuery(
         "SELECT data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='integer_field'"
       )
+      // THEN: assertion
       expect(columnInfo.data_type).toBe('integer')
       expect(columnInfo.is_nullable).toBe('NO')
 
       // Test range constraint
+      // THEN: assertion
       await expect(executeQuery('INSERT INTO data (integer_field) VALUES (101)')).rejects.toThrow(
         /violates check constraint/
       )
@@ -282,6 +301,7 @@ test.describe('Integer Field', () => {
       await executeQuery('INSERT INTO data (integer_field) VALUES (75)')
 
       // Test uniqueness
+      // THEN: assertion
       await expect(executeQuery('INSERT INTO data (integer_field) VALUES (75)')).rejects.toThrow(
         /duplicate key value violates unique constraint/
       )

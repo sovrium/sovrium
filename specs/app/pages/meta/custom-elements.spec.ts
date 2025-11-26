@@ -308,6 +308,7 @@ test.describe('Custom Head Elements', () => {
     'APP-PAGES-META-CUSTOM-ELEMENTS-REGRESSION-001: user can complete full custom elements workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -333,9 +334,11 @@ test.describe('Custom Head Elements', () => {
         ],
       })
 
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // Verify meta tags
+      // THEN: assertion
       await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#FFAF00')
       await expect(page.locator('meta[name="viewport"]')).toHaveAttribute(
         'content',

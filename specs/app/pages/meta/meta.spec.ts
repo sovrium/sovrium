@@ -215,6 +215,7 @@ test.describe('Page Metadata', () => {
         'href',
         '/icon.svg'
       )
+      // THEN: assertion
       await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute(
         'href',
         '/apple-touch-icon.png'
@@ -298,6 +299,7 @@ test.describe('Page Metadata', () => {
         'content',
         'Amazing Product Launch'
       )
+      // THEN: assertion
       await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
         'content',
         'summary_large_image'
@@ -497,6 +499,7 @@ test.describe('Page Metadata', () => {
     'APP-PAGES-META-REGRESSION-001: user can complete full metadata workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -518,9 +521,11 @@ test.describe('Page Metadata', () => {
         ],
       })
 
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // Verify basic metadata
+      // THEN: assertion
       await expect(page.locator('html')).toHaveAttribute('lang', 'en-US')
       await expect(page).toHaveTitle('Complete Test Page')
       await expect(page.locator('meta[name="description"]')).toBeAttached()

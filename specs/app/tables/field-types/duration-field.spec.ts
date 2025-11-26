@@ -25,6 +25,7 @@ test.describe('Duration Field', () => {
     'APP-DURATION-FIELD-001: should create PostgreSQL INTERVAL column when table configuration has duration field',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -40,15 +41,19 @@ test.describe('Duration Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='tasks' AND column_name='duration'"
       )
+      // THEN: assertion
       expect(columnInfo.data_type).toBe('interval')
+      // THEN: assertion
       expect(columnInfo.is_nullable).toBe('YES')
 
       const validInsert = await executeQuery(
         "INSERT INTO tasks (duration) VALUES ('2 hours 30 minutes') RETURNING duration"
       )
+      // THEN: assertion
       expect(validInsert.duration).toBeTruthy()
     }
   )
@@ -57,6 +62,7 @@ test.describe('Duration Field', () => {
     'APP-DURATION-FIELD-002: should store various duration formats (hours, days, etc)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -72,11 +78,14 @@ test.describe('Duration Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       await executeQuery([
         "INSERT INTO projects (estimated_time) VALUES ('1 day'), ('3 hours'), ('45 minutes')",
       ])
 
+      // WHEN: querying the database
       const results = await executeQuery('SELECT estimated_time FROM projects ORDER BY id')
+      // THEN: assertion
       expect(results.length).toBe(3)
     }
   )
@@ -85,6 +94,7 @@ test.describe('Duration Field', () => {
     'APP-DURATION-FIELD-003: should reject NULL value when duration field is required',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -100,11 +110,14 @@ test.describe('Duration Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const notNullCheck = await executeQuery(
         "SELECT is_nullable FROM information_schema.columns WHERE table_name='meetings' AND column_name='length'"
       )
+      // THEN: assertion
       expect(notNullCheck.is_nullable).toBe('NO')
 
+      // THEN: assertion
       await expect(executeQuery('INSERT INTO meetings (length) VALUES (NULL)')).rejects.toThrow(
         /violates not-null constraint/
       )
@@ -115,6 +128,7 @@ test.describe('Duration Field', () => {
     'APP-DURATION-FIELD-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -130,9 +144,11 @@ test.describe('Duration Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const defaultInsert = await executeQuery(
         'INSERT INTO sessions (id) VALUES (DEFAULT) RETURNING timeout'
       )
+      // THEN: assertion
       expect(defaultInsert.timeout).toBeTruthy()
     }
   )
@@ -141,6 +157,7 @@ test.describe('Duration Field', () => {
     'APP-DURATION-FIELD-005: should create btree index for fast queries when duration field has indexed=true',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -156,9 +173,11 @@ test.describe('Duration Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const indexExists = await executeQuery(
         "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_videos_length'"
       )
+      // THEN: assertion
       expect(indexExists.indexname).toBe('idx_videos_length')
     }
   )
@@ -167,6 +186,7 @@ test.describe('Duration Field', () => {
     'APP-TABLES-FIELD-DURATION-REGRESSION-001: user can complete full duration-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -182,8 +202,11 @@ test.describe('Duration Field', () => {
         ],
       })
 
+      // WHEN: executing query
       await executeQuery("INSERT INTO data (duration_field) VALUES ('2 hours 15 minutes')")
+      // WHEN: querying the database
       const stored = await executeQuery('SELECT duration_field FROM data WHERE id = 1')
+      // THEN: assertion
       expect(stored.duration_field).toBeTruthy()
     }
   )

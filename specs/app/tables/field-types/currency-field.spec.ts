@@ -50,6 +50,7 @@ test.describe('Currency Field', () => {
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='price'"
       )
+      // THEN: assertion
       expect(columnInfo.column_name).toBe('price')
       expect(columnInfo.data_type).toMatch(/numeric|decimal/)
       expect(columnInfo.is_nullable).toBe('YES')
@@ -57,6 +58,7 @@ test.describe('Currency Field', () => {
       const validInsert = await executeQuery(
         'INSERT INTO products (price) VALUES (19.99) RETURNING price'
       )
+      // THEN: assertion
       expect(parseFloat(validInsert.price)).toBe(19.99)
     }
   )
@@ -86,12 +88,15 @@ test.describe('Currency Field', () => {
       const validInsert = await executeQuery(
         'INSERT INTO projects (budget) VALUES (5000.00) RETURNING budget'
       )
+      // THEN: assertion
       expect(parseFloat(validInsert.budget)).toBe(5000)
 
+      // THEN: assertion
       await expect(executeQuery('INSERT INTO projects (budget) VALUES (-0.01)')).rejects.toThrow(
         /violates check constraint/
       )
 
+      // THEN: assertion
       await expect(executeQuery('INSERT INTO projects (budget) VALUES (10000.01)')).rejects.toThrow(
         /violates check constraint/
       )
@@ -125,6 +130,7 @@ test.describe('Currency Field', () => {
         ],
       })
 
+      // GIVEN: table configuration
       await executeQuery(['INSERT INTO transactions (amount) VALUES (100.50)'])
 
       // WHEN: constraints are applied
@@ -132,12 +138,15 @@ test.describe('Currency Field', () => {
       const notNullCheck = await executeQuery(
         "SELECT is_nullable FROM information_schema.columns WHERE table_name='transactions' AND column_name='amount'"
       )
+      // THEN: assertion
       expect(notNullCheck.is_nullable).toBe('NO')
 
+      // THEN: assertion
       await expect(
         executeQuery('INSERT INTO transactions (amount) VALUES (100.50)')
       ).rejects.toThrow(/duplicate key value violates unique constraint/)
 
+      // THEN: assertion
       await expect(executeQuery('INSERT INTO transactions (amount) VALUES (NULL)')).rejects.toThrow(
         /violates not-null constraint/
       )
@@ -169,11 +178,13 @@ test.describe('Currency Field', () => {
       const defaultInsert = await executeQuery(
         'INSERT INTO subscriptions (id) VALUES (DEFAULT) RETURNING fee'
       )
+      // THEN: assertion
       expect(parseFloat(defaultInsert.fee)).toBe(9.99)
 
       const explicitInsert = await executeQuery(
         'INSERT INTO subscriptions (fee) VALUES (14.99) RETURNING fee'
       )
+      // THEN: assertion
       expect(parseFloat(explicitInsert.fee)).toBe(14.99)
     }
   )
@@ -210,6 +221,7 @@ test.describe('Currency Field', () => {
       const indexExists = await executeQuery(
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_orders_total'"
       )
+      // THEN: assertion
       expect(indexExists).toEqual({
         indexname: 'idx_orders_total',
         tablename: 'orders',
@@ -255,12 +267,14 @@ test.describe('Currency Field', () => {
       const columnInfo = await executeQuery(
         "SELECT data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='currency_field'"
       )
+      // THEN: assertion
       expect(columnInfo.data_type).toMatch(/numeric|decimal/)
       expect(columnInfo.is_nullable).toBe('NO')
 
       // Test precision for currency (2 decimal places)
       await executeQuery('INSERT INTO data (currency_field) VALUES (499.99)')
       const stored = await executeQuery('SELECT currency_field FROM data WHERE id = 1')
+      // THEN: assertion
       expect(parseFloat(stored.currency_field)).toBe(499.99)
     }
   )

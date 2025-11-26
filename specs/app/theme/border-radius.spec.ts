@@ -112,6 +112,7 @@ test.describe('Border Radius', () => {
       const cssResponse = await page.request.get('/assets/output.css')
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--radius-none: 0')
       expect(css).toContain('--radius-sm: 0.125rem')
       expect(css).toContain('--radius-md: 0.375rem')
@@ -274,6 +275,7 @@ test.describe('Border Radius', () => {
       const cssResponse = await page.request.get('/assets/output.css')
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--radius-sm: 0.125rem')
       expect(css).toContain('--radius-md: 0.375rem')
       expect(css).toContain('--radius-lg: 0.5rem')
@@ -436,6 +438,7 @@ test.describe('Border Radius', () => {
       const cssResponse = await page.request.get('/assets/output.css')
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--radius-md: 0.375rem')
 
       // 2. Visual validation
@@ -444,6 +447,7 @@ test.describe('Border Radius', () => {
 
       // 3. Verify computed border-radius
       const borderRadius = await button.evaluate((el) => window.getComputedStyle(el).borderRadius)
+      // THEN: assertion
       expect(borderRadius).toBe('6px') // 0.375rem × 16px = 6px
     }
   )
@@ -524,6 +528,7 @@ test.describe('Border Radius', () => {
       const cssResponse = await page.request.get('/assets/output.css')
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--radius-lg: 0.5rem')
 
       // 2. Visual validation
@@ -532,6 +537,7 @@ test.describe('Border Radius', () => {
 
       // 3. Verify computed border-radius
       const borderRadius = await card.evaluate((el) => window.getComputedStyle(el).borderRadius)
+      // THEN: assertion
       expect(borderRadius).toBe('8px') // 0.5rem × 16px = 8px
     }
   )
@@ -574,6 +580,7 @@ test.describe('Border Radius', () => {
       const cssResponse = await page.request.get('/assets/output.css')
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--radius-sm: 0.125rem')
       expect(css).toContain('--radius-lg: 0.5rem')
 
@@ -625,6 +632,7 @@ test.describe('Border Radius', () => {
       await expect(bubble).toBeVisible()
       // Per-corner control: top-left, top-right, bottom-right rounded; bottom-left sharp
       const borderRadius = await bubble.evaluate((el) => window.getComputedStyle(el).borderRadius)
+      // THEN: assertion
       expect(borderRadius).toBeTruthy()
     }
   )
@@ -666,6 +674,7 @@ test.describe('Border Radius', () => {
       const cssResponse = await page.request.get('/assets/output.css')
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--radius-full: 9999px')
 
       // 2. Visual validation - Radius token: theme.borderRadius.full = '9999px'
@@ -674,6 +683,7 @@ test.describe('Border Radius', () => {
 
       // 3. Verify computed border-radius is a very large value
       const borderRadius = await badge.evaluate((el) => window.getComputedStyle(el).borderRadius)
+      // THEN: assertion
       expect(borderRadius).toBe('9999px')
     }
   )
@@ -891,14 +901,17 @@ test.describe('Border Radius', () => {
 
       // 1. Verify CSS compilation contains all radius definitions
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--radius-none: 0')
       expect(css).toContain('--radius-md: 0.375rem')
       expect(css).toContain('--radius-lg: 0.5rem')
       expect(css).toContain('--radius-full: 9999px')
 
       // 2. Structure validation (ARIA)
+      // THEN: assertion
       await expect(page.locator('[data-testid="radius-system"]')).toMatchAriaSnapshot(`
         - group:
           - button "Button with md radius"

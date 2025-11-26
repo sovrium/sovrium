@@ -27,6 +27,7 @@ test.describe('Created By Field', () => {
       // Create external users table for foreign key reference
       await executeQuery('CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))')
 
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -43,21 +44,27 @@ test.describe('Created By Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='posts' AND column_name='created_by'"
       )
+      // THEN: assertion
       expect(columnInfo.column_name).toBe('created_by')
+      // THEN: assertion
       expect(columnInfo.data_type).toBe('integer')
+      // THEN: assertion
       expect(columnInfo.is_nullable).toBe('NO')
 
       const fkCount = await executeQuery(
         "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='posts' AND constraint_type='FOREIGN KEY' AND constraint_name LIKE '%created_by%'"
       )
+      // THEN: assertion
       expect(fkCount.count).toBe(1)
 
       const referencedTable = await executeQuery(
         "SELECT ccu.table_name as referenced_table FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name WHERE tc.table_name='posts' AND tc.constraint_type='FOREIGN KEY' AND tc.constraint_name LIKE '%created_by%'"
       )
+      // THEN: assertion
       expect(referencedTable.referenced_table).toBe('users')
     }
   )
@@ -72,6 +79,7 @@ test.describe('Created By Field', () => {
         "INSERT INTO users (name) VALUES ('Alice'), ('Bob')",
       ])
 
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -88,20 +96,25 @@ test.describe('Created By Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const firstInsert = await executeQuery(
         "INSERT INTO documents (title, created_by) VALUES ('First Doc', 1) RETURNING created_by"
       )
+      // THEN: assertion
       expect(firstInsert.created_by).toBe(1)
 
       const multipleInserts = await executeQuery(
         "INSERT INTO documents (title, created_by) VALUES ('Second Doc', 1), ('Third Doc', 1) RETURNING (SELECT COUNT(*) FROM documents WHERE created_by = 1) as count"
       )
+      // THEN: assertion
       expect(multipleInserts.count).toBe(3)
 
       const creatorInfo = await executeQuery(
         'SELECT d.title, u.name as creator_name FROM documents d JOIN users u ON d.created_by = u.id WHERE d.id = 1'
       )
+      // THEN: assertion
       expect(creatorInfo.title).toBe('First Doc')
+      // THEN: assertion
       expect(creatorInfo.creator_name).toBe('Alice')
     }
   )
@@ -116,6 +129,7 @@ test.describe('Created By Field', () => {
         "INSERT INTO users (name) VALUES ('John'), ('Jane')",
       ])
 
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -132,19 +146,24 @@ test.describe('Created By Field', () => {
         ],
       })
 
+      // WHEN: executing query
       await executeQuery("INSERT INTO issues (title, created_by) VALUES ('Bug #1', 1)")
 
+      // WHEN: querying the database
       const originalCreator = await executeQuery('SELECT created_by FROM issues WHERE id = 1')
+      // THEN: assertion
       expect(originalCreator.created_by).toBe(1)
 
       const updateResult = await executeQuery(
         'UPDATE issues SET created_by = 2 WHERE id = 1 RETURNING created_by'
       )
+      // THEN: assertion
       expect(updateResult.created_by).toBe(2)
 
       const noTrigger = await executeQuery(
         "SELECT COUNT(*) as count FROM information_schema.triggers WHERE event_object_table='issues' AND trigger_name LIKE '%created_by%'"
       )
+      // THEN: assertion
       expect(noTrigger.count).toBe(0)
     }
   )
@@ -159,6 +178,7 @@ test.describe('Created By Field', () => {
         "INSERT INTO users (name) VALUES ('Alice'), ('Bob'), ('Charlie')",
       ])
 
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -175,6 +195,7 @@ test.describe('Created By Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       await executeQuery(
         "INSERT INTO tasks (title, created_by) VALUES ('Task 1', 1), ('Task 2', 2), ('Task 3', 1), ('Task 4', 3), ('Task 5', 1)"
       )
@@ -182,16 +203,19 @@ test.describe('Created By Field', () => {
       const aliceTasks = await executeQuery(
         'SELECT COUNT(*) as count FROM tasks WHERE created_by = 1'
       )
+      // THEN: assertion
       expect(aliceTasks.count).toBe(3)
 
       const bobTasks = await executeQuery(
         'SELECT COUNT(*) as count FROM tasks WHERE created_by = 2'
       )
+      // THEN: assertion
       expect(bobTasks.count).toBe(1)
 
       const creatorNames = await executeQuery(
         'SELECT t.title, u.name as creator FROM tasks t JOIN users u ON t.created_by = u.id WHERE t.created_by IN (1, 3) ORDER BY t.id'
       )
+      // THEN: assertion
       expect(creatorNames).toEqual([
         { title: 'Task 1', creator: 'Alice' },
         { title: 'Task 3', creator: 'Alice' },
@@ -208,6 +232,7 @@ test.describe('Created By Field', () => {
       // Create external users table
       await executeQuery('CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))')
 
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -224,15 +249,19 @@ test.describe('Created By Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const indexInfo = await executeQuery(
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_comments_created_by'"
       )
+      // THEN: assertion
       expect(indexInfo.indexname).toBe('idx_comments_created_by')
+      // THEN: assertion
       expect(indexInfo.tablename).toBe('comments')
 
       const indexDef = await executeQuery(
         "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_comments_created_by'"
       )
+      // THEN: assertion
       expect(indexDef.indexdef).toBe(
         'CREATE INDEX idx_comments_created_by ON public.comments USING btree (created_by)'
       )
@@ -249,6 +278,7 @@ test.describe('Created By Field', () => {
         "INSERT INTO users (name) VALUES ('Alice', 'alice@example.com')",
       ])
 
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -265,13 +295,17 @@ test.describe('Created By Field', () => {
         ],
       })
 
+      // WHEN: executing query
       await executeQuery("INSERT INTO data (content, created_by) VALUES ('Test content', 1)")
+      // WHEN: querying the database
       const record = await executeQuery('SELECT created_by FROM data WHERE id = 1')
+      // THEN: assertion
       expect(record.created_by).toBe(1)
 
       const creator = await executeQuery(
         'SELECT d.content, u.name FROM data d JOIN users u ON d.created_by = u.id WHERE d.id = 1'
       )
+      // THEN: assertion
       expect(creator.name).toBe('Alice')
     }
   )

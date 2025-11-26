@@ -50,6 +50,7 @@ test.describe('Navigation Configuration', () => {
         'src',
         './public/logo.svg'
       )
+      // THEN: assertion
       await expect(page.locator('[data-testid="nav-logo-link"]')).toHaveAttribute('href', '/')
     }
   )
@@ -84,6 +85,7 @@ test.describe('Navigation Configuration', () => {
         './public/logo-mobile.svg'
       )
       await page.setViewportSize({ width: 1024, height: 768 })
+      // THEN: assertion
       await expect(page.locator('[data-testid="nav-logo"]')).toHaveAttribute(
         'src',
         './public/logo.svg'
@@ -153,6 +155,7 @@ test.describe('Navigation Configuration', () => {
       const nav = page.locator('[data-testid="navigation"]')
       await expect(nav).toHaveCSS('position', 'sticky')
       await page.evaluate(() => window.scrollTo(0, 1000))
+      // THEN: assertion
       await expect(nav).toBeInViewport()
     }
   )
@@ -192,6 +195,7 @@ test.describe('Navigation Configuration', () => {
       await page.evaluate(() => window.scrollTo(0, 150))
       await page.waitForTimeout(100)
       const scrolledBg = await nav.evaluate((el) => window.getComputedStyle(el).backgroundColor)
+      // THEN: assertion
       expect(scrolledBg).not.toMatch(/rgba?\(.*,\s*0\)|transparent/)
     }
   )
@@ -281,6 +285,7 @@ test.describe('Navigation Configuration', () => {
       await page.setViewportSize({ width: 375, height: 667 })
       await page.click('[data-testid="mobile-menu-toggle"]')
       const mobileLinks = page.locator('[data-testid="mobile-menu"] a')
+      // THEN: assertion
       await expect(mobileLinks).toHaveCount(2)
       await expect(mobileLinks.nth(0)).toContainText('Home')
       await expect(mobileLinks.nth(1)).toContainText('Products')
@@ -464,6 +469,7 @@ test.describe('Navigation Configuration', () => {
     'APP-PAGES-LAYOUT-NAVIGATION-REGRESSION-001: user can complete full navigation workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -495,9 +501,11 @@ test.describe('Navigation Configuration', () => {
         ],
       })
 
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // 1. Structure and accessibility validation (ARIA)
+      // THEN: assertion
       await expect(page.locator('[data-testid="navigation"]')).toMatchAriaSnapshot(`
         - navigation "Main navigation":
           - link:

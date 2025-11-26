@@ -47,6 +47,7 @@ test.describe('Inline Scripts', () => {
       const hasExpectedScript = scriptContents.some((content) =>
         content.includes("console.log('Page loaded');")
       )
+      // THEN: assertion
       expect(hasExpectedScript).toBeTruthy()
     }
   )
@@ -80,6 +81,7 @@ test.describe('Inline Scripts', () => {
       const hasExpectedScript = scriptContents.some((content) =>
         content.includes("console.log('body-end');")
       )
+      // THEN: assertion
       expect(hasExpectedScript).toBeTruthy()
     }
   )
@@ -111,6 +113,7 @@ test.describe('Inline Scripts', () => {
       const hasExpectedScript = headScriptContents.some((content) =>
         content.includes("console.log('head');")
       )
+      // THEN: assertion
       expect(hasExpectedScript).toBeTruthy()
     }
   )
@@ -144,6 +147,7 @@ test.describe('Inline Scripts', () => {
       const hasExpectedScript = bodyScriptContents.some((content) =>
         content.includes("console.log('body-start');")
       )
+      // THEN: assertion
       expect(hasExpectedScript).toBeTruthy()
     }
   )
@@ -173,6 +177,7 @@ test.describe('Inline Scripts', () => {
       const scripts = await page.locator('script:not([src])').all()
       const scriptContents = await Promise.all(scripts.map((s) => s.innerHTML()))
       const asyncScript = scriptContents.find((content) => content.includes('await fetch'))
+      // THEN: assertion
       expect(asyncScript).toContain('(async () => {')
     }
   )
@@ -238,8 +243,10 @@ test.describe('Inline Scripts', () => {
       const hasFirstScript = scriptContents.some((content) =>
         content.includes("console.log('first');")
       )
+      // THEN: assertion
       expect(hasFirstScript).toBeTruthy()
       const config = await page.evaluate(() => (window as any).config)
+      // THEN: assertion
       expect(config?.ready).toBe(true)
     }
   )
@@ -271,6 +278,7 @@ test.describe('Inline Scripts', () => {
       const hasExpectedScript = scriptContents.some((content) =>
         content.includes("console.log('default');")
       )
+      // THEN: assertion
       expect(hasExpectedScript).toBeTruthy()
     }
   )
@@ -345,6 +353,7 @@ test.describe('Inline Scripts', () => {
     'APP-PAGES-SCRIPTS-INLINE-REGRESSION-001: user can complete full Inline Scripts workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -371,8 +380,10 @@ test.describe('Inline Scripts', () => {
           },
         ],
       })
+      // WHEN: user navigates to the page
       await page.goto('/')
       const config = await page.evaluate(() => (window as any).APP_CONFIG)
+      // THEN: assertion
       expect(config?.apiUrl).toBe('https://api.example.com')
       expect(config?.debug).toBe(false)
     }

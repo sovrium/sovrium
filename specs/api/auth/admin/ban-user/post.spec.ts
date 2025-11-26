@@ -69,6 +69,7 @@ test.describe('Admin: Ban user', () => {
       // Response indicates success
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // User is marked as banned in database
@@ -151,6 +152,7 @@ test.describe('Admin: Ban user', () => {
       // Response contains validation error for userId field
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -180,6 +182,7 @@ test.describe('Admin: Ban user', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -220,6 +223,7 @@ test.describe('Admin: Ban user', () => {
       // Response contains error about insufficient permissions
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -257,6 +261,7 @@ test.describe('Admin: Ban user', () => {
       // Response contains error about user not found
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

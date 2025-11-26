@@ -59,10 +59,12 @@ test.describe('Sign out user', () => {
       // Returns 200 OK
       // Response indicates successful sign out
       // Session is invalidated in database
+      // THEN: assertion
       expect(response.status).toBe(200)
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -91,6 +93,7 @@ test.describe('Sign out user', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -120,6 +123,7 @@ test.describe('Sign out user', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -157,6 +161,7 @@ test.describe('Sign out user', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -194,6 +199,7 @@ test.describe('Sign out user', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

@@ -76,6 +76,7 @@ test.describe('Unique Constraints', () => {
       const result = await executeQuery(
         `INSERT INTO users (email, tenant_id) VALUES ('alice@example.com', 2) RETURNING id`
       )
+      // THEN: assertion
       expect(result.rows[0]).toMatchObject({ id: 2 })
     }
   )
@@ -117,6 +118,7 @@ test.describe('Unique Constraints', () => {
       const result = await executeQuery(
         `INSERT INTO products (sku, name) VALUES ('ABC123', 'Different Widget') RETURNING id`
       )
+      // THEN: assertion
       expect(result.rows[0]).toMatchObject({ id: 2 })
     }
   )
@@ -161,12 +163,14 @@ test.describe('Unique Constraints', () => {
       const constraint = await executeQuery(
         `SELECT conname, contype FROM pg_constraint WHERE conname = 'uq_contacts_name'`
       )
+      // THEN: assertion
       expect(constraint.rows[0]).toMatchObject({ conname: 'uq_contacts_name', contype: 'u' })
 
       // Constraint enforces uniqueness on both fields
       const insert = await executeQuery(
         `INSERT INTO contacts (first_name, last_name) VALUES ('John', 'Doe'), ('John', 'Smith'), ('Jane', 'Doe') RETURNING id`
       )
+      // THEN: assertion
       expect(insert.rows[0]).toMatchObject({ id: 3 })
     }
   )
@@ -227,6 +231,7 @@ test.describe('Unique Constraints', () => {
       const result = await executeQuery(
         `INSERT INTO locations (country, state, city) VALUES ('USA', 'California', 'Los Angeles') RETURNING id`
       )
+      // THEN: assertion
       expect(result.rows[0]).toMatchObject({ id: 2 })
     }
   )
@@ -271,6 +276,7 @@ test.describe('Unique Constraints', () => {
       const constraint = await executeQuery(
         `SELECT conname FROM pg_constraint WHERE conname = 'uq_item_code_category'`
       )
+      // THEN: assertion
       expect(constraint.rows[0]).toMatchObject({ conname: 'uq_item_code_category' })
     }
   )
@@ -315,6 +321,7 @@ test.describe('Unique Constraints', () => {
       const constraint = await executeQuery(
         `SELECT conname FROM pg_constraint WHERE conname = 'UQ_TEST' OR conname = 'uq_test'`
       )
+      // THEN: assertion
       expect(constraint.rows[0]).toMatchObject({ conname: 'UQ_TEST' })
     }
   )
@@ -359,6 +366,7 @@ test.describe('Unique Constraints', () => {
       const constraint = await executeQuery(
         `SELECT conname FROM pg_constraint WHERE conrelid = 'preserved_names'::regclass AND contype = 'u'`
       )
+      // THEN: assertion
       expect(constraint.rows[0]).toMatchObject({ conname: 'uq_preserved_test' })
     }
   )
@@ -410,6 +418,7 @@ test.describe('Unique Constraints', () => {
 
       // 1. Composite unique constraints enforce uniqueness on combinations
       await executeQuery(`INSERT INTO users (email, tenant_id) VALUES ('alice@example.com', 1)`)
+      // THEN: assertion
       await expect(
         executeQuery(`INSERT INTO users (email, tenant_id) VALUES ('alice@example.com', 1)`)
       ).rejects.toThrow(/unique constraint/)
@@ -418,10 +427,12 @@ test.describe('Unique Constraints', () => {
       const user2 = await executeQuery(
         `INSERT INTO users (email, tenant_id) VALUES ('alice@example.com', 2) RETURNING id`
       )
+      // THEN: assertion
       expect(user2.rows[0]).toMatchObject({ id: 2 })
 
       // 3. Multiple unique constraints on different tables
       await executeQuery(`INSERT INTO products (sku, variant_id) VALUES ('ABC123', 1)`)
+      // THEN: assertion
       await expect(
         executeQuery(`INSERT INTO products (sku, variant_id) VALUES ('ABC123', 1)`)
       ).rejects.toThrow(/unique constraint/)
@@ -430,6 +441,7 @@ test.describe('Unique Constraints', () => {
       const constraints = await executeQuery(
         `SELECT conname FROM pg_constraint WHERE conname LIKE 'uq_%' ORDER BY conname`
       )
+      // THEN: assertion
       expect(constraints.rows).toHaveLength(2)
       expect(constraints.rows).toEqual(
         expect.arrayContaining([

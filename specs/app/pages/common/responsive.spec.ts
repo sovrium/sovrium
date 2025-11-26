@@ -97,9 +97,11 @@ test.describe('Responsive Variants', () => {
       // WHEN: viewport changes from mobile to tablet to desktop
       await page.setViewportSize({ width: 375, height: 667 })
       await page.goto('/')
+      // THEN: assertion
       await expect(page.locator('h1')).toHaveText('Mobile!', { useInnerText: true })
 
       await page.setViewportSize({ width: 768, height: 1024 })
+      // THEN: assertion
       await expect(page.locator('h1')).toHaveText('Tablet Welcome', { useInnerText: true })
 
       await page.setViewportSize({ width: 1024, height: 768 })
@@ -142,6 +144,7 @@ test.describe('Responsive Variants', () => {
       // WHEN: viewport changes from mobile to desktop
       await page.setViewportSize({ width: 375, height: 667 })
       await page.goto('/')
+      // THEN: assertion
       await expect(page.locator('[data-testid="text"]')).toBeHidden()
 
       await page.setViewportSize({ width: 1024, height: 768 })
@@ -205,6 +208,7 @@ test.describe('Responsive Variants', () => {
           return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0'
         })
       )
+      // THEN: assertion
       expect(visibleMobileButtons.length).toBe(1)
       await expect(page.locator('button').first()).toHaveText('Mobile Button')
 
@@ -217,6 +221,7 @@ test.describe('Responsive Variants', () => {
           return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0'
         })
       )
+      // THEN: assertion
       expect(visibleDesktopButtons.length).toBe(2)
       const allDesktopButtons = await page.locator('button').all()
       const visibleDesktopTexts = await Promise.all(
@@ -227,6 +232,7 @@ test.describe('Responsive Variants', () => {
         })
       )
       const filteredTexts = visibleDesktopTexts.filter((t) => t !== null)
+      // THEN: assertion
       expect(filteredTexts[0]).toBe('Desktop Button 1')
       expect(filteredTexts[1]).toBe('Desktop Button 2')
     }
@@ -267,6 +273,7 @@ test.describe('Responsive Variants', () => {
       // WHEN: viewport reaches 640px (sm)
       await page.setViewportSize({ width: 375, height: 667 })
       await page.goto('/')
+      // THEN: assertion
       await expect(page.locator('[data-testid="text"]')).toHaveClass(/text-base/)
 
       await page.setViewportSize({ width: 640, height: 480 })
@@ -310,6 +317,7 @@ test.describe('Responsive Variants', () => {
       // WHEN: viewport reaches 768px (md)
       await page.setViewportSize({ width: 375, height: 667 })
       await page.goto('/')
+      // THEN: assertion
       await expect(page.locator('[data-testid="container"]')).toHaveClass(/p-4/)
 
       await page.setViewportSize({ width: 768, height: 1024 })
@@ -358,6 +366,7 @@ test.describe('Responsive Variants', () => {
       // WHEN: viewport reaches extra large sizes
       await page.setViewportSize({ width: 1280, height: 800 })
       await page.goto('/')
+      // THEN: assertion
       await expect(page.locator('[data-testid="container"]')).toHaveClass(/max-w-6xl/)
       await expect(page.locator('[data-testid="container"]')).toHaveClass(/px-8/)
 
@@ -407,12 +416,15 @@ test.describe('Responsive Variants', () => {
       // WHEN: viewport expands from mobile to desktop
       await page.setViewportSize({ width: 375, height: 667 })
       await page.goto('/')
+      // THEN: assertion
       await expect(page.locator('h1')).toHaveClass(/text-xl/)
 
       await page.setViewportSize({ width: 640, height: 480 })
+      // THEN: assertion
       await expect(page.locator('h1')).toHaveClass(/text-2xl/)
 
       await page.setViewportSize({ width: 768, height: 1024 })
+      // THEN: assertion
       await expect(page.locator('h1')).toHaveClass(/text-3xl/)
 
       await page.setViewportSize({ width: 1024, height: 768 })
@@ -462,6 +474,7 @@ test.describe('Responsive Variants', () => {
       await page.setViewportSize({ width: 375, height: 667 })
       await page.goto('/')
       const button = page.locator('button')
+      // THEN: assertion
       await expect(button).toBeVisible()
       await expect(button).toHaveClass(/btn-sm/)
       await expect(button).toHaveText('Tap Me', { useInnerText: true })
@@ -530,6 +543,7 @@ test.describe('Responsive Variants', () => {
       // WHEN: switching between mobile and desktop views
       await page.setViewportSize({ width: 375, height: 667 })
       await page.goto('/')
+      // THEN: assertion
       await expect(page.locator('nav button')).toBeVisible()
       await expect(page.locator('nav button')).toHaveText('☰')
 
@@ -608,6 +622,7 @@ test.describe('Responsive Variants', () => {
       await page.goto('/')
 
       // Verify mobile - CSS-based responsive classes work
+      // THEN: assertion
       await expect(page.locator('h1')).toHaveText('Welcome')
       await expect(page.locator('h1')).toHaveClass(/text-2xl/)
       await expect(page.locator('h1')).toHaveClass(/text-center/)
@@ -616,7 +631,9 @@ test.describe('Responsive Variants', () => {
 
       // Verify desktop - Test CSS media query responsiveness
       await page.setViewportSize({ width: 1024, height: 768 })
+      // WHEN: user navigates to the page
       await page.goto('/')
+      // THEN: assertion
       await expect(page.locator('h1')).toHaveText('Welcome')
       await expect(page.locator('h1')).toHaveClass(/text-4xl/)
       await expect(page.locator('h1')).toHaveClass(/text-left/)

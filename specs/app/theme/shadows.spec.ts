@@ -72,8 +72,10 @@ test.describe('Shadows', () => {
 
       // 1. Verify CSS compilation contains shadow definitions
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05)')
       expect(css).toContain('--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1)')
       expect(css).toContain('--shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1)')
@@ -81,6 +83,7 @@ test.describe('Shadows', () => {
       expect(css).toContain('--shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25)')
 
       // 2. Visual validation captures shadow rendering
+      // THEN: assertion
       await expect(page.locator('[data-testid="shadow-sm"]')).toBeVisible()
       await expect(page.locator('[data-testid="shadow-2xl"]')).toBeVisible()
 
@@ -89,6 +92,7 @@ test.describe('Shadows', () => {
       const xl2 = page.locator('[data-testid="shadow-2xl"]')
       const smShadow = await sm.evaluate((el) => window.getComputedStyle(el).boxShadow)
       const xl2Shadow = await xl2.evaluate((el) => window.getComputedStyle(el).boxShadow)
+      // THEN: assertion
       expect(smShadow).not.toBe('none')
       expect(xl2Shadow).not.toBe('none')
     }
@@ -131,8 +135,10 @@ test.describe('Shadows', () => {
 
       // 1. Verify CSS compilation contains shadow with rgb format
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1)')
 
       // 2. Visual validation captures shadow rendering
@@ -141,6 +147,7 @@ test.describe('Shadows', () => {
 
       // 3. Verify computed box shadow
       const boxShadow = await element.evaluate((el) => window.getComputedStyle(el).boxShadow)
+      // THEN: assertion
       expect(boxShadow).toContain('rgba(0, 0, 0, 0.1)')
     }
   )
@@ -182,8 +189,10 @@ test.describe('Shadows', () => {
 
       // 1. Verify CSS compilation contains inset shadow
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05)')
 
       // 2. Visual validation captures inset shadow
@@ -192,6 +201,7 @@ test.describe('Shadows', () => {
 
       // 3. Verify computed box shadow contains inset
       const boxShadow = await element.evaluate((el) => window.getComputedStyle(el).boxShadow)
+      // THEN: assertion
       expect(boxShadow).toContain('inset')
     }
   )
@@ -233,8 +243,10 @@ test.describe('Shadows', () => {
 
       // 1. Verify CSS compilation contains shadow removal
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--shadow-none: 0 0 #0000')
 
       // 2. Visual validation captures no shadow
@@ -243,6 +255,7 @@ test.describe('Shadows', () => {
 
       // 3. Verify computed box shadow is none
       const boxShadow = await element.evaluate((el) => window.getComputedStyle(el).boxShadow)
+      // THEN: assertion
       expect(boxShadow).toBe('none')
     }
   )
@@ -292,12 +305,15 @@ test.describe('Shadows', () => {
 
       // 1. Verify CSS compilation contains kebab-case shadow definitions
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--shadow-drop-shadow: 0 4px 6px rgb(0 0 0 / 0.1)')
       expect(css).toContain('--shadow-card-shadow: 0 2px 4px rgb(0 0 0 / 0.05)')
 
       // 2. Visual validation captures shadow rendering
+      // THEN: assertion
       await expect(page.locator('[data-testid="shadow-drop-shadow"]')).toBeVisible()
       await expect(page.locator('[data-testid="shadow-card-shadow"]')).toBeVisible()
 
@@ -306,6 +322,7 @@ test.describe('Shadows', () => {
       const cardShadow = page.locator('[data-testid="shadow-card-shadow"]')
       const dropShadowBox = await dropShadow.evaluate((el) => window.getComputedStyle(el).boxShadow)
       const cardShadowBox = await cardShadow.evaluate((el) => window.getComputedStyle(el).boxShadow)
+      // THEN: assertion
       expect(dropShadowBox).not.toBe('none')
       expect(cardShadowBox).not.toBe('none')
     }
@@ -361,8 +378,10 @@ test.describe('Shadows', () => {
 
       // 1. Verify CSS compilation contains all shadow definitions
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--shadow-sm: 0 1px 2px')
       expect(css).toContain('--shadow-md: 0 4px 6px')
       expect(css).toContain('--shadow-lg: 0 10px 15px')
@@ -372,6 +391,7 @@ test.describe('Shadows', () => {
       expect(css).toContain('--shadow-none: 0 0 #0000')
 
       // 2. Visual validation captures shadow rendering
+      // THEN: assertion
       await expect(page.locator('[data-testid="shadow-sm"]')).toBeVisible()
       await expect(page.locator('[data-testid="shadow-none"]')).toBeVisible()
 
@@ -380,6 +400,7 @@ test.describe('Shadows', () => {
       const none = page.locator('[data-testid="shadow-none"]')
       const smShadow = await sm.evaluate((el) => window.getComputedStyle(el).boxShadow)
       const noneShadow = await none.evaluate((el) => window.getComputedStyle(el).boxShadow)
+      // THEN: assertion
       expect(smShadow).not.toBe('none')
       expect(noneShadow).toBe('none')
     }
@@ -421,8 +442,10 @@ test.describe('Shadows', () => {
 
       // 1. Verify CSS compilation contains shadow definition
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1)')
 
       // 2. Visual validation captures card with shadow depth
@@ -467,8 +490,10 @@ test.describe('Shadows', () => {
 
       // 1. Verify CSS compilation contains shadow definition
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1)')
 
       // 2. Visual validation captures modal with dramatic shadow
@@ -512,8 +537,10 @@ test.describe('Shadows', () => {
 
       // 1. Verify CSS compilation contains shadow definition
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05)')
 
       // 2. Visual validation captures input with inset shadow
@@ -559,8 +586,10 @@ test.describe('Shadows', () => {
 
       // 1. Verify CSS compilation contains shadow definitions
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1)')
       expect(css).toContain('--shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1)')
 
@@ -610,8 +639,10 @@ test.describe('Shadows', () => {
 
       // 1. Verify CSS compilation contains shadow definition
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--shadow-brand: 0 4px 14px 0 rgb(59 130 246 / 0.4)')
 
       // 2. Visual validation captures button with brand colored shadow
@@ -656,8 +687,10 @@ test.describe('Shadows', () => {
 
       // 1. Verify CSS compilation contains shadow definition
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain(
         '--shadow-neumorphic: 8px 8px 16px rgb(0 0 0 / 0.1), -8px -8px 16px rgb(255 255 255 / 0.5)'
       )
@@ -707,8 +740,10 @@ test.describe('Shadows', () => {
 
       // 1. Verify CSS compilation contains shadow definition
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--shadow-focus: 0 0 0 3px rgb(59 130 246 / 0.5)')
 
       // 2. Visual validation captures input with focus ring shadow
@@ -755,8 +790,10 @@ test.describe('Shadows', () => {
 
       // 1. Verify CSS compilation contains shadow definitions
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05)')
       expect(css).toContain('--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1)')
 
@@ -827,8 +864,10 @@ test.describe('Shadows', () => {
 
       // 1. Verify CSS compilation contains all shadow definitions
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05)')
       expect(css).toContain('--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1)')
       expect(css).toContain('--shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1)')
@@ -836,6 +875,7 @@ test.describe('Shadows', () => {
       expect(css).toContain('--shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25)')
 
       // 2. Visual validation captures components with elevation hierarchy
+      // THEN: assertion
       await expect(page.locator('[data-testid="list-item"]')).toBeVisible()
       await expect(page.locator('[data-testid="card"]')).toBeVisible()
       await expect(page.locator('[data-testid="dropdown"]')).toBeVisible()
@@ -880,8 +920,10 @@ test.describe('Shadows', () => {
 
       // 1. Verify CSS compilation contains shadow definitions
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1)')
       expect(css).toContain('--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05)')
 
@@ -946,20 +988,25 @@ test.describe('Shadows', () => {
 
       // Validate CSS compilation and shadow custom properties
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css.length).toBeGreaterThan(1000)
       expect(css).toContain('--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1)')
       expect(css).toContain('--shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1)')
       expect(css).toContain('--shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05)')
 
       // Verify card shadow
+      // THEN: assertion
       await expect(page.locator('[data-testid="card"]')).toBeVisible()
 
       // Verify modal shadow
+      // THEN: assertion
       await expect(page.locator('[data-testid="modal"]')).toBeVisible()
 
       // Verify input shadow
+      // THEN: assertion
       await expect(page.locator('[data-testid="input"]')).toBeVisible()
 
       // Focus on workflow continuity - shadows compile and elements render

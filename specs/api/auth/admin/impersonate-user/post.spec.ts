@@ -66,6 +66,7 @@ test.describe('Admin: Impersonate user', () => {
       // Response contains impersonation token and user data
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // Impersonation session is created in database
@@ -104,6 +105,7 @@ test.describe('Admin: Impersonate user', () => {
       // Response contains validation error for userId field
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -133,6 +135,7 @@ test.describe('Admin: Impersonate user', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -173,6 +176,7 @@ test.describe('Admin: Impersonate user', () => {
       // Response contains error about insufficient permissions
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -213,6 +217,7 @@ test.describe('Admin: Impersonate user', () => {
       // Response contains error about user being banned
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -250,6 +255,7 @@ test.describe('Admin: Impersonate user', () => {
       // Response contains error about user not found
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

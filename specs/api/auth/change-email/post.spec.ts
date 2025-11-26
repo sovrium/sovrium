@@ -66,6 +66,7 @@ test.describe('Change email address', () => {
       // Response indicates success
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -104,6 +105,7 @@ test.describe('Change email address', () => {
       // Response contains validation error for newEmail field
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -144,6 +146,7 @@ test.describe('Change email address', () => {
       // Response contains validation error for email format
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -175,6 +178,7 @@ test.describe('Change email address', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -218,6 +222,7 @@ test.describe('Change email address', () => {
       // Response contains error about email already in use
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -296,6 +301,7 @@ test.describe('Change email address', () => {
       // Response contains error about email already in use
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

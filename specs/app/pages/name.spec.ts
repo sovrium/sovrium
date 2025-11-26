@@ -67,7 +67,9 @@ test.describe('Page Name', () => {
           },
         ],
       })
+      // WHEN: user navigates to the page
       await page.goto('/about')
+      // THEN: assertion
       await expect(page.locator('[data-testid="page-about"]')).toBeVisible()
     }
   )
@@ -122,8 +124,11 @@ test.describe('Page Name', () => {
 
       // WHEN: value is 'pricing' or 'contact'
       await page.goto('/pricing')
+      // THEN: assertion
       await expect(page.locator('[data-testid="page-pricing"]')).toBeVisible()
+      // WHEN: user navigates to the page
       await page.goto('/contact')
+      // THEN: assertion
       await expect(page.locator('[data-testid="page-contact"]')).toBeVisible()
 
       // THEN: it should accept single-word page identifiers
@@ -155,8 +160,11 @@ test.describe('Page Name', () => {
 
       // WHEN: value is 'home_page' or 'about_us'
       await page.goto('/')
+      // THEN: assertion
       await expect(page.locator('[data-testid="page-home-page"]')).toBeVisible()
+      // WHEN: user navigates to the page
       await page.goto('/about')
+      // THEN: assertion
       await expect(page.locator('[data-testid="page-about-us"]')).toBeVisible()
 
       // THEN: it should accept snake_case names with underscores
@@ -200,6 +208,7 @@ test.describe('Page Name', () => {
 
       // WHEN: standard website pages are defined
       await page.goto('/')
+      // THEN: assertion
       await expect(page.locator('[data-testid="page-home"]')).toBeVisible()
 
       // THEN: it should provide examples for typical page names
@@ -225,7 +234,9 @@ test.describe('Page Name', () => {
           },
         ],
       })
+      // WHEN: user navigates to the page
       await page.goto('/')
+      // THEN: assertion
       await expect(page.locator('[data-testid="page-home"]')).toBeVisible()
     }
   )
@@ -261,8 +272,11 @@ test.describe('Page Name', () => {
 
       // WHEN: names describe page purpose internally
       await page.goto('/')
+      // THEN: assertion
       await expect(page.locator('[data-page-name="homepage"]')).toBeVisible()
+      // WHEN: user navigates to the page
       await page.goto('/about')
+      // THEN: assertion
       await expect(page.locator('[data-page-name="company_info"]')).toBeVisible()
 
       // THEN: it should serve as internal identifier separate from URL path
@@ -305,12 +319,17 @@ test.describe('Page Name', () => {
 
       // WHEN/THEN: Streamlined workflow testing integration points
       await page.goto('/')
+      // THEN: assertion
       await expect(page.locator('[data-testid="page-home"]')).toBeVisible()
 
+      // WHEN: user navigates to the page
       await page.goto('/about')
+      // THEN: assertion
       await expect(page.locator('[data-testid="page-about-us"]')).toBeVisible()
 
+      // WHEN: user navigates to the page
       await page.goto('/pricing')
+      // THEN: assertion
       await expect(page.locator('[data-testid="page-pricing"]')).toBeVisible()
 
       // Focus on workflow continuity, not exhaustive coverage

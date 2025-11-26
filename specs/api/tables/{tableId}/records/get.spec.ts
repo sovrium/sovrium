@@ -63,6 +63,7 @@ test.describe('List records in table', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('records')
       expect(data).toHaveProperty('pagination')
       expect(data.records).toHaveLength(3)
@@ -87,6 +88,7 @@ test.describe('List records in table', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Table not found')
     }
   )
@@ -136,6 +138,7 @@ test.describe('List records in table', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.records).toHaveLength(2)
       expect(data.pagination.total).toBe(2)
     }
@@ -181,6 +184,7 @@ test.describe('List records in table', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.records).toHaveLength(3)
       expect(data.records[0].priority).toBe(5)
       expect(data.records[1].priority).toBe(3)
@@ -227,6 +231,7 @@ test.describe('List records in table', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.records).toHaveLength(1)
       expect(data.records[0]).toHaveProperty('id')
       expect(data.records[0]).toHaveProperty('name')
@@ -266,6 +271,7 @@ test.describe('List records in table', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.records).toHaveLength(20)
       expect(data.pagination.total).toBe(100)
       expect(data.pagination.limit).toBe(20)
@@ -313,6 +319,7 @@ test.describe('List records in table', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.records.length).toBeGreaterThan(0)
     }
   )
@@ -357,6 +364,7 @@ test.describe('List records in table', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('records')
     }
   )
@@ -406,6 +414,7 @@ test.describe('List records in table', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('aggregations')
       expect(data.aggregations.count).toBe(3)
       expect(data.aggregations.sum.budget).toBe(45_000)
@@ -454,6 +463,7 @@ test.describe('List records in table', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.records).toHaveLength(1)
       expect(data.records[0].name).toBe('High Priority Active')
     }
@@ -499,6 +509,7 @@ test.describe('List records in table', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.records[0].priority).toBe(5)
       expect(data.records[1].priority).toBe(5)
       expect(data.records[2].priority).toBe(3)
@@ -657,6 +668,7 @@ test.describe('List records in table', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.records[0]).toHaveProperty('salary')
     }
   )
@@ -696,6 +708,7 @@ test.describe('List records in table', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.records[0]).toHaveProperty('name')
       expect(data.records[0]).toHaveProperty('email')
       expect(data.records[0]).not.toHaveProperty('salary')
@@ -738,6 +751,7 @@ test.describe('List records in table', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.records[0]).toHaveProperty('id')
       expect(data.records[0]).toHaveProperty('name')
       expect(data.records[0]).not.toHaveProperty('email')
@@ -781,6 +795,7 @@ test.describe('List records in table', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.records).toHaveLength(1)
       expect(data.records[0].organization_id).toBe('org_123')
     }
@@ -823,6 +838,7 @@ test.describe('List records in table', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.records).toHaveLength(1)
       expect(data.records[0].name).toBe('John Doe')
       expect(data.records[0]).not.toHaveProperty('salary')
@@ -859,6 +875,7 @@ test.describe('List records in table', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.records).toHaveLength(0)
       expect(data.pagination.total).toBe(0)
     }
@@ -906,6 +923,7 @@ test.describe('List records in table', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.records).toHaveLength(10)
       expect(data.pagination.offset).toBe(20)
       expect(data.records[0]).not.toHaveProperty('salary')
@@ -945,6 +963,7 @@ test.describe('List records in table', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Forbidden')
       expect(data.message).toContain('Cannot sort by field')
     }
@@ -986,6 +1005,7 @@ test.describe('List records in table', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Forbidden')
       expect(data.message).toContain('Cannot filter by field')
     }
@@ -1027,6 +1047,7 @@ test.describe('List records in table', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Forbidden')
       expect(data.message).toContain('Cannot aggregate field')
     }
@@ -1076,6 +1097,7 @@ test.describe('List records in table', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.aggregations.count).toBe(3)
       expect(data.aggregations.avg.priority).toBe(4)
       expect(data.aggregations.avg).not.toHaveProperty('budget')
@@ -1127,9 +1149,11 @@ test.describe('List records in table', () => {
         },
       })
 
+      // THEN: assertion
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.records.length).toBeGreaterThan(0)
       expect(data).toHaveProperty('pagination')
       expect(data.records[0].priority).toBeGreaterThanOrEqual(data.records[1].priority)

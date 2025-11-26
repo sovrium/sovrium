@@ -75,6 +75,7 @@ test.describe('Reject organization invitation', () => {
       // Response contains success flag
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // Invitation status updated to rejected
@@ -117,6 +118,7 @@ test.describe('Reject organization invitation', () => {
       // Response contains validation error for invitationId field
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -146,6 +148,7 @@ test.describe('Reject organization invitation', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -183,6 +186,7 @@ test.describe('Reject organization invitation', () => {
       // Response contains error about invitation not found
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -232,6 +236,7 @@ test.describe('Reject organization invitation', () => {
       // Response contains error about expired invitation
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -281,6 +286,7 @@ test.describe('Reject organization invitation', () => {
       // Response contains error about invitation not found
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // Invitation remains pending
@@ -334,6 +340,7 @@ test.describe('Reject organization invitation', () => {
       // Response contains error about invitation already rejected
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

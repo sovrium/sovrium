@@ -62,6 +62,7 @@ test.describe('Get current session', () => {
       // Response contains session and user data
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // User password is not included in response (security)
@@ -88,6 +89,7 @@ test.describe('Get current session', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -116,6 +118,7 @@ test.describe('Get current session', () => {
       // Response contains error about invalid token
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -152,6 +155,7 @@ test.describe('Get current session', () => {
       // Response contains error about expired token
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

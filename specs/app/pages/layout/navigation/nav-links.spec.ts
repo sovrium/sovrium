@@ -197,6 +197,7 @@ test.describe('Navigation Links', () => {
       const parentLink = page.locator('[data-testid="nav-link"]').filter({ hasText: 'Products' })
       await parentLink.hover()
       const dropdown = page.locator('[data-testid="nav-dropdown"]')
+      // THEN: assertion
       await expect(dropdown).toBeVisible()
       await expect(dropdown.locator('a')).toHaveCount(2)
     }
@@ -274,6 +275,7 @@ test.describe('Navigation Links', () => {
       const links = page.locator('[data-testid="nav-link"]')
       await expect(links).toHaveCount(4)
       const navLinks = page.locator('[data-testid="nav-links"]')
+      // THEN: assertion
       await expect(navLinks).toHaveCSS('display', /flex/)
     }
   )
@@ -324,6 +326,7 @@ test.describe('Navigation Links', () => {
       await expect(page.locator('[data-testid="nav-dropdown"]').first()).toBeVisible()
       const categoryLink = page.locator('text=Category A')
       await categoryLink.hover()
+      // THEN: assertion
       await expect(page.locator('text=Product A1')).toBeVisible()
     }
   )
@@ -352,7 +355,9 @@ test.describe('Navigation Links', () => {
             },
           ],
         })
+        // WHEN: user navigates to the page
         await page.goto('/')
+        // THEN: assertion
         await expect(page.locator('[data-testid="nav-link"]').first()).toHaveAttribute(
           'target',
           target
@@ -403,6 +408,7 @@ test.describe('Navigation Links', () => {
     'APP-PAGES-LAYOUT-NAVIGATION-NAV-LINKS-REGRESSION-001: user can complete full nav links workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -440,10 +446,12 @@ test.describe('Navigation Links', () => {
         ],
       })
 
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // Verify links rendered
       const links = page.locator('[data-testid="nav-link"]')
+      // THEN: assertion
       await expect(links).toHaveCount(5)
 
       // Verify dropdown menu

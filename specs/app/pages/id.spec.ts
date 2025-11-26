@@ -74,7 +74,9 @@ test.describe('Page ID', () => {
           },
         ],
       })
+      // WHEN: user navigates to the page
       await page.goto('/')
+      // THEN: assertion
       await expect(page.locator('[data-page-id="page-1"]')).toBeVisible()
     }
   )
@@ -192,10 +194,15 @@ test.describe('Page ID', () => {
 
       // WHEN: each page has unique ID
       await page.goto('/')
+      // THEN: assertion
       await expect(page.locator('[data-page-id="page-1"]')).toBeVisible()
+      // WHEN: user navigates to the page
       await page.goto('/about')
+      // THEN: assertion
       await expect(page.locator('[data-page-id="page-2"]')).toBeVisible()
+      // WHEN: user navigates to the page
       await page.goto('/contact')
+      // THEN: assertion
       await expect(page.locator('[data-page-id="page-3"]')).toBeVisible()
 
       // THEN: it should ensure uniqueness across all pages in array
@@ -239,14 +246,19 @@ test.describe('Page ID', () => {
 
       // WHEN/THEN: Streamlined workflow testing integration points
       await page.goto('/')
+      // THEN: assertion
       await expect(page.locator('[data-page-id="home-page"]')).toBeVisible()
 
+      // WHEN: user navigates to the page
       await page.goto('/about')
+      // THEN: assertion
       await expect(
         page.locator('[data-page-id="550e8400-e29b-41d4-a716-446655440000"]')
       ).toBeVisible()
 
+      // WHEN: user navigates to the page
       await page.goto('/contact')
+      // THEN: assertion
       await expect(page.locator('[data-testid="page-contact"]')).toBeVisible()
 
       // Focus on workflow continuity, not exhaustive coverage

@@ -67,6 +67,7 @@ test.describe('Breakpoints', () => {
       const cssResponse = await page.request.get('/assets/output.css')
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--breakpoint-sm: 640px')
       expect(css).toContain('--breakpoint-md: 768px')
       expect(css).toContain('--breakpoint-lg: 1024px')
@@ -74,6 +75,7 @@ test.describe('Breakpoints', () => {
       expect(css).toContain('--breakpoint-2xl: 1536px')
 
       // 2. Verify element renders with responsive classes
+      // THEN: assertion
       await expect(page.locator('[data-testid="breakpoints"]')).toBeVisible()
     }
   )
@@ -152,6 +154,7 @@ test.describe('Breakpoints', () => {
         const lg = window.matchMedia('(min-width: 1024px)').matches
         return { sm, md, lg }
       })
+      // THEN: assertion
       expect(breakpoints).toBeTruthy()
     }
   )
@@ -271,6 +274,7 @@ test.describe('Breakpoints', () => {
         const lg = window.matchMedia('(min-width: 1024px)').matches
         return { sm, md, lg }
       })
+      // THEN: assertion
       expect(breakpoints).toBeTruthy()
     }
   )
@@ -468,16 +472,20 @@ test.describe('Breakpoints', () => {
 
       // 1. Verify CSS compilation contains breakpoint definitions
       await page.setViewportSize({ width: 375, height: 667 })
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--breakpoint-sm: 640px')
       expect(css).toContain('--breakpoint-md: 768px')
       expect(css).toContain('--breakpoint-lg: 1024px')
 
       // 2. Structure validation (ARIA) - Mobile layout (375px)
+      // THEN: assertion
       await expect(page.locator('[data-testid="responsive-layout"]')).toMatchAriaSnapshot(`
         - group:
           - heading "Responsive Layout" [level=1]

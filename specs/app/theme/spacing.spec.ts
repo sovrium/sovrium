@@ -250,6 +250,7 @@ test.describe('Spacing Configuration', () => {
       const cssResponse = await page.request.get('/assets/output.css')
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--spacing-gap-small: 1rem')
       expect(css).toContain('--spacing-gap: 1.5rem')
       expect(css).toContain('--spacing-gap-large: 2rem')
@@ -400,6 +401,7 @@ test.describe('Spacing Configuration', () => {
       const cssResponse = await page.request.get('/assets/output.css')
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--spacing-padding-small: 1rem')
       expect(css).toContain('--spacing-padding: 1.5rem')
       expect(css).toContain('--spacing-padding-large: 2rem')
@@ -512,6 +514,7 @@ test.describe('Spacing Configuration', () => {
       const cssResponse = await page.request.get('/assets/output.css')
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--spacing-section: 4rem')
       expect(css).toContain('--spacing-gap: 1rem')
       expect(css).toContain('--spacing-padding: 16px')
@@ -591,6 +594,7 @@ test.describe('Spacing Configuration', () => {
       const cssResponse = await page.request.get('/assets/output.css')
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--spacing-section: 4rem')
 
       // 2. Visual validation
@@ -633,6 +637,7 @@ test.describe('Spacing Configuration', () => {
       const cssResponse = await page.request.get('/assets/output.css')
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--spacing-container: 80rem')
 
       // 2. Visual validation
@@ -678,6 +683,7 @@ test.describe('Spacing Configuration', () => {
       const cssResponse = await page.request.get('/assets/output.css')
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--spacing-gap: 1.5rem')
 
       // 2. Visual validation
@@ -775,13 +781,16 @@ test.describe('Spacing Configuration', () => {
 
       // 1. Verify CSS compilation contains spacing custom properties
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--spacing-section: 4rem')
       expect(css).toContain('--spacing-gap: 1.5rem')
       expect(css).toContain('--spacing-padding: 2rem')
 
       // 2. Structure validation (ARIA)
+      // THEN: assertion
       await expect(page.locator('[data-testid="spacing-system"]')).toMatchAriaSnapshot(`
         - group:
           - group: Section with 4rem padding

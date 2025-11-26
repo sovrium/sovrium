@@ -44,11 +44,13 @@ test.describe('List all tables', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(Array.isArray(data)).toBe(true)
       expect(data.length).toBeGreaterThanOrEqual(2)
 
       // Validate schema structure
       for (const table of data) {
+        // THEN: assertion
         expect(table).toHaveProperty('id')
         expect(table).toHaveProperty('name')
         expect(table).toHaveProperty('fields')
@@ -77,6 +79,7 @@ test.describe('List all tables', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(Array.isArray(data)).toBe(true)
       expect(data.length).toBe(0)
     }
@@ -96,6 +99,7 @@ test.describe('List all tables', () => {
       expect(response.status()).toBe(401)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
       expect(typeof data.error).toBe('string')
@@ -121,12 +125,15 @@ test.describe('List all tables', () => {
           Authorization: 'Bearer test_token',
         },
       })
+      // THEN: assertion
       expect(authResponse.status()).toBe(200)
       const tables = await authResponse.json()
+      // THEN: assertion
       expect(Array.isArray(tables)).toBe(true)
 
       // Test unauthenticated rejection
       const unauthResponse = await request.get('/api/tables')
+      // THEN: assertion
       expect(unauthResponse.status()).toBe(401)
     }
   )

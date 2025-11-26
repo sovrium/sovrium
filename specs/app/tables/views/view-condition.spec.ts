@@ -66,6 +66,7 @@ test.describe('Filter Condition', () => {
       const result = await executeQuery(
         "SELECT COUNT(*) as count FROM users WHERE status = 'active'"
       )
+      // THEN: assertion
       expect(result.count).toBe(2)
     }
   )
@@ -110,6 +111,7 @@ test.describe('Filter Condition', () => {
       const result = await executeQuery(
         "SELECT COUNT(*) as count FROM products WHERE name LIKE '%test%'"
       )
+      // THEN: assertion
       expect(result.count).toBe(2)
     }
   )
@@ -198,6 +200,7 @@ test.describe('Filter Condition', () => {
       const result = await executeQuery(
         "SELECT COUNT(*) as count FROM contacts WHERE email IS NULL OR email = ''"
       )
+      // THEN: assertion
       expect(result.count).toBe(2)
     }
   )
@@ -249,6 +252,7 @@ test.describe('Filter Condition', () => {
       const result = await executeQuery(
         "SELECT COUNT(*) as count FROM items WHERE category IN ('electronics', 'computers', 'phones')"
       )
+      // THEN: assertion
       expect(result.count).toBe(3)
     }
   )
@@ -302,6 +306,7 @@ test.describe('Filter Condition', () => {
       const result = await executeQuery(
         "SELECT COUNT(*) as count FROM data WHERE status = 'active' AND value > 10 AND category IN ('A', 'B')"
       )
+      // THEN: assertion
       expect(result.count).toBe(2)
     }
   )

@@ -282,6 +282,7 @@ test.describe('Language Configuration', () => {
         'src',
         '/flags/es.svg'
       )
+      // THEN: assertion
       await expect(page.locator('[data-testid="language-flag-img"]')).toBeVisible()
     }
   )
@@ -438,25 +439,30 @@ test.describe('Language Configuration', () => {
       await page.goto('/')
 
       // Verify default LTR language loads
+      // THEN: assertion
       await expect(page.locator('html')).toHaveAttribute('dir', 'ltr')
       await expect(page.locator('[data-testid="current-language"]')).toHaveText('English')
 
       // Open language switcher and verify all configs
       await page.locator('[data-testid="language-switcher"]').click()
+      // THEN: assertion
       await expect(page.locator('[data-testid="language-option"]')).toHaveCount(3)
 
       // Verify flags display
+      // THEN: assertion
       await expect(page.locator('[data-testid="language-option-en-US"]')).toContainText('🇺🇸')
       await expect(page.locator('[data-testid="language-option-fr-FR"]')).toContainText('🇫🇷')
 
       // Switch to French (LTR with native label)
       await page.locator('[data-testid="language-option-fr-FR"]').click()
+      // THEN: assertion
       await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
       await expect(page.locator('html')).toHaveAttribute('lang', 'fr-FR')
 
       // Switch to Arabic (RTL with native label)
       await page.locator('[data-testid="language-switcher"]').click()
       await page.locator('[data-testid="language-option-ar-SA"]').click()
+      // THEN: assertion
       await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
       await expect(page.locator('[data-testid="current-language"]')).toHaveText('العربية')
 

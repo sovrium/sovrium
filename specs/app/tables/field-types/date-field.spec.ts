@@ -49,6 +49,7 @@ test.describe('Date Field', () => {
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='users' AND column_name='birth_date'"
       )
+      // THEN: assertion
       expect(columnInfo).toEqual({
         column_name: 'birth_date',
         data_type: 'date',
@@ -58,6 +59,7 @@ test.describe('Date Field', () => {
       const validInsert = await executeQuery(
         "INSERT INTO users (birth_date) VALUES ('1990-05-15') RETURNING birth_date"
       )
+      // THEN: assertion
       expect(validInsert.birth_date).toBe('1990-05-15')
     }
   )
@@ -87,6 +89,7 @@ test.describe('Date Field', () => {
       await executeQuery(["INSERT INTO events (event_date) VALUES ('2024-01-01'), ('2024-12-31')"])
 
       const results = await executeQuery('SELECT event_date FROM events ORDER BY event_date')
+      // THEN: assertion
       expect(results).toEqual([{ event_date: '2024-01-01' }, { event_date: '2024-12-31' }])
     }
   )
@@ -116,13 +119,16 @@ test.describe('Date Field', () => {
       const notNullCheck = await executeQuery(
         "SELECT is_nullable FROM information_schema.columns WHERE table_name='tasks' AND column_name='due_date'"
       )
+      // THEN: assertion
       expect(notNullCheck.is_nullable).toBe('NO')
 
       const validInsert = await executeQuery(
         "INSERT INTO tasks (due_date) VALUES ('2024-06-30') RETURNING due_date"
       )
+      // THEN: assertion
       expect(validInsert.due_date).toBe('2024-06-30')
 
+      // THEN: assertion
       await expect(executeQuery('INSERT INTO tasks (due_date) VALUES (NULL)')).rejects.toThrow(
         /violates not-null constraint/
       )
@@ -154,11 +160,13 @@ test.describe('Date Field', () => {
       const defaultInsert = await executeQuery(
         'INSERT INTO subscriptions (id) VALUES (DEFAULT) RETURNING start_date'
       )
+      // THEN: assertion
       expect(defaultInsert.start_date).toBeTruthy()
 
       const explicitInsert = await executeQuery(
         "INSERT INTO subscriptions (start_date) VALUES ('2024-01-01') RETURNING start_date"
       )
+      // THEN: assertion
       expect(explicitInsert.start_date).toBe('2024-01-01')
     }
   )
@@ -188,6 +196,7 @@ test.describe('Date Field', () => {
       const indexExists = await executeQuery(
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_orders_created_date'"
       )
+      // THEN: assertion
       expect(indexExists).toEqual({
         indexname: 'idx_orders_created_date',
         tablename: 'orders',
@@ -223,12 +232,14 @@ test.describe('Date Field', () => {
       const columnInfo = await executeQuery(
         "SELECT data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='date_field'"
       )
+      // THEN: assertion
       expect(columnInfo.data_type).toBe('date')
       expect(columnInfo.is_nullable).toBe('NO')
 
       // Test date storage
       await executeQuery("INSERT INTO data (date_field) VALUES ('2024-06-15')")
       const stored = await executeQuery('SELECT date_field FROM data WHERE id = 1')
+      // THEN: assertion
       expect(stored.date_field).toBe('2024-06-15')
 
       // Test date range queries
@@ -236,6 +247,7 @@ test.describe('Date Field', () => {
       const rangeQuery = await executeQuery(
         "SELECT COUNT(*) as count FROM data WHERE date_field >= '2024-06-01' AND date_field <= '2024-12-31'"
       )
+      // THEN: assertion
       expect(rangeQuery.count).toBeGreaterThan(0)
     }
   )

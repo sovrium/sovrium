@@ -71,6 +71,7 @@ test.describe('Update organization', () => {
       // Response contains updated organization
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // Organization is updated in database
@@ -155,6 +156,7 @@ test.describe('Update organization', () => {
       // Response contains validation error for organizationId field
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -185,6 +187,7 @@ test.describe('Update organization', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -229,6 +232,7 @@ test.describe('Update organization', () => {
       // Response contains error about insufficient permissions
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -267,6 +271,7 @@ test.describe('Update organization', () => {
       // Response contains error about organization not found
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -314,6 +319,7 @@ test.describe('Update organization', () => {
       // Response contains error about slug already in use
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

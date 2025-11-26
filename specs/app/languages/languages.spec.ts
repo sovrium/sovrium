@@ -132,6 +132,7 @@ test.describe('Languages Configuration', () => {
       await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
       await page.locator('[data-testid="language-switcher"]').click()
       await page.locator('[data-testid="language-option-es-ES"]').click()
+      // THEN: assertion
       await expect(page.locator('[data-testid="current-language"]')).toHaveText('Español')
     }
   )
@@ -365,6 +366,7 @@ test.describe('Languages Configuration', () => {
 
       // Reload and verify persistence
       await page.reload()
+      // THEN: assertion
       await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
     }
   )
@@ -457,6 +459,7 @@ test.describe('Languages Configuration', () => {
 
       // WHEN: user switches between English and Arabic
       await page.goto('/')
+      // THEN: assertion
       await expect(page.locator('html')).toHaveAttribute('dir', 'ltr')
 
       await page.locator('[data-testid="language-switcher"]').click()
@@ -577,13 +580,16 @@ test.describe('Languages Configuration', () => {
         await page.locator('[data-testid="language-switcher"]').click()
         await page.locator('[data-testid="language-option-es-ES"]').click()
         const storedLanguage = await page.evaluate(() => localStorage.getItem('sovrium_language'))
+        // THEN: assertion
         expect(storedLanguage).toBe('es')
 
         // Reload to verify persistence works
         await page.reload()
+        // THEN: assertion
         await expect(page.locator('[data-testid="current-language"]')).toHaveText('Español')
 
         // Fallback: Verify missing translations fall back to English
+        // THEN: assertion
         await expect(page.locator('[data-testid="fallback-handled"]')).toBeVisible()
       }
     )
@@ -614,6 +620,7 @@ test.describe('Languages Configuration', () => {
           },
         ],
       })
+      // THEN: assertion
       await expect(schemaPromise).rejects.toThrow(/default language must be in supported array/)
     }
   )
@@ -641,6 +648,7 @@ test.describe('Languages Configuration', () => {
           },
         ],
       })
+      // THEN: assertion
       await expect(schemaPromise).rejects.toThrow(/fallback language must be in supported array/)
     }
   )
@@ -684,8 +692,10 @@ test.describe('Languages Configuration', () => {
       })
 
       // THEN: it should automatically use default language as fallback
+      // WHEN: user navigates to the page
       await page.goto('/')
       const fallbackLanguage = await page.evaluate(() => (window as any).APP_LANGUAGES?.fallback)
+      // THEN: assertion
       expect(fallbackLanguage).toBe('en')
     }
   )
@@ -731,13 +741,16 @@ test.describe('Languages Configuration', () => {
       })
 
       // THEN: it should show English text when French translation is missing
+      // WHEN: user navigates to the page
       await page.goto('/')
       await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
 
       // Verify fallback is configured correctly (not same as default)
       const fallbackLanguage = await page.evaluate(() => (window as any).APP_LANGUAGES?.fallback)
+      // THEN: assertion
       expect(fallbackLanguage).toBe('en')
       const defaultLanguage = await page.evaluate(() => (window as any).APP_LANGUAGES?.default)
+      // THEN: assertion
       expect(defaultLanguage).toBe('fr')
     }
   )
@@ -784,17 +797,21 @@ test.describe('Languages Configuration', () => {
         ],
       })
 
-      // THEN: it should apply RTL-aware theme tokens
+      // WHEN: user navigates to the homepage
       await page.goto('/')
+
+      // THEN: it should apply RTL-aware theme tokens
       await expect(page.locator('html')).toHaveAttribute('dir', 'ltr')
 
       // Switch to Arabic
       await page.locator('[data-testid="language-switcher"]').click()
       await page.locator('[data-testid="language-option-ar-SA"]').click()
+      // THEN: assertion
       await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
 
       // Verify theme applies RTL-aware spacing
       const themeDirection = await page.evaluate(() => (window as any).APP_THEME?.direction)
+      // THEN: assertion
       expect(themeDirection).toBe('rtl')
     }
   )
@@ -844,8 +861,10 @@ test.describe('Languages Configuration', () => {
         ],
       })
 
-      // THEN: it should update metadata and content while maintaining state
+      // WHEN: user navigates to the homepage
       await page.goto('/')
+
+      // THEN: it should update metadata and content while maintaining state
       await expect(page).toHaveTitle('Home')
       await expect(page.locator('text=Hello')).toBeVisible()
 
@@ -854,14 +873,17 @@ test.describe('Languages Configuration', () => {
       await page.locator('[data-testid="language-option-fr-FR"]').click()
 
       // Verify metadata updated
+      // THEN: assertion
       await expect(page).toHaveTitle('Accueil')
       await expect(page.locator('html')).toHaveAttribute('lang', 'fr-FR')
 
       // Verify content updated
+      // THEN: assertion
       await expect(page.locator('text=Bonjour')).toBeVisible()
 
       // Verify scroll position maintained (not jumped to top)
       const scrollY = await page.evaluate(() => window.scrollY)
+      // THEN: assertion
       expect(scrollY).toBe(0) // Should still be at top since we didn't scroll
     }
   )
@@ -940,6 +962,7 @@ test.describe('Languages Configuration', () => {
         'content',
         'High-quality noise-cancelling headphones with superior sound'
       )
+      // THEN: assertion
       await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute(
         'content',
         'AudioTech Store'
@@ -950,12 +973,14 @@ test.describe('Languages Configuration', () => {
       await page.locator('[data-testid="language-option-fr-FR"]').click()
 
       // Verify French localized meta tags
+      // THEN: assertion
       await expect(page).toHaveTitle('Casque Sans Fil Premium | Acheter Maintenant')
       await expect(page.locator('html')).toHaveAttribute('lang', 'fr-FR')
       await expect(page.locator('meta[name="description"]')).toHaveAttribute(
         'content',
         'Casque antibruit de haute qualité avec son supérieur'
       )
+      // THEN: assertion
       await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute(
         'content',
         'Boutique AudioTech'
@@ -966,12 +991,14 @@ test.describe('Languages Configuration', () => {
       await page.locator('[data-testid="language-option-es-ES"]').click()
 
       // Verify Spanish localized meta tags
+      // THEN: assertion
       await expect(page).toHaveTitle('Auriculares Inalámbricos Premium | Comprar Ahora')
       await expect(page.locator('html')).toHaveAttribute('lang', 'es-ES')
       await expect(page.locator('meta[name="description"]')).toHaveAttribute(
         'content',
         'Auriculares con cancelación de ruido de alta calidad'
       )
+      // THEN: assertion
       await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute(
         'content',
         'Tienda AudioTech'
@@ -979,21 +1006,26 @@ test.describe('Languages Configuration', () => {
 
       // Validate hreflang alternate links for SEO (multi-language site discovery)
       const hreflangLinks = page.locator('link[rel="alternate"][hreflang]')
+      // THEN: assertion
       await expect(hreflangLinks).toHaveCount(4) // en-US, fr-FR, es-ES, x-default
 
       // Verify each language has proper hreflang link
+      // THEN: assertion
       await expect(page.locator('link[hreflang="en-US"]')).toHaveAttribute(
         'href',
         expect.stringMatching(/\/en\/?/)
       )
+      // THEN: assertion
       await expect(page.locator('link[hreflang="fr-FR"]')).toHaveAttribute(
         'href',
         expect.stringMatching(/\/fr\/?/)
       )
+      // THEN: assertion
       await expect(page.locator('link[hreflang="es-ES"]')).toHaveAttribute(
         'href',
         expect.stringMatching(/\/es\/?/)
       )
+      // THEN: assertion
       await expect(page.locator('link[hreflang="x-default"]')).toHaveAttribute(
         'href',
         expect.stringMatching(/\/en\/?/) // Default language
@@ -1050,6 +1082,7 @@ test.describe('Languages Configuration', () => {
 
       // Validate $t: pattern is resolved (no $t: symbols remain)
       const buttonHtml = await saveButton.innerHTML()
+      // THEN: assertion
       expect(buttonHtml).not.toContain('$t:')
       expect(buttonHtml).not.toContain('common.save')
       expect(buttonHtml).toContain('Save')
@@ -1058,10 +1091,12 @@ test.describe('Languages Configuration', () => {
       await page.locator('[data-testid="language-switcher"]').click()
       await page.locator('[data-testid="language-option-fr-FR"]').click()
       const enregistrerButton = page.getByRole('button', { name: 'Enregistrer' })
+      // THEN: assertion
       await expect(enregistrerButton).toHaveText('Enregistrer')
 
       // Validate translation resolved in French
       const frenchHtml = await enregistrerButton.innerHTML()
+      // THEN: assertion
       expect(frenchHtml).not.toContain('$t:')
       expect(frenchHtml).not.toContain('common.save')
       expect(frenchHtml).toContain('Enregistrer')
@@ -1116,10 +1151,12 @@ test.describe('Languages Configuration', () => {
 
       // Validate $t: patterns are resolved (no $t: symbols remain)
       const saveHtml = await buttons.nth(0).innerHTML()
+      // THEN: assertion
       expect(saveHtml).not.toContain('$t:')
       expect(saveHtml).toContain('Enregistrer')
 
       const cancelHtml = await buttons.nth(1).innerHTML()
+      // THEN: assertion
       expect(cancelHtml).not.toContain('$t:')
       expect(cancelHtml).toContain('Cancel') // Fallback to English works
     }
@@ -1226,6 +1263,7 @@ test.describe('Languages Configuration', () => {
       expect(html).toContain('Welcome to Our Platform')
       expect(html).toContain('Get Started')
 
+      // THEN: assertion
       await expect(page.locator('h1')).toHaveText('Welcome to Our Platform')
       await expect(page.locator('button')).toHaveText('Get Started')
     }
@@ -1284,6 +1322,7 @@ test.describe('Languages Configuration', () => {
       expect(html).toContain('placeholder="Type to search"')
       expect(html).toContain('title="Save changes"')
 
+      // THEN: assertion
       await expect(page.locator('button')).toHaveAttribute('aria-label', 'Close dialog')
       await expect(page.locator('button')).toHaveAttribute('title', 'Save changes')
       await expect(page.locator('input')).toHaveAttribute('placeholder', 'Type to search')
@@ -1335,6 +1374,7 @@ test.describe('Languages Configuration', () => {
       expect(html).toContain('Build amazing apps with configuration')
       expect(html).toContain('© 2025 All rights reserved')
 
+      // THEN: assertion
       await expect(page.locator('p')).toHaveText('Build amazing apps with configuration')
       await expect(page.locator('footer')).toHaveText('© 2025 All rights reserved')
     }
@@ -1418,9 +1458,11 @@ test.describe('Languages Configuration', () => {
       const html = await page.content()
 
       // CRITICAL VALIDATION: HTML content MUST NOT contain '$t:' anywhere
+      // THEN: assertion
       expect(html.match(/\$t:/)).toBeNull()
 
       // Verify all translations were resolved
+      // THEN: assertion
       await expect(page).toHaveTitle('Home Page')
       await expect(page.locator('nav a').first()).toHaveText('Home')
       await expect(page.locator('nav a').last()).toHaveText('About')
@@ -1431,10 +1473,12 @@ test.describe('Languages Configuration', () => {
         'placeholder',
         'Enter your email'
       )
+      // THEN: assertion
       await expect(page.locator('input[type="email"]')).toHaveAttribute(
         'aria-label',
         'Email address'
       )
+      // THEN: assertion
       await expect(page.locator('footer')).toHaveText('© 2025 Sovrium')
     }
   )
@@ -1489,23 +1533,28 @@ test.describe('Languages Configuration', () => {
       await page.goto('/')
 
       // Verify default language loads
+      // THEN: assertion
       await expect(page.locator('[data-testid="current-language"]')).toHaveText('English')
 
       // Verify language switching works
       await page.locator('[data-testid="language-switcher"]').click()
+      // THEN: assertion
       await expect(page.locator('[data-testid="language-option"]')).toHaveCount(3)
 
       // Switch to French and verify
       await page.locator('[data-testid="language-option-fr-FR"]').click()
+      // THEN: assertion
       await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
 
       // Verify persistence (reload check)
       await page.reload()
+      // THEN: assertion
       await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
 
       // Switch to Arabic and verify RTL direction
       await page.locator('[data-testid="language-switcher"]').click()
       await page.locator('[data-testid="language-option-ar-SA"]').click()
+      // THEN: assertion
       await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
       await expect(page.locator('[data-testid="current-language"]')).toHaveText('العربية')
 
@@ -1680,6 +1729,7 @@ test.describe('Languages Configuration', () => {
 
       // WHEN: user visits /fr/
       await page.goto('/fr/')
+      // THEN: assertion
       await expect(page).toHaveURL('/fr/')
       await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
 

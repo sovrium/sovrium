@@ -348,10 +348,12 @@ test.describe('Variable Reference', () => {
       await page.goto('/')
 
       // Verify variable substitution works throughout the page
+      // THEN: assertion
       await expect(page.locator('h1')).toHaveText('Welcome to Sovrium')
       await expect(page.locator('[data-testid="description"]')).toHaveText(
         'The Pro Plan costs $29.99 per month'
       )
+      // THEN: assertion
       await expect(page.locator('button')).toHaveText('Get Started')
       await expect(page.locator('button')).toHaveClass(/bg-blue-500/)
 

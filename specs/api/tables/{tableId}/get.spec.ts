@@ -45,6 +45,7 @@ test.describe('Get table by ID', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('id')
       expect(data).toHaveProperty('name')
       expect(data).toHaveProperty('fields')
@@ -53,6 +54,7 @@ test.describe('Get table by ID', () => {
       expect(Array.isArray(data.fields)).toBe(true)
 
       // Validate complete table configuration
+      // THEN: assertion
       expect(data.name).toBe('users')
       expect(data.fields).toHaveLength(3)
       expect(data).toHaveProperty('primaryKey')
@@ -79,6 +81,7 @@ test.describe('Get table by ID', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data.error).toBe('Table not found')
     }
@@ -98,6 +101,7 @@ test.describe('Get table by ID', () => {
       expect(response.status()).toBe(401)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
     }
@@ -121,8 +125,10 @@ test.describe('Get table by ID', () => {
           Authorization: 'Bearer test_token',
         },
       })
+      // THEN: assertion
       expect(successResponse.status()).toBe(200)
       const table = await successResponse.json()
+      // THEN: assertion
       expect(table).toHaveProperty('id')
       expect(table).toHaveProperty('name')
       expect(table).toHaveProperty('fields')
@@ -133,6 +139,7 @@ test.describe('Get table by ID', () => {
           Authorization: 'Bearer test_token',
         },
       })
+      // THEN: assertion
       expect(notFoundResponse.status()).toBe(404)
     }
   )

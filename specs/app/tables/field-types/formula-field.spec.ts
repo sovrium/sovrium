@@ -25,6 +25,7 @@ test.describe('Formula Field', () => {
     'APP-FORMULA-FIELD-001: should create GENERATED ALWAYS AS column for arithmetic formula',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -46,28 +47,40 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: executing query
       await executeQuery(
         'INSERT INTO line_items (quantity, unit_price) VALUES (5, 19.99), (10, 9.50)'
       )
 
+      // WHEN: executing query
       const generatedColumn = await executeQuery(
         "SELECT column_name, is_generated FROM information_schema.columns WHERE table_name='line_items' AND column_name='total'"
       )
+      // THEN: assertion
       expect(generatedColumn.column_name).toBe('total')
+      // THEN: assertion
       expect(generatedColumn.is_generated).toBe('ALWAYS')
 
+      // WHEN: executing query
       const firstRecord = await executeQuery(
         'SELECT quantity, unit_price, total FROM line_items WHERE id = 1'
       )
+      // THEN: assertion
       expect(firstRecord.quantity).toBe(5)
+      // THEN: assertion
       expect(firstRecord.unit_price).toBe('19.99')
+      // THEN: assertion
       expect(firstRecord.total).toBe('99.95')
 
+      // WHEN: executing query
       const secondRecord = await executeQuery(
         'SELECT quantity, unit_price, total FROM line_items WHERE id = 2'
       )
+      // THEN: assertion
       expect(secondRecord.quantity).toBe(10)
+      // THEN: assertion
       expect(secondRecord.unit_price).toBe('9.50')
+      // THEN: assertion
       expect(secondRecord.total).toBe('95.00')
     }
   )
@@ -76,6 +89,7 @@ test.describe('Formula Field', () => {
     'APP-FORMULA-FIELD-002: should perform text concatenation with GENERATED column',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -97,27 +111,38 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: executing query
       await executeQuery(
         "INSERT INTO contacts (first_name, last_name) VALUES ('John', 'Doe'), ('Jane', 'Smith')"
       )
 
+      // WHEN: executing query
       const firstContact = await executeQuery(
         'SELECT first_name, last_name, full_name FROM contacts WHERE id = 1'
       )
+      // THEN: assertion
       expect(firstContact.first_name).toBe('John')
+      // THEN: assertion
       expect(firstContact.last_name).toBe('Doe')
+      // THEN: assertion
       expect(firstContact.full_name).toBe('John Doe')
 
+      // WHEN: executing query
       const secondContact = await executeQuery(
         'SELECT first_name, last_name, full_name FROM contacts WHERE id = 2'
       )
+      // THEN: assertion
       expect(secondContact.first_name).toBe('Jane')
+      // THEN: assertion
       expect(secondContact.last_name).toBe('Smith')
+      // THEN: assertion
       expect(secondContact.full_name).toBe('Jane Smith')
 
+      // WHEN: executing query
       const afterUpdate = await executeQuery(
         "UPDATE contacts SET first_name = 'Janet' WHERE id = 2 RETURNING full_name"
       )
+      // THEN: assertion
       expect(afterUpdate.full_name).toBe('Janet Smith')
     }
   )
@@ -126,6 +151,7 @@ test.describe('Formula Field', () => {
     'APP-FORMULA-FIELD-003: should support conditional expressions with CASE WHEN',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -147,27 +173,38 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: executing query
       await executeQuery(
         'INSERT INTO products (price, on_sale) VALUES (100.00, true), (50.00, false)'
       )
 
+      // WHEN: executing query
       const onSale = await executeQuery(
         'SELECT price, on_sale, discount_price FROM products WHERE id = 1'
       )
+      // THEN: assertion
       expect(onSale.price).toBe('100.00')
+      // THEN: assertion
       expect(onSale.on_sale).toBe(true)
+      // THEN: assertion
       expect(onSale.discount_price).toBe('80.00')
 
+      // WHEN: executing query
       const notOnSale = await executeQuery(
         'SELECT price, on_sale, discount_price FROM products WHERE id = 2'
       )
+      // THEN: assertion
       expect(notOnSale.price).toBe('50.00')
+      // THEN: assertion
       expect(notOnSale.on_sale).toBe(false)
+      // THEN: assertion
       expect(notOnSale.discount_price).toBe('50.00')
 
+      // WHEN: executing query
       const saleToggled = await executeQuery(
         'UPDATE products SET on_sale = true WHERE id = 2 RETURNING discount_price'
       )
+      // THEN: assertion
       expect(saleToggled.discount_price).toBe('40.00')
     }
   )
@@ -176,6 +213,7 @@ test.describe('Formula Field', () => {
     'APP-FORMULA-FIELD-004: should apply mathematical functions like ROUND',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -196,26 +234,36 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: executing query
       await executeQuery(
         'INSERT INTO measurements (raw_value) VALUES (19.9567), (49.1234), (-15.6789)'
       )
 
+      // WHEN: executing query
       const firstMeasurement = await executeQuery(
         'SELECT raw_value, rounded_value FROM measurements WHERE id = 1'
       )
+      // THEN: assertion
       expect(firstMeasurement.raw_value).toBe('19.9567')
+      // THEN: assertion
       expect(firstMeasurement.rounded_value).toBe('19.96')
 
+      // WHEN: executing query
       const secondMeasurement = await executeQuery(
         'SELECT raw_value, rounded_value FROM measurements WHERE id = 2'
       )
+      // THEN: assertion
       expect(secondMeasurement.raw_value).toBe('49.1234')
+      // THEN: assertion
       expect(secondMeasurement.rounded_value).toBe('49.12')
 
+      // WHEN: executing query
       const negativeMeasurement = await executeQuery(
         'SELECT raw_value, rounded_value FROM measurements WHERE id = 3'
       )
+      // THEN: assertion
       expect(negativeMeasurement.raw_value).toBe('-15.6789')
+      // THEN: assertion
       expect(negativeMeasurement.rounded_value).toBe('-15.68')
     }
   )
@@ -224,6 +272,7 @@ test.describe('Formula Field', () => {
     'APP-FORMULA-FIELD-005: should evaluate boolean date logic for overdue detection',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -245,29 +294,42 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: executing query
       await executeQuery(
         "INSERT INTO invoices (due_date, paid) VALUES ('2024-01-15', false), ('2025-12-31', false), ('2024-06-01', true)"
       )
 
+      // WHEN: executing query
       const pastDueUnpaid = await executeQuery(
         'SELECT due_date, paid, is_overdue FROM invoices WHERE id = 1'
       )
+      // THEN: assertion
       expect(pastDueUnpaid.due_date).toBe('2024-01-15')
+      // THEN: assertion
       expect(pastDueUnpaid.paid).toBe(false)
+      // THEN: assertion
       expect(pastDueUnpaid.is_overdue).toBe(true)
 
+      // WHEN: executing query
       const futureDueUnpaid = await executeQuery(
         'SELECT due_date, paid, is_overdue FROM invoices WHERE id = 2'
       )
+      // THEN: assertion
       expect(futureDueUnpaid.due_date).toBe('2025-12-31')
+      // THEN: assertion
       expect(futureDueUnpaid.paid).toBe(false)
+      // THEN: assertion
       expect(futureDueUnpaid.is_overdue).toBe(false)
 
+      // WHEN: executing query
       const pastDuePaid = await executeQuery(
         'SELECT due_date, paid, is_overdue FROM invoices WHERE id = 3'
       )
+      // THEN: assertion
       expect(pastDuePaid.due_date).toBe('2024-06-01')
+      // THEN: assertion
       expect(pastDuePaid.paid).toBe(true)
+      // THEN: assertion
       expect(pastDuePaid.is_overdue).toBe(false)
     }
   )
@@ -276,6 +338,7 @@ test.describe('Formula Field', () => {
     'APP-TABLES-FIELD-FORMULA-REGRESSION-001: user can complete full formula-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -299,16 +362,24 @@ test.describe('Formula Field', () => {
         ],
       })
 
+      // WHEN: executing query
       await executeQuery('INSERT INTO data (base_price, tax_rate) VALUES (100.00, 0.10)')
+      // WHEN: executing query
       const computed = await executeQuery(
         'SELECT base_price, tax_rate, total_price FROM data WHERE id = 1'
       )
+      // THEN: assertion
       expect(computed.base_price).toBe('100.00')
+      // THEN: assertion
       expect(computed.tax_rate).toBe('0.10')
+      // THEN: assertion
       expect(computed.total_price).toBe('110.00')
 
+      // WHEN: executing query
       await executeQuery('UPDATE data SET tax_rate = 0.20 WHERE id = 1')
+      // WHEN: executing query
       const recomputed = await executeQuery('SELECT total_price FROM data WHERE id = 1')
+      // THEN: assertion
       expect(recomputed.total_price).toBe('120.00')
     }
   )

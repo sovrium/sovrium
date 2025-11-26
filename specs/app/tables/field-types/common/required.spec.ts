@@ -53,9 +53,11 @@ test.describe('Required Field Property', () => {
       const notNullConstraint = await executeQuery(
         "SELECT is_nullable FROM information_schema.columns WHERE table_name='users' AND column_name='name'"
       )
+      // THEN: assertion
       expect(notNullConstraint.is_nullable).toBe('NO')
 
       // NULL value should be rejected
+      // THEN: assertion
       await expect(
         executeQuery("INSERT INTO users (name, email) VALUES (NULL, 'null@example.com')")
       ).rejects.toThrow(/null value in column "name" violates not-null constraint/)
@@ -64,6 +66,7 @@ test.describe('Required Field Property', () => {
       const validInsert = await executeQuery(
         "INSERT INTO users (name, email) VALUES ('Bob', 'bob@example.com') RETURNING name"
       )
+      // THEN: assertion
       expect(validInsert.name).toBe('Bob')
     }
   )
@@ -98,18 +101,21 @@ test.describe('Required Field Property', () => {
       const nullable = await executeQuery(
         "SELECT is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='description'"
       )
+      // THEN: assertion
       expect(nullable.is_nullable).toBe('YES')
 
       // NULL value should be allowed
       const nullInsert = await executeQuery(
         "INSERT INTO products (name, description) VALUES ('Product 2', NULL) RETURNING id"
       )
+      // THEN: assertion
       expect(nullInsert.id).toBe(2)
 
       // Non-NULL value should also be allowed
       const nonNullInsert = await executeQuery(
         "INSERT INTO products (name, description) VALUES ('Product 3', 'Some description') RETURNING description"
       )
+      // THEN: assertion
       expect(nonNullInsert.description).toBe('Some description')
     }
   )
@@ -128,11 +134,13 @@ test.describe('Required Field Property', () => {
       const currentlyNullable = await executeQuery(
         "SELECT is_nullable FROM information_schema.columns WHERE table_name='items' AND column_name='title'"
       )
+      // THEN: assertion
       expect(currentlyNullable.is_nullable).toBe('YES')
 
       const nullsExist = await executeQuery(
         'SELECT COUNT(*) as count FROM items WHERE title IS NULL'
       )
+      // THEN: assertion
       expect(nullsExist.count).toBe(1)
 
       // THEN: PostgreSQL migration fails if existing NULLs present
@@ -174,17 +182,20 @@ test.describe('Required Field Property', () => {
       const bothNotNull = await executeQuery(
         "SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name='employees' AND column_name IN ('first_name', 'last_name') ORDER BY column_name"
       )
+      // THEN: assertion
       expect(bothNotNull).toEqual([
         { column_name: 'first_name', is_nullable: 'NO' },
         { column_name: 'last_name', is_nullable: 'NO' },
       ])
 
       // Missing first_name should be rejected
+      // THEN: assertion
       await expect(
         executeQuery("INSERT INTO employees (last_name) VALUES ('Jones')")
       ).rejects.toThrow(/null value in column "first_name" violates not-null constraint/)
 
       // Missing last_name should be rejected
+      // THEN: assertion
       await expect(
         executeQuery("INSERT INTO employees (first_name) VALUES ('Bob')")
       ).rejects.toThrow(/null value in column "last_name" violates not-null constraint/)
@@ -193,6 +204,7 @@ test.describe('Required Field Property', () => {
       const validInsert = await executeQuery(
         "INSERT INTO employees (first_name, last_name) VALUES ('Bob', 'Jones') RETURNING first_name, last_name"
       )
+      // THEN: assertion
       expect(validInsert).toEqual({ first_name: 'Bob', last_name: 'Jones' })
     }
   )
@@ -226,12 +238,14 @@ test.describe('Required Field Property', () => {
       const constraints = await executeQuery(
         "SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name IN ('required_field', 'optional_field') ORDER BY column_name"
       )
+      // THEN: assertion
       expect(constraints).toEqual([
         { column_name: 'optional_field', is_nullable: 'YES' },
         { column_name: 'required_field', is_nullable: 'NO' },
       ])
 
       // Required field must have value
+      // THEN: assertion
       await expect(
         executeQuery("INSERT INTO data (optional_field) VALUES ('test')")
       ).rejects.toThrow(/null value in column "required_field" violates not-null constraint/)
@@ -240,6 +254,7 @@ test.describe('Required Field Property', () => {
       const validInsert = await executeQuery(
         "INSERT INTO data (required_field, optional_field) VALUES ('value', NULL) RETURNING id"
       )
+      // THEN: assertion
       expect(validInsert.id).toBe(1)
     }
   )

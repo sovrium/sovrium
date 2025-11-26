@@ -57,6 +57,7 @@ test.describe('Sign up with email and password', () => {
       // Response contains user data and session token
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // User is created in database
@@ -91,6 +92,7 @@ test.describe('Sign up with email and password', () => {
       // Response contains validation error for name field
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -121,6 +123,7 @@ test.describe('Sign up with email and password', () => {
       // Response contains validation error for email field
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -151,6 +154,7 @@ test.describe('Sign up with email and password', () => {
       // Response contains validation error for password field
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -182,6 +186,7 @@ test.describe('Sign up with email and password', () => {
       // Response contains validation error for email format
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -213,6 +218,7 @@ test.describe('Sign up with email and password', () => {
       // Response contains validation error for password length
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -249,6 +255,7 @@ test.describe('Sign up with email and password', () => {
       // Response contains error about email already in use
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -285,6 +292,7 @@ test.describe('Sign up with email and password', () => {
       // Response contains error about email already in use
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

@@ -76,6 +76,7 @@ test.describe('Upsert records (create or update)', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('created')
       expect(data).toHaveProperty('updated')
       expect(data).toHaveProperty('records')
@@ -85,6 +86,7 @@ test.describe('Upsert records (create or update)', () => {
 
       // Verify database contains both records with correct data
       const result = await executeQuery(`SELECT COUNT(*) as count FROM users`)
+      // THEN: assertion
       expect(result.rows[0].count).toBe(2)
     }
   )
@@ -134,12 +136,14 @@ test.describe('Upsert records (create or update)', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.created).toBe(2)
       expect(data.updated).toBe(0)
       expect(data.records).toHaveLength(2)
 
       // Verify database contains both new records
       const result = await executeQuery(`SELECT COUNT(*) as count FROM users`)
+      // THEN: assertion
       expect(result.rows[0].count).toBe(2)
     }
   )
@@ -187,11 +191,13 @@ test.describe('Upsert records (create or update)', () => {
       expect(response.status()).toBe(400)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('details')
 
       // Verify no records created due to transaction rollback
       const result = await executeQuery(`SELECT COUNT(*) as count FROM users`)
+      // THEN: assertion
       expect(result.rows[0].count).toBe(0)
     }
   )
@@ -235,6 +241,7 @@ test.describe('Upsert records (create or update)', () => {
       expect(response.status()).toBe(401)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
 
@@ -242,6 +249,7 @@ test.describe('Upsert records (create or update)', () => {
       const result = await executeQuery(`
         SELECT name FROM employees WHERE email='alice@example.com'
       `)
+      // THEN: assertion
       expect(result.rows[0].name).toBe('Alice Cooper')
     }
   )
@@ -282,6 +290,7 @@ test.describe('Upsert records (create or update)', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Forbidden')
       expect(data.message).toBe('You do not have permission to create records in this table')
     }
@@ -327,6 +336,7 @@ test.describe('Upsert records (create or update)', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Forbidden')
       expect(data.message).toBe('You do not have permission to update records in this table')
     }
@@ -367,6 +377,7 @@ test.describe('Upsert records (create or update)', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Forbidden')
     }
   )
@@ -414,6 +425,7 @@ test.describe('Upsert records (create or update)', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.created).toBe(1)
       expect(data.updated).toBe(1)
       expect(data.records[0].organization_id).toBe('org_123')
@@ -458,6 +470,7 @@ test.describe('Upsert records (create or update)', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Forbidden')
       expect(data.message).toBe('You do not have permission to write to field: salary')
     }
@@ -504,6 +517,7 @@ test.describe('Upsert records (create or update)', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Forbidden')
       expect(data.message).toBe('You do not have permission to write to field: salary')
     }
@@ -546,6 +560,7 @@ test.describe('Upsert records (create or update)', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Forbidden')
       expect(data.message).toBe('Cannot set readonly field: id')
     }
@@ -593,6 +608,7 @@ test.describe('Upsert records (create or update)', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Forbidden')
       expect(data.message).toBe('Cannot create records for different organization')
     }
@@ -642,12 +658,14 @@ test.describe('Upsert records (create or update)', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.created).toBe(1)
       expect(data.updated).toBe(1)
       expect(data.records[0].name).toBe('Updated Alice')
       expect(data.records[1].name).toBe('Bob Smith')
 
       // Salary field not in response
+      // THEN: assertion
       expect(data.records[0]).not.toHaveProperty('salary')
       expect(data.records[1]).not.toHaveProperty('salary')
     }
@@ -697,6 +715,7 @@ test.describe('Upsert records (create or update)', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.created).toBe(1)
       expect(data.updated).toBe(1)
       expect(data.records[0].name).toBe('Updated Charlie')
@@ -752,10 +771,12 @@ test.describe('Upsert records (create or update)', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.created).toBe(1)
       expect(data.updated).toBe(2)
 
       // Salary field not in response for all records
+      // THEN: assertion
       expect(data.records[0]).not.toHaveProperty('salary')
       expect(data.records[1]).not.toHaveProperty('salary')
       expect(data.records[2]).not.toHaveProperty('salary')
@@ -804,13 +825,16 @@ test.describe('Upsert records (create or update)', () => {
           returnRecords: true,
         },
       })
+      // THEN: assertion
       expect(successResponse.status()).toBe(200)
       const result = await successResponse.json()
+      // THEN: assertion
       expect(result).toHaveProperty('created')
       expect(result).toHaveProperty('updated')
 
       // Verify records in database
       const verifyRecords = await executeQuery(`SELECT COUNT(*) as count FROM employees`)
+      // THEN: assertion
       expect(verifyRecords.rows[0].count).toBe(2)
 
       // Test validation error with rollback
@@ -824,6 +848,7 @@ test.describe('Upsert records (create or update)', () => {
           fieldsToMergeOn: ['email'],
         },
       })
+      // THEN: assertion
       expect(validationResponse.status()).toBe(400)
 
       // Test permission denied (member without create permission)
@@ -837,6 +862,7 @@ test.describe('Upsert records (create or update)', () => {
           fieldsToMergeOn: ['email'],
         },
       })
+      // THEN: assertion
       expect(forbiddenResponse.status()).toBe(403)
 
       // Test unauthorized
@@ -849,6 +875,7 @@ test.describe('Upsert records (create or update)', () => {
           fieldsToMergeOn: ['email'],
         },
       })
+      // THEN: assertion
       expect(unauthorizedResponse.status()).toBe(401)
 
       // Test field-level write restriction
@@ -862,6 +889,7 @@ test.describe('Upsert records (create or update)', () => {
           fieldsToMergeOn: ['email'],
         },
       })
+      // THEN: assertion
       expect(fieldForbiddenResponse.status()).toBe(403)
     }
   )

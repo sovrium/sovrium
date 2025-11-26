@@ -45,6 +45,7 @@ test.describe('Check table permissions', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('table')
       expect(data).toHaveProperty('fields')
       expect(data.table.read).toBe(true)
@@ -73,6 +74,7 @@ test.describe('Check table permissions', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.table.read).toBe(true)
       expect(data.table.create).toBe(false)
       expect(data.table.update).toBe(true)
@@ -96,6 +98,7 @@ test.describe('Check table permissions', () => {
       expect(response.status()).toBe(401)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
     }
@@ -119,6 +122,7 @@ test.describe('Check table permissions', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data.error).toBe('Table not found')
     }
@@ -142,6 +146,7 @@ test.describe('Check table permissions', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.fields.salary.read).toBe(false)
       expect(data.fields.salary.write).toBe(false)
       expect(data.fields.email.read).toBe(true)
@@ -169,6 +174,7 @@ test.describe('Check table permissions', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.table.read).toBe(true)
       expect(data.table.create).toBe(false)
       expect(data.table.update).toBe(false)
@@ -194,8 +200,10 @@ test.describe('Check table permissions', () => {
           Authorization: 'Bearer admin_token',
         },
       })
+      // THEN: assertion
       expect(adminResponse.status()).toBe(200)
       const adminData = await adminResponse.json()
+      // THEN: assertion
       expect(adminData.table.read).toBe(true)
       expect(adminData.table.create).toBe(true)
 
@@ -205,12 +213,15 @@ test.describe('Check table permissions', () => {
           Authorization: 'Bearer viewer_token',
         },
       })
+      // THEN: assertion
       expect(viewerResponse.status()).toBe(200)
       const viewerData = await viewerResponse.json()
+      // THEN: assertion
       expect(viewerData.table.create).toBe(false)
 
       // Test unauthenticated rejection
       const unauthResponse = await request.get('/api/tables/1/permissions')
+      // THEN: assertion
       expect(unauthResponse.status()).toBe(401)
     }
   )

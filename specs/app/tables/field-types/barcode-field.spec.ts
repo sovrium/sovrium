@@ -12,15 +12,18 @@ test.describe('Barcode Field', () => {
     'APP-BARCODE-FIELD-001: should create VARCHAR column for barcode storage',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
           { id: 1, name: 'products', fields: [{ id: 1, name: 'barcode', type: 'barcode' }] },
         ],
       })
+      // WHEN: querying the database
       const column = await executeQuery(
         "SELECT data_type FROM information_schema.columns WHERE table_name='products' AND column_name='barcode'"
       )
+      // THEN: assertion
       expect(column.data_type).toBe('character varying')
     }
   )
@@ -29,6 +32,7 @@ test.describe('Barcode Field', () => {
     'APP-BARCODE-FIELD-002: should enforce barcode format via CHECK constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -39,6 +43,7 @@ test.describe('Barcode Field', () => {
           },
         ],
       })
+      // WHEN: executing query
       await expect(executeQuery("INSERT INTO items (ean) VALUES ('invalid')")).rejects.toThrow(
         /violates check constraint/
       )
@@ -49,12 +54,16 @@ test.describe('Barcode Field', () => {
     'APP-BARCODE-FIELD-003: should store valid barcode values',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [{ id: 3, name: 'inventory', fields: [{ id: 1, name: 'code', type: 'barcode' }] }],
       })
+      // WHEN: executing query
       await executeQuery("INSERT INTO inventory (code) VALUES ('1234567890123')")
+      // WHEN: querying the database
       const result = await executeQuery('SELECT code FROM inventory WHERE id = 1')
+      // THEN: assertion
       expect(result.code).toBe('1234567890123')
     }
   )
@@ -63,6 +72,7 @@ test.describe('Barcode Field', () => {
     'APP-BARCODE-FIELD-004: should enforce UNIQUE constraint for barcode uniqueness',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -73,7 +83,9 @@ test.describe('Barcode Field', () => {
           },
         ],
       })
+      // WHEN: executing query
       await executeQuery("INSERT INTO assets (barcode) VALUES ('ABC123')")
+      // WHEN: executing query
       await expect(executeQuery("INSERT INTO assets (barcode) VALUES ('ABC123')")).rejects.toThrow(
         /duplicate key/
       )
@@ -84,6 +96,7 @@ test.describe('Barcode Field', () => {
     'APP-BARCODE-FIELD-005: should create index on barcode for fast lookups',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -94,9 +107,11 @@ test.describe('Barcode Field', () => {
           },
         ],
       })
+      // WHEN: querying the database
       const index = await executeQuery(
         "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_shipments_tracking'"
       )
+      // THEN: assertion
       expect(index.indexname).toBe('idx_shipments_tracking')
     }
   )
@@ -105,6 +120,7 @@ test.describe('Barcode Field', () => {
     'APP-TABLES-FIELD-BARCODE-REGRESSION-001: user can complete full barcode-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -115,8 +131,11 @@ test.describe('Barcode Field', () => {
           },
         ],
       })
+      // WHEN: executing query
       await executeQuery("INSERT INTO data (barcode) VALUES ('9876543210987')")
+      // WHEN: querying the database
       const result = await executeQuery("SELECT barcode FROM data WHERE barcode = '9876543210987'")
+      // THEN: assertion
       expect(result.barcode).toBe('9876543210987')
     }
   )

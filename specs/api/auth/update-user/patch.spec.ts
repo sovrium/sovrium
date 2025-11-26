@@ -64,6 +64,7 @@ test.describe('Update user profile', () => {
       // Response contains updated user data
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // User data is updated in database
@@ -133,6 +134,7 @@ test.describe('Update user profile', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

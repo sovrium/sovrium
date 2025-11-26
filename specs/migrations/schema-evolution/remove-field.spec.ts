@@ -56,12 +56,14 @@ test.describe('Remove Field Migration', () => {
       const columnCheck = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='users' AND column_name='phone'`
       )
+      // THEN: assertion
       expect(columnCheck.count).toBe(0)
 
       // Other columns preserved
       const dataCheck = await executeQuery(
         `SELECT email FROM users WHERE email = 'user@example.com'`
       )
+      // THEN: assertion
       expect(dataCheck.email).toBe('user@example.com')
     }
   )
@@ -98,10 +100,12 @@ test.describe('Remove Field Migration', () => {
       const columnCheck = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='products' AND column_name='description'`
       )
+      // THEN: assertion
       expect(columnCheck.count).toBe(0)
 
       // Remaining columns accessible
       const dataCheck = await executeQuery(`SELECT title, price FROM products WHERE id = 1`)
+      // THEN: assertion
       expect(dataCheck.title).toBe('Product A')
       expect(dataCheck.price).toBe('99.99')
     }
@@ -139,12 +143,14 @@ test.describe('Remove Field Migration', () => {
       const columnCheck = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='tasks' AND column_name='status'`
       )
+      // THEN: assertion
       expect(columnCheck.count).toBe(0)
 
       // Associated index automatically dropped
       const indexCheck = await executeQuery(
         `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='tasks' AND indexname='idx_tasks_status'`
       )
+      // THEN: assertion
       expect(indexCheck.count).toBe(0)
     }
   )
@@ -190,16 +196,19 @@ test.describe('Remove Field Migration', () => {
       const columnCheck = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='orders' AND column_name='customer_id'`
       )
+      // THEN: assertion
       expect(columnCheck.count).toBe(0)
 
       // Foreign key constraint removed
       const fkCheck = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='orders' AND constraint_type='FOREIGN KEY'`
       )
+      // THEN: assertion
       expect(fkCheck.count).toBe(0)
 
       // Data in remaining columns preserved
       const dataCheck = await executeQuery(`SELECT total FROM orders WHERE id = 1`)
+      // THEN: assertion
       expect(dataCheck.total).toBe('150.00')
     }
   )
@@ -241,18 +250,21 @@ test.describe('Remove Field Migration', () => {
       const columnCheck = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='data' AND column_name='status'`
       )
+      // THEN: assertion
       expect(columnCheck.count).toBe(0)
 
       // Verify index removed
       const indexCheck = await executeQuery(
         `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='data' AND indexname='idx_data_status'`
       )
+      // THEN: assertion
       expect(indexCheck.count).toBe(0)
 
       // Existing data preserved
       const dataCheck = await executeQuery(
         `SELECT COUNT(*) as count FROM data WHERE title = 'Record 1'`
       )
+      // THEN: assertion
       expect(dataCheck.count).toBe(1)
 
       // Focus on workflow continuity, not exhaustive coverage

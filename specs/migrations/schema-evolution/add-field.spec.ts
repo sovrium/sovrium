@@ -57,6 +57,7 @@ test.describe('Add Field Migration', () => {
       const columnCheck = await executeQuery(
         `SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='users' AND column_name='name'`
       )
+      // THEN: assertion
       expect(columnCheck.column_name).toBe('name')
       expect(columnCheck.data_type).toBe('character varying')
       expect(columnCheck.is_nullable).toBe('NO')
@@ -65,6 +66,7 @@ test.describe('Add Field Migration', () => {
       const dataCheck = await executeQuery(
         `SELECT COUNT(*) as count FROM users WHERE email = 'user@example.com'`
       )
+      // THEN: assertion
       expect(dataCheck.count).toBe(1)
     }
   )
@@ -101,12 +103,14 @@ test.describe('Add Field Migration', () => {
       const columnCheck = await executeQuery(
         `SELECT is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='description'`
       )
+      // THEN: assertion
       expect(columnCheck.is_nullable).toBe('YES')
 
       // Existing records have NULL for new column
       const dataCheck = await executeQuery(
         `SELECT title, description FROM products WHERE title = 'MacBook Pro'`
       )
+      // THEN: assertion
       expect(dataCheck.title).toBe('MacBook Pro')
       expect(dataCheck.description).toBeNull()
     }
@@ -148,9 +152,11 @@ test.describe('Add Field Migration', () => {
       const validInsert = await executeQuery(
         `INSERT INTO tasks (title, priority) VALUES ('Valid task', 'high') RETURNING priority`
       )
+      // THEN: assertion
       expect(validInsert.priority).toBe('high')
 
       // Invalid enum value rejected
+      // THEN: assertion
       await expect(async () => {
         await executeQuery(
           `INSERT INTO tasks (title, priority) VALUES ('Invalid task', 'critical')`
@@ -191,6 +197,7 @@ test.describe('Add Field Migration', () => {
       const existingRow = await executeQuery(
         `SELECT order_number, total FROM orders WHERE order_number = 'ORD-001'`
       )
+      // THEN: assertion
       expect(existingRow.order_number).toBe('ORD-001')
       expect(existingRow.total).toBe('0.0000')
 
@@ -198,6 +205,7 @@ test.describe('Add Field Migration', () => {
       const newRow = await executeQuery(
         `INSERT INTO orders (order_number, total) VALUES ('ORD-003', 150.50) RETURNING total`
       )
+      // THEN: assertion
       expect(newRow.total).toBe('150.5000')
     }
   )
@@ -238,12 +246,14 @@ test.describe('Add Field Migration', () => {
       const columnCheck = await executeQuery(
         `SELECT is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='description'`
       )
+      // THEN: assertion
       expect(columnCheck.is_nullable).toBe('YES')
 
       // Existing data preserved
       const dataCheck = await executeQuery(
         `SELECT COUNT(*) as count FROM data WHERE title = 'Initial record'`
       )
+      // THEN: assertion
       expect(dataCheck.count).toBe(1)
 
       // Focus on workflow continuity, not exhaustive coverage

@@ -57,6 +57,7 @@ test.describe('Person Schema', () => {
     "APP-PAGES-PERSON-002: should provide person's full name",
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -75,8 +76,10 @@ test.describe('Person Schema', () => {
           },
         ],
       })
+      // WHEN: user navigates to the page
       await page.goto('/')
       const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+      // THEN: assertion
       expect(scriptContent).toContain('John Doe')
     }
   )
@@ -167,6 +170,7 @@ test.describe('Person Schema', () => {
     "APP-PAGES-PERSON-005: should link to person's web presence",
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -190,8 +194,10 @@ test.describe('Person Schema', () => {
           },
         ],
       })
+      // WHEN: user navigates to the page
       await page.goto('/')
       const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+      // THEN: assertion
       expect(scriptContent).toContain('https://johndoe.com')
     }
   )
@@ -240,6 +246,7 @@ test.describe('Person Schema', () => {
     async ({ page, startServerWithSchema }) => {
       const jobTitles = ['CEO', 'Software Engineer', 'Product Manager', 'Designer']
       for (const jobTitle of jobTitles) {
+        // GIVEN: app configuration
         await startServerWithSchema({
           name: 'test-app',
           pages: [
@@ -263,8 +270,10 @@ test.describe('Person Schema', () => {
             },
           ],
         })
+        // WHEN: user navigates to the page
         await page.goto('/')
         const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        // THEN: assertion
         expect(scriptContent).toContain(jobTitle)
       }
     }
@@ -481,6 +490,7 @@ test.describe('Person Schema', () => {
     'APP-PAGES-META-STRUCTURED-DATA-PERSON-REGRESSION-001: user can complete full Person workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -516,6 +526,7 @@ test.describe('Person Schema', () => {
           },
         ],
       })
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // Enhanced JSON-LD validation
@@ -525,6 +536,7 @@ test.describe('Person Schema', () => {
       const jsonLd = JSON.parse(scriptContent!)
 
       // Validate JSON-LD structure
+      // THEN: assertion
       expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
       expect(jsonLd).toHaveProperty('@type', 'Person')
       expect(jsonLd).toHaveProperty('name', 'Complete Person Profile')

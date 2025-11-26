@@ -49,6 +49,7 @@ test.describe('Decimal Field', () => {
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='price'"
       )
+      // THEN: assertion
       expect(columnInfo.column_name).toBe('price')
       expect(columnInfo.data_type).toMatch(/numeric|decimal/)
       expect(columnInfo.is_nullable).toBe('YES')
@@ -56,6 +57,7 @@ test.describe('Decimal Field', () => {
       const validInsert = await executeQuery(
         'INSERT INTO products (price) VALUES (99.99) RETURNING price'
       )
+      // THEN: assertion
       expect(validInsert.price).toBe('99.99')
     }
   )
@@ -85,12 +87,15 @@ test.describe('Decimal Field', () => {
       const validInsert = await executeQuery(
         'INSERT INTO transactions (amount) VALUES (500.50) RETURNING amount'
       )
+      // THEN: assertion
       expect(parseFloat(validInsert.amount)).toBe(500.5)
 
+      // THEN: assertion
       await expect(
         executeQuery('INSERT INTO transactions (amount) VALUES (-0.01)')
       ).rejects.toThrow(/violates check constraint/)
 
+      // THEN: assertion
       await expect(
         executeQuery('INSERT INTO transactions (amount) VALUES (1000.01)')
       ).rejects.toThrow(/violates check constraint/)
@@ -117,6 +122,7 @@ test.describe('Decimal Field', () => {
         ],
       })
 
+      // GIVEN: table configuration
       await executeQuery(['INSERT INTO measurements (value) VALUES (123.45)'])
 
       // WHEN: constraints are applied
@@ -124,12 +130,15 @@ test.describe('Decimal Field', () => {
       const notNullCheck = await executeQuery(
         "SELECT is_nullable FROM information_schema.columns WHERE table_name='measurements' AND column_name='value'"
       )
+      // THEN: assertion
       expect(notNullCheck.is_nullable).toBe('NO')
 
+      // THEN: assertion
       await expect(
         executeQuery('INSERT INTO measurements (value) VALUES (123.45)')
       ).rejects.toThrow(/duplicate key value violates unique constraint/)
 
+      // THEN: assertion
       await expect(executeQuery('INSERT INTO measurements (value) VALUES (NULL)')).rejects.toThrow(
         /violates not-null constraint/
       )
@@ -161,11 +170,13 @@ test.describe('Decimal Field', () => {
       const defaultInsert = await executeQuery(
         'INSERT INTO config (id) VALUES (DEFAULT) RETURNING rate'
       )
+      // THEN: assertion
       expect(parseFloat(defaultInsert.rate)).toBe(1.5)
 
       const explicitInsert = await executeQuery(
         'INSERT INTO config (rate) VALUES (2.75) RETURNING rate'
       )
+      // THEN: assertion
       expect(parseFloat(explicitInsert.rate)).toBe(2.75)
     }
   )
@@ -195,6 +206,7 @@ test.describe('Decimal Field', () => {
       const indexExists = await executeQuery(
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_scores_score'"
       )
+      // THEN: assertion
       expect(indexExists).toEqual({
         indexname: 'idx_scores_score',
         tablename: 'scores',
@@ -239,12 +251,14 @@ test.describe('Decimal Field', () => {
       const columnInfo = await executeQuery(
         "SELECT data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='decimal_field'"
       )
+      // THEN: assertion
       expect(columnInfo.data_type).toMatch(/numeric|decimal/)
       expect(columnInfo.is_nullable).toBe('NO')
 
       // Test precise decimal values
       await executeQuery('INSERT INTO data (decimal_field) VALUES (75.25)')
       const stored = await executeQuery('SELECT decimal_field FROM data WHERE id = 1')
+      // THEN: assertion
       expect(parseFloat(stored.decimal_field)).toBe(75.25)
     }
   )

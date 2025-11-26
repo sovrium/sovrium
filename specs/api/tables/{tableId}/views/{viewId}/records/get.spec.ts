@@ -59,12 +59,14 @@ test.fixme(
     expect(response.status()).toBe(200)
     const body = await response.json()
 
+    // THEN: assertion
     expect(body.records).toHaveLength(2)
     expect(
       body.records.every((r: { fields: { status: string } }) => r.fields.status === 'active')
     ).toBe(true)
 
     const titles = body.records.map((r: { fields: { title: string } }) => r.fields.title).sort()
+    // THEN: assertion
     expect(titles).toEqual(['Task 1', 'Task 3'])
   }
 )
@@ -112,9 +114,11 @@ test.fixme(
     expect(response.status()).toBe(200)
     const body = await response.json()
 
+    // THEN: assertion
     expect(body.records).toHaveLength(3)
 
     const prices = body.records.map((r: { fields: { price: string } }) => r.fields.price)
+    // THEN: assertion
     expect(prices).toEqual(['50.00', '25.00', '10.00'])
   }
 )
@@ -165,9 +169,11 @@ test.fixme(
     expect(response.status()).toBe(200)
     const body = await response.json()
 
+    // THEN: assertion
     expect(body.records).toHaveLength(1)
 
     const record = body.records[0]
+    // THEN: assertion
     expect(record.fields).toHaveProperty('name')
     expect(record.fields).toHaveProperty('email')
     expect(record.fields).not.toHaveProperty('phone')
@@ -218,6 +224,7 @@ test.fixme(
   { tag: '@regression' },
   async ({ startServerWithSchema, executeQuery, request }) => {
     // Basic view filtering smoke test
+    // GIVEN: app configuration
     await startServerWithSchema({
       name: 'test-app',
       tables: [

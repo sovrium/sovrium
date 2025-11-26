@@ -241,8 +241,10 @@ test.describe('Entrance Animation', () => {
       // Note: Browsers normalize '0ms' to '0s' - both are equivalent
       await expect(items.nth(0)).toHaveCSS('animation-delay', '0s')
       // Note: Browsers normalize '100ms' to '0.1s' - both are equivalent
+      // THEN: assertion
       await expect(items.nth(1)).toHaveCSS('animation-delay', '0.1s')
       // Note: Browsers normalize '200ms' to '0.2s' - both are equivalent
+      // THEN: assertion
       await expect(items.nth(2)).toHaveCSS('animation-delay', '0.2s')
     }
   )
@@ -295,6 +297,7 @@ test.describe('Entrance Animation', () => {
       // Note: Browsers normalize '200ms' to '0.2s' - both are equivalent
       await expect(items.nth(0)).toHaveCSS('animation-delay', '0.2s')
       // Note: Browsers normalize '250ms' to '0.25s' - both are equivalent
+      // THEN: assertion
       await expect(items.nth(1)).toHaveCSS('animation-delay', '0.25s')
     }
   )
@@ -332,8 +335,10 @@ test.describe('Entrance Animation', () => {
       const element = page.locator('div').first()
       await expect(element).toHaveClass(/animate-fadeInUp/)
       // Note: Browsers normalize '300ms' to '0.3s' - both are equivalent
+      // THEN: assertion
       await expect(element).toHaveCSS('animation-delay', '0.3s')
       // Note: Browsers normalize '800ms' to '0.8s' - both are equivalent
+      // THEN: assertion
       await expect(element).toHaveCSS('animation-duration', '0.8s')
     }
   )
@@ -402,6 +407,7 @@ test.describe('Entrance Animation', () => {
 
       // Verify hero animation
       const hero = page.locator('div').filter({ hasText: 'Hero' }).first()
+      // THEN: assertion
       await expect(hero).toHaveClass(/animate-fadeIn/)
 
       // Verify staggered list animations
@@ -410,6 +416,7 @@ test.describe('Entrance Animation', () => {
         .filter({ hasText: 'Feature 1Feature 2Feature 3' })
       const features = featuresContainer.locator('> div')
       // Note: Browsers may normalize 100ms to 0.1s and 200ms to 0.2s, both are equivalent
+      // THEN: assertion
       await expect(features.nth(0)).toHaveCSS('animation-delay', '0.1s')
       await expect(features.nth(1)).toHaveCSS('animation-delay', '0.2s')
 

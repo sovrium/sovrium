@@ -117,6 +117,7 @@ test.describe('Banner Configuration', () => {
       await expect(link).toBeVisible()
       await expect(link).toHaveText('Learn more')
       await link.click()
+      // THEN: assertion
       await expect(page).toHaveURL('/features')
     }
   )
@@ -236,6 +237,7 @@ test.describe('Banner Configuration', () => {
       // WHEN: dismissible is true
       await page.goto('/')
       const banner = page.locator('[data-testid="banner"]')
+      // THEN: assertion
       await expect(banner).toBeVisible()
 
       const dismissButton = page.locator('[data-testid="banner-dismiss"]')
@@ -246,6 +248,7 @@ test.describe('Banner Configuration', () => {
 
       // Verify persistence
       await page.reload()
+      // THEN: assertion
       await expect(banner).toBeHidden()
     }
   )
@@ -273,6 +276,7 @@ test.describe('Banner Configuration', () => {
       // WHEN: sticky is true
       await page.goto('/')
       const banner = page.locator('[data-testid="banner"]')
+      // THEN: assertion
       await expect(banner).toHaveCSS('position', 'sticky')
       await expect(banner).toHaveCSS('top', '0px')
 
@@ -381,20 +385,25 @@ test.describe('Banner Configuration', () => {
 
       // Verify banner display
       const banner = page.locator('[data-testid="banner"]')
+      // THEN: assertion
       await expect(banner).toContainText('🎉 Black Friday Sale: 50% off all plans!')
       await expect(banner).toHaveCSS('background', /linear-gradient/)
 
       // Verify sticky behavior
       await page.evaluate(() => window.scrollTo(0, 500))
+      // THEN: assertion
       await expect(banner).toBeInViewport()
 
       // Verify link
       await page.click('[data-testid="banner-link"]')
+      // THEN: assertion
       await expect(page).toHaveURL('/pricing')
 
       // Navigate back and dismiss
+      // WHEN: user navigates to the page
       await page.goto('/')
       await page.click('[data-testid="banner-dismiss"]')
+      // THEN: assertion
       await expect(banner).toBeHidden()
 
       // Focus on workflow continuity, not exhaustive coverage

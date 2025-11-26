@@ -75,24 +75,28 @@ test.describe('Table Permissions', () => {
       const policyCount = await executeQuery(
         "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='admin_data'"
       )
+      // THEN: assertion
       expect(policyCount.count).toBe(1)
 
       // Admin user can SELECT records
       const adminResult = await executeQuery(
         'SET ROLE admin_user; SELECT COUNT(*) as count FROM admin_data'
       )
+      // THEN: assertion
       expect(adminResult.count).toBe(1)
 
       // Member user cannot SELECT records (table-level denied)
       const memberResult = await executeQuery(
         'SET ROLE member_user; SELECT COUNT(*) as count FROM admin_data'
       )
+      // THEN: assertion
       expect(memberResult.count).toBe(0)
 
       // Field/record permissions not evaluated when table-level denies
       const fieldPolicies = await executeQuery(
         "SELECT COUNT(*) as field_policies FROM pg_policies WHERE tablename='admin_data' AND policyname LIKE '%field%'"
       )
+      // THEN: assertion
       expect(fieldPolicies.field_policies).toBe(0)
     }
   )
@@ -144,18 +148,21 @@ test.describe('Table Permissions', () => {
       const authCount = await executeQuery(
         'SET ROLE authenticated_user; SELECT COUNT(*) as count FROM users'
       )
+      // THEN: assertion
       expect(authCount.count).toBe(1)
 
       // Authenticated user can SELECT allowed fields
       const authFields = await executeQuery(
         'SET ROLE authenticated_user; SELECT name, email FROM users WHERE id = 1'
       )
+      // THEN: assertion
       expect(authFields).toEqual({
         name: 'Alice',
         email: 'alice@example.com',
       })
 
       // Authenticated user cannot SELECT salary field
+      // THEN: assertion
       await expect(async () => {
         await executeQuery('SET ROLE authenticated_user; SELECT salary FROM users WHERE id = 1')
       }).rejects.toThrow('permission denied for column salary')
@@ -164,6 +171,7 @@ test.describe('Table Permissions', () => {
       const adminFields = await executeQuery(
         'SET ROLE admin_user; SELECT name, email, salary FROM users WHERE id = 1'
       )
+      // THEN: assertion
       expect(adminFields).toEqual({
         name: 'Alice',
         email: 'alice@example.com',
@@ -236,16 +244,19 @@ test.describe('Table Permissions', () => {
       const userCount = await executeQuery(
         'SET LOCAL app.user_id = 1; SELECT COUNT(*) as count FROM tasks'
       )
+      // THEN: assertion
       expect(userCount.count).toBe(1)
 
       // User 1 sees only their task (record-level filter)
       const userTask = await executeQuery('SET LOCAL app.user_id = 1; SELECT title FROM tasks')
+      // THEN: assertion
       expect(userTask.title).toBe('Task 1')
 
       // User 1 can read notes on their own task (field-level allows)
       const userNotes = await executeQuery(
         'SET LOCAL app.user_id = 1; SELECT title, notes FROM tasks WHERE id = 1'
       )
+      // THEN: assertion
       expect(userNotes).toEqual({
         title: 'Task 1',
         notes: 'Private notes 1',
@@ -285,24 +296,28 @@ test.describe('Table Permissions', () => {
       const rlsEnabled = await executeQuery(
         "SELECT relrowsecurity FROM pg_class WHERE relname='confidential'"
       )
+      // THEN: assertion
       expect(rlsEnabled.relrowsecurity).toBe(true)
 
       // No policies exist (default deny)
       const policyCount = await executeQuery(
         "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='confidential'"
       )
+      // THEN: assertion
       expect(policyCount.count).toBe(0)
 
       // Admin user gets empty result (RLS blocks)
       const adminResult = await executeQuery(
         'SET ROLE admin_user; SELECT COUNT(*) as count FROM confidential'
       )
+      // THEN: assertion
       expect(adminResult.count).toBe(0)
 
       // Any user gets empty result (default deny)
       const userResult = await executeQuery(
         'SET ROLE authenticated_user; SELECT COUNT(*) as count FROM confidential'
       )
+      // THEN: assertion
       expect(userResult.count).toBe(0)
     }
   )
@@ -362,22 +377,26 @@ test.describe('Table Permissions', () => {
 
       // Unauthenticated user sees published posts only (record filter)
       const publicCount = await executeQuery('RESET ROLE; SELECT COUNT(*) as count FROM posts')
+      // THEN: assertion
       expect(publicCount.count).toBe(1)
 
       // Unauthenticated user can see title but not body (field filter)
       const publicTitle = await executeQuery('RESET ROLE; SELECT title FROM posts')
+      // THEN: assertion
       expect(publicTitle.title).toBe('Published Post')
 
       // Author sees published + their own drafts (2 records)
       const authorCount = await executeQuery(
         'SET LOCAL app.user_id = 1; SELECT COUNT(*) as count FROM posts'
       )
+      // THEN: assertion
       expect(authorCount.count).toBe(2)
 
       // Author can read body field on their posts
       const authorPost = await executeQuery(
         'SET LOCAL app.user_id = 1; SELECT title, body FROM posts WHERE id = 2'
       )
+      // THEN: assertion
       expect(authorPost).toEqual({
         title: 'Draft Post',
         body: 'Private draft',
@@ -448,15 +467,18 @@ test.describe('Table Permissions', () => {
       const policies = await executeQuery(
         "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='documents'"
       )
+      // THEN: assertion
       expect(policies.count).toBeGreaterThan(0)
 
       // Authenticated user can access published documents (table + record level)
       const userDocs = await executeQuery(
         "SET LOCAL app.user_id = 3; SELECT COUNT(*) as count FROM documents WHERE status = 'published'"
       )
+      // THEN: assertion
       expect(userDocs.count).toBe(1)
 
       // Field-level restriction works (non-admin cannot see salary_info)
+      // THEN: assertion
       await expect(async () => {
         await executeQuery('SET ROLE member_user; SELECT salary_info FROM documents WHERE id = 1')
       }).rejects.toThrow('permission denied')
@@ -465,6 +487,7 @@ test.describe('Table Permissions', () => {
       const adminFields = await executeQuery(
         'SET ROLE admin_user; SELECT title, salary_info FROM documents WHERE id = 1'
       )
+      // THEN: assertion
       expect(adminFields.title).toBe('Public Doc')
       expect(adminFields.salary_info).toBe('Confidential')
 

@@ -92,6 +92,7 @@ test.describe('Page Sections', () => {
           },
         ],
       })
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // THEN: it should support all component types for page building
@@ -252,6 +253,7 @@ test.describe('Page Sections', () => {
       await expect(button).toBeVisible()
       await button.hover()
       // Note: Browsers convert scale(1.05) to matrix(1.05, 0, 0, 1.05, 0, 0)
+      // THEN: assertion
       await expect(button).toHaveCSS('transform', /matrix\(1\.05, 0, 0, 1\.05, 0, 0\)/)
     }
   )
@@ -560,6 +562,7 @@ test.describe('Page Sections', () => {
     'APP-PAGES-SECTIONS-REGRESSION-001: user can complete full Page Sections workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -630,9 +633,11 @@ test.describe('Page Sections', () => {
           },
         ],
       })
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // Verify hero section
+      // THEN: assertion
       await expect(page.locator('h1')).toHaveText('Welcome to Our Platform')
       await expect(page.locator('[data-testid="subtitle"]')).toContainText('Build amazing')
 

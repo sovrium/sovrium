@@ -74,18 +74,21 @@ test.describe('Database Indexes', () => {
       const index = await executeQuery(
         `SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_user_email'`
       )
+      // THEN: assertion
       expect(index.rows[0]).toMatchObject({ indexname: 'idx_user_email', tablename: 'users' })
 
       // Index is on email column
       const indexDef = await executeQuery(
         `SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_user_email'`
       )
+      // THEN: assertion
       expect(indexDef.rows[0]).toMatchObject({
         indexdef: 'CREATE INDEX idx_user_email ON public.users USING btree (email)',
       })
 
       // Email lookup uses index (fast query)
       const result = await executeQuery(`SELECT name FROM users WHERE email = 'alice@example.com'`)
+      // THEN: assertion
       expect(result.rows[0]).toMatchObject({ name: 'Alice' })
     }
   )
@@ -139,12 +142,14 @@ test.describe('Database Indexes', () => {
       const index = await executeQuery(
         `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_contacts_name'`
       )
+      // THEN: assertion
       expect(index.rows[0]).toMatchObject({ indexname: 'idx_contacts_name' })
 
       // Index includes both columns in order
       const indexDef = await executeQuery(
         `SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_contacts_name'`
       )
+      // THEN: assertion
       expect(indexDef.rows[0]).toMatchObject({
         indexdef:
           'CREATE INDEX idx_contacts_name ON public.contacts USING btree (last_name, first_name)',
@@ -154,12 +159,14 @@ test.describe('Database Indexes', () => {
       const lastNameLookup = await executeQuery(
         `SELECT COUNT(*) as count FROM contacts WHERE last_name = 'Smith'`
       )
+      // THEN: assertion
       expect(lastNameLookup.rows[0]).toMatchObject({ count: 2 })
 
       // Lookup by both columns uses index
       const bothColumnsLookup = await executeQuery(
         `SELECT phone FROM contacts WHERE last_name = 'Smith' AND first_name = 'Alice'`
       )
+      // THEN: assertion
       expect(bothColumnsLookup.rows[0]).toMatchObject({ phone: '555-1111' })
     }
   )
@@ -209,18 +216,21 @@ test.describe('Database Indexes', () => {
       const index = await executeQuery(
         `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_accounts_username'`
       )
+      // THEN: assertion
       expect(index.rows[0]).toMatchObject({ indexname: 'idx_accounts_username' })
 
       // Index definition includes UNIQUE
       const indexDef = await executeQuery(
         `SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_accounts_username'`
       )
+      // THEN: assertion
       expect(indexDef.rows[0]).toMatchObject({
         indexdef:
           'CREATE UNIQUE INDEX idx_accounts_username ON public.accounts USING btree (username)',
       })
 
       // Duplicate username rejected
+      // THEN: assertion
       await expect(
         executeQuery(
           `INSERT INTO accounts (username, email) VALUES ('alice123', 'duplicate@example.com')`
@@ -231,6 +241,7 @@ test.describe('Database Indexes', () => {
       const result = await executeQuery(
         `INSERT INTO accounts (username, email) VALUES ('bob456', 'bob@example.com') RETURNING username`
       )
+      // THEN: assertion
       expect(result.rows[0]).toMatchObject({ username: 'bob456' })
     }
   )
@@ -274,18 +285,21 @@ test.describe('Database Indexes', () => {
       const count = await executeQuery(
         `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'logs'`
       )
+      // THEN: assertion
       expect(count.rows[0]).toMatchObject({ count: 1 })
 
       // Primary key index is on id column
       const pkeyIndex = await executeQuery(
         `SELECT indexname FROM pg_indexes WHERE tablename = 'logs' AND indexname LIKE '%pkey'`
       )
+      // THEN: assertion
       expect(pkeyIndex.rows[0]).toMatchObject({ indexname: 'logs_pkey' })
 
       // No custom indexes created
       const customIndexes = await executeQuery(
         `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'logs' AND indexname NOT LIKE '%pkey'`
       )
+      // THEN: assertion
       expect(customIndexes.rows[0]).toMatchObject({ count: 0 })
     }
   )
@@ -352,24 +366,28 @@ test.describe('Database Indexes', () => {
       const count = await executeQuery(
         `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'products' AND indexname LIKE 'idx_products_%'`
       )
+      // THEN: assertion
       expect(count.rows[0]).toMatchObject({ count: 3 })
 
       // SKU index exists
       const skuIndex = await executeQuery(
         `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_products_sku'`
       )
+      // THEN: assertion
       expect(skuIndex.rows[0]).toMatchObject({ indexname: 'idx_products_sku' })
 
       // Category index exists
       const categoryIndex = await executeQuery(
         `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_products_category'`
       )
+      // THEN: assertion
       expect(categoryIndex.rows[0]).toMatchObject({ indexname: 'idx_products_category' })
 
       // Price index exists
       const priceIndex = await executeQuery(
         `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_products_price'`
       )
+      // THEN: assertion
       expect(priceIndex.rows[0]).toMatchObject({ indexname: 'idx_products_price' })
     }
   )
@@ -418,22 +436,26 @@ test.describe('Database Indexes', () => {
       const index = await executeQuery(
         `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_events_created_at'`
       )
+      // THEN: assertion
       expect(index.rows[0]).toMatchObject({ indexname: 'idx_events_created_at' })
 
       // Range query uses index
       const rangeQuery = await executeQuery(
         `SELECT COUNT(*) as count FROM events WHERE created_at > '2024-01-01'`
       )
+      // THEN: assertion
       expect(rangeQuery.rows[0]).toMatchObject({ count: 2 })
 
       // ORDER BY uses index for sorting
       const orderBy = await executeQuery(`SELECT name FROM events ORDER BY created_at DESC LIMIT 1`)
+      // THEN: assertion
       expect(orderBy.rows[0]).toMatchObject({ name: 'Event 3' })
 
       // Date filter with ORDER BY uses index
       const filterAndOrder = await executeQuery(
         `SELECT name FROM events WHERE created_at >= '2024-01-01' ORDER BY created_at ASC`
       )
+      // THEN: assertion
       expect(filterAndOrder.rows).toEqual([
         { name: 'Event 1' },
         { name: 'Event 2' },
@@ -492,15 +514,18 @@ test.describe('Database Indexes', () => {
       const index = await executeQuery(
         `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_tenant_users_unique'`
       )
+      // THEN: assertion
       expect(index.rows[0]).toMatchObject({ indexname: 'idx_tenant_users_unique' })
 
       // Same username allowed in different tenants
       const sameUsername = await executeQuery(
         `SELECT COUNT(*) as count FROM tenant_users WHERE username = 'alice'`
       )
+      // THEN: assertion
       expect(sameUsername.rows[0]).toMatchObject({ count: 2 })
 
       // Duplicate username in same tenant rejected
+      // THEN: assertion
       await expect(
         executeQuery(
           `INSERT INTO tenant_users (tenant_id, username, email) VALUES (1, 'alice', 'duplicate@tenant1.com')`
@@ -511,6 +536,7 @@ test.describe('Database Indexes', () => {
       const result = await executeQuery(
         `INSERT INTO tenant_users (tenant_id, username, email) VALUES (3, 'alice', 'alice@tenant3.com') RETURNING username`
       )
+      // THEN: assertion
       expect(result.rows[0]).toMatchObject({ username: 'alice' })
     }
   )
@@ -537,12 +563,14 @@ test.describe('Database Indexes', () => {
       const index = await executeQuery(
         `SELECT indexname FROM pg_indexes WHERE indexname = 'idx_articles_search'`
       )
+      // THEN: assertion
       expect(index.rows[0]).toMatchObject({ indexname: 'idx_articles_search' })
 
       // Index uses GIN access method
       const indexDef = await executeQuery(
         `SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_articles_search'`
       )
+      // THEN: assertion
       expect(indexDef.rows[0]).toMatchObject({
         indexdef: `CREATE INDEX idx_articles_search ON public.articles USING gin (to_tsvector('english'::regconfig, ((title)::text || ' '::text) || content))`,
       })
@@ -551,12 +579,14 @@ test.describe('Database Indexes', () => {
       const search = await executeQuery(
         `SELECT title FROM articles WHERE to_tsvector('english', title || ' ' || content) @@ to_tsquery('english', 'database')`
       )
+      // THEN: assertion
       expect(search.rows[0]).toMatchObject({ title: 'PostgreSQL Tutorial' })
 
       // Multiple word search
       const multiWordSearch = await executeQuery(
         `SELECT COUNT(*) as count FROM articles WHERE to_tsvector('english', title || ' ' || content) @@ to_tsquery('english', 'programming | database')`
       )
+      // THEN: assertion
       expect(multiWordSearch.rows[0]).toMatchObject({ count: 2 })
     }
   )
@@ -607,6 +637,7 @@ test.describe('Database Indexes', () => {
       // WHEN/THEN: Execute representative workflow
 
       // 1. Unique index prevents duplicates
+      // THEN: assertion
       await expect(
         executeQuery(
           `INSERT INTO users (username, email, created_at) VALUES ('alice', 'duplicate@example.com', NOW())`
@@ -617,18 +648,21 @@ test.describe('Database Indexes', () => {
       const emailLookup = await executeQuery(
         `SELECT username FROM users WHERE email = 'bob@example.com'`
       )
+      // THEN: assertion
       expect(emailLookup.rows[0]).toMatchObject({ username: 'bob' })
 
       // 3. Timestamp index supports range queries
       const rangeQuery = await executeQuery(
         `SELECT COUNT(*) as count FROM users WHERE created_at > '2024-01-01'`
       )
+      // THEN: assertion
       expect(rangeQuery.rows[0]).toMatchObject({ count: 1 })
 
       // 4. All indexes are retrievable
       const indexes = await executeQuery(
         `SELECT indexname FROM pg_indexes WHERE tablename = 'users' AND indexname LIKE 'idx_users_%' ORDER BY indexname`
       )
+      // THEN: assertion
       expect(indexes.rows).toHaveLength(3)
       expect(indexes.rows).toEqual(
         expect.arrayContaining([

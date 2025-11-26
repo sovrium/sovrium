@@ -63,19 +63,23 @@ test.describe('Primary Key', () => {
       const constraint = await executeQuery(
         `SELECT constraint_name FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='PRIMARY KEY'`
       )
+      // THEN: assertion
       expect(constraint.rows[0]).toMatchObject({ constraint_name: 'users_pkey' })
 
       // id column is SERIAL (integer with sequence)
       const column = await executeQuery(
         `SELECT column_name, data_type FROM information_schema.columns WHERE table_name='users' AND column_name='id'`
       )
+      // THEN: assertion
       expect(column.rows[0]).toMatchObject({ column_name: 'id', data_type: 'integer' })
 
       // Auto-increment generates sequential IDs
       const ids = await executeQuery(`SELECT id FROM users ORDER BY id`)
+      // THEN: assertion
       expect(ids.rows).toEqual([{ id: 1 }, { id: 2 }, { id: 3 }])
 
       // Duplicate ID rejected (UNIQUE constraint)
+      // THEN: assertion
       await expect(
         executeQuery(`INSERT INTO users (id, name) VALUES (1, 'Duplicate')`)
       ).rejects.toThrow(/duplicate key value violates unique constraint/)
@@ -121,24 +125,28 @@ test.describe('Primary Key', () => {
       const constraint = await executeQuery(
         `SELECT constraint_name FROM information_schema.table_constraints WHERE table_name='sessions' AND constraint_type='PRIMARY KEY'`
       )
+      // THEN: assertion
       expect(constraint.rows[0]).toMatchObject({ constraint_name: 'sessions_pkey' })
 
       // id column is UUID type
       const column = await executeQuery(
         `SELECT column_name, data_type FROM information_schema.columns WHERE table_name='sessions' AND column_name='id'`
       )
+      // THEN: assertion
       expect(column.rows[0]).toMatchObject({ column_name: 'id', data_type: 'uuid' })
 
       // UUID values are generated automatically
       const count = await executeQuery(
         `SELECT COUNT(*) as count FROM sessions WHERE id IS NOT NULL`
       )
+      // THEN: assertion
       expect(count.rows[0]).toMatchObject({ count: 3 })
 
       // UUID values are unique
       const uniqueCount = await executeQuery(
         `SELECT COUNT(DISTINCT id) as unique_count FROM sessions`
       )
+      // THEN: assertion
       expect(uniqueCount.rows[0]).toMatchObject({ unique_count: 3 })
     }
   )
@@ -192,21 +200,25 @@ test.describe('Primary Key', () => {
       const constraint = await executeQuery(
         `SELECT constraint_name FROM information_schema.table_constraints WHERE table_name='tenant_users' AND constraint_type='PRIMARY KEY'`
       )
+      // THEN: assertion
       expect(constraint.rows[0]).toMatchObject({ constraint_name: 'tenant_users_pkey' })
 
       // Primary key includes both columns
       const keyCount = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.key_column_usage WHERE table_name='tenant_users' AND constraint_name='tenant_users_pkey'`
       )
+      // THEN: assertion
       expect(keyCount.rows[0]).toMatchObject({ count: 2 })
 
       // Same user_id allowed in different tenants
       const sameUser = await executeQuery(
         `SELECT COUNT(*) as count FROM tenant_users WHERE user_id = 1`
       )
+      // THEN: assertion
       expect(sameUser.rows[0]).toMatchObject({ count: 2 })
 
       // Duplicate composite key rejected
+      // THEN: assertion
       await expect(
         executeQuery(
           `INSERT INTO tenant_users (tenant_id, user_id, name) VALUES (1, 1, 'Duplicate')`
@@ -247,9 +259,11 @@ test.describe('Primary Key', () => {
       const nullable = await executeQuery(
         `SELECT is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='id'`
       )
+      // THEN: assertion
       expect(nullable.rows[0]).toMatchObject({ is_nullable: 'NO' })
 
       // NULL value in primary key rejected
+      // THEN: assertion
       await expect(
         executeQuery(`INSERT INTO products (id, name) VALUES (NULL, 'Product 2')`)
       ).rejects.toThrow(/null value in column "id" violates not-null constraint/)
@@ -258,6 +272,7 @@ test.describe('Primary Key', () => {
       const result = await executeQuery(
         `INSERT INTO products (name) VALUES ('Product 2') RETURNING id`
       )
+      // THEN: assertion
       expect(result.rows[0]).toMatchObject({ id: 2 })
     }
   )
@@ -299,18 +314,21 @@ test.describe('Primary Key', () => {
       const index = await executeQuery(
         `SELECT indexname FROM pg_indexes WHERE tablename='orders' AND indexname='orders_pkey'`
       )
+      // THEN: assertion
       expect(index.rows[0]).toMatchObject({ indexname: 'orders_pkey' })
 
       // Index is unique
       const indexDef = await executeQuery(
         `SELECT indexdef FROM pg_indexes WHERE indexname='orders_pkey'`
       )
+      // THEN: assertion
       expect(indexDef.rows[0]).toMatchObject({
         indexdef: 'CREATE UNIQUE INDEX orders_pkey ON public.orders USING btree (id)',
       })
 
       // Primary key lookup uses index (fast)
       const lookup = await executeQuery(`SELECT customer_id FROM orders WHERE id = 1`)
+      // THEN: assertion
       expect(lookup.rows[0]).toMatchObject({ customer_id: 1 })
     }
   )
@@ -356,19 +374,23 @@ test.describe('Primary Key', () => {
 
       // Primary key can be updated to unique value
       const update = await executeQuery(`UPDATE items SET id = 10 WHERE id = 1 RETURNING id, name`)
+      // THEN: assertion
       expect(update.rows[0]).toMatchObject({ id: 10, name: 'Item 1' })
 
       // Updated primary key is persisted
       const select = await executeQuery(`SELECT id FROM items WHERE name = 'Item 1'`)
+      // THEN: assertion
       expect(select.rows[0]).toMatchObject({ id: 10 })
 
       // Primary key cannot be updated to duplicate value
+      // THEN: assertion
       await expect(executeQuery(`UPDATE items SET id = 2 WHERE id = 10`)).rejects.toThrow(
         /duplicate key value violates unique constraint/
       )
 
       // Original ID no longer exists after update
       const oldId = await executeQuery(`SELECT COUNT(*) as count FROM items WHERE id = 1`)
+      // THEN: assertion
       expect(oldId.rows[0]).toMatchObject({ count: 0 })
     }
   )
@@ -412,22 +434,26 @@ test.describe('Primary Key', () => {
       const column = await executeQuery(
         `SELECT column_name, data_type FROM information_schema.columns WHERE table_name='logs' AND column_name='id'`
       )
+      // THEN: assertion
       expect(column.rows[0]).toMatchObject({ column_name: 'id', data_type: 'bigint' })
 
       // BIGSERIAL generates sequential values
       const ids = await executeQuery(`SELECT id FROM logs ORDER BY id`)
+      // THEN: assertion
       expect(ids.rows).toEqual([{ id: 1 }, { id: 2 }])
 
       // Primary key constraint exists
       const constraint = await executeQuery(
         `SELECT constraint_name FROM information_schema.table_constraints WHERE table_name='logs' AND constraint_type='PRIMARY KEY'`
       )
+      // THEN: assertion
       expect(constraint.rows[0]).toMatchObject({ constraint_name: 'logs_pkey' })
 
       // BIGINT supports range up to 2^63-1 (vs INTEGER 2^31-1)
       const byteSize = await executeQuery(
         `SELECT pg_column_size(id) as byte_size FROM logs LIMIT 1`
       )
+      // THEN: assertion
       expect(byteSize.rows[0]).toMatchObject({ byte_size: 8 })
     }
   )
@@ -487,15 +513,18 @@ test.describe('Primary Key', () => {
       const keyCount = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.key_column_usage WHERE table_name='audit_log' AND constraint_name='audit_log_pkey'`
       )
+      // THEN: assertion
       expect(keyCount.rows[0]).toMatchObject({ count: 3 })
 
       // Same tenant and user allowed at different timestamps
       const sameUserTenant = await executeQuery(
         `SELECT COUNT(*) as count FROM audit_log WHERE tenant_id = 1 AND user_id = 1`
       )
+      // THEN: assertion
       expect(sameUserTenant.rows[0]).toMatchObject({ count: 2 })
 
       // Duplicate composite key rejected
+      // THEN: assertion
       await expect(
         executeQuery(
           `INSERT INTO audit_log (tenant_id, user_id, timestamp, action) VALUES (1, 1, '2024-01-01 10:00:00', 'duplicate')`
@@ -506,6 +535,7 @@ test.describe('Primary Key', () => {
       const newRow = await executeQuery(
         `INSERT INTO audit_log (tenant_id, user_id, timestamp, action) VALUES (1, 1, '2024-01-01 12:00:00', 'update') RETURNING action`
       )
+      // THEN: assertion
       expect(newRow.rows[0]).toMatchObject({ action: 'update' })
     }
   )
@@ -551,11 +581,13 @@ test.describe('Primary Key', () => {
       // 1. SERIAL auto-increment works
       await executeQuery(`INSERT INTO users (name) VALUES ('Alice'), ('Bob')`)
       const users = await executeQuery(`SELECT id FROM users ORDER BY id`)
+      // THEN: assertion
       expect(users.rows).toEqual([{ id: 1 }, { id: 2 }])
 
       // 2. UUID generation works
       await executeQuery(`INSERT INTO sessions (user_id) VALUES (1), (2)`)
       const sessions = await executeQuery(`SELECT COUNT(DISTINCT id) as count FROM sessions`)
+      // THEN: assertion
       expect(sessions.rows[0]).toMatchObject({ count: 2 })
 
       // 3. Composite primary key works
@@ -565,12 +597,15 @@ test.describe('Primary Key', () => {
       const tenantUsers = await executeQuery(
         `SELECT COUNT(*) as count FROM tenant_users WHERE user_id = 1`
       )
+      // THEN: assertion
       expect(tenantUsers.rows[0]).toMatchObject({ count: 2 }) // Same user in different tenants
 
       // 4. Primary key constraints enforce uniqueness
+      // THEN: assertion
       await expect(
         executeQuery(`INSERT INTO users (id, name) VALUES (1, 'Duplicate')`)
       ).rejects.toThrow(/unique constraint/)
+      // THEN: assertion
       await expect(
         executeQuery(`INSERT INTO tenant_users (tenant_id, user_id) VALUES (1, 1)`)
       ).rejects.toThrow(/unique constraint/)
@@ -579,6 +614,7 @@ test.describe('Primary Key', () => {
       const indexes = await executeQuery(
         `SELECT indexname FROM pg_indexes WHERE indexname IN ('users_pkey', 'sessions_pkey', 'tenant_users_pkey') ORDER BY indexname`
       )
+      // THEN: assertion
       expect(indexes.rows).toHaveLength(3)
 
       // Workflow completes successfully

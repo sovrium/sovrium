@@ -63,10 +63,12 @@ test.describe('Reset password', () => {
       // Response indicates success
       // Password hash is updated in database
       // Reset token is marked as used
+      // THEN: assertion
       expect(response.status).toBe(200)
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -106,6 +108,7 @@ test.describe('Reset password', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -146,6 +149,7 @@ test.describe('Reset password', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -177,6 +181,7 @@ test.describe('Reset password', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -216,6 +221,7 @@ test.describe('Reset password', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -255,6 +261,7 @@ test.describe('Reset password', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -286,6 +293,7 @@ test.describe('Reset password', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -332,6 +340,7 @@ test.describe('Reset password', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

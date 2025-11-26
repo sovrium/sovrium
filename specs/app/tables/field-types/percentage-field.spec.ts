@@ -49,6 +49,7 @@ test.describe('Percentage Field', () => {
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='tasks' AND column_name='completion'"
       )
+      // THEN: assertion
       expect(columnInfo.column_name).toBe('completion')
       expect(columnInfo.data_type).toMatch(/numeric|decimal/)
       expect(columnInfo.is_nullable).toBe('YES')
@@ -56,6 +57,7 @@ test.describe('Percentage Field', () => {
       const validInsert = await executeQuery(
         'INSERT INTO tasks (completion) VALUES (75.5) RETURNING completion'
       )
+      // THEN: assertion
       expect(parseFloat(validInsert.completion)).toBe(75.5)
     }
   )
@@ -85,12 +87,15 @@ test.describe('Percentage Field', () => {
       const validInsert = await executeQuery(
         'INSERT INTO projects (progress) VALUES (50.0) RETURNING progress'
       )
+      // THEN: assertion
       expect(parseFloat(validInsert.progress)).toBe(50)
 
+      // THEN: assertion
       await expect(executeQuery('INSERT INTO projects (progress) VALUES (-0.1)')).rejects.toThrow(
         /violates check constraint/
       )
 
+      // THEN: assertion
       await expect(executeQuery('INSERT INTO projects (progress) VALUES (100.1)')).rejects.toThrow(
         /violates check constraint/
       )
@@ -117,6 +122,7 @@ test.describe('Percentage Field', () => {
         ],
       })
 
+      // GIVEN: table configuration
       await executeQuery(['INSERT INTO scores (score) VALUES (95.5)'])
 
       // WHEN: constraints are applied
@@ -124,12 +130,15 @@ test.describe('Percentage Field', () => {
       const notNullCheck = await executeQuery(
         "SELECT is_nullable FROM information_schema.columns WHERE table_name='scores' AND column_name='score'"
       )
+      // THEN: assertion
       expect(notNullCheck.is_nullable).toBe('NO')
 
+      // THEN: assertion
       await expect(executeQuery('INSERT INTO scores (score) VALUES (95.5)')).rejects.toThrow(
         /duplicate key value violates unique constraint/
       )
 
+      // THEN: assertion
       await expect(executeQuery('INSERT INTO scores (score) VALUES (NULL)')).rejects.toThrow(
         /violates not-null constraint/
       )
@@ -161,11 +170,13 @@ test.describe('Percentage Field', () => {
       const defaultInsert = await executeQuery(
         'INSERT INTO promotions (id) VALUES (DEFAULT) RETURNING discount'
       )
+      // THEN: assertion
       expect(parseFloat(defaultInsert.discount)).toBe(10)
 
       const explicitInsert = await executeQuery(
         'INSERT INTO promotions (discount) VALUES (25.0) RETURNING discount'
       )
+      // THEN: assertion
       expect(parseFloat(explicitInsert.discount)).toBe(25)
     }
   )
@@ -195,6 +206,7 @@ test.describe('Percentage Field', () => {
       const indexExists = await executeQuery(
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_reviews_rating'"
       )
+      // THEN: assertion
       expect(indexExists).toEqual({
         indexname: 'idx_reviews_rating',
         tablename: 'reviews',
@@ -239,15 +251,18 @@ test.describe('Percentage Field', () => {
       const columnInfo = await executeQuery(
         "SELECT data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='percentage_field'"
       )
+      // THEN: assertion
       expect(columnInfo.data_type).toMatch(/numeric|decimal/)
       expect(columnInfo.is_nullable).toBe('NO')
 
       // Test percentage range (0-100)
       await executeQuery('INSERT INTO data (percentage_field) VALUES (75.25)')
       const stored = await executeQuery('SELECT percentage_field FROM data WHERE id = 1')
+      // THEN: assertion
       expect(parseFloat(stored.percentage_field)).toBe(75.25)
 
       // Verify out-of-range rejected
+      // THEN: assertion
       await expect(
         executeQuery('INSERT INTO data (percentage_field) VALUES (150.0)')
       ).rejects.toThrow(/violates check constraint/)

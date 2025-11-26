@@ -204,8 +204,10 @@ test.describe('Education Event Schema', () => {
             },
           ],
         })
+        // WHEN: user navigates to the page
         await page.goto('/')
         const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        // THEN: assertion
         expect(scriptContent).toContain(mode)
       }
     }
@@ -246,8 +248,10 @@ test.describe('Education Event Schema', () => {
             },
           ],
         })
+        // WHEN: user navigates to the page
         await page.goto('/')
         const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        // THEN: assertion
         expect(scriptContent).toContain(status)
       }
     }
@@ -457,8 +461,10 @@ test.describe('Education Event Schema', () => {
             },
           ],
         })
+        // WHEN: user navigates to the page
         await page.goto('/')
         const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        // THEN: assertion
         expect(scriptContent).toContain(availability)
       }
     }

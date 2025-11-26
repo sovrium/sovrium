@@ -201,6 +201,7 @@ test.describe('Click Interaction', () => {
       const navigationPromise = page.waitForURL('https://example.com')
       await button.click()
       await navigationPromise
+      // THEN: assertion
       await expect(page).toHaveURL('https://example.com')
     }
   )
@@ -237,6 +238,7 @@ test.describe('Click Interaction', () => {
       const newPagePromise = context.waitForEvent('page')
       await button.click()
       const newPage = await newPagePromise
+      // THEN: assertion
       await expect(newPage).toHaveURL('https://example.com')
     }
   )
@@ -320,6 +322,7 @@ test.describe('Click Interaction', () => {
       await button.click()
       await expect(menu).toBeVisible()
       await button.click()
+      // THEN: assertion
       await expect(menu).toBeHidden()
     }
   )
@@ -527,11 +530,13 @@ test.describe('Click Interaction', () => {
       // Verify scroll interaction
       const scrollButton = page.locator('button').filter({ hasText: 'Scroll Down' })
       await scrollButton.click()
+      // THEN: assertion
       await expect(page.locator('#footer')).toBeInViewport()
 
       // Verify animation + navigation
       const navButton = page.locator('button').filter({ hasText: 'Contact' })
       await navButton.click()
+      // THEN: assertion
       await expect(navButton).toHaveClass(/animate-pulse/)
       await expect(page).toHaveURL('/contact')
 

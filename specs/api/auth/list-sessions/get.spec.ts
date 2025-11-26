@@ -63,6 +63,7 @@ test.describe('List user sessions', () => {
       // Response contains array of sessions
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // Response includes both sessions
@@ -124,6 +125,7 @@ test.describe('List user sessions', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -279,6 +281,7 @@ test.describe('List user sessions', () => {
       // Each session includes IP address and user agent
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // Desktop session (current) is marked with isCurrent: true

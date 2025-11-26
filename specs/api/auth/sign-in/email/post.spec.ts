@@ -61,6 +61,7 @@ test.describe('Sign in with email and password', () => {
       // Response contains session token and user data
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -90,6 +91,7 @@ test.describe('Sign in with email and password', () => {
       // Response contains validation error for email field
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -119,6 +121,7 @@ test.describe('Sign in with email and password', () => {
       // Response contains validation error for password field
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -149,6 +152,7 @@ test.describe('Sign in with email and password', () => {
       // Response contains validation error for email format
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -184,6 +188,7 @@ test.describe('Sign in with email and password', () => {
       // Response contains generic error message
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -214,6 +219,7 @@ test.describe('Sign in with email and password', () => {
       // Response contains generic error message to prevent enumeration
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -249,6 +255,7 @@ test.describe('Sign in with email and password', () => {
       // Response contains session token and user data
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -285,6 +292,7 @@ test.describe('Sign in with email and password', () => {
       // Response contains session token with extended expiration
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

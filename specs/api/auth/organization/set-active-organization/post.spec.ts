@@ -75,6 +75,7 @@ test.describe('Set active organization', () => {
       // Response contains new active organization
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // Session is updated with new active organization
@@ -113,6 +114,7 @@ test.describe('Set active organization', () => {
       // Response contains validation error for organizationId field
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -142,6 +144,7 @@ test.describe('Set active organization', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -179,6 +182,7 @@ test.describe('Set active organization', () => {
       // Response contains error about organization not found
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -225,6 +229,7 @@ test.describe('Set active organization', () => {
       // Response contains error about organization not found
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

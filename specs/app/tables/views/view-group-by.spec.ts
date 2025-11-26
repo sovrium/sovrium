@@ -206,6 +206,7 @@ test.describe('View Group By', () => {
       await page.goto('/tables/tbl_data/views/grouped_view')
 
       const groups = page.locator('[data-group]')
+      // THEN: assertion
       await expect(groups.nth(0)).toHaveAttribute('data-group', 'A')
       await expect(groups.nth(1)).toHaveAttribute('data-group', 'B')
       await expect(page.locator('[data-group="A"] [data-record]')).toHaveCount(2)

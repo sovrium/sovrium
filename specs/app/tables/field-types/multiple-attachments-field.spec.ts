@@ -12,6 +12,7 @@ test.describe('Multiple Attachments Field', () => {
     'APP-MULTIPLE-ATTACHMENTS-FIELD-001: should create JSONB ARRAY column for multiple file storage',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -23,9 +24,11 @@ test.describe('Multiple Attachments Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const column = await executeQuery(
         "SELECT data_type FROM information_schema.columns WHERE table_name='posts' AND column_name='attachments'"
       )
+      // THEN: assertion
       expect(column.data_type).toBe('jsonb')
     }
   )
@@ -34,6 +37,7 @@ test.describe('Multiple Attachments Field', () => {
     'APP-MULTIPLE-ATTACHMENTS-FIELD-002: should store array of file metadata objects',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -45,10 +49,13 @@ test.describe('Multiple Attachments Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       await executeQuery(
         'INSERT INTO messages (files) VALUES (\'[{"url": "file1.pdf", "size": 100}, {"url": "file2.jpg", "size": 200}]\')'
       )
+      // WHEN: querying the database
       const files = await executeQuery('SELECT files FROM messages WHERE id = 1')
+      // THEN: assertion
       expect(files.files.length).toBe(2)
     }
   )
@@ -57,6 +64,7 @@ test.describe('Multiple Attachments Field', () => {
     'APP-MULTIPLE-ATTACHMENTS-FIELD-003: should enforce maximum attachment count via CHECK constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -68,6 +76,7 @@ test.describe('Multiple Attachments Field', () => {
         ],
       })
 
+      // WHEN/THEN: executing query and asserting error
       await expect(
         executeQuery("INSERT INTO records (attachments) VALUES ('[1,2,3,4,5,6]')")
       ).rejects.toThrow(/violates check constraint/)
@@ -78,6 +87,7 @@ test.describe('Multiple Attachments Field', () => {
     'APP-MULTIPLE-ATTACHMENTS-FIELD-004: should support querying by attachment properties',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -85,10 +95,13 @@ test.describe('Multiple Attachments Field', () => {
         ],
       })
 
+      // WHEN: executing query
       await executeQuery('INSERT INTO docs (files) VALUES (\'[{"type": "pdf"}]\')')
+      // WHEN: querying the database
       const result = await executeQuery(
         'SELECT COUNT(*) as count FROM docs WHERE files @> \'[{"type": "pdf"}]\''
       )
+      // THEN: assertion
       expect(result.count).toBe(1)
     }
   )
@@ -97,6 +110,7 @@ test.describe('Multiple Attachments Field', () => {
     'APP-MULTIPLE-ATTACHMENTS-FIELD-005: should create GIN index for efficient JSON queries',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -108,9 +122,11 @@ test.describe('Multiple Attachments Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const index = await executeQuery(
         "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_items_attachments'"
       )
+      // THEN: assertion
       expect(index.indexname).toBe('idx_items_attachments')
     }
   )
@@ -119,6 +135,7 @@ test.describe('Multiple Attachments Field', () => {
     'APP-TABLES-FIELD-MULTIPLE-ATTACHMENTS-REGRESSION-001: user can complete full multiple-attachments-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -126,12 +143,15 @@ test.describe('Multiple Attachments Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       await executeQuery(
         'INSERT INTO data (files) VALUES (\'[{"url": "a.pdf"}, {"url": "b.jpg"}]\')'
       )
+      // WHEN: querying the database
       const files = await executeQuery(
         'SELECT jsonb_array_length(files) as count FROM data WHERE id = 1'
       )
+      // THEN: assertion
       expect(files.count).toBe(2)
     }
   )

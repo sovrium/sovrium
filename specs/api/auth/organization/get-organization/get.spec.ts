@@ -69,6 +69,7 @@ test.describe('Get organization details', () => {
       // Response contains organization details
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // Response includes correct organization data
@@ -105,6 +106,7 @@ test.describe('Get organization details', () => {
       // Response contains validation error for organizationId parameter
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -131,6 +133,7 @@ test.describe('Get organization details', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -168,6 +171,7 @@ test.describe('Get organization details', () => {
       // Response contains error about organization not found
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -214,6 +218,7 @@ test.describe('Get organization details', () => {
       // Response contains error about organization not found
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

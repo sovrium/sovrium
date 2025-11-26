@@ -72,6 +72,7 @@ test.describe('List user organizations', () => {
       // Response contains organizations array with roles
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // Response includes both organizations
@@ -129,6 +130,7 @@ test.describe('List user organizations', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -231,6 +233,7 @@ test.describe('List user organizations', () => {
       // Each organization has correct role attribute
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

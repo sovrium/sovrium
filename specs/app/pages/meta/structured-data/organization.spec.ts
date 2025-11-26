@@ -578,6 +578,7 @@ test.describe('Organization Schema', () => {
     'APP-PAGES-META-STRUCTURED-DATA-ORGANIZATION-REGRESSION-001: user can complete full Organization workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -617,6 +618,7 @@ test.describe('Organization Schema', () => {
           },
         ],
       })
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // Enhanced JSON-LD validation
@@ -626,6 +628,7 @@ test.describe('Organization Schema', () => {
       const jsonLd = JSON.parse(scriptContent!)
 
       // Validate JSON-LD structure
+      // THEN: assertion
       expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
       expect(jsonLd).toHaveProperty('@type', 'Organization')
       expect(jsonLd).toHaveProperty('name', 'Complete Tech Company')

@@ -60,22 +60,26 @@ test.describe('Rename Field Migration', () => {
       const newColumn = await executeQuery(
         `SELECT column_name FROM information_schema.columns WHERE table_name='users' AND column_name='email_address'`
       )
+      // THEN: assertion
       expect(newColumn.column_name).toBe('email_address')
 
       // Old column name no longer exists
       const oldColumn = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='users' AND column_name='email'`
       )
+      // THEN: assertion
       expect(oldColumn.count).toBe(0)
 
       // Data preserved after rename
       const data = await executeQuery(`SELECT email_address FROM users WHERE id = 1`)
+      // THEN: assertion
       expect(data.email_address).toBe('user@example.com')
 
       // Constraints preserved (UNIQUE still enforced)
       const constraints = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE'`
       )
+      // THEN: assertion
       expect(constraints.count).toBe(1)
     }
   )
@@ -116,16 +120,19 @@ test.describe('Rename Field Migration', () => {
       const column = await executeQuery(
         `SELECT column_name FROM information_schema.columns WHERE table_name='products' AND column_name='product_code'`
       )
+      // THEN: assertion
       expect(column.column_name).toBe('product_code')
 
       // Index still exists and references renamed column
       const index = await executeQuery(
         `SELECT indexdef FROM pg_indexes WHERE tablename='products' AND indexname='idx_products_sku'`
       )
+      // THEN: assertion
       expect(index.indexdef).toContain('product_code')
 
       // Data preserved
       const data = await executeQuery(`SELECT product_code FROM products WHERE id = 1`)
+      // THEN: assertion
       expect(data.product_code).toBe('PROD-001')
     }
   )
@@ -177,21 +184,25 @@ test.describe('Rename Field Migration', () => {
       const column = await executeQuery(
         `SELECT column_name FROM information_schema.columns WHERE table_name='orders' AND column_name='client_id'`
       )
+      // THEN: assertion
       expect(column.column_name).toBe('client_id')
 
       // Foreign key constraint preserved
       const fk = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='orders' AND constraint_type='FOREIGN KEY'`
       )
+      // THEN: assertion
       expect(fk.count).toBe(1)
 
       // Foreign key still enforced after rename
+      // THEN: assertion
       await expect(async () => {
         await executeQuery(`INSERT INTO orders (client_id) VALUES (999)`)
       }).rejects.toThrow(/violates foreign key constraint/i)
 
       // Data preserved
       const data = await executeQuery(`SELECT client_id FROM orders WHERE id = 1`)
+      // THEN: assertion
       expect(data.client_id).toBe(1)
     }
   )
@@ -232,15 +243,18 @@ test.describe('Rename Field Migration', () => {
       const column = await executeQuery(
         `SELECT column_name FROM information_schema.columns WHERE table_name='tasks' AND column_name='state'`
       )
+      // THEN: assertion
       expect(column.column_name).toBe('state')
 
       // CHECK constraint still enforced with new column name
       const validInsert = await executeQuery(
         `INSERT INTO tasks (state) VALUES ('done') RETURNING state`
       )
+      // THEN: assertion
       expect(validInsert.state).toBe('done')
 
       // Invalid value still rejected
+      // THEN: assertion
       await expect(async () => {
         await executeQuery(`INSERT INTO tasks (state) VALUES ('invalid')`)
       }).rejects.toThrow(/violates check constraint/i)
@@ -286,16 +300,19 @@ test.describe('Rename Field Migration', () => {
       const newColumn = await executeQuery(
         `SELECT column_name FROM information_schema.columns WHERE table_name='data' AND column_name='new_name'`
       )
+      // THEN: assertion
       expect(newColumn.column_name).toBe('new_name')
 
       // Verify old column name removed
       const oldColumn = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='data' AND column_name='old_name'`
       )
+      // THEN: assertion
       expect(oldColumn.count).toBe(0)
 
       // Verify data preserved
       const data = await executeQuery(`SELECT new_name FROM data WHERE id = 1`)
+      // THEN: assertion
       expect(data.new_name).toBe('test value')
 
       // Focus on workflow continuity, not exhaustive coverage

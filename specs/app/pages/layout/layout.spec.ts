@@ -125,6 +125,7 @@ test.describe('Page Layout', () => {
       await expect(page.locator('[data-testid="navigation"]')).toBeVisible()
       await expect(page.locator('[data-testid="footer"]')).toBeVisible()
       const navLinks = page.locator('[data-testid="navigation"] a')
+      // THEN: assertion
       await expect(navLinks).toHaveCount(3) // logo + 2 links
     }
   )
@@ -168,6 +169,7 @@ test.describe('Page Layout', () => {
       await expect(sidebar).toHaveCSS('width', '250px')
       await expect(sidebar).toHaveCSS('position', 'sticky')
       const sidebarLinks = sidebar.locator('a')
+      // THEN: assertion
       await expect(sidebarLinks).toHaveCount(3)
     }
   )
@@ -212,6 +214,7 @@ test.describe('Page Layout', () => {
       // Verify banner is above navigation
       const bannerBox = await banner.boundingBox()
       const navBox = await page.locator('[data-testid="navigation"]').boundingBox()
+      // THEN: assertion
       expect(bannerBox!.y).toBeLessThan(navBox!.y)
     }
   )
@@ -280,9 +283,11 @@ test.describe('Page Layout', () => {
       await expect(banner).toHaveCSS('background', /linear-gradient/)
 
       const navigation = page.locator('[data-testid="navigation"]')
+      // THEN: assertion
       await expect(navigation).toHaveCSS('background-color', 'rgb(255, 107, 107)')
 
       const footer = page.locator('[data-testid="footer"]')
+      // THEN: assertion
       await expect(footer).toHaveCSS('background-color', 'rgb(44, 62, 80)')
     }
   )
@@ -327,16 +332,21 @@ test.describe('Page Layout', () => {
 
       // Home page: no layout
       await page.goto('/')
+      // THEN: assertion
       await expect(page.locator('[data-testid="navigation"]')).toBeHidden()
       await expect(page.locator('[data-testid="footer"]')).toBeHidden()
 
       // About page: navigation only
+      // WHEN: user navigates to the page
       await page.goto('/about')
+      // THEN: assertion
       await expect(page.locator('[data-testid="navigation"]')).toBeVisible()
       await expect(page.locator('[data-testid="footer"]')).toBeHidden()
 
       // Docs page: extends default + sidebar
+      // WHEN: user navigates to the page
       await page.goto('/docs')
+      // THEN: assertion
       await expect(page.locator('[data-testid="sidebar-left"]')).toBeVisible()
 
       // THEN: it should override or extend default layout per page
@@ -389,12 +399,14 @@ test.describe('Page Layout', () => {
       await page.goto('/')
 
       // Verify full layout on home
+      // THEN: assertion
       await expect(page.locator('[data-testid="banner"]')).toContainText('Welcome Sale!')
       await expect(page.locator('[data-testid="navigation"]')).toBeVisible()
       await expect(page.locator('[data-testid="footer"]')).toContainText('© 2025 Company')
 
       // Navigate to about (different layout)
       await page.click('a[href="/about"]')
+      // THEN: assertion
       await expect(page).toHaveURL('/about')
       await expect(page.locator('[data-testid="banner"]')).toBeHidden()
       await expect(page.locator('[data-testid="navigation"]')).toBeVisible()

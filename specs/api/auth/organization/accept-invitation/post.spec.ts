@@ -75,6 +75,7 @@ test.describe('Accept organization invitation', () => {
       // Response contains organization and role
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // User is added to organization with specified role
@@ -117,6 +118,7 @@ test.describe('Accept organization invitation', () => {
       // Response contains validation error for invitationId field
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -146,6 +148,7 @@ test.describe('Accept organization invitation', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -183,6 +186,7 @@ test.describe('Accept organization invitation', () => {
       // Response contains error about invitation not found
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -232,6 +236,7 @@ test.describe('Accept organization invitation', () => {
       // Response contains error about expired invitation
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -278,6 +283,7 @@ test.describe('Accept organization invitation', () => {
       // Response contains error about already being member
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -327,6 +333,7 @@ test.describe('Accept organization invitation', () => {
       // Response contains error about invitation not found
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // Invitation remains pending
@@ -383,6 +390,7 @@ test.describe('Accept organization invitation', () => {
       // Response contains error about invitation already accepted
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

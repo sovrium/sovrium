@@ -89,7 +89,9 @@ test.describe('Analytics Configuration', () => {
             },
           ],
         })
+        // WHEN: user navigates to the page
         await page.goto('/')
+        // THEN: assertion
         await expect(page.locator(`[data-testid="analytics-${provider}"]`)).toBeAttached()
       }
     }
@@ -494,6 +496,7 @@ test.describe('Analytics Configuration', () => {
     'APP-PAGES-META-ANALYTICS-REGRESSION-001: user can complete full analytics workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -528,9 +531,11 @@ test.describe('Analytics Configuration', () => {
         ],
       })
 
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // Verify DNS prefetch
+      // THEN: assertion
       await expect(
         page.locator('link[rel="dns-prefetch"][href="https://plausible.io"]')
       ).toBeAttached()

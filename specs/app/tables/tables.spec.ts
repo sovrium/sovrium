@@ -57,11 +57,13 @@ test.describe('Data Tables', () => {
       const tableExists = await executeQuery(
         `SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'products')`
       )
+      // THEN: assertion
       expect(tableExists.rows[0]).toMatchObject({ exists: true })
 
       const columns = await executeQuery(
         `SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'products' ORDER BY ordinal_position`
       )
+      // THEN: assertion
       expect(columns.rows).toEqual([
         { column_name: 'id', data_type: 'integer', is_nullable: 'NO' },
         { column_name: 'title', data_type: 'character varying', is_nullable: 'NO' },
@@ -70,6 +72,7 @@ test.describe('Data Tables', () => {
       const primaryKey = await executeQuery(
         `SELECT constraint_name, constraint_type FROM information_schema.table_constraints WHERE table_name = 'products' AND constraint_type = 'PRIMARY KEY'`
       )
+      // THEN: assertion
       expect(primaryKey.rows[0]).toMatchObject({ constraint_type: 'PRIMARY KEY' })
     }
   )
@@ -125,6 +128,7 @@ test.describe('Data Tables', () => {
       const columns = await executeQuery(
         `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'customers' ORDER BY ordinal_position`
       )
+      // THEN: assertion
       expect(columns.rows).toEqual([
         { column_name: 'id', data_type: 'integer' },
         { column_name: 'name', data_type: 'character varying' },
@@ -137,6 +141,7 @@ test.describe('Data Tables', () => {
       const uniqueConstraint = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='customers' AND constraint_type='UNIQUE'`
       )
+      // THEN: assertion
       expect(uniqueConstraint.rows[0]).toMatchObject({ count: 1 })
     }
   )
@@ -170,6 +175,7 @@ test.describe('Data Tables', () => {
       const primaryKey = await executeQuery(
         `SELECT c.column_name, tc.constraint_type FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage c ON tc.constraint_name = c.constraint_name WHERE tc.table_name = 'orders' AND tc.constraint_type = 'PRIMARY KEY'`
       )
+      // THEN: assertion
       expect(primaryKey.rows[0]).toMatchObject({
         column_name: 'order_id',
         constraint_type: 'PRIMARY KEY',
@@ -178,6 +184,7 @@ test.describe('Data Tables', () => {
       const nullable = await executeQuery(
         `SELECT is_nullable FROM information_schema.columns WHERE table_name = 'orders' AND column_name = 'order_id'`
       )
+      // THEN: assertion
       expect(nullable.rows[0]).toMatchObject({ is_nullable: 'NO' })
     }
   )
@@ -224,11 +231,13 @@ test.describe('Data Tables', () => {
       const uniqueConstraint = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='products' AND constraint_type='UNIQUE' AND constraint_name LIKE '%sku%'`
       )
+      // THEN: assertion
       expect(uniqueConstraint.rows[0]).toMatchObject({ count: 1 })
 
       const notNull = await executeQuery(
         `SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name IN ('sku', 'title', 'price') ORDER BY column_name`
       )
+      // THEN: assertion
       expect(notNull.rows).toEqual([
         { column_name: 'price', is_nullable: 'NO' },
         { column_name: 'sku', is_nullable: 'NO' },
@@ -238,6 +247,7 @@ test.describe('Data Tables', () => {
       const checkConstraint = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%price%'`
       )
+      // THEN: assertion
       expect(checkConstraint.rows[0]).toMatchObject({ count: 1 })
     }
   )
@@ -283,6 +293,7 @@ test.describe('Data Tables', () => {
       const tableInfo = await executeQuery(
         `SELECT tablename, schemaname FROM pg_tables WHERE tablename = 'customers'`
       )
+      // THEN: assertion
       expect(tableInfo.rows[0]).toMatchObject({
         tablename: 'customers',
         schemaname: 'public',
@@ -291,6 +302,7 @@ test.describe('Data Tables', () => {
       const columns = await executeQuery(
         `SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'customers' ORDER BY ordinal_position`
       )
+      // THEN: assertion
       expect(columns.rows).toEqual([
         { column_name: 'id', data_type: 'integer', is_nullable: 'NO' },
         { column_name: 'email', data_type: 'character varying', is_nullable: 'NO' },
@@ -300,6 +312,7 @@ test.describe('Data Tables', () => {
       const indexes = await executeQuery(
         `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'customers' AND indexname = 'idx_customers_email'`
       )
+      // THEN: assertion
       expect(indexes.rows[0]).toMatchObject({ indexname: 'idx_customers_email' })
     }
   )
@@ -331,6 +344,7 @@ test.describe('Data Tables', () => {
       const column = await executeQuery(
         `SELECT column_name, data_type, character_maximum_length FROM information_schema.columns WHERE table_name='items' AND column_name='title'`
       )
+      // THEN: assertion
       expect(column.rows[0]).toMatchObject({
         column_name: 'title',
         data_type: 'character varying',
@@ -368,6 +382,7 @@ test.describe('Data Tables', () => {
       const column = await executeQuery(
         `SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='users' AND column_name='email'`
       )
+      // THEN: assertion
       expect(column.rows[0]).toMatchObject({
         column_name: 'email',
         data_type: 'character varying',
@@ -377,6 +392,7 @@ test.describe('Data Tables', () => {
       const uniqueConstraint = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE'`
       )
+      // THEN: assertion
       expect(uniqueConstraint.rows[0]).toMatchObject({ count: 1 })
     }
   )
@@ -410,6 +426,7 @@ test.describe('Data Tables', () => {
       const column = await executeQuery(
         `SELECT column_name, data_type FROM information_schema.columns WHERE table_name='products' AND column_name='quantity'`
       )
+      // THEN: assertion
       expect(column.rows[0]).toMatchObject({
         column_name: 'quantity',
         data_type: 'integer',
@@ -418,6 +435,7 @@ test.describe('Data Tables', () => {
       const checkConstraint = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%quantity%'`
       )
+      // THEN: assertion
       expect(checkConstraint.rows[0]).toMatchObject({ count: 1 })
     }
   )
@@ -450,6 +468,7 @@ test.describe('Data Tables', () => {
       const column = await executeQuery(
         `SELECT column_name, data_type, numeric_precision, numeric_scale FROM information_schema.columns WHERE table_name='transactions' AND column_name='amount'`
       )
+      // THEN: assertion
       expect(column.rows[0]).toMatchObject({
         column_name: 'amount',
         data_type: 'numeric',
@@ -487,6 +506,7 @@ test.describe('Data Tables', () => {
       const column = await executeQuery(
         `SELECT column_name, data_type, column_default FROM information_schema.columns WHERE table_name='settings' AND column_name='is_active'`
       )
+      // THEN: assertion
       expect(column.rows[0]).toMatchObject({
         column_name: 'is_active',
         data_type: 'boolean',
@@ -525,13 +545,16 @@ test.describe('Data Tables', () => {
       const firstInsertion = await executeQuery(
         `SELECT COUNT(*) as count FROM users WHERE email = 'john@example.com'`
       )
+      // THEN: assertion
       expect(firstInsertion.rows[0]).toMatchObject({ count: 1 })
 
+      // THEN: assertion
       await expect(
         executeQuery(`INSERT INTO users (email) VALUES ('john@example.com')`)
       ).rejects.toThrow(/duplicate key value violates unique constraint/)
 
       const finalCount = await executeQuery(`SELECT COUNT(*) as count FROM users`)
+      // THEN: assertion
       expect(finalCount.rows[0]).toMatchObject({ count: 1 })
     }
   )
@@ -570,8 +593,10 @@ test.describe('Data Tables', () => {
       const validInsertion = await executeQuery(
         `INSERT INTO products (title, price) VALUES ('MacBook Pro', 2499.99) RETURNING id, title`
       )
+      // THEN: assertion
       expect(validInsertion.rows[0]).toMatchObject({ title: 'MacBook Pro' })
 
+      // THEN: assertion
       await expect(
         executeQuery(`INSERT INTO products (title, price) VALUES (NULL, 999.99)`)
       ).rejects.toThrow(/violates not-null constraint/)
@@ -612,12 +637,15 @@ test.describe('Data Tables', () => {
       const validInsertion = await executeQuery(
         `INSERT INTO inventory (item_name, quantity) VALUES ('Widget', 5000) RETURNING quantity`
       )
+      // THEN: assertion
       expect(validInsertion.rows[0]).toMatchObject({ quantity: 5000 })
 
+      // THEN: assertion
       await expect(
         executeQuery(`INSERT INTO inventory (item_name, quantity) VALUES ('Invalid', -1)`)
       ).rejects.toThrow(/violates check constraint/)
 
+      // THEN: assertion
       await expect(
         executeQuery(`INSERT INTO inventory (item_name, quantity) VALUES ('Invalid', 10001)`)
       ).rejects.toThrow(/violates check constraint/)
@@ -659,6 +687,7 @@ test.describe('Data Tables', () => {
       const index = await executeQuery(
         `SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_users_email'`
       )
+      // THEN: assertion
       expect(index.rows[0]).toMatchObject({
         indexname: 'idx_users_email',
         tablename: 'users',
@@ -717,6 +746,7 @@ test.describe('Data Tables', () => {
       const column = await executeQuery(
         `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'customers' AND column_name = 'phone'`
       )
+      // THEN: assertion
       expect(column.rows[0]).toMatchObject({
         column_name: 'phone',
         data_type: 'character varying',
@@ -725,6 +755,7 @@ test.describe('Data Tables', () => {
       const columnCount = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name = 'customers'`
       )
+      // THEN: assertion
       expect(columnCount.rows[0]).toMatchObject({ count: 3 })
     }
   )
@@ -778,11 +809,13 @@ test.describe('Data Tables', () => {
       const statusColumn = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name = 'temp_data' AND column_name = 'status'`
       )
+      // THEN: assertion
       expect(statusColumn.rows[0]).toMatchObject({ count: 0 })
 
       const remainingColumns = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name = 'temp_data'`
       )
+      // THEN: assertion
       expect(remainingColumns.rows[0]).toMatchObject({ count: 2 })
     }
   )
@@ -822,12 +855,14 @@ test.describe('Data Tables', () => {
       const insertion = await executeQuery(
         `INSERT INTO customers (email, name) VALUES ('john@example.com', 'John Doe') RETURNING id, email, name`
       )
+      // THEN: assertion
       expect(insertion.rows[0]).toMatchObject({
         email: 'john@example.com',
         name: 'John Doe',
       })
 
       const rowCount = await executeQuery(`SELECT COUNT(*) as count FROM customers`)
+      // THEN: assertion
       expect(rowCount.rows[0]).toMatchObject({ count: 1 })
     }
   )
@@ -867,11 +902,13 @@ test.describe('Data Tables', () => {
       const update = await executeQuery(
         `UPDATE customers SET name = 'John Smith' WHERE email = 'john@example.com' RETURNING name`
       )
+      // THEN: assertion
       expect(update.rows[0]).toMatchObject({ name: 'John Smith' })
 
       const select = await executeQuery(
         `SELECT name FROM customers WHERE email = 'john@example.com'`
       )
+      // THEN: assertion
       expect(select.rows[0]).toMatchObject({ name: 'John Smith' })
     }
   )
@@ -909,9 +946,11 @@ test.describe('Data Tables', () => {
       const deletion = await executeQuery(
         `DELETE FROM customers WHERE email = 'john@example.com' RETURNING email`
       )
+      // THEN: assertion
       expect(deletion.rows[0]).toMatchObject({ email: 'john@example.com' })
 
       const finalCount = await executeQuery(`SELECT COUNT(*) as count FROM customers`)
+      // THEN: assertion
       expect(finalCount.rows[0]).toMatchObject({ count: 2 })
     }
   )
@@ -943,6 +982,7 @@ test.describe('Data Tables', () => {
       const column = await executeQuery(
         `SELECT column_name, data_type FROM information_schema.columns WHERE table_name='orders' AND column_name='created_at'`
       )
+      // THEN: assertion
       expect(column.rows[0]).toMatchObject({
         column_name: 'created_at',
         data_type: 'timestamp without time zone',
@@ -951,6 +991,7 @@ test.describe('Data Tables', () => {
       const defaultValue = await executeQuery(
         `SELECT column_default FROM information_schema.columns WHERE table_name='orders' AND column_name='created_at'`
       )
+      // THEN: assertion
       expect(defaultValue.rows[0]).toMatchObject({ column_default: 'CURRENT_TIMESTAMP' })
     }
   )
@@ -983,6 +1024,7 @@ test.describe('Data Tables', () => {
       const column = await executeQuery(
         `SELECT column_name, data_type FROM information_schema.columns WHERE table_name='items' AND column_name='status'`
       )
+      // THEN: assertion
       expect(column.rows[0]).toMatchObject({
         column_name: 'status',
         data_type: 'character varying',
@@ -991,6 +1033,7 @@ test.describe('Data Tables', () => {
       const checkConstraint = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%status%'`
       )
+      // THEN: assertion
       expect(checkConstraint.rows[0]).toMatchObject({ count: 1 })
     }
   )
@@ -1032,6 +1075,7 @@ test.describe('Data Tables', () => {
       const existsAfter = await executeQuery(
         `SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = 'obsolete_data')`
       )
+      // THEN: assertion
       expect(existsAfter.rows[0]).toMatchObject({ exists: false })
     }
   )
@@ -1071,11 +1115,13 @@ test.describe('Data Tables', () => {
       const primaryKeyCount = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='user_tenants' AND constraint_type='PRIMARY KEY'`
       )
+      // THEN: assertion
       expect(primaryKeyCount.rows[0]).toMatchObject({ count: 1 })
 
       const columnCount = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.key_column_usage WHERE table_name='user_tenants' AND constraint_name LIKE '%_pkey'`
       )
+      // THEN: assertion
       expect(columnCount.rows[0]).toMatchObject({ count: 2 })
     }
   )
@@ -1144,35 +1190,42 @@ test.describe('Data Tables', () => {
       const tableExists = await executeQuery(
         `SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = 'products')`
       )
+      // THEN: assertion
       expect(tableExists.rows[0]).toMatchObject({ exists: true })
 
       // 2. CRUD operations work
       const insertion = await executeQuery(
         `INSERT INTO products (sku, title, price, quantity) VALUES ('WIDGET-001', 'Widget', 19.99, 100) RETURNING id, title`
       )
+      // THEN: assertion
       expect(insertion.rows[0]).toMatchObject({ title: 'Widget' })
 
       const update = await executeQuery(
         `UPDATE products SET price = 24.99 WHERE sku = 'WIDGET-001' RETURNING price`
       )
+      // THEN: assertion
       expect(update.rows[0]).toMatchObject({ price: 24.99 })
 
       const select = await executeQuery(`SELECT COUNT(*) as count FROM products`)
+      // THEN: assertion
       expect(select.rows[0]).toMatchObject({ count: 1 })
 
       // 3. Constraints enforce data integrity
+      // THEN: assertion
       await expect(
         executeQuery(
           `INSERT INTO products (sku, title, price) VALUES ('WIDGET-001', 'Duplicate', 10)`
         )
       ).rejects.toThrow(/unique constraint/)
 
+      // THEN: assertion
       await expect(
         executeQuery(`INSERT INTO products (sku, title, price) VALUES ('NEW-001', 'Invalid', -5)`)
       ).rejects.toThrow(/check constraint/)
 
       // Workflow completes successfully
       const finalCount = await executeQuery(`SELECT COUNT(*) as count FROM products`)
+      // THEN: assertion
       expect(finalCount.rows[0]).toMatchObject({ count: 1 })
     }
   )

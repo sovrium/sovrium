@@ -24,6 +24,7 @@ test.describe('Created At Field', () => {
     'APP-CREATED-AT-FIELD-001: should create PostgreSQL TIMESTAMPTZ column with DEFAULT NOW()',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -39,10 +40,13 @@ test.describe('Created At Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type, column_default FROM information_schema.columns WHERE table_name='records' AND column_name='created_at'"
       )
+      // THEN: assertion
       expect(columnInfo.data_type).toMatch(/timestamp/)
+      // THEN: assertion
       expect(columnInfo.column_default).toMatch(/now/)
     }
   )
@@ -51,6 +55,7 @@ test.describe('Created At Field', () => {
     'APP-CREATED-AT-FIELD-002: should automatically set timestamp when row is created',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -66,9 +71,11 @@ test.describe('Created At Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const insert = await executeQuery(
         'INSERT INTO posts (id) VALUES (DEFAULT) RETURNING created_at'
       )
+      // THEN: assertion
       expect(insert.created_at).toBeTruthy()
     }
   )
@@ -77,6 +84,7 @@ test.describe('Created At Field', () => {
     'APP-CREATED-AT-FIELD-003: should be immutable after creation (no updates allowed)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -92,14 +100,17 @@ test.describe('Created At Field', () => {
         ],
       })
 
+      // GIVEN: table configuration
       await executeQuery(['INSERT INTO logs (id) VALUES (1)'])
 
       // Update should not modify created_at (or should be prevented)
       await executeQuery(["UPDATE logs SET created_at = '2020-01-01 00:00:00+00' WHERE id = 1"])
 
+      // WHEN: executing query
       const result = await executeQuery('SELECT created_at FROM logs WHERE id = 1')
       // created_at should still be recent (not 2020)
       const createdDate = new Date(result.created_at)
+      // THEN: assertion
       expect(createdDate.getFullYear()).toBeGreaterThan(2020)
     }
   )
@@ -108,6 +119,7 @@ test.describe('Created At Field', () => {
     'APP-CREATED-AT-FIELD-004: should reject NULL values (always required)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -123,9 +135,11 @@ test.describe('Created At Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const notNullCheck = await executeQuery(
         "SELECT is_nullable FROM information_schema.columns WHERE table_name='events' AND column_name='created_at'"
       )
+      // THEN: assertion
       expect(notNullCheck.is_nullable).toBe('NO')
     }
   )
@@ -134,6 +148,7 @@ test.describe('Created At Field', () => {
     'APP-CREATED-AT-FIELD-005: should create btree index for fast queries when indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -149,9 +164,11 @@ test.describe('Created At Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const indexExists = await executeQuery(
         "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_audit_created_at'"
       )
+      // THEN: assertion
       expect(indexExists.indexname).toBe('idx_audit_created_at')
     }
   )
@@ -160,6 +177,7 @@ test.describe('Created At Field', () => {
     'APP-TABLES-FIELD-CREATED-AT-REGRESSION-001: user can complete full created-at-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -175,10 +193,14 @@ test.describe('Created At Field', () => {
         ],
       })
 
+      // WHEN: executing query
       await executeQuery('INSERT INTO data (id) VALUES (1), (2), (3)')
 
+      // WHEN: querying the database
       const results = await executeQuery('SELECT created_at FROM data ORDER BY created_at')
+      // THEN: assertion
       expect(results.length).toBe(3)
+      // THEN: assertion
       expect(results[0].created_at).toBeTruthy()
     }
   )

@@ -204,6 +204,7 @@ test.describe('View Fields', () => {
       await page.goto('/tables/tbl_data/views/custom_view')
 
       const columns = page.locator('[data-field]')
+      // THEN: assertion
       await expect(columns.nth(0)).toHaveAttribute('data-field', 'status')
       await expect(columns.nth(1)).toHaveAttribute('data-field', 'name')
       await expect(columns.nth(2)).toHaveAttribute('data-field', 'id')

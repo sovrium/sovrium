@@ -72,10 +72,12 @@ test.describe('Theme Configuration', () => {
       const cssResponse = await page.request.get('/assets/output.css')
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--color-primary: #007bff')
       expect(css).toContain('--color-secondary: #6c757d')
 
       // 2. Verify element renders
+      // THEN: assertion
       await expect(page.locator('[data-testid="theme-colors"]')).toBeVisible()
 
       // 3. Verify computed styles - theme colors were applied via token substitution
@@ -84,6 +86,7 @@ test.describe('Theme Configuration', () => {
         (el) => window.getComputedStyle(el).backgroundColor
       )
       const color = await element.evaluate((el) => window.getComputedStyle(el).color)
+      // THEN: assertion
       expect(backgroundColor).toBe('rgb(0, 123, 255)') // #007bff
       expect(color).toBe('rgb(108, 117, 125)') // #6c757d
     }
@@ -135,6 +138,7 @@ test.describe('Theme Configuration', () => {
       const primaryColor = await page
         .locator('[data-testid="color-primary"]')
         .evaluate((el) => window.getComputedStyle(el).backgroundColor)
+      // THEN: assertion
       expect(primaryColor).toContain('0, 123, 255') // rgb(0, 123, 255) = #007bff
     }
   )
@@ -281,6 +285,7 @@ test.describe('Theme Configuration', () => {
       const cssResponse = await page.request.get('/assets/output.css')
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css).toContain('--color-primary: #007bff')
       expect(css).toContain('--font-body')
       expect(css).toContain('--spacing-section: 4rem')
@@ -289,6 +294,7 @@ test.describe('Theme Configuration', () => {
       expect(css).toContain('--radius-md: 0.375rem')
 
       // 2. Verify all elements render with theme tokens
+      // THEN: assertion
       await expect(page.locator('[data-testid="theme-colors"]')).toBeVisible()
       await expect(page.locator('[data-testid="theme-fonts"]')).toBeVisible()
       await expect(page.locator('[data-testid="theme-spacing"]')).toBeVisible()
@@ -333,6 +339,7 @@ test.describe('Theme Configuration', () => {
         const lg = window.matchMedia('(min-width: 1024px)').matches
         return { sm, md, lg }
       })
+      // THEN: assertion
       expect(breakpoints).toBeTruthy()
     }
   )
@@ -384,6 +391,7 @@ test.describe('Theme Configuration', () => {
       const animationName = await element.evaluate(
         (el) => window.getComputedStyle(el).animationName
       )
+      // THEN: assertion
       expect(['fade-in', 'slide-in', 'pulse']).toContain(animationName)
     }
   )
@@ -448,6 +456,7 @@ test.describe('Theme Configuration', () => {
         color: window.getComputedStyle(el).color,
         padding: window.getComputedStyle(el).padding,
       }))
+      // THEN: assertion
       expect(buttonStyles).toBeTruthy()
     }
   )
@@ -549,11 +558,13 @@ test.describe('Theme Configuration', () => {
       await expect(heroSection).toHaveCSS('padding', '64px') // 4rem × 16px = 64px (computed value)
 
       const heading = heroSection.locator('h1')
+      // THEN: assertion
       await expect(heading).toHaveCSS('font-family', /Bely Display/)
       await expect(heading).toHaveCSS('font-size', '40px') // 2.5rem × 16px = 40px (computed value)
       await expect(heading).toHaveCSS('color', /33, 37, 41/)
 
       const button = heroSection.locator('button')
+      // THEN: assertion
       await expect(button).toHaveCSS('background-color', /0, 123, 255/) // #007bff = rgb(0, 123, 255)
       await expect(button).toHaveCSS('border-radius', '8px') // 0.5rem × 16px = 8px (computed value)
       await expect(button).toHaveCSS('font-family', /Inter/)
@@ -604,10 +615,12 @@ test.describe('Theme Configuration', () => {
       await expect(header).toHaveCSS('padding', /64px/)
 
       const heroSection = page.locator('[data-testid="hero"]')
+      // THEN: assertion
       await expect(heroSection).toHaveCSS('background-color', /248, 249, 250/)
       await expect(heroSection).toHaveCSS('padding', /64px/)
 
       const footer = page.locator('footer')
+      // THEN: assertion
       await expect(footer).toHaveCSS('background-color', /108, 117, 125/)
       await expect(footer).toHaveCSS('padding', /64px/)
     }
@@ -654,16 +667,19 @@ test.describe('Theme Configuration', () => {
       await expect(section).toHaveCSS('padding', '32px') // 2rem × 16px = 32px
 
       const grid = section.locator('.responsive-grid')
+      // THEN: assertion
       await expect(grid).toHaveCSS('gap', '16px') // 1rem × 16px = 16px
 
       // Test tablet breakpoint
       await page.setViewportSize({ width: 768, height: 1024 })
       await page.waitForTimeout(100) // Allow CSS media queries to apply
+      // THEN: assertion
       await expect(section).toHaveCSS('padding', '64px') // 4rem × 16px = 64px
 
       // Test desktop breakpoint
       await page.setViewportSize({ width: 1024, height: 768 })
       await page.waitForTimeout(100) // Allow CSS media queries to apply
+      // THEN: assertion
       await expect(grid).toHaveCSS('gap', '32px') // 2rem × 16px = 32px
     }
   )
@@ -825,8 +841,10 @@ test.describe('Theme Configuration', () => {
 
       // 1. Verify CSS compilation contains all theme definitions
       const cssResponse = await page.request.get('/assets/output.css')
+      // THEN: assertion
       expect(cssResponse.ok()).toBeTruthy()
       const css = await cssResponse.text()
+      // THEN: assertion
       expect(css.length).toBeGreaterThan(1000) // Tailwind CSS is substantial
       expect(css).toContain('--color-primary: #007bff')
       expect(css).toContain('--color-secondary: #6c757d')
@@ -837,13 +855,16 @@ test.describe('Theme Configuration', () => {
 
       // 2. Structure validation - CSS link exists in head (theme CSS loaded globally)
       const cssLink = page.locator('link[href="/assets/output.css"]')
+      // THEN: assertion
       await expect(cssLink).toHaveCount(1)
 
       // Verify no inline theme styles (theme CSS now compiled at startup, not per-page)
       const themeStyleTags = page.locator('style:has-text(":root"), style:has-text("--color-")')
+      // THEN: assertion
       await expect(themeStyleTags).toHaveCount(0)
 
       // 3. Visual validation - page renders successfully
+      // THEN: assertion
       await expect(page.locator('html')).toBeVisible()
       await expect(page.locator('body')).toHaveScreenshot(
         'theme-regression-001-complete-system.png',

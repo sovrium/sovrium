@@ -164,6 +164,7 @@ test.describe('Sidebar Configuration', () => {
       const toggleButton = page.locator('[data-testid="sidebar-toggle"]')
       await expect(sidebar).toHaveCSS('width', '256px')
       await toggleButton.click()
+      // THEN: assertion
       await expect(sidebar).toHaveCSS('width', '64px')
     }
   )
@@ -237,6 +238,7 @@ test.describe('Sidebar Configuration', () => {
       const sidebar = page.locator('[data-testid="sidebar-left"]')
       await expect(sidebar).toHaveCSS('position', 'sticky')
       await page.evaluate(() => window.scrollTo(0, 1000))
+      // THEN: assertion
       await expect(sidebar).toBeInViewport()
     }
   )
@@ -319,6 +321,7 @@ test.describe('Sidebar Configuration', () => {
       await expect(group).toContainText('Products')
       await group.click()
       const children = page.locator('[data-testid="sidebar-group-0-children"]')
+      // THEN: assertion
       await expect(children).toBeVisible()
       await expect(children.locator('a')).toHaveCount(2)
     }
@@ -405,6 +408,7 @@ test.describe('Sidebar Configuration', () => {
       const topGroup = page.locator('[data-testid="sidebar-group-0"]')
       await topGroup.click()
       const nestedGroup = page.locator('[data-testid="sidebar-group-1"]')
+      // THEN: assertion
       await expect(nestedGroup).toBeVisible()
       await expect(nestedGroup).toContainText('Getting Started')
     }
@@ -455,6 +459,7 @@ test.describe('Sidebar Configuration', () => {
     'APP-PAGES-LAYOUT-SIDEBAR-REGRESSION-001: user can complete full sidebar workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -487,10 +492,12 @@ test.describe('Sidebar Configuration', () => {
         ],
       })
 
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // Verify sidebar visible (position is 'left')
       const sidebar = page.locator('[data-testid="sidebar-left"]')
+      // THEN: assertion
       await expect(sidebar).toBeVisible()
 
       // Verify link click

@@ -425,15 +425,18 @@ test.describe('Common Definitions', () => {
       await page.goto('/')
 
       // Verify variable reference
+      // THEN: assertion
       await expect(page.locator('[data-testid="block-my-component"]')).toHaveText(
         'Welcome to My Site'
       )
 
       // Verify icons
+      // THEN: assertion
       await expect(page.locator('[data-testid="icon-check"]')).toBeVisible()
       await expect(page.locator('[data-testid="icon-star"]')).toBeVisible()
 
       // Verify URL
+      // THEN: assertion
       await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
         'content',
         'https://example.com/og.jpg'

@@ -76,6 +76,7 @@ test.describe('Delete organization', () => {
       // Response indicates success
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // Organization is deleted from database
@@ -118,6 +119,7 @@ test.describe('Delete organization', () => {
       // Response contains validation error for organizationId field
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -147,6 +149,7 @@ test.describe('Delete organization', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -190,6 +193,7 @@ test.describe('Delete organization', () => {
       // Response contains error about insufficient permissions
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -227,6 +231,7 @@ test.describe('Delete organization', () => {
       // Response contains error about organization not found
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

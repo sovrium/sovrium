@@ -328,10 +328,15 @@ test.describe('Pages', () => {
 
       // WHEN: pages array contains [homepage, about, pricing, contact]
       await page.goto('/')
+      // THEN: assertion
       await expect(page).toHaveTitle('Home')
+      // WHEN: user navigates to the page
       await page.goto('/about')
+      // THEN: assertion
       await expect(page).toHaveTitle('About')
+      // WHEN: user navigates to the page
       await page.goto('/pricing')
+      // THEN: assertion
       await expect(page).toHaveTitle('Pricing')
 
       // THEN: it should support multiple page configurations
@@ -366,8 +371,11 @@ test.describe('Pages', () => {
 
       // WHEN: blocks are defined at app level and referenced in sections
       await page.goto('/')
+      // THEN: assertion
       await expect(page.locator('button')).toHaveText('Get Started')
+      // WHEN: user navigates to the page
       await page.goto('/pricing')
+      // THEN: assertion
       await expect(page.locator('button')).toHaveText('Buy Now')
 
       // THEN: it should enable block reusability across pages via $ref
@@ -418,6 +426,7 @@ test.describe('Pages', () => {
         'content',
         'Amazing Product'
       )
+      // THEN: assertion
       await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
         'content',
         'summary_large_image'
@@ -494,8 +503,11 @@ test.describe('Pages', () => {
 
       // WHEN: page uses app.languages for i18n with meta.lang and locale-specific content
       await page.goto('/')
+      // THEN: assertion
       await expect(page.locator('h1')).toHaveText('Welcome')
+      // WHEN: user navigates to the page
       await page.goto('/fr')
+      // THEN: assertion
       await expect(page.locator('h1')).toHaveText('Bienvenue')
 
       // THEN: it should adapt page content based on selected language without page-level translations
@@ -537,9 +549,12 @@ test.describe('Pages', () => {
 
       // WHEN: page sections reference app.blocks[] via $ref with $vars substitution
       await page.goto('/')
+      // THEN: assertion
       await expect(page.locator('h1')).toHaveText('Welcome')
       await expect(page.locator('button')).toHaveText('Get Started')
+      // WHEN: user navigates to the page
       await page.goto('/pricing')
+      // THEN: assertion
       await expect(page.locator('h1')).toHaveText('Pricing')
       await expect(page.locator('button')).toHaveText('Buy Now')
 
@@ -635,9 +650,12 @@ test.describe('Pages', () => {
 
       // WHEN: all systems work together in a full-stack configuration
       await page.goto('/')
+      // THEN: assertion
       await expect(page.locator('section')).toHaveClass(/bg-primary/)
       await expect(page.locator('h1')).toHaveText('Welcome')
+      // WHEN: user navigates to the page
       await page.goto('/fr')
+      // THEN: assertion
       await expect(page.locator('h1')).toHaveText('Bienvenue')
 
       // THEN: it should demonstrate end-to-end integration of all page-building features
@@ -682,17 +700,21 @@ test.describe('Pages', () => {
       // 1. Home page structure validation
       await page.goto('/')
 
+      // THEN: assertion
       await expect(page.locator('body')).toMatchAriaSnapshot(`
         - main:
           - region:
             - button "Get Started"
       `)
 
+      // THEN: assertion
       await expect(page).toHaveTitle('Home')
 
       // 2. About page with navigation
+      // WHEN: user navigates to the page
       await page.goto('/about')
 
+      // THEN: assertion
       await expect(page.locator('body')).toMatchAriaSnapshot(`
         - navigation:
           - link:
@@ -700,6 +722,7 @@ test.describe('Pages', () => {
         - main
       `)
 
+      // THEN: assertion
       await expect(page).toHaveTitle('About')
 
       // Focus on workflow continuity, not exhaustive coverage

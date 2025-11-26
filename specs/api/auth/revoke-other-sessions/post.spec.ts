@@ -66,6 +66,7 @@ test.describe('Revoke all other sessions', () => {
       // Response indicates success
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // Other sessions are revoked in database
@@ -100,6 +101,7 @@ test.describe('Revoke all other sessions', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

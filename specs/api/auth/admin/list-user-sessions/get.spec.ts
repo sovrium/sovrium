@@ -69,6 +69,7 @@ test.describe('Admin: List user sessions', () => {
       // Response contains sessions array with metadata
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // Response includes both user sessions (not admin session)
@@ -105,6 +106,7 @@ test.describe('Admin: List user sessions', () => {
       // Response contains validation error for userId parameter
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -129,6 +131,7 @@ test.describe('Admin: List user sessions', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -166,6 +169,7 @@ test.describe('Admin: List user sessions', () => {
       // Response contains error about insufficient permissions
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -200,6 +204,7 @@ test.describe('Admin: List user sessions', () => {
       // Response contains error about user not found
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

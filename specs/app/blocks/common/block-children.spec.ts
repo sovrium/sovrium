@@ -521,6 +521,7 @@ test.describe('Block Children', () => {
       await page.goto('/')
 
       // 1. Structure validation (ARIA) - First card
+      // THEN: assertion
       await expect(page.locator('[data-testid="block-feature-card-0"]')).toMatchAriaSnapshot(`
         - group:
           - img
@@ -530,6 +531,7 @@ test.describe('Block Children', () => {
       `)
 
       // 2. Structure validation (ARIA) - Second card (different data, same structure)
+      // THEN: assertion
       await expect(page.locator('[data-testid="block-feature-card-1"]')).toMatchAriaSnapshot(`
         - group:
           - img

@@ -526,6 +526,7 @@ test.describe('Product Schema', () => {
     'APP-PAGES-META-STRUCTURED-DATA-PRODUCT-REGRESSION-001: user can complete full Product workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -568,6 +569,7 @@ test.describe('Product Schema', () => {
           },
         ],
       })
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // Enhanced JSON-LD validation
@@ -577,6 +579,7 @@ test.describe('Product Schema', () => {
       const jsonLd = JSON.parse(scriptContent!)
 
       // Validate JSON-LD structure
+      // THEN: assertion
       expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
       expect(jsonLd).toHaveProperty('@type', 'Product')
       expect(jsonLd).toHaveProperty('name', 'Complete Product Test')

@@ -50,6 +50,7 @@ test.describe('URL Field', () => {
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='companies' AND column_name='website'"
       )
+      // THEN: assertion
       expect(columnInfo).toEqual({
         column_name: 'website',
         data_type: 'character varying',
@@ -60,6 +61,7 @@ test.describe('URL Field', () => {
       const validInsert = await executeQuery(
         "INSERT INTO companies (website) VALUES ('https://example.com') RETURNING website"
       )
+      // THEN: assertion
       expect(validInsert.website).toBe('https://example.com')
     }
   )
@@ -89,16 +91,19 @@ test.describe('URL Field', () => {
       const httpsInsert = await executeQuery(
         "INSERT INTO products (product_url) VALUES ('https://secure.example.com/product/123') RETURNING product_url"
       )
+      // THEN: assertion
       expect(httpsInsert.product_url).toBe('https://secure.example.com/product/123')
 
       const httpInsert = await executeQuery(
         "INSERT INTO products (product_url) VALUES ('http://legacy.example.com/item') RETURNING product_url"
       )
+      // THEN: assertion
       expect(httpInsert.product_url).toBe('http://legacy.example.com/item')
 
       const bothStored = await executeQuery(
         "SELECT COUNT(*) as count FROM products WHERE product_url LIKE 'http%://%'"
       )
+      // THEN: assertion
       expect(bothStored.count).toBe(2)
     }
   )
@@ -123,6 +128,7 @@ test.describe('URL Field', () => {
         ],
       })
 
+      // GIVEN: table configuration
       await executeQuery(["INSERT INTO links (url) VALUES ('https://example.com')"])
 
       // WHEN: attempt to insert duplicate url='https://example.com'
@@ -130,13 +136,16 @@ test.describe('URL Field', () => {
       const uniqueConstraint = await executeQuery(
         "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='links' AND constraint_type='UNIQUE' AND constraint_name LIKE '%url%'"
       )
+      // THEN: assertion
       expect(uniqueConstraint.count).toBe(1)
 
+      // THEN: assertion
       await expect(
         executeQuery("INSERT INTO links (url) VALUES ('https://example.com')")
       ).rejects.toThrow(/duplicate key value violates unique constraint/)
 
       const rowCount = await executeQuery('SELECT COUNT(*) as count FROM links')
+      // THEN: assertion
       expect(rowCount.count).toBe(1)
     }
   )
@@ -166,13 +175,16 @@ test.describe('URL Field', () => {
       const notNullCheck = await executeQuery(
         "SELECT is_nullable FROM information_schema.columns WHERE table_name='resources' AND column_name='resource_url'"
       )
+      // THEN: assertion
       expect(notNullCheck.is_nullable).toBe('NO')
 
       const validInsert = await executeQuery(
         "INSERT INTO resources (resource_url) VALUES ('https://cdn.example.com/file.pdf') RETURNING resource_url"
       )
+      // THEN: assertion
       expect(validInsert.resource_url).toBe('https://cdn.example.com/file.pdf')
 
+      // THEN: assertion
       await expect(
         executeQuery('INSERT INTO resources (resource_url) VALUES (NULL)')
       ).rejects.toThrow(/violates not-null constraint/)
@@ -204,6 +216,7 @@ test.describe('URL Field', () => {
       const indexExists = await executeQuery(
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_bookmarks_url'"
       )
+      // THEN: assertion
       expect(indexExists).toEqual({
         indexname: 'idx_bookmarks_url',
         tablename: 'bookmarks',
@@ -212,6 +225,7 @@ test.describe('URL Field', () => {
       const indexDef = await executeQuery(
         "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_bookmarks_url'"
       )
+      // THEN: assertion
       expect(indexDef.indexdef).toBe(
         'CREATE INDEX idx_bookmarks_url ON public.bookmarks USING btree (url)'
       )
@@ -253,12 +267,14 @@ test.describe('URL Field', () => {
       const columnInfo = await executeQuery(
         "SELECT data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='url_field'"
       )
+      // THEN: assertion
       expect(columnInfo.data_type).toBe('character varying')
       expect(columnInfo.character_maximum_length).toBe(255)
       expect(columnInfo.is_nullable).toBe('NO')
 
       // Test URL insertion and uniqueness
       await executeQuery("INSERT INTO data (url_field) VALUES ('https://test.com/path')")
+      // THEN: assertion
       await expect(
         executeQuery("INSERT INTO data (url_field) VALUES ('https://test.com/path')")
       ).rejects.toThrow(/duplicate key value violates unique constraint/)

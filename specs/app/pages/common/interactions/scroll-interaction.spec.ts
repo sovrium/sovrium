@@ -362,6 +362,7 @@ test.describe('Scroll Interaction', () => {
 
       // First entry
       await element.scrollIntoViewIfNeeded()
+      // THEN: assertion
       await expect(element).toHaveClass(/animate-fadeIn/)
 
       // Scroll away and back
@@ -404,6 +405,7 @@ test.describe('Scroll Interaction', () => {
 
       // First entry
       await element.scrollIntoViewIfNeeded()
+      // THEN: assertion
       await expect(element).toHaveClass(/animate-fadeIn/)
 
       // Scroll away and back
@@ -510,13 +512,16 @@ test.describe('Scroll Interaction', () => {
       // Verify first scroll animation
       const section1 = page.locator('div').filter({ hasText: 'Section 1' })
       await section1.scrollIntoViewIfNeeded()
+      // THEN: assertion
       await expect(section1).toHaveClass(/animate-fadeIn/)
 
       // Verify delayed scroll animation
       const section2 = page.locator('div').filter({ hasText: 'Section 2' })
       await section2.scrollIntoViewIfNeeded()
+      // THEN: assertion
       await expect(section2).toHaveClass(/animate-fadeInUp/)
       // Note: Browsers may normalize 200ms to 0.2s, both are equivalent
+      // THEN: assertion
       await expect(section2).toHaveCSS('animation-delay', '0.2s')
 
       // Focus on workflow continuity, not exhaustive coverage

@@ -245,8 +245,10 @@ test.describe('Local Business Schema', () => {
             },
           ],
         })
+        // WHEN: user navigates to the page
         await page.goto('/')
         const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        // THEN: assertion
         expect(scriptContent).toContain(priceRange)
       }
     }

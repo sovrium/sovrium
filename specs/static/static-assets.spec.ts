@@ -54,15 +54,19 @@ test.describe('Static Site Generation - Asset Management', () => {
 
       // Verify file contents were copied
       const favicon = await readFile(join(outputDir, 'favicon.ico'))
+      // THEN: assertion
       expect(favicon.toString()).toBe('fake-ico')
 
       const robots = await readFile(join(outputDir, 'robots.txt'), 'utf-8')
+      // THEN: assertion
       expect(robots).toBe('User-agent: *\nAllow: /')
 
       const logo = await readFile(join(outputDir, 'images/logo.png'))
+      // THEN: assertion
       expect(logo.toString()).toBe('fake-png')
 
       const font = await readFile(join(outputDir, 'fonts/inter.woff2'))
+      // THEN: assertion
       expect(font.toString()).toBe('fake-font')
     }
   )
@@ -127,6 +131,7 @@ test.describe('Static Site Generation - Asset Management', () => {
       expect(structure.get('documents/pdf')).toBe('directory')
 
       // Verify files are in correct locations
+      // THEN: assertion
       expect(structure.get('assets/images/icons/arrow.svg')).toBe('file')
       expect(structure.get('assets/images/photos/hero.jpg')).toBe('file')
       expect(structure.get('assets/fonts/woff/inter.woff')).toBe('file')
@@ -190,6 +195,7 @@ test.describe('Static Site Generation - Asset Management', () => {
 
       // Verify file sizes are preserved
       const pngStat = await stat(join(outputDir, 'media/image.png'))
+      // THEN: assertion
       expect(pngStat.size).toBe(pngHeader.length)
     }
   )
@@ -285,11 +291,13 @@ test.describe('Static Site Generation - Asset Management', () => {
       expect(homeHtml).toContain('href="/assets/output.css"')
 
       // Nested page should have absolute paths
+      // THEN: assertion
       expect(nestedHtml).toContain('src="/images/logo.svg"')
       expect(nestedHtml).toContain('href="/assets/output.css"')
 
       // Verify assets were actually copied
       const files = await readdir(outputDir, { recursive: true })
+      // THEN: assertion
       expect(files).toContain('images/logo.svg')
       expect(files).toContain('images/hero-bg.jpg')
       expect(files).toContain('fonts/inter.woff2')
@@ -409,11 +417,13 @@ test.describe('Static Site Generation - Asset Management', () => {
 
       // Check link to PDF
       const pdfLink = page.locator('a[download]')
+      // THEN: assertion
       await expect(pdfLink).toHaveAttribute('href', '/documents/guide.pdf')
       await expect(pdfLink).toHaveText('Download Guide')
 
       // Verify all assets were copied
       const files = await readdir(outputDir, { recursive: true })
+      // THEN: assertion
       expect(files).toContain('favicon.ico')
       expect(files).toContain('manifest.json')
       expect(files).toContain('images/logo.svg')
@@ -425,6 +435,7 @@ test.describe('Static Site Generation - Asset Management', () => {
       // Verify manifest.json content is valid JSON
       const manifest = await readFile(join(outputDir, 'manifest.json'), 'utf-8')
       const manifestData = JSON.parse(manifest)
+      // THEN: assertion
       expect(manifestData.name).toBe('Test App')
       expect(manifestData.start_url).toBe('/')
     }

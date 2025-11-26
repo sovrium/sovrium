@@ -86,8 +86,10 @@ test.describe('Article Schema', () => {
             },
           ],
         })
+        // WHEN: user navigates to the page
         await page.goto('/')
         const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        // THEN: assertion
         expect(scriptContent).toContain(`"@type":"${type}"`)
       }
     }
@@ -452,6 +454,7 @@ test.describe('Article Schema', () => {
     "APP-PAGES-ARTICLE-012: should specify article's primary page URL",
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: Article with mainEntityOfPage URL
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -574,6 +577,7 @@ test.describe('Article Schema', () => {
     'APP-PAGES-META-STRUCTURED-DATA-ARTICLE-REGRESSION-001: user can complete full Article workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -606,6 +610,7 @@ test.describe('Article Schema', () => {
           },
         ],
       })
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // Enhanced JSON-LD validation
@@ -615,6 +620,7 @@ test.describe('Article Schema', () => {
       const jsonLd = JSON.parse(scriptContent!)
 
       // Validate JSON-LD structure
+      // THEN: assertion
       expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
       expect(jsonLd).toHaveProperty('@type', 'Article')
       expect(jsonLd).toHaveProperty('headline', 'Complete Article Test')

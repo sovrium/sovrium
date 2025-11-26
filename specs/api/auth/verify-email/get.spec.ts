@@ -55,10 +55,12 @@ test.describe('Verify email address', () => {
       // Response contains user with verified email
       // User email is marked as verified in database
       // Verification token is marked as used
+      // THEN: assertion
       expect(response.status).toBe(200)
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -83,6 +85,7 @@ test.describe('Verify email address', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -106,6 +109,7 @@ test.describe('Verify email address', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -137,6 +141,7 @@ test.describe('Verify email address', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -168,6 +173,7 @@ test.describe('Verify email address', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -198,6 +204,7 @@ test.describe('Verify email address', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

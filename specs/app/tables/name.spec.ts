@@ -51,6 +51,7 @@ test.describe('Table Name', () => {
         })
       ).resolves.not.toThrow()
 
+      // THEN: assertion
       await expect(
         startServerWithSchema({
           name: 'test-app',
@@ -65,6 +66,7 @@ test.describe('Table Name', () => {
       ).resolves.not.toThrow()
 
       // Invalid table names (uppercase, spaces, special characters, starts with number)
+      // THEN: assertion
       await expect(
         startServerWithSchema({
           name: 'test-app',
@@ -78,6 +80,7 @@ test.describe('Table Name', () => {
         })
       ).rejects.toThrow(/validation error/)
 
+      // THEN: assertion
       await expect(
         startServerWithSchema({
           name: 'test-app',
@@ -91,6 +94,7 @@ test.describe('Table Name', () => {
         })
       ).rejects.toThrow(/validation error/)
 
+      // THEN: assertion
       await expect(
         startServerWithSchema({
           name: 'test-app',
@@ -137,12 +141,14 @@ test.describe('Table Name', () => {
       const tableExists = await executeQuery(
         `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = 'customers'`
       )
+      // THEN: assertion
       expect(tableExists.rows[0]).toMatchObject({ tablename: 'customers' })
 
       // Verify name is used correctly in metadata queries
       const tableInfo = await executeQuery(
         `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'customers'`
       )
+      // THEN: assertion
       expect(tableInfo.rows[0]).toMatchObject({ table_name: 'customers' })
     }
   )
@@ -178,17 +184,20 @@ test.describe('Table Name', () => {
       const usersTable = await executeQuery(
         `SELECT tablename FROM pg_tables WHERE tablename = 'users'`
       )
+      // THEN: assertion
       expect(usersTable.rows[0]).toMatchObject({ tablename: 'users' })
 
       const ordersTable = await executeQuery(
         `SELECT tablename FROM pg_tables WHERE tablename = 'orders_2024'`
       )
+      // THEN: assertion
       expect(ordersTable.rows[0]).toMatchObject({ tablename: 'orders_2024' })
 
       // 2. Names follow schema pattern (lowercase, underscores, starts with letter)
       const allTables = await executeQuery(
         `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename IN ('users', 'orders_2024') ORDER BY tablename`
       )
+      // THEN: assertion
       expect(allTables.rows).toHaveLength(2)
       expect(allTables.rows[0].tablename).toMatch(/^[a-z][a-z0-9_]*$/)
       expect(allTables.rows[1].tablename).toMatch(/^[a-z][a-z0-9_]*$/)

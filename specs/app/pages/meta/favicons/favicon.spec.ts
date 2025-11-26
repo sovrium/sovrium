@@ -258,6 +258,7 @@ test.describe('Favicon', () => {
     'APP-PAGES-META-FAVICONS-FAVICON-REGRESSION-001: user can complete full favicon workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -275,10 +276,12 @@ test.describe('Favicon', () => {
         ],
       })
 
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // Verify favicon link
       const favicon = page.locator('link[rel="icon"]')
+      // THEN: assertion
       await expect(favicon).toBeAttached()
       await expect(favicon).toHaveAttribute('href', './public/favicon.ico')
     }

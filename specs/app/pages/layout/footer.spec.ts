@@ -281,6 +281,7 @@ test.describe('Footer Configuration', () => {
         'href',
         'https://twitter.com/company'
       )
+      // THEN: assertion
       await expect(page.locator('[data-testid="social-github"]')).toHaveAttribute(
         'href',
         'https://github.com/company'
@@ -372,10 +373,12 @@ test.describe('Footer Configuration', () => {
       await expect(page.locator('[data-testid="newsletter-title"]')).toContainText(
         'Subscribe to our newsletter'
       )
+      // THEN: assertion
       await expect(page.locator('[data-testid="newsletter-input"]')).toHaveAttribute(
         'placeholder',
         'Enter your email'
       )
+      // THEN: assertion
       await expect(page.locator('[data-testid="newsletter-button"]')).toContainText('Subscribe')
     }
   )
@@ -619,12 +622,14 @@ test.describe('Footer Configuration', () => {
       await page.goto('/')
 
       // Verify all footer sections
+      // THEN: assertion
       await expect(page.locator('[data-testid="footer-logo"]')).toBeVisible()
       await expect(page.locator('[data-testid="footer-column-0"]')).toContainText('Product')
       await expect(page.locator('[data-testid="footer-social"]')).toContainText('Follow Us')
       await expect(page.locator('[data-testid="newsletter-title"]')).toContainText(
         'Stay in the loop'
       )
+      // THEN: assertion
       await expect(page.locator('[data-testid="footer-copyright"]')).toContainText(
         '© 2024 Acme Corp.'
       )

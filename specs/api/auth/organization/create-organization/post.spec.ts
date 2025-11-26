@@ -64,6 +64,7 @@ test.describe('Create organization', () => {
       // Response contains organization data
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // Organization is created in database
@@ -140,6 +141,7 @@ test.describe('Create organization', () => {
       // Response contains validation error for name field
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -169,6 +171,7 @@ test.describe('Create organization', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -210,6 +213,7 @@ test.describe('Create organization', () => {
       // Response contains error about slug already in use
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

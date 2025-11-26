@@ -163,6 +163,7 @@ test.describe('View Sorts', () => {
       const result = await executeQuery(
         'SELECT name FROM employees ORDER BY department ASC, salary DESC'
       )
+      // THEN: assertion
       expect(result).toEqual([
         { name: 'Bob' },
         { name: 'Alice' },
@@ -222,6 +223,7 @@ test.describe('View Sorts', () => {
       const result = await executeQuery(
         'SELECT category, value FROM data ORDER BY category ASC, value DESC'
       )
+      // THEN: assertion
       expect(result).toEqual([
         { category: 'A', value: 3 },
         { category: 'A', value: 1 },

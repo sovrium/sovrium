@@ -64,6 +64,7 @@ test.describe('Update record', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('id')
       expect(data).toHaveProperty('email')
       expect(data).toHaveProperty('name')
@@ -74,6 +75,7 @@ test.describe('Update record', () => {
 
       // Verify database reflects updated values
       const result = await executeQuery(`SELECT email, name FROM users WHERE id=1`)
+      // THEN: assertion
       expect(result.rows[0].email).toBe('new@example.com')
       expect(result.rows[0].name).toBe('New Name')
     }
@@ -110,6 +112,7 @@ test.describe('Update record', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data.error).toBe('Record not found')
     }
@@ -144,6 +147,7 @@ test.describe('Update record', () => {
       expect(response.status()).toBe(401)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
       expect(data.error).toBe('Unauthorized')
@@ -180,6 +184,7 @@ test.describe('Update record', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
       expect(data.error).toBe('Forbidden')
@@ -224,6 +229,7 @@ test.describe('Update record', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data.error).toBe('Forbidden')
     }
@@ -267,6 +273,7 @@ test.describe('Update record', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data.error).toBe('Record not found')
     }
@@ -309,6 +316,7 @@ test.describe('Update record', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('id')
       expect(data).toHaveProperty('salary')
       expect(data.id).toBe(1)
@@ -316,6 +324,7 @@ test.describe('Update record', () => {
 
       // Verify database reflects updated salary
       const result = await executeQuery(`SELECT salary FROM employees WHERE id=1`)
+      // THEN: assertion
       expect(result.rows[0].salary).toBe(85_000)
     }
   )
@@ -360,6 +369,7 @@ test.describe('Update record', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
       expect(data).toHaveProperty('field')
@@ -369,6 +379,7 @@ test.describe('Update record', () => {
 
       // Verify database unchanged (salary still 75000)
       const result = await executeQuery(`SELECT salary FROM employees WHERE id=1`)
+      // THEN: assertion
       expect(result.rows[0].salary).toBe(75_000)
     }
   )
@@ -412,6 +423,7 @@ test.describe('Update record', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
       expect(data.error).toBe('Forbidden')
@@ -459,6 +471,7 @@ test.describe('Update record', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('id')
       expect(data).toHaveProperty('name')
       expect(data).toHaveProperty('email')
@@ -467,10 +480,12 @@ test.describe('Update record', () => {
       expect(data.email).toBe('alice.updated@example.com')
 
       // Salary field not in response (member cannot read it)
+      // THEN: assertion
       expect(data).not.toHaveProperty('salary')
 
       // Verify salary remains unchanged in database
       const result = await executeQuery(`SELECT salary FROM employees WHERE id=1`)
+      // THEN: assertion
       expect(result.rows[0].salary).toBe(75_000)
     }
   )
@@ -514,6 +529,7 @@ test.describe('Update record', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
       expect(data.error).toBe('Forbidden')
@@ -521,6 +537,7 @@ test.describe('Update record', () => {
 
       // Verify organization ID unchanged in database
       const result = await executeQuery(`SELECT organization_id FROM projects WHERE id=1`)
+      // THEN: assertion
       expect(result.rows[0].organization_id).toBe('org_123')
     }
   )
@@ -566,6 +583,7 @@ test.describe('Update record', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('id')
       expect(data).toHaveProperty('name')
       expect(data).toHaveProperty('email')
@@ -576,6 +594,7 @@ test.describe('Update record', () => {
       expect(data.organization_id).toBe('org_123')
 
       // Salary field not in response
+      // THEN: assertion
       expect(data).not.toHaveProperty('salary')
     }
   )
@@ -622,6 +641,7 @@ test.describe('Update record', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
       expect(data).toHaveProperty('field')
@@ -630,6 +650,7 @@ test.describe('Update record', () => {
       const result = await executeQuery(`
         SELECT name, phone, salary FROM employees WHERE id=1
       `)
+      // THEN: assertion
       expect(result.rows[0].name).toBe('Carol Davis')
       expect(result.rows[0].phone).toBe('555-0100')
       expect(result.rows[0].salary).toBe(70_000)
@@ -675,16 +696,19 @@ test.describe('Update record', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('id')
       expect(data).toHaveProperty('name')
       expect(data).toHaveProperty('email')
       expect(data.name).toBe('David Updated')
 
       // Salary field not in response despite existing in database
+      // THEN: assertion
       expect(data).not.toHaveProperty('salary')
 
       // Verify database has salary field unchanged
       const result = await executeQuery(`SELECT salary FROM employees WHERE id=1`)
+      // THEN: assertion
       expect(result.rows[0].salary).toBe(72_000)
     }
   )
@@ -733,12 +757,15 @@ test.describe('Update record', () => {
           email: 'updated@example.com',
         },
       })
+      // THEN: assertion
       expect(successResponse.status()).toBe(200)
       const record = await successResponse.json()
+      // THEN: assertion
       expect(record.name).toBe('Updated Name')
 
       // Verify update in database
       const verifyUpdate = await executeQuery(`SELECT name FROM employees WHERE id=1`)
+      // THEN: assertion
       expect(verifyUpdate.rows[0].name).toBe('Updated Name')
 
       // Test record not found
@@ -751,6 +778,7 @@ test.describe('Update record', () => {
           name: 'Test',
         },
       })
+      // THEN: assertion
       expect(notFoundResponse.status()).toBe(404)
 
       // Test permission denied (member without update permission)
@@ -763,6 +791,7 @@ test.describe('Update record', () => {
           name: 'Unauthorized Update',
         },
       })
+      // THEN: assertion
       expect(forbiddenResponse.status()).toBe(403)
 
       // Test unauthorized
@@ -774,6 +803,7 @@ test.describe('Update record', () => {
           name: 'Test',
         },
       })
+      // THEN: assertion
       expect(unauthorizedResponse.status()).toBe(401)
 
       // Test field-level write restriction (member trying to update salary)
@@ -786,6 +816,7 @@ test.describe('Update record', () => {
           salary: 99_999,
         },
       })
+      // THEN: assertion
       expect(fieldForbiddenResponse.status()).toBe(403)
     }
   )

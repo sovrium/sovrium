@@ -432,12 +432,14 @@ test.describe('Hover Interaction', () => {
       const button1 = page.locator('button').filter({ hasText: 'Button 1' })
       await button1.hover()
       // Note: Browsers convert scale(1.05) to matrix(1.05, 0, 0, 1.05, 0, 0)
+      // THEN: assertion
       await expect(button1).toHaveCSS('transform', /matrix\(1\.05, 0, 0, 1\.05, 0, 0\)/)
       await expect(button1).toHaveCSS('box-shadow', /rgba/)
 
       // Verify color change hover
       const button2 = page.locator('button').filter({ hasText: 'Button 2' })
       await button2.hover()
+      // THEN: assertion
       await expect(button2).toHaveCSS('background-color', 'rgb(0, 123, 255)')
 
       // Focus on workflow continuity, not exhaustive coverage

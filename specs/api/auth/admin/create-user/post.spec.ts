@@ -65,6 +65,7 @@ test.describe('Admin: Create user', () => {
       // Response contains created user data
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // User is created in database with hashed password
@@ -146,6 +147,7 @@ test.describe('Admin: Create user', () => {
       // Response contains validation error for required fields
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -185,6 +187,7 @@ test.describe('Admin: Create user', () => {
       // Response contains validation error for email format
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -224,6 +227,7 @@ test.describe('Admin: Create user', () => {
       // Response contains validation error for password length
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -255,6 +259,7 @@ test.describe('Admin: Create user', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -294,6 +299,7 @@ test.describe('Admin: Create user', () => {
       // Response contains error about insufficient permissions
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -336,6 +342,7 @@ test.describe('Admin: Create user', () => {
       // Response contains error about email already in use
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

@@ -52,18 +52,22 @@ test.describe('Static Site Generation - Deployment Features', () => {
       expect(files).toContain('.nojekyll')
 
       // Verify .nojekyll exists and is readable
+      // THEN: assertion
       await expect(access(join(outputDir, '.nojekyll'), constants.R_OK)).resolves.toBeUndefined()
 
       // .nojekyll should be empty (standard practice)
       const nojekyllContent = await readFile(join(outputDir, '.nojekyll'), 'utf-8')
+      // THEN: assertion
       expect(nojekyllContent).toBe('')
 
       // Underscore-prefixed pages should NOT be generated
       const allFiles = await readdir(outputDir, { recursive: true })
+      // THEN: assertion
       expect(allFiles).not.toContain('_docs')
       expect(allFiles).not.toContain('_docs/api.html')
 
       // Regular pages should be generated
+      // THEN: assertion
       expect(allFiles).toContain('index.html')
       expect(allFiles).toContain('about.html')
     }
@@ -149,6 +153,7 @@ test.describe('Static Site Generation - Deployment Features', () => {
 
       // WHEN: reading sitemap.xml
       const sitemapPath = join(outputDir, 'sitemap.xml')
+      // THEN: assertion
       await expect(access(sitemapPath, constants.R_OK)).resolves.toBeUndefined()
 
       const sitemap = await readFile(sitemapPath, 'utf-8')
@@ -160,31 +165,37 @@ test.describe('Static Site Generation - Deployment Features', () => {
       expect(sitemap).toContain('</urlset>')
 
       // URLs should be included
+      // THEN: assertion
       expect(sitemap).toContain('<loc>https://example.com/</loc>')
       expect(sitemap).toContain('<loc>https://example.com/about</loc>')
       expect(sitemap).toContain('<loc>https://example.com/products</loc>')
       expect(sitemap).toContain('<loc>https://example.com/contact</loc>')
 
       // Privacy page should NOT be in sitemap (noindex)
+      // THEN: assertion
       expect(sitemap).not.toContain('<loc>https://example.com/privacy</loc>')
 
       // Priority values
+      // THEN: assertion
       expect(sitemap).toContain('<priority>1.0</priority>') // Home
       expect(sitemap).toContain('<priority>0.8</priority>') // About
       expect(sitemap).toContain('<priority>0.9</priority>') // Products
       expect(sitemap).toContain('<priority>0.7</priority>') // Contact
 
       // Change frequency values
+      // THEN: assertion
       expect(sitemap).toContain('<changefreq>daily</changefreq>')
       expect(sitemap).toContain('<changefreq>weekly</changefreq>')
       expect(sitemap).toContain('<changefreq>monthly</changefreq>')
 
       // Should have lastmod dates (current date)
+      // THEN: assertion
       expect(sitemap).toContain('<lastmod>')
 
       // Verify XML structure is valid
       const urlMatches = sitemap.match(/<url>/g)
       const urlCloseMatches = sitemap.match(/<\/url>/g)
+      // THEN: assertion
       expect(urlMatches?.length).toBe(4) // 4 pages (excluding privacy)
       expect(urlCloseMatches?.length).toBe(4)
     }
@@ -238,6 +249,7 @@ test.describe('Static Site Generation - Deployment Features', () => {
 
       // WHEN: reading robots.txt
       const robotsPath = join(outputDir, 'robots.txt')
+      // THEN: assertion
       await expect(access(robotsPath, constants.R_OK)).resolves.toBeUndefined()
 
       const robots = await readFile(robotsPath, 'utf-8')
@@ -247,13 +259,16 @@ test.describe('Static Site Generation - Deployment Features', () => {
       expect(robots).toContain('User-agent: *')
 
       // Allow root by default
+      // THEN: assertion
       expect(robots).toContain('Allow: /')
 
       // Disallow pages with noindex
+      // THEN: assertion
       expect(robots).toContain('Disallow: /api/docs')
       expect(robots).toContain('Disallow: /private')
 
       // Sitemap reference
+      // THEN: assertion
       expect(robots).toContain('Sitemap: https://example.com/sitemap.xml')
 
       // Optional: crawl delay
@@ -261,11 +276,13 @@ test.describe('Static Site Generation - Deployment Features', () => {
 
       // Verify structure
       const lines = robots.split('\n').filter((line) => line.trim())
+      // THEN: assertion
       expect(lines[0]).toContain('User-agent')
 
       // Should not have duplicate rules
       const disallowLines = lines.filter((l) => l.startsWith('Disallow:'))
       const uniqueDisallows = new Set(disallowLines)
+      // THEN: assertion
       expect(disallowLines.length).toBe(uniqueDisallows.size)
     }
   )
@@ -344,13 +361,16 @@ test.describe('Static Site Generation - Deployment Features', () => {
       expect(aboutHtml).toContain('href="/myapp/"')
 
       // Asset paths should be prefixed
+      // THEN: assertion
       expect(homeHtml).toContain('src="/myapp/images/logo.png"')
       expect(homeHtml).toContain('href="/myapp/assets/output.css"')
 
       // Both pages should reference CSS with base path
+      // THEN: assertion
       expect(aboutHtml).toContain('href="/myapp/assets/output.css"')
 
       // Meta tags should use full URLs with base path
+      // THEN: assertion
       expect(homeHtml).toContain('<link rel="canonical" href="https://example.com/myapp/">')
       expect(aboutHtml).toContain('<link rel="canonical" href="https://example.com/myapp/about">')
 
@@ -359,6 +379,7 @@ test.describe('Static Site Generation - Deployment Features', () => {
       try {
         await access(sitemapPath, constants.R_OK)
         const sitemap = await readFile(sitemapPath, 'utf-8')
+        // THEN: assertion
         expect(sitemap).toContain('<loc>https://example.com/myapp/</loc>')
         expect(sitemap).toContain('<loc>https://example.com/myapp/about</loc>')
       } catch {
@@ -397,13 +418,16 @@ test.describe('Static Site Generation - Deployment Features', () => {
       expect(files).toContain('CNAME')
 
       // Verify CNAME exists and is readable
+      // THEN: assertion
       await expect(access(join(outputDir, 'CNAME'), constants.R_OK)).resolves.toBeUndefined()
 
       // CNAME should contain only the domain (no protocol, no path)
       const cnameContent = await readFile(join(outputDir, 'CNAME'), 'utf-8')
+      // THEN: assertion
       expect(cnameContent).toBe('sovrium.com')
 
       // Should also have .nojekyll (both files needed)
+      // THEN: assertion
       expect(files).toContain('.nojekyll')
     }
   )
@@ -438,6 +462,7 @@ test.describe('Static Site Generation - Deployment Features', () => {
       expect(files).not.toContain('CNAME')
 
       // But should still have .nojekyll
+      // THEN: assertion
       expect(files).toContain('.nojekyll')
     }
   )
@@ -534,43 +559,55 @@ test.describe('Static Site Generation - Deployment Features', () => {
       expect(files).toContain('.nojekyll')
 
       // CNAME should NOT be generated for github.io URLs
+      // THEN: assertion
       expect(files).not.toContain('CNAME')
 
       // Sitemap
+      // THEN: assertion
       expect(files).toContain('sitemap.xml')
       const sitemap = await readFile(join(outputDir, 'sitemap.xml'), 'utf-8')
+      // THEN: assertion
       expect(sitemap).toContain('https://example.github.io/my-project/')
       expect(sitemap).toContain('https://example.github.io/my-project/en/')
       expect(sitemap).toContain('https://example.github.io/my-project/fr/')
 
       // Robots.txt
+      // THEN: assertion
       expect(files).toContain('robots.txt')
       const robots = await readFile(join(outputDir, 'robots.txt'), 'utf-8')
+      // THEN: assertion
       expect(robots).toContain('Sitemap: https://example.github.io/my-project/sitemap.xml')
 
       // Multi-language structure
+      // THEN: assertion
       expect(files).toContain('en/index.html')
       expect(files).toContain('fr/index.html')
 
       // Assets
+      // THEN: assertion
       expect(files).toContain('assets/output.css')
       expect(files).toContain('assets/client.js') // For hydration
 
       // Check HTML has correct paths
       const enHome = await readFile(join(outputDir, 'en/index.html'), 'utf-8')
+      // THEN: assertion
       expect(enHome).toContain('href="/my-project/assets/output.css"')
       expect(enHome).toContain('src="/my-project/assets/client.js"')
       expect(enHome).toContain('href="/my-project/en/about"')
 
       // Hreflang tags with base path
+      // THEN: assertion
       expect(enHome).toContain('hreflang="en" href="https://example.github.io/my-project/en/"')
       expect(enHome).toContain('hreflang="fr" href="https://example.github.io/my-project/fr/"')
 
       // Load in browser to verify
+      // WHEN: user navigates to the page
       await page.goto(`file://${join(outputDir, 'en/index.html')}`)
+      // THEN: assertion
       await expect(page.locator('h1')).toBeVisible()
 
       // Verify underscore-prefixed pages are NOT generated (admin/internal pages)
+      // THEN: assertion
       expect(files).not.toContain('_admin.html')
       expect(files).not.toContain('en/_admin.html')
       expect(files).not.toContain('fr/_admin.html')

@@ -24,6 +24,7 @@ test.describe('Rating Field', () => {
     'APP-RATING-FIELD-001: should create PostgreSQL INTEGER column for rating storage when table configuration has rating field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration with rating field
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -39,9 +40,12 @@ test.describe('Rating Field', () => {
         ],
       })
 
+      // WHEN: querying the database schema
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='reviews' AND column_name='rating'"
       )
+
+      // THEN: column should be INTEGER type
       expect(columnInfo.data_type).toBe('integer')
       expect(columnInfo.is_nullable).toBe('YES')
 
@@ -56,6 +60,7 @@ test.describe('Rating Field', () => {
     'APP-RATING-FIELD-002: should enforce range constraint for rating values (typically 1-5)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -71,15 +76,19 @@ test.describe('Rating Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const validInsert = await executeQuery(
         'INSERT INTO products (rating) VALUES (3) RETURNING rating'
       )
+      // THEN: assertion
       expect(validInsert.rating).toBe(3)
 
+      // THEN: assertion
       await expect(executeQuery('INSERT INTO products (rating) VALUES (0)')).rejects.toThrow(
         /violates check constraint/
       )
 
+      // THEN: assertion
       await expect(executeQuery('INSERT INTO products (rating) VALUES (6)')).rejects.toThrow(
         /violates check constraint/
       )
@@ -90,6 +99,7 @@ test.describe('Rating Field', () => {
     'APP-RATING-FIELD-003: should reject NULL value when rating field is required',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -105,11 +115,14 @@ test.describe('Rating Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const notNullCheck = await executeQuery(
         "SELECT is_nullable FROM information_schema.columns WHERE table_name='feedback' AND column_name='rating'"
       )
+      // THEN: assertion
       expect(notNullCheck.is_nullable).toBe('NO')
 
+      // THEN: assertion
       await expect(executeQuery('INSERT INTO feedback (rating) VALUES (NULL)')).rejects.toThrow(
         /violates not-null constraint/
       )
@@ -120,6 +133,7 @@ test.describe('Rating Field', () => {
     'APP-RATING-FIELD-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -135,9 +149,11 @@ test.describe('Rating Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const defaultInsert = await executeQuery(
         'INSERT INTO items (id) VALUES (DEFAULT) RETURNING rating'
       )
+      // THEN: assertion
       expect(defaultInsert.rating).toBe(3)
     }
   )
@@ -146,6 +162,7 @@ test.describe('Rating Field', () => {
     'APP-RATING-FIELD-005: should create btree index for fast queries when rating field has indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -161,9 +178,11 @@ test.describe('Rating Field', () => {
         ],
       })
 
+      // WHEN: querying the database
       const indexExists = await executeQuery(
         "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_movies_rating'"
       )
+      // THEN: assertion
       expect(indexExists.indexname).toBe('idx_movies_rating')
     }
   )
@@ -172,6 +191,7 @@ test.describe('Rating Field', () => {
     'APP-TABLES-FIELD-RATING-REGRESSION-001: user can complete full rating-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -195,11 +215,16 @@ test.describe('Rating Field', () => {
         ],
       })
 
+      // WHEN: executing query
       await executeQuery('INSERT INTO data (rating_field) VALUES (4)')
+      // WHEN: executing query
       const stored = await executeQuery('SELECT rating_field FROM data WHERE id = 1')
+      // THEN: assertion
       expect(stored.rating_field).toBe(4)
 
+      // WHEN: executing query
       const avgRating = await executeQuery('SELECT AVG(rating_field) as avg FROM data')
+      // THEN: assertion
       expect(avgRating.avg).toBeTruthy()
     }
   )

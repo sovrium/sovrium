@@ -79,6 +79,7 @@ test.describe('Field-Level Permissions', () => {
       const adminResult = await executeQuery(
         'SET ROLE admin_user; SELECT id, name, salary, department FROM employees WHERE id = 1'
       )
+      // THEN: assertion
       expect(adminResult).toEqual({
         id: 1,
         name: 'Alice',
@@ -90,6 +91,7 @@ test.describe('Field-Level Permissions', () => {
       const memberResult = await executeQuery(
         'SET ROLE member_user; SELECT id, name, department FROM employees WHERE id = 1'
       )
+      // THEN: assertion
       expect(memberResult).toEqual({
         id: 1,
         name: 'Alice',
@@ -97,6 +99,7 @@ test.describe('Field-Level Permissions', () => {
       })
 
       // Member attempting to SELECT salary gets NULL or error
+      // THEN: assertion
       await expect(async () => {
         await executeQuery('SET ROLE member_user; SELECT salary FROM employees WHERE id = 1')
       }).rejects.toThrow('permission denied for column salary')
@@ -147,15 +150,18 @@ test.describe('Field-Level Permissions', () => {
       const adminUpdate = await executeQuery(
         "SET ROLE admin_user; UPDATE users SET email = 'alice.new@example.com' WHERE id = 1 RETURNING email"
       )
+      // THEN: assertion
       expect(adminUpdate.email).toBe('alice.new@example.com')
 
       // Member user can UPDATE other fields
       const memberUpdate = await executeQuery(
         "SET ROLE member_user; UPDATE users SET bio = 'Updated bio' WHERE id = 1 RETURNING bio"
       )
+      // THEN: assertion
       expect(memberUpdate.bio).toBe('Updated bio')
 
       // Member user cannot UPDATE email field
+      // THEN: assertion
       await expect(async () => {
         await executeQuery(
           "SET ROLE member_user; UPDATE users SET email = 'hacked@example.com' WHERE id = 1"
@@ -221,6 +227,7 @@ test.describe('Field-Level Permissions', () => {
       const adminResult = await executeQuery(
         'SET ROLE admin_user; SELECT name, email, salary, department FROM staff WHERE id = 1'
       )
+      // THEN: assertion
       expect(adminResult).toEqual({
         name: 'Alice',
         email: 'alice@example.com',
@@ -232,6 +239,7 @@ test.describe('Field-Level Permissions', () => {
       const authResult = await executeQuery(
         'SET ROLE authenticated_user; SELECT name, email, department FROM staff WHERE id = 1'
       )
+      // THEN: assertion
       expect(authResult).toEqual({
         name: 'Alice',
         email: 'alice@example.com',
@@ -242,6 +250,7 @@ test.describe('Field-Level Permissions', () => {
       const unauthResult = await executeQuery(
         'RESET ROLE; SELECT name, department FROM staff WHERE id = 1'
       )
+      // THEN: assertion
       expect(unauthResult).toEqual({
         name: 'Alice',
         department: 'Engineering',
@@ -293,6 +302,7 @@ test.describe('Field-Level Permissions', () => {
       const unauthResult = await executeQuery(
         'RESET ROLE; SELECT title, status FROM tickets WHERE id = 1'
       )
+      // THEN: assertion
       expect(unauthResult).toEqual({
         title: 'Bug #123',
         status: 'open',
@@ -302,9 +312,11 @@ test.describe('Field-Level Permissions', () => {
       const adminUpdate = await executeQuery(
         "SET ROLE admin_user; UPDATE tickets SET status = 'closed' WHERE id = 1 RETURNING status"
       )
+      // THEN: assertion
       expect(adminUpdate.status).toBe('closed')
 
       // Member user cannot UPDATE status
+      // THEN: assertion
       await expect(async () => {
         await executeQuery(
           "SET ROLE member_user; UPDATE tickets SET status = 'reopened' WHERE id = 1"
@@ -357,9 +369,11 @@ test.describe('Field-Level Permissions', () => {
       const ownerUpdate = await executeQuery(
         "SET LOCAL app.user_id = 1; UPDATE tasks SET notes = 'Updated by owner' WHERE id = 1 RETURNING notes"
       )
+      // THEN: assertion
       expect(ownerUpdate.notes).toBe('Updated by owner')
 
       // Non-owner (user 2) cannot UPDATE notes on task 1
+      // THEN: assertion
       await expect(async () => {
         await executeQuery(
           "SET LOCAL app.user_id = 2; UPDATE tasks SET notes = 'Hacked notes' WHERE id = 1"
@@ -370,6 +384,7 @@ test.describe('Field-Level Permissions', () => {
       const owner2Update = await executeQuery(
         "SET LOCAL app.user_id = 2; UPDATE tasks SET notes = 'My notes' WHERE id = 2 RETURNING notes"
       )
+      // THEN: assertion
       expect(owner2Update.notes).toBe('My notes')
     }
   )
@@ -411,18 +426,21 @@ test.describe('Field-Level Permissions', () => {
 
       // Field permissions array is empty
       const emptyPermissions = await executeQuery("SELECT '[]'::jsonb as field_permissions")
+      // THEN: assertion
       expect(emptyPermissions.field_permissions).toEqual([])
 
       // Authenticated user can SELECT all fields (including created_at)
       const authResult = await executeQuery(
         'SET ROLE authenticated_user; SELECT id, title, created_at FROM posts WHERE id = 1'
       )
+      // THEN: assertion
       expect(authResult).toEqual({
         id: 1,
         title: 'Post 1',
       })
 
       // Unauthenticated user cannot SELECT (table-level denied)
+      // THEN: assertion
       await expect(async () => {
         await executeQuery('RESET ROLE; SELECT id, title FROM posts WHERE id = 1')
       }).rejects.toThrow('permission denied for table posts')
@@ -486,10 +504,12 @@ test.describe('Field-Level Permissions', () => {
       const ownerRead = await executeQuery(
         'SET LOCAL app.user_id = 1; SELECT title, public_field, private_field FROM records WHERE id = 1'
       )
+      // THEN: assertion
       expect(ownerRead.title).toBe('Record 1')
       expect(ownerRead.private_field).toBe('Private')
 
       // Non-owner can read public fields but not private_field
+      // THEN: assertion
       await expect(async () => {
         await executeQuery(
           'SET LOCAL app.user_id = 2; SELECT private_field FROM records WHERE id = 1'
@@ -500,9 +520,11 @@ test.describe('Field-Level Permissions', () => {
       const ownerUpdate = await executeQuery(
         "SET LOCAL app.user_id = 1; UPDATE records SET private_field = 'Updated' WHERE id = 1 RETURNING private_field"
       )
+      // THEN: assertion
       expect(ownerUpdate.private_field).toBe('Updated')
 
       // Non-owner cannot update private_field
+      // THEN: assertion
       await expect(async () => {
         await executeQuery(
           "SET LOCAL app.user_id = 2; UPDATE records SET private_field = 'Hacked' WHERE id = 1"

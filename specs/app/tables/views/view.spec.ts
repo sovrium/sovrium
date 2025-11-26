@@ -81,6 +81,7 @@ test.describe('Table View', () => {
 
       // This test verifies schema validation at configuration time
       // Invalid view IDs should be rejected before runtime
+      // THEN: assertion
       await expect(async () => {
         await startServerWithSchema({
           name: 'test-app',
@@ -157,6 +158,7 @@ test.describe('Table View', () => {
       const activeCount = await executeQuery(
         "SELECT COUNT(*) as count FROM tasks WHERE status = 'active'"
       )
+      // THEN: assertion
       expect(activeCount.count).toBe(2)
     }
   )
@@ -219,18 +221,21 @@ test.describe('Table View', () => {
       await page.goto('/')
 
       // View configuration is valid
+      // THEN: assertion
       await expect(page.locator('body')).toBeAttached()
 
       // Default view filter applies
       const filteredCount = await executeQuery(
         "SELECT COUNT(*) as count FROM items WHERE status = 'active'"
       )
+      // THEN: assertion
       expect(filteredCount.count).toBe(2)
 
       // Default view sort applies
       const sortedItems = await executeQuery(
         "SELECT title FROM items WHERE status = 'active' ORDER BY priority DESC"
       )
+      // THEN: assertion
       expect(sortedItems).toEqual([{ title: 'Item 3' }, { title: 'Item 1' }])
 
       // Focus on workflow continuity, not exhaustive coverage

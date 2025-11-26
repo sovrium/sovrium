@@ -78,24 +78,28 @@ test.describe('Record-Level Permissions', () => {
       const policyCount = await executeQuery(
         "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='documents' AND policyname='user_read_own'"
       )
+      // THEN: assertion
       expect(policyCount.count).toBe(1)
 
       // User 1 can only SELECT their own records
       const user1Count = await executeQuery(
         'SET LOCAL app.user_id = 1; SELECT COUNT(*) as count FROM documents'
       )
+      // THEN: assertion
       expect(user1Count.count).toBe(2)
 
       // User 2 can only SELECT their own records
       const user2Count = await executeQuery(
         'SET LOCAL app.user_id = 2; SELECT COUNT(*) as count FROM documents'
       )
+      // THEN: assertion
       expect(user2Count.count).toBe(1)
 
       // User 1 sees titles of their documents
       const user1Titles = await executeQuery(
         'SET LOCAL app.user_id = 1; SELECT title FROM documents ORDER BY id'
       )
+      // THEN: assertion
       expect(user1Titles).toEqual([{ title: 'Doc 1' }, { title: 'Doc 3' }])
     }
   )
@@ -143,24 +147,28 @@ test.describe('Record-Level Permissions', () => {
       const policyCount = await executeQuery(
         "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='tasks' AND policyname='user_update_assigned'"
       )
+      // THEN: assertion
       expect(policyCount.count).toBe(1)
 
       // User 1 can UPDATE tasks assigned to them
       const user1Update = await executeQuery(
         "SET LOCAL app.user_id = 1; UPDATE tasks SET status = 'in_progress' WHERE id = 1 RETURNING status"
       )
+      // THEN: assertion
       expect(user1Update.status).toBe('in_progress')
 
       // User 1 cannot UPDATE tasks assigned to user 2
       const user1FailedUpdate = await executeQuery(
         "SET LOCAL app.user_id = 1; UPDATE tasks SET status = 'hacked' WHERE id = 2 RETURNING id"
       )
+      // THEN: assertion
       expect(user1FailedUpdate.id).toBeNull()
 
       // User 2 can only UPDATE their assigned tasks
       const user2Update = await executeQuery(
         "SET LOCAL app.user_id = 2; UPDATE tasks SET status = 'done' WHERE id = 2 RETURNING status"
       )
+      // THEN: assertion
       expect(user2Update.status).toBe('done')
     }
   )
@@ -208,24 +216,28 @@ test.describe('Record-Level Permissions', () => {
       const policyCount = await executeQuery(
         "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='articles' AND policyname='user_delete_draft'"
       )
+      // THEN: assertion
       expect(policyCount.count).toBe(1)
 
       // User 1 can DELETE their draft article
       const user1Delete = await executeQuery(
         'SET LOCAL app.user_id = 1; DELETE FROM articles WHERE id = 1 RETURNING id'
       )
+      // THEN: assertion
       expect(user1Delete.id).toBe(1)
 
       // User 1 cannot DELETE their published article (status not draft)
       const user1FailedDelete = await executeQuery(
         'SET LOCAL app.user_id = 1; DELETE FROM articles WHERE id = 2 RETURNING id'
       )
+      // THEN: assertion
       expect(user1FailedDelete.id).toBeNull()
 
       // User 1 cannot DELETE drafts by user 2 (not their own)
       const user1CrossDelete = await executeQuery(
         'SET LOCAL app.user_id = 1; DELETE FROM articles WHERE id = 3 RETURNING id'
       )
+      // THEN: assertion
       expect(user1CrossDelete.id).toBeNull()
     }
   )
@@ -278,6 +290,7 @@ test.describe('Record-Level Permissions', () => {
       const policyQual = await executeQuery(
         "SELECT qual FROM pg_policies WHERE tablename='projects' AND policyname='user_read_projects'"
       )
+      // THEN: assertion
       expect(policyQual.qual).toBe(
         "((department = (current_setting('app.user_department'::text))::text) AND (status = 'active'::text))"
       )
@@ -286,18 +299,21 @@ test.describe('Record-Level Permissions', () => {
       const engCount = await executeQuery(
         "SET LOCAL app.user_department = 'Engineering'; SELECT COUNT(*) as count FROM projects"
       )
+      // THEN: assertion
       expect(engCount.count).toBe(1)
 
       // Engineering user sees Project A (active)
       const engProject = await executeQuery(
         "SET LOCAL app.user_department = 'Engineering'; SELECT name FROM projects"
       )
+      // THEN: assertion
       expect(engProject.name).toBe('Project A')
 
       // Marketing user sees only active Marketing projects
       const mktProject = await executeQuery(
         "SET LOCAL app.user_department = 'Marketing'; SELECT name FROM projects"
       )
+      // THEN: assertion
       expect(mktProject.name).toBe('Project C')
     }
   )
@@ -345,6 +361,7 @@ test.describe('Record-Level Permissions', () => {
       const policyQual = await executeQuery(
         "SELECT qual FROM pg_policies WHERE tablename='employees' AND policyname='same_department'"
       )
+      // THEN: assertion
       expect(policyQual.qual).toBe(
         "(department = (current_setting('app.user_department'::text))::text)"
       )
@@ -353,18 +370,21 @@ test.describe('Record-Level Permissions', () => {
       const engCount = await executeQuery(
         "SET LOCAL app.user_department = 'Engineering'; SELECT COUNT(*) as count FROM employees"
       )
+      // THEN: assertion
       expect(engCount.count).toBe(2)
 
       // Engineering user sees Alice and Charlie
       const engEmployees = await executeQuery(
         "SET LOCAL app.user_department = 'Engineering'; SELECT name FROM employees ORDER BY name"
       )
+      // THEN: assertion
       expect(engEmployees).toEqual([{ name: 'Alice' }, { name: 'Charlie' }])
 
       // Marketing user sees Marketing employees only
       const mktEmployee = await executeQuery(
         "SET LOCAL app.user_department = 'Marketing'; SELECT name FROM employees"
       )
+      // THEN: assertion
       expect(mktEmployee.name).toBe('Bob')
     }
   )
@@ -412,6 +432,7 @@ test.describe('Record-Level Permissions', () => {
       const policyQual = await executeQuery(
         "SELECT qual FROM pg_policies WHERE tablename='tickets' AND policyname='user_read_tickets'"
       )
+      // THEN: assertion
       expect(policyQual.qual).toBe(
         "((created_by = (current_setting('app.user_id'::text))::integer) OR (assigned_to = (current_setting('app.user_id'::text))::integer))"
       )
@@ -420,12 +441,14 @@ test.describe('Record-Level Permissions', () => {
       const user1Count = await executeQuery(
         'SET LOCAL app.user_id = 1; SELECT COUNT(*) as count FROM tickets'
       )
+      // THEN: assertion
       expect(user1Count.count).toBe(3)
 
       // User 1 sees Ticket 1 (created), Ticket 2 (assigned), Ticket 3 (both)
       const user1Tickets = await executeQuery(
         'SET LOCAL app.user_id = 1; SELECT title FROM tickets ORDER BY id'
       )
+      // THEN: assertion
       expect(user1Tickets).toEqual([
         { title: 'Ticket 1' },
         { title: 'Ticket 2' },
@@ -436,6 +459,7 @@ test.describe('Record-Level Permissions', () => {
       const user2Tickets = await executeQuery(
         'SET LOCAL app.user_id = 2; SELECT title FROM tickets ORDER BY id'
       )
+      // THEN: assertion
       expect(user2Tickets).toEqual([{ title: 'Ticket 1' }, { title: 'Ticket 2' }])
     }
   )
@@ -496,24 +520,28 @@ test.describe('Record-Level Permissions', () => {
       const readResult = await executeQuery(
         'SET LOCAL app.user_id = 1; SELECT COUNT(*) as count FROM items'
       )
+      // THEN: assertion
       expect(readResult.count).toBe(1)
 
       // User can update their own records
       const updateResult = await executeQuery(
         "SET LOCAL app.user_id = 1; UPDATE items SET title = 'Updated' WHERE id = 1 RETURNING title"
       )
+      // THEN: assertion
       expect(updateResult.title).toBe('Updated')
 
       // User can delete their own draft records
       const deleteResult = await executeQuery(
         'SET LOCAL app.user_id = 1; DELETE FROM items WHERE id = 1 RETURNING id'
       )
+      // THEN: assertion
       expect(deleteResult.id).toBe(1)
 
       // User cannot access other users' records
       const crossUserResult = await executeQuery(
         'SET LOCAL app.user_id = 1; SELECT COUNT(*) as count FROM items WHERE owner_id = 2'
       )
+      // THEN: assertion
       expect(crossUserResult.count).toBe(0)
 
       // Focus on workflow continuity, not exhaustive coverage

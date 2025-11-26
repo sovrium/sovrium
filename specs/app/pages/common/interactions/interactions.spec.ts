@@ -55,6 +55,7 @@ test.describe('Component Interactions', () => {
       const button = page.locator('button')
       await button.hover()
       // Note: Browsers convert scale(1.05) to matrix(1.05, 0, 0, 1.05, 0, 0)
+      // THEN: assertion
       await expect(button).toHaveCSS('transform', /matrix\(1\.05, 0, 0, 1\.05, 0, 0\)/)
     }
   )
@@ -194,8 +195,10 @@ test.describe('Component Interactions', () => {
       const button = page.locator('button')
       await button.hover()
       // Note: Browsers convert scale(1.05) to matrix(1.05, 0, 0, 1.05, 0, 0)
+      // THEN: assertion
       await expect(button).toHaveCSS('transform', /matrix\(1\.05, 0, 0, 1\.05, 0, 0\)/)
       await button.click()
+      // THEN: assertion
       await expect(button).toHaveClass(/animate-pulse/)
     }
   )
@@ -234,6 +237,7 @@ test.describe('Component Interactions', () => {
       const element = page.locator('div').first()
       await expect(element).toHaveClass(/animate-fadeIn/)
       await element.scrollIntoViewIfNeeded()
+      // THEN: assertion
       await expect(element).toHaveClass(/animate-fadeInUp/)
     }
   )
@@ -275,8 +279,10 @@ test.describe('Component Interactions', () => {
       await expect(button).toHaveClass(/animate-fadeIn/)
       await button.hover()
       // Note: Browsers convert scale(1.05) to matrix(1.05, 0, 0, 1.05, 0, 0)
+      // THEN: assertion
       await expect(button).toHaveCSS('transform', /matrix\(1\.05, 0, 0, 1\.05, 0, 0\)/)
       await button.click()
+      // THEN: assertion
       await expect(button).toHaveClass(/animate-pulse/)
     }
   )
@@ -314,6 +320,7 @@ test.describe('Component Interactions', () => {
       const button = page.locator('button')
       await button.hover()
       // Note: Browsers convert scale(1.05) to matrix(1.05, 0, 0, 1.05, 0, 0)
+      // THEN: assertion
       await expect(button).toHaveCSS('transform', /matrix\(1\.05, 0, 0, 1\.05, 0, 0\)/)
       await button.click()
 
@@ -370,14 +377,17 @@ test.describe('Component Interactions', () => {
       await page.goto('/')
 
       // Verify entrance animation
+      // THEN: assertion
       await expect(page.locator('div')).toHaveClass(/animate-fadeIn/)
 
       // Verify hover and click
       const button = page.locator('button')
       await button.hover()
       // Note: Browsers convert scale(1.05) to matrix(1.05, 0, 0, 1.05, 0, 0)
+      // THEN: assertion
       await expect(button).toHaveCSS('transform', /matrix\(1\.05, 0, 0, 1\.05, 0, 0\)/)
       await button.click()
+      // THEN: assertion
       await expect(page).toHaveURL('/about')
 
       // Focus on workflow continuity, not exhaustive coverage

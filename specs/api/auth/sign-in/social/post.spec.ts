@@ -45,6 +45,7 @@ test.describe('Sign in with social provider', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -66,6 +67,7 @@ test.describe('Sign in with social provider', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

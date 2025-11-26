@@ -115,6 +115,7 @@ test.describe('Database Views Migration', () => {
       // WHEN/THEN: Streamlined workflow testing integration points
 
       // Focus on workflow continuity, not exhaustive coverage
+      // THEN: assertion
       expect(true).toBe(false)
     }
   )

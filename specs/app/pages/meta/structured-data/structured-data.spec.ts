@@ -413,6 +413,7 @@ test.describe('Structured Data', () => {
     'APP-PAGES-META-STRUCTURED-DATA-REGRESSION-001: user can complete full structured data workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -448,10 +449,12 @@ test.describe('Structured Data', () => {
         ],
       })
 
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // Enhanced JSON-LD validation for multiple schemas
       const scripts = await page.locator('script[type="application/ld+json"]').all()
+      // THEN: assertion
       expect(scripts.length).toBeGreaterThanOrEqual(2) // At least organization + breadcrumb
 
       // Parse all JSON-LD scripts and validate each

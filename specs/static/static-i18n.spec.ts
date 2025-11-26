@@ -90,6 +90,7 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
       const frFiles = await readdir(join(outputDir, 'fr'), { recursive: true })
       const esFiles = await readdir(join(outputDir, 'es'), { recursive: true })
 
+      // THEN: assertion
       expect(enFiles).toContain('index.html')
       expect(enFiles).toContain('about.html')
       expect(frFiles).toContain('index.html')
@@ -103,6 +104,7 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
         .filter((f) => f.isFile() && f.name.endsWith('.html'))
         .map((f) => f.name)
 
+      // THEN: assertion
       expect(rootHtmlFiles).toContain('index.html') // Root redirect or default language
     }
   )
@@ -169,6 +171,7 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
       expect(enHtml).toContain('This is the English version')
 
       // French version
+      // THEN: assertion
       expect(frHtml).toContain('<!DOCTYPE html>')
       expect(frHtml).toContain('lang="fr-FR"')
       expect(frHtml).toContain('<title>Accueil</title>')
@@ -178,6 +181,7 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
 
       // Default language at root
       const rootHtml = await readFile(join(outputDir, 'index.html'), 'utf-8')
+      // THEN: assertion
       expect(rootHtml).toContain('Welcome to Our Site') // Default to English
     }
   )
@@ -239,16 +243,19 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
       expect(enHome).toContain('hreflang="x-default"')
 
       // French home page should have the same links
+      // THEN: assertion
       expect(frHome).toContain('hreflang="en-US"')
       expect(frHome).toContain('hreflang="fr-FR"')
       expect(frHome).toContain('hreflang="de-DE"')
 
       // German home page
+      // THEN: assertion
       expect(deHome).toContain('hreflang="en-US"')
       expect(deHome).toContain('hreflang="fr-FR"')
       expect(deHome).toContain('hreflang="de-DE"')
 
       // About page should have correct hreflang links
+      // THEN: assertion
       expect(enAbout).toContain('hreflang="en-US"')
       expect(enAbout).toContain('href="/en/about/"')
       expect(enAbout).toContain('hreflang="fr-FR"')
@@ -352,6 +359,7 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
       expect(enHome).toMatch(/>\s*Español\s*<\/a/s)
 
       // French home page
+      // THEN: assertion
       expect(frHome).toContain('Langue') // Label in French
       expect(frHome).toContain('href="/en/"')
       expect(frHome).toMatch(/>\s*English\s*<\/a/s)
@@ -361,6 +369,7 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
       expect(frHome).toMatch(/>\s*Español\s*<\/a/s)
 
       // Spanish about page - should link to about page in other languages
+      // THEN: assertion
       expect(esAbout).toContain('Idioma') // Label in Spanish
       expect(esAbout).toContain('href="/en/about"')
       expect(esAbout).toMatch(/>\s*English\s*<\/a/s)
@@ -370,6 +379,7 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
       expect(esAbout).toMatch(/>\s*Español\s*<\/a/s)
 
       // Navigation should be translated
+      // THEN: assertion
       expect(enHome).toContain('Home')
       expect(enHome).toContain('About')
       expect(frHome).toContain('Accueil')
@@ -482,30 +492,38 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
       await expect(page.locator('p').first()).toHaveText(
         'This site is available in multiple languages'
       )
+      // THEN: assertion
       await expect(page.locator('a[href="/about"]')).toHaveText('Learn More')
 
       // Verify hreflang meta tags exist
       const enHreflangLinks = await page.locator('link[rel="alternate"][hreflang]').all()
+      // THEN: assertion
       expect(enHreflangLinks.length).toBeGreaterThan(0)
 
       // Navigate to French version
+      // WHEN: user navigates to the page
       await page.goto(`file://${join(outputDir, 'fr/index.html')}`)
 
       // Should display French content
+      // THEN: assertion
       await expect(page.locator('h1')).toHaveText('Bienvenue')
       await expect(page.locator('p').first()).toHaveText(
         'Ce site est disponible en plusieurs langues'
       )
+      // THEN: assertion
       await expect(page.locator('a[href="/about"]')).toHaveText('En Savoir Plus')
 
       // Navigate to French about page
+      // WHEN: user navigates to the page
       await page.goto(`file://${join(outputDir, 'fr/about.html')}`)
+      // THEN: assertion
       await expect(page.locator('h1')).toHaveText('À Propos')
       await expect(page.locator('p')).toHaveText('Nous sommes une entreprise internationale')
 
       // Verify structure consistency
       const enFiles = await readdir(join(outputDir, 'en'))
       const frFiles = await readdir(join(outputDir, 'fr'))
+      // THEN: assertion
       expect(enFiles).toEqual(frFiles) // Same files in both language directories
     }
   )

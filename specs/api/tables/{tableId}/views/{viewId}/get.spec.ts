@@ -42,6 +42,7 @@ test.describe('Get view details', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('id')
       expect(data).toHaveProperty('name')
       expect(data).toHaveProperty('type')
@@ -69,6 +70,7 @@ test.describe('Get view details', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('code')
       expect(data.error).toBe('View not found')
@@ -94,6 +96,7 @@ test.describe('Get view details', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('code')
       expect(data.error).toBe('Table not found')
@@ -119,6 +122,7 @@ test.describe('Get view details', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('id')
       expect(data).toHaveProperty('name')
       expect(data).toHaveProperty('type')
@@ -147,6 +151,7 @@ test.describe('Get view details', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('id')
       expect(data).toHaveProperty('name')
       expect(data).toHaveProperty('type')
@@ -175,8 +180,10 @@ test.describe('Get view details', () => {
           Authorization: 'Bearer test_token',
         },
       })
+      // THEN: assertion
       expect(successResponse.status()).toBe(200)
       const view = await successResponse.json()
+      // THEN: assertion
       expect(view).toHaveProperty('id')
       expect(view).toHaveProperty('name')
       expect(view).toHaveProperty('type')
@@ -187,6 +194,7 @@ test.describe('Get view details', () => {
           Authorization: 'Bearer test_token',
         },
       })
+      // THEN: assertion
       expect(viewNotFoundResponse.status()).toBe(404)
 
       // Test table not found
@@ -195,6 +203,7 @@ test.describe('Get view details', () => {
           Authorization: 'Bearer test_token',
         },
       })
+      // THEN: assertion
       expect(tableNotFoundResponse.status()).toBe(404)
     }
   )

@@ -25,6 +25,7 @@ test.describe('Lookup Field', () => {
     'APP-LOOKUP-FIELD-001: should retrieve related field via JOIN',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255))',
         "INSERT INTO customers (name, email) VALUES ('Alice Johnson', 'alice@example.com'), ('Bob Smith', 'bob@example.com')",
@@ -32,19 +33,25 @@ test.describe('Lookup Field', () => {
         'INSERT INTO orders (customer_id, amount) VALUES (1, 150.00), (2, 200.00), (1, 75.50)',
       ])
 
+      // WHEN: executing query
       const lookup = await executeQuery(
         'SELECT o.id, c.name as customer_name FROM orders o JOIN customers c ON o.customer_id = c.id WHERE o.id = 1'
       )
+      // THEN: assertion
       expect(lookup).toEqual({ id: 1, customer_name: 'Alice Johnson' })
 
+      // WHEN: executing query
       const multipleOrders = await executeQuery(
         "SELECT COUNT(*) as count FROM orders o JOIN customers c ON o.customer_id = c.id WHERE c.name = 'Alice Johnson'"
       )
+      // THEN: assertion
       expect(multipleOrders.count).toBe(2)
 
+      // WHEN: executing query
       const allLookups = await executeQuery(
         'SELECT o.id, c.name as customer_name FROM orders o JOIN customers c ON o.customer_id = c.id ORDER BY o.id'
       )
+      // THEN: assertion
       expect(allLookups).toEqual([
         { id: 1, customer_name: 'Alice Johnson' },
         { id: 2, customer_name: 'Bob Smith' },
@@ -57,6 +64,7 @@ test.describe('Lookup Field', () => {
     'APP-LOOKUP-FIELD-002: should support multiple lookup fields through same relationship',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), department VARCHAR(100))',
         "INSERT INTO users (name, email, department) VALUES ('John Doe', 'john@company.com', 'Engineering')",
@@ -64,9 +72,11 @@ test.describe('Lookup Field', () => {
         "INSERT INTO tasks (title, assigned_to) VALUES ('Fix bug', 1), ('Write docs', 1)",
       ])
 
+      // WHEN: executing query
       const multipleLookups = await executeQuery(
         'SELECT t.id, u.name as assignee_name, u.email as assignee_email, u.department as assignee_department FROM tasks t JOIN users u ON t.assigned_to = u.id WHERE t.id = 1'
       )
+      // THEN: assertion
       expect(multipleLookups).toEqual({
         id: 1,
         assignee_name: 'John Doe',
@@ -80,6 +90,7 @@ test.describe('Lookup Field', () => {
     'APP-LOOKUP-FIELD-003: should create VIEW to encapsulate lookup logic',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE categories (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO categories (name) VALUES ('Electronics'), ('Clothing')",
@@ -88,19 +99,25 @@ test.describe('Lookup Field', () => {
         'CREATE VIEW products_with_category AS SELECT p.id, p.title, p.category_id, c.name as product_category FROM products p LEFT JOIN categories c ON p.category_id = c.id',
       ])
 
+      // WHEN: executing query
       const viewExists = await executeQuery(
         "SELECT table_name FROM information_schema.views WHERE table_name = 'products_with_category'"
       )
+      // THEN: assertion
       expect(viewExists.table_name).toBe('products_with_category')
 
+      // WHEN: executing query
       const viewData = await executeQuery(
         'SELECT id, title, product_category FROM products_with_category WHERE id = 1'
       )
+      // THEN: assertion
       expect(viewData).toEqual({ id: 1, title: 'Laptop', product_category: 'Electronics' })
 
+      // WHEN: executing query
       const filterByLookup = await executeQuery(
         "SELECT COUNT(*) as count FROM products_with_category WHERE product_category = 'Electronics'"
       )
+      // THEN: assertion
       expect(filterByLookup.count).toBe(1)
     }
   )
@@ -109,6 +126,7 @@ test.describe('Lookup Field', () => {
     'APP-LOOKUP-FIELD-004: should return NULL when relationship is NULL via LEFT JOIN',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE companies (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO companies (name) VALUES ('Acme Corp')",
@@ -116,19 +134,25 @@ test.describe('Lookup Field', () => {
         "INSERT INTO invoices (invoice_number, company_id) VALUES ('INV-001', 1), ('INV-002', NULL)",
       ])
 
+      // WHEN: executing query
       const withRelationship = await executeQuery(
         "SELECT i.invoice_number, c.name as company_name FROM invoices i LEFT JOIN companies c ON i.company_id = c.id WHERE i.invoice_number = 'INV-001'"
       )
+      // THEN: assertion
       expect(withRelationship).toEqual({ invoice_number: 'INV-001', company_name: 'Acme Corp' })
 
+      // WHEN: executing query
       const nullRelationship = await executeQuery(
         "SELECT i.invoice_number, c.name as company_name FROM invoices i LEFT JOIN companies c ON i.company_id = c.id WHERE i.invoice_number = 'INV-002'"
       )
+      // THEN: assertion
       expect(nullRelationship).toEqual({ invoice_number: 'INV-002', company_name: null })
 
+      // WHEN: executing query
       const allRecords = await executeQuery(
         'SELECT COUNT(*) as count FROM invoices i LEFT JOIN companies c ON i.company_id = c.id'
       )
+      // THEN: assertion
       expect(allRecords.count).toBe(2)
     }
   )
@@ -137,6 +161,7 @@ test.describe('Lookup Field', () => {
     'APP-LOOKUP-FIELD-005: should reflect updated values immediately when related record changes',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255), price DECIMAL(10,2))',
         "INSERT INTO products (name, price) VALUES ('Widget', 19.99)",
@@ -144,16 +169,21 @@ test.describe('Lookup Field', () => {
         'INSERT INTO line_items (product_id, quantity) VALUES (1, 5)',
       ])
 
+      // WHEN: executing query
       const initialLookup = await executeQuery(
         'SELECT li.id, p.price as product_price FROM line_items li JOIN products p ON li.product_id = p.id WHERE li.id = 1'
       )
+      // THEN: assertion
       expect(initialLookup).toEqual({ id: 1, product_price: '19.99' })
 
+      // WHEN: executing query
       await executeQuery('UPDATE products SET price = 24.99 WHERE id = 1')
 
+      // WHEN: executing query
       const updatedLookup = await executeQuery(
         'SELECT li.id, p.price as product_price FROM line_items li JOIN products p ON li.product_id = p.id WHERE li.id = 1'
       )
+      // THEN: assertion
       expect(updatedLookup).toEqual({ id: 1, product_price: '24.99' })
     }
   )
@@ -162,6 +192,7 @@ test.describe('Lookup Field', () => {
     'APP-TABLES-FIELD-LOOKUP-REGRESSION-001: user can complete full lookup-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE categories (id SERIAL PRIMARY KEY, name VARCHAR(255))',
         "INSERT INTO categories (name) VALUES ('Books')",
@@ -169,6 +200,7 @@ test.describe('Lookup Field', () => {
         "INSERT INTO items (category_id, title) VALUES (1, 'The Great Book')",
       ])
 
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -190,9 +222,11 @@ test.describe('Lookup Field', () => {
         ],
       })
 
+      // WHEN: executing query
       const lookup = await executeQuery(
         'SELECT i.id, c.name as category_name FROM items i JOIN categories c ON i.category_id = c.id WHERE i.id = 1'
       )
+      // THEN: assertion
       expect(lookup.category_name).toBe('Books')
     }
   )

@@ -49,6 +49,7 @@ test.describe('Long Text Field', () => {
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='articles' AND column_name='description'"
       )
+      // THEN: assertion
       expect(columnInfo).toEqual({
         column_name: 'description',
         data_type: 'single-line-text',
@@ -59,6 +60,7 @@ test.describe('Long Text Field', () => {
       const multiLineInsert = await executeQuery(
         "INSERT INTO articles (description) VALUES ('Line 1\nLine 2\nLine 3') RETURNING description"
       )
+      // THEN: assertion
       expect(multiLineInsert.description).toBe('Line 1\nLine 2\nLine 3')
     }
   )
@@ -88,6 +90,7 @@ test.describe('Long Text Field', () => {
       const dataTypeCheck = await executeQuery(
         "SELECT data_type, character_maximum_length FROM information_schema.columns WHERE table_name='posts' AND column_name='content'"
       )
+      // THEN: assertion
       expect(dataTypeCheck).toEqual({
         data_type: 'single-line-text',
         character_maximum_length: null,
@@ -96,6 +99,7 @@ test.describe('Long Text Field', () => {
       const largeTextInsert = await executeQuery(
         "INSERT INTO posts (content) VALUES ('Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.') RETURNING LENGTH(content) as length"
       )
+      // THEN: assertion
       expect(largeTextInsert.length).toBe(445)
     }
   )
@@ -125,13 +129,16 @@ test.describe('Long Text Field', () => {
       const notNullCheck = await executeQuery(
         "SELECT is_nullable FROM information_schema.columns WHERE table_name='comments' AND column_name='body'"
       )
+      // THEN: assertion
       expect(notNullCheck.is_nullable).toBe('NO')
 
       const validInsert = await executeQuery(
         "INSERT INTO comments (body) VALUES ('Great article!') RETURNING body"
       )
+      // THEN: assertion
       expect(validInsert.body).toBe('Great article!')
 
+      // THEN: assertion
       await expect(executeQuery('INSERT INTO comments (body) VALUES (NULL)')).rejects.toThrow(
         /violates not-null constraint/
       )
@@ -163,6 +170,7 @@ test.describe('Long Text Field', () => {
       const indexExists = await executeQuery(
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_pages_content'"
       )
+      // THEN: assertion
       expect(indexExists).toEqual({
         indexname: 'idx_pages_content',
         tablename: 'pages',
@@ -171,6 +179,7 @@ test.describe('Long Text Field', () => {
       const indexDef = await executeQuery(
         "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_pages_content'"
       )
+      // THEN: assertion
       expect(indexDef.indexdef).toBe(
         'CREATE INDEX idx_pages_content ON public.pages USING btree (content)'
       )
@@ -202,16 +211,19 @@ test.describe('Long Text Field', () => {
       const defaultCheck = await executeQuery(
         "SELECT column_default FROM information_schema.columns WHERE table_name='projects' AND column_name='notes'"
       )
+      // THEN: assertion
       expect(defaultCheck.column_default).toBe("'No notes'::text")
 
       const defaultInsert = await executeQuery(
         'INSERT INTO projects (id) VALUES (DEFAULT) RETURNING notes'
       )
+      // THEN: assertion
       expect(defaultInsert.notes).toBe('No notes')
 
       const explicitInsert = await executeQuery(
         "INSERT INTO projects (notes) VALUES ('Custom notes here') RETURNING notes"
       )
+      // THEN: assertion
       expect(explicitInsert.notes).toBe('Custom notes here')
     }
   )
@@ -244,6 +256,7 @@ test.describe('Long Text Field', () => {
       const columnInfo = await executeQuery(
         "SELECT data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='long_text_field'"
       )
+      // THEN: assertion
       expect(columnInfo.data_type).toBe('text')
       expect(columnInfo.character_maximum_length).toBeNull()
       expect(columnInfo.is_nullable).toBe('NO')
@@ -253,6 +266,7 @@ test.describe('Long Text Field', () => {
       const insertResult = await executeQuery(
         `INSERT INTO data (long_text_field) VALUES ('${largeText}') RETURNING LENGTH(long_text_field) as length`
       )
+      // THEN: assertion
       expect(insertResult.length).toBe(1000)
     }
   )

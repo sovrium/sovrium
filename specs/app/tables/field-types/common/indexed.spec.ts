@@ -54,16 +54,19 @@ test.describe('Indexed Field Property', () => {
       const indexCheck = await executeQuery(
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_users_email'"
       )
+      // THEN: assertion
       expect(indexCheck).toEqual({ indexname: 'idx_users_email', tablename: 'users' })
 
       const indexDef = await executeQuery(
         "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_users_email'"
       )
+      // THEN: assertion
       expect(indexDef.indexdef).toContain('USING btree (email)')
 
       const lookup = await executeQuery(
         "SELECT COUNT(*) as count FROM users WHERE email = 'alice@example.com'"
       )
+      // THEN: assertion
       expect(lookup.count).toBe(1)
     }
   )
@@ -98,16 +101,19 @@ test.describe('Indexed Field Property', () => {
       const noIndex = await executeQuery(
         "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='products' AND indexname LIKE '%description%'"
       )
+      // THEN: assertion
       expect(noIndex.count).toBe(0)
 
       const onlyPrimaryKey = await executeQuery(
         "SELECT indexname FROM pg_indexes WHERE tablename='products'"
       )
+      // THEN: assertion
       expect(onlyPrimaryKey.indexname).toBe('products_pkey')
 
       const sequentialScan = await executeQuery(
         "SELECT name FROM products WHERE description LIKE '%Description%'"
       )
+      // THEN: assertion
       expect(sequentialScan.name).toBe('Product 1')
     }
   )
@@ -142,16 +148,19 @@ test.describe('Indexed Field Property', () => {
       const indexExists = await executeQuery(
         "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_events_occurred_at'"
       )
+      // THEN: assertion
       expect(indexExists.indexname).toBe('idx_events_occurred_at')
 
       const rangeQuery = await executeQuery(
         "SELECT COUNT(*) as count FROM events WHERE occurred_at > '2024-01-01'"
       )
+      // THEN: assertion
       expect(rangeQuery.count).toBe(2)
 
       const orderBy = await executeQuery(
         'SELECT name FROM events ORDER BY occurred_at DESC LIMIT 1'
       )
+      // THEN: assertion
       expect(orderBy.name).toBe('Event 3')
     }
   )
@@ -187,16 +196,19 @@ test.describe('Indexed Field Property', () => {
       const indexExists = await executeQuery(
         "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_orders_customer_id'"
       )
+      // THEN: assertion
       expect(indexExists.indexname).toBe('idx_orders_customer_id')
 
       const filterQuery = await executeQuery(
         'SELECT COUNT(*) as count FROM orders WHERE customer_id = 1'
       )
+      // THEN: assertion
       expect(filterQuery.count).toBe(2)
 
       const groupedQuery = await executeQuery(
         'SELECT customer_id, COUNT(*) as order_count FROM orders GROUP BY customer_id ORDER BY customer_id'
       )
+      // THEN: assertion
       expect(groupedQuery).toEqual([
         { customer_id: 1, order_count: 2 },
         { customer_id: 2, order_count: 1 },
@@ -233,17 +245,21 @@ test.describe('Indexed Field Property', () => {
       const indexExists = await executeQuery(
         "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_companies_name'"
       )
+      // THEN: assertion
       expect(indexExists.indexname).toBe('idx_companies_name')
 
       const prefixSearch = await executeQuery(
         "SELECT COUNT(*) as count FROM companies WHERE name LIKE 'Acme%'"
       )
+      // THEN: assertion
       expect(prefixSearch.count).toBe(2)
 
       const exactMatch = await executeQuery("SELECT name FROM companies WHERE name = 'Beta LLC'")
+      // THEN: assertion
       expect(exactMatch.name).toBe('Beta LLC')
 
       const orderBy = await executeQuery('SELECT name FROM companies ORDER BY name LIMIT 1')
+      // THEN: assertion
       expect(orderBy.name).toBe('Acme Corp')
     }
   )
@@ -282,16 +298,19 @@ test.describe('Indexed Field Property', () => {
       const emailIndex = await executeQuery(
         "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='data' AND indexname LIKE '%email%'"
       )
+      // THEN: assertion
       expect(emailIndex.count).toBeGreaterThan(0)
 
       const timestampIndex = await executeQuery(
         "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='data' AND indexname LIKE '%created_at%'"
       )
+      // THEN: assertion
       expect(timestampIndex.count).toBeGreaterThan(0)
 
       const noNotesIndex = await executeQuery(
         "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='data' AND indexname LIKE '%notes%'"
       )
+      // THEN: assertion
       expect(noNotesIndex.count).toBe(0)
     }
   )

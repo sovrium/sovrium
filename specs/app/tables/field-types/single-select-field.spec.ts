@@ -24,6 +24,7 @@ test.describe('Single Select Field', () => {
     'APP-SINGLE-SELECT-FIELD-001: should create PostgreSQL VARCHAR column for single select storage',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -44,15 +45,20 @@ test.describe('Single Select Field', () => {
         ],
       })
 
+      // WHEN: executing query
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='tasks' AND column_name='status'"
       )
+      // THEN: assertion
       expect(columnInfo.data_type).toMatch(/character varying|text/)
+      // THEN: assertion
       expect(columnInfo.is_nullable).toBe('YES')
 
+      // WHEN: executing query
       const validInsert = await executeQuery(
         "INSERT INTO tasks (status) VALUES ('todo') RETURNING status"
       )
+      // THEN: assertion
       expect(validInsert.status).toBe('todo')
     }
   )
@@ -61,6 +67,7 @@ test.describe('Single Select Field', () => {
     'APP-SINGLE-SELECT-FIELD-002: should enforce CHECK constraint to allow only predefined options',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -81,11 +88,14 @@ test.describe('Single Select Field', () => {
         ],
       })
 
+      // WHEN: executing query
       const validInsert = await executeQuery(
         "INSERT INTO products (category) VALUES ('electronics') RETURNING category"
       )
+      // THEN: assertion
       expect(validInsert.category).toBe('electronics')
 
+      // THEN: assertion
       await expect(
         executeQuery("INSERT INTO products (category) VALUES ('invalid')")
       ).rejects.toThrow(/violates check constraint/)
@@ -96,6 +106,7 @@ test.describe('Single Select Field', () => {
     'APP-SINGLE-SELECT-FIELD-003: should reject NULL value when single-select field is required',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -117,11 +128,14 @@ test.describe('Single Select Field', () => {
         ],
       })
 
+      // WHEN: executing query
       const notNullCheck = await executeQuery(
         "SELECT is_nullable FROM information_schema.columns WHERE table_name='orders' AND column_name='priority'"
       )
+      // THEN: assertion
       expect(notNullCheck.is_nullable).toBe('NO')
 
+      // WHEN: executing query
       await expect(executeQuery('INSERT INTO orders (priority) VALUES (NULL)')).rejects.toThrow(
         /violates not-null constraint/
       )
@@ -132,6 +146,7 @@ test.describe('Single Select Field', () => {
     'APP-SINGLE-SELECT-FIELD-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -153,9 +168,11 @@ test.describe('Single Select Field', () => {
         ],
       })
 
+      // WHEN: executing query
       const defaultInsert = await executeQuery(
         'INSERT INTO tickets (id) VALUES (DEFAULT) RETURNING status'
       )
+      // THEN: assertion
       expect(defaultInsert.status).toBe('open')
     }
   )
@@ -164,6 +181,7 @@ test.describe('Single Select Field', () => {
     'APP-SINGLE-SELECT-FIELD-005: should create btree index for fast queries when single-select field has indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -186,9 +204,11 @@ test.describe('Single Select Field', () => {
         ],
       })
 
+      // WHEN: executing query
       const indexExists = await executeQuery(
         "SELECT indexname FROM pg_indexes WHERE indexname = 'idx_issues_type'"
       )
+      // THEN: assertion
       expect(indexExists.indexname).toBe('idx_issues_type')
     }
   )
@@ -197,6 +217,7 @@ test.describe('Single Select Field', () => {
     'APP-TABLES-FIELD-SINGLE-SELECT-REGRESSION-001: user can complete full single-select-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -220,15 +241,20 @@ test.describe('Single Select Field', () => {
         ],
       })
 
+      // WHEN: executing query
       await executeQuery("INSERT INTO data (select_field) VALUES ('option2')")
+      // WHEN: executing query
       const stored = await executeQuery('SELECT select_field FROM data WHERE id = 1')
+      // THEN: assertion
       expect(stored.select_field).toBe('option2')
 
       // Count by option
       await executeQuery("INSERT INTO data (select_field) VALUES ('option2'), ('option3')")
+      // WHEN: executing query
       const grouped = await executeQuery(
         'SELECT select_field, COUNT(*) as count FROM data GROUP BY select_field ORDER BY select_field'
       )
+      // THEN: assertion
       expect(grouped).toContainEqual({ select_field: 'option2', count: 2 })
     }
   )

@@ -124,7 +124,11 @@ test.describe('CTA Button', () => {
             },
           ],
         })
+
+        // WHEN: user navigates to the page
         await page.goto('/')
+
+        // THEN: button should have the correct variant class
         await expect(page.locator('[data-testid="nav-cta"]')).toHaveClass(
           new RegExp(`btn-${variant}`)
         )
@@ -153,7 +157,11 @@ test.describe('CTA Button', () => {
             },
           ],
         })
+
+        // WHEN: user navigates to the page
         await page.goto('/')
+
+        // THEN: button should have the correct size class
         await expect(page.locator('[data-testid="nav-cta"]')).toHaveClass(new RegExp(`btn-${size}`))
       }
     }
@@ -228,6 +236,7 @@ test.describe('CTA Button', () => {
       await expect(cta.locator('[data-testid="icon"]')).toBeVisible()
 
       const iconPosition = await getIconPosition(cta)
+      // THEN: assertion
       expect(iconPosition).toBe('right')
     }
   )
@@ -263,6 +272,7 @@ test.describe('CTA Button', () => {
       await expect(cta.locator('[data-testid="icon"]')).toBeVisible()
 
       const iconPosition = await getIconPosition(cta)
+      // THEN: assertion
       expect(iconPosition).toBe('left')
     }
   )
@@ -384,6 +394,7 @@ test.describe('CTA Button', () => {
     'APP-PAGES-LAYOUT-NAVIGATION-CTA-BUTTON-REGRESSION-001: user can complete full CTA button workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -410,10 +421,12 @@ test.describe('CTA Button', () => {
         ],
       })
 
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // Verify CTA button visible
       const cta = page.locator('[data-testid="nav-cta"]')
+      // THEN: assertion
       await expect(cta).toBeVisible()
 
       // Verify text and link

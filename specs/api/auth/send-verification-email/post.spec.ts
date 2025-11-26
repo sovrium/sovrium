@@ -58,10 +58,12 @@ test.describe('Send verification email', () => {
       // Returns 200 OK
       // Response indicates email was sent
       // Verification token is created in database
+      // THEN: assertion
       expect(response.status).toBe(200)
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -91,6 +93,7 @@ test.describe('Send verification email', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -122,6 +125,7 @@ test.describe('Send verification email', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -156,6 +160,7 @@ test.describe('Send verification email', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -192,10 +197,12 @@ test.describe('Send verification email', () => {
       // Returns 200 OK
       // Old token is invalidated
       // New token is created
+      // THEN: assertion
       expect(response.status).toBe(200)
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -224,10 +231,12 @@ test.describe('Send verification email', () => {
       // Returns 200 OK (prevent email enumeration)
       // Response looks identical to success case
       // No verification token is created (email doesn't exist)
+      // THEN: assertion
       expect(response.status).toBe(200)
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

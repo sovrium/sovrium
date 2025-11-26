@@ -63,10 +63,12 @@ test.describe('Change password', () => {
       // Returns 200 OK
       // Response contains user data
       // Password hash is updated in database
+      // THEN: assertion
       expect(response.status).toBe(200)
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -112,10 +114,12 @@ test.describe('Change password', () => {
       // Returns 200 OK
       // Response contains new token
       // Other sessions are revoked in database
+      // THEN: assertion
       expect(response.status).toBe(200)
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -156,6 +160,7 @@ test.describe('Change password', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -196,6 +201,7 @@ test.describe('Change password', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -237,6 +243,7 @@ test.describe('Change password', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -269,6 +276,7 @@ test.describe('Change password', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -309,6 +317,7 @@ test.describe('Change password', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -348,6 +357,7 @@ test.describe('Change password', () => {
 
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

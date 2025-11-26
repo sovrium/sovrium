@@ -124,6 +124,7 @@ test(
     // Verify h1 appears before any h2, h3, h4, h5, h6
     const firstHeading = page.locator('h1, h2, h3, h4, h5, h6').first()
     const tagName = await firstHeading.evaluate((el) => el.tagName.toLowerCase())
+    // THEN: assertion
     expect(tagName).toBe('h1')
   }
 )
@@ -161,9 +162,11 @@ test(
 
     // Verify not hidden via CSS
     const visibility = await heading.evaluate((el) => window.getComputedStyle(el).visibility)
+    // THEN: assertion
     expect(visibility).toBe('visible')
 
     const display = await heading.evaluate((el) => window.getComputedStyle(el).display)
+    // THEN: assertion
     expect(display).not.toBe('none')
   }
 )
@@ -202,6 +205,7 @@ test(
     // TypographyH1 uses text-4xl which is 36px (2.25rem)
     // Accept parsed pixel value (accounting for browser defaults)
     const fontSizeValue = parseFloat(fontSize)
+    // THEN: assertion
     expect(fontSizeValue).toBeGreaterThanOrEqual(32) // Allow some browser variance
   }
 )
@@ -214,8 +218,10 @@ test(
 
     // First test run: 'first-app'
     await startServerWithSchema({ name: 'first-app' }, { useDatabase: false })
+    // WHEN: user navigates to the page
     await page.goto('/')
     let heading = page.locator('h1')
+    // THEN: assertion
     await expect(heading).toHaveText('first-app')
 
     // Close first server and start second server
@@ -226,6 +232,7 @@ test(
     // In real scenario, each would be separate test with own fixture
     // For demonstration, we'll verify state isolation
     await startServerWithSchema({ name: 'second-app' }, { useDatabase: false })
+    // WHEN: user navigates to the page
     await page.goto('/')
     heading = page.locator('h1')
 
@@ -253,11 +260,14 @@ test(
     await expect(heading).toHaveText(complexName)
 
     // 2. Metadata in page title
+    // THEN: assertion
     await expect(page).toHaveTitle(`${complexName} - Powered by Sovrium`)
 
     // 3. Special characters rendered correctly
+    // THEN: assertion
     await expect(heading).toHaveText(complexName)
     const textContent = await heading.textContent()
+    // THEN: assertion
     expect(textContent).toContain('@')
     expect(textContent).toContain('/')
     expect(textContent).toContain('_')
@@ -266,14 +276,17 @@ test(
 
     // 4. Accessibility (exactly one h1)
     const headingCount = await page.locator('h1').count()
+    // THEN: assertion
     expect(headingCount).toBe(1)
 
     // 5. Styling (TypographyH1 component)
     const fontSize = await heading.evaluate((el) => window.getComputedStyle(el).fontSize)
     const fontSizeValue = parseFloat(fontSize)
+    // THEN: assertion
     expect(fontSizeValue).toBeGreaterThanOrEqual(32)
 
     // 6. Visibility
+    // THEN: assertion
     await expect(heading).toBeVisible()
   }
 )
@@ -309,14 +322,17 @@ test(
 
     // 1. Content Display (APP-NAME-001, APP-NAME-009, APP-NAME-012)
     const heading = page.locator('h1')
+    // THEN: assertion
     await expect(heading).toHaveText(complexName)
     await expect(heading).toHaveText(complexName) // Exact match, no modification
 
     // 2. Metadata Integration (APP-NAME-002)
+    // THEN: assertion
     await expect(page).toHaveTitle(`${complexName} - Powered by Sovrium`)
 
     // 3. Special Characters Preserved (APP-NAME-012)
     const textContent = await heading.textContent()
+    // THEN: assertion
     expect(textContent).toContain('@')
     expect(textContent).toContain('/')
     expect(textContent).toContain('_')
@@ -325,23 +341,30 @@ test(
 
     // 4. Accessibility Standards (APP-NAME-005, APP-NAME-006)
     const headingCount = await page.locator('h1').count()
+    // THEN: assertion
     expect(headingCount).toBe(1) // Exactly one h1
     const firstHeading = page.locator('h1, h2, h3, h4, h5, h6').first()
     const tagName = await firstHeading.evaluate((el) => el.tagName.toLowerCase())
+    // THEN: assertion
     expect(tagName).toBe('h1') // h1 is first heading level
 
     // 5. Visual Styling (APP-NAME-007, APP-NAME-010)
     const textAlign = await heading.evaluate((el) => window.getComputedStyle(el).textAlign)
+    // THEN: assertion
     expect(textAlign).toBe('center') // Centered layout
     const fontSize = await heading.evaluate((el) => window.getComputedStyle(el).fontSize)
     const fontSizeValue = parseFloat(fontSize)
+    // THEN: assertion
     expect(fontSizeValue).toBeGreaterThanOrEqual(32) // TypographyH1 styling (text-4xl)
 
     // 6. Visibility (APP-NAME-008)
+    // THEN: assertion
     await expect(heading).toBeVisible()
     const visibility = await heading.evaluate((el) => window.getComputedStyle(el).visibility)
+    // THEN: assertion
     expect(visibility).toBe('visible')
     const display = await heading.evaluate((el) => window.getComputedStyle(el).display)
+    // THEN: assertion
     expect(display).not.toBe('none')
 
     // Note: Edge cases (min length, max length, independence) are thoroughly

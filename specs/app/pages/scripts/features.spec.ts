@@ -326,6 +326,7 @@ test.describe('Feature Flags', () => {
     'APP-PAGES-SCRIPTS-FEATURES-REGRESSION-001: user can complete full Feature Flags workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -346,9 +347,11 @@ test.describe('Feature Flags', () => {
           },
         ],
       })
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // Verify page renders with feature flags configuration
+      // THEN: assertion
       await expect(page.locator('h1')).toHaveText('Feature Flags Test')
 
       // Verify data-features attribute is set on html element

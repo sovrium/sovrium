@@ -211,6 +211,7 @@ test.describe('Block Props', () => {
       await expect(widget).toHaveAttribute('data-chart-config')
       const configAttr = await widget.getAttribute('data-chart-config')
       const config = JSON.parse(configAttr!)
+      // THEN: assertion
       expect(config.type).toBe('bar')
       expect(config.data).toEqual([10, 20, 30])
     }
@@ -241,6 +242,7 @@ test.describe('Block Props', () => {
       await expect(list).toHaveAttribute('data-tags')
       const tagsAttr = await list.getAttribute('data-tags')
       const tags = JSON.parse(tagsAttr!)
+      // THEN: assertion
       expect(tags).toEqual(['react', 'typescript', 'tailwind'])
     }
   )
@@ -434,6 +436,7 @@ test.describe('Block Props', () => {
       expect(html).toContain('title="Save changes"')
 
       const button = page.locator('[data-testid="block-action-button"]')
+      // THEN: assertion
       await expect(button).toHaveAttribute('aria-label', 'Close')
       await expect(button).toHaveAttribute('title', 'Save changes')
       await expect(button).toHaveClass(/btn-primary/)
@@ -500,6 +503,7 @@ test.describe('Block Props', () => {
       expect(html).not.toContain('$t:')
 
       const nav = page.locator('[data-testid="block-nav-menu"]')
+      // THEN: assertion
       await expect(nav.locator('a').nth(0)).toHaveText('Home')
       await expect(nav.locator('a').nth(1)).toHaveText('Products')
       await expect(nav.locator('a').nth(2)).toHaveText('Contact')
@@ -559,9 +563,11 @@ test.describe('Block Props', () => {
       const html = await page.content()
       expect(html).not.toContain('$t:')
 
+      // THEN: assertion
       await expect(page.locator('[data-testid="block-hero-heading"]')).toHaveText(
         'Build your next great app'
       )
+      // THEN: assertion
       await expect(page.locator('[data-testid="block-footer-text"]')).toHaveText(
         '© 2025 All rights reserved'
       )
@@ -645,6 +651,7 @@ test.describe('Block Props', () => {
       expect(html).not.toMatch(/\$(?!99\.99)[a-zA-Z]/) // No unresolved variables except $99.99
 
       const card = page.locator('[data-testid="block-product-card"]')
+      // THEN: assertion
       await expect(card).toHaveClass(/card-primary/)
       await expect(card).toHaveAttribute('data-product-id', '12345')
       await expect(card.locator('h3')).toHaveText('Product')
@@ -716,12 +723,14 @@ test.describe('Block Props', () => {
 
       // Verify first box
       const box1 = page.locator('[data-testid="block-feature-box-0"]')
+      // THEN: assertion
       await expect(box1).toHaveClass(/box-primary/)
       await expect(box1).toHaveClass(/p-6/)
       await expect(box1).toHaveAttribute('aria-label', 'Feature 1')
 
       // Verify second box
       const box2 = page.locator('[data-testid="block-feature-box-1"]')
+      // THEN: assertion
       await expect(box2).toHaveClass(/box-secondary/)
       await expect(box2).toHaveClass(/rounded-md/)
 

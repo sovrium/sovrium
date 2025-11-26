@@ -69,6 +69,7 @@ test.describe('Language Switcher Block', () => {
       // Click button to open dropdown (SSR + vanilla JS architecture)
       await page.locator('[data-testid="language-switcher-button"]').click()
 
+      // THEN: assertion
       await expect(page.locator('[data-testid="language-option-en-US"]')).toBeVisible()
       await expect(page.locator('[data-testid="language-option-fr-FR"]')).toBeVisible()
       await expect(page.locator('[data-testid="language-option-es-ES"]')).toBeVisible()
@@ -119,6 +120,7 @@ test.describe('Language Switcher Block', () => {
       await expect(enOption).toContainText('English')
 
       const frOption = page.locator('[data-testid="language-option-fr-FR"]')
+      // THEN: assertion
       await expect(frOption).toContainText('🇫🇷')
       await expect(frOption).toContainText('Français')
     }
@@ -165,6 +167,7 @@ test.describe('Language Switcher Block', () => {
 
       // Verify no flag emojis are displayed
       const enOption = page.locator('[data-testid="language-option-en-US"]')
+      // THEN: assertion
       await expect(enOption).toContainText('English')
       await expect(enOption).not.toContainText('🇺🇸')
     }
@@ -211,15 +214,18 @@ test.describe('Language Switcher Block', () => {
         ],
       })
 
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // WHEN: user completes full workflow
       // Step 1: Verify initial state (English)
       const htmlLang = page.locator('html')
+      // THEN: assertion
       await expect(htmlLang).toHaveAttribute('lang', 'en-US')
 
       // Step 2: Click language switcher to open dropdown
       const switcher = page.locator('[data-testid="language-switcher"]')
+      // THEN: assertion
       await expect(switcher).toBeVisible()
       await switcher.click()
 
@@ -228,10 +234,12 @@ test.describe('Language Switcher Block', () => {
 
       // Step 4: Verify language changed to French
       const newHtmlLang = page.locator('html')
+      // THEN: assertion
       await expect(newHtmlLang).toHaveAttribute('lang', 'fr-FR')
 
       // Step 5: Verify localStorage persisted the choice
       const storedLanguage = await page.evaluate(() => localStorage.getItem('sovrium_language'))
+      // THEN: assertion
       expect(storedLanguage).toBe('fr')
 
       // THEN: user can complete full language-switcher workflow

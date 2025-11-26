@@ -53,6 +53,7 @@ test(
 
     // AND: Content-Type should be application/json
     const contentType = response?.headers()['content-type']
+    // THEN: assertion
     expect(contentType).toContain('application/json')
   }
 )
@@ -82,10 +83,12 @@ test(
     expect(json).toHaveProperty('status', 'ok')
 
     // AND: JSON should have timestamp field (ISO 8601 format)
+    // THEN: assertion
     expect(json).toHaveProperty('timestamp')
     expect(json.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)
 
     // AND: JSON should have app object with name
+    // THEN: assertion
     expect(json).toHaveProperty('app')
     expect(json.app).toHaveProperty('name', 'monitoring-app')
   }

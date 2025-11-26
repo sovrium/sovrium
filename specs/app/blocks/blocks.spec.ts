@@ -104,6 +104,7 @@ test.describe('Reusable Blocks', () => {
 
       // Validate variable substitution completed (no $ symbols remain)
       const html = await blockElement.innerHTML()
+      // THEN: assertion
       expect(html).not.toContain('$message')
       expect(html).not.toContain('$')
       expect(html).toContain('Hello World')
@@ -185,9 +186,11 @@ test.describe('Reusable Blocks', () => {
 
       // WHEN: multiple blocks define UI patterns
       await page.goto('/')
+      // THEN: assertion
       await expect(page.locator('[data-block="shared-block"]')).toBeVisible()
 
       // THEN: it should provide consistent, reusable components across pages
+      // WHEN: user navigates to the page
       await page.goto('/about')
       await expect(page.locator('[data-block="shared-block"]')).toBeVisible()
     }
@@ -376,6 +379,7 @@ test.describe('Reusable Blocks', () => {
 
       // Validate variable substitution completed (no $ symbols remain)
       const buttonHtml = await button.evaluate((el) => el.outerHTML)
+      // THEN: assertion
       expect(buttonHtml).not.toContain('$buttonClass')
       expect(buttonHtml).not.toContain('$buttonText')
       expect(buttonHtml).not.toContain('$')
@@ -486,11 +490,13 @@ test.describe('Reusable Blocks', () => {
 
       // Verify structured data JSON-LD
       const structuredData = page.locator('script[type="application/ld+json"]')
+      // THEN: assertion
       await expect(structuredData).toBeAttached()
 
       const jsonLdContent = await structuredData.textContent()
       const parsedData = JSON.parse(jsonLdContent || '{}')
 
+      // THEN: assertion
       expect(parsedData['@type']).toBe('Product')
       expect(parsedData.name).toBe('Wireless Headphones')
       expect(parsedData.description).toBe('Premium noise-cancelling headphones')
@@ -499,6 +505,7 @@ test.describe('Reusable Blocks', () => {
       expect(parsedData.offers.priceCurrency).toBe('USD')
 
       // Verify meta tags from block
+      // THEN: assertion
       await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
         'content',
         '/images/headphones.jpg'
@@ -515,6 +522,7 @@ test.describe('Reusable Blocks', () => {
     'APP-BLOCKS-REGRESSION-001: user can complete full blocks workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         blocks: [
@@ -548,9 +556,11 @@ test.describe('Reusable Blocks', () => {
           },
         ],
       })
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // 1. Structure validation (ARIA) - Icon badge
+      // THEN: assertion
       await expect(page.locator('[data-block="icon-badge"]')).toMatchAriaSnapshot(`
         - group:
           - img

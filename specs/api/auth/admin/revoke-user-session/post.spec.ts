@@ -70,6 +70,7 @@ test.describe('Admin: Revoke user session', () => {
       // Response indicates success
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // User session is revoked in database
@@ -108,6 +109,7 @@ test.describe('Admin: Revoke user session', () => {
       // Response contains validation error for required fields
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -138,6 +140,7 @@ test.describe('Admin: Revoke user session', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -182,6 +185,7 @@ test.describe('Admin: Revoke user session', () => {
       // Response contains error about insufficient permissions
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -220,6 +224,7 @@ test.describe('Admin: Revoke user session', () => {
       // Response contains error about user not found
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -261,6 +266,7 @@ test.describe('Admin: Revoke user session', () => {
       // Response contains error about session not found
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

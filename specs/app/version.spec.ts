@@ -158,6 +158,7 @@ test(
     const versionBadge = page.locator('[data-testid="app-version-badge"]')
     const appNameHeading = page.locator('[data-testid="app-name-heading"]')
 
+    // THEN: assertion
     await expect(versionBadge).toBeVisible()
     await expect(appNameHeading).toBeVisible()
 
@@ -166,10 +167,12 @@ test(
     const nameBox = await appNameHeading.boundingBox()
 
     // Both elements should have bounding boxes (verified by toBeVisible above)
+    // THEN: assertion
     expect(versionBox).not.toBeNull()
     expect(nameBox).not.toBeNull()
 
     // Version badge Y position should be less than (above) name heading Y position
+    // THEN: assertion
     expect(versionBox!.y).toBeLessThan(nameBox!.y)
   }
 )
@@ -195,6 +198,7 @@ test(
     await expect(versionBadge).toBeVisible()
 
     // Verify testid attribute exists
+    // THEN: assertion
     await expect(versionBadge).toHaveAttribute('data-testid', 'app-version-badge')
   }
 )
@@ -223,6 +227,7 @@ test(
     // Scenario 1: Simple SemVer + Positioning + Accessibility
     // (APP-VERSION-001, APP-VERSION-006, APP-VERSION-007 - combined in one load)
     // ========================================================================
+    // GIVEN: app configuration
     await startServerWithSchema(
       {
         name: 'test-app',
@@ -230,6 +235,7 @@ test(
       },
       { useDatabase: false }
     )
+    // WHEN: user navigates to the page
     await page.goto('/')
 
     // Test version display (APP-VERSION-001)
@@ -238,6 +244,7 @@ test(
     // Test badge positioning above name (APP-VERSION-006)
     const versionBadge = page.locator('[data-testid="app-version-badge"]')
     const appNameHeading = page.locator('[data-testid="app-name-heading"]')
+    // THEN: assertion
     await expect(appNameHeading).toBeVisible()
 
     const versionBox = await versionBadge.boundingBox()
@@ -261,8 +268,10 @@ test(
       },
       { useDatabase: false }
     )
+    // WHEN: user navigates to the page
     await page.goto('/')
 
+    // THEN: assertion
     await expect(page.locator('[data-testid="app-version-badge"]')).toBeHidden()
 
     // ========================================================================
@@ -275,6 +284,7 @@ test(
       },
       { useDatabase: false }
     )
+    // WHEN: user navigates to the page
     await page.goto('/')
 
     await testVersionDisplay('2.0.0-beta.1')

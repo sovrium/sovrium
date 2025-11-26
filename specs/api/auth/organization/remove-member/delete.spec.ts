@@ -77,6 +77,7 @@ test.describe('Remove member from organization', () => {
       // Response contains success flag
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // Member is removed from database
@@ -121,6 +122,7 @@ test.describe('Remove member from organization', () => {
       // Response contains validation error for required fields
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -151,6 +153,7 @@ test.describe('Remove member from organization', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -201,6 +204,7 @@ test.describe('Remove member from organization', () => {
       // Response contains error about insufficient permissions
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -245,6 +249,7 @@ test.describe('Remove member from organization', () => {
       // Response contains error about member not found
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -289,6 +294,7 @@ test.describe('Remove member from organization', () => {
       // Response contains error about cannot remove last owner
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // Owner remains in organization
@@ -401,6 +407,7 @@ test.describe('Remove member from organization', () => {
       // Response contains error about organization not found
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // Member remains in their organization

@@ -42,11 +42,13 @@ test.describe('List table views', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(Array.isArray(data)).toBe(true)
       expect(data.length).toBeGreaterThanOrEqual(3)
 
       // Validate view schema
       for (const view of data) {
+        // THEN: assertion
         expect(view).toHaveProperty('id')
         expect(view).toHaveProperty('name')
         expect(view).toHaveProperty('type')
@@ -75,6 +77,7 @@ test.describe('List table views', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(Array.isArray(data)).toBe(true)
       expect(data.length).toBe(0)
     }
@@ -98,6 +101,7 @@ test.describe('List table views', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data.error).toBe('Table not found')
     }
@@ -117,6 +121,7 @@ test.describe('List table views', () => {
       expect(response.status()).toBe(401)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
     }
@@ -140,8 +145,10 @@ test.describe('List table views', () => {
           Authorization: 'Bearer test_token',
         },
       })
+      // THEN: assertion
       expect(successResponse.status()).toBe(200)
       const views = await successResponse.json()
+      // THEN: assertion
       expect(Array.isArray(views)).toBe(true)
 
       // Test not found error
@@ -150,6 +157,7 @@ test.describe('List table views', () => {
           Authorization: 'Bearer test_token',
         },
       })
+      // THEN: assertion
       expect(notFoundResponse.status()).toBe(404)
     }
   )

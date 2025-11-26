@@ -50,6 +50,7 @@ test.describe('Static Site Generation', () => {
       expect(files).toContain('assets/output.css')
 
       // Verify files are readable
+      // THEN: assertion
       await expect(access(join(outputDir, 'index.html'), constants.R_OK)).resolves.toBeUndefined()
       await expect(access(join(outputDir, 'about.html'), constants.R_OK)).resolves.toBeUndefined()
       await expect(
@@ -280,11 +281,13 @@ test.describe('Static Site Generation', () => {
       expect(installHtml).toContain('>Installation Guide</h1>')
       expect(installHtml).toContain('Follow these steps to install')
 
+      // THEN: assertion
       expect(profileHtml).toContain('<title>User Profile</title>')
       expect(profileHtml).toContain('>User Profile API</h1>')
 
       // Verify directory structure was created
       const files = await readdir(outputDir, { recursive: true })
+      // THEN: assertion
       expect(files).toContain('docs/guides/getting-started/installation.html')
       expect(files).toContain('api/v1/users/profile.html')
     }
@@ -358,6 +361,7 @@ test.describe('Static Site Generation', () => {
       expect(lines[0]?.trim()).toBe('<!DOCTYPE html>')
 
       // Check for proper structure (not minified)
+      // THEN: assertion
       expect(html).toContain('<html')
       expect(html).toContain('<head>')
       expect(html).toContain('<body')
@@ -368,24 +372,29 @@ test.describe('Static Site Generation', () => {
         .split('\n')
         .map((line) => line.trim())
         .filter((line) => line.length > 0)
+      // THEN: assertion
       expect(htmlLines.length).toBeGreaterThan(10) // Should have multiple lines, not minified
 
       // Check for consistent indentation patterns
       // Head elements should be indented
       const metaLines = htmlLines.filter((line) => line.startsWith('<meta'))
+      // THEN: assertion
       expect(metaLines.length).toBeGreaterThan(0) // Should have meta tags
 
       // Check that nested content maintains structure
+      // THEN: assertion
       expect(html).toContain('<h1')
       expect(html).toContain('Main Title')
       expect(html).toContain('</h1>')
 
       // Check that paragraphs are present (list components might not be implemented yet)
+      // THEN: assertion
       expect(html).toContain('First paragraph')
       expect(html).toContain('Second paragraph')
 
       // Verify HTML is not minified (has newlines between major sections)
       const htmlWithoutSpaces = html.replace(/\s+/g, '')
+      // THEN: assertion
       expect(html.length).toBeGreaterThan(htmlWithoutSpaces.length * 0.9) // HTML should have significant whitespace
 
       // Check for proper closing tags
@@ -395,6 +404,7 @@ test.describe('Static Site Generation', () => {
       const pairedTags = ['html', 'head', 'body', 'div']
       for (const tagName of pairedTags) {
         const closeCount = closeTags.filter((tag) => tag.includes(`</${tagName}>`)).length
+        // THEN: assertion
         expect(closeCount).toBeGreaterThan(0) // Should have at least some closing tags
       }
     }
@@ -501,11 +511,14 @@ test.describe('Static Site Generation', () => {
 
       // Verify CSS classes are present (actual styles don't load via file:// due to CORS)
       const header = page.locator('header')
+      // THEN: assertion
       await expect(header).toHaveClass(/bg-primary/)
       await expect(header).toHaveClass(/text-white/)
 
       // Navigate to about page
+      // WHEN: user navigates to the page
       await page.goto(`file://${join(outputDir, 'about.html')}`)
+      // THEN: assertion
       await expect(page.locator('h1')).toHaveText('About Us')
       await expect(page.locator('p')).toHaveText('We build great applications.')
 

@@ -69,6 +69,7 @@ test.describe('View Filters', () => {
       const result = await executeQuery(
         "SELECT COUNT(*) as count FROM products WHERE status = 'active' AND age > 18"
       )
+      // THEN: assertion
       expect(result.count).toBe(1)
     }
   )
@@ -117,6 +118,7 @@ test.describe('View Filters', () => {
       const result = await executeQuery(
         "SELECT COUNT(*) as count FROM tasks WHERE priority = 'high' OR urgent = true"
       )
+      // THEN: assertion
       expect(result.count).toBe(2)
     }
   )
@@ -160,6 +162,7 @@ test.describe('View Filters', () => {
       const result = await executeQuery(
         "SELECT COUNT(*) as count FROM items WHERE name LIKE '%test%'"
       )
+      // THEN: assertion
       expect(result.count).toBe(2)
     }
   )
@@ -211,6 +214,7 @@ test.describe('View Filters', () => {
       const result = await executeQuery(
         "SELECT COUNT(*) as count FROM data WHERE category = 'A' AND status = 'active'"
       )
+      // THEN: assertion
       expect(result.count).toBe(1)
     }
   )

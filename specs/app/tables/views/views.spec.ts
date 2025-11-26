@@ -85,18 +85,21 @@ test.describe('Table Views', () => {
       const filterCount = await executeQuery(
         "SELECT COUNT(*) as count FROM tasks WHERE status = 'active'"
       )
+      // THEN: assertion
       expect(filterCount.count).toBe(2)
 
       // Only active tasks returned
       const activeTasks = await executeQuery(
         "SELECT title FROM tasks WHERE status = 'active' ORDER BY id"
       )
+      // THEN: assertion
       expect(activeTasks).toEqual([{ title: 'Task 1' }, { title: 'Task 3' }])
 
       // Completed tasks excluded
       const completedCount = await executeQuery(
         "SELECT COUNT(*) as count FROM tasks WHERE status = 'completed'"
       )
+      // THEN: assertion
       expect(completedCount.count).toBe(1)
     }
   )
@@ -156,18 +159,21 @@ test.describe('Table Views', () => {
       const andCount = await executeQuery(
         "SELECT COUNT(*) as count FROM projects WHERE status = 'active' AND priority > 2"
       )
+      // THEN: assertion
       expect(andCount.count).toBe(1)
 
       // Only Project B matches both conditions
       const matchingProject = await executeQuery(
         "SELECT name FROM projects WHERE status = 'active' AND priority > 2"
       )
+      // THEN: assertion
       expect(matchingProject.name).toBe('Project B')
 
       // Project A excluded (priority not > 2)
       const lowPriorityCount = await executeQuery(
         "SELECT COUNT(*) as count FROM projects WHERE status = 'active' AND priority <= 2"
       )
+      // THEN: assertion
       expect(lowPriorityCount.count).toBe(1)
     }
   )
@@ -217,6 +223,7 @@ test.describe('Table Views', () => {
       const sortedArticles = await executeQuery(
         'SELECT title FROM articles ORDER BY created_at DESC'
       )
+      // THEN: assertion
       expect(sortedArticles).toEqual([
         { title: 'Article 2' },
         { title: 'Article 3' },
@@ -227,12 +234,14 @@ test.describe('Table Views', () => {
       const mostRecent = await executeQuery(
         'SELECT title FROM articles ORDER BY created_at DESC LIMIT 1'
       )
+      // THEN: assertion
       expect(mostRecent.title).toBe('Article 2')
 
       // Oldest article last
       const oldest = await executeQuery(
         'SELECT title FROM articles ORDER BY created_at ASC LIMIT 1'
       )
+      // THEN: assertion
       expect(oldest.title).toBe('Article 1')
     }
   )
@@ -281,6 +290,7 @@ test.describe('Table Views', () => {
       const groupedCounts = await executeQuery(
         'SELECT department, COUNT(*) as count FROM employees GROUP BY department ORDER BY department'
       )
+      // THEN: assertion
       expect(groupedCounts).toEqual([
         { department: 'Engineering', count: 2 },
         { department: 'Marketing', count: 1 },
@@ -290,6 +300,7 @@ test.describe('Table Views', () => {
       const groupedAvg = await executeQuery(
         'SELECT department, AVG(salary) as avg_salary FROM employees GROUP BY department ORDER BY department'
       )
+      // THEN: assertion
       expect(groupedAvg).toEqual([
         { department: 'Engineering', avg_salary: 77_500.0 },
         { department: 'Marketing', avg_salary: 60_000.0 },
@@ -299,6 +310,7 @@ test.describe('Table Views', () => {
       const groupOrder = await executeQuery(
         'SELECT department FROM employees GROUP BY department ORDER BY department ASC'
       )
+      // THEN: assertion
       expect(groupOrder).toEqual([{ department: 'Engineering' }, { department: 'Marketing' }])
     }
   )
@@ -343,6 +355,7 @@ test.describe('Table Views', () => {
 
       // Only specified fields in SELECT
       const visibleFields = await executeQuery('SELECT name, email FROM users WHERE id = 1')
+      // THEN: assertion
       expect(visibleFields).toEqual({
         name: 'Alice',
         email: 'alice@example.com',
@@ -352,12 +365,14 @@ test.describe('Table Views', () => {
       const hiddenFields = await executeQuery(
         "SELECT column_name FROM information_schema.columns WHERE table_name='users' AND column_name IN ('phone', 'salary')"
       )
+      // THEN: assertion
       expect(hiddenFields).toEqual([{ column_name: 'phone' }, { column_name: 'salary' }])
 
       // View config controls SELECT columns, not table schema
       const columnCount = await executeQuery(
         "SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='users'"
       )
+      // THEN: assertion
       expect(columnCount.count).toBe(5)
     }
   )
@@ -419,18 +434,21 @@ test.describe('Table Views', () => {
       const filterCount = await executeQuery(
         "SELECT COUNT(*) as count FROM posts WHERE status = 'published'"
       )
+      // THEN: assertion
       expect(filterCount.count).toBe(2)
 
       // Default view sort applied
       const sortedPosts = await executeQuery(
         "SELECT title FROM posts WHERE status = 'published' ORDER BY published_at DESC"
       )
+      // THEN: assertion
       expect(sortedPosts).toEqual([{ title: 'Post 3' }, { title: 'Post 1' }])
 
       // Draft posts excluded by default view
       const draftCount = await executeQuery(
         "SELECT COUNT(*) as count FROM posts WHERE status = 'draft'"
       )
+      // THEN: assertion
       expect(draftCount.count).toBe(1)
     }
   )
@@ -496,18 +514,21 @@ test.describe('Table Views', () => {
       const filteredCount = await executeQuery(
         "SELECT COUNT(*) as count FROM data WHERE status = 'active'"
       )
+      // THEN: assertion
       expect(filteredCount.count).toBe(2)
 
       // Sort works
       const sortedItems = await executeQuery(
         "SELECT title FROM data WHERE status = 'active' ORDER BY created_at DESC"
       )
+      // THEN: assertion
       expect(sortedItems).toEqual([{ title: 'Item 3' }, { title: 'Item 1' }])
 
       // Grouping works (representative case)
       const groupedData = await executeQuery(
         'SELECT category, COUNT(*) as count FROM data GROUP BY category ORDER BY category'
       )
+      // THEN: assertion
       expect(groupedData).toEqual([
         { category: 'A', count: 2 },
         { category: 'B', count: 1 },

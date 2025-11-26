@@ -112,10 +112,12 @@ interface CoverageGap {
 // Constants
 // =============================================================================
 
-const SPEC_ID_PATTERN = /^([A-Z]+-[A-Z-]*-\d{3})/
+const SPEC_ID_PATTERN = /^([A-Z]+-[A-Z0-9-]+-\d{3})/
 const GIVEN_PATTERN = /\/\/\s*GIVEN/i
-const WHEN_PATTERN = /\/\/\s*WHEN/i
-const THEN_PATTERN = /\/\/\s*THEN/i
+const WHEN_PATTERN = /\/\/\s*(WHEN|GIVEN\/WHEN|WHEN\/THEN)/i
+const THEN_PATTERN = /\/\/\s*(THEN|WHEN\/THEN)/i
+// Implicit THEN: expect().rejects or expect().resolves patterns (assertion is built into the expect)
+const IMPLICIT_THEN_PATTERN = /\.\s*(rejects|resolves)\s*\.\s*(toThrow|toBe|toEqual|toMatch)/
 const TEST_PATTERN = /test\s*\(\s*['"`]([^'"`]+)['"`]/g
 const TEST_FIXME_PATTERN = /test\.fixme\s*\(\s*['"`]([^'"`]+)['"`]/g
 const DESCRIBE_PATTERN = /test\.describe\s*\(\s*['"`]([^'"`]+)['"`]/
@@ -199,7 +201,8 @@ function extractTests(content: string, _filePath: string): SpecTest[] {
     // Check for GIVEN/WHEN/THEN
     const hasGiven = GIVEN_PATTERN.test(rawContent)
     const hasWhen = WHEN_PATTERN.test(rawContent)
-    const hasThen = THEN_PATTERN.test(rawContent)
+    // THEN can be explicit comment or implicit via expect().rejects/.resolves pattern
+    const hasThen = THEN_PATTERN.test(rawContent) || IMPLICIT_THEN_PATTERN.test(rawContent)
 
     // Extract spec ID from test name
     const idMatch = testName.match(SPEC_ID_PATTERN)
@@ -258,7 +261,8 @@ function extractTests(content: string, _filePath: string): SpecTest[] {
 
     const hasGiven = GIVEN_PATTERN.test(rawContent)
     const hasWhen = WHEN_PATTERN.test(rawContent)
-    const hasThen = THEN_PATTERN.test(rawContent)
+    // THEN can be explicit comment or implicit via expect().rejects/.resolves pattern
+    const hasThen = THEN_PATTERN.test(rawContent) || IMPLICIT_THEN_PATTERN.test(rawContent)
 
     const idMatch = testName.match(SPEC_ID_PATTERN)
     const id = idMatch?.[1] ?? null

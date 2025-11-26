@@ -24,6 +24,7 @@ test.describe('Status Field', () => {
     'APP-STATUS-FIELD-001: should create PostgreSQL VARCHAR column with CHECK constraint for status values',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -47,20 +48,27 @@ test.describe('Status Field', () => {
         ],
       })
 
+      // WHEN: executing query
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='documents' AND column_name='workflow_status'"
       )
+      // THEN: assertion
       expect(columnInfo.column_name).toBe('workflow_status')
+      // THEN: assertion
       expect(columnInfo.data_type).toBe('character varying')
 
+      // WHEN: executing query
       const checkCount = await executeQuery(
         "SELECT COUNT(*) as count FROM information_schema.check_constraints WHERE constraint_name LIKE '%workflow_status%'"
       )
+      // THEN: assertion
       expect(checkCount.count).toBe(1)
 
+      // WHEN: executing query
       const validInsert = await executeQuery(
         "INSERT INTO documents (workflow_status) VALUES ('Draft') RETURNING workflow_status"
       )
+      // THEN: assertion
       expect(validInsert.workflow_status).toBe('Draft')
     }
   )
@@ -69,6 +77,7 @@ test.describe('Status Field', () => {
     'APP-STATUS-FIELD-002: should reject value not in status options via CHECK constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -93,16 +102,21 @@ test.describe('Status Field', () => {
         ],
       })
 
+      // WHEN: executing query
       const planningStatus = await executeQuery(
         "INSERT INTO projects (project_status) VALUES ('Planning') RETURNING project_status"
       )
+      // THEN: assertion
       expect(planningStatus.project_status).toBe('Planning')
 
+      // WHEN: executing query
       const activeStatus = await executeQuery(
         "INSERT INTO projects (project_status) VALUES ('Active') RETURNING project_status"
       )
+      // THEN: assertion
       expect(activeStatus.project_status).toBe('Active')
 
+      // THEN: assertion
       await expect(
         executeQuery("INSERT INTO projects (project_status) VALUES ('Invalid Status')")
       ).rejects.toThrow(/violates check constraint/)
@@ -113,6 +127,7 @@ test.describe('Status Field', () => {
     'APP-STATUS-FIELD-003: should enforce NOT NULL and UNIQUE constraints when required/unique',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -137,22 +152,29 @@ test.describe('Status Field', () => {
           },
         ],
       })
+      // WHEN: executing query
       await executeQuery("INSERT INTO tasks (task_status) VALUES ('Todo')")
 
+      // WHEN: executing query
       const notNullCheck = await executeQuery(
         "SELECT is_nullable FROM information_schema.columns WHERE table_name='tasks' AND column_name='task_status'"
       )
+      // THEN: assertion
       expect(notNullCheck.is_nullable).toBe('NO')
 
+      // WHEN: executing query
       const uniqueCount = await executeQuery(
         "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='tasks' AND constraint_type='UNIQUE' AND constraint_name LIKE '%task_status%'"
       )
+      // THEN: assertion
       expect(uniqueCount.count).toBe(1)
 
+      // WHEN: executing query
       await expect(executeQuery("INSERT INTO tasks (task_status) VALUES ('Todo')")).rejects.toThrow(
         /duplicate key value violates unique constraint/
       )
 
+      // WHEN: executing query
       await expect(executeQuery('INSERT INTO tasks (task_status) VALUES (NULL)')).rejects.toThrow(
         /violates not-null constraint/
       )
@@ -163,6 +185,7 @@ test.describe('Status Field', () => {
     'APP-STATUS-FIELD-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -188,19 +211,25 @@ test.describe('Status Field', () => {
         ],
       })
 
+      // WHEN: executing query
       const defaultCheck = await executeQuery(
         "SELECT column_default FROM information_schema.columns WHERE table_name='orders' AND column_name='order_status'"
       )
+      // THEN: assertion
       expect(defaultCheck.column_default).toBe("'Pending'::character varying")
 
+      // WHEN: executing query
       const defaultInsert = await executeQuery(
         'INSERT INTO orders (id) VALUES (DEFAULT) RETURNING order_status'
       )
+      // THEN: assertion
       expect(defaultInsert.order_status).toBe('Pending')
 
+      // WHEN: executing query
       const explicitInsert = await executeQuery(
         "INSERT INTO orders (order_status) VALUES ('Shipped') RETURNING order_status"
       )
+      // THEN: assertion
       expect(explicitInsert.order_status).toBe('Shipped')
     }
   )
@@ -209,6 +238,7 @@ test.describe('Status Field', () => {
     'APP-STATUS-FIELD-005: should create btree index for fast status filtering when indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -234,15 +264,20 @@ test.describe('Status Field', () => {
         ],
       })
 
+      // WHEN: executing query
       const indexInfo = await executeQuery(
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_requests_status'"
       )
+      // THEN: assertion
       expect(indexInfo.indexname).toBe('idx_requests_status')
+      // THEN: assertion
       expect(indexInfo.tablename).toBe('requests')
 
+      // WHEN: executing query
       const indexDef = await executeQuery(
         "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_requests_status'"
       )
+      // THEN: assertion
       expect(indexDef.indexdef).toBe(
         'CREATE INDEX idx_requests_status ON public.requests USING btree (approval_status)'
       )
@@ -253,6 +288,7 @@ test.describe('Status Field', () => {
     'APP-TABLES-FIELD-STATUS-REGRESSION-001: user can complete full status-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -276,19 +312,27 @@ test.describe('Status Field', () => {
         ],
       })
 
+      // WHEN: executing query
       const defaultRecord = await executeQuery(
         'INSERT INTO data (id) VALUES (DEFAULT) RETURNING status'
       )
+      // THEN: assertion
       expect(defaultRecord.status).toBe('Draft')
 
+      // WHEN: executing query
       await executeQuery("INSERT INTO data (status) VALUES ('Published')")
+      // WHEN: executing query
       const publishedRecord = await executeQuery('SELECT status FROM data WHERE id = 2')
+      // THEN: assertion
       expect(publishedRecord.status).toBe('Published')
 
+      // WHEN: executing query
       const statusCounts = await executeQuery(
         'SELECT status, COUNT(*) as count FROM data GROUP BY status ORDER BY status'
       )
+      // THEN: assertion
       expect(statusCounts).toContainEqual({ status: 'Draft', count: 1 })
+      // THEN: assertion
       expect(statusCounts).toContainEqual({ status: 'Published', count: 1 })
     }
   )

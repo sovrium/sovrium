@@ -60,6 +60,7 @@ test.describe('Get record by ID', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.id).toBe(1)
       expect(data.email).toBe('john.doe@example.com')
       expect(data.name).toBe('John Doe')
@@ -95,6 +96,7 @@ test.describe('Get record by ID', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Record not found')
     }
   )
@@ -158,6 +160,7 @@ test.describe('Get record by ID', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Forbidden')
     }
   )
@@ -196,6 +199,7 @@ test.describe('Get record by ID', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.error).toBe('Record not found')
     }
   )
@@ -235,6 +239,7 @@ test.describe('Get record by ID', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('id')
       expect(data).toHaveProperty('name')
       expect(data).toHaveProperty('email')
@@ -278,6 +283,7 @@ test.describe('Get record by ID', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('id')
       expect(data).toHaveProperty('name')
       expect(data).toHaveProperty('email')
@@ -321,6 +327,7 @@ test.describe('Get record by ID', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('id')
       expect(data).toHaveProperty('name')
       expect(data).not.toHaveProperty('email')
@@ -367,6 +374,7 @@ test.describe('Get record by ID', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.id).toBe(1)
       expect(data.name).toBe('Alice Cooper')
       expect(data.email).toBe('alice@example.com')
@@ -410,6 +418,7 @@ test.describe('Get record by ID', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('id')
       expect(data).toHaveProperty('title')
       expect(data).toHaveProperty('created_at')
@@ -451,9 +460,11 @@ test.describe('Get record by ID', () => {
         },
       })
 
+      // THEN: assertion
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.id).toBe(1)
       expect(data.email).toBe('test@example.com')
       expect(data.name).toBe('Test User')

@@ -54,10 +54,12 @@ test.describe('Open Graph Metadata', () => {
         'content',
         'Amazing Product Launch'
       )
+      // THEN: assertion
       await expect(page.locator('meta[property="og:description"]')).toHaveAttribute(
         'content',
         'Revolutionary new product changing the industry'
       )
+      // THEN: assertion
       await expect(page.locator('meta[property="og:type"]')).toHaveAttribute('content', 'website')
       await expect(page.locator('meta[property="og:url"]')).toHaveAttribute(
         'content',
@@ -162,7 +164,9 @@ test.describe('Open Graph Metadata', () => {
             },
           ],
         })
+        // WHEN: user navigates to the page
         await page.goto('/')
+        // THEN: assertion
         await expect(page.locator('meta[property="og:type"]')).toHaveAttribute('content', type)
       }
     }
@@ -486,6 +490,7 @@ test.describe('Open Graph Metadata', () => {
     'APP-PAGES-META-SOCIAL-OPEN-GRAPH-REGRESSION-001: user can complete full Open Graph workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -512,9 +517,11 @@ test.describe('Open Graph Metadata', () => {
         ],
       })
 
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // Verify required properties
+      // THEN: assertion
       await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
         'content',
         'Complete Open Graph Test'

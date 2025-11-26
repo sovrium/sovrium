@@ -66,6 +66,7 @@ test.describe('Admin: List users', () => {
       // Response contains users array and pagination metadata
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // Response includes all 3 users
@@ -115,6 +116,7 @@ test.describe('Admin: List users', () => {
       // Pagination metadata is included
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -184,6 +186,7 @@ test.describe('Admin: List users', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -218,6 +221,7 @@ test.describe('Admin: List users', () => {
       // Response contains error about insufficient permissions
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )

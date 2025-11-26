@@ -53,6 +53,7 @@ test.describe('Client Scripts Configuration', () => {
         )
         return inlineScript?.innerHTML
       })
+      // THEN: assertion
       expect(scriptContent).toContain('console.log("ready")')
     }
   )
@@ -143,6 +144,7 @@ test.describe('Client Scripts Configuration', () => {
         )
         return inlineScript?.innerHTML
       })
+      // THEN: assertion
       expect(scriptContent).toContain('console.log("Hello")')
     }
   )
@@ -285,8 +287,10 @@ test.describe('Client Scripts Configuration', () => {
       // THEN: it should support per-page script customization
       const homeHtml = page.locator('html')
       await expect(homeHtml).toHaveAttribute('data-features')
+      // WHEN: user navigates to the page
       await page.goto('/blog')
       const blogHtml = page.locator('html')
+      // THEN: assertion
       await expect(blogHtml).toHaveAttribute('data-features')
     }
   )
@@ -325,6 +329,7 @@ test.describe('Client Scripts Configuration', () => {
     'APP-PAGES-SCRIPTS-REGRESSION-001: user can complete full Client Scripts workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -347,9 +352,11 @@ test.describe('Client Scripts Configuration', () => {
           },
         ],
       })
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // Verify page renders with scripts configuration
+      // THEN: assertion
       await expect(page.locator('h1')).toHaveText('Scripts Test')
 
       // Verify external script is attached

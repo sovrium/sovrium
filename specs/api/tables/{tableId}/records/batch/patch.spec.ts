@@ -75,6 +75,7 @@ test.describe('Batch update records', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('updated')
       expect(data).toHaveProperty('records')
       expect(data.updated).toBe(2)
@@ -84,6 +85,7 @@ test.describe('Batch update records', () => {
       const result = await executeQuery(`
         SELECT id, status, email FROM users ORDER BY id
       `)
+      // THEN: assertion
       expect(result.rows[0].status).toBe('inactive')
       expect(result.rows[1].email).toBe('jane.smith@example.com')
     }
@@ -132,6 +134,7 @@ test.describe('Batch update records', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('updated')
       expect(data.updated).toBe(2)
       expect(data).not.toHaveProperty('records')
@@ -180,11 +183,13 @@ test.describe('Batch update records', () => {
       expect(response.status()).toBe(400)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('details')
 
       // Verify no updates applied (rollback)
       const result = await executeQuery(`SELECT name FROM users WHERE id=1`)
+      // THEN: assertion
       expect(result.rows[0].name).toBe('User One')
     }
   )
@@ -226,11 +231,13 @@ test.describe('Batch update records', () => {
       expect(response.status()).toBe(401)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
 
       // Verify no updates applied
       const result = await executeQuery(`SELECT name FROM employees WHERE id=1`)
+      // THEN: assertion
       expect(result.rows[0].name).toBe('Alice')
     }
   )
@@ -273,6 +280,7 @@ test.describe('Batch update records', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
       expect(data.error).toBe('Forbidden')
@@ -318,6 +326,7 @@ test.describe('Batch update records', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data.error).toBe('Forbidden')
     }
@@ -362,6 +371,7 @@ test.describe('Batch update records', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data.error).toBe('Record not found')
 
@@ -369,6 +379,7 @@ test.describe('Batch update records', () => {
       const result = await executeQuery(`
         SELECT name FROM employees WHERE id=1 AND organization_id='org_456'
       `)
+      // THEN: assertion
       expect(result.rows[0].name).toBe('Alice')
     }
   )
@@ -416,6 +427,7 @@ test.describe('Batch update records', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
       expect(data.error).toBe('Forbidden')
@@ -460,6 +472,7 @@ test.describe('Batch update records', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
       expect(data.error).toBe('Forbidden')
@@ -505,6 +518,7 @@ test.describe('Batch update records', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('error')
       expect(data).toHaveProperty('message')
       expect(data.error).toBe('Forbidden')
@@ -557,11 +571,13 @@ test.describe('Batch update records', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.updated).toBe(2)
       expect(data.records[0].name).toBe('Alice Updated')
       expect(data.records[1].name).toBe('Bob Updated')
 
       // Salary field not in response
+      // THEN: assertion
       expect(data.records[0]).not.toHaveProperty('salary')
       expect(data.records[1]).not.toHaveProperty('salary')
     }
@@ -611,6 +627,7 @@ test.describe('Batch update records', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.updated).toBe(2)
       expect(data.records[0].salary).toBe(130_000)
       expect(data.records[1].salary).toBe(100_000)
@@ -662,9 +679,11 @@ test.describe('Batch update records', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.updated).toBe(2)
 
       // Salary field not in response
+      // THEN: assertion
       expect(data.records[0]).not.toHaveProperty('salary')
       expect(data.records[1]).not.toHaveProperty('salary')
     }
@@ -703,11 +722,13 @@ test.describe('Batch update records', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data).toHaveProperty('updated')
       expect(data.updated).toBe(1)
 
       // Verify only existing record was updated
       const result = await executeQuery(`SELECT name FROM users WHERE id=1`)
+      // THEN: assertion
       expect(result.rows[0].name).toBe('Updated One')
     }
   )
@@ -752,6 +773,7 @@ test.describe('Batch update records', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
+      // THEN: assertion
       expect(data.updated).toBe(1)
       expect(data.records[0].name).toBe('David Updated')
       expect(data.records[0]).not.toHaveProperty('salary')
@@ -805,12 +827,15 @@ test.describe('Batch update records', () => {
           returnRecords: true,
         },
       })
+      // THEN: assertion
       expect(successResponse.status()).toBe(200)
       const result = await successResponse.json()
+      // THEN: assertion
       expect(result.updated).toBe(2)
 
       // Verify updates in database
       const verifyUpdate = await executeQuery(`SELECT name FROM employees WHERE id=1`)
+      // THEN: assertion
       expect(verifyUpdate.rows[0].name).toBe('John Updated')
 
       // Test validation error with rollback
@@ -826,6 +851,7 @@ test.describe('Batch update records', () => {
           ],
         },
       })
+      // THEN: assertion
       expect(validationResponse.status()).toBe(400)
 
       // Test permission denied (member without update permission)
@@ -838,6 +864,7 @@ test.describe('Batch update records', () => {
           records: [{ id: 3, name: 'Test' }],
         },
       })
+      // THEN: assertion
       expect(forbiddenResponse.status()).toBe(403)
 
       // Test unauthorized
@@ -849,6 +876,7 @@ test.describe('Batch update records', () => {
           records: [{ id: 1, name: 'Test' }],
         },
       })
+      // THEN: assertion
       expect(unauthorizedResponse.status()).toBe(401)
 
       // Test field-level write restriction
@@ -861,6 +889,7 @@ test.describe('Batch update records', () => {
           records: [{ id: 3, salary: 99_999 }],
         },
       })
+      // THEN: assertion
       expect(fieldForbiddenResponse.status()).toBe(403)
     }
   )

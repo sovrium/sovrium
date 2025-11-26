@@ -62,9 +62,11 @@ test.describe('Table Fields', () => {
       const columns = await executeQuery(
         `SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'email'`
       )
+      // THEN: assertion
       expect(columns.rows[0]).toMatchObject({ column_name: 'email' })
 
       // Valid: Multiple fields
+      // THEN: assertion
       await expect(
         startServerWithSchema({
           name: 'test-app',
@@ -101,6 +103,7 @@ test.describe('Table Fields', () => {
       const productColumns = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name = 'products' AND column_name IN ('id', 'title', 'price', 'is_active')`
       )
+      // THEN: assertion
       expect(productColumns.rows[0]).toMatchObject({ count: 4 }) // 3 fields + auto id
     }
   )
@@ -122,6 +125,7 @@ test.describe('Table Fields', () => {
       ).rejects.toThrow(/must be within the allowed range/)
 
       // Invalid: Missing fields property
+      // THEN: assertion
       await expect(
         startServerWithSchema({
           name: 'test-app',
@@ -196,12 +200,14 @@ test.describe('Table Fields', () => {
       const fieldCount = await executeQuery(
         `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name = 'customers'`
       )
+      // THEN: assertion
       expect(fieldCount.rows[0].count).toBeGreaterThanOrEqual(6) // At least 6 fields (+ auto id)
 
       // 2. Field types are correctly mapped to PostgreSQL types
       const columns = await executeQuery(
         `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'customers' AND column_name IN ('email', 'name', 'age', 'balance', 'is_active', 'created_at') ORDER BY column_name`
       )
+      // THEN: assertion
       expect(columns.rows).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ column_name: 'email', data_type: 'character varying' }),
@@ -220,6 +226,7 @@ test.describe('Table Fields', () => {
       const constraints = await executeQuery(
         `SELECT constraint_type, COUNT(*) as count FROM information_schema.table_constraints WHERE table_name = 'customers' GROUP BY constraint_type ORDER BY constraint_type`
       )
+      // THEN: assertion
       expect(constraints.rows).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ constraint_type: 'PRIMARY KEY' }),

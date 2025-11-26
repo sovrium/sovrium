@@ -48,6 +48,7 @@ test.describe('DNS Prefetch', () => {
       await expect(
         page.locator('link[rel="dns-prefetch"][href="https://fonts.googleapis.com"]')
       ).toBeAttached()
+      // THEN: assertion
       await expect(
         page.locator('link[rel="dns-prefetch"][href="https://www.google-analytics.com"]')
       ).toBeAttached()
@@ -83,6 +84,7 @@ test.describe('DNS Prefetch', () => {
       await expect(
         page.locator('link[rel="dns-prefetch"][href="https://fonts.googleapis.com"]')
       ).toBeAttached()
+      // THEN: assertion
       await expect(
         page.locator('link[rel="dns-prefetch"][href="https://fonts.gstatic.com"]')
       ).toBeAttached()
@@ -150,6 +152,7 @@ test.describe('DNS Prefetch', () => {
       await expect(
         page.locator('link[rel="dns-prefetch"][href="https://unpkg.com"]')
       ).toBeAttached()
+      // THEN: assertion
       await expect(
         page.locator('link[rel="dns-prefetch"][href="https://cdn.jsdelivr.net"]')
       ).toBeAttached()
@@ -217,6 +220,7 @@ test.describe('DNS Prefetch', () => {
       const prefetchLinks = await page.locator('link[rel="dns-prefetch"]').all()
       for (const link of prefetchLinks) {
         const href = await link.getAttribute('href')
+        // THEN: assertion
         expect(href).toMatch(/^https?:\/\//)
       }
     }
@@ -251,6 +255,7 @@ test.describe('DNS Prefetch', () => {
       const count = await page
         .locator('link[rel="dns-prefetch"][href="https://fonts.googleapis.com"]')
         .count()
+      // THEN: assertion
       expect(count).toBe(1)
     }
   )
@@ -357,6 +362,7 @@ test.describe('DNS Prefetch', () => {
     'APP-PAGES-META-PERFORMANCE-DNS-PREFETCH-REGRESSION-001: user can complete full DNS prefetch workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      // GIVEN: app configuration
       await startServerWithSchema({
         name: 'test-app',
         pages: [
@@ -379,9 +385,11 @@ test.describe('DNS Prefetch', () => {
         ],
       })
 
+      // WHEN: user navigates to the page
       await page.goto('/')
 
       // Verify all DNS prefetch links
+      // THEN: assertion
       await expect(page.locator('link[rel="dns-prefetch"]')).toHaveCount(4)
       await expect(
         page.locator('link[rel="dns-prefetch"][href="https://fonts.googleapis.com"]')

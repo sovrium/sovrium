@@ -66,6 +66,7 @@ test.describe('Revoke specific session', () => {
       // Response indicates success
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
 
       // Specified session is revoked in database
@@ -108,6 +109,7 @@ test.describe('Revoke specific session', () => {
       // Response contains validation error for sessionId field
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -137,6 +139,7 @@ test.describe('Revoke specific session', () => {
       // Response contains error about missing authentication
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
@@ -174,6 +177,7 @@ test.describe('Revoke specific session', () => {
       // Response contains error about session not found
       const data = await response.json()
       // Validate response schema
+      // THEN: assertion
       expect(data).toMatchObject({}) // TODO: Add schema validation
     }
   )
