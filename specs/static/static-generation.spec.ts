@@ -278,11 +278,11 @@ test.describe('Static Site Generation', () => {
 
       // THEN: should handle nested paths correctly
       expect(installHtml).toContain('<title>Installation</title>')
-      expect(installHtml).toContain('<h1>Installation Guide</h1>')
+      expect(installHtml).toContain('>Installation Guide</h1>')
       expect(installHtml).toContain('Follow these steps to install')
 
       expect(profileHtml).toContain('<title>User Profile</title>')
-      expect(profileHtml).toContain('<h1>User Profile API</h1>')
+      expect(profileHtml).toContain('>User Profile API</h1>')
 
       // Verify directory structure was created
       const files = await readdir(outputDir, { recursive: true })

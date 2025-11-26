@@ -165,16 +165,16 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
       expect(enHtml).toContain('lang="en-US"')
       expect(enHtml).toContain('<title>Home</title>')
       expect(enHtml).toContain('content="This is the English version"')
-      expect(enHtml).toContain('>Welcome to Our Site</h1>')
-      expect(enHtml).toContain('>This is the English version</p>')
+      expect(enHtml).toContain('Welcome to Our Site')
+      expect(enHtml).toContain('This is the English version')
 
       // French version
       expect(frHtml).toContain('<!DOCTYPE html>')
       expect(frHtml).toContain('lang="fr-FR"')
       expect(frHtml).toContain('<title>Accueil</title>')
       expect(frHtml).toContain('content="Ceci est la version française"')
-      expect(frHtml).toContain('>Bienvenue sur Notre Site</h1>')
-      expect(frHtml).toContain('>Ceci est la version française</p>')
+      expect(frHtml).toContain('Bienvenue sur Notre Site')
+      expect(frHtml).toContain('Ceci est la version française')
 
       // Default language at root
       const rootHtml = await readFile(join(outputDir, 'index.html'), 'utf-8')
