@@ -78,8 +78,7 @@
         "assertions": [
           {
             "description": "only records matching all conditions should be included",
-            "validateConfig": true,
-            "expectError": "validation error"
+            "validateConfig": true
           }
         ]
       }
@@ -99,8 +98,7 @@
         "assertions": [
           {
             "description": "records matching at least one condition should be included",
-            "validateConfig": true,
-            "expectError": "validation error"
+            "validateConfig": true
           }
         ]
       }
@@ -120,8 +118,7 @@
         "assertions": [
           {
             "description": "AND operator should be used by default",
-            "validateConfig": true,
-            "expectError": "validation error"
+            "validateConfig": true
           }
         ]
       }

@@ -112,8 +112,7 @@
         "assertions": [
           {
             "description": "the view should be valid",
-            "validateConfig": true,
-            "expectError": "validation error"
+            "validateConfig": true
           }
         ]
       }
@@ -154,8 +153,7 @@
         "assertions": [
           {
             "description": "this view's configuration should be applied automatically",
-            "validateConfig": true,
-            "expectError": "validation error"
+            "validateConfig": true
           }
         ]
       }

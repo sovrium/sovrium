@@ -80,8 +80,7 @@
         "assertions": [
           {
             "description": "only records with exact field value match should pass the filter",
-            "validateConfig": true,
-            "expectError": "validation error"
+            "validateConfig": true
           }
         ]
       }
@@ -101,8 +100,7 @@
         "assertions": [
           {
             "description": "records with substring match should pass the filter",
-            "validateConfig": true,
-            "expectError": "validation error"
+            "validateConfig": true
           }
         ]
       }
@@ -122,8 +120,7 @@
         "assertions": [
           {
             "description": "only records with field value greater than specified value should pass",
-            "validateConfig": true,
-            "expectError": "validation error"
+            "validateConfig": true
           }
         ]
       }
@@ -143,8 +140,7 @@
         "assertions": [
           {
             "description": "only records where field is null or empty should pass",
-            "validateConfig": true,
-            "expectError": "validation error"
+            "validateConfig": true
           }
         ]
       }
@@ -164,8 +160,7 @@
         "assertions": [
           {
             "description": "records where field matches any value in the array should pass",
-            "validateConfig": true,
-            "expectError": "validation error"
+            "validateConfig": true
           }
         ]
       }

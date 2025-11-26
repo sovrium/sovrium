@@ -48,8 +48,7 @@
         "assertions": [
           {
             "description": "records should be organized into groups by status values",
-            "validateConfig": true,
-            "expectError": "validation error"
+            "validateConfig": true
           }
         ]
       }
@@ -69,8 +68,7 @@
         "assertions": [
           {
             "description": "groups should be ordered alphabetically/numerically from lowest to highest",
-            "validateConfig": true,
-            "expectError": "validation error"
+            "validateConfig": true
           }
         ]
       }
@@ -90,8 +88,7 @@
         "assertions": [
           {
             "description": "groups should be ordered from highest to lowest",
-            "validateConfig": true,
-            "expectError": "validation error"
+            "validateConfig": true
           }
         ]
       }

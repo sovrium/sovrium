@@ -62,8 +62,7 @@
         "assertions": [
           {
             "description": "records should be ordered from lowest to highest by that field",
-            "validateConfig": true,
-            "expectError": "validation error"
+            "validateConfig": true
           }
         ]
       }
@@ -83,8 +82,7 @@
         "assertions": [
           {
             "description": "records should be ordered from highest to lowest by that field",
-            "validateConfig": true,
-            "expectError": "validation error"
+            "validateConfig": true
           }
         ]
       }
@@ -104,8 +102,7 @@
         "assertions": [
           {
             "description": "records should be ordered by first field, then second field breaks ties, and so on",
-            "validateConfig": true,
-            "expectError": "validation error"
+            "validateConfig": true
           }
         ]
       }

@@ -81,8 +81,7 @@
         "assertions": [
           {
             "description": "only configured visible fields should be shown",
-            "validateConfig": true,
-            "expectError": "validation error"
+            "validateConfig": true
           }
         ]
       }
@@ -102,8 +101,7 @@
         "assertions": [
           {
             "description": "fields should appear in the specified order",
-            "validateConfig": true,
-            "expectError": "validation error"
+            "validateConfig": true
           }
         ]
       }
@@ -123,8 +121,7 @@
         "assertions": [
           {
             "description": "that field should not be shown",
-            "validateConfig": true,
-            "expectError": "validation error"
+            "validateConfig": true
           }
         ]
       }

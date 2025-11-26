@@ -209,6 +209,106 @@
           }
         ]
       }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-LINE-TEXT-006",
+      "given": "table with single-line-text field accepting unicode characters",
+      "when": "text with emojis, international characters, and symbols is inserted",
+      "then": "PostgreSQL stores and retrieves unicode text correctly",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE posts (id SERIAL PRIMARY KEY, content VARCHAR(255))"
+        },
+        "assertions": [
+          {
+            "description": "Emoji characters stored correctly",
+            "executeQuery": "INSERT INTO posts (content) VALUES ('Hello 👋 World 🌍') RETURNING content",
+            "expected": {
+              "content": "Hello 👋 World 🌍"
+            }
+          },
+          {
+            "description": "International characters stored correctly",
+            "executeQuery": "INSERT INTO posts (content) VALUES ('Привет мир 你好世界 مرحبا العالم') RETURNING content",
+            "expected": {
+              "content": "Привет мир 你好世界 مرحبا العالم"
+            }
+          },
+          {
+            "description": "Special symbols stored correctly",
+            "executeQuery": "INSERT INTO posts (content) VALUES ('Price: €100 ¥500 £50 ©2024') RETURNING content",
+            "expected": {
+              "content": "Price: €100 ¥500 £50 ©2024"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-LINE-TEXT-007",
+      "given": "table with single-line-text field with VARCHAR(255) limit",
+      "when": "text exceeding 255 characters is inserted",
+      "then": "PostgreSQL rejects or truncates the text",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE notes (id SERIAL PRIMARY KEY, short_note VARCHAR(255))"
+        },
+        "assertions": [
+          {
+            "description": "Text at limit (255 chars) accepted",
+            "executeQuery": "INSERT INTO notes (short_note) VALUES (REPEAT('a', 255)) RETURNING LENGTH(short_note) as len",
+            "expected": {
+              "len": 255
+            }
+          },
+          {
+            "description": "Text exceeding limit (300 chars) rejected",
+            "executeQuery": "INSERT INTO notes (short_note) VALUES (REPEAT('b', 300))",
+            "expectError": "value too long for type character varying(255)"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-LINE-TEXT-008",
+      "given": "table with single-line-text field handling special characters",
+      "when": "text with quotes, backslashes, and SQL special characters is inserted",
+      "then": "PostgreSQL safely escapes and stores the text without SQL injection",
+      "validation": {
+        "setup": {
+          "executeQuery": "CREATE TABLE messages (id SERIAL PRIMARY KEY, message VARCHAR(255))"
+        },
+        "assertions": [
+          {
+            "description": "Single quotes escaped correctly",
+            "executeQuery": "INSERT INTO messages (message) VALUES ('O''Brien''s message') RETURNING message",
+            "expected": {
+              "message": "O'Brien's message"
+            }
+          },
+          {
+            "description": "Backslashes stored correctly",
+            "executeQuery": "INSERT INTO messages (message) VALUES ('Path: C:\\Users\\Documents\\file.txt') RETURNING message",
+            "expected": {
+              "message": "Path: C:\\Users\\Documents\\file.txt"
+            }
+          },
+          {
+            "description": "SQL injection attempt safely escaped",
+            "executeQuery": "INSERT INTO messages (message) VALUES (''; DROP TABLE messages; --') RETURNING message",
+            "expected": {
+              "message": "'; DROP TABLE messages; --"
+            }
+          },
+          {
+            "description": "Table still exists after SQL injection attempt",
+            "executeQuery": "SELECT COUNT(*) as count FROM messages",
+            "expected": {
+              "count": 3
+            }
+          }
+        ]
+      }
     }
   ]
 }
