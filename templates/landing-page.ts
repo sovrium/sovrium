@@ -157,7 +157,7 @@ export const landingPageApp: App = {
         'hero.title': 'Créez des Apps 10x Plus Vite',
         'hero.titleHighlight': 'avec Sovrium',
         'hero.subtitle':
-          "La plateforme pilotée par configuration qui transforme vos idées en applications prêtes pour la production. Définissez une fois, déployez partout.",
+          'La plateforme pilotée par configuration qui transforme vos idées en applications prêtes pour la production. Définissez une fois, déployez partout.',
         'hero.cta.primary': 'Commencer Gratuitement',
         'hero.cta.secondary': 'Voir la Documentation',
         'hero.stats.apps': 'Apps Créées',
@@ -209,7 +209,7 @@ export const landingPageApp: App = {
 
         'step.3.title': '3. Déployez & Scalez',
         'step.3.description':
-          "Passez en production en une commande. Scalez automatiquement avec vos utilisateurs.",
+          'Passez en production en une commande. Scalez automatiquement avec vos utilisateurs.',
 
         // Testimonials
         'testimonials.badge': 'Adoré par les Développeurs',
@@ -223,7 +223,8 @@ export const landingPageApp: App = {
         'cta.note': 'Aucune carte de crédit requise',
 
         // Footer
-        'footer.tagline': 'Créez des apps plus vite avec le développement piloté par configuration.',
+        'footer.tagline':
+          'Créez des apps plus vite avec le développement piloté par configuration.',
         'footer.product': 'Produit',
         'footer.resources': 'Ressources',
         'footer.company': 'Entreprise',
@@ -619,22 +620,14 @@ export const landingPageApp: App = {
                   props: {
                     className: 'text-5xl sm:text-6xl lg:text-7xl font-bold text-gray-900 mb-6',
                   },
-                  children: [
-                    {
-                      type: 'span',
-                      content: '$t:hero.title',
-                    },
-                    {
-                      type: 'br',
-                    },
-                    {
-                      type: 'span',
-                      props: {
-                        className: 'text-primary',
-                      },
-                      content: '$t:hero.titleHighlight',
-                    },
-                  ],
+                  content: '$t:hero.title',
+                },
+                {
+                  type: 'h1',
+                  props: {
+                    className: 'text-5xl sm:text-6xl lg:text-7xl font-bold text-primary mb-6 -mt-4',
+                  },
+                  content: '$t:hero.titleHighlight',
                 },
                 // Subtitle
                 {
@@ -675,8 +668,7 @@ export const landingPageApp: App = {
                 {
                   type: 'div',
                   props: {
-                    className:
-                      'flex flex-wrap justify-center gap-12 pt-8 border-t border-gray-200',
+                    className: 'flex flex-wrap justify-center gap-12 pt-8 border-t border-gray-200',
                   },
                   children: [
                     {
@@ -1207,11 +1199,11 @@ export const landingPageApp: App = {
                           content: '$t:footer.product',
                         },
                         {
-                          type: 'ul',
+                          type: 'div',
                           props: { className: 'space-y-2 text-sm text-gray-400' },
                           children: [
                             {
-                              type: 'li',
+                              type: 'div',
                               children: [
                                 {
                                   type: 'a',
@@ -1221,7 +1213,7 @@ export const landingPageApp: App = {
                               ],
                             },
                             {
-                              type: 'li',
+                              type: 'div',
                               children: [
                                 {
                                   type: 'a',
@@ -1231,7 +1223,7 @@ export const landingPageApp: App = {
                               ],
                             },
                             {
-                              type: 'li',
+                              type: 'div',
                               children: [
                                 {
                                   type: 'a',
@@ -1254,11 +1246,11 @@ export const landingPageApp: App = {
                           content: '$t:footer.resources',
                         },
                         {
-                          type: 'ul',
+                          type: 'div',
                           props: { className: 'space-y-2 text-sm text-gray-400' },
                           children: [
                             {
-                              type: 'li',
+                              type: 'div',
                               children: [
                                 {
                                   type: 'a',
@@ -1268,7 +1260,7 @@ export const landingPageApp: App = {
                               ],
                             },
                             {
-                              type: 'li',
+                              type: 'div',
                               children: [
                                 {
                                   type: 'a',
@@ -1278,7 +1270,7 @@ export const landingPageApp: App = {
                               ],
                             },
                             {
-                              type: 'li',
+                              type: 'div',
                               children: [
                                 {
                                   type: 'a',
@@ -1301,11 +1293,11 @@ export const landingPageApp: App = {
                           content: '$t:footer.company',
                         },
                         {
-                          type: 'ul',
+                          type: 'div',
                           props: { className: 'space-y-2 text-sm text-gray-400' },
                           children: [
                             {
-                              type: 'li',
+                              type: 'div',
                               children: [
                                 {
                                   type: 'a',
@@ -1315,7 +1307,7 @@ export const landingPageApp: App = {
                               ],
                             },
                             {
-                              type: 'li',
+                              type: 'div',
                               children: [
                                 {
                                   type: 'a',
@@ -1325,7 +1317,7 @@ export const landingPageApp: App = {
                               ],
                             },
                             {
-                              type: 'li',
+                              type: 'div',
                               children: [
                                 {
                                   type: 'a',
