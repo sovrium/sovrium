@@ -290,8 +290,8 @@ function analyzeQuality(file: SpecFile): QualityIssue[] {
   const issues: QualityIssue[] = []
 
   for (const test of file.tests) {
-    // Check for spec ID
-    if (!test.id && test.tag === '@spec') {
+    // Check for spec ID - required for both @spec and @regression tests
+    if (!test.id && (test.tag === '@spec' || test.tag === '@regression')) {
       issues.push({
         type: 'error',
         code: 'MISSING_SPEC_ID',
