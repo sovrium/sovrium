@@ -332,10 +332,10 @@ function analyzeQuality(file: SpecFile): QualityIssue[] {
       }
     }
 
-    // Check for tag
+    // Check for tag - tests must have @spec or @regression tag
     if (!test.tag && !test.isFixme) {
       issues.push({
-        type: 'warning',
+        type: 'error',
         code: 'MISSING_TAG',
         message: `Test missing tag (@spec or @regression)`,
         line: test.lineNumber,
