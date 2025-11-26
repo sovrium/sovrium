@@ -533,7 +533,7 @@ export const landingPageApp: App = {
                           props: {
                             href: '#features',
                             className:
-                              'text-gray-700 hover:text-primary font-medium transition-colors',
+                              'text-gray-900 hover:text-primary font-medium transition-colors',
                           },
                           content: '$t:nav.features',
                         },
@@ -542,7 +542,7 @@ export const landingPageApp: App = {
                           props: {
                             href: '#how-it-works',
                             className:
-                              'text-gray-700 hover:text-primary font-medium transition-colors',
+                              'text-gray-900 hover:text-primary font-medium transition-colors',
                           },
                           content: '$t:nav.docs',
                         },
@@ -551,7 +551,7 @@ export const landingPageApp: App = {
                           props: {
                             href: '#pricing',
                             className:
-                              'text-gray-700 hover:text-primary font-medium transition-colors',
+                              'text-gray-900 hover:text-primary font-medium transition-colors',
                           },
                           content: '$t:nav.pricing',
                         },
@@ -561,7 +561,7 @@ export const landingPageApp: App = {
                             href: 'https://github.com/sovrium/sovrium',
                             target: '_blank',
                             className:
-                              'text-gray-700 hover:text-primary font-medium transition-colors',
+                              'text-gray-900 hover:text-primary font-medium transition-colors',
                           },
                           content: '$t:nav.github',
                         },
@@ -1209,7 +1209,7 @@ export const landingPageApp: App = {
                                   type: 'a',
                                   props: {
                                     href: '#',
-                                    className: 'text-gray-300 hover:text-white transition-colors',
+                                    className: 'text-white/70 hover:text-white transition-colors',
                                   },
                                   content: 'Features',
                                 },
@@ -1222,7 +1222,7 @@ export const landingPageApp: App = {
                                   type: 'a',
                                   props: {
                                     href: '#',
-                                    className: 'text-gray-300 hover:text-white transition-colors',
+                                    className: 'text-white/70 hover:text-white transition-colors',
                                   },
                                   content: 'Pricing',
                                 },
@@ -1235,7 +1235,7 @@ export const landingPageApp: App = {
                                   type: 'a',
                                   props: {
                                     href: '#',
-                                    className: 'text-gray-300 hover:text-white transition-colors',
+                                    className: 'text-white/70 hover:text-white transition-colors',
                                   },
                                   content: 'Changelog',
                                 },
@@ -1265,7 +1265,7 @@ export const landingPageApp: App = {
                                   type: 'a',
                                   props: {
                                     href: '#',
-                                    className: 'text-gray-300 hover:text-white transition-colors',
+                                    className: 'text-white/70 hover:text-white transition-colors',
                                   },
                                   content: 'Documentation',
                                 },
@@ -1278,7 +1278,7 @@ export const landingPageApp: App = {
                                   type: 'a',
                                   props: {
                                     href: '#',
-                                    className: 'text-gray-300 hover:text-white transition-colors',
+                                    className: 'text-white/70 hover:text-white transition-colors',
                                   },
                                   content: 'Guides',
                                 },
@@ -1291,7 +1291,7 @@ export const landingPageApp: App = {
                                   type: 'a',
                                   props: {
                                     href: '#',
-                                    className: 'text-gray-300 hover:text-white transition-colors',
+                                    className: 'text-white/70 hover:text-white transition-colors',
                                   },
                                   content: 'API Reference',
                                 },
@@ -1321,7 +1321,7 @@ export const landingPageApp: App = {
                                   type: 'a',
                                   props: {
                                     href: '#',
-                                    className: 'text-gray-300 hover:text-white transition-colors',
+                                    className: 'text-white/70 hover:text-white transition-colors',
                                   },
                                   content: 'About',
                                 },
@@ -1334,7 +1334,7 @@ export const landingPageApp: App = {
                                   type: 'a',
                                   props: {
                                     href: '#',
-                                    className: 'text-gray-300 hover:text-white transition-colors',
+                                    className: 'text-white/70 hover:text-white transition-colors',
                                   },
                                   content: 'Blog',
                                 },
@@ -1347,7 +1347,7 @@ export const landingPageApp: App = {
                                   type: 'a',
                                   props: {
                                     href: '#',
-                                    className: 'text-gray-300 hover:text-white transition-colors',
+                                    className: 'text-white/70 hover:text-white transition-colors',
                                   },
                                   content: 'Contact',
                                 },
