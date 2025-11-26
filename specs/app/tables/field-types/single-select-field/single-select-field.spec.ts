@@ -36,11 +36,11 @@ test.describe('Single Select Field', () => {
                 name: 'status',
                 type: 'single-select',
                 options: ['todo', 'in_progress', 'done'],
-                primaryKey: {
-                  fields: ['id'],
-                },
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -74,11 +74,11 @@ test.describe('Single Select Field', () => {
                 name: 'category',
                 type: 'single-select',
                 options: ['electronics', 'clothing', 'food'],
-                primaryKey: {
-                  fields: ['id'],
-                },
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

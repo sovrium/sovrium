@@ -36,11 +36,11 @@ test.describe('Multi Select Field', () => {
                 name: 'tags',
                 type: 'multi-select',
                 options: ['new', 'sale', 'featured', 'limited'],
-                primaryKey: {
-                  fields: ['id'],
-                },
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -75,11 +75,11 @@ test.describe('Multi Select Field', () => {
                 name: 'categories',
                 type: 'multi-select',
                 options: ['tech', 'business', 'health', 'sports'],
-                primaryKey: {
-                  fields: ['id'],
-                },
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -149,11 +149,11 @@ test.describe('Multi Select Field', () => {
                 type: 'multi-select',
                 options: ['user', 'admin', 'moderator'],
                 default: ['user'],
-                primaryKey: {
-                  fields: ['id'],
-                },
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
