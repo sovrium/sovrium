@@ -28,7 +28,14 @@
     }
   },
   "description": "Aggregate values from related records through a relationship field. Reference a relationshipField in the current table and a relatedField in the linked table. Apply aggregation functions: sum (add all values), count (count records), average (mean value), min (smallest value), max (largest value), median (middle value), concat (join text values), unique (count distinct values). Optionally set display format for the result. Read-only field that automatically updates when related data changes. Useful for totals, counts, statistics from child records.",
-  "required": ["id", "name", "type", "relationshipField", "relatedField", "aggregation"],
+  "required": [
+    "id",
+    "name",
+    "type",
+    "relationshipField",
+    "relatedField",
+    "aggregation"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -57,17 +64,27 @@
           {
             "description": "SUM aggregation for customer 1",
             "executeQuery": "SELECT c.id, c.name, COALESCE(SUM(o.amount), 0) as total_order_amount FROM customers c LEFT JOIN orders o ON c.id = o.customer_id WHERE c.id = 1 GROUP BY c.id, c.name",
-            "expected": { "id": 1, "name": "Alice", "total_order_amount": "325.50" }
+            "expected": {
+              "id": 1,
+              "name": "Alice",
+              "total_order_amount": "325.50"
+            }
           },
           {
             "description": "SUM aggregation for customer 2",
             "executeQuery": "SELECT c.id, c.name, COALESCE(SUM(o.amount), 0) as total_order_amount FROM customers c LEFT JOIN orders o ON c.id = o.customer_id WHERE c.id = 2 GROUP BY c.id, c.name",
-            "expected": { "id": 2, "name": "Bob", "total_order_amount": "200.00" }
+            "expected": {
+              "id": 2,
+              "name": "Bob",
+              "total_order_amount": "200.00"
+            }
           },
           {
             "description": "SUM returns 0 when no related records",
             "executeQuery": "INSERT INTO customers (name) VALUES ('Charlie') RETURNING (SELECT COALESCE(SUM(o.amount), 0) FROM orders o WHERE o.customer_id = 3) as total_order_amount",
-            "expected": { "total_order_amount": "0" }
+            "expected": {
+              "total_order_amount": "0"
+            }
           }
         ]
       }
@@ -98,17 +115,27 @@
           {
             "description": "COUNT aggregation for project 1",
             "executeQuery": "SELECT p.id, p.name, COUNT(t.id) as task_count FROM projects p LEFT JOIN tasks t ON p.id = t.project_id WHERE p.id = 1 GROUP BY p.id, p.name",
-            "expected": { "id": 1, "name": "Website Redesign", "task_count": 3 }
+            "expected": {
+              "id": 1,
+              "name": "Website Redesign",
+              "task_count": 3
+            }
           },
           {
             "description": "COUNT aggregation for project 2",
             "executeQuery": "SELECT p.id, p.name, COUNT(t.id) as task_count FROM projects p LEFT JOIN tasks t ON p.id = t.project_id WHERE p.id = 2 GROUP BY p.id, p.name",
-            "expected": { "id": 2, "name": "Mobile App", "task_count": 1 }
+            "expected": {
+              "id": 2,
+              "name": "Mobile App",
+              "task_count": 1
+            }
           },
           {
             "description": "COUNT returns 0 when no related records",
             "executeQuery": "INSERT INTO projects (name) VALUES ('Empty Project') RETURNING (SELECT COUNT(t.id) FROM tasks t WHERE t.project_id = 3) as task_count",
-            "expected": { "task_count": 0 }
+            "expected": {
+              "task_count": 0
+            }
           }
         ]
       }
@@ -151,17 +178,26 @@
           {
             "description": "AVG aggregation calculates mean rating",
             "executeQuery": "SELECT p.id, AVG(r.rating)::NUMERIC(10,2) as avg_rating FROM products p LEFT JOIN reviews r ON p.id = r.product_id WHERE p.id = 1 GROUP BY p.id",
-            "expected": { "id": 1, "avg_rating": "4.25" }
+            "expected": {
+              "id": 1,
+              "avg_rating": "4.25"
+            }
           },
           {
             "description": "MIN aggregation returns lowest rating",
             "executeQuery": "SELECT p.id, MIN(r.rating) as min_rating FROM products p LEFT JOIN reviews r ON p.id = r.product_id WHERE p.id = 1 GROUP BY p.id",
-            "expected": { "id": 1, "min_rating": 3 }
+            "expected": {
+              "id": 1,
+              "min_rating": 3
+            }
           },
           {
             "description": "MAX aggregation returns highest rating",
             "executeQuery": "SELECT p.id, MAX(r.rating) as max_rating FROM products p LEFT JOIN reviews r ON p.id = r.product_id WHERE p.id = 1 GROUP BY p.id",
-            "expected": { "id": 1, "max_rating": 5 }
+            "expected": {
+              "id": 1,
+              "max_rating": 5
+            }
           }
         ]
       }
@@ -193,15 +229,30 @@
             "description": "GROUP BY aggregates all departments at once",
             "executeQuery": "SELECT d.id, d.name, COALESCE(SUM(e.salary), 0) as total_salary FROM departments d LEFT JOIN employees e ON d.id = e.department_id GROUP BY d.id, d.name ORDER BY d.id",
             "expected": [
-              { "id": 1, "name": "Engineering", "total_salary": "270000.00" },
-              { "id": 2, "name": "Sales", "total_salary": "145000.00" },
-              { "id": 3, "name": "Marketing", "total_salary": "60000.00" }
+              {
+                "id": 1,
+                "name": "Engineering",
+                "total_salary": "270000.00"
+              },
+              {
+                "id": 2,
+                "name": "Sales",
+                "total_salary": "145000.00"
+              },
+              {
+                "id": 3,
+                "name": "Marketing",
+                "total_salary": "60000.00"
+              }
             ]
           },
           {
             "description": "Filtered GROUP BY for specific department",
             "executeQuery": "SELECT d.name, SUM(e.salary) as total_salary FROM departments d LEFT JOIN employees e ON d.id = e.department_id WHERE d.name = 'Engineering' GROUP BY d.name",
-            "expected": { "name": "Engineering", "total_salary": "270000.00" }
+            "expected": {
+              "name": "Engineering",
+              "total_salary": "270000.00"
+            }
           }
         ]
       }
@@ -233,17 +284,783 @@
           {
             "description": "VIEW exists in information_schema",
             "executeQuery": "SELECT table_name FROM information_schema.views WHERE table_name = 'accounts_with_revenue'",
-            "expected": { "table_name": "accounts_with_revenue" }
+            "expected": {
+              "table_name": "accounts_with_revenue"
+            }
           },
           {
             "description": "VIEW returns rollup field with aggregated value",
             "executeQuery": "SELECT id, account_name, revenue_total FROM accounts_with_revenue WHERE id = 1",
-            "expected": { "id": 1, "account_name": "Acme Corp", "revenue_total": "8000.00" }
+            "expected": {
+              "id": 1,
+              "account_name": "Acme Corp",
+              "revenue_total": "8000.00"
+            }
           },
           {
             "description": "VIEW supports querying all aggregated records",
             "executeQuery": "SELECT COUNT(*) as count, SUM(revenue_total) as total_revenue FROM accounts_with_revenue",
-            "expected": { "count": 2, "total_revenue": "18000.00" }
+            "expected": {
+              "count": 2,
+              "total_revenue": "18000.00"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ROLLUP-AGGREGATION-001",
+      "given": "rollup field with aggregation: 'sum' (total order amounts)",
+      "when": "aggregating numeric field from related records",
+      "then": "PostgreSQL SUM function computes total across child records",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255), total_spent DECIMAL(15,2) DEFAULT 0)",
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER REFERENCES customers(id), amount DECIMAL(15,2))",
+            "CREATE FUNCTION update_customer_total() RETURNS TRIGGER AS $$ BEGIN UPDATE customers SET total_spent = (SELECT COALESCE(SUM(amount), 0) FROM orders WHERE customer_id = NEW.customer_id) WHERE id = NEW.customer_id; RETURN NEW; END; $$ LANGUAGE plpgsql",
+            "CREATE TRIGGER orders_update_total AFTER INSERT OR UPDATE ON orders FOR EACH ROW EXECUTE FUNCTION update_customer_total()",
+            "INSERT INTO customers (name) VALUES ('Alice'), ('Bob')",
+            "INSERT INTO orders (customer_id, amount) VALUES (1, 100.00), (1, 250.50), (2, 75.00)"
+          ],
+          "fieldConfig": {
+            "name": "total_spent",
+            "type": "rollup",
+            "relationshipField": "orders",
+            "relatedField": "amount",
+            "aggregation": "sum"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Trigger function exists for aggregation",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.triggers WHERE trigger_name = 'orders_update_total'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "SUM aggregation computes total (100 + 250.50)",
+            "executeQuery": "SELECT name, total_spent FROM customers WHERE name = 'Alice'",
+            "expected": {
+              "name": "Alice",
+              "total_spent": 350.5
+            }
+          },
+          {
+            "description": "Different customer has different sum",
+            "executeQuery": "SELECT name, total_spent FROM customers WHERE name = 'Bob'",
+            "expected": {
+              "name": "Bob",
+              "total_spent": 75
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ROLLUP-AGGREGATION-002",
+      "given": "rollup field with aggregation: 'count' (number of tasks)",
+      "when": "counting related records",
+      "then": "PostgreSQL COUNT function returns number of child records",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), task_count INTEGER DEFAULT 0)",
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, project_id INTEGER REFERENCES projects(id), title VARCHAR(255))",
+            "INSERT INTO projects (name) VALUES ('Website'), ('Mobile App')",
+            "INSERT INTO tasks (project_id, title) VALUES (1, 'Design'), (1, 'Development'), (1, 'Testing'), (2, 'Prototype')",
+            "UPDATE projects SET task_count = (SELECT COUNT(*) FROM tasks WHERE project_id = projects.id)"
+          ],
+          "fieldConfig": {
+            "name": "task_count",
+            "type": "rollup",
+            "relationshipField": "tasks",
+            "relatedField": "id",
+            "aggregation": "count"
+          }
+        },
+        "assertions": [
+          {
+            "description": "COUNT aggregation shows 3 tasks for first project",
+            "executeQuery": "SELECT name, task_count FROM projects WHERE name = 'Website'",
+            "expected": {
+              "name": "Website",
+              "task_count": 3
+            }
+          },
+          {
+            "description": "COUNT aggregation shows 1 task for second project",
+            "executeQuery": "SELECT name, task_count FROM projects WHERE name = 'Mobile App'",
+            "expected": {
+              "name": "Mobile App",
+              "task_count": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ROLLUP-AGGREGATION-003",
+      "given": "rollup field with aggregation: 'average' (average rating)",
+      "when": "computing mean of numeric field from related records",
+      "then": "PostgreSQL AVG function returns arithmetic mean",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255), avg_rating DECIMAL(3,2) DEFAULT 0)",
+            "CREATE TABLE reviews (id SERIAL PRIMARY KEY, product_id INTEGER REFERENCES products(id), rating INTEGER CHECK (rating BETWEEN 1 AND 5))",
+            "INSERT INTO products (name) VALUES ('Laptop'), ('Mouse')",
+            "INSERT INTO reviews (product_id, rating) VALUES (1, 5), (1, 4), (1, 5), (2, 3), (2, 4)",
+            "UPDATE products SET avg_rating = (SELECT COALESCE(AVG(rating), 0) FROM reviews WHERE product_id = products.id)"
+          ],
+          "fieldConfig": {
+            "name": "avg_rating",
+            "type": "rollup",
+            "relationshipField": "reviews",
+            "relatedField": "rating",
+            "aggregation": "average"
+          }
+        },
+        "assertions": [
+          {
+            "description": "AVG aggregation computes mean rating (5+4+5)/3 = 4.67",
+            "executeQuery": "SELECT name, avg_rating FROM products WHERE name = 'Laptop'",
+            "expected": {
+              "name": "Laptop",
+              "avg_rating": 4.67
+            }
+          },
+          {
+            "description": "AVG aggregation for different product (3+4)/2 = 3.50",
+            "executeQuery": "SELECT name, avg_rating FROM products WHERE name = 'Mouse'",
+            "expected": {
+              "name": "Mouse",
+              "avg_rating": 3.5
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ROLLUP-AGGREGATION-004",
+      "given": "rollup field with aggregation: 'min' (earliest date)",
+      "when": "finding minimum value from related records",
+      "then": "PostgreSQL MIN function returns smallest value",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE authors (id SERIAL PRIMARY KEY, name VARCHAR(255), first_publication DATE)",
+            "CREATE TABLE books (id SERIAL PRIMARY KEY, author_id INTEGER REFERENCES authors(id), title VARCHAR(255), published_date DATE)",
+            "INSERT INTO authors (name) VALUES ('Jane Austen')",
+            "INSERT INTO books (author_id, title, published_date) VALUES (1, 'Sense and Sensibility', '1811-10-30'), (1, 'Pride and Prejudice', '1813-01-28'), (1, 'Emma', '1815-12-23')",
+            "UPDATE authors SET first_publication = (SELECT MIN(published_date) FROM books WHERE author_id = authors.id)"
+          ],
+          "fieldConfig": {
+            "name": "first_publication",
+            "type": "rollup",
+            "relationshipField": "books",
+            "relatedField": "published_date",
+            "aggregation": "min"
+          }
+        },
+        "assertions": [
+          {
+            "description": "MIN aggregation finds earliest publication date",
+            "executeQuery": "SELECT name, first_publication FROM authors WHERE name = 'Jane Austen'",
+            "expected": {
+              "name": "Jane Austen",
+              "first_publication": "1811-10-30"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ROLLUP-AGGREGATION-005",
+      "given": "rollup field with aggregation: 'max' (highest price)",
+      "when": "finding maximum value from related records",
+      "then": "PostgreSQL MAX function returns largest value",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE categories (id SERIAL PRIMARY KEY, name VARCHAR(255), max_price DECIMAL(10,2))",
+            "CREATE TABLE items (id SERIAL PRIMARY KEY, category_id INTEGER REFERENCES categories(id), item_name VARCHAR(255), price DECIMAL(10,2))",
+            "INSERT INTO categories (name) VALUES ('Electronics')",
+            "INSERT INTO items (category_id, item_name, price) VALUES (1, 'Phone', 699.99), (1, 'Laptop', 1299.99), (1, 'Tablet', 499.99)",
+            "UPDATE categories SET max_price = (SELECT MAX(price) FROM items WHERE category_id = categories.id)"
+          ],
+          "fieldConfig": {
+            "name": "max_price",
+            "type": "rollup",
+            "relationshipField": "items",
+            "relatedField": "price",
+            "aggregation": "max"
+          }
+        },
+        "assertions": [
+          {
+            "description": "MAX aggregation finds highest price",
+            "executeQuery": "SELECT name, max_price FROM categories WHERE name = 'Electronics'",
+            "expected": {
+              "name": "Electronics",
+              "max_price": 1299.99
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ROLLUP-AGGREGATION-006",
+      "given": "rollup field with aggregation: 'concat' (combined tags)",
+      "when": "concatenating text values from related records",
+      "then": "PostgreSQL STRING_AGG function joins text with delimiter",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE articles (id SERIAL PRIMARY KEY, title VARCHAR(255), all_tags TEXT)",
+            "CREATE TABLE article_tags (id SERIAL PRIMARY KEY, article_id INTEGER REFERENCES articles(id), tag VARCHAR(50))",
+            "INSERT INTO articles (title) VALUES ('PostgreSQL Guide')",
+            "INSERT INTO article_tags (article_id, tag) VALUES (1, 'database'), (1, 'sql'), (1, 'tutorial')",
+            "UPDATE articles SET all_tags = (SELECT STRING_AGG(tag, ', ' ORDER BY tag) FROM article_tags WHERE article_id = articles.id)"
+          ],
+          "fieldConfig": {
+            "name": "all_tags",
+            "type": "rollup",
+            "relationshipField": "article_tags",
+            "relatedField": "tag",
+            "aggregation": "concat"
+          }
+        },
+        "assertions": [
+          {
+            "description": "CONCAT (STRING_AGG) joins tags with comma delimiter",
+            "executeQuery": "SELECT title, all_tags FROM articles WHERE title = 'PostgreSQL Guide'",
+            "expected": {
+              "title": "PostgreSQL Guide",
+              "all_tags": "database, sql, tutorial"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ROLLUP-AGGREGATION-007",
+      "given": "rollup field with aggregation: 'unique' (distinct values count)",
+      "when": "counting unique values from related records",
+      "then": "PostgreSQL COUNT(DISTINCT ...) returns number of unique values",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE stores (id SERIAL PRIMARY KEY, name VARCHAR(255), unique_customers INTEGER DEFAULT 0)",
+            "CREATE TABLE purchases (id SERIAL PRIMARY KEY, store_id INTEGER REFERENCES stores(id), customer_email VARCHAR(255))",
+            "INSERT INTO stores (name) VALUES ('Store A')",
+            "INSERT INTO purchases (store_id, customer_email) VALUES (1, 'alice@example.com'), (1, 'bob@example.com'), (1, 'alice@example.com'), (1, 'charlie@example.com')",
+            "UPDATE stores SET unique_customers = (SELECT COUNT(DISTINCT customer_email) FROM purchases WHERE store_id = stores.id)"
+          ],
+          "fieldConfig": {
+            "name": "unique_customers",
+            "type": "rollup",
+            "relationshipField": "purchases",
+            "relatedField": "customer_email",
+            "aggregation": "unique"
+          }
+        },
+        "assertions": [
+          {
+            "description": "UNIQUE (COUNT DISTINCT) counts 3 unique emails from 4 purchases",
+            "executeQuery": "SELECT name, unique_customers FROM stores WHERE name = 'Store A'",
+            "expected": {
+              "name": "Store A",
+              "unique_customers": 3
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ROLLUP-AGGREGATION-008",
+      "given": "rollup field with invalid aggregation value",
+      "when": "field configuration validation runs",
+      "then": "error lists valid options: sum, count, average, min, max, median, concat, unique",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "total",
+            "type": "rollup",
+            "relationshipField": "orders",
+            "relatedField": "amount",
+            "aggregation": "INVALID-FUNCTION"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Invalid aggregation rejected with enum error",
+            "validateConfig": true,
+            "expectError": "aggregation must be one of: sum, count, average, min, max, median, concat, unique"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ROLLUP-FORMAT-001",
+      "given": "rollup field with format: 'currency' and aggregation: SUM",
+      "when": "rollup computes total from related records",
+      "then": "PostgreSQL aggregates values, application displays with currency formatting",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER, total DECIMAL(15,2))",
+            "CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255), total_spent DECIMAL(15,2))",
+            "INSERT INTO orders (customer_id, total) VALUES (1, 150.00), (1, 250.50), (2, 99.99)",
+            "UPDATE customers SET total_spent = (SELECT SUM(total) FROM orders WHERE customer_id = customers.id) WHERE id = 1"
+          ],
+          "fieldConfig": {
+            "name": "total_spent",
+            "type": "rollup",
+            "aggregation": "SUM",
+            "sourceField": "orders.total",
+            "format": "currency"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Rollup aggregates related values (SUM)",
+            "executeQuery": "SELECT total_spent FROM customers WHERE id = 1",
+            "expected": {
+              "total_spent": 400.5
+            }
+          },
+          {
+            "description": "Application displays with currency formatting",
+            "displayFormat": "currency",
+            "executeQuery": "SELECT total_spent FROM customers WHERE id = 1",
+            "expectedDisplay": "$400.50",
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ROLLUP-FORMAT-002",
+      "given": "rollup field with format: 'number' and aggregation: COUNT",
+      "when": "rollup counts related records",
+      "then": "PostgreSQL COUNT aggregation displayed as integer",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, project_id INTEGER, title VARCHAR(255))",
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), task_count INTEGER)",
+            "INSERT INTO tasks (project_id, title) VALUES (1, 'Task 1'), (1, 'Task 2'), (1, 'Task 3')",
+            "UPDATE projects SET task_count = (SELECT COUNT(*) FROM tasks WHERE project_id = projects.id) WHERE id = 1"
+          ],
+          "fieldConfig": {
+            "name": "task_count",
+            "type": "rollup",
+            "aggregation": "COUNT",
+            "sourceField": "tasks.id",
+            "format": "number"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Rollup counts related records (COUNT)",
+            "executeQuery": "SELECT task_count FROM projects WHERE id = 1",
+            "expected": {
+              "task_count": 3
+            }
+          },
+          {
+            "description": "Application displays as integer",
+            "displayFormat": "number",
+            "executeQuery": "SELECT task_count FROM projects WHERE id = 1",
+            "expectedDisplay": "3",
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ROLLUP-FORMAT-003",
+      "given": "rollup field without format property",
+      "when": "format is empty or omitted",
+      "then": "PostgreSQL aggregation result displayed without formatting",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE measurements (id SERIAL PRIMARY KEY, sensor_id INTEGER, value DECIMAL(10,2))",
+            "CREATE TABLE sensors (id SERIAL PRIMARY KEY, name VARCHAR(255), avg_value DECIMAL(10,2))",
+            "INSERT INTO measurements (sensor_id, value) VALUES (1, 23.5), (1, 24.8), (1, 22.1)",
+            "UPDATE sensors SET avg_value = (SELECT AVG(value) FROM measurements WHERE sensor_id = sensors.id) WHERE id = 1"
+          ],
+          "fieldConfig": {
+            "name": "avg_value",
+            "type": "rollup",
+            "aggregation": "AVG",
+            "sourceField": "measurements.value"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Rollup computes average (AVG)",
+            "executeQuery": "SELECT avg_value FROM sensors WHERE id = 1",
+            "expected": {
+              "avg_value": 23.47
+            }
+          },
+          {
+            "description": "Display without formatting (raw numeric)",
+            "executeQuery": "SELECT avg_value FROM sensors WHERE id = 1",
+            "expectedDisplay": "23.47",
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ROLLUP-RELATEDFIELD-001",
+      "given": "rollup field with relatedField: 'amount' (sum of order amounts)",
+      "when": "aggregating numeric field from related records",
+      "then": "PostgreSQL SUM aggregates specified field values",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255), total_spent DECIMAL(15,2) DEFAULT 0)",
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER REFERENCES customers(id), amount DECIMAL(15,2))",
+            "INSERT INTO customers (name) VALUES ('Alice')",
+            "INSERT INTO orders (customer_id, amount) VALUES (1, 100.00), (1, 250.50), (1, 49.99)",
+            "UPDATE customers SET total_spent = (SELECT COALESCE(SUM(amount), 0) FROM orders WHERE customer_id = customers.id)"
+          ],
+          "fieldConfig": {
+            "name": "total_spent",
+            "type": "rollup",
+            "relationshipField": "orders",
+            "relatedField": "amount",
+            "aggregation": "sum"
+          }
+        },
+        "assertions": [
+          {
+            "description": "SUM aggregates amount field (100 + 250.50 + 49.99)",
+            "executeQuery": "SELECT name, total_spent FROM customers WHERE name = 'Alice'",
+            "expected": {
+              "name": "Alice",
+              "total_spent": 400.49
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ROLLUP-RELATEDFIELD-002",
+      "given": "rollup field with relatedField: 'rating' (average product rating)",
+      "when": "aggregating integer field with AVG function",
+      "then": "PostgreSQL AVG computes arithmetic mean of field values",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255), avg_rating DECIMAL(3,2) DEFAULT 0)",
+            "CREATE TABLE reviews (id SERIAL PRIMARY KEY, product_id INTEGER REFERENCES products(id), rating INTEGER CHECK (rating BETWEEN 1 AND 5), comment TEXT)",
+            "INSERT INTO products (name) VALUES ('Laptop')",
+            "INSERT INTO reviews (product_id, rating, comment) VALUES (1, 5, 'Great!'), (1, 4, 'Good'), (1, 5, 'Excellent'), (1, 3, 'OK')",
+            "UPDATE products SET avg_rating = (SELECT COALESCE(AVG(rating), 0) FROM reviews WHERE product_id = products.id)"
+          ],
+          "fieldConfig": {
+            "name": "avg_rating",
+            "type": "rollup",
+            "relationshipField": "reviews",
+            "relatedField": "rating",
+            "aggregation": "average"
+          }
+        },
+        "assertions": [
+          {
+            "description": "AVG aggregates rating field (5+4+5+3)/4 = 4.25",
+            "executeQuery": "SELECT name, avg_rating FROM products WHERE name = 'Laptop'",
+            "expected": {
+              "name": "Laptop",
+              "avg_rating": 4.25
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ROLLUP-RELATEDFIELD-003",
+      "given": "rollup field with relatedField: 'published_date' (earliest book)",
+      "when": "aggregating date field with MIN function",
+      "then": "PostgreSQL MIN finds earliest date value",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE authors (id SERIAL PRIMARY KEY, name VARCHAR(255), first_book_date DATE)",
+            "CREATE TABLE books (id SERIAL PRIMARY KEY, author_id INTEGER REFERENCES authors(id), title VARCHAR(255), published_date DATE)",
+            "INSERT INTO authors (name) VALUES ('Agatha Christie')",
+            "INSERT INTO books (author_id, title, published_date) VALUES (1, 'The Mysterious Affair at Styles', '1920-10-01'), (1, 'Murder on the Orient Express', '1934-01-01'), (1, 'Death on the Nile', '1937-11-01')",
+            "UPDATE authors SET first_book_date = (SELECT MIN(published_date) FROM books WHERE author_id = authors.id)"
+          ],
+          "fieldConfig": {
+            "name": "first_book_date",
+            "type": "rollup",
+            "relationshipField": "books",
+            "relatedField": "published_date",
+            "aggregation": "min"
+          }
+        },
+        "assertions": [
+          {
+            "description": "MIN aggregates published_date field (earliest book)",
+            "executeQuery": "SELECT name, first_book_date FROM authors WHERE name = 'Agatha Christie'",
+            "expected": {
+              "name": "Agatha Christie",
+              "first_book_date": "1920-10-01"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ROLLUP-RELATEDFIELD-004",
+      "given": "rollup field with relatedField: 'tag' (concatenated tags)",
+      "when": "aggregating text field with STRING_AGG function",
+      "then": "PostgreSQL STRING_AGG joins text values with delimiter",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE articles (id SERIAL PRIMARY KEY, title VARCHAR(255), tags_list TEXT)",
+            "CREATE TABLE tags (id SERIAL PRIMARY KEY, article_id INTEGER REFERENCES articles(id), tag VARCHAR(50))",
+            "INSERT INTO articles (title) VALUES ('Web Development Guide')",
+            "INSERT INTO tags (article_id, tag) VALUES (1, 'javascript'), (1, 'css'), (1, 'html'), (1, 'react')",
+            "UPDATE articles SET tags_list = (SELECT STRING_AGG(tag, ', ' ORDER BY tag) FROM tags WHERE article_id = articles.id)"
+          ],
+          "fieldConfig": {
+            "name": "tags_list",
+            "type": "rollup",
+            "relationshipField": "tags",
+            "relatedField": "tag",
+            "aggregation": "concat"
+          }
+        },
+        "assertions": [
+          {
+            "description": "CONCAT (STRING_AGG) aggregates tag field",
+            "executeQuery": "SELECT title, tags_list FROM articles WHERE title = 'Web Development Guide'",
+            "expected": {
+              "title": "Web Development Guide",
+              "tags_list": "css, html, javascript, react"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ROLLUP-RELATEDFIELD-005",
+      "given": "rollup field with empty relatedField value",
+      "when": "field configuration validation runs",
+      "then": "error should require minimum length 1 character",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "total",
+            "type": "rollup",
+            "relationshipField": "orders",
+            "relatedField": "",
+            "aggregation": "sum"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Empty relatedField rejected",
+            "validateConfig": true,
+            "expectError": "relatedField must have at least 1 character"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ROLLUP-RELATEDFIELD-006",
+      "given": "rollup field with relatedField referencing non-existent column",
+      "when": "aggregation query attempts to access non-existent field",
+      "then": "PostgreSQL returns error for undefined column",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255), total DECIMAL(15,2))",
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER REFERENCES customers(id), amount DECIMAL(15,2))",
+            "INSERT INTO customers (name) VALUES ('Alice')",
+            "INSERT INTO orders (customer_id, amount) VALUES (1, 100.00)",
+            "UPDATE customers SET total = (SELECT SUM(nonexistent_field) FROM orders WHERE customer_id = customers.id)"
+          ],
+          "fieldConfig": {
+            "name": "total",
+            "type": "rollup",
+            "relationshipField": "orders",
+            "relatedField": "nonexistent_field",
+            "aggregation": "sum"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Aggregation with non-existent relatedField fails",
+            "executeQuery": "UPDATE customers SET total = (SELECT SUM(nonexistent_field) FROM orders WHERE customer_id = customers.id)",
+            "expectError": "column \"nonexistent_field\" does not exist"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ROLLUP-RELATIONSHIPFIELD-001",
+      "given": "rollup field with relationshipField: 'orders' (customers → orders)",
+      "when": "aggregating across one-to-many relationship",
+      "then": "PostgreSQL aggregates values from child orders table",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255), total_orders DECIMAL(15,2) DEFAULT 0)",
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER REFERENCES customers(id), amount DECIMAL(15,2))",
+            "INSERT INTO customers (name) VALUES ('Alice'), ('Bob')",
+            "INSERT INTO orders (customer_id, amount) VALUES (1, 100.00), (1, 250.50), (2, 75.00)",
+            "UPDATE customers SET total_orders = (SELECT COALESCE(SUM(amount), 0) FROM orders WHERE customer_id = customers.id)"
+          ],
+          "fieldConfig": {
+            "name": "total_orders",
+            "type": "rollup",
+            "relationshipField": "orders",
+            "relatedField": "amount",
+            "aggregation": "sum"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Foreign key relationship exists (orders → customers)",
+            "executeQuery": "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE constraint_type = 'FOREIGN KEY' AND table_name = 'orders'",
+            "expected": {
+              "count": 1
+            }
+          },
+          {
+            "description": "Rollup aggregates customer's orders (100 + 250.50)",
+            "executeQuery": "SELECT name, total_orders FROM customers WHERE name = 'Alice'",
+            "expected": {
+              "name": "Alice",
+              "total_orders": 350.5
+            }
+          },
+          {
+            "description": "Different parent has different aggregation",
+            "executeQuery": "SELECT name, total_orders FROM customers WHERE name = 'Bob'",
+            "expected": {
+              "name": "Bob",
+              "total_orders": 75
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ROLLUP-RELATIONSHIPFIELD-002",
+      "given": "rollup field with empty relationshipField value",
+      "when": "field configuration validation runs",
+      "then": "error should require minimum length 1 character",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "total",
+            "type": "rollup",
+            "relationshipField": "",
+            "relatedField": "amount",
+            "aggregation": "sum"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Empty relationshipField rejected",
+            "validateConfig": true,
+            "expectError": "relationshipField must have at least 1 character"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ROLLUP-RELATIONSHIPFIELD-003",
+      "given": "rollup field aggregating across projects → tasks relationship",
+      "when": "counting child records",
+      "then": "PostgreSQL COUNT aggregation returns number of related tasks",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), task_count INTEGER DEFAULT 0)",
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, project_id INTEGER REFERENCES projects(id), title VARCHAR(255), status VARCHAR(50))",
+            "INSERT INTO projects (name) VALUES ('Website'), ('Mobile App')",
+            "INSERT INTO tasks (project_id, title, status) VALUES (1, 'Design', 'done'), (1, 'Development', 'in-progress'), (1, 'Testing', 'pending'), (2, 'Prototype', 'done')",
+            "UPDATE projects SET task_count = (SELECT COUNT(*) FROM tasks WHERE project_id = projects.id)"
+          ],
+          "fieldConfig": {
+            "name": "task_count",
+            "type": "rollup",
+            "relationshipField": "tasks",
+            "relatedField": "id",
+            "aggregation": "count"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Project 'Website' has 3 tasks",
+            "executeQuery": "SELECT name, task_count FROM projects WHERE name = 'Website'",
+            "expected": {
+              "name": "Website",
+              "task_count": 3
+            }
+          },
+          {
+            "description": "Project 'Mobile App' has 1 task",
+            "executeQuery": "SELECT name, task_count FROM projects WHERE name = 'Mobile App'",
+            "expected": {
+              "name": "Mobile App",
+              "task_count": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ROLLUP-RELATIONSHIPFIELD-004",
+      "given": "rollup field with no related records (customer has no orders)",
+      "when": "aggregating with COALESCE for NULL handling",
+      "then": "PostgreSQL returns default value (0) instead of NULL",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255), order_total DECIMAL(15,2) DEFAULT 0)",
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER REFERENCES customers(id), amount DECIMAL(15,2))",
+            "INSERT INTO customers (name) VALUES ('Alice'), ('Bob')",
+            "INSERT INTO orders (customer_id, amount) VALUES (1, 500.00)",
+            "UPDATE customers SET order_total = (SELECT COALESCE(SUM(amount), 0) FROM orders WHERE customer_id = customers.id)"
+          ],
+          "fieldConfig": {
+            "name": "order_total",
+            "type": "rollup",
+            "relationshipField": "orders",
+            "relatedField": "amount",
+            "aggregation": "sum"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Customer with orders shows aggregated total",
+            "executeQuery": "SELECT name, order_total FROM customers WHERE name = 'Alice'",
+            "expected": {
+              "name": "Alice",
+              "order_total": 500
+            }
+          },
+          {
+            "description": "Customer without orders shows 0 (COALESCE default)",
+            "executeQuery": "SELECT name, order_total FROM customers WHERE name = 'Bob'",
+            "expected": {
+              "name": "Bob",
+              "order_total": 0
+            }
           }
         ]
       }

@@ -5,49 +5,11 @@
   "description": "Currency code (ISO 4217)",
   "type": "string",
   "default": "USD",
-  "examples": ["USD", "EUR", "GBP", "JPY", "CAD"],
-  "x-specs": [
-    {
-      "id": "APP-FIELD-CURRENCY-001",
-      "given": "user provides currency",
-      "when": "validating input",
-      "then": "string value should be accepted",
-      "validation": {
-        "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
-          }
-        },
-        "assertions": [
-          {
-            "description": "string value should be accepted",
-            "validateConfig": true,
-            "expectError": "validation error"
-          }
-        ]
-      }
-    },
-    {
-      "id": "APP-FIELD-CURRENCY-002",
-      "given": "currency is empty string",
-      "when": "validating input",
-      "then": "default to USD",
-      "validation": {
-        "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
-          }
-        },
-        "assertions": [
-          {
-            "description": "default to USD",
-            "validateConfig": true,
-            "expectError": "validation error"
-          }
-        ]
-      }
-    }
+  "examples": [
+    "USD",
+    "EUR",
+    "GBP",
+    "JPY",
+    "CAD"
   ]
 }

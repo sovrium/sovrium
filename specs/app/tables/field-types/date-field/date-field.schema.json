@@ -23,7 +23,9 @@
       "type": "string",
       "const": "date",
       "description": "Field type discriminator for date-only fields",
-      "examples": ["date"]
+      "examples": [
+        "date"
+      ]
     },
     "format": {
       "$ref": "./format/format.schema.json"
@@ -50,7 +52,11 @@
       "format": "MM/DD/YYYY"
     }
   ],
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -244,6 +250,275 @@
             "expected": {
               "indexdef": "CREATE INDEX idx_memberships_anniversary ON public.memberships USING btree (anniversary)"
             }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-DATE-DEFAULT-001",
+      "given": "date field with static default: '2025-01-01'",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL DEFAULT constraint provides '2025-01-01'",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE events (id SERIAL PRIMARY KEY, title VARCHAR(255), event_date DATE DEFAULT '2025-01-01')",
+            "INSERT INTO events (title) VALUES ('New Year Party')"
+          ],
+          "fieldConfig": {
+            "name": "event_date",
+            "type": "date",
+            "default": "2025-01-01"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT constraint with date",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='events' AND column_name='event_date'",
+            "expected": {
+              "column_default": "'2025-01-01'::date"
+            }
+          },
+          {
+            "description": "INSERT without value uses default date",
+            "executeQuery": "SELECT event_date FROM events WHERE title = 'New Year Party'",
+            "expected": {
+              "event_date": "2025-01-01"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-DATE-DEFAULT-002",
+      "given": "date field with dynamic default: 'today' (CURRENT_DATE)",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL DEFAULT CURRENT_DATE provides current date",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE logs (id SERIAL PRIMARY KEY, message TEXT, log_date DATE DEFAULT CURRENT_DATE)",
+            "INSERT INTO logs (message) VALUES ('System started')"
+          ],
+          "fieldConfig": {
+            "name": "log_date",
+            "type": "date",
+            "default": "today"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT CURRENT_DATE constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='logs' AND column_name='log_date'",
+            "expected": {
+              "column_default": "CURRENT_DATE"
+            }
+          },
+          {
+            "description": "INSERT without value uses current date (dynamic)",
+            "executeQuery": "SELECT log_date = CURRENT_DATE as is_today FROM logs WHERE message = 'System started'",
+            "expected": {
+              "is_today": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-DATE-DEFAULT-003",
+      "given": "date field without default specified",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL inserts NULL",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), due_date DATE)",
+            "INSERT INTO tasks (title) VALUES ('Todo item')"
+          ],
+          "fieldConfig": {
+            "name": "due_date",
+            "type": "date"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has no DEFAULT constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='tasks' AND column_name='due_date'",
+            "expected": {
+              "column_default": null
+            }
+          },
+          {
+            "description": "INSERT without value results in NULL",
+            "executeQuery": "SELECT due_date FROM tasks WHERE title = 'Todo item'",
+            "expected": {
+              "due_date": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-DATE-DEFAULT-004",
+      "given": "date field with default and explicit value",
+      "when": "INSERT with specific date",
+      "then": "PostgreSQL uses explicit value, ignoring default",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE appointments (id SERIAL PRIMARY KEY, client VARCHAR(255), appointment_date DATE DEFAULT CURRENT_DATE)",
+            "INSERT INTO appointments (client, appointment_date) VALUES ('Alice', '2025-06-15')"
+          ],
+          "fieldConfig": {
+            "name": "appointment_date",
+            "type": "date",
+            "default": "today"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Explicit value overrides default",
+            "executeQuery": "SELECT appointment_date FROM appointments WHERE client = 'Alice'",
+            "expected": {
+              "appointment_date": "2025-06-15"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-DATE-FORMAT-001",
+      "title": "Accept valid date format pattern",
+      "given": "date field with format: 'MM/DD/YYYY' (US format)",
+      "when": "field migration creates DATE column",
+      "then": "PostgreSQL stores in ISO 8601 (YYYY-MM-DD), application displays using format pattern",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE events (id SERIAL PRIMARY KEY, name VARCHAR(255), event_date DATE)",
+            "INSERT INTO events (name, event_date) VALUES ('Launch', '2024-12-31'), ('Conference', '2024-01-15')"
+          ],
+          "fieldConfig": {
+            "name": "event_date",
+            "type": "date",
+            "format": "MM/DD/YYYY"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column uses DATE type (ISO 8601 storage)",
+            "executeQuery": "SELECT data_type FROM information_schema.columns WHERE table_name='events' AND column_name='event_date'",
+            "expected": {
+              "data_type": "date"
+            }
+          },
+          {
+            "description": "Date stored in ISO format (YYYY-MM-DD)",
+            "executeQuery": "SELECT event_date FROM events WHERE name = 'Launch'",
+            "expected": {
+              "event_date": "2024-12-31"
+            }
+          },
+          {
+            "description": "Application transforms to display format (MM/DD/YYYY)",
+            "displayFormat": "MM/DD/YYYY",
+            "executeQuery": "SELECT event_date FROM events WHERE name = 'Launch'",
+            "expectedDisplay": "12/31/2024",
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-DATE-FORMAT-002",
+      "title": "Use default format when not specified",
+      "given": "date field without format property",
+      "when": "user views date value",
+      "then": "date displayed in default ISO 8601 format (YYYY-MM-DD)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), due_date DATE DEFAULT CURRENT_DATE)",
+            "INSERT INTO tasks (title, due_date) VALUES ('Task 1', '2024-06-15')"
+          ],
+          "fieldConfig": {
+            "name": "due_date",
+            "type": "date"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Default format is YYYY-MM-DD",
+            "executeQuery": "SELECT due_date FROM tasks WHERE title = 'Task 1'",
+            "expected": {
+              "due_date": "2024-06-15"
+            }
+          },
+          {
+            "description": "Display format defaults to YYYY-MM-DD (same as storage)",
+            "displayFormat": "YYYY-MM-DD",
+            "executeQuery": "SELECT due_date FROM tasks WHERE title = 'Task 1'",
+            "expectedDisplay": "2024-06-15",
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-DATE-FORMAT-003",
+      "title": "Reject invalid format pattern",
+      "given": "date field with invalid format pattern",
+      "when": "field configuration validation runs",
+      "then": "validation error returned with message 'Invalid date format pattern'",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "created_date",
+            "type": "date",
+            "format": "INVALID-FORMAT"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Invalid format pattern rejected",
+            "validateConfig": true,
+            "expectError": "Invalid date format pattern. Valid tokens: YYYY, MM, DD"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-DATE-FORMAT-004",
+      "title": "Support European date format (DD-MM-YYYY)",
+      "given": "date field with format: 'DD-MM-YYYY'",
+      "when": "date '2024-12-25' retrieved",
+      "then": "application displays as '25-12-2024'",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE holidays (id SERIAL PRIMARY KEY, name VARCHAR(255), holiday_date DATE)",
+            "INSERT INTO holidays (name, holiday_date) VALUES ('Christmas', '2024-12-25')"
+          ],
+          "fieldConfig": {
+            "name": "holiday_date",
+            "type": "date",
+            "format": "DD-MM-YYYY"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Storage remains ISO format",
+            "executeQuery": "SELECT holiday_date FROM holidays WHERE name = 'Christmas'",
+            "expected": {
+              "holiday_date": "2024-12-25"
+            }
+          },
+          {
+            "description": "Display uses European format (DD-MM-YYYY)",
+            "displayFormat": "DD-MM-YYYY",
+            "executeQuery": "SELECT holiday_date FROM holidays WHERE name = 'Christmas'",
+            "expectedDisplay": "25-12-2024",
+            "expectError": "validation error"
           }
         ]
       }

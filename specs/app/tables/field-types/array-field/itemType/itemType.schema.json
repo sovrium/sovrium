@@ -5,70 +5,8 @@
   "description": "Type of items in the array",
   "type": "string",
   "default": "text",
-  "enum": ["text", "number"],
-  "x-specs": [
-    {
-      "id": "APP-FIELD-ARRAY-ITEMTYPE-001",
-      "given": "user selects itemType from valid options",
-      "when": "validating input",
-      "then": "selection should be accepted",
-      "validation": {
-        "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
-          }
-        },
-        "assertions": [
-          {
-            "description": "selection should be accepted",
-            "validateConfig": true,
-            "expectError": "validation error"
-          }
-        ]
-      }
-    },
-    {
-      "id": "APP-FIELD-ARRAY-ITEMTYPE-002",
-      "given": "user provides invalid itemType value",
-      "when": "validating input",
-      "then": "error should list valid options: text, number",
-      "validation": {
-        "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
-          }
-        },
-        "assertions": [
-          {
-            "description": "error should list valid options: text, number",
-            "validateConfig": true,
-            "expectError": "must be one of the allowed values"
-          }
-        ]
-      }
-    },
-    {
-      "id": "APP-FIELD-ARRAY-ITEMTYPE-003",
-      "given": "itemType is set to any valid enum value",
-      "when": "processing entity",
-      "then": "appropriate behavior should execute",
-      "validation": {
-        "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
-          }
-        },
-        "assertions": [
-          {
-            "description": "appropriate behavior should execute",
-            "validateConfig": true,
-            "expectError": "validation error"
-          }
-        ]
-      }
-    }
+  "enum": [
+    "text",
+    "number"
   ]
 }

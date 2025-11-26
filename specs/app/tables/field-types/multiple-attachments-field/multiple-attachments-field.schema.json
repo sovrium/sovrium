@@ -28,7 +28,11 @@
     }
   },
   "description": "Multiple file upload field for collections of attachments. Supports local or S3 storage like single-attachment but allows multiple files per record. Configure maxFiles limit (default 10), maxSize per file (default 10MB), and allowedTypes using MIME types. Useful for document collections, image galleries, contract attachments, and multi-file uploads. Each file validated independently against constraints.",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -256,6 +260,90 @@
             "expected": {
               "largest_file": 3145728
             }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-MULTIPLE-ATTACHMENTS-MAXFILES-001",
+      "given": "user provides maxFiles >= 1",
+      "when": "validating input",
+      "then": "value should be accepted",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "value should be accepted",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-MULTIPLE-ATTACHMENTS-MAXFILES-002",
+      "given": "user provides maxFiles < 1",
+      "when": "validating input",
+      "then": "error should enforce minimum value",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "error should enforce minimum value",
+            "validateConfig": true,
+            "expectError": "must be within the allowed range"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-MULTIPLE-ATTACHMENTS-STORAGE-001",
+      "given": "user configures storage",
+      "when": "validating input",
+      "then": "value should meet schema requirements",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "value should meet schema requirements",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-MULTIPLE-ATTACHMENTS-STORAGE-002",
+      "given": "storage is set",
+      "when": "processing configuration",
+      "then": "value should be used correctly",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "value should be used correctly",
+            "validateConfig": true,
+            "expectError": "validation error"
           }
         ]
       }

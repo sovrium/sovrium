@@ -25,7 +25,11 @@
     }
   },
   "description": "Star/icon rating field for user feedback and scoring. Configure maxRating (typically 5 or 10), display icon (star, heart, thumbs-up), and whether to allow half-ratings. Stores numeric value (1 to maxRating). Useful for product reviews, satisfaction scores, priority levels, and quality assessments. Displays as interactive icon picker in forms and static icons in tables.",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -230,6 +234,132 @@
                 "count": 2
               }
             ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-RATING-MAX-001",
+      "given": "user provides max between 1 and 10",
+      "when": "validating input",
+      "then": "value should be accepted",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "value should be accepted",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-RATING-MAX-002",
+      "given": "user provides max below 1",
+      "when": "validating input",
+      "then": "error should enforce minimum value",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "error should enforce minimum value",
+            "validateConfig": true,
+            "expectError": "must be within the allowed range"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-RATING-MAX-003",
+      "given": "user provides max above 10",
+      "when": "validating input",
+      "then": "error should enforce maximum value",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "error should enforce maximum value",
+            "validateConfig": true,
+            "expectError": "must be within the allowed range"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-RATING-STYLE-001",
+      "given": "user selects style from valid options",
+      "when": "validating input",
+      "then": "selection should be accepted",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "selection should be accepted",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-RATING-STYLE-002",
+      "given": "user provides invalid style value",
+      "when": "validating input",
+      "then": "error should list valid options: star, number, heart",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "error should list valid options: star, number, heart",
+            "validateConfig": true,
+            "expectError": "must be a valid style option"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-RATING-STYLE-003",
+      "given": "style is set to any valid enum value",
+      "when": "processing entity",
+      "then": "appropriate behavior should execute",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "appropriate behavior should execute",
+            "validateConfig": true,
+            "expectError": "validation error"
           }
         ]
       }

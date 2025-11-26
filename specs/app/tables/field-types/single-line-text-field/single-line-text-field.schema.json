@@ -27,7 +27,11 @@
     }
   },
   "description": "Short text input limited to a single line. Ideal for names, titles, labels, and brief identifiers. Text is stored as-is without formatting. Required flag makes the field mandatory. Unique constraint ensures no duplicate values across records. Indexing improves search and filter performance on this field.",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -337,7 +341,17 @@
           {
             "description": "Sample records have correct format",
             "executeQuery": "SELECT sku FROM products WHERE id IN (1, 500, 1000) ORDER BY id",
-            "expected": [{ "sku": "SKU-1" }, { "sku": "SKU-500" }, { "sku": "SKU-1000" }]
+            "expected": [
+              {
+                "sku": "SKU-1"
+              },
+              {
+                "sku": "SKU-500"
+              },
+              {
+                "sku": "SKU-1000"
+              }
+            ]
           }
         ]
       }
@@ -737,6 +751,165 @@
             "expected": {
               "content": "tab\tthen\nnewline",
               "len": 15
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-LINE-TEXT-DEFAULT-001",
+      "given": "single-line text field with default: 'Untitled'",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL DEFAULT constraint provides 'Untitled' as value",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE documents (id SERIAL PRIMARY KEY, title VARCHAR(255) DEFAULT 'Untitled', content TEXT)",
+            "INSERT INTO documents (content) VALUES ('Sample content')"
+          ],
+          "fieldConfig": {
+            "name": "title",
+            "type": "single-line-text",
+            "default": "Untitled"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='documents' AND column_name='title'",
+            "expected": {
+              "column_default": "'Untitled'::character varying"
+            }
+          },
+          {
+            "description": "INSERT without value uses default",
+            "executeQuery": "SELECT title FROM documents WHERE content = 'Sample content'",
+            "expected": {
+              "title": "Untitled"
+            }
+          },
+          {
+            "description": "INSERT with explicit value overrides default",
+            "executeQuery": [
+              "INSERT INTO documents (title, content) VALUES ('My Document', 'More content')",
+              "SELECT title FROM documents WHERE content = 'More content'"
+            ],
+            "expected": {
+              "title": "My Document"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-LINE-TEXT-DEFAULT-002",
+      "given": "single-line text field without default specified",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL inserts NULL (no DEFAULT constraint)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255), description TEXT)",
+            "INSERT INTO items (description) VALUES ('Test description')"
+          ],
+          "fieldConfig": {
+            "name": "name",
+            "type": "single-line-text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has no DEFAULT constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='items' AND column_name='name'",
+            "expected": {
+              "column_default": null
+            }
+          },
+          {
+            "description": "INSERT without value results in NULL",
+            "executeQuery": "SELECT name FROM items WHERE description = 'Test description'",
+            "expected": {
+              "name": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-LINE-TEXT-DEFAULT-003",
+      "given": "single-line text field with default: empty string ''",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL DEFAULT constraint provides empty string",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), notes TEXT DEFAULT '')",
+            "INSERT INTO tasks (title) VALUES ('Task 1')"
+          ],
+          "fieldConfig": {
+            "name": "notes",
+            "type": "single-line-text",
+            "default": ""
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT '' constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='tasks' AND column_name='notes'",
+            "expected": {
+              "column_default": "''::text"
+            }
+          },
+          {
+            "description": "INSERT without value uses empty string default",
+            "executeQuery": "SELECT notes FROM tasks WHERE title = 'Task 1'",
+            "expected": {
+              "notes": ""
+            }
+          },
+          {
+            "description": "Empty string is different from NULL",
+            "executeQuery": "SELECT notes IS NULL as is_null, notes = '' as is_empty FROM tasks WHERE title = 'Task 1'",
+            "expected": {
+              "is_null": false,
+              "is_empty": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-LINE-TEXT-DEFAULT-004",
+      "given": "single-line text field with default and NOT NULL constraint",
+      "when": "INSERT attempts to explicitly set NULL",
+      "then": "PostgreSQL rejects NULL value even with default",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, product_name VARCHAR(255) NOT NULL DEFAULT 'New Product')",
+            "INSERT INTO products (product_name) VALUES (NULL)"
+          ],
+          "fieldConfig": {
+            "name": "product_name",
+            "type": "single-line-text",
+            "default": "New Product",
+            "required": true
+          }
+        },
+        "assertions": [
+          {
+            "description": "Explicit NULL insertion rejected by NOT NULL constraint",
+            "executeQuery": "INSERT INTO products (product_name) VALUES (NULL)",
+            "expectError": "violates not-null constraint"
+          },
+          {
+            "description": "Omitting value uses default successfully",
+            "executeQuery": [
+              "INSERT INTO products DEFAULT VALUES",
+              "SELECT product_name FROM products LIMIT 1"
+            ],
+            "expected": {
+              "product_name": "New Product"
             }
           }
         ]

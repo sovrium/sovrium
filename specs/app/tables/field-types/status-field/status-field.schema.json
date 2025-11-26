@@ -28,7 +28,12 @@
     }
   },
   "description": "Workflow status with customizable options and colors",
-  "required": ["id", "name", "type", "options"],
+  "required": [
+    "id",
+    "name",
+    "type",
+    "options"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -255,6 +260,405 @@
             "expected": {
               "indexdef": "CREATE INDEX idx_requests_status ON public.requests USING btree (approval_status)"
             }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-STATUS-DEFAULT-001",
+      "given": "status field with default: 'todo'",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL DEFAULT constraint provides default status",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), status VARCHAR(50) DEFAULT 'todo')",
+            "INSERT INTO tasks (title) VALUES ('New Task')"
+          ],
+          "fieldConfig": {
+            "name": "status",
+            "type": "status",
+            "options": [
+              {
+                "id": "todo",
+                "value": "To Do",
+                "color": "#gray"
+              },
+              {
+                "id": "in_progress",
+                "value": "In Progress",
+                "color": "#blue"
+              },
+              {
+                "id": "done",
+                "value": "Done",
+                "color": "#green"
+              }
+            ],
+            "default": "todo"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT constraint with status",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='tasks' AND column_name='status'",
+            "expected": {
+              "column_default": "'todo'::character varying"
+            }
+          },
+          {
+            "description": "INSERT without value uses default status",
+            "executeQuery": "SELECT status FROM tasks WHERE title = 'New Task'",
+            "expected": {
+              "status": "todo"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-STATUS-DEFAULT-002",
+      "given": "status field without default specified",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL inserts NULL",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), status VARCHAR(50))",
+            "INSERT INTO projects (name) VALUES ('Project A')"
+          ],
+          "fieldConfig": {
+            "name": "status",
+            "type": "status",
+            "options": [
+              {
+                "id": "active",
+                "value": "Active",
+                "color": "#green"
+              },
+              {
+                "id": "paused",
+                "value": "Paused",
+                "color": "#yellow"
+              },
+              {
+                "id": "archived",
+                "value": "Archived",
+                "color": "#gray"
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has no DEFAULT constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='projects' AND column_name='status'",
+            "expected": {
+              "column_default": null
+            }
+          },
+          {
+            "description": "INSERT without value results in NULL",
+            "executeQuery": "SELECT status FROM projects WHERE name = 'Project A'",
+            "expected": {
+              "status": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-STATUS-DEFAULT-003",
+      "given": "status field with default and explicit value",
+      "when": "INSERT with specific status",
+      "then": "PostgreSQL uses explicit value, ignoring default",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE orders (id SERIAL PRIMARY KEY, customer VARCHAR(255), status VARCHAR(50) DEFAULT 'pending')",
+            "INSERT INTO orders (customer, status) VALUES ('John Doe', 'completed')"
+          ],
+          "fieldConfig": {
+            "name": "status",
+            "type": "status",
+            "options": [
+              {
+                "id": "pending",
+                "value": "Pending",
+                "color": "#yellow"
+              },
+              {
+                "id": "processing",
+                "value": "Processing",
+                "color": "#blue"
+              },
+              {
+                "id": "completed",
+                "value": "Completed",
+                "color": "#green"
+              }
+            ],
+            "default": "pending"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Explicit value overrides default",
+            "executeQuery": "SELECT status FROM orders WHERE customer = 'John Doe'",
+            "expected": {
+              "status": "completed"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-STATUS-OPTIONS-001",
+      "given": "status field with options: [{value: 'Todo', color: '#FF0000'}, {value: 'Done', color: '#00FF00'}]",
+      "when": "field migration creates status column with CHECK constraint and metadata table",
+      "then": "PostgreSQL enforces allowed status values and stores color metadata",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE status_options (id SERIAL PRIMARY KEY, field_name VARCHAR(255), value VARCHAR(255), color VARCHAR(7))",
+            "INSERT INTO status_options (field_name, value, color) VALUES ('task_status', 'Todo', '#FF0000'), ('task_status', 'Done', '#00FF00')",
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), status VARCHAR(255) CHECK (status IN ('Todo', 'Done')))",
+            "INSERT INTO tasks (title, status) VALUES ('Task 1', 'Todo'), ('Task 2', 'Done')"
+          ],
+          "fieldConfig": {
+            "name": "status",
+            "type": "status",
+            "options": [
+              {
+                "value": "Todo",
+                "color": "#FF0000"
+              },
+              {
+                "value": "Done",
+                "color": "#00FF00"
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Status values enforced by CHECK constraint",
+            "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%status%'",
+            "expected": {
+              "check_clause": "(status IN ('Todo', 'Done'))"
+            }
+          },
+          {
+            "description": "Color metadata stored in status_options table",
+            "executeQuery": "SELECT value, color FROM status_options WHERE field_name = 'task_status' AND value = 'Todo'",
+            "expected": {
+              "value": "Todo",
+              "color": "#FF0000"
+            }
+          },
+          {
+            "description": "Valid status value accepted",
+            "executeQuery": "SELECT status FROM tasks WHERE title = 'Task 1'",
+            "expected": {
+              "status": "Todo"
+            }
+          },
+          {
+            "description": "Invalid status value rejected",
+            "executeQuery": "INSERT INTO tasks (title, status) VALUES ('Task 3', 'In Progress')",
+            "expectError": "violates check constraint"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-STATUS-OPTIONS-002",
+      "given": "status field with options missing color property",
+      "when": "color is optional (defaults to system color)",
+      "then": "PostgreSQL accepts status options without color metadata",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE status_options (id SERIAL PRIMARY KEY, field_name VARCHAR(255), value VARCHAR(255), color VARCHAR(7))",
+            "INSERT INTO status_options (field_name, value, color) VALUES ('priority', 'Low', NULL), ('priority', 'High', '#FF0000')",
+            "CREATE TABLE issues (id SERIAL PRIMARY KEY, title VARCHAR(255), priority VARCHAR(255) CHECK (priority IN ('Low', 'High')))",
+            "INSERT INTO issues (title, priority) VALUES ('Issue 1', 'Low'), ('Issue 2', 'High')"
+          ],
+          "fieldConfig": {
+            "name": "priority",
+            "type": "status",
+            "options": [
+              {
+                "value": "Low"
+              },
+              {
+                "value": "High",
+                "color": "#FF0000"
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Options without color have NULL color metadata",
+            "executeQuery": "SELECT value, color FROM status_options WHERE field_name = 'priority' AND value = 'Low'",
+            "expected": {
+              "value": "Low",
+              "color": null
+            }
+          },
+          {
+            "description": "Options with color preserve color metadata",
+            "executeQuery": "SELECT value, color FROM status_options WHERE field_name = 'priority' AND value = 'High'",
+            "expected": {
+              "value": "High",
+              "color": "#FF0000"
+            }
+          },
+          {
+            "description": "Both options accepted in data column",
+            "executeQuery": "SELECT COUNT(*) as count FROM issues WHERE priority IN ('Low', 'High')",
+            "expected": {
+              "count": 2
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-OPTIONS-003",
+      "given": "status option with empty value string",
+      "when": "field configuration validation runs",
+      "then": "error should require minimum length 1 character",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "status",
+            "type": "status",
+            "options": [
+              {
+                "value": "",
+                "color": "#FF0000"
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Empty value string rejected",
+            "validateConfig": true,
+            "expectError": "value must have at least 1 character"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-OPTIONS-004",
+      "given": "status option with valid hex color #1A2B3C",
+      "when": "field configuration validation runs",
+      "then": "hex color pattern accepted",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "status",
+            "type": "status",
+            "options": [
+              {
+                "value": "Active",
+                "color": "#1A2B3C"
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Valid hex color accepted",
+            "validateConfig": true,
+            "expected": {
+              "valid": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-OPTIONS-005",
+      "given": "status option with invalid color 'red' (not hex)",
+      "when": "field configuration validation runs",
+      "then": "clear error message should explain hex format requirement",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "status",
+            "type": "status",
+            "options": [
+              {
+                "value": "Error",
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Non-hex color rejected with format error",
+            "validateConfig": true,
+            "expectError": "color must be hex format: #RRGGBB (e.g., #FF0000)"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-OPTIONS-006",
+      "given": "status field with color #FF00FF stored",
+      "when": "status option retrieved from database",
+      "then": "original hex color format preserved exactly",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE status_options (id SERIAL PRIMARY KEY, field_name VARCHAR(255), value VARCHAR(255), color VARCHAR(7))",
+            "INSERT INTO status_options (field_name, value, color) VALUES ('task_status', 'Review', '#FF00FF')"
+          ],
+          "fieldConfig": {
+            "name": "task_status",
+            "type": "status",
+            "options": [
+              {
+                "value": "Review",
+                "color": "#FF00FF"
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Original hex format preserved (case-sensitive)",
+            "executeQuery": "SELECT color FROM status_options WHERE field_name = 'task_status' AND value = 'Review'",
+            "expected": {
+              "color": "#FF00FF"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-OPTIONS-007",
+      "given": "status field with empty options array",
+      "when": "field configuration validation runs",
+      "then": "error should enforce minimum 1 option required",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "status",
+            "type": "status",
+            "options": []
+          }
+        },
+        "assertions": [
+          {
+            "description": "Configuration with empty options array rejected",
+            "validateConfig": true,
+            "expectError": "options array must have at least 1 item"
           }
         ]
       }

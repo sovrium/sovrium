@@ -25,7 +25,11 @@
     }
   },
   "description": "Reference to application users/collaborators for assignments, ownership, and mentions. Links records to user accounts. Set allowMultiple=true to assign multiple users (e.g., project team members), or false for single assignment (e.g., task owner). Automatically indexed for efficient filtering by user. Displays user profile information (name, avatar). Useful for task assignments, record ownership, collaboration, and audit trails.",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -241,6 +245,69 @@
             "expected": {
               "indexdef": "CREATE INDEX idx_pull_requests_reviewer ON public.pull_requests USING btree (reviewer)"
             }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-USER-ALLOWMULTIPLE-001",
+      "given": "allowMultiple is true",
+      "when": "processing entity",
+      "then": "corresponding behavior should be enforced",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "corresponding behavior should be enforced",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-USER-ALLOWMULTIPLE-002",
+      "given": "allowMultiple is false (default: False)",
+      "when": "processing entity",
+      "then": "corresponding behavior should not be enforced",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "corresponding behavior should not be enforced",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-USER-ALLOWMULTIPLE-003",
+      "given": "configuration with allowMultiple",
+      "when": "validating settings",
+      "then": "boolean value should be accepted",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "boolean value should be accepted",
+            "validateConfig": true,
+            "expectError": "validation error"
           }
         ]
       }

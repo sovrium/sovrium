@@ -25,7 +25,11 @@
     }
   },
   "description": "List of values (tags, keywords)",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -63,7 +67,11 @@
             "description": "Array with multiple items can be inserted",
             "executeQuery": "INSERT INTO articles (tags) VALUES (ARRAY['javascript', 'react', 'typescript']) RETURNING tags",
             "expected": {
-              "tags": ["javascript", "react", "typescript"]
+              "tags": [
+                "javascript",
+                "react",
+                "typescript"
+              ]
             }
           }
         ]
@@ -199,14 +207,23 @@
             "description": "array_append adds element to array",
             "executeQuery": "UPDATE recipes SET ingredients = array_append(ingredients, 'butter') WHERE id = 1 RETURNING ingredients",
             "expected": {
-              "ingredients": ["flour", "sugar", "eggs", "butter"]
+              "ingredients": [
+                "flour",
+                "sugar",
+                "eggs",
+                "butter"
+              ]
             }
           },
           {
             "description": "array_remove removes element from array",
             "executeQuery": "UPDATE recipes SET ingredients = array_remove(ingredients, 'sugar') WHERE id = 1 RETURNING ingredients",
             "expected": {
-              "ingredients": ["flour", "eggs", "butter"]
+              "ingredients": [
+                "flour",
+                "eggs",
+                "butter"
+              ]
             }
           },
           {
@@ -215,6 +232,111 @@
             "expected": {
               "first_ingredient": "flour"
             }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ARRAY-ITEMTYPE-001",
+      "given": "user selects itemType from valid options",
+      "when": "validating input",
+      "then": "selection should be accepted",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "selection should be accepted",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ARRAY-ITEMTYPE-002",
+      "given": "user provides invalid itemType value",
+      "when": "validating input",
+      "then": "error should list valid options: text, number",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "error should list valid options: text, number",
+            "validateConfig": true,
+            "expectError": "must be one of the allowed values"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ARRAY-ITEMTYPE-003",
+      "given": "itemType is set to any valid enum value",
+      "when": "processing entity",
+      "then": "appropriate behavior should execute",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "appropriate behavior should execute",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ARRAY-MAXITEMS-001",
+      "given": "user provides maxItems >= 1",
+      "when": "validating input",
+      "then": "value should be accepted",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "value should be accepted",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-ARRAY-MAXITEMS-002",
+      "given": "user provides maxItems < 1",
+      "when": "validating input",
+      "then": "error should enforce minimum value",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "error should enforce minimum value",
+            "validateConfig": true,
+            "expectError": "must be within the allowed range"
           }
         ]
       }

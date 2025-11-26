@@ -25,7 +25,11 @@
     }
   },
   "description": "Single file upload field with configurable storage backend. Supports local filesystem or S3-compatible cloud storage. Configure maxSize limit (in bytes, default 10MB), allowedTypes using MIME types or wildcards (e.g., image/*, application/pdf). Useful for profile pictures, documents, invoices, and single-file attachments. For S3 provider, bucket name is required.",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -217,6 +221,48 @@
             "description": "File exceeding size limit rejected",
             "executeQuery": "INSERT INTO invoices (pdf_file) VALUES ('{\"path\": \"/invoices/inv003.pdf\", \"name\": \"inv003.pdf\", \"size\": 10485761, \"mime_type\": \"application/pdf\"}')",
             "expectError": "violates check constraint"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-ATTACHMENT-STORAGE-001",
+      "given": "user configures storage",
+      "when": "validating input",
+      "then": "value should meet schema requirements",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "value should meet schema requirements",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-ATTACHMENT-STORAGE-002",
+      "given": "storage is set",
+      "when": "processing configuration",
+      "then": "value should be used correctly",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "value should be used correctly",
+            "validateConfig": true,
+            "expectError": "validation error"
           }
         ]
       }

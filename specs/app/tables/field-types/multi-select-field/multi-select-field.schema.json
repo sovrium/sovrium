@@ -31,7 +31,12 @@
     }
   },
   "description": "Multiple selection field allowing users to choose zero or more options from a predefined list. Displays as checkboxes or multi-select dropdown. Useful for tags, categories, features, skills, and attributes that can have multiple values. Supports maxSelections constraint to limit number of choices. Requires at least one option. Stores values as an array.",
-  "required": ["id", "name", "type", "options"],
+  "required": [
+    "id",
+    "name",
+    "type",
+    "options"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -75,14 +80,19 @@
             "description": "Single value can be inserted as array",
             "executeQuery": "INSERT INTO issues (tags) VALUES (ARRAY['Feature']) RETURNING tags",
             "expected": {
-              "tags": ["Feature"]
+              "tags": [
+                "Feature"
+              ]
             }
           },
           {
             "description": "Multiple values can be inserted",
             "executeQuery": "INSERT INTO issues (tags) VALUES (ARRAY['Bug', 'Enhancement']) RETURNING tags",
             "expected": {
-              "tags": ["Bug", "Enhancement"]
+              "tags": [
+                "Bug",
+                "Enhancement"
+              ]
             }
           }
         ]
@@ -191,7 +201,10 @@
             "description": "Explicit values override default",
             "executeQuery": "INSERT INTO projects (stakeholders) VALUES (ARRAY['Manager', 'Developer']) RETURNING stakeholders",
             "expected": {
-              "stakeholders": ["Manager", "Developer"]
+              "stakeholders": [
+                "Manager",
+                "Developer"
+              ]
             }
           }
         ]
@@ -230,6 +243,419 @@
             "expected": {
               "indexdef": "CREATE INDEX idx_candidates_skills ON public.candidates USING gin (skills)"
             }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-MULTI-SELECT-DEFAULT-001",
+      "given": "multi-select field with default: ['tag_1', 'tag_2']",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL DEFAULT constraint provides default array of options",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE articles (id SERIAL PRIMARY KEY, title VARCHAR(255), tags TEXT[] DEFAULT ARRAY['tag_1', 'tag_2'])",
+            "INSERT INTO articles (title) VALUES ('Article A')"
+          ],
+          "fieldConfig": {
+            "name": "tags",
+            "type": "multi-select",
+            "options": [
+              {
+                "id": "tag_1",
+                "value": "Technology"
+              },
+              {
+                "id": "tag_2",
+                "value": "Programming"
+              },
+              {
+                "id": "tag_3",
+                "value": "Design"
+              }
+            ],
+            "default": [
+              "tag_1",
+              "tag_2"
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT constraint with array",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='articles' AND column_name='tags'",
+            "expected": {
+              "column_default": "'{tag_1,tag_2}'::text[]"
+            }
+          },
+          {
+            "description": "INSERT without value uses default array",
+            "executeQuery": "SELECT tags FROM articles WHERE title = 'Article A'",
+            "expected": {
+              "tags": [
+                "tag_1",
+                "tag_2"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-MULTI-SELECT-DEFAULT-002",
+      "given": "multi-select field with empty array default: []",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL DEFAULT constraint provides empty array",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE posts (id SERIAL PRIMARY KEY, content TEXT, categories TEXT[] DEFAULT ARRAY[]::TEXT[])",
+            "INSERT INTO posts (content) VALUES ('Post content')"
+          ],
+          "fieldConfig": {
+            "name": "categories",
+            "type": "multi-select",
+            "options": [
+              {
+                "id": "cat_1",
+                "value": "News"
+              },
+              {
+                "id": "cat_2",
+                "value": "Updates"
+              }
+            ],
+            "default": []
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT constraint with empty array",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='posts' AND column_name='categories'",
+            "expected": {
+              "column_default": "'{}'::text[]"
+            }
+          },
+          {
+            "description": "INSERT without value uses empty array",
+            "executeQuery": "SELECT categories FROM posts WHERE content = 'Post content'",
+            "expected": {
+              "categories": []
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-MULTI-SELECT-DEFAULT-003",
+      "given": "multi-select field without default specified",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL inserts NULL",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255), labels TEXT[])",
+            "INSERT INTO projects (name) VALUES ('Project Alpha')"
+          ],
+          "fieldConfig": {
+            "name": "labels",
+            "type": "multi-select",
+            "options": [
+              {
+                "id": "label_1",
+                "value": "Active"
+              },
+              {
+                "id": "label_2",
+                "value": "Archived"
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has no DEFAULT constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='projects' AND column_name='labels'",
+            "expected": {
+              "column_default": null
+            }
+          },
+          {
+            "description": "INSERT without value results in NULL",
+            "executeQuery": "SELECT labels FROM projects WHERE name = 'Project Alpha'",
+            "expected": {
+              "labels": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-MULTI-SELECT-DEFAULT-004",
+      "given": "multi-select field with default and explicit value",
+      "when": "INSERT with specific options array",
+      "then": "PostgreSQL uses explicit value, ignoring default",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE documents (id SERIAL PRIMARY KEY, title VARCHAR(255), flags TEXT[] DEFAULT ARRAY['flag_1'])",
+            "INSERT INTO documents (title, flags) VALUES ('Doc A', ARRAY['flag_2', 'flag_3'])"
+          ],
+          "fieldConfig": {
+            "name": "flags",
+            "type": "multi-select",
+            "options": [
+              {
+                "id": "flag_1",
+                "value": "Important"
+              },
+              {
+                "id": "flag_2",
+                "value": "Urgent"
+              },
+              {
+                "id": "flag_3",
+                "value": "Review"
+              }
+            ],
+            "default": [
+              "flag_1"
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Explicit value overrides default",
+            "executeQuery": "SELECT flags FROM documents WHERE title = 'Doc A'",
+            "expected": {
+              "flags": [
+                "flag_2",
+                "flag_3"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-MULTI-SELECT-MAXSELECTIONS-001",
+      "given": "user provides maxSelections >= 1",
+      "when": "validating input",
+      "then": "value should be accepted",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "value should be accepted",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-MULTI-SELECT-MAXSELECTIONS-002",
+      "given": "user provides maxSelections < 1",
+      "when": "validating input",
+      "then": "error should enforce minimum value",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "error should enforce minimum value",
+            "validateConfig": true,
+            "expectError": "must be within the allowed range"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-MULTI-SELECT-OPTIONS-001",
+      "given": "multi-select field with options: ['JavaScript', 'Python', 'Go', 'Rust']",
+      "when": "field migration creates TEXT[] column with CHECK constraint",
+      "then": "PostgreSQL validates all array elements are from allowed options",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE developers (id SERIAL PRIMARY KEY, name VARCHAR(255), skills TEXT[] CHECK (skills <@ ARRAY['JavaScript', 'Python', 'Go', 'Rust']))",
+            "INSERT INTO developers (name, skills) VALUES ('Alice', ARRAY['JavaScript', 'Python']), ('Bob', ARRAY['Go', 'Rust'])"
+          ],
+          "fieldConfig": {
+            "name": "skills",
+            "type": "multi-select",
+            "options": [
+              "JavaScript",
+              "Python",
+              "Go",
+              "Rust"
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column uses TEXT[] array type",
+            "executeQuery": "SELECT data_type FROM information_schema.columns WHERE table_name='developers' AND column_name='skills'",
+            "expected": {
+              "data_type": "ARRAY"
+            }
+          },
+          {
+            "description": "Valid array of options accepted",
+            "executeQuery": "SELECT skills FROM developers WHERE name = 'Alice'",
+            "expected": {
+              "skills": [
+                "JavaScript",
+                "Python"
+              ]
+            }
+          },
+          {
+            "description": "Single option stored as array",
+            "executeQuery": "INSERT INTO developers (name, skills) VALUES ('Charlie', ARRAY['Python']) RETURNING skills",
+            "expected": {
+              "skills": [
+                "Python"
+              ]
+            }
+          },
+          {
+            "description": "Invalid option in array rejected",
+            "executeQuery": "INSERT INTO developers (name, skills) VALUES ('Dave', ARRAY['Java', 'Python'])",
+            "expectError": "violates check constraint"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-MULTI-SELECT-OPTIONS-002",
+      "given": "multi-select field with options: ['Red', 'Green', 'Blue']",
+      "when": "empty array or NULL inserted",
+      "then": "PostgreSQL accepts empty array (if nullable) or NULL",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255), tags TEXT[] CHECK (tags <@ ARRAY['Red', 'Green', 'Blue'] OR tags IS NULL))",
+            "INSERT INTO products (name, tags) VALUES ('Product A', ARRAY['Red', 'Blue']), ('Product B', ARRAY[]::TEXT[]), ('Product C', NULL)"
+          ],
+          "fieldConfig": {
+            "name": "tags",
+            "type": "multi-select",
+            "options": [
+              "Red",
+              "Green",
+              "Blue"
+            ],
+            "required": false
+          }
+        },
+        "assertions": [
+          {
+            "description": "Empty array accepted",
+            "executeQuery": "SELECT tags FROM products WHERE name = 'Product B'",
+            "expected": {
+              "tags": []
+            }
+          },
+          {
+            "description": "NULL accepted when field is nullable",
+            "executeQuery": "SELECT tags FROM products WHERE name = 'Product C'",
+            "expected": {
+              "tags": null
+            }
+          },
+          {
+            "description": "Non-empty valid array accepted",
+            "executeQuery": "SELECT tags FROM products WHERE name = 'Product A'",
+            "expected": {
+              "tags": [
+                "Red",
+                "Blue"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-MULTI-SELECT-OPTIONS-003",
+      "given": "multi-select field with empty options array",
+      "when": "field configuration validation runs",
+      "then": "error should enforce minimum 1 option required",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "categories",
+            "type": "multi-select",
+            "options": []
+          }
+        },
+        "assertions": [
+          {
+            "description": "Configuration with empty options array rejected",
+            "validateConfig": true,
+            "expectError": "options array must have at least 1 item"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-MULTI-SELECT-OPTIONS-004",
+      "given": "multi-select field with options: ['Feature', 'Bug', 'Enhancement']",
+      "when": "all options selected",
+      "then": "PostgreSQL stores complete array of values",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE issues (id SERIAL PRIMARY KEY, title VARCHAR(255), labels TEXT[] CHECK (labels <@ ARRAY['Feature', 'Bug', 'Enhancement']))",
+            "INSERT INTO issues (title, labels) VALUES ('Issue 1', ARRAY['Feature', 'Bug', 'Enhancement'])"
+          ],
+          "fieldConfig": {
+            "name": "labels",
+            "type": "multi-select",
+            "options": [
+              "Feature",
+              "Bug",
+              "Enhancement"
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "All options can be selected simultaneously",
+            "executeQuery": "SELECT labels FROM issues WHERE title = 'Issue 1'",
+            "expected": {
+              "labels": [
+                "Feature",
+                "Bug",
+                "Enhancement"
+              ]
+            }
+          },
+          {
+            "description": "Array order preserved",
+            "executeQuery": "INSERT INTO issues (title, labels) VALUES ('Issue 2', ARRAY['Enhancement', 'Feature']) RETURNING labels",
+            "expected": {
+              "labels": [
+                "Enhancement",
+                "Feature"
+              ]
+            }
+          },
+          {
+            "description": "Duplicate values in array rejected by application logic",
+            "executeQuery": "INSERT INTO issues (title, labels) VALUES ('Issue 3', ARRAY['Bug', 'Bug'])",
+            "expectError": "duplicate values not allowed"
           }
         ]
       }

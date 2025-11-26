@@ -22,7 +22,11 @@
     }
   },
   "description": "Formatted text with markdown support",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -190,6 +194,48 @@
             "description": "Duplicate slug rejected",
             "executeQuery": "INSERT INTO documents (slug) VALUES ('my-first-document')",
             "expectError": "duplicate key value violates unique constraint"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-RICH-TEXT-MAXLENGTH-001",
+      "given": "user provides maxLength >= 1",
+      "when": "validating input",
+      "then": "value should be accepted",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "value should be accepted",
+            "validateConfig": true,
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-RICH-TEXT-MAXLENGTH-002",
+      "given": "user provides maxLength < 1",
+      "when": "validating input",
+      "then": "error should enforce minimum value",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "example_field",
+            "type": "text"
+          }
+        },
+        "assertions": [
+          {
+            "description": "error should enforce minimum value",
+            "validateConfig": true,
+            "expectError": "must be within the allowed range"
           }
         ]
       }

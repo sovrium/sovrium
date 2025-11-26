@@ -27,7 +27,11 @@
     }
   },
   "description": "Text field for web links with URL format validation (http:// or https://). Validates URL structure and protocol without checking if the link is reachable. Stores full URL including protocol. Display shows clickable link in the UI. Required flag makes the field mandatory. Unique constraint ensures no duplicate URLs.",
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -199,6 +203,96 @@
             "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_bookmarks_url'",
             "expected": {
               "indexdef": "CREATE INDEX idx_bookmarks_url ON public.bookmarks USING btree (url)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-URL-DEFAULT-001",
+      "given": "URL field with default: 'https://example.com'",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL DEFAULT constraint provides default URL",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE websites (id SERIAL PRIMARY KEY, name VARCHAR(255), url TEXT DEFAULT 'https://example.com')",
+            "INSERT INTO websites (name) VALUES ('My Website')"
+          ],
+          "fieldConfig": {
+            "name": "url",
+            "type": "url",
+            "default": "https://example.com"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT constraint with URL",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='websites' AND column_name='url'",
+            "expected": {
+              "column_default": "'https://example.com'::text"
+            }
+          },
+          {
+            "description": "INSERT without value uses default URL",
+            "executeQuery": "SELECT url FROM websites WHERE name = 'My Website'",
+            "expected": {
+              "url": "https://example.com"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-URL-DEFAULT-002",
+      "given": "URL field without default specified",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL inserts NULL",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE bookmarks (id SERIAL PRIMARY KEY, title VARCHAR(255), url TEXT)",
+            "INSERT INTO bookmarks (title) VALUES ('My Bookmark')"
+          ],
+          "fieldConfig": {
+            "name": "url",
+            "type": "url"
+          }
+        },
+        "assertions": [
+          {
+            "description": "INSERT without value results in NULL",
+            "executeQuery": "SELECT url FROM bookmarks WHERE title = 'My Bookmark'",
+            "expected": {
+              "url": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-URL-DEFAULT-003",
+      "given": "URL field with default and explicit value",
+      "when": "INSERT with specific URL",
+      "then": "PostgreSQL uses explicit value, ignoring default",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE links (id SERIAL PRIMARY KEY, title VARCHAR(255), url TEXT DEFAULT 'https://default.com')",
+            "INSERT INTO links (title, url) VALUES ('Custom Link', 'https://custom.com/page')"
+          ],
+          "fieldConfig": {
+            "name": "url",
+            "type": "url",
+            "default": "https://default.com"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Explicit value overrides default",
+            "executeQuery": "SELECT url FROM links WHERE title = 'Custom Link'",
+            "expected": {
+              "url": "https://custom.com/page"
             }
           }
         ]

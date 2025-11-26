@@ -28,7 +28,12 @@
     }
   },
   "description": "Single selection dropdown from predefined options. Users can choose exactly one value from the list. Useful for status fields (Active, Inactive, Pending), categories, priority levels (High, Medium, Low), and enumerated values. Requires at least one option. Supports default value. Indexing improves filtering by option value.",
-  "required": ["id", "name", "type", "options"],
+  "required": [
+    "id",
+    "name",
+    "type",
+    "options"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -246,6 +251,312 @@
             "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_documents_type'",
             "expected": {
               "indexdef": "CREATE INDEX idx_documents_type ON public.documents USING btree (type)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-SELECT-DEFAULT-001",
+      "given": "single-select field with default: 'option_1'",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL DEFAULT constraint provides default option",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255), category VARCHAR(50) DEFAULT 'option_1')",
+            "INSERT INTO products (name) VALUES ('Product A')"
+          ],
+          "fieldConfig": {
+            "name": "category",
+            "type": "single-select",
+            "options": [
+              {
+                "id": "option_1",
+                "value": "Electronics"
+              },
+              {
+                "id": "option_2",
+                "value": "Clothing"
+              },
+              {
+                "id": "option_3",
+                "value": "Food"
+              }
+            ],
+            "default": "option_1"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT constraint with option",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='products' AND column_name='category'",
+            "expected": {
+              "column_default": "'option_1'::character varying"
+            }
+          },
+          {
+            "description": "INSERT without value uses default option",
+            "executeQuery": "SELECT category FROM products WHERE name = 'Product A'",
+            "expected": {
+              "category": "option_1"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-SELECT-DEFAULT-002",
+      "given": "single-select field without default specified",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL inserts NULL",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), priority VARCHAR(50))",
+            "INSERT INTO tasks (title) VALUES ('Task A')"
+          ],
+          "fieldConfig": {
+            "name": "priority",
+            "type": "single-select",
+            "options": [
+              {
+                "id": "low",
+                "value": "Low"
+              },
+              {
+                "id": "medium",
+                "value": "Medium"
+              },
+              {
+                "id": "high",
+                "value": "High"
+              }
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has no DEFAULT constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='tasks' AND column_name='priority'",
+            "expected": {
+              "column_default": null
+            }
+          },
+          {
+            "description": "INSERT without value results in NULL",
+            "executeQuery": "SELECT priority FROM tasks WHERE title = 'Task A'",
+            "expected": {
+              "priority": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-SELECT-DEFAULT-003",
+      "given": "single-select field with default and explicit value",
+      "when": "INSERT with specific option",
+      "then": "PostgreSQL uses explicit value, ignoring default",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tickets (id SERIAL PRIMARY KEY, title VARCHAR(255), status VARCHAR(50) DEFAULT 'open')",
+            "INSERT INTO tickets (title, status) VALUES ('Bug Report', 'closed')"
+          ],
+          "fieldConfig": {
+            "name": "status",
+            "type": "single-select",
+            "options": [
+              {
+                "id": "open",
+                "value": "Open"
+              },
+              {
+                "id": "closed",
+                "value": "Closed"
+              },
+              {
+                "id": "pending",
+                "value": "Pending"
+              }
+            ],
+            "default": "open"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Explicit value overrides default",
+            "executeQuery": "SELECT status FROM tickets WHERE title = 'Bug Report'",
+            "expected": {
+              "status": "closed"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-SELECT-OPTIONS-001",
+      "given": "single-select field with options: ['Low', 'Medium', 'High']",
+      "when": "field migration creates CHECK constraint enforcing allowed values",
+      "then": "PostgreSQL accepts only values from options array",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), priority VARCHAR(50) CHECK (priority IN ('Low', 'Medium', 'High')))",
+            "INSERT INTO tasks (title, priority) VALUES ('Task 1', 'Low'), ('Task 2', 'High')"
+          ],
+          "fieldConfig": {
+            "name": "priority",
+            "type": "single-select",
+            "options": [
+              "Low",
+              "Medium",
+              "High"
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "CHECK constraint enforces allowed values",
+            "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%priority%'",
+            "expected": {
+              "check_clause": "(priority IN ('Low', 'Medium', 'High'))"
+            }
+          },
+          {
+            "description": "Valid option 'Low' accepted",
+            "executeQuery": "SELECT priority FROM tasks WHERE priority = 'Low'",
+            "expected": {
+              "priority": "Low"
+            }
+          },
+          {
+            "description": "Invalid option rejected",
+            "executeQuery": "INSERT INTO tasks (title, priority) VALUES ('Task 3', 'Urgent')",
+            "expectError": "violates check constraint"
+          },
+          {
+            "description": "All valid options accepted",
+            "executeQuery": "INSERT INTO tasks (title, priority) VALUES ('Task 4', 'Medium') RETURNING priority",
+            "expected": {
+              "priority": "Medium"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-SELECT-OPTIONS-002",
+      "given": "single-select field with options: ['Active', 'Inactive']",
+      "when": "NULL value inserted",
+      "then": "PostgreSQL accepts NULL (if nullable) or rejects (if required)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255), status VARCHAR(50) CHECK (status IN ('Active', 'Inactive') OR status IS NULL))",
+            "INSERT INTO users (name, status) VALUES ('Alice', 'Active'), ('Bob', NULL)"
+          ],
+          "fieldConfig": {
+            "name": "status",
+            "type": "single-select",
+            "options": [
+              "Active",
+              "Inactive"
+            ],
+            "required": false
+          }
+        },
+        "assertions": [
+          {
+            "description": "NULL accepted when field is nullable",
+            "executeQuery": "SELECT status FROM users WHERE name = 'Bob'",
+            "expected": {
+              "status": null
+            }
+          },
+          {
+            "description": "Valid option 'Active' accepted",
+            "executeQuery": "SELECT status FROM users WHERE name = 'Alice'",
+            "expected": {
+              "status": "Active"
+            }
+          },
+          {
+            "description": "Invalid option still rejected",
+            "executeQuery": "INSERT INTO users (name, status) VALUES ('Charlie', 'Pending')",
+            "expectError": "violates check constraint"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-SELECT-OPTIONS-003",
+      "given": "single-select field with empty options array",
+      "when": "field configuration validation runs",
+      "then": "error should enforce minimum 1 option required",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "category",
+            "type": "single-select",
+            "options": []
+          }
+        },
+        "assertions": [
+          {
+            "description": "Configuration with empty options array rejected",
+            "validateConfig": true,
+            "expectError": "options array must have at least 1 item"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-SINGLE-SELECT-OPTIONS-004",
+      "given": "single-select field with options: ['Draft', 'Published', 'Archived']",
+      "when": "option value modified in configuration",
+      "then": "PostgreSQL ALTER TABLE updates CHECK constraint with new options",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE posts (id SERIAL PRIMARY KEY, title VARCHAR(255), status VARCHAR(50) CHECK (status IN ('Draft', 'Published', 'Archived')))",
+            "INSERT INTO posts (title, status) VALUES ('Post 1', 'Draft'), ('Post 2', 'Published')"
+          ],
+          "fieldConfig": {
+            "name": "status",
+            "type": "single-select",
+            "options": [
+              "Draft",
+              "Published",
+              "Archived"
+            ]
+          }
+        },
+        "assertions": [
+          {
+            "description": "Original CHECK constraint enforces original options",
+            "executeQuery": "SELECT check_clause FROM information_schema.check_constraints WHERE constraint_name LIKE '%status%'",
+            "expected": {
+              "check_clause": "(status IN ('Draft', 'Published', 'Archived'))"
+            }
+          },
+          {
+            "description": "After migration: new option 'Scheduled' allowed",
+            "executeQuery": [
+              "ALTER TABLE posts DROP CONSTRAINT IF EXISTS posts_status_check",
+              "ALTER TABLE posts ADD CONSTRAINT posts_status_check CHECK (status IN ('Draft', 'Scheduled', 'Published', 'Archived'))",
+              "INSERT INTO posts (title, status) VALUES ('Post 3', 'Scheduled') RETURNING status"
+            ],
+            "expected": {
+              "status": "Scheduled"
+            }
+          },
+          {
+            "description": "Existing data preserved after constraint update",
+            "executeQuery": "SELECT COUNT(*) as count FROM posts WHERE status IN ('Draft', 'Published')",
+            "expected": {
+              "count": 2
             }
           }
         ]

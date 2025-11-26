@@ -4,70 +4,8 @@
   "title": "Type of action to trigger",
   "description": "Type of action to trigger",
   "type": "string",
-  "enum": ["url", "automation"],
-  "x-specs": [
-    {
-      "id": "APP-FIELD-BUTTON-ACTION-001",
-      "given": "user selects action from valid options",
-      "when": "validating input",
-      "then": "selection should be accepted",
-      "validation": {
-        "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
-          }
-        },
-        "assertions": [
-          {
-            "description": "selection should be accepted",
-            "validateConfig": true,
-            "expectError": "validation error"
-          }
-        ]
-      }
-    },
-    {
-      "id": "APP-FIELD-BUTTON-ACTION-002",
-      "given": "user provides invalid action value",
-      "when": "validating input",
-      "then": "error should list valid options: url, automation",
-      "validation": {
-        "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
-          }
-        },
-        "assertions": [
-          {
-            "description": "error should list valid options: url, automation",
-            "validateConfig": true,
-            "expectError": "action must be one of: update_field, open_url, trigger_automation"
-          }
-        ]
-      }
-    },
-    {
-      "id": "APP-FIELD-BUTTON-ACTION-003",
-      "given": "action is set to any valid enum value",
-      "when": "processing entity",
-      "then": "appropriate behavior should execute",
-      "validation": {
-        "setup": {
-          "fieldConfig": {
-            "name": "example_field",
-            "type": "text"
-          }
-        },
-        "assertions": [
-          {
-            "description": "appropriate behavior should execute",
-            "validateConfig": true,
-            "expectError": "validation error"
-          }
-        ]
-      }
-    }
+  "enum": [
+    "url",
+    "automation"
   ]
 }

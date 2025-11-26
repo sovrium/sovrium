@@ -23,7 +23,9 @@
       "type": "string",
       "const": "datetime",
       "description": "Field type discriminator for datetime fields with both date and time components",
-      "examples": ["datetime"]
+      "examples": [
+        "datetime"
+      ]
     },
     "format": {
       "$ref": "./format/format.schema.json"
@@ -55,7 +57,11 @@
       "format": "MM/DD/YYYY hh:mm A"
     }
   ],
-  "required": ["id", "name", "type"],
+  "required": [
+    "id",
+    "name",
+    "type"
+  ],
   "additionalProperties": false,
   "x-specs": [
     {
@@ -248,6 +254,338 @@
             "executeQuery": "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_articles_published'",
             "expected": {
               "indexdef": "CREATE INDEX idx_articles_published ON public.articles USING btree (published_at)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-DATETIME-DEFAULT-001",
+      "given": "datetime field with static default: '2025-01-01 00:00:00'",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL DEFAULT constraint provides specific timestamp",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE milestones (id SERIAL PRIMARY KEY, name VARCHAR(255), milestone_at TIMESTAMP DEFAULT '2025-01-01 00:00:00')",
+            "INSERT INTO milestones (name) VALUES ('Launch Date')"
+          ],
+          "fieldConfig": {
+            "name": "milestone_at",
+            "type": "datetime",
+            "default": "2025-01-01T00:00:00.000Z"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT constraint with timestamp",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='milestones' AND column_name='milestone_at'",
+            "expected": {
+              "column_default": "'2025-01-01 00:00:00'::timestamp without time zone"
+            }
+          },
+          {
+            "description": "INSERT without value uses default timestamp",
+            "executeQuery": "SELECT milestone_at FROM milestones WHERE name = 'Launch Date'",
+            "expected": {
+              "milestone_at": "2025-01-01T00:00:00.000Z"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-DATETIME-DEFAULT-002",
+      "given": "datetime field with dynamic default: 'now' (CURRENT_TIMESTAMP)",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL DEFAULT CURRENT_TIMESTAMP provides current timestamp",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE posts (id SERIAL PRIMARY KEY, title VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+            "INSERT INTO posts (title) VALUES ('Hello World')"
+          ],
+          "fieldConfig": {
+            "name": "created_at",
+            "type": "datetime",
+            "default": "now"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has DEFAULT CURRENT_TIMESTAMP constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='posts' AND column_name='created_at'",
+            "expected": {
+              "column_default": "CURRENT_TIMESTAMP"
+            }
+          },
+          {
+            "description": "INSERT without value uses current timestamp (dynamic)",
+            "executeQuery": "SELECT (created_at BETWEEN CURRENT_TIMESTAMP - INTERVAL '5 seconds' AND CURRENT_TIMESTAMP) as is_recent FROM posts WHERE title = 'Hello World'",
+            "expected": {
+              "is_recent": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-DATETIME-DEFAULT-003",
+      "given": "datetime field without default specified",
+      "when": "INSERT without value for this field",
+      "then": "PostgreSQL inserts NULL",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE drafts (id SERIAL PRIMARY KEY, content TEXT, published_at TIMESTAMP)",
+            "INSERT INTO drafts (content) VALUES ('Draft content')"
+          ],
+          "fieldConfig": {
+            "name": "published_at",
+            "type": "datetime"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column has no DEFAULT constraint",
+            "executeQuery": "SELECT column_default FROM information_schema.columns WHERE table_name='drafts' AND column_name='published_at'",
+            "expected": {
+              "column_default": null
+            }
+          },
+          {
+            "description": "INSERT without value results in NULL",
+            "executeQuery": "SELECT published_at FROM drafts WHERE content = 'Draft content'",
+            "expected": {
+              "published_at": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-DATETIME-FORMAT-001",
+      "title": "Accept valid US 12-hour datetime format",
+      "given": "datetime field with format: 'MM/DD/YYYY hh:mm A'",
+      "when": "field migration creates TIMESTAMPTZ column",
+      "then": "PostgreSQL stores in ISO 8601, application displays using format pattern",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE appointments (id SERIAL PRIMARY KEY, title VARCHAR(255), scheduled_at TIMESTAMPTZ)",
+            "INSERT INTO appointments (title, scheduled_at) VALUES ('Doctor Visit', '2024-12-31 14:30:00+00'), ('Meeting', '2024-01-15 09:15:00+00')"
+          ],
+          "fieldConfig": {
+            "name": "scheduled_at",
+            "type": "datetime",
+            "format": "MM/DD/YYYY hh:mm A"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Column uses TIMESTAMPTZ type (ISO 8601 storage)",
+            "executeQuery": "SELECT data_type FROM information_schema.columns WHERE table_name='appointments' AND column_name='scheduled_at'",
+            "expected": {
+              "data_type": "timestamp with time zone"
+            }
+          },
+          {
+            "description": "Datetime stored in ISO format",
+            "executeQuery": "SELECT scheduled_at FROM appointments WHERE title = 'Doctor Visit'",
+            "expected": {
+              "scheduled_at": "2024-12-31T14:30:00.000Z"
+            }
+          },
+          {
+            "description": "Application transforms to US 12-hour format",
+            "displayFormat": "MM/DD/YYYY hh:mm A",
+            "executeQuery": "SELECT scheduled_at FROM appointments WHERE title = 'Doctor Visit'",
+            "expectedDisplay": "12/31/2024 02:30 PM",
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-DATETIME-FORMAT-002",
+      "title": "Use default ISO-like format when not specified",
+      "given": "datetime field without format property",
+      "when": "user views datetime value",
+      "then": "datetime displayed in default format (YYYY-MM-DD HH:mm)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE audit_logs (id SERIAL PRIMARY KEY, action VARCHAR(255), created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP)",
+            "INSERT INTO audit_logs (action, created_at) VALUES ('User Login', '2024-06-15 16:45:30+00')"
+          ],
+          "fieldConfig": {
+            "name": "created_at",
+            "type": "datetime"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Default format is YYYY-MM-DD HH:mm (ISO-like)",
+            "displayFormat": "YYYY-MM-DD HH:mm",
+            "executeQuery": "SELECT created_at FROM audit_logs WHERE action = 'User Login'",
+            "expectedDisplay": "2024-06-15 16:45",
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-DATETIME-FORMAT-003",
+      "title": "Reject invalid format pattern",
+      "given": "datetime field with invalid format pattern",
+      "when": "field configuration validation runs",
+      "then": "validation error returned with message 'Invalid datetime format pattern'",
+      "validation": {
+        "setup": {
+          "fieldConfig": {
+            "name": "updated_at",
+            "type": "datetime",
+            "format": "INVALID-FORMAT"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Invalid format pattern rejected",
+            "validateConfig": true,
+            "expectError": "Invalid datetime format pattern. Valid tokens: YYYY, MM, DD, HH, hh, mm, ss, SSS, A"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-DATETIME-FORMAT-004",
+      "title": "Support European 24-hour datetime format",
+      "given": "datetime field with format: 'DD-MM-YYYY HH:mm:ss'",
+      "when": "datetime '2024-12-25T18:30:45.000Z' retrieved",
+      "then": "application displays as '25-12-2024 18:30:45'",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "CREATE TABLE deliveries (id SERIAL PRIMARY KEY, package_id VARCHAR(255), delivered_at TIMESTAMPTZ)",
+            "INSERT INTO deliveries (package_id, delivered_at) VALUES ('PKG-001', '2024-12-25 18:30:45+00')"
+          ],
+          "fieldConfig": {
+            "name": "delivered_at",
+            "type": "datetime",
+            "format": "DD-MM-YYYY HH:mm:ss"
+          }
+        },
+        "assertions": [
+          {
+            "description": "Storage uses ISO format with timezone",
+            "executeQuery": "SELECT delivered_at FROM deliveries WHERE package_id = 'PKG-001'",
+            "expected": {
+              "delivered_at": "2024-12-25T18:30:45.000Z"
+            }
+          },
+          {
+            "description": "Display uses European format with seconds",
+            "displayFormat": "DD-MM-YYYY HH:mm:ss",
+            "executeQuery": "SELECT delivered_at FROM deliveries WHERE package_id = 'PKG-001'",
+            "expectedDisplay": "25-12-2024 18:30:45",
+            "expectError": "validation error"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-DATETIME-TIMEZONE-001",
+      "title": "Display datetime in specified timezone",
+      "given": "a datetime field with timezone 'America/New_York'",
+      "when": "user views datetime '2024-12-31T15:00:00.000Z' (UTC)",
+      "then": "the datetime is displayed as '2024-12-31 10:00' (EST, UTC-5)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "SELECT '2024-12-31 15:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'America/New_York' AS displayed_time"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Timezone conversion displays correct local time (EST -5)",
+            "executeQuery": "SELECT '2024-12-31 15:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'America/New_York' AS displayed_time",
+            "expected": {
+              "displayed_time": "2024-12-31 10:00:00"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-DATETIME-TIMEZONE-002",
+      "title": "Reject invalid timezone identifier",
+      "given": "a datetime field configuration",
+      "when": "user sets timezone to 'Invalid/Timezone'",
+      "then": "validation error is returned with message 'Invalid IANA timezone identifier'",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "SELECT '2024-01-01 00:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'Invalid/Timezone' AS result"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "PostgreSQL rejects invalid timezone identifier",
+            "executeQuery": "SELECT '2024-01-01 00:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'Invalid/Timezone' AS result",
+            "expectError": "time zone \"Invalid/Timezone\" not recognized"
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-DATETIME-TIMEZONE-003",
+      "title": "Handle DST transition correctly",
+      "given": "a datetime field with timezone 'America/New_York'",
+      "when": "user views datetime during DST transition (March/November)",
+      "then": "the datetime is displayed with correct offset (EST -5 or EDT -4)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "SELECT '2024-01-15 12:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'America/New_York' AS winter_time",
+            "SELECT '2024-07-15 12:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'America/New_York' AS summer_time"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "Winter time uses EST offset (UTC-5)",
+            "executeQuery": "SELECT '2024-01-15 12:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'America/New_York' AS winter_time",
+            "expected": {
+              "winter_time": "2024-01-15 07:00:00"
+            }
+          },
+          {
+            "description": "Summer time uses EDT offset (UTC-4)",
+            "executeQuery": "SELECT '2024-07-15 12:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'America/New_York' AS summer_time",
+            "expected": {
+              "summer_time": "2024-07-15 08:00:00"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "APP-FIELD-DATETIME-TIMEZONE-004",
+      "title": "Use UTC as default timezone",
+      "given": "a datetime field without timezone property",
+      "when": "user views a datetime value",
+      "then": "the datetime is displayed in UTC timezone (no conversion)",
+      "validation": {
+        "setup": {
+          "executeQuery": [
+            "SELECT '2024-12-31 15:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'UTC' AS utc_time"
+          ]
+        },
+        "assertions": [
+          {
+            "description": "UTC timezone displays time without conversion",
+            "executeQuery": "SELECT '2024-12-31 15:00:00 UTC'::TIMESTAMPTZ AT TIME ZONE 'UTC' AS utc_time",
+            "expected": {
+              "utc_time": "2024-12-31 15:00:00"
             }
           }
         ]
