@@ -95,7 +95,6 @@ test.describe('Autonumber Field', () => {
       const insert = await executeQuery(
         'INSERT INTO tickets (id) VALUES (DEFAULT) RETURNING id, ticket_number'
       )
-      const _originalNumber = insert.ticket_number
 
       // Attempting to update autonumber should fail or be ignored
       await executeQuery(`UPDATE tickets SET ticket_number = 999 WHERE id = ${insert.id}`)

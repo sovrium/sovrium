@@ -303,8 +303,15 @@ async function stopServer(serverProcess: ChildProcess): Promise<void> {
  * Custom fixtures for CLI server with AppSchema configuration and database isolation
  */
 type ServerFixtures = {
-  startServerWithSchema: (appSchema: object, options?: { useDatabase?: boolean }) => Promise<void>
-  executeQuery: (sql: string) => Promise<{ rows: any[]; rowCount: number }>
+  startServerWithSchema: (
+    appSchema: object,
+    options?: { useDatabase?: boolean; database?: { url: string } }
+  ) => Promise<void>
+  executeQuery: (sql: string | string[]) => Promise<{
+    rows: any[]
+    rowCount: number
+    [key: string]: any
+  }>
   browserLocale: string | undefined
   mockAnalytics: boolean
   generateStaticSite: (
@@ -463,7 +470,7 @@ export const test = base.extend<ServerFixtures>({
   executeQuery: async ({}, use, testInfo) => {
     let client: any = null
 
-    await use(async (query: string) => {
+    await use(async (query: string | string[]) => {
       const connectionUrl = process.env.TEST_DATABASE_CONTAINER_URL
       if (!connectionUrl) {
         throw new Error('Database not initialized')
@@ -485,8 +492,25 @@ export const test = base.extend<ServerFixtures>({
       client = new Client({ connectionString: url.toString() })
       await client.connect()
 
-      const result = await client.query(query)
-      return { rows: result.rows, rowCount: result.rowCount || 0 }
+      // Handle both single query and array of queries
+      if (Array.isArray(query)) {
+        // Execute queries sequentially
+        let lastResult: any = { rows: [], rowCount: 0 }
+        for (const sql of query) {
+          const result = await client.query(sql)
+          const rows = result.rows
+          const rowCount = result.rowCount || 0
+          // Spread first row properties if there's exactly one row (for convenient property access)
+          lastResult = rows.length === 1 ? { rows, rowCount, ...rows[0] } : { rows, rowCount }
+        }
+        return lastResult
+      } else {
+        const result = await client.query(query)
+        const rows = result.rows
+        const rowCount = result.rowCount || 0
+        // Spread first row properties if there's exactly one row (for convenient property access)
+        return rows.length === 1 ? { rows, rowCount, ...rows[0] } : { rows, rowCount }
+      }
     })
 
     // Cleanup: Close connection

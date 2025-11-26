@@ -136,7 +136,6 @@ test.describe('Table Fields', () => {
             {
               id: 'tbl_invalid',
               name: 'invalid_table',
-              // @ts-expect-error - Testing missing fields
               fields: undefined,
             },
           ],
