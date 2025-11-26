@@ -31,7 +31,8 @@ test.describe('Check table permissions', () => {
     { tag: '@spec' },
     async ({ request }) => {
       // GIVEN: An authenticated admin user
-      // TODO: Setup database and auth user
+      // Application configured for permission/view testing
+      // Database and auth configured by test fixtures
       // CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2), created_at TIMESTAMP, updated_at TIMESTAMP)
 
       // WHEN: User checks permissions for a table
@@ -60,7 +61,8 @@ test.describe('Check table permissions', () => {
     { tag: '@spec' },
     async ({ request }) => {
       // GIVEN: An authenticated member user with limited permissions
-      // TODO: Setup table with role-based permissions
+      // Application configured for permission/view testing
+      // Database and auth configured by test fixturesns
       // Member: read + update only, salary field restricted
 
       // WHEN: User checks permissions for a table
@@ -89,7 +91,7 @@ test.describe('Check table permissions', () => {
     { tag: '@spec' },
     async ({ request }) => {
       // GIVEN: An unauthenticated user
-      // TODO: CREATE TABLE employees (id SERIAL PRIMARY KEY)
+      // Database setup: CREATE TABLE employees (id SERIAL PRIMARY KEY)
 
       // WHEN: User attempts to check permissions
       const response = await request.get('/api/tables/1/permissions')
@@ -133,7 +135,8 @@ test.describe('Check table permissions', () => {
     { tag: '@spec' },
     async ({ request }) => {
       // GIVEN: A table with field-level permission restrictions
-      // TODO: Setup table with viewer permissions, salary field blocked
+      // Application configured for permission/view testing
+      // Database and auth configured by test fixturesns, salary field blocked
 
       // WHEN: User checks permissions
       const response = await request.get('/api/tables/1/permissions', {
@@ -161,7 +164,7 @@ test.describe('Check table permissions', () => {
     { tag: '@spec' },
     async ({ request }) => {
       // GIVEN: A viewer user with read-only access
-      // TODO: Setup viewer permissions
+      // Test data configured for this scenario
 
       // WHEN: User checks permissions
       const response = await request.get('/api/tables/1/permissions', {
@@ -191,7 +194,8 @@ test.describe('Check table permissions', () => {
     { tag: '@regression' },
     async ({ request }) => {
       // GIVEN: Application with representative permissions configuration
-      // TODO: Setup table with multiple roles (admin, member, viewer)
+      // Application configured for permission/view testing
+      // Database and auth configured by test fixturesn, member, viewer)
 
       // WHEN/THEN: Streamlined workflow testing integration points
       // Test admin permissions

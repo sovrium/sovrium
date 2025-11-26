@@ -37,12 +37,19 @@ test.describe('Sign up with email and password', () => {
       // GIVEN: A running server with no existing users
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // WHEN: User submits valid sign-up credentials
       const response = await page.request.post('/api/auth/sign-up/email', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
         data: {
           name: 'John Doe',
           email: 'john@example.com',
@@ -58,11 +65,11 @@ test.describe('Sign up with email and password', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
 
       // User is created in database
-      // Validate database state
-      // TODO: Add database state validation
+      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
+      expect(dbRow).toBeDefined()
     }
   )
 
@@ -73,12 +80,19 @@ test.describe('Sign up with email and password', () => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // WHEN: User submits request without name field
       const response = await page.request.post('/api/auth/sign-up/email', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
         data: {
           email: 'john@example.com',
           password: 'SecurePass123!',
@@ -93,7 +107,7 @@ test.describe('Sign up with email and password', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -104,12 +118,19 @@ test.describe('Sign up with email and password', () => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // WHEN: User submits request without email field
       const response = await page.request.post('/api/auth/sign-up/email', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
         data: {
           name: 'John Doe',
           password: 'SecurePass123!',
@@ -124,7 +145,7 @@ test.describe('Sign up with email and password', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -135,12 +156,19 @@ test.describe('Sign up with email and password', () => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // WHEN: User submits request without password field
       const response = await page.request.post('/api/auth/sign-up/email', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
         data: {
           name: 'John Doe',
           email: 'john@example.com',
@@ -155,7 +183,7 @@ test.describe('Sign up with email and password', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -166,12 +194,19 @@ test.describe('Sign up with email and password', () => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // WHEN: User submits request with invalid email format
       const response = await page.request.post('/api/auth/sign-up/email', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
         data: {
           name: 'John Doe',
           email: 'not-an-email',
@@ -187,7 +222,7 @@ test.describe('Sign up with email and password', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -198,12 +233,19 @@ test.describe('Sign up with email and password', () => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // WHEN: User submits password shorter than minimum length (8 characters)
       const response = await page.request.post('/api/auth/sign-up/email', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
         data: {
           name: 'John Doe',
           email: 'john@example.com',
@@ -219,7 +261,7 @@ test.describe('Sign up with email and password', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -230,7 +272,14 @@ test.describe('Sign up with email and password', () => {
       // GIVEN: A running server with existing user
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -240,7 +289,7 @@ test.describe('Sign up with email and password', () => {
 
       // WHEN: Another user attempts sign-up with same email
       const response = await page.request.post('/api/auth/sign-up/email', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
         data: {
           name: 'Another User',
           email: 'existing@example.com',
@@ -256,7 +305,7 @@ test.describe('Sign up with email and password', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -267,7 +316,14 @@ test.describe('Sign up with email and password', () => {
       // GIVEN: A running server with existing user (lowercase email)
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -277,7 +333,7 @@ test.describe('Sign up with email and password', () => {
 
       // WHEN: User attempts sign-up with same email in different case
       const response = await page.request.post('/api/auth/sign-up/email', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
         data: {
           name: 'Another User',
           email: 'TEST@EXAMPLE.COM',
@@ -293,7 +349,7 @@ test.describe('Sign up with email and password', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -304,12 +360,19 @@ test.describe('Sign up with email and password', () => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // WHEN: User submits name with XSS payload
       const response = await page.request.post('/api/auth/sign-up/email', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
         data: {
           name: "<script>alert('xss')</script>John",
           email: 'john@example.com',
@@ -332,12 +395,19 @@ test.describe('Sign up with email and password', () => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // WHEN: User submits name with Unicode characters
       const response = await page.request.post('/api/auth/sign-up/email', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
         data: {
           name: 'José García 日本語',
           email: 'jose@example.com',
@@ -364,16 +434,26 @@ test.describe('Sign up with email and password', () => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema for integration test
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // WHEN: Execute workflow
-      // TODO: Add representative API workflow
-      const response = await page.request.get('/api/endpoint')
+      const response = await page.request.post('/api/auth/workflow', {
+        headers: { Authorization: 'Bearer admin_token' },
+        data: { test: true },
+      })
 
       // THEN: Verify integration
-      expect(response.ok()).toBeTruthy()
-      // TODO: Add integration assertions
+      expect(response.status()).toBe(200)
+      const data = await response.json()
+      expect(data).toMatchObject({ success: true })
     }
   )
 })

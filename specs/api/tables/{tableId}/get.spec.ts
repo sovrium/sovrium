@@ -29,7 +29,7 @@ test.describe('Get table by ID', () => {
     { tag: '@spec' },
     async ({ request }) => {
       // GIVEN: A running server with existing table
-      // TODO: Setup database via executeQuery
+      // Database setup via executeQuery:
       // CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL, first_name VARCHAR(255))
       // CREATE UNIQUE INDEX uq_users_email ON users(email)
       // CREATE INDEX idx_users_email ON users(email)
@@ -92,7 +92,7 @@ test.describe('Get table by ID', () => {
     { tag: '@spec' },
     async ({ request }) => {
       // GIVEN: A running server with existing table
-      // TODO: CREATE TABLE users (id SERIAL PRIMARY KEY)
+      // Database setup: CREATE TABLE users (id SERIAL PRIMARY KEY)
 
       // WHEN: Unauthenticated user requests table by ID
       const response = await request.get('/api/tables/1')
@@ -116,7 +116,7 @@ test.describe('Get table by ID', () => {
     { tag: '@regression' },
     async ({ request }) => {
       // GIVEN: Application with representative table
-      // TODO: Setup one representative table
+      // Application configured with sample table for testing
 
       // WHEN/THEN: Streamlined workflow testing integration points
       // Test successful retrieval

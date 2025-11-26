@@ -37,7 +37,14 @@ test.describe('List user organizations', () => {
       // GIVEN: An authenticated user who is member of multiple organizations
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -62,7 +69,7 @@ test.describe('List user organizations', () => {
 
       // WHEN: User requests list of their organizations
       const response = await page.request.get('/api/auth/organization/list-organizations', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
       })
 
       // THEN: Returns 200 OK with all organizations and user's roles
@@ -73,7 +80,7 @@ test.describe('List user organizations', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
 
       // Response includes both organizations
     }
@@ -86,7 +93,14 @@ test.describe('List user organizations', () => {
       // GIVEN: An authenticated user who is not member of any organization
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -99,7 +113,7 @@ test.describe('List user organizations', () => {
 
       // WHEN: User requests list of their organizations
       const response = await page.request.get('/api/auth/organization/list-organizations', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
       })
 
       // THEN: Returns 200 OK with empty organizations array
@@ -117,7 +131,14 @@ test.describe('List user organizations', () => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // WHEN: Unauthenticated user attempts to list organizations
@@ -131,7 +152,7 @@ test.describe('List user organizations', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -142,7 +163,14 @@ test.describe('List user organizations', () => {
       // GIVEN: Two users with different organizations
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -170,7 +198,7 @@ test.describe('List user organizations', () => {
 
       // WHEN: User A requests list of organizations
       const response = await page.request.get('/api/auth/organization/list-organizations', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
       })
 
       // THEN: Returns 200 OK with only User A's organizations (User B's not visible)
@@ -190,7 +218,14 @@ test.describe('List user organizations', () => {
       // GIVEN: An authenticated user with different roles across organizations
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -221,7 +256,7 @@ test.describe('List user organizations', () => {
 
       // WHEN: User requests list of organizations
       const response = await page.request.get('/api/auth/organization/list-organizations', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
       })
 
       // THEN: Returns 200 OK with correct role for each organization
@@ -234,7 +269,7 @@ test.describe('List user organizations', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -249,16 +284,26 @@ test.describe('List user organizations', () => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema for integration test
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // WHEN: Execute workflow
-      // TODO: Add representative API workflow
-      const response = await page.request.get('/api/endpoint')
+      const response = await page.request.post('/api/auth/workflow', {
+        headers: { Authorization: 'Bearer admin_token' },
+        data: { test: true },
+      })
 
       // THEN: Verify integration
-      expect(response.ok()).toBeTruthy()
-      // TODO: Add integration assertions
+      expect(response.status()).toBe(200)
+      const data = await response.json()
+      expect(data).toMatchObject({ success: true })
     }
   )
 })

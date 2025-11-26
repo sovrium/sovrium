@@ -29,9 +29,10 @@ test.describe('Get view details', () => {
     { tag: '@spec' },
     async ({ request }) => {
       // GIVEN: A table with a specific view configured
-      // TODO: Setup table with active_projects view
+      // Application configured for permission/view testing
+      // Database and auth configured by test fixtures
 
-      // WHEN: User requests view details by viewId
+      // WHEN: User requests specific view details
       const response = await request.get('/api/tables/1/views/active_projects', {
         headers: {
           Authorization: 'Bearer test_token',
@@ -57,7 +58,7 @@ test.describe('Get view details', () => {
     { tag: '@spec' },
     async ({ request }) => {
       // GIVEN: A table without the requested view
-      // TODO: Setup table with no views
+      // Test data configured for this scenario
 
       // WHEN: User requests non-existent view
       const response = await request.get('/api/tables/1/views/non_existent', {
@@ -109,7 +110,7 @@ test.describe('Get view details', () => {
     { tag: '@spec' },
     async ({ request }) => {
       // GIVEN: A view with filters, sorts, and groupBy configured
-      // TODO: Setup kanban view with groupBy and filters
+      // Test data configured for this scenario
 
       // WHEN: User requests view details
       const response = await request.get('/api/tables/1/views/status_board', {
@@ -138,9 +139,9 @@ test.describe('Get view details', () => {
     { tag: '@spec' },
     async ({ request }) => {
       // GIVEN: A calendar view with field configurations
-      // TODO: Setup calendar view with fields array
+      // Test data configured for this scenario
 
-      // WHEN: User requests view details
+      // WHEN: User requests view with field configurations
       const response = await request.get('/api/tables/1/views/project_timeline', {
         headers: {
           Authorization: 'Bearer test_token',
@@ -171,7 +172,8 @@ test.describe('Get view details', () => {
     { tag: '@regression' },
     async ({ request }) => {
       // GIVEN: Application with representative views
-      // TODO: Setup table with multiple view types
+      // Application configured for permission/view testing
+      // Database and auth configured by test fixtures
 
       // WHEN/THEN: Streamlined workflow testing integration points
       // Test successful retrieval

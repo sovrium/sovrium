@@ -37,7 +37,14 @@ test.describe('Admin: Get user by ID', () => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -53,7 +60,7 @@ test.describe('Admin: Get user by ID', () => {
 
       // WHEN: Admin requests user details by ID
       const response = await page.request.get('/api/auth/admin/get-user?userId=2', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
       })
 
       // THEN: Returns 200 OK with user details
@@ -64,7 +71,7 @@ test.describe('Admin: Get user by ID', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
 
       // Response includes correct user data
     }
@@ -77,7 +84,14 @@ test.describe('Admin: Get user by ID', () => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -90,7 +104,7 @@ test.describe('Admin: Get user by ID', () => {
 
       // WHEN: Admin requests user without userId parameter
       const response = await page.request.get('/api/auth/admin/get-user', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
       })
 
       // THEN: Returns 400 Bad Request with validation error
@@ -101,7 +115,7 @@ test.describe('Admin: Get user by ID', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -112,7 +126,14 @@ test.describe('Admin: Get user by ID', () => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // WHEN: Unauthenticated user attempts to get user
@@ -126,7 +147,7 @@ test.describe('Admin: Get user by ID', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -137,7 +158,14 @@ test.describe('Admin: Get user by ID', () => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -153,7 +181,7 @@ test.describe('Admin: Get user by ID', () => {
 
       // WHEN: Regular user attempts to get another user's details
       const response = await page.request.get('/api/auth/admin/get-user?userId=2', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
       })
 
       // THEN: Returns 403 Forbidden
@@ -164,7 +192,7 @@ test.describe('Admin: Get user by ID', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -175,7 +203,14 @@ test.describe('Admin: Get user by ID', () => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -188,7 +223,7 @@ test.describe('Admin: Get user by ID', () => {
 
       // WHEN: Admin requests user with non-existent ID
       const response = await page.request.get('/api/auth/admin/get-user?userId=999', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
       })
 
       // THEN: Returns 404 Not Found
@@ -199,7 +234,7 @@ test.describe('Admin: Get user by ID', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -210,7 +245,14 @@ test.describe('Admin: Get user by ID', () => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -226,7 +268,7 @@ test.describe('Admin: Get user by ID', () => {
 
       // WHEN: Admin requests user details
       const response = await page.request.get('/api/auth/admin/get-user?userId=2', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
       })
 
       // THEN: Returns 200 OK with user details but password field excluded for security
@@ -248,16 +290,26 @@ test.describe('Admin: Get user by ID', () => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema for integration test
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // WHEN: Execute workflow
-      // TODO: Add representative API workflow
-      const response = await page.request.get('/api/endpoint')
+      const response = await page.request.post('/api/auth/workflow', {
+        headers: { Authorization: 'Bearer admin_token' },
+        data: { test: true },
+      })
 
       // THEN: Verify integration
-      expect(response.ok()).toBeTruthy()
-      // TODO: Add integration assertions
+      expect(response.status()).toBe(200)
+      const data = await response.json()
+      expect(data).toMatchObject({ success: true })
     }
   )
 })

@@ -122,6 +122,7 @@ const TEST_PATTERN = /test\s*\(\s*['"`]([^'"`]+)['"`]/g
 const TEST_FIXME_PATTERN = /test\.fixme\s*\(\s*['"`]([^'"`]+)['"`]/g
 const DESCRIBE_PATTERN = /test\.describe\s*\(\s*['"`]([^'"`]+)['"`]/
 const TAG_PATTERN = /\{\s*tag:\s*['"`](@spec|@regression)['"`]\s*\}/
+const TODO_PATTERN = /\/\/\s*TODO[:\s](.+?)(?:\n|$)/gi
 
 const SPECS_DIR = join(process.cwd(), 'specs')
 const OUTPUT_FILE = join(process.cwd(), 'SPEC-STATE.md')
@@ -361,6 +362,20 @@ function analyzeQuality(file: SpecFile): QualityIssue[] {
         type: 'error',
         code: 'VAGUE_TEST_NAME',
         message: `Test name is too vague - describe the specific behavior`,
+        line: test.lineNumber,
+        testId: test.id || test.name,
+      })
+    }
+
+    // Check for TODO comments in test
+    TODO_PATTERN.lastIndex = 0
+    let todoMatch: RegExpExecArray | null
+    while ((todoMatch = TODO_PATTERN.exec(test.rawContent)) !== null) {
+      const todoText = todoMatch[1]?.trim() || 'No description'
+      issues.push({
+        type: 'warning',
+        code: 'TODO_IN_TEST',
+        message: `TODO: ${todoText}`,
         line: test.lineNumber,
         testId: test.id || test.name,
       })

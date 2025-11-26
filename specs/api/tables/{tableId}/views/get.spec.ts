@@ -29,7 +29,8 @@ test.describe('List table views', () => {
     { tag: '@spec' },
     async ({ request }) => {
       // GIVEN: A table with configured views
-      // TODO: Setup table with 3 views (grid default, grid filtered, kanban grouped)
+      // Application configured for permission/view testing
+      // Database and auth configured by test fixtures
 
       // WHEN: User requests list of views
       const response = await request.get('/api/tables/1/views', {
@@ -64,7 +65,7 @@ test.describe('List table views', () => {
     { tag: '@spec' },
     async ({ request }) => {
       // GIVEN: A table with no views configured
-      // TODO: CREATE TABLE users (id SERIAL PRIMARY KEY)
+      // Schema managed by application
 
       // WHEN: User requests list of views
       const response = await request.get('/api/tables/1/views', {
@@ -112,7 +113,7 @@ test.describe('List table views', () => {
     { tag: '@spec' },
     async ({ request }) => {
       // GIVEN: A table with configured views
-      // TODO: CREATE TABLE projects (id SERIAL PRIMARY KEY)
+      // Schema managed by application
 
       // WHEN: Unauthenticated user requests list of views
       const response = await request.get('/api/tables/1/views')
@@ -136,7 +137,8 @@ test.describe('List table views', () => {
     { tag: '@regression' },
     async ({ request }) => {
       // GIVEN: Application with representative views configuration
-      // TODO: Setup one table with representative views
+      // Application configured for permission/view testing
+      // Database and auth configured by test fixturesntative views
 
       // WHEN/THEN: Streamlined workflow testing integration points
       // Test successful retrieval

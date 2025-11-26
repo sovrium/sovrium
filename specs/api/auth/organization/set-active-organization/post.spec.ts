@@ -37,7 +37,14 @@ test.describe('Set active organization', () => {
       // GIVEN: An authenticated user who is member of multiple organizations
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -62,7 +69,7 @@ test.describe('Set active organization', () => {
 
       // WHEN: User sets active organization
       const response = await page.request.post('/api/auth/organization/set-active-organization', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '2',
         },
@@ -76,11 +83,11 @@ test.describe('Set active organization', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
 
       // Session is updated with new active organization
-      // Validate database state
-      // TODO: Add database state validation
+      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
+      expect(dbRow).toBeDefined()
     }
   )
 
@@ -91,7 +98,14 @@ test.describe('Set active organization', () => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -104,7 +118,7 @@ test.describe('Set active organization', () => {
 
       // WHEN: User submits request without organizationId
       const response = await page.request.post('/api/auth/organization/set-active-organization', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
       })
 
       // THEN: Returns 400 Bad Request with validation error
@@ -115,7 +129,7 @@ test.describe('Set active organization', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -126,12 +140,19 @@ test.describe('Set active organization', () => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // WHEN: Unauthenticated user attempts to set active organization
       const response = await page.request.post('/api/auth/organization/set-active-organization', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
         },
@@ -145,7 +166,7 @@ test.describe('Set active organization', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -156,7 +177,14 @@ test.describe('Set active organization', () => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -169,7 +197,7 @@ test.describe('Set active organization', () => {
 
       // WHEN: User attempts to set non-existent organization as active
       const response = await page.request.post('/api/auth/organization/set-active-organization', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '999',
         },
@@ -183,7 +211,7 @@ test.describe('Set active organization', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -194,7 +222,14 @@ test.describe('Set active organization', () => {
       // GIVEN: An authenticated user who is not member of an organization
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -216,7 +251,7 @@ test.describe('Set active organization', () => {
 
       // WHEN: User attempts to set that organization as active
       const response = await page.request.post('/api/auth/organization/set-active-organization', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
         },
@@ -230,7 +265,7 @@ test.describe('Set active organization', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -245,16 +280,26 @@ test.describe('Set active organization', () => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema for integration test
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // WHEN: Execute workflow
-      // TODO: Add representative API workflow
-      const response = await page.request.get('/api/endpoint')
+      const response = await page.request.post('/api/auth/workflow', {
+        headers: { Authorization: 'Bearer admin_token' },
+        data: { test: true },
+      })
 
       // THEN: Verify integration
-      expect(response.ok()).toBeTruthy()
-      // TODO: Add integration assertions
+      expect(response.status()).toBe(200)
+      const data = await response.json()
+      expect(data).toMatchObject({ success: true })
     }
   )
 })

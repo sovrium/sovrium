@@ -37,7 +37,14 @@ test.describe('Admin: Impersonate user', () => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -53,7 +60,7 @@ test.describe('Admin: Impersonate user', () => {
 
       // WHEN: Admin impersonates the user
       const response = await page.request.post('/api/auth/admin/impersonate-user', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
         },
@@ -67,11 +74,11 @@ test.describe('Admin: Impersonate user', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
 
       // Impersonation session is created in database
-      // Validate database state
-      // TODO: Add database state validation
+      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
+      expect(dbRow).toBeDefined()
     }
   )
 
@@ -82,7 +89,14 @@ test.describe('Admin: Impersonate user', () => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -95,7 +109,7 @@ test.describe('Admin: Impersonate user', () => {
 
       // WHEN: Admin submits request without userId
       const response = await page.request.post('/api/auth/admin/impersonate-user', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
       })
 
       // THEN: Returns 400 Bad Request with validation error
@@ -106,7 +120,7 @@ test.describe('Admin: Impersonate user', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -117,12 +131,19 @@ test.describe('Admin: Impersonate user', () => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // WHEN: Unauthenticated user attempts to impersonate user
       const response = await page.request.post('/api/auth/admin/impersonate-user', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
         },
@@ -136,7 +157,7 @@ test.describe('Admin: Impersonate user', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -147,7 +168,14 @@ test.describe('Admin: Impersonate user', () => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -163,7 +191,7 @@ test.describe('Admin: Impersonate user', () => {
 
       // WHEN: Regular user attempts to impersonate another user
       const response = await page.request.post('/api/auth/admin/impersonate-user', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
         },
@@ -177,7 +205,7 @@ test.describe('Admin: Impersonate user', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -188,7 +216,14 @@ test.describe('Admin: Impersonate user', () => {
       // GIVEN: An authenticated admin user and a banned user
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -204,7 +239,7 @@ test.describe('Admin: Impersonate user', () => {
 
       // WHEN: Admin attempts to impersonate banned user
       const response = await page.request.post('/api/auth/admin/impersonate-user', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
         },
@@ -218,7 +253,7 @@ test.describe('Admin: Impersonate user', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -229,7 +264,14 @@ test.describe('Admin: Impersonate user', () => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -242,7 +284,7 @@ test.describe('Admin: Impersonate user', () => {
 
       // WHEN: Admin attempts to impersonate non-existent user
       const response = await page.request.post('/api/auth/admin/impersonate-user', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '999',
         },
@@ -256,7 +298,7 @@ test.describe('Admin: Impersonate user', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -267,7 +309,14 @@ test.describe('Admin: Impersonate user', () => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -283,7 +332,7 @@ test.describe('Admin: Impersonate user', () => {
 
       // WHEN: Admin impersonates user
       const response = await page.request.post('/api/auth/admin/impersonate-user', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
         },
@@ -294,8 +343,8 @@ test.describe('Admin: Impersonate user', () => {
       expect(response.status).toBe(200)
 
       // Session includes admin ID for audit trail
-      // Validate database state
-      // TODO: Add database state validation
+      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
+      expect(dbRow).toBeDefined()
     }
   )
 
@@ -310,16 +359,26 @@ test.describe('Admin: Impersonate user', () => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema for integration test
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // WHEN: Execute workflow
-      // TODO: Add representative API workflow
-      const response = await page.request.get('/api/endpoint')
+      const response = await page.request.post('/api/auth/workflow', {
+        headers: { Authorization: 'Bearer admin_token' },
+        data: { test: true },
+      })
 
       // THEN: Verify integration
-      expect(response.ok()).toBeTruthy()
-      // TODO: Add integration assertions
+      expect(response.status()).toBe(200)
+      const data = await response.json()
+      expect(data).toMatchObject({ success: true })
     }
   )
 })

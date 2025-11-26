@@ -37,7 +37,13 @@ test.describe('Admin: Ban user', () => {
       // GIVEN: An authenticated admin user and an active user
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -56,7 +62,9 @@ test.describe('Admin: Ban user', () => {
 
       // WHEN: Admin bans the user
       const response = await page.request.post('/api/auth/admin/ban-user', {
-        headers: {},
+        headers: {
+          Authorization: 'Bearer admin_token',
+        },
         data: {
           userId: '2',
         },
@@ -69,16 +77,28 @@ test.describe('Admin: Ban user', () => {
       // Response indicates success
       const data = await response.json()
       // Validate response schema
-      // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({
+        success: true,
+        user: {
+          id: '2',
+          email: 'target@example.com',
+          banned: true,
+        },
+      })
 
       // User is marked as banned in database
-      // Validate database state
-      // TODO: Add database state validation
+      const bannedUser = await executeQuery(`SELECT id, email, banned FROM users WHERE id = 2`)
+      expect(bannedUser).toMatchObject({
+        id: 2,
+        email: 'target@example.com',
+        banned: true,
+      })
 
       // User sessions are revoked
-      // Validate database state
-      // TODO: Add database state validation
+      const sessions = await executeQuery(
+        `SELECT COUNT(*) as count FROM sessions WHERE user_id = 2`
+      )
+      expect(sessions.count).toBe(0)
     }
   )
 
@@ -89,7 +109,13 @@ test.describe('Admin: Ban user', () => {
       // GIVEN: An authenticated admin user and an active user
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -105,7 +131,9 @@ test.describe('Admin: Ban user', () => {
 
       // WHEN: Admin bans user with reason
       const response = await page.request.post('/api/auth/admin/ban-user', {
-        headers: {},
+        headers: {
+          Authorization: 'Bearer admin_token',
+        },
         data: {
           userId: '2',
           reason: 'Violation of terms of service',
@@ -117,8 +145,15 @@ test.describe('Admin: Ban user', () => {
       expect(response.status).toBe(200)
 
       // User is banned with reason stored
-      // Validate database state
-      // TODO: Add database state validation
+      const bannedUser = await executeQuery(
+        `SELECT id, email, banned, ban_reason FROM users WHERE id = 2`
+      )
+      expect(bannedUser).toMatchObject({
+        id: 2,
+        email: 'target@example.com',
+        banned: true,
+        ban_reason: 'Violation of terms of service',
+      })
     }
   )
 
@@ -129,7 +164,13 @@ test.describe('Admin: Ban user', () => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -142,7 +183,10 @@ test.describe('Admin: Ban user', () => {
 
       // WHEN: Admin submits request without userId
       const response = await page.request.post('/api/auth/admin/ban-user', {
-        headers: {},
+        headers: {
+          Authorization: 'Bearer admin_token',
+        },
+        data: {},
       })
 
       // THEN: Returns 400 Bad Request with validation error
@@ -151,9 +195,10 @@ test.describe('Admin: Ban user', () => {
 
       // Response contains validation error for userId field
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({
+        error: expect.any(String),
+        message: expect.stringContaining('userId'),
+      })
     }
   )
 
@@ -164,7 +209,13 @@ test.describe('Admin: Ban user', () => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+          },
+        },
       })
 
       // WHEN: Unauthenticated user attempts to ban user
@@ -181,9 +232,10 @@ test.describe('Admin: Ban user', () => {
 
       // Response contains error about missing authentication
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({
+        error: expect.any(String),
+        message: expect.stringMatching(/unauthorized|authentication/i),
+      })
     }
   )
 
@@ -194,7 +246,13 @@ test.describe('Admin: Ban user', () => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -210,7 +268,9 @@ test.describe('Admin: Ban user', () => {
 
       // WHEN: Regular user attempts to ban another user
       const response = await page.request.post('/api/auth/admin/ban-user', {
-        headers: {},
+        headers: {
+          Authorization: 'Bearer user_token',
+        },
         data: {
           userId: '2',
         },
@@ -222,9 +282,10 @@ test.describe('Admin: Ban user', () => {
 
       // Response contains error about insufficient permissions
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({
+        error: expect.any(String),
+        message: expect.stringMatching(/forbidden|permission|admin/i),
+      })
     }
   )
 
@@ -235,7 +296,13 @@ test.describe('Admin: Ban user', () => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -248,7 +315,9 @@ test.describe('Admin: Ban user', () => {
 
       // WHEN: Admin attempts to ban non-existent user
       const response = await page.request.post('/api/auth/admin/ban-user', {
-        headers: {},
+        headers: {
+          Authorization: 'Bearer admin_token',
+        },
         data: {
           userId: '999',
         },
@@ -260,9 +329,10 @@ test.describe('Admin: Ban user', () => {
 
       // Response contains error about user not found
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({
+        error: expect.any(String),
+        message: expect.stringMatching(/not found|does not exist/i),
+      })
     }
   )
 
@@ -273,7 +343,13 @@ test.describe('Admin: Ban user', () => {
       // GIVEN: An authenticated admin user and an already banned user
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -289,7 +365,9 @@ test.describe('Admin: Ban user', () => {
 
       // WHEN: Admin bans already banned user
       const response = await page.request.post('/api/auth/admin/ban-user', {
-        headers: {},
+        headers: {
+          Authorization: 'Bearer admin_token',
+        },
         data: {
           userId: '2',
         },
@@ -300,8 +378,12 @@ test.describe('Admin: Ban user', () => {
       expect(response.status).toBe(200)
 
       // User remains banned
-      // Validate database state
-      // TODO: Add database state validation
+      const bannedUser = await executeQuery(`SELECT id, email, banned FROM users WHERE id = 2`)
+      expect(bannedUser).toMatchObject({
+        id: 2,
+        email: 'target@example.com',
+        banned: true,
+      })
     }
   )
 
@@ -312,20 +394,70 @@ test.describe('Admin: Ban user', () => {
   test.fixme(
     'API-ADMIN-BAN-USER-008: user can complete full adminBanUser workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
-      // GIVEN: Representative test scenario
+    async ({ page, startServerWithSchema, executeQuery }) => {
+      // GIVEN: Representative test scenario with admin and regular users
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema for integration test
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+          },
+        },
       })
 
-      // WHEN: Execute workflow
-      // TODO: Add representative API workflow
-      const response = await page.request.get('/api/endpoint')
+      // Setup admin and target user
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, role, banned, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', false, NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO users (id, email, password_hash, name, email_verified, banned, created_at, updated_at) VALUES (2, 'violator@example.com', '$2a$10$YourHashedPasswordHere', 'Violating User', true, false, NOW(), NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
+      )
+      await executeQuery(
+        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (2, 2, 'violator_token', NOW() + INTERVAL '7 days', NOW())`
+      )
 
-      // THEN: Verify integration
-      expect(response.ok()).toBeTruthy()
-      // TODO: Add integration assertions
+      // WHEN: Execute workflow - Admin bans user with policy violation
+      const response = await page.request.post('/api/auth/admin/ban-user', {
+        headers: {
+          Authorization: 'Bearer admin_token',
+        },
+        data: {
+          userId: '2',
+          reason: 'Repeated policy violations',
+        },
+      })
+
+      // THEN: Verify integration - User banned, sessions revoked, reason stored
+      expect(response.status).toBe(200)
+      const data = await response.json()
+      expect(data).toMatchObject({
+        success: true,
+        user: {
+          id: '2',
+          banned: true,
+        },
+      })
+
+      // Verify database state reflects complete ban workflow
+      const bannedUser = await executeQuery(
+        `SELECT id, email, banned, ban_reason FROM users WHERE id = 2`
+      )
+      expect(bannedUser).toMatchObject({
+        id: 2,
+        email: 'violator@example.com',
+        banned: true,
+        ban_reason: 'Repeated policy violations',
+      })
+
+      const activeSessions = await executeQuery(
+        `SELECT COUNT(*) as count FROM sessions WHERE user_id = 2`
+      )
+      expect(activeSessions.count).toBe(0)
     }
   )
 })

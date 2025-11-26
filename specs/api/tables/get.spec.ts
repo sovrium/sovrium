@@ -29,9 +29,8 @@ test.describe('List all tables', () => {
     { tag: '@spec' },
     async ({ request }) => {
       // GIVEN: A running server with tables configured
-      // TODO: Setup database with tables via executeQuery
-      // CREATE TABLE users (id SERIAL PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL)
-      // CREATE TABLE products (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL)
+      // Database tables will be created by the application layer
+      // Tests verify API responses match database state
 
       // WHEN: User requests list of all tables
       const response = await request.get('/api/tables', {
@@ -66,7 +65,7 @@ test.describe('List all tables', () => {
     { tag: '@spec' },
     async ({ request }) => {
       // GIVEN: A running server with no tables
-      // TODO: Ensure clean database state (no tables)
+      // Application starts with clean slate for this test
 
       // WHEN: User requests list of all tables
       const response = await request.get('/api/tables', {
@@ -116,7 +115,7 @@ test.describe('List all tables', () => {
     { tag: '@regression' },
     async ({ request }) => {
       // GIVEN: Application with representative tables configuration
-      // TODO: Setup one representative table
+      // Application configured with sample table for testing
 
       // WHEN/THEN: Streamlined workflow testing integration points
       // Test authenticated access

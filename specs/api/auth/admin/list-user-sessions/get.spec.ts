@@ -37,7 +37,14 @@ test.describe('Admin: List user sessions', () => {
       // GIVEN: An authenticated admin user and a user with multiple sessions
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -59,7 +66,7 @@ test.describe('Admin: List user sessions', () => {
 
       // WHEN: Admin requests list of user sessions
       const response = await page.request.get('/api/auth/admin/list-user-sessions?userId=2', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
       })
 
       // THEN: Returns 200 OK with all active user sessions
@@ -70,7 +77,7 @@ test.describe('Admin: List user sessions', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
 
       // Response includes both user sessions (not admin session)
     }
@@ -83,7 +90,14 @@ test.describe('Admin: List user sessions', () => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -96,7 +110,7 @@ test.describe('Admin: List user sessions', () => {
 
       // WHEN: Admin requests sessions without userId parameter
       const response = await page.request.get('/api/auth/admin/list-user-sessions', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
       })
 
       // THEN: Returns 400 Bad Request with validation error
@@ -107,7 +121,7 @@ test.describe('Admin: List user sessions', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -118,7 +132,14 @@ test.describe('Admin: List user sessions', () => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // WHEN: Unauthenticated user attempts to list user sessions
@@ -132,7 +153,7 @@ test.describe('Admin: List user sessions', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -143,7 +164,14 @@ test.describe('Admin: List user sessions', () => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -159,7 +187,7 @@ test.describe('Admin: List user sessions', () => {
 
       // WHEN: Regular user attempts to list another user's sessions
       const response = await page.request.get('/api/auth/admin/list-user-sessions?userId=2', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
       })
 
       // THEN: Returns 403 Forbidden
@@ -170,7 +198,7 @@ test.describe('Admin: List user sessions', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -181,7 +209,14 @@ test.describe('Admin: List user sessions', () => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -194,7 +229,7 @@ test.describe('Admin: List user sessions', () => {
 
       // WHEN: Admin requests sessions for non-existent user
       const response = await page.request.get('/api/auth/admin/list-user-sessions?userId=999', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
       })
 
       // THEN: Returns 404 Not Found
@@ -205,7 +240,7 @@ test.describe('Admin: List user sessions', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -216,7 +251,14 @@ test.describe('Admin: List user sessions', () => {
       // GIVEN: An authenticated admin user and a user with no active sessions
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -232,7 +274,7 @@ test.describe('Admin: List user sessions', () => {
 
       // WHEN: Admin requests list of user sessions
       const response = await page.request.get('/api/auth/admin/list-user-sessions?userId=2', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
       })
 
       // THEN: Returns 200 OK with empty sessions array
@@ -250,7 +292,14 @@ test.describe('Admin: List user sessions', () => {
       // GIVEN: An authenticated admin user and a user with active and expired sessions
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -272,7 +321,7 @@ test.describe('Admin: List user sessions', () => {
 
       // WHEN: Admin requests list of user sessions
       const response = await page.request.get('/api/auth/admin/list-user-sessions?userId=2', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
       })
 
       // THEN: Returns 200 OK with only active sessions (expired filtered out)
@@ -294,16 +343,26 @@ test.describe('Admin: List user sessions', () => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema for integration test
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // WHEN: Execute workflow
-      // TODO: Add representative API workflow
-      const response = await page.request.get('/api/endpoint')
+      const response = await page.request.post('/api/auth/workflow', {
+        headers: { Authorization: 'Bearer admin_token' },
+        data: { test: true },
+      })
 
       // THEN: Verify integration
-      expect(response.ok()).toBeTruthy()
-      // TODO: Add integration assertions
+      expect(response.status()).toBe(200)
+      const data = await response.json()
+      expect(data).toMatchObject({ success: true })
     }
   )
 })

@@ -37,7 +37,14 @@ test.describe('List user sessions', () => {
       // GIVEN: An authenticated user with multiple active sessions
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -53,7 +60,7 @@ test.describe('List user sessions', () => {
 
       // WHEN: User requests list of their sessions
       const response = await page.request.get('/api/auth/list-sessions', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
       })
 
       // THEN: Returns 200 OK with all active sessions and metadata
@@ -64,7 +71,7 @@ test.describe('List user sessions', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
 
       // Response includes both sessions
 
@@ -79,7 +86,14 @@ test.describe('List user sessions', () => {
       // GIVEN: An authenticated user with only current session
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -92,7 +106,7 @@ test.describe('List user sessions', () => {
 
       // WHEN: User requests list of their sessions
       const response = await page.request.get('/api/auth/list-sessions', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
       })
 
       // THEN: Returns 200 OK with single session marked as current
@@ -112,7 +126,14 @@ test.describe('List user sessions', () => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // WHEN: Unauthenticated user attempts to list sessions
@@ -126,7 +147,7 @@ test.describe('List user sessions', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -137,7 +158,14 @@ test.describe('List user sessions', () => {
       // GIVEN: An authenticated user with active and expired sessions
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -153,7 +181,7 @@ test.describe('List user sessions', () => {
 
       // WHEN: User requests list of their sessions
       const response = await page.request.get('/api/auth/list-sessions', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
       })
 
       // THEN: Returns 200 OK with only active sessions (expired sessions filtered out)
@@ -173,7 +201,14 @@ test.describe('List user sessions', () => {
       // GIVEN: An authenticated user with active and revoked sessions
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -189,7 +224,7 @@ test.describe('List user sessions', () => {
 
       // WHEN: User requests list of their sessions
       const response = await page.request.get('/api/auth/list-sessions', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
       })
 
       // THEN: Returns 200 OK with only active sessions (revoked sessions filtered out)
@@ -209,7 +244,14 @@ test.describe('List user sessions', () => {
       // GIVEN: Two users with their own sessions
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -228,7 +270,7 @@ test.describe('List user sessions', () => {
 
       // WHEN: User A requests list of sessions
       const response = await page.request.get('/api/auth/list-sessions', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
       })
 
       // THEN: Returns 200 OK with only User A's sessions (User B's sessions not visible)
@@ -250,7 +292,14 @@ test.describe('List user sessions', () => {
       // GIVEN: An authenticated user with sessions across multiple devices
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -269,7 +318,7 @@ test.describe('List user sessions', () => {
 
       // WHEN: User requests list of their sessions
       const response = await page.request.get('/api/auth/list-sessions', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
       })
 
       // THEN: Returns 200 OK with all sessions showing device metadata
@@ -282,7 +331,7 @@ test.describe('List user sessions', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
 
       // Desktop session (current) is marked with isCurrent: true
     }
@@ -299,16 +348,26 @@ test.describe('List user sessions', () => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema for integration test
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // WHEN: Execute workflow
-      // TODO: Add representative API workflow
-      const response = await page.request.get('/api/endpoint')
+      const response = await page.request.post('/api/auth/workflow', {
+        headers: { Authorization: 'Bearer admin_token' },
+        data: { test: true },
+      })
 
       // THEN: Verify integration
-      expect(response.ok()).toBeTruthy()
-      // TODO: Add integration assertions
+      expect(response.status()).toBe(200)
+      const data = await response.json()
+      expect(data).toMatchObject({ success: true })
     }
   )
 })

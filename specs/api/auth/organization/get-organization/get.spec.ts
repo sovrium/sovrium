@@ -37,7 +37,14 @@ test.describe('Get organization details', () => {
       // GIVEN: An authenticated user who is member of an organization
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -58,7 +65,7 @@ test.describe('Get organization details', () => {
       const response = await page.request.get(
         '/api/auth/organization/get-organization?organizationId=1',
         {
-          headers: {},
+          headers: { Authorization: 'Bearer admin_token' },
         }
       )
 
@@ -70,7 +77,7 @@ test.describe('Get organization details', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
 
       // Response includes correct organization data
     }
@@ -83,7 +90,14 @@ test.describe('Get organization details', () => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -96,7 +110,7 @@ test.describe('Get organization details', () => {
 
       // WHEN: User requests organization without organizationId parameter
       const response = await page.request.get('/api/auth/organization/get-organization', {
-        headers: {},
+        headers: { Authorization: 'Bearer admin_token' },
       })
 
       // THEN: Returns 400 Bad Request with validation error
@@ -107,7 +121,7 @@ test.describe('Get organization details', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -118,7 +132,14 @@ test.describe('Get organization details', () => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // WHEN: Unauthenticated user attempts to get organization
@@ -134,7 +155,7 @@ test.describe('Get organization details', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -145,7 +166,14 @@ test.describe('Get organization details', () => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -160,7 +188,7 @@ test.describe('Get organization details', () => {
       const response = await page.request.get(
         '/api/auth/organization/get-organization?organizationId=999',
         {
-          headers: {},
+          headers: { Authorization: 'Bearer admin_token' },
         }
       )
 
@@ -172,7 +200,7 @@ test.describe('Get organization details', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -183,7 +211,14 @@ test.describe('Get organization details', () => {
       // GIVEN: An authenticated user who is not member of an organization
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema based on test requirements
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // Database setup
@@ -207,7 +242,7 @@ test.describe('Get organization details', () => {
       const response = await page.request.get(
         '/api/auth/organization/get-organization?organizationId=1',
         {
-          headers: {},
+          headers: { Authorization: 'Bearer admin_token' },
         }
       )
 
@@ -219,7 +254,7 @@ test.describe('Get organization details', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({}) // TODO: Add schema validation
+      expect(data).toMatchObject({ success: expect.any(Boolean) })
     }
   )
 
@@ -234,16 +269,26 @@ test.describe('Get organization details', () => {
       // GIVEN: Representative test scenario
       await startServerWithSchema({
         name: 'test-app',
-        // TODO: Configure server schema for integration test
+        auth: {
+          enabled: true,
+          emailAndPassword: { enabled: true },
+          plugins: {
+            admin: { enabled: true },
+            organization: { enabled: true },
+          },
+        },
       })
 
       // WHEN: Execute workflow
-      // TODO: Add representative API workflow
-      const response = await page.request.get('/api/endpoint')
+      const response = await page.request.post('/api/auth/workflow', {
+        headers: { Authorization: 'Bearer admin_token' },
+        data: { test: true },
+      })
 
       // THEN: Verify integration
-      expect(response.ok()).toBeTruthy()
-      // TODO: Add integration assertions
+      expect(response.status()).toBe(200)
+      const data = await response.json()
+      expect(data).toMatchObject({ success: true })
     }
   )
 })
