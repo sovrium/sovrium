@@ -56,16 +56,16 @@ export async function compareApiSchemas(
     missingEndpoints: missingEndpoints.length,
     completionPercent,
     missingEndpointPaths: missingEndpoints.sort((a, b) => {
-      if (a.path !== b.path) return a.path.localeCompare(b.path)
-      return a.method.localeCompare(b.method)
+      if (a.path !== b.path) return a.path < b.path ? -1 : 1
+      return a.method < b.method ? -1 : 1
     }),
     implementedEndpointPaths: implementedEndpoints.sort((a, b) => {
-      if (a.path !== b.path) return a.path.localeCompare(b.path)
-      return a.method.localeCompare(b.method)
+      if (a.path !== b.path) return a.path < b.path ? -1 : 1
+      return a.method < b.method ? -1 : 1
     }),
     currentEndpointPaths: currentEndpoints.sort((a, b) => {
-      if (a.path !== b.path) return a.path.localeCompare(b.path)
-      return a.method.localeCompare(b.method)
+      if (a.path !== b.path) return a.path < b.path ? -1 : 1
+      return a.method < b.method ? -1 : 1
     }),
   }
 }
