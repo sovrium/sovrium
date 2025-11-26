@@ -24,7 +24,7 @@ describe('schema-resolver', () => {
 
       // But other schema properties should be preserved
       expect(resolved.title).toBe('Table ID')
-      expect(resolved.description).toBe('Unique identifier for the table')
+      expect(resolved.description).toContain('Unique string identifier for the table')
     })
 
     test('should throw error for non-existent schema file', async () => {

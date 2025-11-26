@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@playwright/test'
+import { test, expect } from '@/specs/fixtures'
 
 test.fixme(
   'API-QUERY-PARAMS-001: should paginate records with limit and offset',
@@ -147,7 +147,7 @@ test.fixme(
     const body = await response.json()
 
     expect(body.records).toHaveLength(3)
-    const titles = body.records.map((r) => r.fields.title).sort()
+    const titles = body.records.map((r: { fields: { title: string } }) => r.fields.title).sort()
     expect(titles).toEqual(['Task 1', 'Task 2', 'Task 5'])
   }
 )

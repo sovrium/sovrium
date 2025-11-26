@@ -249,7 +249,7 @@ test.describe('Upsert records (create or update)', () => {
   test.fixme(
     'API-RECORDS-UPSERT-PERMISSIONS-FORBIDDEN-CREATE-001: should return 403 when member lacks create permission',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: A member user without create permission
       await startServerWithSchema({
         name: 'test-app',
@@ -335,7 +335,7 @@ test.describe('Upsert records (create or update)', () => {
   test.fixme(
     'API-RECORDS-UPSERT-PERMISSIONS-FORBIDDEN-VIEWER-001: should return 403 for viewer',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: A viewer user with read-only access
       await startServerWithSchema({
         name: 'test-app',

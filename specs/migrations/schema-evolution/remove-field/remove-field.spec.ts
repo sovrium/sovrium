@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Remove Field Migration
  *
- * Source: specs/migrations/schema-evolution/remove-field/remove-field.json
+ * Source: specs/migrations/schema-evolution/remove-field/remove-field.schema.json
  * Domain: migrations
  * Spec Count: 4
  *

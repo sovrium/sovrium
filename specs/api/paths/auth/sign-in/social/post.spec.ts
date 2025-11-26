@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Sign in with social provider

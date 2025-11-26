@@ -82,7 +82,7 @@ test.describe('Update record', () => {
   test.fixme(
     'API-TABLES-RECORDS-UPDATE-002: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: Table 'users' exists but record ID=9999 does not
       await startServerWithSchema({
         name: 'test-app',

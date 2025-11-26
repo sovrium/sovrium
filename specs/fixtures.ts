@@ -307,11 +307,20 @@ type ServerFixtures = {
     appSchema: object,
     options?: { useDatabase?: boolean; database?: { url: string } }
   ) => Promise<void>
-  executeQuery: (sql: string | string[]) => Promise<{
+  executeQuery: (
+    sql: string | string[],
+    params?: unknown[]
+  ) => Promise<{
     rows: any[]
     rowCount: number
     [key: string]: any
   }>
+  applyMigration: (migration: {
+    type: string
+    tableId?: string
+    fieldId?: string
+    constraint?: { type: string; defaultValue?: string }
+  }) => Promise<void>
   browserLocale: string | undefined
   mockAnalytics: boolean
   generateStaticSite: (
@@ -470,7 +479,7 @@ export const test = base.extend<ServerFixtures>({
   executeQuery: async ({}, use, testInfo) => {
     let client: any = null
 
-    await use(async (query: string | string[]) => {
+    await use(async (query: string | string[], params?: unknown[]) => {
       const connectionUrl = process.env.TEST_DATABASE_CONTAINER_URL
       if (!connectionUrl) {
         throw new Error('Database not initialized')
@@ -505,7 +514,7 @@ export const test = base.extend<ServerFixtures>({
         }
         return lastResult
       } else {
-        const result = await client.query(query)
+        const result = params ? await client.query(query, params) : await client.query(query)
         const rows = result.rows
         const rowCount = result.rowCount || 0
         // Spread first row properties if there's exactly one row (for convenient property access)
@@ -517,6 +526,15 @@ export const test = base.extend<ServerFixtures>({
     if (client) {
       await client.end()
     }
+  },
+
+  // Apply migration fixture: Apply schema migrations (stub for .fixme tests)
+  applyMigration: async ({}, use) => {
+    await use(async (_migration: Parameters<ServerFixtures['applyMigration']>[0]) => {
+      // Stub implementation for .fixme tests
+      // TODO: Implement actual migration application when migration system is built
+      throw new Error('applyMigration is not yet implemented - this is a stub for .fixme tests')
+    })
   },
 
   // Static site generation fixture: Generate static files using CLI command
@@ -607,3 +625,4 @@ export const test = base.extend<ServerFixtures>({
 })
 
 export { expect } from '@playwright/test'
+export type { Locator } from '@playwright/test'

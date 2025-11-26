@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@playwright/test'
+import { test, expect } from '@/specs/fixtures'
 
 test.fixme(
   'API-VIEW-RECORDS-001: should return records filtered by view configuration',
@@ -62,9 +62,11 @@ test.fixme(
     const body = await response.json()
 
     expect(body.records).toHaveLength(2)
-    expect(body.records.every((r) => r.fields.status === 'active')).toBe(true)
+    expect(
+      body.records.every((r: { fields: { status: string } }) => r.fields.status === 'active')
+    ).toBe(true)
 
-    const titles = body.records.map((r) => r.fields.title).sort()
+    const titles = body.records.map((r: { fields: { title: string } }) => r.fields.title).sort()
     expect(titles).toEqual(['Task 1', 'Task 3'])
   }
 )
@@ -114,7 +116,7 @@ test.fixme(
 
     expect(body.records).toHaveLength(3)
 
-    const prices = body.records.map((r) => r.fields.price)
+    const prices = body.records.map((r: { fields: { price: string } }) => r.fields.price)
     expect(prices).toEqual(['50.00', '25.00', '10.00'])
   }
 )

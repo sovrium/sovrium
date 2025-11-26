@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from '@playwright/test'
+import { test, expect } from '@/specs/fixtures'
 
 test.fixme(
   'API-BATCH-ERROR-001: should return detailed errors for each failed item in batch create',

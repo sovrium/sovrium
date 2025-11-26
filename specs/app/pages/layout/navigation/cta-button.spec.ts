@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-import type { Locator } from '@playwright/test'
+import type { Locator } from '@/specs/fixtures'
 
 /**
  * E2E Tests for CTA Button

@@ -844,7 +844,7 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-PERMISSIONS-EMPTY-RESULT-001: should return empty array with 200',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: User with valid permissions but no matching records
       await startServerWithSchema({
         name: 'test-app',
@@ -1006,7 +1006,7 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-PERMISSIONS-AGGREGATING-001: should return 403 when aggregating inaccessible field',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: User attempts to aggregate restricted field
       await startServerWithSchema({
         name: 'test-app',
