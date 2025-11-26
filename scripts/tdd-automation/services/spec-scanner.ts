@@ -111,10 +111,8 @@ export const scanForFixmeSpecs = Effect.gen(function* () {
 
   yield* progress('Scanning for test.fixme() patterns (RED tests only)...')
 
-  // Create schema-based priority calculator
-  yield* logInfo('Loading schema hierarchy for priority calculation...', '🔗')
-  const calculatePriority = createSchemaPriorityCalculator('specs/app/app.schema.json')
-  yield* logInfo('Schema hierarchy loaded - specs will be prioritized by dependencies')
+  // Create priority calculator (based on spec ID format, no schema files needed)
+  const calculatePriority = createSchemaPriorityCalculator()
 
   // Find all spec files
   const specFiles = yield* fs.glob('specs/**/*.spec.ts')

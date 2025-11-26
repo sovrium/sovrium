@@ -495,9 +495,8 @@ export const getNextSpec = Effect.gen(function* () {
     return null
   }
 
-  // Load schema-based priority calculator
-  yield* logInfo('Loading schema hierarchy for priority calculation...', '🔗')
-  const calculatePriority = createSchemaPriorityCalculator('specs/app/app.schema.json')
+  // Create priority calculator (based on spec ID format, no schema files needed)
+  const calculatePriority = createSchemaPriorityCalculator()
 
   // Calculate priority for each spec based on spec ID
   interface SpecWithPriority extends SpecIssue {

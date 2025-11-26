@@ -6,47 +6,35 @@
  */
 
 /**
- * Schema-Based Priority Calculator
+ * Spec ID Priority Calculator
  *
- * Processes tests by domain (App → Mig → Static → Api → Admin) and schema group in serial,
- * with regression tests last for each group.
+ * Calculates priority for TDD automation queue based purely on spec IDs.
+ * No JSON schema files required - priority is derived from the spec ID format.
  *
- * Domain priority order:
+ * Domain priority order (lower = higher priority):
  * - APP specs: 0-999,999 (highest priority, runs first)
  * - MIG specs: 1,000,000-1,999,999 (runs after APP)
  * - STATIC specs: 2,000,000-2,999,999 (runs after MIG)
  * - API specs: 3,000,000-3,999,999 (runs after STATIC)
  * - ADMIN specs: 4,000,000-4,999,999 (lowest priority, runs last)
  *
- * Priority calculation within each domain:
- * - Schema groups get base priorities (1000, 2000, 3000, etc.) based on hierarchy
- * - Within each schema: individual tests (+1, +2, +3, etc.)
- * - Regression tests: +900 (ensures they run last in their schema group)
+ * Within each domain:
+ * - Features are grouped alphabetically
+ * - Individual tests: base + test number (001 → 1, 002 → 2, etc.)
+ * - Regression tests: base + 900 (ensures they run last in their group)
  *
- * Example execution order:
- * - APP-VERSION-001 (1,001), APP-VERSION-002 (1,002), APP-VERSION-REGRESSION (1,900)
- * - MIG-ERROR-001 (1,000,001), MIG-ERROR-002 (1,000,002)
- * - STATIC-INDEX-001 (2,001,001), STATIC-INDEX-002 (2,001,002)
- * - API-PATHS-HEALTH-001 (3,001,001), API-PATHS-AUTH-001 (3,002,001)
- * - ADMIN-TABLES-001 (4,001,001), ADMIN-TABLES-002 (4,001,002)
- *
- * This ensures:
- * 1. All APP specs complete before MIG specs
- * 2. All MIG specs complete before STATIC specs
- * 3. All STATIC specs complete before API specs
- * 4. All API specs complete before ADMIN specs
- * 5. All tests from same schema are processed together
- * 6. Regression tests validate the schema after all its tests
- * 7. Schema order follows hierarchy (required root → optional root → nested)
+ * Example spec IDs and their feature paths:
+ * - APP-VERSION-001 → app/version
+ * - APP-THEME-COLORS-001 → app/theme/colors
+ * - MIG-ERROR-001 → mig/error
+ * - API-PATHS-HEALTH-001 → api/paths/health
+ * - ADMIN-TABLES-001 → admin/tables
  */
-
-import * as fs from 'node:fs'
-import * as path from 'node:path'
 
 /**
  * Spec domain type
  */
-type SpecDomain = 'migrations' | 'app' | 'static' | 'api' | 'admin'
+type SpecDomain = 'app' | 'migrations' | 'static' | 'api' | 'admin'
 
 /**
  * Domain base priorities (in millions to separate domains completely)
@@ -60,30 +48,15 @@ const DOMAIN_BASE_PRIORITIES: Record<SpecDomain, number> = {
 }
 
 /**
- * Schema property metadata
- */
-interface SchemaProperty {
-  name: string
-  level: number
-  required: boolean
-  parent: string | null
-}
-
-/**
- * Schema hierarchy map
- */
-type SchemaHierarchy = Map<string, SchemaProperty>
-
-/**
  * Detect spec domain from spec ID prefix
  *
- * @param specId Full spec ID (e.g., "MIG-ERROR-001", "APP-VERSION-001", "STATIC-INDEX-001", "API-PATHS-HEALTH-001", "ADMIN-TABLES-001")
- * @returns Domain type ('migrations', 'app', 'static', 'api', or 'admin')
+ * @param specId Full spec ID (e.g., "APP-VERSION-001", "MIG-ERROR-001")
+ * @returns Domain type
  */
 function getSpecDomain(specId: string): SpecDomain {
   const prefix = specId.split('-')[0]?.toUpperCase()
-  if (prefix === 'MIG') return 'migrations'
   if (prefix === 'APP') return 'app'
+  if (prefix === 'MIG') return 'migrations'
   if (prefix === 'STATIC') return 'static'
   if (prefix === 'API') return 'api'
   if (prefix === 'ADMIN') return 'admin'
@@ -91,320 +64,24 @@ function getSpecDomain(specId: string): SpecDomain {
 }
 
 /**
- * Load and parse app.schema.json to build hierarchy
- */
-export function loadSchemaHierarchy(rootSchemaPath: string): SchemaHierarchy {
-  const hierarchy = new Map<string, SchemaProperty>()
-  const schemasDir = path.dirname(rootSchemaPath)
-
-  // Load root schema
-  const rootSchema = JSON.parse(fs.readFileSync(rootSchemaPath, 'utf-8'))
-  const requiredProps = new Set(rootSchema.required || [])
-
-  // Process root properties
-  for (const [propName, propDef] of Object.entries(rootSchema.properties || {})) {
-    const prop: SchemaProperty = {
-      name: propName,
-      level: 1,
-      required: requiredProps.has(propName),
-      parent: null,
-    }
-    hierarchy.set(`app/${propName}`, prop)
-
-    // Load nested schema if referenced
-    const ref = (propDef as { $ref?: string }).$ref
-    if (ref) {
-      const nestedSchemaPath = path.resolve(schemasDir, ref)
-      if (fs.existsSync(nestedSchemaPath)) {
-        processNestedSchema(nestedSchemaPath, `app/${propName}`, 2, hierarchy)
-      }
-    }
-  }
-
-  return hierarchy
-}
-
-/**
- * Recursively process nested schema files
- */
-function processNestedSchema(
-  schemaPath: string,
-  parentPath: string,
-  level: number,
-  hierarchy: SchemaHierarchy
-): void {
-  try {
-    const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'))
-    const requiredProps = new Set(schema.required || [])
-    const schemasDir = path.dirname(schemaPath)
-
-    for (const [propName, propDef] of Object.entries(schema.properties || {})) {
-      const fullPath = `${parentPath}/${propName}`
-      const prop: SchemaProperty = {
-        name: propName,
-        level,
-        required: requiredProps.has(propName),
-        parent: parentPath,
-      }
-      hierarchy.set(fullPath, prop)
-
-      // Recursively process nested references (limit depth to prevent infinite loops)
-      if (level < 5) {
-        const ref = (propDef as { $ref?: string }).$ref
-        if (ref) {
-          const nestedSchemaPath = path.resolve(schemasDir, ref)
-          if (fs.existsSync(nestedSchemaPath)) {
-            processNestedSchema(nestedSchemaPath, fullPath, level + 1, hierarchy)
-          }
-        }
-      }
-    }
-  } catch (error) {
-    // Silently skip schemas that can't be parsed
-    console.error(`Warning: Could not parse schema at ${schemaPath}:`, error)
-  }
-}
-
-/**
- * Calculate priority for a spec ID based on schema hierarchy
- *
- * Priority calculation:
- * - Schema groups get base priorities (1000, 2000, 3000, etc.)
- * - Individual tests within schema: base + test number (1, 2, 3, etc.)
- * - Regression tests: base + 900 (always last in group)
- *
- * Supported regression patterns:
- * - APP-THEME-ANIMATIONS-REGRESSION → priority: base + 900
- * - APP-THEME-ANIMATIONS-REGRESSION-001 → priority: base + 900
- *
- * @param specId The full spec ID (e.g., "APP-VERSION-001", "APP-VERSION-REGRESSION", "APP-VERSION-REGRESSION-001")
- * @param hierarchy The schema hierarchy map
- * @returns Priority number for queue ordering
- */
-export function calculateSchemaBasedPriority(specId: string, hierarchy: SchemaHierarchy): number {
-  // Extract feature path and test identifier
-  const parts = specId.split('-')
-  const testIdentifier = parts[parts.length - 1] || ''
-
-  // Check if this is a regression test
-  // Pattern 1: *-REGRESSION (e.g., APP-THEME-ANIMATIONS-REGRESSION)
-  // Pattern 2: *-REGRESSION-NNN (e.g., APP-THEME-ANIMATIONS-REGRESSION-001)
-  const isRegressionOnly = testIdentifier.toUpperCase() === 'REGRESSION'
-  const secondToLastPart = parts.length >= 2 ? parts[parts.length - 2] : undefined
-  const isRegressionWithNumber =
-    secondToLastPart !== undefined &&
-    secondToLastPart.toUpperCase() === 'REGRESSION' &&
-    /^\d+$/.test(testIdentifier)
-  const isRegression = isRegressionOnly || isRegressionWithNumber
-
-  // Get feature path (without test number/regression suffix)
-  const featurePath = getFeaturePathFromSpecId(specId)
-
-  // Calculate base priority for the schema group
-  const schemaBasePriority = calculateSchemaGroupPriority(featurePath, hierarchy)
-
-  // Add offset within the group
-  if (isRegression) {
-    // Regression tests always run last in their group
-    return schemaBasePriority + 900
-  } else {
-    // Individual test number (001 → 1, 002 → 2, etc.)
-    const testNumber = parseInt(testIdentifier, 10) || 1
-    return schemaBasePriority + testNumber
-  }
-}
-
-/**
- * Calculate base priority for a schema group
- * Groups are separated by 1000 to ensure all tests from one schema
- * complete before moving to the next schema
- */
-function calculateSchemaGroupPriority(featurePath: string, hierarchy: SchemaHierarchy): number {
-  // Direct match in hierarchy
-  const property = hierarchy.get(featurePath)
-  if (property) {
-    return calculatePropertyGroupPriority(property, hierarchy) * 1000
-  }
-
-  // Try parent paths (for deeply nested features not directly in schema)
-  const parts = featurePath.split('/')
-  for (let i = parts.length - 1; i > 0; i--) {
-    const parentPath = parts.slice(0, i).join('/')
-    const parentProp = hierarchy.get(parentPath)
-    if (parentProp) {
-      // Found parent in hierarchy - now calculate priority for this sub-feature
-      const baseGroup = calculatePropertyGroupPriority(parentProp, hierarchy)
-
-      // For sub-features not in schema (e.g., app/pages/navlinks when only app/pages exists),
-      // we need to assign different priorities based on alphabetical order
-      // This ensures all tests from same sub-feature are processed together
-
-      // Extract the sub-feature name (the part after parent)
-      const remainingParts = parts.slice(i)
-
-      if (remainingParts.length > 0) {
-        // Get alphabetical index among sibling sub-features
-        // This ensures: footer (001,002,003,REG) → layout (001,002,003,REG) → meta (...)
-        const subFeatureName = remainingParts[0]!
-        const siblingIndex = getAlphabeticalIndexForSubFeature(subFeatureName)
-
-        // Multiply by 2000 to create 2000-slot groups for each sub-feature
-        // This ensures room for 1000 tests (1-999) + regression test (900) without overlap
-        // Example: nav=13.065*2000=26130, navlinks=13.709*2000=27418
-        // Gap of 1288 slots ensures nav-regression (26130+900=27030) < navlinks-001 (27418+1)
-        const scaledSiblingIndex = siblingIndex * 2000
-
-        // Each sub-feature gets its own range with sufficient separation
-        return (baseGroup + scaledSiblingIndex) * 1000
-      }
-
-      // Direct child, use parent priority with small offset
-      const additionalLevels = parts.length - i
-      return (baseGroup + additionalLevels * 0.1) * 1000
-    }
-  }
-
-  // Fallback for unknown paths
-  return 100_000
-}
-
-/**
- * Get alphabetical index for a sub-feature name
- * Used to assign consistent priorities to sub-features not in schema
- *
- * This creates a unique numeric priority based on the full feature name
- * to ensure tests from the same sub-feature are always processed together,
- * while preserving alphabetical ordering across all sub-features.
- *
- * The algorithm converts the feature name to a base-26 number representation:
- * - First char: integer part (0-25)
- * - Next chars: decimal fractions (each position divided by 26^n)
- *
- * Examples (showing first char + first decimal):
- * - "breadcrumb" → 1.xxx (b=1, r=17)
- * - "footer" → 5.xxx (f=5, o=14)
- * - "layout" → 11.xxx (l=11, a=0)
- * - "meta" → 12.xxx (m=12, e=4)
- * - "name" → 13.000 (n=13, a=0)
- * - "nav" → 13.021 (n=13, a=0, v=21)
- * - "navlinks" → 13.022 (n=13, a=0, v=21, l=11)
- *
- * This ensures: name < nav < navlinks (alphabetical order preserved)
- */
-function getAlphabeticalIndexForSubFeature(subFeatureName: string): number {
-  const name = subFeatureName.toLowerCase()
-
-  // Base offset from first character (0-25)
-  const firstCharOffset = name.charCodeAt(0) - 97
-
-  // Convert remaining characters to decimal fraction preserving order
-  // Each subsequent character adds less weight (divided by 26^position)
-  let decimalOffset = 0
-  const maxChars = Math.min(name.length, 8) // Limit to prevent precision issues
-
-  for (let i = 1; i < maxChars; i++) {
-    const charValue = name.charCodeAt(i) - 97 // 0-25 (handle non-letters as 0)
-    const normalizedValue = Math.max(0, Math.min(25, charValue))
-    decimalOffset += normalizedValue / Math.pow(26, i)
-  }
-
-  // Combine: integer part (first letter) + decimal part (rest of name)
-  // This preserves alphabetical order while ensuring unique priorities
-  return firstCharOffset + decimalOffset
-}
-
-/**
- * Calculate group priority for a specific property
- * Returns a group number (1, 2, 3, etc.) that will be multiplied by 1000
- * for the final schema group base priority
- */
-function calculatePropertyGroupPriority(
-  property: SchemaProperty,
-  hierarchy: SchemaHierarchy
-): number {
-  // Group assignment based on schema hierarchy
-  // Required root properties get groups 1-3
-  // Optional root properties get groups 4+
-  // Nested properties get higher groups
-
-  if (property.level === 1) {
-    // Root properties: Use explicit ordering
-    // Order: name → version → description → theme → languages → blocks → pages → tables → connections → interfaces → automations
-    const explicitOrder = [
-      'name',
-      'version',
-      'description',
-      'theme',
-      'languages',
-      'blocks',
-      'pages',
-      'tables',
-      'connections',
-      'interfaces',
-      'automations',
-    ]
-
-    const index = explicitOrder.indexOf(property.name)
-    if (index >= 0) {
-      return index + 1 // name=1, version=2, description=3, etc.
-    }
-
-    // Fallback for any other root properties not in explicit list (alphabetical after)
-    const otherOptionalProps = Array.from(hierarchy.values())
-      .filter((p) => p.level === 1 && !explicitOrder.includes(p.name))
-      .sort((a, b) => a.name.localeCompare(b.name))
-
-    const otherIndex = otherOptionalProps.findIndex((p) => p.name === property.name)
-    return explicitOrder.length + 1 + otherIndex // Starting after explicit list
-  }
-
-  // Nested properties (level 2+): Higher group numbers
-  // Calculate base group based on parent property
-  const parentProp = hierarchy.get(property.parent!)
-  if (parentProp) {
-    const parentGroup = calculatePropertyGroupPriority(parentProp, hierarchy)
-
-    // Get siblings at same level and sort
-    const siblings = Array.from(hierarchy.values())
-      .filter((p) => p.level === property.level && p.parent === property.parent)
-      .sort((a, b) => a.name.localeCompare(b.name))
-
-    const siblingIndex = siblings.findIndex((p) => p.name === property.name)
-
-    // Nested properties start at parent + 100 to ensure they come after parent's regression tests
-    // Each nesting level adds 100, siblings add 10
-    return parentGroup + 100 * property.level + 10 + siblingIndex
-  }
-
-  // Fallback for unknown properties
-  return 100
-}
-
-/**
  * Get feature path from spec ID
+ *
  * Examples:
- * - MIG-ERROR-001 → mig/error
- * - MIG-ERROR-REGRESSION → mig/error
  * - APP-VERSION-001 → app/version
  * - APP-VERSION-REGRESSION → app/version
  * - APP-VERSION-REGRESSION-001 → app/version
  * - APP-THEME-COLORS-001 → app/theme/colors
- * - APP-THEME-COLORS-REGRESSION → app/theme/colors
- * - APP-THEME-COLORS-REGRESSION-001 → app/theme/colors
- * - STATIC-INDEX-001 → static/index
+ * - MIG-ERROR-001 → mig/error
  * - API-PATHS-HEALTH-001 → api/paths/health
- * - ADMIN-TABLES-001 → admin/tables
  */
 export function getFeaturePathFromSpecId(specId: string): string {
-  // Split by hyphens and convert to lowercase path
   const parts = specId.split('-')
+  const lastPart = parts[parts.length - 1] || ''
 
   // Check if last part is "REGRESSION" (case-insensitive)
-  const lastPart = parts[parts.length - 1] || ''
   const isRegressionOnly = lastPart.toUpperCase() === 'REGRESSION'
 
   // Check if second-to-last part is "REGRESSION" with numeric suffix
-  // Pattern: *-REGRESSION-NNN (e.g., APP-THEME-ANIMATIONS-REGRESSION-001)
   const secondToLastPart = parts.length >= 2 ? parts[parts.length - 2] : undefined
   const isRegressionWithNumber =
     secondToLastPart !== undefined &&
@@ -431,147 +108,99 @@ export function getFeaturePathFromSpecId(specId: string): string {
 }
 
 /**
- * Load schema hierarchy and create priority calculator function
- * Returns a function that takes a spec ID and returns its priority
- *
- * @param rootSchemaPath Path to the root app.schema.json file
- * @returns Function that calculates priority for spec IDs
+ * Calculate alphabetical index for a feature name (0-25 based on first letter)
  */
-export function createSchemaPriorityCalculator(rootSchemaPath: string): (specId: string) => number {
-  const hierarchy = loadSchemaHierarchy(rootSchemaPath)
-
-  return (specId: string) => calculateSchemaBasedPriority(specId, hierarchy)
+function getAlphabeticalIndex(name: string): number {
+  const normalized = name.toLowerCase()
+  const charCode = normalized.charCodeAt(0)
+  // Return 0-25 for a-z, 0 for non-letters
+  if (charCode >= 97 && charCode <= 122) {
+    return charCode - 97
+  }
+  return 0
 }
 
 /**
- * Calculate simple priority for MIG, STATIC, API, and ADMIN specs
- * Uses explicit ordering for known endpoints, alphabetical for others
+ * Calculate priority for a feature path
  *
- * @param specId Full spec ID (e.g., "MIG-ERROR-001", "STATIC-INDEX-001", "API-PATHS-HEALTH-001", "ADMIN-TABLES-001")
- * @param domain Domain type ('migrations', 'static', 'api', or 'admin')
- * @returns Priority number within domain (0-999,999)
+ * Features are grouped by their path segments with alphabetical ordering.
+ * Priority values stay under 1 million to fit within domain ranges:
+ * - Level 1 (first feature part): 0-25 * 30000 = 0-750,000
+ * - Level 2 (second part): 0-25 * 1000 = 0-25,000
+ * - Level 3 (third part): 0-25 * 30 = 0-750
+ * - Test offset: 1-999
+ * Max total: ~777,749 (well under 1,000,000)
  */
-function calculateSimplePriority(specId: string, domain: SpecDomain): number {
-  // Extract feature path and test identifier
+function calculateFeaturePriority(featurePath: string): number {
+  const pathParts = featurePath.split('/')
+  let priority = 0
+
+  // Multipliers for each level (ensure total < 1 million)
+  const multipliers = [30_000, 1000, 30]
+
+  // Skip domain prefix (first part)
+  for (let i = 1; i < pathParts.length && i <= 3; i++) {
+    const part = pathParts[i] || ''
+    const partValue = getAlphabeticalIndex(part)
+    const multiplier = multipliers[i - 1] || 1
+    priority += partValue * multiplier
+  }
+
+  return priority
+}
+
+/**
+ * Calculate priority for a spec ID
+ *
+ * @param specId Full spec ID (e.g., "APP-VERSION-001", "MIG-ERROR-REGRESSION")
+ * @returns Priority number (lower = higher priority)
+ */
+export function calculateSpecPriority(specId: string): number {
+  // Get domain base priority
+  const domain = getSpecDomain(specId)
+  const domainBasePriority = DOMAIN_BASE_PRIORITIES[domain]
+
+  // Get feature path and calculate feature priority
   const featurePath = getFeaturePathFromSpecId(specId)
+  const featurePriority = calculateFeaturePriority(featurePath)
+
+  // Extract test identifier (last part of spec ID)
   const parts = specId.split('-')
-  const testIdentifier = parts[parts.length - 1] || ''
+  const lastPart = parts[parts.length - 1] || ''
 
   // Check if this is a regression test
-  const isRegressionOnly = testIdentifier.toUpperCase() === 'REGRESSION'
+  const isRegressionOnly = lastPart.toUpperCase() === 'REGRESSION'
   const secondToLastPart = parts.length >= 2 ? parts[parts.length - 2] : undefined
   const isRegressionWithNumber =
     secondToLastPart !== undefined &&
     secondToLastPart.toUpperCase() === 'REGRESSION' &&
-    /^\d+$/.test(testIdentifier)
+    /^\d+$/.test(lastPart)
   const isRegression = isRegressionOnly || isRegressionWithNumber
 
-  // Calculate feature priority based on domain
-  let featurePriority = 0
-
-  if (domain === 'api') {
-    // API domain: explicit ordering for known paths
-    // Order: health → auth → tables
-    featurePriority = calculateApiPathPriority(featurePath)
-  } else {
-    // MIGRATIONS, STATIC, ADMIN domains: alphabetical ordering
-    featurePriority = calculateAlphabeticalPriority(featurePath)
-  }
-
-  // Round to nearest 1000 to create groups
-  const baseGroup = Math.floor(featurePriority / 1000) * 1000
-
-  // Add offset within the group
+  // Calculate test offset within the feature group
+  let testOffset: number
   if (isRegression) {
-    return baseGroup + 900
+    // Regression tests always run last in their group
+    testOffset = 900
+  } else if (/^\d+$/.test(lastPart)) {
+    // Individual test number (001 → 1, 002 → 2, etc.)
+    testOffset = parseInt(lastPart, 10)
   } else {
-    const testNumber = parseInt(testIdentifier, 10) || 1
-    return baseGroup + testNumber
+    // Unknown format - use default
+    testOffset = 1
   }
+
+  return domainBasePriority + featurePriority + testOffset
 }
 
 /**
- * Calculate priority for API paths with explicit ordering
- * Order: health → auth → tables → others (alphabetical)
+ * Create a priority calculator function
  *
- * @param featurePath Feature path (e.g., "api/paths/health", "api/paths/auth/sign-in/email")
- * @returns Priority number
+ * This is the main export for TDD automation queue ordering.
+ * No JSON schema files required - priority is based purely on spec ID format.
+ *
+ * @returns Function that calculates priority for spec IDs
  */
-function calculateApiPathPriority(featurePath: string): number {
-  const pathParts = featurePath.split('/')
-
-  // For API paths, the structure is: api/paths/{endpoint}/...
-  if (pathParts.length >= 3 && pathParts[0] === 'api' && pathParts[1] === 'paths') {
-    const endpoint = pathParts[2] || ''
-
-    // Explicit ordering for known endpoints
-    const explicitOrder = ['health', 'auth', 'tables']
-    const index = explicitOrder.indexOf(endpoint)
-
-    if (index >= 0) {
-      // Known endpoint: use explicit priority
-      // Multiply by 10000 to create large groups for sub-paths
-      return (index + 1) * 10_000
-    }
-
-    // Unknown endpoint: alphabetical after known endpoints
-    const alphabeticalOffset = getAlphabeticalIndexForSubFeature(endpoint)
-    return (explicitOrder.length + 1) * 10_000 + alphabeticalOffset * 1000
-  }
-
-  // Non-path API specs: fallback to alphabetical
-  return calculateAlphabeticalPriority(featurePath)
-}
-
-/**
- * Calculate alphabetical priority for a feature path
- * Convert path segments to numeric value for consistent ordering
- *
- * @param featurePath Feature path (e.g., "admin/tables", "api/components/schemas")
- * @returns Priority number
- */
-function calculateAlphabeticalPriority(featurePath: string): number {
-  const pathParts = featurePath.split('/')
-  let featurePriority = 0
-
-  for (let i = 0; i < pathParts.length; i++) {
-    const part = pathParts[i] || ''
-    const partValue = getAlphabeticalIndexForSubFeature(part)
-    // Each level gets exponentially less weight (1000, 100, 10, 1)
-    featurePriority += partValue * Math.pow(10, 3 - i)
-  }
-
-  return featurePriority
-}
-
-/**
- * Calculate priority for spec IDs with grouped schema processing
- * This is the main export for TDD automation queue ordering
- *
- * Handles five domains:
- * - APP: Uses JSON Schema hierarchy (app.schema.json) - Runs first
- * - MIG: Uses simple alphabetical ordering - Runs after APP
- * - STATIC: Uses simple alphabetical ordering - Runs after MIG
- * - API: Uses simple alphabetical ordering (OpenAPI structure) - Runs after STATIC
- * - ADMIN: Uses simple alphabetical ordering - Runs last
- *
- * @param specId Full spec ID (e.g., "APP-VERSION-001", "MIG-ERROR-001", "STATIC-INDEX-001", "API-PATHS-HEALTH-001", "ADMIN-TABLES-001")
- * @param rootSchemaPath Path to the root app.schema.json file
- * @returns Priority number (lower = higher priority)
- */
-export function calculateSpecPriority(specId: string, rootSchemaPath: string): number {
-  // Detect domain from spec ID
-  const domain = getSpecDomain(specId)
-  const domainBasePriority = DOMAIN_BASE_PRIORITIES[domain]
-
-  // For APP domain, use existing schema-based logic
-  if (domain === 'app') {
-    const hierarchy = loadSchemaHierarchy(rootSchemaPath)
-    const schemaPriority = calculateSchemaBasedPriority(specId, hierarchy)
-    return domainBasePriority + schemaPriority
-  }
-
-  // For MIG, STATIC, API, and ADMIN domains, use explicit ordering for known paths
-  const simplePriority = calculateSimplePriority(specId, domain)
-  return domainBasePriority + simplePriority
+export function createSchemaPriorityCalculator(): (specId: string) => number {
+  return calculateSpecPriority
 }

@@ -79,6 +79,7 @@
     "validate:api-specs": "bun run scripts/validate-api-specs.ts",
     "validate:app-specs": "bun run scripts/validate-app-specs.ts",
     "validate:docs": "bun run scripts/validate-docs-versions.ts",
+    "analyze:specs": "bun run scripts/analyze-specs.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",

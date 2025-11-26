@@ -5,20 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import * as path from 'node:path'
 import { describe, expect, test } from 'bun:test'
 import { calculateSpecPriority, getFeaturePathFromSpecId } from './schema-priority-calculator'
 
-const rootSchemaPath = path.join(process.cwd(), 'specs/app/app.schema.json')
-
-// TODO: Update tests to work with Effect Schema instead of JSON Schema files
-describe.skip('Domain-based priority calculation', () => {
+describe('Spec ID Priority Calculator', () => {
   describe('Domain separation', () => {
     test('APP specs should have priority 0-999,999', () => {
       const appPriorities = [
-        calculateSpecPriority('APP-VERSION-001', rootSchemaPath),
-        calculateSpecPriority('APP-NAME-001', rootSchemaPath),
-        calculateSpecPriority('APP-THEME-COLORS-001', rootSchemaPath),
+        calculateSpecPriority('APP-VERSION-001'),
+        calculateSpecPriority('APP-NAME-001'),
+        calculateSpecPriority('APP-THEME-COLORS-001'),
       ]
 
       for (const priority of appPriorities) {
@@ -29,9 +25,9 @@ describe.skip('Domain-based priority calculation', () => {
 
     test('MIG specs should have priority 1,000,000-1,999,999', () => {
       const migPriorities = [
-        calculateSpecPriority('MIG-ERROR-001', rootSchemaPath),
-        calculateSpecPriority('MIG-ALTER-ADD-001', rootSchemaPath),
-        calculateSpecPriority('MIG-ERROR-REGRESSION', rootSchemaPath),
+        calculateSpecPriority('MIG-ERROR-001'),
+        calculateSpecPriority('MIG-ALTER-ADD-001'),
+        calculateSpecPriority('MIG-ERROR-REGRESSION'),
       ]
 
       for (const priority of migPriorities) {
@@ -42,8 +38,8 @@ describe.skip('Domain-based priority calculation', () => {
 
     test('STATIC specs should have priority 2,000,000-2,999,999', () => {
       const staticPriorities = [
-        calculateSpecPriority('STATIC-INDEX-001', rootSchemaPath),
-        calculateSpecPriority('STATIC-SITEMAP-001', rootSchemaPath),
+        calculateSpecPriority('STATIC-INDEX-001'),
+        calculateSpecPriority('STATIC-SITEMAP-001'),
       ]
 
       for (const priority of staticPriorities) {
@@ -54,8 +50,8 @@ describe.skip('Domain-based priority calculation', () => {
 
     test('API specs should have priority 3,000,000-3,999,999', () => {
       const apiPriorities = [
-        calculateSpecPriority('API-PATHS-HEALTH-001', rootSchemaPath),
-        calculateSpecPriority('API-PATHS-AUTH-001', rootSchemaPath),
+        calculateSpecPriority('API-PATHS-HEALTH-001'),
+        calculateSpecPriority('API-PATHS-AUTH-001'),
       ]
 
       for (const priority of apiPriorities) {
@@ -66,8 +62,8 @@ describe.skip('Domain-based priority calculation', () => {
 
     test('ADMIN specs should have priority 4,000,000-4,999,999', () => {
       const adminPriorities = [
-        calculateSpecPriority('ADMIN-TABLES-001', rootSchemaPath),
-        calculateSpecPriority('ADMIN-CONNECTIONS-001', rootSchemaPath),
+        calculateSpecPriority('ADMIN-TABLES-001'),
+        calculateSpecPriority('ADMIN-CONNECTIONS-001'),
       ]
 
       for (const priority of adminPriorities) {
@@ -77,14 +73,14 @@ describe.skip('Domain-based priority calculation', () => {
     })
 
     test('Domain ordering: APP → MIG → STATIC → API → ADMIN', () => {
-      const maxAppPriority = calculateSpecPriority('APP-VERSION-REGRESSION', rootSchemaPath)
-      const minMigPriority = calculateSpecPriority('MIG-ERROR-001', rootSchemaPath)
-      const maxMigPriority = calculateSpecPriority('MIG-ERROR-REGRESSION', rootSchemaPath)
-      const minStaticPriority = calculateSpecPriority('STATIC-INDEX-001', rootSchemaPath)
-      const maxStaticPriority = calculateSpecPriority('STATIC-INDEX-REGRESSION', rootSchemaPath)
-      const minApiPriority = calculateSpecPriority('API-PATHS-HEALTH-001', rootSchemaPath)
-      const maxApiPriority = calculateSpecPriority('API-PATHS-AUTH-REGRESSION', rootSchemaPath)
-      const minAdminPriority = calculateSpecPriority('ADMIN-TABLES-001', rootSchemaPath)
+      const maxAppPriority = calculateSpecPriority('APP-VERSION-REGRESSION')
+      const minMigPriority = calculateSpecPriority('MIG-ERROR-001')
+      const maxMigPriority = calculateSpecPriority('MIG-ERROR-REGRESSION')
+      const minStaticPriority = calculateSpecPriority('STATIC-INDEX-001')
+      const maxStaticPriority = calculateSpecPriority('STATIC-INDEX-REGRESSION')
+      const minApiPriority = calculateSpecPriority('API-PATHS-HEALTH-001')
+      const maxApiPriority = calculateSpecPriority('API-PATHS-AUTH-REGRESSION')
+      const minAdminPriority = calculateSpecPriority('ADMIN-TABLES-001')
 
       // APP before MIG
       expect(maxAppPriority).toBeLessThan(minMigPriority)
@@ -99,16 +95,16 @@ describe.skip('Domain-based priority calculation', () => {
 
   describe('Regression tests ordering', () => {
     test('Regression tests should run after regular tests in same feature', () => {
-      const regularTest = calculateSpecPriority('API-PATHS-HEALTH-001', rootSchemaPath)
-      const regressionTest = calculateSpecPriority('API-PATHS-HEALTH-REGRESSION', rootSchemaPath)
+      const regularTest = calculateSpecPriority('API-PATHS-HEALTH-001')
+      const regressionTest = calculateSpecPriority('API-PATHS-HEALTH-REGRESSION')
 
       expect(regressionTest).toBeGreaterThan(regularTest)
     })
 
     test('Regression test with number suffix should run after regular tests', () => {
-      const test001 = calculateSpecPriority('ADMIN-TABLES-001', rootSchemaPath)
-      const test002 = calculateSpecPriority('ADMIN-TABLES-002', rootSchemaPath)
-      const regressionTest = calculateSpecPriority('ADMIN-TABLES-REGRESSION-001', rootSchemaPath)
+      const test001 = calculateSpecPriority('ADMIN-TABLES-001')
+      const test002 = calculateSpecPriority('ADMIN-TABLES-002')
+      const regressionTest = calculateSpecPriority('ADMIN-TABLES-REGRESSION-001')
 
       expect(regressionTest).toBeGreaterThan(test001)
       expect(regressionTest).toBeGreaterThan(test002)
@@ -146,9 +142,9 @@ describe.skip('Domain-based priority calculation', () => {
 
   describe('Sequential test numbering', () => {
     test('Tests should be ordered by their numeric suffix', () => {
-      const test001 = calculateSpecPriority('API-PATHS-HEALTH-001', rootSchemaPath)
-      const test002 = calculateSpecPriority('API-PATHS-HEALTH-002', rootSchemaPath)
-      const test003 = calculateSpecPriority('API-PATHS-HEALTH-003', rootSchemaPath)
+      const test001 = calculateSpecPriority('API-PATHS-HEALTH-001')
+      const test002 = calculateSpecPriority('API-PATHS-HEALTH-002')
+      const test003 = calculateSpecPriority('API-PATHS-HEALTH-003')
 
       expect(test001).toBeLessThan(test002)
       expect(test002).toBeLessThan(test003)
