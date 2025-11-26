@@ -77,12 +77,16 @@ test.describe('Revoke all other sessions', () => {
       expect(data).toMatchObject({ success: expect.any(Boolean) })
 
       // Other sessions are revoked in database
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const otherSessions = await executeQuery(
+        "SELECT COUNT(*) as count FROM sessions WHERE user_id = 1 AND token != 'current_session'"
+      )
+      expect(otherSessions.count).toBe(0)
 
       // Current session remains active
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const currentSession = await executeQuery(
+        "SELECT * FROM sessions WHERE token = 'current_session' LIMIT 1"
+      )
+      expect(currentSession).toBeDefined()
     }
   )
 
@@ -155,12 +159,16 @@ test.describe('Revoke all other sessions', () => {
       expect(response.status).toBe(200)
 
       // Current session remains active
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const currentSession = await executeQuery(
+        "SELECT * FROM sessions WHERE token = 'current_session' LIMIT 1"
+      )
+      expect(currentSession).toBeDefined()
 
       // No other sessions exist for this user
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const totalSessions = await executeQuery(
+        'SELECT COUNT(*) as count FROM sessions WHERE user_id = 1'
+      )
+      expect(totalSessions.count).toBe(1)
     }
   )
 
@@ -205,12 +213,16 @@ test.describe('Revoke all other sessions', () => {
       expect(response.status).toBe(200)
 
       // Mobile and tablet sessions are revoked
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const revokedSessions = await executeQuery(
+        "SELECT COUNT(*) as count FROM sessions WHERE user_id = 1 AND token != 'desktop_session'"
+      )
+      expect(revokedSessions.count).toBe(0)
 
       // Desktop session (current) remains active
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const desktopSession = await executeQuery(
+        "SELECT * FROM sessions WHERE token = 'desktop_session' LIMIT 1"
+      )
+      expect(desktopSession).toBeDefined()
     }
   )
 
@@ -261,16 +273,22 @@ test.describe('Revoke all other sessions', () => {
       expect(response.status).toBe(200)
 
       // User 1's other session is revoked
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const user1OtherSessions = await executeQuery(
+        "SELECT COUNT(*) as count FROM sessions WHERE user_id = 1 AND token != 'user1_session1'"
+      )
+      expect(user1OtherSessions.count).toBe(0)
 
       // User 1's current session remains active
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const user1CurrentSession = await executeQuery(
+        "SELECT * FROM sessions WHERE token = 'user1_session1' LIMIT 1"
+      )
+      expect(user1CurrentSession).toBeDefined()
 
       // User 2's sessions remain unaffected
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const user2Sessions = await executeQuery(
+        'SELECT COUNT(*) as count FROM sessions WHERE user_id = 2'
+      )
+      expect(user2Sessions.count).toBe(2)
     }
   )
 

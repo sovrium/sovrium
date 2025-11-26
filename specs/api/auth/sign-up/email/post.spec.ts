@@ -33,7 +33,7 @@ test.describe('Sign up with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-UP-EMAIL-001: should returns 200 OK with user data and session token',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server with no existing users
       await startServerWithSchema({
         name: 'test-app',

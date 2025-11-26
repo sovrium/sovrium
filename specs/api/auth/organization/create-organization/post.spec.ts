@@ -75,12 +75,18 @@ test.describe('Create organization', () => {
       expect(data).toMatchObject({ success: expect.any(Boolean) })
 
       // Organization is created in database
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const orgRow = await executeQuery(
+        "SELECT * FROM organizations WHERE slug = 'acme-corp' LIMIT 1"
+      )
+      expect(orgRow).toBeDefined()
+      expect(orgRow.name).toBe('Acme Corporation')
 
       // User is set as organization owner
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const memberRow = await executeQuery(
+        'SELECT * FROM organization_members WHERE organization_id = ' + orgRow.id + ' LIMIT 1'
+      )
+      expect(memberRow).toBeDefined()
+      expect(memberRow.role).toBe('owner')
     }
   )
 

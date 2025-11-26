@@ -78,12 +78,12 @@ test.describe('Admin: Set user password', () => {
       expect(data).toMatchObject({ success: expect.any(Boolean) })
 
       // Password is updated in database (hash changed)
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
+      const dbRow = await executeQuery('SELECT * FROM users WHERE id = 2 LIMIT 1')
       expect(dbRow).toBeDefined()
 
       // New password is securely hashed (not plain text)
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      expect(dbRow.password_hash).toBeDefined()
+      expect(dbRow.password_hash).not.toBe('NewSecurePass123!')
     }
   )
 
@@ -136,12 +136,16 @@ test.describe('Admin: Set user password', () => {
       expect(response.status).toBe(200)
 
       // All user sessions are revoked
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const userSessions = await executeQuery(
+        'SELECT COUNT(*) as count FROM sessions WHERE user_id = 2'
+      )
+      expect(userSessions.count).toBe(0)
 
       // Admin session remains active
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const adminSessions = await executeQuery(
+        'SELECT COUNT(*) as count FROM sessions WHERE user_id = 1'
+      )
+      expect(adminSessions.count).toBe(1)
     }
   )
 

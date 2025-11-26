@@ -40,7 +40,9 @@ test.describe('Rename Table Migration', () => {
       await startServerWithSchema({ name: 'test-app', tables: [] })
 
       // Verify schema change
-      const schemaInfo = await executeQuery("SELECT column_name, data_type FROM information_schema.columns WHERE table_name='test_table'")
+      const schemaInfo = await executeQuery(
+        "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='test_table'"
+      )
       expect(schemaInfo).toBeDefined()
     }
   )
@@ -60,7 +62,9 @@ test.describe('Rename Table Migration', () => {
       await startServerWithSchema({ name: 'test-app', tables: [] })
 
       // Verify schema change
-      const schemaInfo = await executeQuery("SELECT column_name, data_type FROM information_schema.columns WHERE table_name='test_table'")
+      const schemaInfo = await executeQuery(
+        "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='test_table'"
+      )
       expect(schemaInfo).toBeDefined()
     }
   )
@@ -80,7 +84,9 @@ test.describe('Rename Table Migration', () => {
       await startServerWithSchema({ name: 'test-app', tables: [] })
 
       // Verify schema change
-      const schemaInfo = await executeQuery("SELECT column_name, data_type FROM information_schema.columns WHERE table_name='test_table'")
+      const schemaInfo = await executeQuery(
+        "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='test_table'"
+      )
       expect(schemaInfo).toBeDefined()
     }
   )
@@ -100,7 +106,9 @@ test.describe('Rename Table Migration', () => {
       await startServerWithSchema({ name: 'test-app', tables: [] })
 
       // Verify schema change
-      const schemaInfo = await executeQuery("SELECT column_name, data_type FROM information_schema.columns WHERE table_name='test_table'")
+      const schemaInfo = await executeQuery(
+        "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='test_table'"
+      )
       expect(schemaInfo).toBeDefined()
     }
   )

@@ -87,12 +87,14 @@ test.describe('Delete organization', () => {
       expect(data).toMatchObject({ success: expect.any(Boolean) })
 
       // Organization is deleted from database
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const orgRow = await executeQuery('SELECT * FROM organizations WHERE id = 1 LIMIT 1')
+      expect(orgRow).toBeNull()
 
       // All organization members are removed
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const memberCount = await executeQuery(
+        'SELECT COUNT(*) as count FROM organization_members WHERE organization_id = 1'
+      )
+      expect(memberCount.count).toBe(0)
     }
   )
 

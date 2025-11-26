@@ -86,12 +86,18 @@ test.describe('Accept organization invitation', () => {
       expect(data).toMatchObject({ success: expect.any(Boolean) })
 
       // User is added to organization with specified role
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const memberRow = await executeQuery(
+        'SELECT * FROM organization_members WHERE user_id = 1 AND organization_id = 1 LIMIT 1'
+      )
+      expect(memberRow).toBeDefined()
+      expect(memberRow.role).toBe('member')
 
       // Invitation status updated to accepted
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const invitationRow = await executeQuery(
+        'SELECT * FROM organization_invitations WHERE id = 1 LIMIT 1'
+      )
+      expect(invitationRow).toBeDefined()
+      expect(invitationRow.status).toBe('accepted')
     }
   )
 

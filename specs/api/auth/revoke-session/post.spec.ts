@@ -77,12 +77,16 @@ test.describe('Revoke specific session', () => {
       expect(data).toMatchObject({ success: expect.any(Boolean) })
 
       // Specified session is revoked in database
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const revokedSession = await executeQuery(
+        "SELECT * FROM sessions WHERE token = 'session_to_revoke' LIMIT 1"
+      )
+      expect(revokedSession).toBeNull()
 
       // Current session remains active
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const currentSession = await executeQuery(
+        "SELECT * FROM sessions WHERE token = 'current_session' LIMIT 1"
+      )
+      expect(currentSession).toBeDefined()
     }
   )
 

@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { AuthSchema } from './auth'
 import { BlocksSchema } from './blocks'
 import { DescriptionSchema } from './description'
 import { LanguagesSchema } from './languages'
@@ -98,6 +99,15 @@ export const AppSchema = Schema.Struct({
   languages: Schema.optional(LanguagesSchema),
 
   /**
+   * Authentication configuration (optional).
+   *
+   * Enables authentication features including email/password authentication,
+   * user management, and organization support. Configure authentication providers
+   * and optional plugins (admin, organization) based on application requirements.
+   */
+  auth: Schema.optional(AuthSchema),
+
+  /**
    * Reusable UI component blocks (optional).
    *
    * Array of reusable component templates with variable substitution. Blocks are
@@ -188,5 +198,6 @@ export * from './description'
 export * from './tables'
 export * from './theme'
 export * from './languages'
+export * from './auth'
 export * from './blocks'
 export * from './pages'

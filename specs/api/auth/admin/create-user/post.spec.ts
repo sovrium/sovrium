@@ -80,8 +80,8 @@ test.describe('Admin: Create user', () => {
       expect(dbRow).toBeDefined()
 
       // Password is securely hashed (not plain text)
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      expect(dbRow.password_hash).toBeDefined()
+      expect(dbRow.password_hash).not.toBe('SecurePass123!')
     }
   )
 

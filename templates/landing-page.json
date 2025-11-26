@@ -1,0 +1,418 @@
+{
+  "name": "sovrium-landing",
+  "version": "1.0.0",
+  "description": "Build apps faster with configuration-driven development",
+  "languages": {
+    "default": "en",
+    "supported": [
+      {
+        "code": "en",
+        "locale": "en-US",
+        "label": "English",
+        "direction": "ltr",
+        "flag": "🇺🇸"
+      },
+      {
+        "code": "fr",
+        "locale": "fr-FR",
+        "label": "Français",
+        "direction": "ltr",
+        "flag": "🇫🇷"
+      }
+    ],
+    "fallback": "en",
+    "detectBrowser": true,
+    "persistSelection": true,
+    "translations": {
+      "en": {
+        "nav.home": "Home",
+        "nav.features": "Features",
+        "nav.pricing": "Pricing",
+        "nav.contact": "Contact",
+
+        "hero.title": "Build Your Next App with Sovrium",
+        "hero.subtitle": "A modern, configuration-driven platform for rapid application development",
+        "hero.cta.primary": "Get Started",
+        "hero.cta.secondary": "Learn More",
+
+        "features.title": "Why Choose Sovrium?",
+        "features.subtitle": "Everything you need to build modern applications",
+
+        "feature.1.title": "Declarative Configuration",
+        "feature.1.description": "Define your entire application using simple JSON schemas. No complex build setups or configuration files.",
+        "feature.1.icon": "📋",
+
+        "feature.2.title": "Type-Safe by Default",
+        "feature.2.description": "Full TypeScript support out of the box. Catch errors at compile-time, not runtime.",
+        "feature.2.icon": "🔒",
+
+        "feature.3.title": "Reactive & Fast",
+        "feature.3.description": "Built on modern reactive patterns. Your app stays fast and responsive as it grows.",
+        "feature.3.icon": "⚡",
+
+        "cta.title": "Ready to get started?",
+        "cta.subtitle": "Join thousands of developers building with Sovrium",
+        "cta.button": "Start Building Now",
+
+        "footer.copyright": "© 2025 Sovrium",
+        "footer.rights": "All rights reserved"
+      },
+      "fr": {
+        "nav.home": "Accueil",
+        "nav.features": "Fonctionnalités",
+        "nav.pricing": "Tarifs",
+        "nav.contact": "Contact",
+
+        "hero.title": "Créez votre prochaine application avec Sovrium",
+        "hero.subtitle": "Une plateforme moderne pilotée par configuration pour le développement d'applications rapide",
+        "hero.cta.primary": "Commencer",
+        "hero.cta.secondary": "En savoir plus",
+
+        "features.title": "Pourquoi choisir Sovrium?",
+        "features.subtitle": "Tout ce dont vous avez besoin pour créer des applications modernes",
+
+        "feature.1.title": "Configuration déclarative",
+        "feature.1.description": "Définissez votre application entière en utilisant des schémas JSON simples. Pas de configurations complexes.",
+        "feature.1.icon": "📋",
+
+        "feature.2.title": "Type-safe par défaut",
+        "feature.2.description": "Support TypeScript complet dès le départ. Détectez les erreurs à la compilation.",
+        "feature.2.icon": "🔒",
+
+        "feature.3.title": "Réactif et rapide",
+        "feature.3.description": "Construit sur des patterns réactifs modernes. Votre app reste rapide en grandissant.",
+        "feature.3.icon": "⚡",
+
+        "cta.title": "Prêt à commencer?",
+        "cta.subtitle": "Rejoignez des milliers de développeurs construisant avec Sovrium",
+        "cta.button": "Commencer maintenant",
+
+        "footer.copyright": "© 2025 Sovrium",
+        "footer.rights": "Tous droits réservés"
+      }
+    }
+  },
+
+  "theme": {
+    "colors": {
+      "primary": "#3b82f6",
+      "primary-hover": "#2563eb",
+      "primary-light": "#dbeafe",
+      "secondary": "#7c3aed",
+      "background": "#ffffff",
+      "text": "#0f172a",
+      "text-secondary": "#475569",
+      "border": "#e2e8f0",
+      "gray-900": "#111827"
+    },
+    "fonts": {
+      "sans": {
+        "family": "Inter",
+        "fallback": "system-ui, -apple-system, sans-serif",
+        "weights": [400, 500, 600, 700],
+        "size": "16px",
+        "lineHeight": "1.6"
+      },
+      "heading": {
+        "family": "Inter",
+        "fallback": "system-ui, -apple-system, sans-serif",
+        "weights": [600, 700, 800],
+        "size": "48px",
+        "lineHeight": "1.1",
+        "letterSpacing": "-0.02em"
+      }
+    }
+  },
+
+  "blocks": [
+    {
+      "name": "hero-section",
+      "type": "div",
+      "props": {
+        "data-block": "hero-section"
+      },
+      "children": [
+        {
+          "type": "h1",
+          "content": "$title"
+        },
+        {
+          "type": "p",
+          "content": "$subtitle"
+        },
+        {
+          "type": "button",
+          "props": {
+            "className": "px-6 py-3 rounded-lg transition-colors",
+            "style": {
+              "backgroundColor": "#3b82f6",
+              "color": "#ffffff"
+            }
+          },
+          "interactions": {
+            "hover": {
+              "backgroundColor": "#2563eb"
+            }
+          },
+          "content": "$ctaPrimary"
+        },
+        {
+          "type": "button",
+          "props": {
+            "className": "px-6 py-3 rounded-lg transition-colors",
+            "style": {
+              "borderWidth": "2px",
+              "borderStyle": "solid",
+              "borderColor": "#3b82f6",
+              "color": "#3b82f6",
+              "backgroundColor": "transparent"
+            }
+          },
+          "content": "$ctaSecondary"
+        }
+      ]
+    },
+    {
+      "name": "feature-card",
+      "type": "div",
+      "props": {
+        "data-block": "feature-card",
+        "className": "p-6 border rounded-lg"
+      },
+      "children": [
+        {
+          "type": "div",
+          "content": "$icon"
+        },
+        {
+          "type": "h3",
+          "content": "$title"
+        },
+        {
+          "type": "p",
+          "content": "$description"
+        }
+      ]
+    },
+    {
+      "name": "cta-button",
+      "type": "button",
+      "props": {
+        "data-block": "cta-button",
+        "className": "px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors"
+      },
+      "content": "$label"
+    }
+  ],
+
+  "pages": [
+    {
+      "path": "/",
+      "name": "home",
+      "meta": {
+        "lang": "en",
+        "title": "Sovrium - Build Your Next App",
+        "description": "A modern, configuration-driven platform for rapid application development"
+      },
+      "sections": [
+        {
+          "type": "nav",
+          "children": [
+            {
+              "type": "span",
+              "props": {
+                "className": "text-xl font-bold",
+                "style": {
+                  "color": "#3b82f6"
+                }
+              },
+              "content": "Sovrium"
+            },
+            {
+              "type": "a",
+              "props": {
+                "href": "#home"
+              },
+              "content": "$t:nav.home"
+            },
+            {
+              "type": "a",
+              "props": {
+                "href": "#features"
+              },
+              "content": "$t:nav.features"
+            },
+            {
+              "type": "a",
+              "props": {
+                "href": "#pricing"
+              },
+              "content": "$t:nav.pricing"
+            },
+            {
+              "type": "a",
+              "props": {
+                "href": "#contact"
+              },
+              "content": "$t:nav.contact"
+            },
+            {
+              "type": "div",
+              "props": {
+                "data-testid": "language-switcher"
+              },
+              "children": [
+                {
+                  "type": "button",
+                  "content": "English"
+                },
+                {
+                  "type": "button",
+                  "content": "Français"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "props": {
+            "id": "home"
+          },
+          "children": [
+            {
+              "type": "div",
+              "props": {
+                "data-block": "hero-section"
+              },
+              "children": [
+                {
+                  "type": "h1",
+                  "content": "$t:hero.title"
+                },
+                {
+                  "type": "p",
+                  "content": "$t:hero.subtitle"
+                },
+                {
+                  "type": "button",
+                  "props": {
+                    "className": "px-6 py-3 rounded-lg transition-colors",
+                    "style": {
+                      "backgroundColor": "#3b82f6",
+                      "color": "#ffffff"
+                    }
+                  },
+                  "interactions": {
+                    "hover": {
+                      "backgroundColor": "#2563eb"
+                    }
+                  },
+                  "content": "$t:hero.cta.primary"
+                },
+                {
+                  "type": "button",
+                  "props": {
+                    "className": "px-6 py-3 rounded-lg transition-colors",
+                    "style": {
+                      "borderWidth": "2px",
+                      "borderStyle": "solid",
+                      "borderColor": "#3b82f6",
+                      "color": "#3b82f6",
+                      "backgroundColor": "transparent"
+                    }
+                  },
+                  "content": "$t:hero.cta.secondary"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "props": {
+            "id": "features"
+          },
+          "children": [
+            {
+              "type": "h2",
+              "content": "$t:features.title"
+            },
+            {
+              "type": "p",
+              "content": "$t:features.subtitle"
+            },
+            {
+              "block": "feature-card",
+              "vars": {
+                "icon": "$t:feature.1.icon",
+                "title": "$t:feature.1.title",
+                "description": "$t:feature.1.description"
+              }
+            },
+            {
+              "block": "feature-card",
+              "vars": {
+                "icon": "$t:feature.2.icon",
+                "title": "$t:feature.2.title",
+                "description": "$t:feature.2.description"
+              }
+            },
+            {
+              "block": "feature-card",
+              "vars": {
+                "icon": "$t:feature.3.icon",
+                "title": "$t:feature.3.title",
+                "description": "$t:feature.3.description"
+              }
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "props": {
+            "style": {
+              "backgroundColor": "#3b82f6",
+              "color": "#ffffff"
+            }
+          },
+          "children": [
+            {
+              "type": "h2",
+              "content": "$t:cta.title"
+            },
+            {
+              "type": "p",
+              "content": "$t:cta.subtitle"
+            },
+            {
+              "block": "cta-button",
+              "vars": {
+                "label": "$t:cta.button"
+              }
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "props": {
+            "style": {
+              "backgroundColor": "#111827",
+              "color": "#ffffff"
+            }
+          },
+          "children": [
+            {
+              "type": "p",
+              "content": "$t:footer.copyright"
+            },
+            {
+              "type": "p",
+              "content": "$t:footer.rights"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

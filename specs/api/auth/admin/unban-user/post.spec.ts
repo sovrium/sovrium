@@ -77,12 +77,12 @@ test.describe('Admin: Unban user', () => {
       expect(data).toMatchObject({ success: expect.any(Boolean) })
 
       // User ban is removed in database
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
+      const dbRow = await executeQuery('SELECT * FROM users WHERE id = 2 LIMIT 1')
       expect(dbRow).toBeDefined()
+      expect(dbRow.banned).toBe(false)
 
       // Ban reason is cleared
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      expect(dbRow.ban_reason).toBeNull()
     }
   )
 
