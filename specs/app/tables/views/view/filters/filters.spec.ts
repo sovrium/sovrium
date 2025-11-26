@@ -37,10 +37,13 @@ test.describe('View Filters', () => {
             id: 'tbl_products',
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'status', type: 'text' },
               { name: 'age', type: 'integer' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             views: [
               {
                 id: 'active_adults',
@@ -84,10 +87,13 @@ test.describe('View Filters', () => {
             id: 'tbl_tasks',
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'priority', type: 'text' },
               { name: 'urgent', type: 'boolean' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             views: [
               {
                 id: 'important_tasks',
@@ -131,9 +137,12 @@ test.describe('View Filters', () => {
             id: 'tbl_items',
             name: 'items',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'name', type: 'text' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             views: [
               {
                 id: 'test_view',
@@ -177,10 +186,13 @@ test.describe('View Filters', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'category', type: 'text' },
               { name: 'status', type: 'text' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             views: [
               {
                 id: 'filtered_view',

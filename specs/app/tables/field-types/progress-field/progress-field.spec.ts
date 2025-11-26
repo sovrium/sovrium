@@ -32,9 +32,12 @@ test.describe('Progress Field', () => {
             id: 'tbl_tasks',
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'progress', type: 'progress' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -63,9 +66,12 @@ test.describe('Progress Field', () => {
             id: 'tbl_projects',
             name: 'projects',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'completion', type: 'progress' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -96,9 +102,12 @@ test.describe('Progress Field', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'progress_field', type: 'progress', required: true, default: 0 },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

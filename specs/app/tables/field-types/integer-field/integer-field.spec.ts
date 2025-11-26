@@ -37,9 +37,12 @@ test.describe('Integer Field', () => {
             id: 'tbl_products',
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'quantity', type: 'integer' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -79,9 +82,12 @@ test.describe('Integer Field', () => {
             id: 'tbl_inventory',
             name: 'inventory',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'stock', type: 'integer', min: 0, max: 1000 },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -120,9 +126,12 @@ test.describe('Integer Field', () => {
             id: 'tbl_orders',
             name: 'orders',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'order_number', type: 'integer', unique: true, required: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -163,9 +172,12 @@ test.describe('Integer Field', () => {
             id: 'tbl_settings',
             name: 'settings',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'timeout', type: 'integer', default: 30 },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -201,9 +213,12 @@ test.describe('Integer Field', () => {
             id: 'tbl_leaderboard',
             name: 'leaderboard',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'score', type: 'integer', required: true, indexed: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -243,7 +258,7 @@ test.describe('Integer Field', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'integer_field',
                 type: 'integer',
@@ -255,6 +270,9 @@ test.describe('Integer Field', () => {
                 default: 50,
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

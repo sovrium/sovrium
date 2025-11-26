@@ -31,9 +31,12 @@ test.describe('Updated At Field', () => {
             id: 'tbl_records',
             name: 'records',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'updated_at', type: 'updated-at' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -57,10 +60,13 @@ test.describe('Updated At Field', () => {
             id: 'tbl_posts',
             name: 'posts',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'title', type: 'text' },
               { name: 'updated_at', type: 'updated-at' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -92,9 +98,12 @@ test.describe('Updated At Field', () => {
             id: 'tbl_items',
             name: 'items',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'updated_at', type: 'updated-at' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -120,9 +129,12 @@ test.describe('Updated At Field', () => {
             id: 'tbl_events',
             name: 'events',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'updated_at', type: 'updated-at' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -145,9 +157,12 @@ test.describe('Updated At Field', () => {
             id: 'tbl_audit',
             name: 'audit',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'updated_at', type: 'updated-at', indexed: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -170,10 +185,13 @@ test.describe('Updated At Field', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'value', type: 'text' },
               { name: 'updated_at', type: 'updated-at', indexed: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

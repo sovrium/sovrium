@@ -32,9 +32,12 @@ test.describe('Duration Field', () => {
             id: 'tbl_tasks',
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'duration', type: 'duration' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -63,9 +66,12 @@ test.describe('Duration Field', () => {
             id: 'tbl_projects',
             name: 'projects',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'estimated_time', type: 'duration' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -90,9 +96,12 @@ test.describe('Duration Field', () => {
             id: 'tbl_meetings',
             name: 'meetings',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'length', type: 'duration', required: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -119,9 +128,12 @@ test.describe('Duration Field', () => {
             id: 'tbl_sessions',
             name: 'sessions',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'timeout', type: 'duration', default: '30 minutes' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -144,9 +156,12 @@ test.describe('Duration Field', () => {
             id: 'tbl_videos',
             name: 'videos',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'length', type: 'duration', required: true, indexed: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -169,9 +184,12 @@ test.describe('Duration Field', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'duration_field', type: 'duration', required: true, indexed: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

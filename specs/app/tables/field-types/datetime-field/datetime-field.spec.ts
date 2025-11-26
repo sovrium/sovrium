@@ -37,9 +37,12 @@ test.describe('DateTime Field', () => {
             id: 'tbl_posts',
             name: 'posts',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'created_at', type: 'datetime' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -72,9 +75,12 @@ test.describe('DateTime Field', () => {
             id: 'tbl_events',
             name: 'events',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'timestamp', type: 'datetime' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -104,9 +110,12 @@ test.describe('DateTime Field', () => {
             id: 'tbl_articles',
             name: 'articles',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'published_at', type: 'datetime', required: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -141,9 +150,12 @@ test.describe('DateTime Field', () => {
             id: 'tbl_records',
             name: 'records',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'updated_at', type: 'datetime', default: 'NOW()' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -174,9 +186,12 @@ test.describe('DateTime Field', () => {
             id: 'tbl_logs',
             name: 'logs',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'created_at', type: 'datetime', required: true, indexed: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -209,7 +224,7 @@ test.describe('DateTime Field', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'datetime_field',
                 type: 'datetime',
@@ -217,6 +232,9 @@ test.describe('DateTime Field', () => {
                 indexed: true,
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

@@ -31,9 +31,12 @@ test.describe('Rating Field', () => {
             id: 'tbl_reviews',
             name: 'reviews',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'rating', type: 'rating' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -62,9 +65,12 @@ test.describe('Rating Field', () => {
             id: 'tbl_products',
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'rating', type: 'rating', min: 1, max: 5 },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -95,9 +101,12 @@ test.describe('Rating Field', () => {
             id: 'tbl_feedback',
             name: 'feedback',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'rating', type: 'rating', required: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -124,9 +133,12 @@ test.describe('Rating Field', () => {
             id: 'tbl_items',
             name: 'items',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'rating', type: 'rating', default: 3 },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -149,9 +161,12 @@ test.describe('Rating Field', () => {
             id: 'tbl_movies',
             name: 'movies',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'rating', type: 'rating', required: true, indexed: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -174,7 +189,7 @@ test.describe('Rating Field', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'rating_field',
                 type: 'rating',
@@ -185,6 +200,9 @@ test.describe('Rating Field', () => {
                 default: 3,
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

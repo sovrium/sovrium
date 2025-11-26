@@ -34,10 +34,13 @@ test.describe('Created By Field', () => {
             id: 'tbl_posts',
             name: 'posts',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'title', type: 'text' },
               { name: 'created_by', type: 'created-by' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -78,10 +81,13 @@ test.describe('Created By Field', () => {
             id: 'tbl_documents',
             name: 'documents',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'title', type: 'text' },
               { name: 'created_by', type: 'created-by' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -121,10 +127,13 @@ test.describe('Created By Field', () => {
             id: 'tbl_issues',
             name: 'issues',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'title', type: 'text' },
               { name: 'created_by', type: 'created-by' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -163,10 +172,13 @@ test.describe('Created By Field', () => {
             id: 'tbl_tasks',
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'title', type: 'text' },
               { name: 'created_by', type: 'created-by' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -211,10 +223,13 @@ test.describe('Created By Field', () => {
             id: 'tbl_comments',
             name: 'comments',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'content', type: 'text' },
               { name: 'created_by', type: 'created-by', indexed: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -251,10 +266,13 @@ test.describe('Created By Field', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'content', type: 'text' },
               { name: 'created_by', type: 'created-by', indexed: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

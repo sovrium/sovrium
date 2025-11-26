@@ -36,9 +36,12 @@ test.describe('Long Text Field', () => {
             id: 'tbl_articles',
             name: 'articles',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'description', type: 'long-text' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -74,9 +77,12 @@ test.describe('Long Text Field', () => {
             id: 'tbl_posts',
             name: 'posts',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'content', type: 'long-text' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -110,9 +116,12 @@ test.describe('Long Text Field', () => {
             id: 'tbl_comments',
             name: 'comments',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'body', type: 'long-text', required: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -147,9 +156,12 @@ test.describe('Long Text Field', () => {
             id: 'tbl_pages',
             name: 'pages',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'content', type: 'long-text', required: true, indexed: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -185,9 +197,12 @@ test.describe('Long Text Field', () => {
             id: 'tbl_projects',
             name: 'projects',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'notes', type: 'long-text', default: 'No notes' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -227,7 +242,7 @@ test.describe('Long Text Field', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'long_text_field',
                 type: 'long-text',
@@ -235,6 +250,9 @@ test.describe('Long Text Field', () => {
                 indexed: true,
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

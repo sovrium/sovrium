@@ -179,7 +179,7 @@ test.describe('Rollup Field', () => {
             id: 'tbl_categories',
             name: 'categories',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'total_value',
                 type: 'rollup',
@@ -188,6 +188,9 @@ test.describe('Rollup Field', () => {
                 aggregation: 'sum',
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

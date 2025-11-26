@@ -49,7 +49,7 @@ test.describe('Checksum Optimization', () => {
               {
                 name: 'id',
                 type: 'integer',
-                constraints: { primaryKey: true },
+                required: true,
               },
               {
                 name: 'email',
@@ -111,7 +111,7 @@ test.describe('Checksum Optimization', () => {
               {
                 name: 'id',
                 type: 'integer',
-                constraints: { primaryKey: true },
+                required: true,
               },
               {
                 name: 'email',
@@ -169,7 +169,7 @@ test.describe('Checksum Optimization', () => {
               {
                 name: 'id',
                 type: 'integer',
-                constraints: { primaryKey: true },
+                required: true,
               },
               {
                 name: 'email',
@@ -234,7 +234,7 @@ test.describe('Checksum Optimization', () => {
               {
                 name: 'id',
                 type: 'integer',
-                constraints: { primaryKey: true },
+                required: true,
               },
               {
                 name: 'sku',
@@ -293,7 +293,7 @@ test.describe('Checksum Optimization', () => {
               {
                 name: 'id',
                 type: 'integer',
-                constraints: { primaryKey: true },
+                required: true,
               },
               {
                 name: 'value',
@@ -322,7 +322,7 @@ test.describe('Checksum Optimization', () => {
               {
                 name: 'id',
                 type: 'integer',
-                constraints: { primaryKey: true },
+                required: true,
               },
               {
                 name: 'value',

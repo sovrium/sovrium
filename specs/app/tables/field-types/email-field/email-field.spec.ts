@@ -37,9 +37,12 @@ test.describe('Email Field', () => {
             id: 'tbl_users',
             name: 'users',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'email', type: 'email' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -75,9 +78,12 @@ test.describe('Email Field', () => {
             id: 'tbl_contacts',
             name: 'contacts',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'email', type: 'email' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -106,9 +112,12 @@ test.describe('Email Field', () => {
             id: 'tbl_members',
             name: 'members',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'email', type: 'email', unique: true, required: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -143,9 +152,12 @@ test.describe('Email Field', () => {
             id: 'tbl_subscribers',
             name: 'subscribers',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'email', type: 'email', required: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -180,9 +192,12 @@ test.describe('Email Field', () => {
             id: 'tbl_customers',
             name: 'customers',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'email', type: 'email', unique: true, indexed: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -222,7 +237,7 @@ test.describe('Email Field', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'email_field',
                 type: 'email',
@@ -231,6 +246,9 @@ test.describe('Email Field', () => {
                 indexed: true,
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

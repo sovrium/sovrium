@@ -255,7 +255,7 @@ test.describe('Status Field', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'status',
                 type: 'status',
@@ -269,6 +269,9 @@ test.describe('Status Field', () => {
                 default: 'Draft',
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

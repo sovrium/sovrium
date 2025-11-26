@@ -37,9 +37,12 @@ test.describe('Currency Field', () => {
             id: 'tbl_products',
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'price', type: 'currency' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -72,9 +75,12 @@ test.describe('Currency Field', () => {
             id: 'tbl_projects',
             name: 'projects',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'budget', type: 'currency', min: 0, max: 10_000 },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -108,9 +114,12 @@ test.describe('Currency Field', () => {
             id: 'tbl_transactions',
             name: 'transactions',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'amount', type: 'currency', unique: true, required: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -146,9 +155,12 @@ test.describe('Currency Field', () => {
             id: 'tbl_subscriptions',
             name: 'subscriptions',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'fee', type: 'currency', default: 9.99 },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -179,9 +191,12 @@ test.describe('Currency Field', () => {
             id: 'tbl_orders',
             name: 'orders',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'total', type: 'currency', required: true, indexed: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -214,7 +229,7 @@ test.describe('Currency Field', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'currency_field',
                 type: 'currency',
@@ -225,6 +240,9 @@ test.describe('Currency Field', () => {
                 default: 99.99,
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

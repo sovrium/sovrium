@@ -46,7 +46,7 @@ test.describe('Remove Field Migration', () => {
               {
                 name: 'id',
                 type: 'integer',
-                constraints: { primaryKey: true },
+                required: true,
               },
               {
                 name: 'email',
@@ -95,7 +95,7 @@ test.describe('Remove Field Migration', () => {
               {
                 name: 'id',
                 type: 'integer',
-                constraints: { primaryKey: true },
+                required: true,
               },
               {
                 name: 'title',
@@ -147,7 +147,7 @@ test.describe('Remove Field Migration', () => {
               {
                 name: 'id',
                 type: 'integer',
-                constraints: { primaryKey: true },
+                required: true,
               },
               {
                 name: 'title',
@@ -197,7 +197,7 @@ test.describe('Remove Field Migration', () => {
               {
                 name: 'id',
                 type: 'integer',
-                constraints: { primaryKey: true },
+                required: true,
               },
               {
                 name: 'name',
@@ -212,7 +212,7 @@ test.describe('Remove Field Migration', () => {
               {
                 name: 'id',
                 type: 'integer',
-                constraints: { primaryKey: true },
+                required: true,
               },
               {
                 name: 'total',
@@ -271,7 +271,7 @@ test.describe('Remove Field Migration', () => {
               {
                 name: 'id',
                 type: 'integer',
-                constraints: { primaryKey: true },
+                required: true,
               },
               {
                 name: 'title',

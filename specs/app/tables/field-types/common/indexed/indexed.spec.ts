@@ -37,9 +37,12 @@ test.describe('Indexed Field Property', () => {
             id: 'tbl_users',
             name: 'users',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'email', type: 'email', indexed: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -79,10 +82,13 @@ test.describe('Indexed Field Property', () => {
             id: 'tbl_products',
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'name', type: 'text' },
               { name: 'description', type: 'long-text', indexed: false },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -122,10 +128,13 @@ test.describe('Indexed Field Property', () => {
             id: 'tbl_events',
             name: 'events',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'name', type: 'text' },
               { name: 'occurred_at', type: 'datetime', indexed: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -165,11 +174,14 @@ test.describe('Indexed Field Property', () => {
             id: 'tbl_orders',
             name: 'orders',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'customer_id', type: 'integer', indexed: true },
               { name: 'status', type: 'text' },
               { name: 'total', type: 'decimal' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -212,9 +224,12 @@ test.describe('Indexed Field Property', () => {
             id: 'tbl_companies',
             name: 'companies',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'name', type: 'single-line-text', indexed: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -259,11 +274,14 @@ test.describe('Indexed Field Property', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'email', type: 'email', indexed: true },
               { name: 'created_at', type: 'datetime', indexed: true },
               { name: 'notes', type: 'long-text', indexed: false },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

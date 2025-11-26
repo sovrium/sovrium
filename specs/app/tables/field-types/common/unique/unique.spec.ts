@@ -37,10 +37,13 @@ test.describe('Unique Field Property', () => {
             id: 'tbl_users',
             name: 'users',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'email', type: 'email', unique: true, required: true },
               { name: 'name', type: 'single-line-text' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -81,10 +84,13 @@ test.describe('Unique Field Property', () => {
             id: 'tbl_products',
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'name', type: 'single-line-text', required: true },
               { name: 'category', type: 'single-line-text', unique: false },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -156,9 +162,12 @@ test.describe('Unique Field Property', () => {
             id: 'tbl_sessions',
             name: 'sessions',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'token', type: 'single-line-text', unique: true, required: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -194,9 +203,12 @@ test.describe('Unique Field Property', () => {
             id: 'tbl_contacts',
             name: 'contacts',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'phone', type: 'phone-number', unique: true, required: false },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -244,10 +256,13 @@ test.describe('Unique Field Property', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'unique_field', type: 'single-line-text', unique: true, required: true },
               { name: 'non_unique_field', type: 'single-line-text', unique: false },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

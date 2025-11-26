@@ -176,7 +176,7 @@ test.describe('Lookup Field', () => {
             id: 'tbl_items',
             name: 'items',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'category_name',
                 type: 'lookup',
@@ -184,6 +184,9 @@ test.describe('Lookup Field', () => {
                 relatedField: 'name',
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

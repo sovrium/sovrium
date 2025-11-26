@@ -37,10 +37,13 @@ test.describe('Updated By Field', () => {
             id: 'tbl_products',
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'name', type: 'single-line-text' },
               { name: 'updated_by', type: 'updated-by' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -80,10 +83,13 @@ test.describe('Updated By Field', () => {
             id: 'tbl_documents',
             name: 'documents',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'title', type: 'text' },
               { name: 'updated_by', type: 'updated-by' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -127,11 +133,14 @@ test.describe('Updated By Field', () => {
             id: 'tbl_tasks',
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'title', type: 'text' },
               { name: 'status', type: 'text' },
               { name: 'updated_by', type: 'updated-by' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -178,11 +187,14 @@ test.describe('Updated By Field', () => {
             id: 'tbl_pages',
             name: 'pages',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'title', type: 'text' },
               { name: 'created_by', type: 'created-by' },
               { name: 'updated_by', type: 'updated-by' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -221,10 +233,13 @@ test.describe('Updated By Field', () => {
             id: 'tbl_articles',
             name: 'articles',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'content', type: 'long-text' },
               { name: 'updated_by', type: 'updated-by', indexed: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -260,10 +275,13 @@ test.describe('Updated By Field', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'value', type: 'text' },
               { name: 'updated_by', type: 'updated-by', indexed: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

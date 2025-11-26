@@ -31,11 +31,14 @@ test.describe('Multi Select Field', () => {
             id: 'tbl_products',
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'tags',
                 type: 'multi-select',
                 options: ['new', 'sale', 'featured', 'limited'],
+                primaryKey: {
+                  fields: ['id'],
+                },
               },
             ],
           },
@@ -67,11 +70,14 @@ test.describe('Multi Select Field', () => {
             id: 'tbl_articles',
             name: 'articles',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'categories',
                 type: 'multi-select',
                 options: ['tech', 'business', 'health', 'sports'],
+                primaryKey: {
+                  fields: ['id'],
+                },
               },
             ],
           },
@@ -100,7 +106,7 @@ test.describe('Multi Select Field', () => {
             id: 'tbl_projects',
             name: 'projects',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'skills',
                 type: 'multi-select',
@@ -108,6 +114,9 @@ test.describe('Multi Select Field', () => {
                 required: true,
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -134,12 +143,15 @@ test.describe('Multi Select Field', () => {
             id: 'tbl_users',
             name: 'users',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'roles',
                 type: 'multi-select',
                 options: ['user', 'admin', 'moderator'],
                 default: ['user'],
+                primaryKey: {
+                  fields: ['id'],
+                },
               },
             ],
           },
@@ -164,7 +176,7 @@ test.describe('Multi Select Field', () => {
             id: 'tbl_posts',
             name: 'posts',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'tags',
                 type: 'multi-select',
@@ -173,6 +185,9 @@ test.describe('Multi Select Field', () => {
                 indexed: true,
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -195,7 +210,7 @@ test.describe('Multi Select Field', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'multiselect_field',
                 type: 'multi-select',
@@ -204,6 +219,9 @@ test.describe('Multi Select Field', () => {
                 indexed: true,
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

@@ -47,9 +47,12 @@ test.describe('Table View', () => {
             id: 'tbl_example',
             name: 'example',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'name', type: 'text' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             views: [
               {
                 id: 'example_view',
@@ -88,9 +91,12 @@ test.describe('Table View', () => {
               id: 'tbl_example',
               name: 'example',
               fields: [
-                { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+                { name: 'id', type: 'integer', required: true },
                 { name: 'name', type: 'text' },
               ],
+              primaryKey: {
+                fields: ['id'],
+              },
               views: [
                 {
                   id: 'Invalid View ID',
@@ -117,10 +123,13 @@ test.describe('Table View', () => {
             id: 'tbl_tasks',
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'title', type: 'text' },
               { name: 'status', type: 'text' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             views: [
               {
                 id: 'active_tasks',
@@ -174,11 +183,14 @@ test.describe('Table View', () => {
             id: 'tbl_items',
             name: 'items',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'title', type: 'text' },
               { name: 'status', type: 'text' },
               { name: 'priority', type: 'integer' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             views: [
               {
                 id: 'default_view',

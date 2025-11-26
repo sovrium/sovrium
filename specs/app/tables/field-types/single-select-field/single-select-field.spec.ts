@@ -31,11 +31,14 @@ test.describe('Single Select Field', () => {
             id: 'tbl_tasks',
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'status',
                 type: 'single-select',
                 options: ['todo', 'in_progress', 'done'],
+                primaryKey: {
+                  fields: ['id'],
+                },
               },
             ],
           },
@@ -66,11 +69,14 @@ test.describe('Single Select Field', () => {
             id: 'tbl_products',
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'category',
                 type: 'single-select',
                 options: ['electronics', 'clothing', 'food'],
+                primaryKey: {
+                  fields: ['id'],
+                },
               },
             ],
           },
@@ -99,7 +105,7 @@ test.describe('Single Select Field', () => {
             id: 'tbl_orders',
             name: 'orders',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'priority',
                 type: 'single-select',
@@ -107,6 +113,9 @@ test.describe('Single Select Field', () => {
                 required: true,
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -133,7 +142,7 @@ test.describe('Single Select Field', () => {
             id: 'tbl_tickets',
             name: 'tickets',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'status',
                 type: 'single-select',
@@ -141,6 +150,9 @@ test.describe('Single Select Field', () => {
                 default: 'open',
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -163,7 +175,7 @@ test.describe('Single Select Field', () => {
             id: 'tbl_issues',
             name: 'issues',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'type',
                 type: 'single-select',
@@ -172,6 +184,9 @@ test.describe('Single Select Field', () => {
                 indexed: true,
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -194,7 +209,7 @@ test.describe('Single Select Field', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'select_field',
                 type: 'single-select',
@@ -204,6 +219,9 @@ test.describe('Single Select Field', () => {
                 default: 'option1',
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

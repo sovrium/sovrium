@@ -36,9 +36,12 @@ test.describe('Decimal Field', () => {
             id: 'tbl_products',
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'price', type: 'decimal' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -71,9 +74,12 @@ test.describe('Decimal Field', () => {
             id: 'tbl_transactions',
             name: 'transactions',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'amount', type: 'decimal', min: 0, max: 1000 },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -107,9 +113,12 @@ test.describe('Decimal Field', () => {
             id: 'tbl_measurements',
             name: 'measurements',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'value', type: 'decimal', unique: true, required: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -145,9 +154,12 @@ test.describe('Decimal Field', () => {
             id: 'tbl_config',
             name: 'config',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'rate', type: 'decimal', default: 1.5 },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -178,9 +190,12 @@ test.describe('Decimal Field', () => {
             id: 'tbl_scores',
             name: 'scores',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'score', type: 'decimal', required: true, indexed: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -213,7 +228,7 @@ test.describe('Decimal Field', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'decimal_field',
                 type: 'decimal',
@@ -224,6 +239,9 @@ test.describe('Decimal Field', () => {
                 default: 50.5,
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

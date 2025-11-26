@@ -37,11 +37,14 @@ test.describe('View Fields', () => {
             id: 'tbl_products',
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'name', type: 'text' },
               { name: 'price', type: 'decimal' },
               { name: 'internal_notes', type: 'text' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             views: [
               {
                 id: 'public_view',
@@ -82,11 +85,14 @@ test.describe('View Fields', () => {
             id: 'tbl_tasks',
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'title', type: 'text' },
               { name: 'status', type: 'text' },
               { name: 'priority', type: 'text' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             views: [
               {
                 id: 'ordered_view',
@@ -128,11 +134,14 @@ test.describe('View Fields', () => {
             id: 'tbl_users',
             name: 'users',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'username', type: 'text' },
               { name: 'email', type: 'text' },
               { name: 'password', type: 'text' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             views: [
               {
                 id: 'safe_view',
@@ -174,11 +183,14 @@ test.describe('View Fields', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'name', type: 'text' },
               { name: 'status', type: 'text' },
               { name: 'secret', type: 'text' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             views: [
               {
                 id: 'custom_view',

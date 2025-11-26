@@ -47,11 +47,14 @@ test.describe('Record-Level Permissions', () => {
             id: 'tbl_documents',
             name: 'documents',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'title', type: 'text' },
               { name: 'content', type: 'text' },
               { name: 'created_by', type: 'integer' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             permissions: {
               records: [
                 {
@@ -111,11 +114,14 @@ test.describe('Record-Level Permissions', () => {
             id: 'tbl_tasks',
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'title', type: 'text' },
               { name: 'status', type: 'text' },
               { name: 'assigned_to', type: 'integer' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             permissions: {
               records: [
                 {
@@ -175,11 +181,14 @@ test.describe('Record-Level Permissions', () => {
             id: 'tbl_articles',
             name: 'articles',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'title', type: 'text' },
               { name: 'status', type: 'text' },
               { name: 'created_by', type: 'integer' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             permissions: {
               records: [
                 {
@@ -239,12 +248,15 @@ test.describe('Record-Level Permissions', () => {
             id: 'tbl_projects',
             name: 'projects',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'name', type: 'text' },
               { name: 'department', type: 'text' },
               { name: 'status', type: 'text' },
               { name: 'owner_id', type: 'integer' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             permissions: {
               records: [
                 {
@@ -310,11 +322,14 @@ test.describe('Record-Level Permissions', () => {
             id: 'tbl_employees',
             name: 'employees',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'name', type: 'text' },
               { name: 'department', type: 'text' },
               { name: 'email', type: 'text' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             permissions: {
               records: [
                 {
@@ -376,11 +391,14 @@ test.describe('Record-Level Permissions', () => {
             id: 'tbl_tickets',
             name: 'tickets',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'title', type: 'text' },
               { name: 'created_by', type: 'integer' },
               { name: 'assigned_to', type: 'integer' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             permissions: {
               records: [
                 {
@@ -450,11 +468,14 @@ test.describe('Record-Level Permissions', () => {
             id: 'tbl_items',
             name: 'items',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'title', type: 'text' },
               { name: 'owner_id', type: 'integer' },
               { name: 'status', type: 'text' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             permissions: {
               records: [
                 {

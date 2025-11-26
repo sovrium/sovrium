@@ -37,10 +37,13 @@ test.describe('Filter Condition', () => {
             id: 'tbl_users',
             name: 'users',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'status', type: 'text' },
               { name: 'name', type: 'text' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             views: [
               {
                 id: 'active_users',
@@ -81,9 +84,12 @@ test.describe('Filter Condition', () => {
             id: 'tbl_products',
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'name', type: 'text' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             views: [
               {
                 id: 'test_products',
@@ -124,10 +130,13 @@ test.describe('Filter Condition', () => {
             id: 'tbl_employees',
             name: 'employees',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'name', type: 'text' },
               { name: 'age', type: 'integer' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             views: [
               {
                 id: 'adults',
@@ -166,10 +175,13 @@ test.describe('Filter Condition', () => {
             id: 'tbl_contacts',
             name: 'contacts',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'name', type: 'text' },
               { name: 'email', type: 'text' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             views: [
               {
                 id: 'no_email',
@@ -210,10 +222,13 @@ test.describe('Filter Condition', () => {
             id: 'tbl_items',
             name: 'items',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'name', type: 'text' },
               { name: 'category', type: 'text' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             views: [
               {
                 id: 'tech_items',
@@ -264,11 +279,14 @@ test.describe('Filter Condition', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'status', type: 'text' },
               { name: 'value', type: 'integer' },
               { name: 'category', type: 'text' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             views: [
               {
                 id: 'filtered_view',

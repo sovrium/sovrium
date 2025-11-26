@@ -36,9 +36,12 @@ test.describe('Percentage Field', () => {
             id: 'tbl_tasks',
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'completion', type: 'percentage' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -71,9 +74,12 @@ test.describe('Percentage Field', () => {
             id: 'tbl_projects',
             name: 'projects',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'progress', type: 'percentage', min: 0, max: 100 },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -107,9 +113,12 @@ test.describe('Percentage Field', () => {
             id: 'tbl_scores',
             name: 'scores',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'score', type: 'percentage', unique: true, required: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -145,9 +154,12 @@ test.describe('Percentage Field', () => {
             id: 'tbl_promotions',
             name: 'promotions',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'discount', type: 'percentage', default: 10.0 },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -178,9 +190,12 @@ test.describe('Percentage Field', () => {
             id: 'tbl_reviews',
             name: 'reviews',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'rating', type: 'percentage', required: true, indexed: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -213,7 +228,7 @@ test.describe('Percentage Field', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'percentage_field',
                 type: 'percentage',
@@ -224,6 +239,9 @@ test.describe('Percentage Field', () => {
                 default: 50.0,
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

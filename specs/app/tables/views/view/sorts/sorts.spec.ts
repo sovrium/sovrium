@@ -37,10 +37,13 @@ test.describe('View Sorts', () => {
             id: 'tbl_products',
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'name', type: 'text' },
               { name: 'price', type: 'decimal' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             views: [
               {
                 id: 'by_price_asc',
@@ -81,10 +84,13 @@ test.describe('View Sorts', () => {
             id: 'tbl_tasks',
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'title', type: 'text' },
               { name: 'priority', type: 'integer' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             views: [
               {
                 id: 'by_priority_desc',
@@ -125,11 +131,14 @@ test.describe('View Sorts', () => {
             id: 'tbl_employees',
             name: 'employees',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'department', type: 'text' },
               { name: 'name', type: 'text' },
               { name: 'salary', type: 'decimal' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             views: [
               {
                 id: 'multi_sort',
@@ -185,10 +194,13 @@ test.describe('View Sorts', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'category', type: 'text' },
               { name: 'value', type: 'integer' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             views: [
               {
                 id: 'sorted_view',

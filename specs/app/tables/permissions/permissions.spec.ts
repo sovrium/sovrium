@@ -47,10 +47,13 @@ test.describe('Table Permissions', () => {
             id: 'tbl_admin_data',
             name: 'admin_data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'secret', type: 'text' },
               { name: 'owner_id', type: 'integer' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             permissions: {
               table: {
                 read: {
@@ -108,11 +111,14 @@ test.describe('Table Permissions', () => {
             id: 'tbl_users',
             name: 'users',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'name', type: 'text' },
               { name: 'email', type: 'text' },
               { name: 'salary', type: 'decimal', constraints: { precision: 10, scale: 2 } },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             permissions: {
               table: {
                 read: {
@@ -182,12 +188,15 @@ test.describe('Table Permissions', () => {
             id: 'tbl_tasks',
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'title', type: 'text' },
               { name: 'notes', type: 'text' },
               { name: 'owner_id', type: 'integer' },
               { name: 'status', type: 'text' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             permissions: {
               table: {
                 read: {
@@ -262,9 +271,12 @@ test.describe('Table Permissions', () => {
             id: 'tbl_confidential',
             name: 'confidential',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'data', type: 'text' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -315,12 +327,15 @@ test.describe('Table Permissions', () => {
             id: 'tbl_posts',
             name: 'posts',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'title', type: 'text' },
               { name: 'body', type: 'text' },
               { name: 'draft', type: 'boolean' },
               { name: 'author_id', type: 'integer' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             permissions: {
               table: {
                 read: {
@@ -396,13 +411,16 @@ test.describe('Table Permissions', () => {
             id: 'tbl_documents',
             name: 'documents',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'title', type: 'text' },
               { name: 'content', type: 'text' },
               { name: 'salary_info', type: 'text' },
               { name: 'author_id', type: 'integer' },
               { name: 'status', type: 'text' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
             permissions: {
               table: {
                 read: {

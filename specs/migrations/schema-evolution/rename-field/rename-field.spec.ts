@@ -46,7 +46,7 @@ test.describe('Rename Field Migration', () => {
               {
                 name: 'id',
                 type: 'integer',
-                constraints: { primaryKey: true },
+                required: true,
               },
               {
                 id: 'field_email',
@@ -107,7 +107,7 @@ test.describe('Rename Field Migration', () => {
               {
                 name: 'id',
                 type: 'integer',
-                constraints: { primaryKey: true },
+                required: true,
               },
               {
                 id: 'field_sku',
@@ -163,7 +163,7 @@ test.describe('Rename Field Migration', () => {
               {
                 name: 'id',
                 type: 'integer',
-                constraints: { primaryKey: true },
+                required: true,
               },
               {
                 name: 'name',
@@ -178,7 +178,7 @@ test.describe('Rename Field Migration', () => {
               {
                 name: 'id',
                 type: 'integer',
-                constraints: { primaryKey: true },
+                required: true,
               },
               {
                 id: 'field_customer_id',
@@ -237,7 +237,7 @@ test.describe('Rename Field Migration', () => {
               {
                 name: 'id',
                 type: 'integer',
-                constraints: { primaryKey: true },
+                required: true,
               },
               {
                 id: 'field_status',
@@ -298,7 +298,7 @@ test.describe('Rename Field Migration', () => {
               {
                 name: 'id',
                 type: 'integer',
-                constraints: { primaryKey: true },
+                required: true,
               },
               {
                 id: 'field_old_name',

@@ -32,9 +32,12 @@ test.describe('Time Field', () => {
             id: 'tbl_schedules',
             name: 'schedules',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'start_time', type: 'time' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -63,9 +66,12 @@ test.describe('Time Field', () => {
             id: 'tbl_appointments',
             name: 'appointments',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'appointment_time', type: 'time' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -92,9 +98,12 @@ test.describe('Time Field', () => {
             id: 'tbl_shifts',
             name: 'shifts',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'shift_start', type: 'time', required: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -121,9 +130,12 @@ test.describe('Time Field', () => {
             id: 'tbl_config',
             name: 'config',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'default_time', type: 'time', default: '12:00:00' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -146,9 +158,12 @@ test.describe('Time Field', () => {
             id: 'tbl_events',
             name: 'events',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'event_time', type: 'time', required: true, indexed: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -171,9 +186,12 @@ test.describe('Time Field', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'time_field', type: 'time', required: true, indexed: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

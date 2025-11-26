@@ -37,10 +37,13 @@ test.describe('Required Field Property', () => {
             id: 'tbl_users',
             name: 'users',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'name', type: 'single-line-text', required: true },
               { name: 'email', type: 'email' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -79,10 +82,13 @@ test.describe('Required Field Property', () => {
             id: 'tbl_products',
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'name', type: 'single-line-text', required: true },
               { name: 'description', type: 'long-text', required: false },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -152,12 +158,15 @@ test.describe('Required Field Property', () => {
             id: 'tbl_employees',
             name: 'employees',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'first_name', type: 'single-line-text', required: true },
               { name: 'last_name', type: 'single-line-text', required: true },
               { name: 'email', type: 'email' },
               { name: 'phone', type: 'phone-number' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -210,10 +219,13 @@ test.describe('Required Field Property', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'required_field', type: 'single-line-text', required: true },
               { name: 'optional_field', type: 'single-line-text', required: false },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

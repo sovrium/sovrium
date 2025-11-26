@@ -37,9 +37,12 @@ test.describe('Phone Number Field', () => {
             id: 'tbl_contacts',
             name: 'contacts',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'phone', type: 'phone-number' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -75,9 +78,12 @@ test.describe('Phone Number Field', () => {
             id: 'tbl_customers',
             name: 'customers',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'mobile', type: 'phone-number' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -118,9 +124,12 @@ test.describe('Phone Number Field', () => {
             id: 'tbl_users',
             name: 'users',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'phone', type: 'phone-number', unique: true, required: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -155,9 +164,12 @@ test.describe('Phone Number Field', () => {
             id: 'tbl_support_tickets',
             name: 'support_tickets',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'contact_phone', type: 'phone-number', required: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -192,9 +204,12 @@ test.describe('Phone Number Field', () => {
             id: 'tbl_employees',
             name: 'employees',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'phone', type: 'phone-number', unique: true, indexed: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -234,7 +249,7 @@ test.describe('Phone Number Field', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'phone_field',
                 type: 'phone-number',
@@ -243,6 +258,9 @@ test.describe('Phone Number Field', () => {
                 indexed: true,
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

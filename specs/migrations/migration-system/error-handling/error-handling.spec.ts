@@ -46,7 +46,7 @@ test.describe('Error Handling and Rollback', () => {
                 {
                   name: 'id',
                   type: 'integer',
-                  constraints: { primaryKey: true },
+                  required: true,
                 },
                 {
                   name: 'email',
@@ -62,7 +62,7 @@ test.describe('Error Handling and Rollback', () => {
                 {
                   name: 'id',
                   type: 'integer',
-                  constraints: { primaryKey: true },
+                  required: true,
                 },
                 {
                   name: 'bad_field',
@@ -115,7 +115,7 @@ test.describe('Error Handling and Rollback', () => {
                 {
                   name: 'id',
                   type: 'integer',
-                  constraints: { primaryKey: true },
+                  required: true,
                 },
                 {
                   name: 'name',
@@ -131,7 +131,7 @@ test.describe('Error Handling and Rollback', () => {
                 {
                   name: 'id',
                   type: 'integer',
-                  constraints: { primaryKey: true },
+                  required: true,
                 },
                 {
                   name: 'title',
@@ -188,7 +188,7 @@ test.describe('Error Handling and Rollback', () => {
                 {
                   name: 'id',
                   type: 'integer',
-                  constraints: { primaryKey: true },
+                  required: true,
                 },
                 {
                   name: 'email',
@@ -246,7 +246,7 @@ test.describe('Error Handling and Rollback', () => {
                 {
                   name: 'id',
                   type: 'integer',
-                  constraints: { primaryKey: true },
+                  required: true,
                 },
                 {
                   name: 'title',
@@ -294,7 +294,7 @@ test.describe('Error Handling and Rollback', () => {
                   {
                     name: 'id',
                     type: 'integer',
-                    constraints: { primaryKey: true },
+                    required: true,
                   },
                   {
                     name: 'email',
@@ -341,7 +341,7 @@ test.describe('Error Handling and Rollback', () => {
                 {
                   name: 'id',
                   type: 'integer',
-                  constraints: { primaryKey: true },
+                  required: true,
                 },
                 {
                   name: 'bad_field',
@@ -376,7 +376,7 @@ test.describe('Error Handling and Rollback', () => {
                 {
                   name: 'id',
                   type: 'integer',
-                  constraints: { primaryKey: true },
+                  required: true,
                 },
                 {
                   name: 'value',

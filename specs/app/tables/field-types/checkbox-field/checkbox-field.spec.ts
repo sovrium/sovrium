@@ -37,9 +37,12 @@ test.describe('Checkbox Field', () => {
             id: 'tbl_users',
             name: 'users',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'is_active', type: 'checkbox' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -79,9 +82,12 @@ test.describe('Checkbox Field', () => {
             id: 'tbl_tasks',
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'completed', type: 'checkbox' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -111,9 +117,12 @@ test.describe('Checkbox Field', () => {
             id: 'tbl_registrations',
             name: 'registrations',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'terms_accepted', type: 'checkbox', required: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -148,9 +157,12 @@ test.describe('Checkbox Field', () => {
             id: 'tbl_features',
             name: 'features',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'enabled', type: 'checkbox', default: false },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -181,9 +193,12 @@ test.describe('Checkbox Field', () => {
             id: 'tbl_posts',
             name: 'posts',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'published', type: 'checkbox', required: true, indexed: true },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -216,7 +231,7 @@ test.describe('Checkbox Field', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               {
                 name: 'checkbox_field',
                 type: 'checkbox',
@@ -225,6 +240,9 @@ test.describe('Checkbox Field', () => {
                 default: false,
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

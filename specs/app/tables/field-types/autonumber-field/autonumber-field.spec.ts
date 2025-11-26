@@ -32,9 +32,12 @@ test.describe('Autonumber Field', () => {
             id: 'tbl_invoices',
             name: 'invoices',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'invoice_number', type: 'autonumber' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -58,9 +61,12 @@ test.describe('Autonumber Field', () => {
             id: 'tbl_orders',
             name: 'orders',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'order_number', type: 'autonumber' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -85,9 +91,12 @@ test.describe('Autonumber Field', () => {
             id: 'tbl_tickets',
             name: 'tickets',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'ticket_number', type: 'autonumber' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -116,9 +125,12 @@ test.describe('Autonumber Field', () => {
             id: 'tbl_records',
             name: 'records',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'record_number', type: 'autonumber' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -141,9 +153,12 @@ test.describe('Autonumber Field', () => {
             id: 'tbl_items',
             name: 'items',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'item_number', type: 'autonumber' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
@@ -166,9 +181,12 @@ test.describe('Autonumber Field', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'auto_field', type: 'autonumber' },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })

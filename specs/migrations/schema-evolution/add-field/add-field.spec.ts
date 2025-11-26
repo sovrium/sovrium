@@ -46,7 +46,7 @@ test.describe('Add Field Migration', () => {
               {
                 name: 'id',
                 type: 'integer',
-                constraints: { primaryKey: true },
+                required: true,
               },
               {
                 name: 'email',
@@ -102,7 +102,7 @@ test.describe('Add Field Migration', () => {
               {
                 name: 'id',
                 type: 'integer',
-                constraints: { primaryKey: true },
+                required: true,
               },
               {
                 name: 'title',
@@ -155,7 +155,7 @@ test.describe('Add Field Migration', () => {
               {
                 name: 'id',
                 type: 'integer',
-                constraints: { primaryKey: true },
+                required: true,
               },
               {
                 name: 'title',
@@ -210,7 +210,7 @@ test.describe('Add Field Migration', () => {
               {
                 name: 'id',
                 type: 'integer',
-                constraints: { primaryKey: true },
+                required: true,
               },
               {
                 name: 'order_number',
@@ -272,7 +272,7 @@ test.describe('Add Field Migration', () => {
               {
                 name: 'id',
                 type: 'integer',
-                constraints: { primaryKey: true },
+                required: true,
               },
               {
                 name: 'title',

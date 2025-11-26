@@ -278,7 +278,7 @@ test.describe('Formula Field', () => {
             id: 'tbl_data',
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', constraints: { primaryKey: true } },
+              { name: 'id', type: 'integer', required: true },
               { name: 'base_price', type: 'decimal' },
               { name: 'tax_rate', type: 'decimal' },
               {
@@ -288,6 +288,9 @@ test.describe('Formula Field', () => {
                 resultType: 'number',
               },
             ],
+            primaryKey: {
+              fields: ['id'],
+            },
           },
         ],
       })
