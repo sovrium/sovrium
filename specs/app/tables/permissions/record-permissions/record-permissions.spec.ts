@@ -44,17 +44,15 @@ test.describe('Record-Level Permissions', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_documents',
+            id: 1,
             name: 'documents',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'content', type: 'text' },
-              { name: 'created_by', type: 'integer' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'content', type: 'single-line-text' },
+              { id: 4, name: 'created_by', type: 'integer' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               records: [
                 {
@@ -111,17 +109,15 @@ test.describe('Record-Level Permissions', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 2,
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'status', type: 'text' },
-              { name: 'assigned_to', type: 'integer' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'status', type: 'single-line-text' },
+              { id: 4, name: 'assigned_to', type: 'integer' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               records: [
                 {
@@ -178,17 +174,15 @@ test.describe('Record-Level Permissions', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_articles',
+            id: 3,
             name: 'articles',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'status', type: 'text' },
-              { name: 'created_by', type: 'integer' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'status', type: 'single-line-text' },
+              { id: 4, name: 'created_by', type: 'integer' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               records: [
                 {
@@ -245,18 +239,16 @@ test.describe('Record-Level Permissions', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 4,
             name: 'projects',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'text' },
-              { name: 'department', type: 'text' },
-              { name: 'status', type: 'text' },
-              { name: 'owner_id', type: 'integer' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'department', type: 'single-line-text' },
+              { id: 4, name: 'status', type: 'single-line-text' },
+              { id: 5, name: 'owner_id', type: 'integer' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               records: [
                 {
@@ -319,17 +311,15 @@ test.describe('Record-Level Permissions', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 5,
             name: 'employees',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'text' },
-              { name: 'department', type: 'text' },
-              { name: 'email', type: 'text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'department', type: 'single-line-text' },
+              { id: 4, name: 'email', type: 'single-line-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               records: [
                 {
@@ -388,17 +378,15 @@ test.describe('Record-Level Permissions', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tickets',
+            id: 6,
             name: 'tickets',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'created_by', type: 'integer' },
-              { name: 'assigned_to', type: 'integer' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'created_by', type: 'integer' },
+              { id: 4, name: 'assigned_to', type: 'integer' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               records: [
                 {
@@ -465,17 +453,15 @@ test.describe('Record-Level Permissions', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_items',
+            id: 7,
             name: 'items',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'owner_id', type: 'integer' },
-              { name: 'status', type: 'text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'owner_id', type: 'integer' },
+              { id: 4, name: 'status', type: 'single-line-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               records: [
                 {

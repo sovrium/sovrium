@@ -296,7 +296,13 @@ test.describe('Analytics Configuration', () => {
               description: 'Test',
               analytics: {
                 providers: [
-                  { name: 'google', config: { trackingId: 'G-XXXXX', anonymizeIp: true } },
+                  {
+                    name: 'google',
+                    enabled: true,
+                    scripts: [
+                      { src: 'https://www.googletagmanager.com/gtag/js?id=G-XXXXX', async: true },
+                    ],
+                  },
                 ],
               },
             },
@@ -305,12 +311,12 @@ test.describe('Analytics Configuration', () => {
         ],
       })
 
-      // WHEN: dnsPrefetch specifies provider domain
+      // WHEN: provider config includes tracking ID in script URL
       await page.goto('/')
 
-      // THEN: it should optimize DNS resolution for provider
-      const config = await page.locator('[data-testid="analytics-google-config"]').textContent()
-      expect(config).toContain('G-XXXXX')
+      // THEN: it should pass configuration to provider via script URL
+      const script = page.locator('script[src*="googletagmanager.com"][src*="G-XXXXX"]')
+      await expect(script).toBeAttached()
     }
   )
 
@@ -340,7 +346,6 @@ test.describe('Analytics Configuration', () => {
                         async: true,
                       },
                     ],
-                    config: { trackingId: 'G-ABC123XYZ' },
                   },
                 ],
               },
@@ -379,7 +384,6 @@ test.describe('Analytics Configuration', () => {
                     name: 'plausible',
                     enabled: true,
                     scripts: [{ src: 'https://plausible.io/js/script.js', async: true }],
-                    config: { domain: 'example.com' },
                   },
                 ],
               },
@@ -464,7 +468,6 @@ test.describe('Analytics Configuration', () => {
                     name: 'posthog',
                     enabled: true,
                     scripts: [{ src: 'https://app.posthog.com/static/array.js', async: true }],
-                    config: { apiKey: 'phc_ABC123XYZ', apiHost: 'https://app.posthog.com' },
                   },
                 ],
               },
@@ -508,7 +511,6 @@ test.describe('Analytics Configuration', () => {
                     enabled: true,
                     scripts: [{ src: 'https://plausible.io/js/script.js', async: true }],
                     dnsPrefetch: 'https://plausible.io',
-                    config: { domain: 'example.com' },
                   },
                   {
                     name: 'google',
@@ -517,7 +519,6 @@ test.describe('Analytics Configuration', () => {
                       { src: 'https://www.googletagmanager.com/gtag/js?id=G-XXXXX', async: true },
                     ],
                     dnsPrefetch: 'https://www.googletagmanager.com',
-                    config: { trackingId: 'G-XXXXX' },
                   },
                 ],
               },

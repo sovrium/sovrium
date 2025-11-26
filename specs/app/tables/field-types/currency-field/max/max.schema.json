@@ -1,7 +1,0 @@
-{
-  "$id": "max.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Currency Field Maximum Value",
-  "description": "Maximum value allowed for this currency field",
-  "type": "number"
-}

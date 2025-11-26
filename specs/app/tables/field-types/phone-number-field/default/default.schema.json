@@ -1,7 +1,0 @@
-{
-  "$id": "default.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Phone Number Field Default Value",
-  "description": "Default phone number value when no value is provided during INSERT. PostgreSQL DEFAULT constraint with VARCHAR type for phone numbers.",
-  "type": "string"
-}

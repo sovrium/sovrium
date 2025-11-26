@@ -222,6 +222,12 @@ export const MetaSchema = Schema.Struct({
     Schema.Union(Schema.Record({ key: Schema.String, value: Schema.Unknown }), AnalyticsSchema)
   ),
   customElements: Schema.optional(CustomElementsSchema),
+  viewport: Schema.optional(
+    Schema.String.annotations({
+      description:
+        'Viewport meta tag content (e.g., "width=device-width, initial-scale=1.0") for responsive design',
+    })
+  ),
   // Aliases for test compatibility
   twitterCard: Schema.optional(TwitterCardSchema),
   structuredData: Schema.optional(Schema.Unknown),

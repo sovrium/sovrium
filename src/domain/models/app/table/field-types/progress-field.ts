@@ -41,6 +41,15 @@ export const ProgressFieldSchema = BaseFieldSchema.pipe(
           })
         )
       ),
+      default: Schema.optional(
+        Schema.Number.pipe(
+          Schema.greaterThanOrEqualTo(0),
+          Schema.lessThanOrEqualTo(100),
+          Schema.annotations({
+            description: 'Default progress value (0-100) when creating new records',
+          })
+        )
+      ),
     })
   )
 ).pipe(

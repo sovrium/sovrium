@@ -16,7 +16,7 @@ import { ResponsiveSchema } from './common/responsive'
  *
  * Comprehensive set of component types for building pages:
  * - Layout: section, container, flex, grid, div, modal, sidebar, hero, navigation, header, footer, main, article, aside, nav
- * - Content: text, heading, paragraph, h1, h2, h3, h4, h5, h6, icon, image, avatar, thumbnail, hero-image, customHTML, span, p, code, pre
+ * - Content: text, single-line-text, heading, paragraph, h1, h2, h3, h4, h5, h6, icon, image, avatar, thumbnail, hero-image, customHTML, span, p, code, pre
  * - Interactive: button, link, a, accordion, dropdown
  * - Grouping: card, badge, timeline, list-item, speech-bubble, card-with-header, card-header, card-body, card-footer
  * - Media: video, audio, iframe
@@ -35,6 +35,7 @@ export const ComponentTypeSchema = Schema.Literal(
   'card-body',
   'card-footer',
   'text',
+  'single-line-text',
   'heading',
   'paragraph',
   'h1',

@@ -29,15 +29,13 @@ test.describe('Progress Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 1,
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'progress', type: 'progress' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'progress', type: 'progress' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -63,15 +61,13 @@ test.describe('Progress Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 2,
             name: 'projects',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'completion', type: 'progress' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'completion', type: 'progress' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -99,15 +95,13 @@ test.describe('Progress Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 3,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'progress_field', type: 'progress', required: true, default: 0 },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'progress_field', type: 'progress', required: true, default: 0 },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

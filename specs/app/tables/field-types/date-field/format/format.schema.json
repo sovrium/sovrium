@@ -1,9 +1,0 @@
-{
-  "$id": "format.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Date Display Format",
-  "description": "Display format for date values. Controls how dates are presented to users, not how they are stored. Storage always uses ISO 8601 (YYYY-MM-DD). Common formats: YYYY-MM-DD (ISO), MM/DD/YYYY (US), DD-MM-YYYY (European).",
-  "type": "string",
-  "default": "YYYY-MM-DD",
-  "examples": ["YYYY-MM-DD", "MM/DD/YYYY", "DD-MM-YYYY", "DD/MM/YYYY", "YYYY/MM/DD"]
-}

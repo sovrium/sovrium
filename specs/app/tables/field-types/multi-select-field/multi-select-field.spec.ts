@@ -28,19 +28,18 @@ test.describe('Multi Select Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 1,
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
+                id: 2,
                 name: 'tags',
                 type: 'multi-select',
                 options: ['new', 'sale', 'featured', 'limited'],
               },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -67,19 +66,18 @@ test.describe('Multi Select Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_articles',
+            id: 2,
             name: 'articles',
             fields: [
-              { name: 'id', type: 'integer', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
+                id: 2,
                 name: 'categories',
                 type: 'multi-select',
                 options: ['tech', 'business', 'health', 'sports'],
               },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -103,20 +101,19 @@ test.describe('Multi Select Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 3,
             name: 'projects',
             fields: [
-              { name: 'id', type: 'integer', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
+                id: 2,
                 name: 'skills',
                 type: 'multi-select',
                 options: ['python', 'javascript', 'rust'],
                 required: true,
               },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -140,20 +137,19 @@ test.describe('Multi Select Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 4,
             name: 'users',
             fields: [
-              { name: 'id', type: 'integer', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
+                id: 2,
                 name: 'roles',
                 type: 'multi-select',
                 options: ['user', 'admin', 'moderator'],
                 default: ['user'],
               },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -173,11 +169,12 @@ test.describe('Multi Select Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_posts',
+            id: 5,
             name: 'posts',
             fields: [
-              { name: 'id', type: 'integer', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
+                id: 2,
                 name: 'tags',
                 type: 'multi-select',
                 options: ['tag1', 'tag2', 'tag3'],
@@ -185,9 +182,7 @@ test.describe('Multi Select Field', () => {
                 indexed: true,
               },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -207,11 +202,12 @@ test.describe('Multi Select Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
+                id: 2,
                 name: 'multiselect_field',
                 type: 'multi-select',
                 options: ['opt1', 'opt2', 'opt3', 'opt4'],
@@ -219,9 +215,7 @@ test.describe('Multi Select Field', () => {
                 indexed: true,
               },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

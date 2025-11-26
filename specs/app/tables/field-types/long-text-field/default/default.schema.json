@@ -1,7 +1,0 @@
-{
-  "$id": "default.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Long Text Field Default Value",
-  "description": "Default value for long-text field when no value is provided during INSERT. PostgreSQL DEFAULT constraint with TEXT type for multi-line content.",
-  "type": "string"
-}

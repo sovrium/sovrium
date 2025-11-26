@@ -29,15 +29,13 @@ test.describe('Autonumber Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_invoices',
+            id: 1,
             name: 'invoices',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'invoice_number', type: 'autonumber' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'invoice_number', type: 'autonumber' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -58,15 +56,13 @@ test.describe('Autonumber Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_orders',
+            id: 2,
             name: 'orders',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'order_number', type: 'autonumber' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'order_number', type: 'autonumber' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -88,15 +84,13 @@ test.describe('Autonumber Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tickets',
+            id: 3,
             name: 'tickets',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'ticket_number', type: 'autonumber' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'ticket_number', type: 'autonumber' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -122,15 +116,13 @@ test.describe('Autonumber Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_records',
+            id: 4,
             name: 'records',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'record_number', type: 'autonumber' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'record_number', type: 'autonumber' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -150,15 +142,13 @@ test.describe('Autonumber Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_items',
+            id: 5,
             name: 'items',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'item_number', type: 'autonumber' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'item_number', type: 'autonumber' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -178,15 +168,13 @@ test.describe('Autonumber Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'auto_field', type: 'autonumber' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'auto_field', type: 'autonumber' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

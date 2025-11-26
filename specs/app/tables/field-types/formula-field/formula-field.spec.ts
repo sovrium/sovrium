@@ -29,12 +29,13 @@ test.describe('Formula Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_line_items',
+            id: 1,
             name: 'line_items',
             fields: [
-              { name: 'quantity', type: 'integer', required: true },
-              { name: 'unit_price', type: 'decimal', required: true },
+              { id: 1, name: 'quantity', type: 'integer', required: true },
+              { id: 2, name: 'unit_price', type: 'decimal', required: true },
               {
+                id: 3,
                 name: 'total',
                 type: 'formula',
                 formula: 'quantity * unit_price',
@@ -79,12 +80,13 @@ test.describe('Formula Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_contacts',
+            id: 2,
             name: 'contacts',
             fields: [
-              { name: 'first_name', type: 'single-line-text', required: true },
-              { name: 'last_name', type: 'single-line-text', required: true },
+              { id: 1, name: 'first_name', type: 'single-line-text', required: true },
+              { id: 2, name: 'last_name', type: 'single-line-text', required: true },
               {
+                id: 3,
                 name: 'full_name',
                 type: 'formula',
                 formula: "first_name || ' ' || last_name",
@@ -128,12 +130,13 @@ test.describe('Formula Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 3,
             name: 'products',
             fields: [
-              { name: 'price', type: 'decimal', required: true },
-              { name: 'on_sale', type: 'checkbox', required: true },
+              { id: 1, name: 'price', type: 'decimal', required: true },
+              { id: 2, name: 'on_sale', type: 'checkbox', required: true },
               {
+                id: 3,
                 name: 'discount_price',
                 type: 'formula',
                 formula: 'CASE WHEN on_sale THEN price * 0.80 ELSE price END',
@@ -177,11 +180,12 @@ test.describe('Formula Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_measurements',
+            id: 4,
             name: 'measurements',
             fields: [
-              { name: 'raw_value', type: 'decimal', required: true },
+              { id: 1, name: 'raw_value', type: 'decimal', required: true },
               {
+                id: 2,
                 name: 'rounded_value',
                 type: 'formula',
                 formula: 'ROUND(raw_value, 2)',
@@ -224,12 +228,13 @@ test.describe('Formula Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_invoices',
+            id: 5,
             name: 'invoices',
             fields: [
-              { name: 'due_date', type: 'date', required: true },
-              { name: 'paid', type: 'checkbox', required: true, default: false },
+              { id: 1, name: 'due_date', type: 'date', required: true },
+              { id: 2, name: 'paid', type: 'checkbox', required: true, default: false },
               {
+                id: 3,
                 name: 'is_overdue',
                 type: 'formula',
                 formula: 'NOT paid AND due_date < CURRENT_DATE',
@@ -275,22 +280,21 @@ test.describe('Formula Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'base_price', type: 'decimal' },
-              { name: 'tax_rate', type: 'decimal' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'base_price', type: 'decimal' },
+              { id: 3, name: 'tax_rate', type: 'decimal' },
               {
+                id: 4,
                 name: 'total_price',
                 type: 'formula',
                 formula: 'base_price * (1 + tax_rate)',
                 resultType: 'number',
               },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

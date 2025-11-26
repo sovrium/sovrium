@@ -43,19 +43,11 @@ test.describe('Checksum Optimization', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 1,
             name: 'users',
             fields: [
-              {
-                name: 'id',
-                type: 'integer',
-                required: true,
-              },
-              {
-                name: 'email',
-                type: 'email',
-                constraints: { required: true, unique: true },
-              },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'email', type: 'email' },
             ],
           },
         ],
@@ -105,19 +97,11 @@ test.describe('Checksum Optimization', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 2,
             name: 'users',
             fields: [
-              {
-                name: 'id',
-                type: 'integer',
-                required: true,
-              },
-              {
-                name: 'email',
-                type: 'email',
-                constraints: { required: true, unique: true },
-              },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'email', type: 'email' },
             ],
           },
         ],
@@ -163,22 +147,12 @@ test.describe('Checksum Optimization', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 3,
             name: 'users',
             fields: [
-              {
-                name: 'id',
-                type: 'integer',
-                required: true,
-              },
-              {
-                name: 'email',
-                type: 'email',
-              },
-              {
-                name: 'name',
-                type: 'text',
-              },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'email', type: 'email' },
+              { id: 3, name: 'name', type: 'single-line-text' },
             ],
           },
         ],
@@ -228,19 +202,11 @@ test.describe('Checksum Optimization', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 4,
             name: 'products',
             fields: [
-              {
-                name: 'id',
-                type: 'integer',
-                required: true,
-              },
-              {
-                name: 'sku',
-                type: 'text',
-                constraints: { indexed: true },
-              },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'sku', type: 'single-line-text' },
             ],
           },
         ],
@@ -287,18 +253,11 @@ test.describe('Checksum Optimization', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 5,
             name: 'data',
             fields: [
-              {
-                name: 'id',
-                type: 'integer',
-                required: true,
-              },
-              {
-                name: 'value',
-                type: 'text',
-              },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'value', type: 'single-line-text' },
             ],
           },
         ],
@@ -316,18 +275,11 @@ test.describe('Checksum Optimization', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              {
-                name: 'id',
-                type: 'integer',
-                required: true,
-              },
-              {
-                name: 'value',
-                type: 'text',
-              },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'value', type: 'single-line-text' },
             ],
           },
         ],

@@ -34,16 +34,14 @@ test.describe('View Sorts', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 1,
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'text' },
-              { name: 'price', type: 'decimal' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'price', type: 'decimal' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'by_price_asc',
@@ -81,16 +79,14 @@ test.describe('View Sorts', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 2,
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'priority', type: 'integer' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'priority', type: 'integer' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'by_priority_desc',
@@ -128,17 +124,15 @@ test.describe('View Sorts', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 3,
             name: 'employees',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'department', type: 'text' },
-              { name: 'name', type: 'text' },
-              { name: 'salary', type: 'decimal' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'department', type: 'single-line-text' },
+              { id: 3, name: 'name', type: 'single-line-text' },
+              { id: 4, name: 'salary', type: 'decimal' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'multi_sort',
@@ -191,16 +185,14 @@ test.describe('View Sorts', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 4,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'category', type: 'text' },
-              { name: 'value', type: 'integer' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'category', type: 'single-line-text' },
+              { id: 3, name: 'value', type: 'integer' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'sorted_view',

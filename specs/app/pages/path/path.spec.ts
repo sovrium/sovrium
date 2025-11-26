@@ -216,6 +216,7 @@ test.describe('URL Path', () => {
       await expect(async () => {
         await startServerWithSchema({
           name: 'test-app',
+          // @ts-expect-error - Testing that missing path causes validation to fail
           pages: [{ name: 'About', meta: { lang: 'en-US', title: 'About' }, sections: [] }],
         })
       }).rejects.toThrow()

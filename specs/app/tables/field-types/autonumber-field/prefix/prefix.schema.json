@@ -1,8 +1,0 @@
-{
-  "$id": "prefix.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Autonumber Prefix",
-  "description": "Optional prefix string prepended to autonumber. Implemented via PostgreSQL GENERATED ALWAYS AS column with string concatenation. Commonly used for invoice numbers (INV-), order codes (ORD-), ticket IDs (TKT-).",
-  "type": "string",
-  "examples": ["INV-", "ORD-", "TKT-", "REQ-", ""]
-}

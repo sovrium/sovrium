@@ -40,24 +40,12 @@ test.describe('Add Field Migration', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 1,
             name: 'users',
             fields: [
-              {
-                name: 'id',
-                type: 'integer',
-                required: true,
-              },
-              {
-                name: 'email',
-                type: 'email',
-                constraints: { required: true, unique: true },
-              },
-              {
-                name: 'name',
-                type: 'text',
-                constraints: { required: true },
-              },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'email', type: 'email' },
+              { id: 3, name: 'name', type: 'single-line-text' },
             ],
           },
         ],
@@ -96,23 +84,12 @@ test.describe('Add Field Migration', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 2,
             name: 'products',
             fields: [
-              {
-                name: 'id',
-                type: 'integer',
-                required: true,
-              },
-              {
-                name: 'title',
-                type: 'text',
-                constraints: { required: true },
-              },
-              {
-                name: 'description',
-                type: 'text',
-              },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'description', type: 'single-line-text' },
             ],
           },
         ],
@@ -149,20 +126,13 @@ test.describe('Add Field Migration', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 3,
             name: 'tasks',
             fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
               {
-                name: 'id',
-                type: 'integer',
-                required: true,
-              },
-              {
-                name: 'title',
-                type: 'text',
-                constraints: { required: true },
-              },
-              {
+                id: 3,
                 name: 'priority',
                 type: 'single-select',
                 options: ['low', 'medium', 'high'],
@@ -204,25 +174,12 @@ test.describe('Add Field Migration', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_orders',
+            id: 4,
             name: 'orders',
             fields: [
-              {
-                name: 'id',
-                type: 'integer',
-                required: true,
-              },
-              {
-                name: 'order_number',
-                type: 'text',
-                constraints: { required: true },
-              },
-              {
-                name: 'total',
-                type: 'decimal',
-                constraints: { required: true },
-                default: 0,
-              },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'order_number', type: 'single-line-text' },
+              { id: 3, name: 'total', type: 'decimal', default: 0 },
             ],
           },
         ],
@@ -266,23 +223,12 @@ test.describe('Add Field Migration', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 5,
             name: 'data',
             fields: [
-              {
-                name: 'id',
-                type: 'integer',
-                required: true,
-              },
-              {
-                name: 'title',
-                type: 'text',
-                constraints: { required: true },
-              },
-              {
-                name: 'description',
-                type: 'text',
-              },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'description', type: 'single-line-text' },
             ],
           },
         ],

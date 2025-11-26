@@ -838,7 +838,7 @@ test.describe('Languages Configuration', () => {
               {
                 block: 'language-switcher',
               },
-              { type: 'text', content: 'Hello', i18n: { fr: { content: 'Bonjour' } } },
+              { type: 'single-line-text', content: 'Hello', i18n: { fr: { content: 'Bonjour' } } },
             ],
           },
         ],

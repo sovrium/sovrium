@@ -34,15 +34,13 @@ test.describe('Currency Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 1,
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'price', type: 'currency' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'price', type: 'currency', currency: 'USD' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -72,15 +70,13 @@ test.describe('Currency Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 2,
             name: 'projects',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'budget', type: 'currency', min: 0, max: 10_000 },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'budget', type: 'currency', currency: 'USD', min: 0, max: 10_000 },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -111,15 +107,20 @@ test.describe('Currency Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_transactions',
+            id: 3,
             name: 'transactions',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'amount', type: 'currency', unique: true, required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'amount',
+                type: 'currency',
+                currency: 'USD',
+                unique: true,
+                required: true,
+              },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -152,15 +153,13 @@ test.describe('Currency Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_subscriptions',
+            id: 4,
             name: 'subscriptions',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'fee', type: 'currency', default: 9.99 },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'fee', type: 'currency', currency: 'USD', default: 9.99 },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -188,15 +187,20 @@ test.describe('Currency Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_orders',
+            id: 5,
             name: 'orders',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'total', type: 'currency', required: true, indexed: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'total',
+                type: 'currency',
+                currency: 'USD',
+                required: true,
+                indexed: true,
+              },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -226,13 +230,15 @@ test.describe('Currency Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
+                id: 2,
                 name: 'currency_field',
                 type: 'currency',
+                currency: 'USD',
                 required: true,
                 indexed: true,
                 min: 0,
@@ -240,9 +246,7 @@ test.describe('Currency Field', () => {
                 default: 99.99,
               },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

@@ -34,16 +34,14 @@ test.describe('Unique Field Property', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 1,
             name: 'users',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'email', type: 'email', unique: true, required: true },
-              { name: 'name', type: 'single-line-text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'email', type: 'email', unique: true, required: true },
+              { id: 3, name: 'name', type: 'single-line-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -81,16 +79,14 @@ test.describe('Unique Field Property', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 2,
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'single-line-text', required: true },
-              { name: 'category', type: 'single-line-text', unique: false },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'category', type: 'single-line-text', unique: false },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -159,15 +155,13 @@ test.describe('Unique Field Property', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_sessions',
+            id: 3,
             name: 'sessions',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'token', type: 'single-line-text', unique: true, required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'token', type: 'single-line-text', unique: true, required: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -200,15 +194,13 @@ test.describe('Unique Field Property', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_contacts',
+            id: 4,
             name: 'contacts',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'phone', type: 'phone-number', unique: true, required: false },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'phone', type: 'phone-number', unique: true, required: false },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -253,16 +245,20 @@ test.describe('Unique Field Property', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 5,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'unique_field', type: 'single-line-text', unique: true, required: true },
-              { name: 'non_unique_field', type: 'single-line-text', unique: false },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'unique_field',
+                type: 'single-line-text',
+                unique: true,
+                required: true,
+              },
+              { id: 3, name: 'non_unique_field', type: 'single-line-text', unique: false },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

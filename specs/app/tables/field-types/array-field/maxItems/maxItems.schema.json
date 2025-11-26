@@ -1,8 +1,0 @@
-{
-  "$id": "maxItems.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Maximum number of items allowed",
-  "description": "Maximum number of items allowed",
-  "type": "integer",
-  "minimum": 1
-}

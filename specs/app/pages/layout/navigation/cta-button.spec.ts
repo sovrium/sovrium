@@ -108,7 +108,7 @@ test.describe('CTA Button', () => {
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: a CTA button with 5 variant options
-      const variants = ['primary', 'secondary', 'outline', 'ghost', 'link']
+      const variants = ['primary', 'secondary', 'outline', 'ghost', 'link'] as const
       for (const variant of variants) {
         await startServerWithSchema({
           name: 'test-app',
@@ -137,7 +137,7 @@ test.describe('CTA Button', () => {
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: a CTA button with size
-      const sizes = ['sm', 'md', 'lg', 'xl']
+      const sizes = ['sm', 'md', 'lg', 'xl'] as const
       for (const size of sizes) {
         await startServerWithSchema({
           name: 'test-app',

@@ -33,12 +33,12 @@ test.describe('Create new record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 1,
             name: 'users',
             fields: [
-              { name: 'email', type: 'email', required: true, unique: true },
-              { name: 'first_name', type: 'single-line-text' },
-              { name: 'last_name', type: 'single-line-text' },
+              { id: 1, name: 'email', type: 'email', required: true, unique: true },
+              { id: 2, name: 'first_name', type: 'single-line-text' },
+              { id: 3, name: 'last_name', type: 'single-line-text' },
             ],
           },
         ],
@@ -111,11 +111,11 @@ test.describe('Create new record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 2,
             name: 'users',
             fields: [
-              { name: 'email', type: 'email', required: true, unique: true },
-              { name: 'first_name', type: 'single-line-text' },
+              { id: 1, name: 'email', type: 'email', required: true, unique: true },
+              { id: 2, name: 'first_name', type: 'single-line-text' },
             ],
           },
         ],
@@ -150,11 +150,11 @@ test.describe('Create new record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 3,
             name: 'users',
             fields: [
-              { name: 'email', type: 'email', required: true, unique: true },
-              { name: 'first_name', type: 'single-line-text' },
+              { id: 1, name: 'email', type: 'email', required: true, unique: true },
+              { id: 2, name: 'first_name', type: 'single-line-text' },
             ],
           },
         ],
@@ -202,9 +202,9 @@ test.describe('Create new record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 4,
             name: 'users',
-            fields: [{ name: 'email', type: 'email', required: true }],
+            fields: [{ id: 1, name: 'email', type: 'email', required: true }],
           },
         ],
       })
@@ -232,11 +232,7 @@ test.describe('Create new record', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          {
-            id: 'tbl_projects',
-            name: 'projects',
-            fields: [{ name: 'name', type: 'single-line-text' }],
-          },
+          { id: 5, name: 'projects', fields: [{ id: 1, name: 'name', type: 'single-line-text' }] },
         ],
       })
 
@@ -267,11 +263,7 @@ test.describe('Create new record', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          {
-            id: 'tbl_tasks',
-            name: 'tasks',
-            fields: [{ name: 'title', type: 'single-line-text' }],
-          },
+          { id: 6, name: 'tasks', fields: [{ id: 1, name: 'title', type: 'single-line-text' }] },
         ],
       })
 
@@ -303,11 +295,7 @@ test.describe('Create new record', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          {
-            id: 'tbl_employees',
-            name: 'employees',
-            fields: [{ name: 'name', type: 'single-line-text' }],
-          },
+          { id: 7, name: 'employees', fields: [{ id: 1, name: 'name', type: 'single-line-text' }] },
         ],
       })
 
@@ -339,12 +327,12 @@ test.describe('Create new record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 8,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'email', type: 'email' },
-              { name: 'salary', type: 'decimal' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'email', type: 'email' },
+              { id: 3, name: 'salary', type: 'decimal' },
             ],
           },
         ],
@@ -383,12 +371,12 @@ test.describe('Create new record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 9,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'email', type: 'email' },
-              { name: 'salary', type: 'decimal' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'email', type: 'email' },
+              { id: 3, name: 'salary', type: 'decimal' },
             ],
           },
         ],
@@ -426,11 +414,11 @@ test.describe('Create new record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 10,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'email', type: 'email' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'email', type: 'email' },
             ],
           },
         ],
@@ -466,11 +454,11 @@ test.describe('Create new record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 11,
             name: 'tasks',
             fields: [
-              { name: 'title', type: 'single-line-text' },
-              { name: 'created_at', type: 'datetime', default: 'NOW()' },
+              { id: 1, name: 'title', type: 'single-line-text' },
+              { id: 2, name: 'created_at', type: 'datetime', default: 'NOW()' },
             ],
           },
         ],
@@ -507,14 +495,14 @@ test.describe('Create new record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 12,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'email', type: 'email' },
-              { name: 'phone', type: 'phone-number' },
-              { name: 'salary', type: 'decimal' },
-              { name: 'ssn', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'email', type: 'email' },
+              { id: 3, name: 'phone', type: 'phone-number' },
+              { id: 4, name: 'salary', type: 'decimal' },
+              { id: 5, name: 'ssn', type: 'single-line-text' },
             ],
           },
         ],
@@ -553,11 +541,11 @@ test.describe('Create new record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 13,
             name: 'projects',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'organization_id', type: 'single-line-text', required: true },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'organization_id', type: 'single-line-text', required: true },
             ],
           },
         ],
@@ -598,11 +586,11 @@ test.describe('Create new record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 14,
             name: 'projects',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -638,13 +626,13 @@ test.describe('Create new record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 15,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'email', type: 'email' },
-              { name: 'salary', type: 'decimal' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'email', type: 'email' },
+              { id: 3, name: 'salary', type: 'decimal' },
+              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -682,12 +670,12 @@ test.describe('Create new record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 16,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text', required: true },
-              { name: 'email', type: 'email' },
-              { name: 'salary', type: 'decimal', default: '50000' },
+              { id: 1, name: 'name', type: 'single-line-text', required: true },
+              { id: 2, name: 'email', type: 'email' },
+              { id: 3, name: 'salary', type: 'decimal', default: 50_000 },
             ],
           },
         ],
@@ -733,12 +721,12 @@ test.describe('Create new record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 17,
             name: 'users',
             fields: [
-              { name: 'email', type: 'email', required: true, unique: true },
-              { name: 'name', type: 'single-line-text' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'email', type: 'email', required: true, unique: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],

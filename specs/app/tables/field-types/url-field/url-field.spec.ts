@@ -34,15 +34,13 @@ test.describe('URL Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_companies',
+            id: 1,
             name: 'companies',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'website', type: 'url' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'website', type: 'url' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -75,15 +73,13 @@ test.describe('URL Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 2,
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'product_url', type: 'url' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'product_url', type: 'url' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -116,15 +112,13 @@ test.describe('URL Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_links',
+            id: 3,
             name: 'links',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'url', type: 'url', unique: true, required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'url', type: 'url', unique: true, required: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -156,15 +150,13 @@ test.describe('URL Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_resources',
+            id: 4,
             name: 'resources',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'resource_url', type: 'url', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'resource_url', type: 'url', required: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -196,15 +188,13 @@ test.describe('URL Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_bookmarks',
+            id: 5,
             name: 'bookmarks',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'url', type: 'url', unique: true, indexed: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'url', type: 'url', unique: true, indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -241,11 +231,12 @@ test.describe('URL Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
+                id: 2,
                 name: 'url_field',
                 type: 'url',
                 required: true,
@@ -253,9 +244,7 @@ test.describe('URL Field', () => {
                 indexed: true,
               },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

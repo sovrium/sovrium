@@ -31,16 +31,14 @@ test.describe('Created By Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_posts',
+            id: 1,
             name: 'posts',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'created_by', type: 'created-by' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'created_by', type: 'created-by' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -78,16 +76,14 @@ test.describe('Created By Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_documents',
+            id: 2,
             name: 'documents',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'created_by', type: 'created-by' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'created_by', type: 'created-by' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -124,16 +120,14 @@ test.describe('Created By Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_issues',
+            id: 3,
             name: 'issues',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'created_by', type: 'created-by' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'created_by', type: 'created-by' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -169,16 +163,14 @@ test.describe('Created By Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 4,
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'created_by', type: 'created-by' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'created_by', type: 'created-by' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -220,16 +212,14 @@ test.describe('Created By Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_comments',
+            id: 5,
             name: 'comments',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'content', type: 'text' },
-              { name: 'created_by', type: 'created-by', indexed: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'content', type: 'single-line-text' },
+              { id: 3, name: 'created_by', type: 'created-by', indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -263,16 +253,14 @@ test.describe('Created By Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'content', type: 'text' },
-              { name: 'created_by', type: 'created-by', indexed: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'content', type: 'single-line-text' },
+              { id: 3, name: 'created_by', type: 'created-by', indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

@@ -34,15 +34,13 @@ test.describe('DateTime Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_posts',
+            id: 1,
             name: 'posts',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'created_at', type: 'datetime' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'created_at', type: 'datetime' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -72,15 +70,13 @@ test.describe('DateTime Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_events',
+            id: 2,
             name: 'events',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'timestamp', type: 'datetime' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'timestamp', type: 'datetime' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -107,15 +103,13 @@ test.describe('DateTime Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_articles',
+            id: 3,
             name: 'articles',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'published_at', type: 'datetime', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'published_at', type: 'datetime', required: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -147,15 +141,13 @@ test.describe('DateTime Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_records',
+            id: 4,
             name: 'records',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'updated_at', type: 'datetime', default: 'NOW()' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'updated_at', type: 'datetime', default: 'NOW()' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -183,15 +175,13 @@ test.describe('DateTime Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_logs',
+            id: 5,
             name: 'logs',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'created_at', type: 'datetime', required: true, indexed: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'created_at', type: 'datetime', required: true, indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -221,20 +211,13 @@ test.describe('DateTime Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              {
-                name: 'datetime_field',
-                type: 'datetime',
-                required: true,
-                indexed: true,
-              },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'datetime_field', type: 'datetime', required: true, indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

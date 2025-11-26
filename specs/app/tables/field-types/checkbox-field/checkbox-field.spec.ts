@@ -34,15 +34,13 @@ test.describe('Checkbox Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 1,
             name: 'users',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'is_active', type: 'checkbox' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'is_active', type: 'checkbox' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -79,15 +77,13 @@ test.describe('Checkbox Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 2,
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'completed', type: 'checkbox' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'completed', type: 'checkbox' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -114,15 +110,13 @@ test.describe('Checkbox Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_registrations',
+            id: 3,
             name: 'registrations',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'terms_accepted', type: 'checkbox', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'terms_accepted', type: 'checkbox', required: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -154,15 +148,13 @@ test.describe('Checkbox Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_features',
+            id: 4,
             name: 'features',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'enabled', type: 'checkbox', default: false },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'enabled', type: 'checkbox', default: false },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -190,15 +182,13 @@ test.describe('Checkbox Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_posts',
+            id: 5,
             name: 'posts',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'published', type: 'checkbox', required: true, indexed: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'published', type: 'checkbox', required: true, indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -228,11 +218,12 @@ test.describe('Checkbox Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
+                id: 2,
                 name: 'checkbox_field',
                 type: 'checkbox',
                 required: true,
@@ -240,9 +231,7 @@ test.describe('Checkbox Field', () => {
                 default: false,
               },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

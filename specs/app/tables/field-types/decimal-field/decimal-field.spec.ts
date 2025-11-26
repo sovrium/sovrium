@@ -33,15 +33,13 @@ test.describe('Decimal Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 1,
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'price', type: 'decimal' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'price', type: 'decimal' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -71,15 +69,13 @@ test.describe('Decimal Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_transactions',
+            id: 2,
             name: 'transactions',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'amount', type: 'decimal', min: 0, max: 1000 },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'amount', type: 'decimal', min: 0, max: 1000 },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -110,15 +106,13 @@ test.describe('Decimal Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_measurements',
+            id: 3,
             name: 'measurements',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'value', type: 'decimal', unique: true, required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'value', type: 'decimal', unique: true, required: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -151,15 +145,13 @@ test.describe('Decimal Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_config',
+            id: 4,
             name: 'config',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'rate', type: 'decimal', default: 1.5 },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'rate', type: 'decimal', default: 1.5 },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -187,15 +179,13 @@ test.describe('Decimal Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_scores',
+            id: 5,
             name: 'scores',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'score', type: 'decimal', required: true, indexed: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'score', type: 'decimal', required: true, indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -225,11 +215,12 @@ test.describe('Decimal Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
+                id: 2,
                 name: 'decimal_field',
                 type: 'decimal',
                 required: true,
@@ -239,9 +230,7 @@ test.describe('Decimal Field', () => {
                 default: 50.5,
               },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

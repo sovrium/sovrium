@@ -1,7 +1,0 @@
-{
-  "$id": "default.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Single Line Text Field Default Value",
-  "description": "Default value for single-line text field when no value is provided during INSERT. PostgreSQL DEFAULT constraint automatically provides this value for new records.",
-  "type": "string"
-}

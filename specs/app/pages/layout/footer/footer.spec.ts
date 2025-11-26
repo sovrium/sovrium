@@ -303,7 +303,14 @@ test.describe('Footer Configuration', () => {
         'tiktok',
       ]
       const socialLinks = platforms.map((platform) => ({
-        platform,
+        platform: platform as
+          | 'facebook'
+          | 'twitter'
+          | 'instagram'
+          | 'linkedin'
+          | 'youtube'
+          | 'github'
+          | 'tiktok',
         url: `https://${platform}.com/company`,
       }))
       await startServerWithSchema({

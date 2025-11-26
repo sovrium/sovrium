@@ -1,9 +1,0 @@
-{
-  "$id": "relationType.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Type of relationship",
-  "description": "Type of relationship determines the cardinality and database structure: one-to-many (simple foreign key), one-to-one (foreign key with UNIQUE constraint), many-to-many (junction table with two foreign keys).",
-  "type": "string",
-  "default": "one-to-many",
-  "enum": ["one-to-one", "one-to-many", "many-to-many"]
-}

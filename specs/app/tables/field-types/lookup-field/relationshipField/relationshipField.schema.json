@@ -1,8 +1,0 @@
-{
-  "$id": "relationshipField.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Name of the relationship field to lookup from",
-  "description": "Name of the relationship field to follow for lookup. Lookup fields traverse an existing foreign key relationship to fetch values from the related table. Implemented via PostgreSQL VIEWs or triggers.",
-  "type": "string",
-  "minLength": 1
-}

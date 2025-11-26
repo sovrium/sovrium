@@ -40,19 +40,11 @@ test.describe('Remove Field Migration', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 1,
             name: 'users',
             fields: [
-              {
-                name: 'id',
-                type: 'integer',
-                required: true,
-              },
-              {
-                name: 'email',
-                type: 'email',
-                constraints: { required: true, unique: true },
-              },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'email', type: 'email' },
             ],
           },
         ],
@@ -89,22 +81,12 @@ test.describe('Remove Field Migration', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 2,
             name: 'products',
             fields: [
-              {
-                name: 'id',
-                type: 'integer',
-                required: true,
-              },
-              {
-                name: 'title',
-                type: 'text',
-              },
-              {
-                name: 'price',
-                type: 'decimal',
-              },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'price', type: 'decimal' },
             ],
           },
         ],
@@ -141,18 +123,11 @@ test.describe('Remove Field Migration', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 3,
             name: 'tasks',
             fields: [
-              {
-                name: 'id',
-                type: 'integer',
-                required: true,
-              },
-              {
-                name: 'title',
-                type: 'text',
-              },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
             ],
           },
         ],
@@ -191,33 +166,19 @@ test.describe('Remove Field Migration', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_customers',
+            id: 4,
             name: 'customers',
             fields: [
-              {
-                name: 'id',
-                type: 'integer',
-                required: true,
-              },
-              {
-                name: 'name',
-                type: 'text',
-              },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
             ],
           },
           {
-            id: 'tbl_orders',
+            id: 5,
             name: 'orders',
             fields: [
-              {
-                name: 'id',
-                type: 'integer',
-                required: true,
-              },
-              {
-                name: 'total',
-                type: 'decimal',
-              },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'total', type: 'decimal' },
             ],
           },
         ],
@@ -265,22 +226,12 @@ test.describe('Remove Field Migration', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              {
-                name: 'id',
-                type: 'integer',
-                required: true,
-              },
-              {
-                name: 'title',
-                type: 'text',
-              },
-              {
-                name: 'description',
-                type: 'text',
-              },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'description', type: 'single-line-text' },
             ],
           },
         ],

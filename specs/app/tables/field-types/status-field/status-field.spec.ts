@@ -28,17 +28,18 @@ test.describe('Status Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_documents',
+            id: 1,
             name: 'documents',
             fields: [
               {
+                id: 1,
                 name: 'workflow_status',
                 type: 'status',
                 options: [
-                  { value: 'Draft', label: 'Draft', color: 'gray' },
-                  { value: 'In Review', label: 'In Review', color: 'yellow' },
-                  { value: 'Approved', label: 'Approved', color: 'green' },
-                  { value: 'Published', label: 'Published', color: 'blue' },
+                  { value: 'Draft', color: '#6B7280' },
+                  { value: 'In Review', color: '#F59E0B' },
+                  { value: 'Approved', color: '#10B981' },
+                  { value: 'Published', color: '#3B82F6' },
                 ],
               },
             ],
@@ -72,18 +73,19 @@ test.describe('Status Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 2,
             name: 'projects',
             fields: [
               {
+                id: 1,
                 name: 'project_status',
                 type: 'status',
                 options: [
-                  { value: 'Planning', label: 'Planning' },
-                  { value: 'Active', label: 'Active' },
-                  { value: 'On Hold', label: 'On Hold' },
-                  { value: 'Completed', label: 'Completed' },
-                  { value: 'Cancelled', label: 'Cancelled' },
+                  { value: 'Planning' },
+                  { value: 'Active' },
+                  { value: 'On Hold' },
+                  { value: 'Completed' },
+                  { value: 'Cancelled' },
                 ],
               },
             ],
@@ -115,17 +117,18 @@ test.describe('Status Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 3,
             name: 'tasks',
             fields: [
               {
+                id: 1,
                 name: 'task_status',
                 type: 'status',
                 options: [
-                  { value: 'Todo', label: 'Todo' },
-                  { value: 'In Progress', label: 'In Progress' },
-                  { value: 'Blocked', label: 'Blocked' },
-                  { value: 'Done', label: 'Done' },
+                  { value: 'Todo' },
+                  { value: 'In Progress' },
+                  { value: 'Blocked' },
+                  { value: 'Done' },
                 ],
                 required: true,
                 unique: true,
@@ -164,18 +167,19 @@ test.describe('Status Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_orders',
+            id: 4,
             name: 'orders',
             fields: [
               {
+                id: 1,
                 name: 'order_status',
                 type: 'status',
                 options: [
-                  { value: 'Pending', label: 'Pending' },
-                  { value: 'Processing', label: 'Processing' },
-                  { value: 'Shipped', label: 'Shipped' },
-                  { value: 'Delivered', label: 'Delivered' },
-                  { value: 'Cancelled', label: 'Cancelled' },
+                  { value: 'Pending' },
+                  { value: 'Processing' },
+                  { value: 'Shipped' },
+                  { value: 'Delivered' },
+                  { value: 'Cancelled' },
                 ],
                 default: 'Pending',
               },
@@ -209,17 +213,18 @@ test.describe('Status Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_requests',
+            id: 5,
             name: 'requests',
             fields: [
               {
+                id: 1,
                 name: 'approval_status',
                 type: 'status',
                 options: [
-                  { value: 'Submitted', label: 'Submitted' },
-                  { value: 'Under Review', label: 'Under Review' },
-                  { value: 'Approved', label: 'Approved' },
-                  { value: 'Rejected', label: 'Rejected' },
+                  { value: 'Submitted' },
+                  { value: 'Under Review' },
+                  { value: 'Approved' },
+                  { value: 'Rejected' },
                 ],
                 required: true,
                 indexed: true,
@@ -252,26 +257,21 @@ test.describe('Status Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
+                id: 2,
                 name: 'status',
                 type: 'status',
-                options: [
-                  { value: 'Draft', label: 'Draft' },
-                  { value: 'Published', label: 'Published' },
-                  { value: 'Archived', label: 'Archived' },
-                ],
+                options: [{ value: 'Draft' }, { value: 'Published' }, { value: 'Archived' }],
                 required: true,
                 indexed: true,
                 default: 'Draft',
               },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

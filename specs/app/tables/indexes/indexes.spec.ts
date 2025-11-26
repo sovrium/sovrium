@@ -40,7 +40,7 @@ test.describe('Database Indexes', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 1,
             name: 'users',
             fields: [
               {
@@ -100,7 +100,7 @@ test.describe('Database Indexes', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_contacts',
+            id: 2,
             name: 'contacts',
             fields: [
               {
@@ -174,7 +174,7 @@ test.describe('Database Indexes', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_accounts',
+            id: 3,
             name: 'accounts',
             fields: [
               {
@@ -245,7 +245,7 @@ test.describe('Database Indexes', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_logs',
+            id: 4,
             name: 'logs',
             fields: [
               {
@@ -300,7 +300,7 @@ test.describe('Database Indexes', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 5,
             name: 'products',
             fields: [
               {
@@ -384,7 +384,7 @@ test.describe('Database Indexes', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_events',
+            id: 6,
             name: 'events',
             fields: [
               {
@@ -452,7 +452,7 @@ test.describe('Database Indexes', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tenant_users',
+            id: 7,
             name: 'tenant_users',
             fields: [
               {
@@ -574,7 +574,7 @@ test.describe('Database Indexes', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 8,
             name: 'users',
             fields: [
               { id: 1, name: 'username', type: 'single-line-text' },

@@ -144,7 +144,7 @@ test.describe('Open Graph Metadata', () => {
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Open Graph type enum
-      const types = ['website', 'article', 'book', 'profile', 'video', 'music']
+      const types = ['website', 'article', 'book', 'profile', 'video', 'music'] as const
       for (const type of types) {
         await startServerWithSchema({
           name: 'test-app',

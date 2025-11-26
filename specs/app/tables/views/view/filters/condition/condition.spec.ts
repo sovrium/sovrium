@@ -34,23 +34,21 @@ test.describe('Filter Condition', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 1,
             name: 'users',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'status', type: 'text' },
-              { name: 'name', type: 'text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'status', type: 'single-line-text' },
+              { id: 3, name: 'name', type: 'single-line-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'active_users',
                 name: 'Active Users',
                 type: 'grid',
                 filters: {
-                  operator: 'AND',
+                  conjunction: 'and',
                   conditions: [{ field: 'status', operator: 'equals', value: 'active' }],
                 },
               },
@@ -81,22 +79,20 @@ test.describe('Filter Condition', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 2,
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'test_products',
                 name: 'Test Products',
                 type: 'grid',
                 filters: {
-                  operator: 'AND',
+                  conjunction: 'and',
                   conditions: [{ field: 'name', operator: 'contains', value: 'test' }],
                 },
               },
@@ -127,23 +123,21 @@ test.describe('Filter Condition', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 3,
             name: 'employees',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'text' },
-              { name: 'age', type: 'integer' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'age', type: 'integer' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'adults',
                 name: 'Adults',
                 type: 'grid',
                 filters: {
-                  operator: 'AND',
+                  conjunction: 'and',
                   conditions: [{ field: 'age', operator: 'greaterThan', value: 18 }],
                 },
               },
@@ -172,24 +166,22 @@ test.describe('Filter Condition', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_contacts',
+            id: 4,
             name: 'contacts',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'text' },
-              { name: 'email', type: 'text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'email', type: 'single-line-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'no_email',
                 name: 'No Email',
                 type: 'grid',
                 filters: {
-                  operator: 'AND',
-                  conditions: [{ field: 'email', operator: 'isEmpty' }],
+                  conjunction: 'and',
+                  conditions: [{ field: 'email', operator: 'isEmpty', value: null }],
                 },
               },
             ],
@@ -219,23 +211,21 @@ test.describe('Filter Condition', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_items',
+            id: 5,
             name: 'items',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'text' },
-              { name: 'category', type: 'text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'category', type: 'single-line-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'tech_items',
                 name: 'Tech Items',
                 type: 'grid',
                 filters: {
-                  operator: 'AND',
+                  conjunction: 'and',
                   conditions: [
                     {
                       field: 'category',
@@ -276,24 +266,22 @@ test.describe('Filter Condition', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'status', type: 'text' },
-              { name: 'value', type: 'integer' },
-              { name: 'category', type: 'text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'status', type: 'single-line-text' },
+              { id: 3, name: 'value', type: 'integer' },
+              { id: 4, name: 'category', type: 'single-line-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'filtered_view',
                 name: 'Filtered View',
                 type: 'grid',
                 filters: {
-                  operator: 'AND',
+                  conjunction: 'and',
                   conditions: [
                     { field: 'status', operator: 'equals', value: 'active' },
                     { field: 'value', operator: 'greaterThan', value: 10 },

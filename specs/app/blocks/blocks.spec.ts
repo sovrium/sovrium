@@ -200,7 +200,7 @@ test.describe('Reusable Blocks', () => {
       // GIVEN: blocks with centralized updates
       await startServerWithSchema({
         name: 'test-app',
-        blocks: [{ name: 'var-block', type: 'text', content: '$message' }],
+        blocks: [{ name: 'var-block', type: 'single-line-text', content: '$message' }],
         pages: [
           {
             name: 'home',
@@ -288,7 +288,7 @@ test.describe('Reusable Blocks', () => {
             name: 'complex',
             type: 'container',
             props: { className: 'wrapper' },
-            children: [{ type: 'text', content: 'Nested' }],
+            children: [{ type: 'single-line-text', content: 'Nested' }],
           },
         ],
         pages: [
@@ -524,7 +524,7 @@ test.describe('Reusable Blocks', () => {
             props: { color: '$color' },
             children: [
               { type: 'icon', props: { name: '$icon' } },
-              { type: 'text', content: '$text' },
+              { type: 'single-line-text', content: '$text' },
             ],
           },
           {
@@ -532,7 +532,7 @@ test.describe('Reusable Blocks', () => {
             type: 'card',
             children: [
               { type: 'heading', content: '$title' },
-              { type: 'text', content: '$description' },
+              { type: 'single-line-text', content: '$description' },
             ],
           },
         ],

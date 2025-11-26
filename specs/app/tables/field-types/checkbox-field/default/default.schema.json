@@ -1,8 +1,0 @@
-{
-  "$id": "default.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Checkbox Field Default Value",
-  "description": "Default boolean value when no value is provided during INSERT. PostgreSQL DEFAULT constraint with BOOLEAN type for true/false fields.",
-  "type": "boolean",
-  "examples": [true, false]
-}

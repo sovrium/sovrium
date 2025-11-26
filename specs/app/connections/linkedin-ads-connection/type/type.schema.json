@@ -1,9 +1,0 @@
-{
-  "$id": "type.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "LinkedIn Ads Connection Type",
-  "description": "Connection type discriminator for LinkedIn Ads integration",
-  "const": "linkedin-ads",
-  "examples": ["linkedin-ads"],
-  "x-specs": []
-}

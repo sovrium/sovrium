@@ -28,15 +28,13 @@ test.describe('Rating Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_reviews',
+            id: 1,
             name: 'reviews',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'rating', type: 'rating' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'rating', type: 'rating' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -62,15 +60,13 @@ test.describe('Rating Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 2,
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'rating', type: 'rating', min: 1, max: 5 },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'rating', type: 'rating', max: 5 },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -98,15 +94,13 @@ test.describe('Rating Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_feedback',
+            id: 3,
             name: 'feedback',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'rating', type: 'rating', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'rating', type: 'rating', required: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -130,15 +124,13 @@ test.describe('Rating Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_items',
+            id: 4,
             name: 'items',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'rating', type: 'rating', default: 3 },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'rating', type: 'rating', default: 3 },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -158,15 +150,13 @@ test.describe('Rating Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_movies',
+            id: 5,
             name: 'movies',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'rating', type: 'rating', required: true, indexed: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'rating', type: 'rating', required: true, indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -186,23 +176,21 @@ test.describe('Rating Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
+                id: 2,
                 name: 'rating_field',
                 type: 'rating',
                 required: true,
                 indexed: true,
-                min: 1,
                 max: 5,
                 default: 3,
               },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

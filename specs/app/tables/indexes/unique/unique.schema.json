@@ -1,9 +1,0 @@
-{
-  "$id": "unique.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Index Unique Flag",
-  "description": "Whether this index enforces uniqueness. Use this for unique constraints across multiple fields.",
-  "type": "boolean",
-  "default": false,
-  "x-specs": []
-}

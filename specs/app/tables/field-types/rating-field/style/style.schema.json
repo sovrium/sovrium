@@ -1,9 +1,0 @@
-{
-  "$id": "style.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Visual style for the rating",
-  "description": "Visual style for the rating",
-  "type": "string",
-  "default": "star",
-  "enum": ["star", "number", "heart"]
-}

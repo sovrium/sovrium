@@ -15,11 +15,7 @@ test.fixme(
     await startServerWithSchema({
       name: 'test-app',
       tables: [
-        {
-          id: 'tbl_products',
-          name: 'products',
-          fields: [{ id: 'fld_name', name: 'name', type: 'single-line-text' }],
-        },
+        { id: 1, name: 'products', fields: [{ id: 1, name: 'name', type: 'single-line-text' }] },
       ],
     })
 
@@ -56,12 +52,12 @@ test.fixme(
       name: 'test-app',
       tables: [
         {
-          id: 'tbl_employees',
+          id: 2,
           name: 'employees',
           fields: [
-            { id: 'fld_name', name: 'name', type: 'single-line-text' },
-            { id: 'fld_department', name: 'department', type: 'single-line-text' },
-            { id: 'fld_salary', name: 'salary', type: 'decimal' },
+            { id: 1, name: 'name', type: 'single-line-text' },
+            { id: 2, name: 'department', type: 'single-line-text' },
+            { id: 3, name: 'salary', type: 'decimal' },
           ],
         },
       ],
@@ -104,21 +100,21 @@ test.fixme(
       name: 'test-app',
       tables: [
         {
-          id: 'tbl_tasks',
+          id: 3,
           name: 'tasks',
           fields: [
-            { id: 'fld_title', name: 'title', type: 'single-line-text' },
+            { id: 1, name: 'title', type: 'single-line-text' },
             {
-              id: 'fld_status',
+              id: 2,
               name: 'status',
               type: 'single-select',
-              config: { options: ['open', 'in_progress', 'completed'] },
+              options: ['todo', 'in_progress', 'done'],
             },
             {
-              id: 'fld_priority',
+              id: 3,
               name: 'priority',
               type: 'single-select',
-              config: { options: ['low', 'medium', 'high'] },
+              options: ['low', 'medium', 'high'],
             },
           ],
         },
@@ -160,11 +156,11 @@ test.fixme(
       name: 'test-app',
       tables: [
         {
-          id: 'tbl_items',
+          id: 4,
           name: 'items',
           fields: [
-            { id: 'fld_name', name: 'name', type: 'single-line-text' },
-            { id: 'fld_price', name: 'price', type: 'decimal' },
+            { id: 1, name: 'name', type: 'single-line-text' },
+            { id: 2, name: 'price', type: 'decimal' },
           ],
         },
       ],

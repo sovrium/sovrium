@@ -173,20 +173,19 @@ test.describe('Lookup Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_items',
+            id: 1,
             name: 'items',
             fields: [
-              { name: 'id', type: 'integer', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
+                id: 2,
                 name: 'category_name',
                 type: 'lookup',
                 relationshipField: 'category_id',
                 relatedField: 'name',
               },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

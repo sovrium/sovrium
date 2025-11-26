@@ -12,6 +12,7 @@ import { IndexesSchema } from './indexes'
 import { NameSchema } from './name'
 import { PrimaryKeySchema } from './primary-key'
 import { UniqueConstraintsSchema } from './unique-constraints'
+import { ViewSchema } from './views'
 
 /**
  * Table Schema
@@ -37,6 +38,7 @@ import { UniqueConstraintsSchema } from './unique-constraints'
  *
  * @see docs/specifications/roadmap/tables.md for full specification
  */
+
 export const TableSchema = Schema.Struct({
   id: IdSchema,
   name: NameSchema,
@@ -44,6 +46,7 @@ export const TableSchema = Schema.Struct({
   primaryKey: Schema.optional(PrimaryKeySchema),
   uniqueConstraints: Schema.optional(UniqueConstraintsSchema),
   indexes: Schema.optional(IndexesSchema),
+  views: Schema.optional(Schema.Array(ViewSchema)),
 }).pipe(
   Schema.annotations({
     title: 'Table',
@@ -83,3 +86,4 @@ export * from './primary-key'
 export * from './unique-constraints'
 export * from './indexes'
 export * from './field-types'
+export * from './views'

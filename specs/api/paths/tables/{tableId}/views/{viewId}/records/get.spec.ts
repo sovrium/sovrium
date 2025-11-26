@@ -16,17 +16,15 @@ test.fixme(
       name: 'test-app',
       tables: [
         {
-          id: 'tbl_tasks',
+          id: 1,
           name: 'tasks',
           fields: [
-            { id: 'fld_title', name: 'title', type: 'single-line-text' },
+            { id: 1, name: 'title', type: 'single-line-text' },
             {
-              id: 'fld_status',
+              id: 2,
               name: 'status',
               type: 'single-select',
-              config: {
-                options: ['active', 'completed', 'archived'],
-              },
+              options: ['active', 'completed'],
             },
           ],
           views: [
@@ -35,7 +33,7 @@ test.fixme(
               name: 'active_tasks',
               type: 'grid',
               filters: {
-                operator: 'and',
+                conjunction: 'and',
                 conditions: [{ field: 'fld_status', operator: 'is', value: 'active' }],
               },
             },
@@ -80,11 +78,11 @@ test.fixme(
       name: 'test-app',
       tables: [
         {
-          id: 'tbl_products',
+          id: 2,
           name: 'products',
           fields: [
-            { id: 'fld_name', name: 'name', type: 'single-line-text' },
-            { id: 'fld_price', name: 'price', type: 'decimal' },
+            { id: 1, name: 'name', type: 'single-line-text' },
+            { id: 2, name: 'price', type: 'decimal' },
           ],
           views: [
             {
@@ -130,12 +128,12 @@ test.fixme(
       name: 'test-app',
       tables: [
         {
-          id: 'tbl_users',
+          id: 3,
           name: 'users',
           fields: [
-            { id: 'fld_name', name: 'name', type: 'single-line-text' },
-            { id: 'fld_email', name: 'email', type: 'email' },
-            { id: 'fld_phone', name: 'phone', type: 'phone-number' },
+            { id: 1, name: 'name', type: 'single-line-text' },
+            { id: 2, name: 'email', type: 'email' },
+            { id: 3, name: 'phone', type: 'phone-number' },
           ],
           views: [
             {
@@ -143,9 +141,9 @@ test.fixme(
               name: 'contact_info',
               type: 'grid',
               fields: [
-                { fieldId: 'fld_name', visible: true },
-                { fieldId: 'fld_email', visible: true },
-                { fieldId: 'fld_phone', visible: false },
+                { field: 'fld_name', visible: true },
+                { field: 'fld_email', visible: true },
+                { field: 'fld_phone', visible: false },
               ],
             },
           ],
@@ -185,9 +183,9 @@ test.fixme(
       name: 'test-app',
       tables: [
         {
-          id: 'tbl_sensitive',
+          id: 4,
           name: 'sensitive_data',
-          fields: [{ id: 'fld_data', name: 'data', type: 'single-line-text' }],
+          fields: [{ id: 1, name: 'data', type: 'single-line-text' }],
           views: [
             {
               id: 'view_admin',
@@ -224,11 +222,11 @@ test.fixme(
       name: 'test-app',
       tables: [
         {
-          id: 'tbl_items',
+          id: 5,
           name: 'items',
           fields: [
-            { id: 'fld_name', name: 'name', type: 'single-line-text' },
-            { id: 'fld_active', name: 'active', type: 'checkbox' },
+            { id: 1, name: 'name', type: 'single-line-text' },
+            { id: 2, name: 'active', type: 'checkbox' },
           ],
           views: [
             {
@@ -236,7 +234,7 @@ test.fixme(
               name: 'active_items',
               type: 'grid',
               filters: {
-                operator: 'and',
+                conjunction: 'and',
                 conditions: [{ field: 'fld_active', operator: 'is', value: true }],
               },
             },

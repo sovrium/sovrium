@@ -1,7 +1,0 @@
-{
-  "$id": "schema.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Optional JSON Schema to validate the data",
-  "description": "Optional JSON Schema to validate the data",
-  "type": "object"
-}

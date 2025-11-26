@@ -1,8 +1,0 @@
-{
-  "$id": "default.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Single-Select Field Default Value",
-  "description": "Default option value when no value is provided during INSERT. PostgreSQL DEFAULT constraint with VARCHAR type for single selection from predefined options.",
-  "type": "string",
-  "examples": ["option_1", "status_active", "priority_medium"]
-}

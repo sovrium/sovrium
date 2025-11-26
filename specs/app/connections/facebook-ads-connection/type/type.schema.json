@@ -1,9 +1,0 @@
-{
-  "$id": "type.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Facebook Ads Connection Type",
-  "description": "Connection type discriminator for Facebook Ads integration",
-  "const": "facebook-ads",
-  "examples": ["facebook-ads"],
-  "x-specs": []
-}

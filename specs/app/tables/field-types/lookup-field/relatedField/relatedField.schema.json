@@ -1,8 +1,0 @@
-{
-  "$id": "relatedField.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Name of the field in the related table to display",
-  "description": "Name of the field in the related table to fetch and display. Lookup fields use PostgreSQL VIEWs with LEFT JOIN to fetch this field value from the related table through the specified relationship.",
-  "type": "string",
-  "minLength": 1
-}

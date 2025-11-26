@@ -43,7 +43,7 @@ test.describe('Table Name', () => {
           name: 'test-app',
           tables: [
             {
-              id: 'tbl_users',
+              id: 1,
               name: 'users',
               fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
             },
@@ -56,7 +56,7 @@ test.describe('Table Name', () => {
           name: 'test-app',
           tables: [
             {
-              id: 'tbl_products_123',
+              id: 2,
               name: 'products_123',
               fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
             },
@@ -70,7 +70,7 @@ test.describe('Table Name', () => {
           name: 'test-app',
           tables: [
             {
-              id: 'tbl_invalid',
+              id: 3,
               name: 'InvalidTable',
               fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
             },
@@ -83,7 +83,7 @@ test.describe('Table Name', () => {
           name: 'test-app',
           tables: [
             {
-              id: 'tbl_invalid',
+              id: 4,
               name: '123_table',
               fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
             },
@@ -96,7 +96,7 @@ test.describe('Table Name', () => {
           name: 'test-app',
           tables: [
             {
-              id: 'tbl_invalid',
+              id: 5,
               name: 'table with spaces',
               fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
             },
@@ -119,7 +119,7 @@ test.describe('Table Name', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_customers',
+            id: 6,
             name: 'customers',
             fields: [
               {
@@ -160,12 +160,12 @@ test.describe('Table Name', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 7,
             name: 'users',
             fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
           },
           {
-            id: 'tbl_orders_2024',
+            id: 8,
             name: 'orders_2024',
             fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
           },

@@ -122,7 +122,8 @@ test.describe('Responsive Variants', () => {
             path: '/',
             sections: [
               {
-                type: 'text',
+                type: 'single-line-text',
+                props: { 'data-testid': 'text' },
                 content: 'Desktop Only Content',
                 responsive: {
                   mobile: {
@@ -244,9 +245,10 @@ test.describe('Responsive Variants', () => {
             path: '/',
             sections: [
               {
-                type: 'text',
+                type: 'single-line-text',
                 content: 'Text content',
                 props: {
+                  'data-testid': 'text',
                   className: 'text-base',
                 },
                 responsive: {
@@ -571,7 +573,8 @@ test.describe('Responsive Variants', () => {
                 },
               },
               {
-                type: 'text',
+                type: 'single-line-text',
+                props: { 'data-testid': 'text' },
                 content: 'Visible text',
                 responsive: {
                   mobile: {

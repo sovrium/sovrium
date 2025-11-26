@@ -15,11 +15,7 @@ test.describe('Barcode Field', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          {
-            id: 'tbl_products',
-            name: 'products',
-            fields: [{ name: 'barcode', type: 'barcode' }],
-          },
+          { id: 1, name: 'products', fields: [{ id: 1, name: 'barcode', type: 'barcode' }] },
         ],
       })
       const column = await executeQuery(
@@ -37,9 +33,9 @@ test.describe('Barcode Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_items',
+            id: 2,
             name: 'items',
-            fields: [{ name: 'ean', type: 'barcode', format: 'EAN-13' }],
+            fields: [{ id: 1, name: 'ean', type: 'barcode', format: 'EAN-13' }],
           },
         ],
       })
@@ -55,13 +51,7 @@ test.describe('Barcode Field', () => {
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
-        tables: [
-          {
-            id: 'tbl_inventory',
-            name: 'inventory',
-            fields: [{ name: 'code', type: 'barcode' }],
-          },
-        ],
+        tables: [{ id: 3, name: 'inventory', fields: [{ id: 1, name: 'code', type: 'barcode' }] }],
       })
       await executeQuery("INSERT INTO inventory (code) VALUES ('1234567890123')")
       const result = await executeQuery('SELECT code FROM inventory WHERE id = 1')
@@ -77,9 +67,9 @@ test.describe('Barcode Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_assets',
+            id: 4,
             name: 'assets',
-            fields: [{ name: 'barcode', type: 'barcode', unique: true }],
+            fields: [{ id: 1, name: 'barcode', type: 'barcode', unique: true }],
           },
         ],
       })
@@ -98,9 +88,9 @@ test.describe('Barcode Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_shipments',
+            id: 5,
             name: 'shipments',
-            fields: [{ name: 'tracking', type: 'barcode', indexed: true }],
+            fields: [{ id: 1, name: 'tracking', type: 'barcode', indexed: true }],
           },
         ],
       })
@@ -119,9 +109,9 @@ test.describe('Barcode Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
-            fields: [{ name: 'barcode', type: 'barcode', unique: true }],
+            fields: [{ id: 1, name: 'barcode', type: 'barcode', unique: true }],
           },
         ],
       })

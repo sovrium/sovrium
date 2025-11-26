@@ -1,8 +1,0 @@
-{
-  "$id": "relationshipField.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Name of the relationship field to aggregate from",
-  "description": "Name of the reverse relationship to follow for aggregation. Rollup fields aggregate across child records in one-to-many relationships. Specifies which related table contains the records to aggregate.",
-  "type": "string",
-  "minLength": 1
-}

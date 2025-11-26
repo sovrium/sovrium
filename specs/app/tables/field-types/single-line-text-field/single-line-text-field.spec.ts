@@ -32,11 +32,7 @@ test.describe('Single Line Text Field', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          {
-            id: 'tbl_products',
-            name: 'products',
-            fields: [{ name: 'title', type: 'single-line-text' }],
-          },
+          { id: 1, name: 'products', fields: [{ id: 1, name: 'title', type: 'single-line-text' }] },
         ],
       })
 
@@ -67,9 +63,11 @@ test.describe('Single Line Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 2,
             name: 'users',
-            fields: [{ name: 'username', type: 'single-line-text', required: true, unique: true }],
+            fields: [
+              { id: 1, name: 'username', type: 'single-line-text', required: true, unique: true },
+            ],
           },
         ],
       })
@@ -102,9 +100,9 @@ test.describe('Single Line Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 3,
             name: 'tasks',
-            fields: [{ name: 'title', type: 'single-line-text', required: true }],
+            fields: [{ id: 1, name: 'title', type: 'single-line-text', required: true }],
           },
         ],
       })
@@ -135,10 +133,11 @@ test.describe('Single Line Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 4,
             name: 'products',
             fields: [
               {
+                id: 1,
                 name: 'sku',
                 type: 'single-line-text',
                 required: true,
@@ -177,9 +176,9 @@ test.describe('Single Line Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_documents',
+            id: 5,
             name: 'documents',
-            fields: [{ name: 'name', type: 'single-line-text', default: 'Untitled' }],
+            fields: [{ id: 1, name: 'name', type: 'single-line-text', default: 'Untitled' }],
           },
         ],
       })
@@ -210,11 +209,7 @@ test.describe('Single Line Text Field', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          {
-            id: 'tbl_posts',
-            name: 'posts',
-            fields: [{ name: 'content', type: 'single-line-text' }],
-          },
+          { id: 6, name: 'posts', fields: [{ id: 1, name: 'content', type: 'single-line-text' }] },
         ],
       })
 
@@ -245,9 +240,9 @@ test.describe('Single Line Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_notes',
+            id: 7,
             name: 'notes',
-            fields: [{ name: 'short_note', type: 'single-line-text' }],
+            fields: [{ id: 1, name: 'short_note', type: 'single-line-text' }],
           },
         ],
       })
@@ -273,9 +268,9 @@ test.describe('Single Line Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_messages',
+            id: 8,
             name: 'messages',
-            fields: [{ name: 'message', type: 'single-line-text' }],
+            fields: [{ id: 1, name: 'message', type: 'single-line-text' }],
           },
         ],
       })
@@ -309,11 +304,7 @@ test.describe('Single Line Text Field', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          {
-            id: 'tbl_products',
-            name: 'products',
-            fields: [{ name: 'sku', type: 'single-line-text' }],
-          },
+          { id: 9, name: 'products', fields: [{ id: 1, name: 'sku', type: 'single-line-text' }] },
         ],
       })
 
@@ -342,9 +333,9 @@ test.describe('Single Line Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_inventory',
+            id: 10,
             name: 'inventory',
-            fields: [{ name: 'product_code', type: 'single-line-text', indexed: true }],
+            fields: [{ id: 1, name: 'product_code', type: 'single-line-text', indexed: true }],
           },
         ],
       })
@@ -381,9 +372,9 @@ test.describe('Single Line Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_articles',
+            id: 11,
             name: 'articles',
-            fields: [{ name: 'title', type: 'single-line-text' }],
+            fields: [{ id: 1, name: 'title', type: 'single-line-text' }],
           },
         ],
       })
@@ -423,9 +414,11 @@ test.describe('Single Line Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 12,
             name: 'users',
-            fields: [{ name: 'username', type: 'single-line-text', required: true, unique: true }],
+            fields: [
+              { id: 1, name: 'username', type: 'single-line-text', required: true, unique: true },
+            ],
           },
         ],
       })
@@ -456,9 +449,11 @@ test.describe('Single Line Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 13,
             name: 'products',
-            fields: [{ name: 'sku', type: 'single-line-text', required: true, unique: true }],
+            fields: [
+              { id: 1, name: 'sku', type: 'single-line-text', required: true, unique: true },
+            ],
           },
         ],
       })
@@ -494,10 +489,10 @@ test.describe('Single Line Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_events',
+            id: 14,
             name: 'events',
             fields: [
-              { name: 'event_code', type: 'single-line-text', required: true, unique: true },
+              { id: 1, name: 'event_code', type: 'single-line-text', required: true, unique: true },
             ],
           },
         ],
@@ -533,9 +528,9 @@ test.describe('Single Line Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_items',
+            id: 15,
             name: 'items',
-            fields: [{ name: 'description', type: 'single-line-text' }],
+            fields: [{ id: 1, name: 'description', type: 'single-line-text' }],
           },
         ],
       })
@@ -571,11 +566,7 @@ test.describe('Single Line Text Field', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          {
-            id: 'tbl_content',
-            name: 'content',
-            fields: [{ name: 'text', type: 'single-line-text' }],
-          },
+          { id: 16, name: 'content', fields: [{ id: 1, name: 'text', type: 'single-line-text' }] },
         ],
       })
 
@@ -613,9 +604,9 @@ test.describe('Single Line Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_boundaries',
+            id: 17,
             name: 'boundaries',
-            fields: [{ name: 'value', type: 'single-line-text' }],
+            fields: [{ id: 1, name: 'value', type: 'single-line-text' }],
           },
         ],
       })
@@ -652,9 +643,9 @@ test.describe('Single Line Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_required_fields',
+            id: 18,
             name: 'required_fields',
-            fields: [{ name: 'name', type: 'single-line-text', required: true }],
+            fields: [{ id: 1, name: 'name', type: 'single-line-text', required: true }],
           },
         ],
       })
@@ -685,9 +676,9 @@ test.describe('Single Line Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_special_chars',
+            id: 19,
             name: 'special_chars',
-            fields: [{ name: 'content', type: 'single-line-text' }],
+            fields: [{ id: 1, name: 'content', type: 'single-line-text' }],
           },
         ],
       })
@@ -729,10 +720,11 @@ test.describe('Single Line Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 20,
             name: 'data',
             fields: [
               {
+                id: 1,
                 name: 'text_field',
                 type: 'single-line-text',
                 required: true,

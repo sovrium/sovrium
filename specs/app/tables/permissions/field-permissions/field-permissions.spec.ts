@@ -44,17 +44,15 @@ test.describe('Field-Level Permissions', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 1,
             name: 'employees',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'text' },
-              { name: 'salary', type: 'decimal', constraints: { precision: 10, scale: 2 } },
-              { name: 'department', type: 'text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'salary', type: 'decimal' },
+              { id: 4, name: 'department', type: 'single-line-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               fields: [
                 {
@@ -114,17 +112,15 @@ test.describe('Field-Level Permissions', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 2,
             name: 'users',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'text' },
-              { name: 'email', type: 'text' },
-              { name: 'bio', type: 'text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'email', type: 'single-line-text' },
+              { id: 4, name: 'bio', type: 'single-line-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               fields: [
                 {
@@ -177,18 +173,16 @@ test.describe('Field-Level Permissions', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_staff',
+            id: 3,
             name: 'staff',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'text' },
-              { name: 'email', type: 'text' },
-              { name: 'salary', type: 'decimal', constraints: { precision: 10, scale: 2 } },
-              { name: 'department', type: 'text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'email', type: 'single-line-text' },
+              { id: 4, name: 'salary', type: 'decimal' },
+              { id: 5, name: 'department', type: 'single-line-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               fields: [
                 {
@@ -264,16 +258,14 @@ test.describe('Field-Level Permissions', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tickets',
+            id: 4,
             name: 'tickets',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'status', type: 'text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'status', type: 'single-line-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               fields: [
                 {
@@ -330,17 +322,15 @@ test.describe('Field-Level Permissions', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 5,
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'notes', type: 'text' },
-              { name: 'owner_id', type: 'integer' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'notes', type: 'single-line-text' },
+              { id: 4, name: 'owner_id', type: 'integer' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               fields: [
                 {
@@ -393,17 +383,15 @@ test.describe('Field-Level Permissions', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_posts',
+            id: 6,
             name: 'posts',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'content', type: 'text' },
-              { name: 'created_at', type: 'timestamp', constraints: { default: 'NOW()' } },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'content', type: 'single-line-text' },
+              { id: 4, name: 'created_at', type: 'timestamp' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               table: {
                 read: {
@@ -454,18 +442,16 @@ test.describe('Field-Level Permissions', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_records',
+            id: 7,
             name: 'records',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'public_field', type: 'text' },
-              { name: 'private_field', type: 'text' },
-              { name: 'owner_id', type: 'integer' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'public_field', type: 'single-line-text' },
+              { id: 4, name: 'private_field', type: 'single-line-text' },
+              { id: 5, name: 'owner_id', type: 'integer' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               table: {
                 read: {

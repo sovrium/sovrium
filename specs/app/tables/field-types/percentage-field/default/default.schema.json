@@ -1,7 +1,0 @@
-{
-  "$id": "default.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Percentage Field Default Value",
-  "description": "Default numeric value for this percentage field when no value is provided",
-  "type": "number"
-}

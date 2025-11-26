@@ -1,9 +1,0 @@
-{
-  "$id": "resultType.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Formula Result Type",
-  "description": "Expected data type of the formula result. Determines PostgreSQL column type for GENERATED column: text→TEXT, number→DECIMAL, boolean→BOOLEAN, date→DATE.",
-  "type": "string",
-  "default": "text",
-  "enum": ["text", "number", "boolean", "date"]
-}

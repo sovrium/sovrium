@@ -16,12 +16,12 @@ test.fixme(
       name: 'test-app',
       tables: [
         {
-          id: 'tbl_products',
+          id: 1,
           name: 'products',
           fields: [
-            { id: 'fld_name', name: 'name', type: 'single-line-text' },
-            { id: 'fld_sku', name: 'sku', type: 'single-line-text', unique: true },
-            { id: 'fld_price', name: 'price', type: 'decimal' },
+            { id: 1, name: 'name', type: 'single-line-text' },
+            { id: 2, name: 'sku', type: 'single-line-text', unique: true },
+            { id: 3, name: 'price', type: 'decimal' },
           ],
         },
       ],
@@ -99,11 +99,11 @@ test.fixme(
       name: 'test-app',
       tables: [
         {
-          id: 'tbl_orders',
+          id: 2,
           name: 'orders',
           fields: [
-            { id: 'fld_order_id', name: 'order_id', type: 'single-line-text', unique: true },
-            { id: 'fld_amount', name: 'amount', type: 'decimal' },
+            { id: 1, name: 'order_id', type: 'single-line-text', unique: true },
+            { id: 2, name: 'amount', type: 'decimal' },
           ],
         },
       ],
@@ -153,11 +153,11 @@ test.fixme(
       name: 'test-app',
       tables: [
         {
-          id: 'tbl_items',
+          id: 3,
           name: 'items',
           fields: [
-            { id: 'fld_name', name: 'name', type: 'single-line-text' },
-            { id: 'fld_code', name: 'code', type: 'single-line-text', unique: true },
+            { id: 1, name: 'name', type: 'single-line-text' },
+            { id: 2, name: 'code', type: 'single-line-text', unique: true },
           ],
         },
       ],

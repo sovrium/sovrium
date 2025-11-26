@@ -27,13 +27,7 @@ test.describe('Rich Text Field', () => {
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
-        tables: [
-          {
-            id: 'tbl_posts',
-            name: 'posts',
-            fields: [{ name: 'content', type: 'rich-text' }],
-          },
-        ],
+        tables: [{ id: 1, name: 'posts', fields: [{ id: 1, name: 'content', type: 'rich-text' }] }],
       })
 
       const columnInfo = await executeQuery(
@@ -62,9 +56,9 @@ test.describe('Rich Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_articles',
+            id: 2,
             name: 'articles',
-            fields: [{ name: 'summary', type: 'rich-text', maxLength: 500 }],
+            fields: [{ id: 1, name: 'summary', type: 'rich-text', maxLength: 500 }],
           },
         ],
       })
@@ -88,9 +82,9 @@ test.describe('Rich Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_pages',
+            id: 3,
             name: 'pages',
-            fields: [{ name: 'body', type: 'rich-text', fullTextSearch: true }],
+            fields: [{ id: 1, name: 'body', type: 'rich-text', fullTextSearch: true }],
           },
         ],
       })
@@ -117,11 +111,7 @@ test.describe('Rich Text Field', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          {
-            id: 'tbl_comments',
-            name: 'comments',
-            fields: [{ name: 'message', type: 'rich-text' }],
-          },
+          { id: 4, name: 'comments', fields: [{ id: 1, name: 'message', type: 'rich-text' }] },
         ],
       })
 
@@ -149,9 +139,9 @@ test.describe('Rich Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_documents',
+            id: 5,
             name: 'documents',
-            fields: [{ name: 'slug', type: 'rich-text', required: true, unique: true }],
+            fields: [{ id: 1, name: 'slug', type: 'rich-text', required: true, unique: true }],
           },
         ],
       })
@@ -182,15 +172,13 @@ test.describe('Rich Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'description', type: 'rich-text', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'description', type: 'rich-text', required: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

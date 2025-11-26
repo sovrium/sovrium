@@ -1,8 +1,0 @@
-{
-  "$id": "relatedTable.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Name of the related table",
-  "description": "Name of the related table to establish foreign key relationship. Must reference an existing table name in the database. Used to create FOREIGN KEY constraints pointing to the specified table's primary key.",
-  "type": "string",
-  "minLength": 1
-}

@@ -39,7 +39,7 @@ test.describe('Unique Constraints', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 1,
             name: 'users',
             fields: [
               {
@@ -90,7 +90,7 @@ test.describe('Unique Constraints', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 2,
             name: 'products',
             fields: [
               {
@@ -131,7 +131,7 @@ test.describe('Unique Constraints', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_contacts',
+            id: 3,
             name: 'contacts',
             fields: [
               {
@@ -181,7 +181,7 @@ test.describe('Unique Constraints', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_locations',
+            id: 4,
             name: 'locations',
             fields: [
               {
@@ -241,7 +241,7 @@ test.describe('Unique Constraints', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_items',
+            id: 5,
             name: 'items',
             fields: [
               {
@@ -285,7 +285,7 @@ test.describe('Unique Constraints', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_test_items',
+            id: 6,
             name: 'test_items',
             fields: [
               {
@@ -329,7 +329,7 @@ test.describe('Unique Constraints', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_preserved_names',
+            id: 7,
             name: 'preserved_names',
             fields: [
               {
@@ -376,7 +376,7 @@ test.describe('Unique Constraints', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 8,
             name: 'users',
             fields: [
               { id: 1, name: 'email', type: 'email' },
@@ -390,7 +390,7 @@ test.describe('Unique Constraints', () => {
             ],
           },
           {
-            id: 'tbl_products',
+            id: 9,
             name: 'products',
             fields: [
               { id: 1, name: 'sku', type: 'single-line-text' },

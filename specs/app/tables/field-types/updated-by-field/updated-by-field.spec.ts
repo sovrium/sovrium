@@ -34,16 +34,14 @@ test.describe('Updated By Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 1,
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'single-line-text' },
-              { name: 'updated_by', type: 'updated-by' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'updated_by', type: 'updated-by' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -80,16 +78,14 @@ test.describe('Updated By Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_documents',
+            id: 2,
             name: 'documents',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'updated_by', type: 'updated-by' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'updated_by', type: 'updated-by' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -130,17 +126,15 @@ test.describe('Updated By Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 3,
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'status', type: 'text' },
-              { name: 'updated_by', type: 'updated-by' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'status', type: 'single-line-text' },
+              { id: 4, name: 'updated_by', type: 'updated-by' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -184,17 +178,15 @@ test.describe('Updated By Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_pages',
+            id: 4,
             name: 'pages',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'created_by', type: 'created-by' },
-              { name: 'updated_by', type: 'updated-by' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'created_by', type: 'created-by' },
+              { id: 4, name: 'updated_by', type: 'updated-by' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -230,16 +222,14 @@ test.describe('Updated By Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_articles',
+            id: 5,
             name: 'articles',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'content', type: 'long-text' },
-              { name: 'updated_by', type: 'updated-by', indexed: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'content', type: 'long-text' },
+              { id: 3, name: 'updated_by', type: 'updated-by', indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -272,16 +262,14 @@ test.describe('Updated By Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'value', type: 'text' },
-              { name: 'updated_by', type: 'updated-by', indexed: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'value', type: 'single-line-text' },
+              { id: 3, name: 'updated_by', type: 'updated-by', indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

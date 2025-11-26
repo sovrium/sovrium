@@ -15,11 +15,7 @@ test.describe('Color Field', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          {
-            id: 'tbl_themes',
-            name: 'themes',
-            fields: [{ name: 'primary_color', type: 'color' }],
-          },
+          { id: 1, name: 'themes', fields: [{ id: 1, name: 'primary_color', type: 'color' }] },
         ],
       })
       const column = await executeQuery(
@@ -35,13 +31,7 @@ test.describe('Color Field', () => {
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
-        tables: [
-          {
-            id: 'tbl_colors',
-            name: 'colors',
-            fields: [{ name: 'value', type: 'color' }],
-          },
-        ],
+        tables: [{ id: 2, name: 'colors', fields: [{ id: 1, name: 'value', type: 'color' }] }],
       })
       await expect(executeQuery("INSERT INTO colors (value) VALUES ('invalid')")).rejects.toThrow(
         /violates check constraint/
@@ -55,13 +45,7 @@ test.describe('Color Field', () => {
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
-        tables: [
-          {
-            id: 'tbl_palettes',
-            name: 'palettes',
-            fields: [{ name: 'color', type: 'color' }],
-          },
-        ],
+        tables: [{ id: 3, name: 'palettes', fields: [{ id: 1, name: 'color', type: 'color' }] }],
       })
       await executeQuery("INSERT INTO palettes (color) VALUES ('#FF5733'), ('#3498DB')")
       const colors = await executeQuery('SELECT color FROM palettes ORDER BY id')
@@ -76,11 +60,7 @@ test.describe('Color Field', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          {
-            id: 'tbl_items',
-            name: 'items',
-            fields: [{ name: 'accent_color', type: 'color' }],
-          },
+          { id: 4, name: 'items', fields: [{ id: 1, name: 'accent_color', type: 'color' }] },
         ],
       })
       await executeQuery('INSERT INTO items (accent_color) VALUES (NULL)')
@@ -97,9 +77,9 @@ test.describe('Color Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_brands',
+            id: 5,
             name: 'brands',
-            fields: [{ name: 'brand_color', type: 'color', required: true }],
+            fields: [{ id: 1, name: 'brand_color', type: 'color', required: true }],
           },
         ],
       })
@@ -115,13 +95,7 @@ test.describe('Color Field', () => {
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
-        tables: [
-          {
-            id: 'tbl_data',
-            name: 'data',
-            fields: [{ name: 'color', type: 'color' }],
-          },
-        ],
+        tables: [{ id: 6, name: 'data', fields: [{ id: 1, name: 'color', type: 'color' }] }],
       })
       await executeQuery("INSERT INTO data (color) VALUES ('#ABCDEF')")
       const result = await executeQuery('SELECT color FROM data WHERE id = 1')

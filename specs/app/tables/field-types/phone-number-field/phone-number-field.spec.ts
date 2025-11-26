@@ -34,15 +34,13 @@ test.describe('Phone Number Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_contacts',
+            id: 1,
             name: 'contacts',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'phone', type: 'phone-number' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'phone', type: 'phone-number' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -75,15 +73,13 @@ test.describe('Phone Number Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_customers',
+            id: 2,
             name: 'customers',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'mobile', type: 'phone-number' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'mobile', type: 'phone-number' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -121,15 +117,13 @@ test.describe('Phone Number Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 3,
             name: 'users',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'phone', type: 'phone-number', unique: true, required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'phone', type: 'phone-number', unique: true, required: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -161,15 +155,13 @@ test.describe('Phone Number Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_support_tickets',
+            id: 4,
             name: 'support_tickets',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'contact_phone', type: 'phone-number', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'contact_phone', type: 'phone-number', required: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -201,15 +193,13 @@ test.describe('Phone Number Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 5,
             name: 'employees',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'phone', type: 'phone-number', unique: true, indexed: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'phone', type: 'phone-number', unique: true, indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -246,11 +236,12 @@ test.describe('Phone Number Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
+                id: 2,
                 name: 'phone_field',
                 type: 'phone-number',
                 required: true,
@@ -258,9 +249,7 @@ test.describe('Phone Number Field', () => {
                 indexed: true,
               },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

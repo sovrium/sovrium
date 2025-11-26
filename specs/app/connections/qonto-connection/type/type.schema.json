@@ -1,9 +1,0 @@
-{
-  "$id": "type.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Qonto Connection Type",
-  "description": "Connection type discriminator for Qonto integration",
-  "const": "qonto",
-  "examples": ["qonto"],
-  "x-specs": []
-}

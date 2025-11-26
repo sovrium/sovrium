@@ -34,9 +34,9 @@ test.describe('Delete record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 1,
             name: 'users',
-            fields: [{ name: 'email', type: 'email', required: true }],
+            fields: [{ id: 1, name: 'email', type: 'email', required: true }],
           },
         ],
       })
@@ -69,9 +69,9 @@ test.describe('Delete record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 2,
             name: 'users',
-            fields: [{ name: 'email', type: 'email', required: true }],
+            fields: [{ id: 1, name: 'email', type: 'email', required: true }],
           },
         ],
       })
@@ -101,11 +101,11 @@ test.describe('Delete record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 3,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -140,11 +140,11 @@ test.describe('Delete record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 4,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -185,11 +185,11 @@ test.describe('Delete record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 5,
             name: 'projects',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -226,11 +226,11 @@ test.describe('Delete record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 6,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -272,11 +272,11 @@ test.describe('Delete record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 7,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -311,12 +311,12 @@ test.describe('Delete record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 8,
             name: 'projects',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'status', type: 'single-line-text' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'status', type: 'single-line-text' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -351,12 +351,12 @@ test.describe('Delete record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 9,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'email', type: 'email', required: true },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'email', type: 'email', required: true },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -398,11 +398,11 @@ test.describe('Delete record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 10,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -441,11 +441,11 @@ test.describe('Delete record', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 11,
             name: 'users',
             fields: [
-              { name: 'email', type: 'email', required: true },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'email', type: 'email', required: true },
+              { id: 2, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],

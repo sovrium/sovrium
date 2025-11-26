@@ -44,15 +44,13 @@ test.describe('Table View', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_example',
+            id: 1,
             name: 'example',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'example_view',
@@ -88,15 +86,13 @@ test.describe('Table View', () => {
           name: 'test-app',
           tables: [
             {
-              id: 'tbl_example',
+              id: 2,
               name: 'example',
               fields: [
-                { name: 'id', type: 'integer', required: true },
-                { name: 'name', type: 'text' },
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
               ],
-              primaryKey: {
-                fields: ['id'],
-              },
+              primaryKey: { type: 'composite', fields: ['id'] },
               views: [
                 {
                   id: 'Invalid View ID',
@@ -120,16 +116,14 @@ test.describe('Table View', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 3,
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'status', type: 'text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'status', type: 'single-line-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'active_tasks',
@@ -180,17 +174,15 @@ test.describe('Table View', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_items',
+            id: 4,
             name: 'items',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'status', type: 'text' },
-              { name: 'priority', type: 'integer' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'status', type: 'single-line-text' },
+              { id: 4, name: 'priority', type: 'integer' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'default_view',

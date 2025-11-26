@@ -12,6 +12,7 @@ import { join } from 'node:path'
 import { test as base } from '@playwright/test'
 import { PostgreSqlContainer } from '@testcontainers/postgresql'
 import { DatabaseTemplateManager, generateTestDatabaseName } from './database-utils'
+import type { App } from '@/domain/models/app'
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql'
 import type { ChildProcess } from 'node:child_process'
 
@@ -304,7 +305,7 @@ async function stopServer(serverProcess: ChildProcess): Promise<void> {
  */
 type ServerFixtures = {
   startServerWithSchema: (
-    appSchema: object,
+    appSchema: App,
     options?: { useDatabase?: boolean; database?: { url: string } }
   ) => Promise<void>
   executeQuery: (
@@ -324,7 +325,7 @@ type ServerFixtures = {
   browserLocale: string | undefined
   mockAnalytics: boolean
   generateStaticSite: (
-    appSchema: object,
+    appSchema: App,
     config?: {
       publicDir?: string
       baseUrl?: string
@@ -396,7 +397,7 @@ export const test = base.extend<ServerFixtures>({
     let testDbName: string | null = null
 
     // Provide function to start server with custom schema
-    await use(async (appSchema: object, options?: { useDatabase?: boolean }) => {
+    await use(async (appSchema: App, options?: { useDatabase?: boolean }) => {
       let databaseUrl: string | undefined = undefined
 
       // Enable database by default (can be disabled with useDatabase: false)
@@ -542,7 +543,7 @@ export const test = base.extend<ServerFixtures>({
     const tempDirs: string[] = []
 
     await use(
-      async (appSchema: object, config?: Parameters<ServerFixtures['generateStaticSite']>[1]) => {
+      async (appSchema: App, config?: Parameters<ServerFixtures['generateStaticSite']>[1]) => {
         // Create temporary output directory
         const tempDir = await mkdtemp(join(tmpdir(), 'sovrium-static-'))
         const outputDir = join(tempDir, 'dist')

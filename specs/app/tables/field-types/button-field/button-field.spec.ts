@@ -16,9 +16,17 @@ test.describe('Button Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_records',
+            id: 1,
             name: 'records',
-            fields: [{ name: 'action_button', type: 'button', action: 'customAction' }],
+            fields: [
+              {
+                id: 1,
+                name: 'action_button',
+                type: 'button',
+                label: 'Action',
+                action: 'customAction',
+              },
+            ],
           },
         ],
       })
@@ -37,9 +45,17 @@ test.describe('Button Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 2,
             name: 'tasks',
-            fields: [{ name: 'complete_button', type: 'button', action: 'markComplete' }],
+            fields: [
+              {
+                id: 1,
+                name: 'complete_button',
+                type: 'button',
+                label: 'Complete',
+                action: 'markComplete',
+              },
+            ],
           },
         ],
       })
@@ -62,16 +78,23 @@ test.describe('Button Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_jobs',
+            id: 3,
             name: 'jobs',
             fields: [
               {
+                id: 1,
                 name: 'status',
                 type: 'status',
                 options: [{ value: 'pending' }, { value: 'completed' }],
                 default: 'pending',
               },
-              { name: 'complete_button', type: 'button', action: 'markComplete' },
+              {
+                id: 2,
+                name: 'complete_button',
+                type: 'button',
+                label: 'Complete',
+                action: 'markComplete',
+              },
             ],
           },
         ],
@@ -91,19 +114,21 @@ test.describe('Button Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_orders',
+            id: 4,
             name: 'orders',
             fields: [
               {
+                id: 1,
                 name: 'status',
                 type: 'status',
                 options: [{ value: 'pending' }, { value: 'shipped' }],
               },
               {
+                id: 2,
                 name: 'ship_button',
                 type: 'button',
+                label: 'Ship',
                 action: 'ship',
-                visibleWhen: 'status == "pending"',
               },
             ],
           },
@@ -125,9 +150,17 @@ test.describe('Button Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_records',
+            id: 5,
             name: 'records',
-            fields: [{ name: 'action_button', type: 'button', action: 'customAction' }],
+            fields: [
+              {
+                id: 1,
+                name: 'action_button',
+                type: 'button',
+                label: 'Action',
+                action: 'customAction',
+              },
+            ],
           },
         ],
       })
@@ -148,16 +181,23 @@ test.describe('Button Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_items',
+            id: 6,
             name: 'items',
             fields: [
               {
+                id: 1,
                 name: 'status',
                 type: 'status',
                 options: [{ value: 'draft' }, { value: 'published' }],
                 default: 'draft',
               },
-              { name: 'publish_button', type: 'button', action: 'publish' },
+              {
+                id: 2,
+                name: 'publish_button',
+                type: 'button',
+                label: 'Publish',
+                action: 'publish',
+              },
             ],
           },
         ],

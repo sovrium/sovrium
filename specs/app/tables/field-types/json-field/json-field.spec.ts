@@ -26,13 +26,7 @@ test.describe('JSON Field', () => {
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
-        tables: [
-          {
-            id: 'tbl_products',
-            name: 'products',
-            fields: [{ name: 'metadata', type: 'json' }],
-          },
-        ],
+        tables: [{ id: 1, name: 'products', fields: [{ id: 1, name: 'metadata', type: 'json' }] }],
       })
 
       const columnInfo = await executeQuery(
@@ -59,13 +53,7 @@ test.describe('JSON Field', () => {
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
-        tables: [
-          {
-            id: 'tbl_settings',
-            name: 'settings',
-            fields: [{ name: 'config', type: 'json' }],
-          },
-        ],
+        tables: [{ id: 2, name: 'settings', fields: [{ id: 1, name: 'config', type: 'json' }] }],
       })
 
       await executeQuery(
@@ -95,13 +83,7 @@ test.describe('JSON Field', () => {
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
-        tables: [
-          {
-            id: 'tbl_users',
-            name: 'users',
-            fields: [{ name: 'preferences', type: 'json' }],
-          },
-        ],
+        tables: [{ id: 3, name: 'users', fields: [{ id: 1, name: 'preferences', type: 'json' }] }],
       })
 
       await executeQuery(
@@ -133,9 +115,9 @@ test.describe('JSON Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_documents',
+            id: 4,
             name: 'documents',
-            fields: [{ name: 'data', type: 'json', indexed: true }],
+            fields: [{ id: 1, name: 'data', type: 'json', indexed: true }],
           },
         ],
       })
@@ -161,13 +143,7 @@ test.describe('JSON Field', () => {
     async ({ startServerWithSchema, executeQuery }) => {
       await startServerWithSchema({
         name: 'test-app',
-        tables: [
-          {
-            id: 'tbl_events',
-            name: 'events',
-            fields: [{ name: 'payload', type: 'json' }],
-          },
-        ],
+        tables: [{ id: 5, name: 'events', fields: [{ id: 1, name: 'payload', type: 'json' }] }],
       })
 
       await executeQuery('INSERT INTO events (payload) VALUES (\'{"type": "click", "count": 1}\')')
@@ -195,15 +171,13 @@ test.describe('JSON Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'properties', type: 'json' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'properties', type: 'json' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

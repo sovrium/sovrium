@@ -40,34 +40,20 @@ test.describe('Error Handling and Rollback', () => {
           name: 'test-app',
           tables: [
             {
-              id: 'tbl_users',
+              id: 1,
               name: 'users',
               fields: [
-                {
-                  name: 'id',
-                  type: 'integer',
-                  required: true,
-                },
-                {
-                  name: 'email',
-                  type: 'email',
-                  constraints: { required: true },
-                },
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'email', type: 'email' },
               ],
             },
             {
-              id: 'tbl_products',
+              id: 2,
               name: 'products',
               fields: [
-                {
-                  name: 'id',
-                  type: 'integer',
-                  required: true,
-                },
-                {
-                  name: 'bad_field',
-                  type: 'INVALID_TYPE',
-                },
+                { id: 1, name: 'id', type: 'integer', required: true },
+                // @ts-expect-error - Testing invalid field type
+                { id: 2, name: 'bad_field', type: 'INVALID_TYPE' },
               ],
             },
           ],
@@ -109,40 +95,20 @@ test.describe('Error Handling and Rollback', () => {
           name: 'test-app',
           tables: [
             {
-              id: 'tbl_categories',
+              id: 3,
               name: 'categories',
               fields: [
-                {
-                  name: 'id',
-                  type: 'integer',
-                  required: true,
-                },
-                {
-                  name: 'name',
-                  type: 'text',
-                  constraints: { required: true },
-                },
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
               ],
             },
             {
-              id: 'tbl_products',
+              id: 4,
               name: 'products',
               fields: [
-                {
-                  name: 'id',
-                  type: 'integer',
-                  required: true,
-                },
-                {
-                  name: 'title',
-                  type: 'text',
-                  constraints: { required: true },
-                },
-                {
-                  name: 'price',
-                  type: 'decimal',
-                  constraints: { min: 'invalid_not_a_number' },
-                },
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'price', type: 'decimal' },
               ],
             },
           ],
@@ -182,23 +148,12 @@ test.describe('Error Handling and Rollback', () => {
           name: 'test-app',
           tables: [
             {
-              id: 'tbl_users',
+              id: 5,
               name: 'users',
               fields: [
-                {
-                  name: 'id',
-                  type: 'integer',
-                  required: true,
-                },
-                {
-                  name: 'email',
-                  type: 'email',
-                },
-                {
-                  name: 'name',
-                  type: 'text',
-                  constraints: { required: true },
-                },
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'email', type: 'email' },
+                { id: 3, name: 'name', type: 'single-line-text' },
               ],
             },
           ],
@@ -240,23 +195,17 @@ test.describe('Error Handling and Rollback', () => {
           name: 'test-app',
           tables: [
             {
-              id: 'tbl_posts',
+              id: 6,
               name: 'posts',
               fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
                 {
-                  name: 'id',
-                  type: 'integer',
-                  required: true,
-                },
-                {
-                  name: 'title',
-                  type: 'text',
-                  constraints: { required: true },
-                },
-                {
+                  id: 3,
                   name: 'author_id',
                   type: 'relationship',
-                  relationship: { table: 'users', field: 'id' },
+                  relatedTable: 'users',
+                  relationType: 'many-to-one',
                 },
               ],
             },
@@ -288,18 +237,11 @@ test.describe('Error Handling and Rollback', () => {
             name: 'test-app',
             tables: [
               {
-                id: 'tbl_users',
+                id: 7,
                 name: 'users',
                 fields: [
-                  {
-                    name: 'id',
-                    type: 'integer',
-                    required: true,
-                  },
-                  {
-                    name: 'email',
-                    type: 'email',
-                  },
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'email', type: 'email' },
                 ],
               },
             ],
@@ -335,18 +277,12 @@ test.describe('Error Handling and Rollback', () => {
           name: 'test-app',
           tables: [
             {
-              id: 'tbl_test',
+              id: 8,
               name: 'test',
               fields: [
-                {
-                  name: 'id',
-                  type: 'integer',
-                  required: true,
-                },
-                {
-                  name: 'bad_field',
-                  type: 'INVALID_TYPE',
-                },
+                { id: 1, name: 'id', type: 'integer', required: true },
+                // @ts-expect-error - Testing invalid field type
+                { id: 2, name: 'bad_field', type: 'INVALID_TYPE' },
               ],
             },
           ],
@@ -370,23 +306,12 @@ test.describe('Error Handling and Rollback', () => {
           name: 'test-app',
           tables: [
             {
-              id: 'tbl_data',
+              id: 9,
               name: 'data',
               fields: [
-                {
-                  name: 'id',
-                  type: 'integer',
-                  required: true,
-                },
-                {
-                  name: 'value',
-                  type: 'text',
-                },
-                {
-                  name: 'required_field',
-                  type: 'text',
-                  constraints: { required: true },
-                },
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'value', type: 'single-line-text' },
+                { id: 3, name: 'required_field', type: 'single-line-text' },
               ],
             },
           ],

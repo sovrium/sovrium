@@ -16,9 +16,9 @@ test.describe('Multiple Attachments Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_posts',
+            id: 1,
             name: 'posts',
-            fields: [{ name: 'attachments', type: 'multiple-attachments' }],
+            fields: [{ id: 1, name: 'attachments', type: 'multiple-attachments' }],
           },
         ],
       })
@@ -38,9 +38,9 @@ test.describe('Multiple Attachments Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_messages',
+            id: 2,
             name: 'messages',
-            fields: [{ name: 'files', type: 'multiple-attachments' }],
+            fields: [{ id: 1, name: 'files', type: 'multiple-attachments' }],
           },
         ],
       })
@@ -61,9 +61,9 @@ test.describe('Multiple Attachments Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_records',
+            id: 3,
             name: 'records',
-            fields: [{ name: 'attachments', type: 'multiple-attachments', maxCount: 5 }],
+            fields: [{ id: 1, name: 'attachments', type: 'multiple-attachments', maxFiles: 5 }],
           },
         ],
       })
@@ -81,11 +81,7 @@ test.describe('Multiple Attachments Field', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          {
-            id: 'tbl_docs',
-            name: 'docs',
-            fields: [{ name: 'files', type: 'multiple-attachments' }],
-          },
+          { id: 4, name: 'docs', fields: [{ id: 1, name: 'files', type: 'multiple-attachments' }] },
         ],
       })
 
@@ -105,9 +101,9 @@ test.describe('Multiple Attachments Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_items',
+            id: 5,
             name: 'items',
-            fields: [{ name: 'attachments', type: 'multiple-attachments', indexed: true }],
+            fields: [{ id: 1, name: 'attachments', type: 'multiple-attachments', indexed: true }],
           },
         ],
       })
@@ -126,11 +122,7 @@ test.describe('Multiple Attachments Field', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          {
-            id: 'tbl_data',
-            name: 'data',
-            fields: [{ name: 'files', type: 'multiple-attachments' }],
-          },
+          { id: 6, name: 'data', fields: [{ id: 1, name: 'files', type: 'multiple-attachments' }] },
         ],
       })
 

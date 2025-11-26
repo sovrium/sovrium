@@ -38,7 +38,7 @@ test.describe('Table ID', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 1,
             name: 'products',
             fields: [
               {
@@ -68,7 +68,7 @@ test.describe('Table ID', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_customers',
+            id: 2,
             name: 'customers',
             fields: [
               {
@@ -96,6 +96,7 @@ test.describe('Table ID', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
+          // @ts-expect-error - Testing table without explicit ID
           {
             name: 'orders',
             fields: [
@@ -124,7 +125,7 @@ test.describe('Table ID', () => {
         name: 'test-app',
         tables: [
           {
-            id: '550e8400-e29b-41d4-a716-446655440000',
+            id: 1,
             name: 'invoices',
             fields: [
               {
@@ -153,7 +154,7 @@ test.describe('Table ID', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'products',
+            id: 1,
             name: 'products',
             fields: [
               {
@@ -182,7 +183,7 @@ test.describe('Table ID', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 3,
             name: 'products',
             fields: [
               {
@@ -194,7 +195,7 @@ test.describe('Table ID', () => {
             ],
           },
           {
-            id: 'tbl_customers',
+            id: 4,
             name: 'customers',
             fields: [
               {
@@ -206,7 +207,7 @@ test.describe('Table ID', () => {
             ],
           },
           {
-            id: 'tbl_orders',
+            id: 5,
             name: 'orders',
             fields: [
               {
@@ -239,7 +240,7 @@ test.describe('Table ID', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 6,
             name: 'products',
             fields: [
               {
@@ -251,6 +252,7 @@ test.describe('Table ID', () => {
             ],
           },
           {
+            // @ts-expect-error - Testing UUID string as table ID
             id: '550e8400-e29b-41d4-a716-446655440000',
             name: 'invoices',
             fields: [
@@ -262,6 +264,7 @@ test.describe('Table ID', () => {
               },
             ],
           },
+          // @ts-expect-error - Testing table without ID
           {
             name: 'orders',
             fields: [

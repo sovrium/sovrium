@@ -1,8 +1,0 @@
-{
-  "$id": "displayField.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Field from related table to display in UI",
-  "description": "Application-level configuration specifying which column from the related table to display in the UI. Not a database constraint - used by application to JOIN and fetch display values for foreign key relationships.",
-  "type": "string",
-  "minLength": 1
-}

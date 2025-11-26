@@ -1,6 +1,0 @@
-{
-  "$id": "filter-condition.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Filter Condition",
-  "x-specs": []
-}

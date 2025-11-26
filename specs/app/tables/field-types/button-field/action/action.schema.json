@@ -1,8 +1,0 @@
-{
-  "$id": "action.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Type of action to trigger",
-  "description": "Type of action to trigger",
-  "type": "string",
-  "enum": ["url", "automation"]
-}

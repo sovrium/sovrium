@@ -16,9 +16,9 @@ test.describe('Single Attachment Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_documents',
+            id: 1,
             name: 'documents',
-            fields: [{ name: 'file_url', type: 'single-attachment' }],
+            fields: [{ id: 1, name: 'file_url', type: 'single-attachment' }],
           },
         ],
       })
@@ -37,11 +37,7 @@ test.describe('Single Attachment Field', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          {
-            id: 'tbl_attachments',
-            name: 'attachments',
-            fields: [{ name: 'file_meta', type: 'json' }],
-          },
+          { id: 2, name: 'attachments', fields: [{ id: 1, name: 'file_meta', type: 'json' }] },
         ],
       })
 
@@ -61,13 +57,14 @@ test.describe('Single Attachment Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_images',
+            id: 3,
             name: 'images',
             fields: [
               {
+                id: 1,
                 name: 'file_type',
-                type: 'single-line-text',
-                allowedValues: ['image/png', 'image/jpeg', 'image/gif'],
+                type: 'single-select',
+                options: ['image/png', 'image/jpeg', 'image/gif'],
               },
             ],
           },
@@ -88,9 +85,9 @@ test.describe('Single Attachment Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_uploads',
+            id: 4,
             name: 'uploads',
-            fields: [{ name: 'file_size', type: 'integer', max: 10_485_760 }],
+            fields: [{ id: 1, name: 'file_size', type: 'integer', max: 10_485_760 }],
           },
         ],
       })
@@ -109,9 +106,9 @@ test.describe('Single Attachment Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_records',
+            id: 5,
             name: 'records',
-            fields: [{ name: 'attachment', type: 'single-attachment' }],
+            fields: [{ id: 1, name: 'attachment', type: 'single-attachment' }],
           },
         ],
       })
@@ -130,11 +127,11 @@ test.describe('Single Attachment Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_files',
+            id: 6,
             name: 'files',
             fields: [
-              { name: 'url', type: 'single-attachment' },
-              { name: 'metadata', type: 'json' },
+              { id: 1, name: 'url', type: 'single-attachment' },
+              { id: 2, name: 'metadata', type: 'json' },
             ],
           },
         ],

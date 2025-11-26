@@ -38,6 +38,13 @@ export const RichTextFieldSchema = BaseFieldSchema.pipe(
           })
         )
       ),
+      fullTextSearch: Schema.optional(
+        Schema.Boolean.pipe(
+          Schema.annotations({
+            description: 'Enable full-text search indexing for this field',
+          })
+        )
+      ),
     })
   )
 ).pipe(

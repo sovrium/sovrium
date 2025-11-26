@@ -33,13 +33,13 @@ test.describe('List records in table', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 1,
             name: 'projects',
             fields: [
-              { name: 'name', type: 'single-line-text', required: true },
-              { name: 'status', type: 'single-line-text', default: 'active' },
-              { name: 'priority', type: 'integer', default: 1 },
-              { name: 'created_at', type: 'created-at' },
+              { id: 1, name: 'name', type: 'single-line-text', required: true },
+              { id: 2, name: 'status', type: 'single-line-text', default: 'active' },
+              { id: 3, name: 'priority', type: 'integer', default: 1 },
+              { id: 4, name: 'created_at', type: 'created-at' },
             ],
           },
         ],
@@ -100,11 +100,11 @@ test.describe('List records in table', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 2,
             name: 'tasks',
             fields: [
-              { name: 'name', type: 'single-line-text', required: true },
-              { name: 'status', type: 'single-line-text', required: true },
+              { id: 1, name: 'name', type: 'single-line-text', required: true },
+              { id: 2, name: 'status', type: 'single-line-text', required: true },
             ],
           },
         ],
@@ -150,11 +150,11 @@ test.describe('List records in table', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 3,
             name: 'projects',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'priority', type: 'integer' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'priority', type: 'integer' },
             ],
           },
         ],
@@ -197,13 +197,13 @@ test.describe('List records in table', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 4,
             name: 'users',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'email', type: 'email', required: true },
-              { name: 'phone', type: 'phone-number' },
-              { name: 'address', type: 'long-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'email', type: 'email', required: true },
+              { id: 3, name: 'phone', type: 'phone-number' },
+              { id: 4, name: 'address', type: 'long-text' },
             ],
           },
         ],
@@ -244,11 +244,7 @@ test.describe('List records in table', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          {
-            id: 'tbl_items',
-            name: 'items',
-            fields: [{ name: 'name', type: 'single-line-text' }],
-          },
+          { id: 5, name: 'items', fields: [{ id: 1, name: 'name', type: 'single-line-text' }] },
         ],
       })
 
@@ -286,11 +282,11 @@ test.describe('List records in table', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 6,
             name: 'projects',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'status', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'status', type: 'single-line-text' },
             ],
           },
         ],
@@ -330,11 +326,11 @@ test.describe('List records in table', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 7,
             name: 'tasks',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'status', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'status', type: 'single-line-text' },
             ],
           },
         ],
@@ -374,12 +370,12 @@ test.describe('List records in table', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 8,
             name: 'projects',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'budget', type: 'currency', currency: 'USD' },
-              { name: 'priority', type: 'integer' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'budget', type: 'currency', currency: 'USD' },
+              { id: 3, name: 'priority', type: 'integer' },
             ],
           },
         ],
@@ -426,12 +422,12 @@ test.describe('List records in table', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 9,
             name: 'tasks',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'status', type: 'single-line-text' },
-              { name: 'priority', type: 'integer' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'status', type: 'single-line-text' },
+              { id: 3, name: 'priority', type: 'integer' },
             ],
           },
         ],
@@ -472,11 +468,11 @@ test.describe('List records in table', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 10,
             name: 'projects',
             fields: [
-              { name: 'priority', type: 'integer' },
-              { name: 'created_at', type: 'created-at' },
+              { id: 1, name: 'priority', type: 'integer' },
+              { id: 2, name: 'created_at', type: 'created-at' },
             ],
           },
         ],
@@ -518,12 +514,12 @@ test.describe('List records in table', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 11,
             name: 'projects',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'status', type: 'single-line-text' },
-              { name: 'priority', type: 'integer' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'status', type: 'single-line-text' },
+              { id: 3, name: 'priority', type: 'integer' },
             ],
           },
         ],
@@ -562,11 +558,7 @@ test.describe('List records in table', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          {
-            id: 'tbl_projects',
-            name: 'projects',
-            fields: [{ name: 'name', type: 'single-line-text' }],
-          },
+          { id: 12, name: 'projects', fields: [{ id: 1, name: 'name', type: 'single-line-text' }] },
         ],
       })
 
@@ -586,11 +578,7 @@ test.describe('List records in table', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          {
-            id: 'tbl_confidential',
-            name: 'confidential',
-            fields: [{ name: 'data', type: 'long-text' }],
-          },
+          { id: 13, name: 'confidential', fields: [{ id: 1, name: 'data', type: 'long-text' }] },
         ],
       })
 
@@ -615,9 +603,9 @@ test.describe('List records in table', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 14,
             name: 'employees',
-            fields: [{ name: 'name', type: 'single-line-text' }],
+            fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
           },
         ],
       })
@@ -643,12 +631,12 @@ test.describe('List records in table', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 15,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'email', type: 'email', required: true },
-              { name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'email', type: 'email', required: true },
+              { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
             ],
           },
         ],
@@ -682,12 +670,12 @@ test.describe('List records in table', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 16,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'email', type: 'email', required: true },
-              { name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'email', type: 'email', required: true },
+              { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
             ],
           },
         ],
@@ -723,13 +711,13 @@ test.describe('List records in table', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 17,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'email', type: 'email', required: true },
-              { name: 'phone', type: 'phone-number' },
-              { name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'email', type: 'email', required: true },
+              { id: 3, name: 'phone', type: 'phone-number' },
+              { id: 4, name: 'salary', type: 'currency', currency: 'USD' },
             ],
           },
         ],
@@ -766,11 +754,11 @@ test.describe('List records in table', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 18,
             name: 'projects',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -807,12 +795,12 @@ test.describe('List records in table', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 19,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'salary', type: 'currency', currency: 'USD' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -850,11 +838,11 @@ test.describe('List records in table', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 20,
             name: 'projects',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -885,11 +873,11 @@ test.describe('List records in table', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 21,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'salary', type: 'currency', currency: 'USD' },
             ],
           },
         ],
@@ -933,11 +921,11 @@ test.describe('List records in table', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 22,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'salary', type: 'currency', currency: 'USD' },
             ],
           },
         ],
@@ -971,11 +959,11 @@ test.describe('List records in table', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 23,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'salary', type: 'currency', currency: 'USD' },
             ],
           },
         ],
@@ -1012,11 +1000,11 @@ test.describe('List records in table', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 24,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'salary', type: 'currency', currency: 'USD' },
             ],
           },
         ],
@@ -1053,12 +1041,12 @@ test.describe('List records in table', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 25,
             name: 'projects',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'priority', type: 'integer' },
-              { name: 'budget', type: 'currency', currency: 'USD' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'priority', type: 'integer' },
+              { id: 3, name: 'budget', type: 'currency', currency: 'USD' },
             ],
           },
         ],
@@ -1107,12 +1095,12 @@ test.describe('List records in table', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 26,
             name: 'projects',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'status', type: 'single-line-text' },
-              { name: 'priority', type: 'integer' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'status', type: 'single-line-text' },
+              { id: 3, name: 'priority', type: 'integer' },
             ],
           },
         ],

@@ -413,9 +413,6 @@ test.describe('Page Metadata', () => {
                     initScript:
                       "window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-XXXXXXXXXX');",
                     dnsPrefetch: 'https://www.googletagmanager.com',
-                    config: {
-                      trackingId: 'G-XXXXXXXXXX',
-                    },
                   },
                 ],
               },
@@ -470,9 +467,6 @@ test.describe('Page Metadata', () => {
                     initScript:
                       "window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-XXXXXXXXXX');",
                     dnsPrefetch: 'https://www.googletagmanager.com',
-                    config: {
-                      trackingId: 'G-XXXXXXXXXX',
-                    },
                   },
                 ],
               },

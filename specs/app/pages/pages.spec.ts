@@ -277,7 +277,6 @@ test.describe('Pages', () => {
             scripts: {
               features: { analytics: true, chatWidget: true },
               external: [{ src: 'https://cdn.example.com/script.js', async: true }],
-              config: { apiKey: 'abc123' },
             },
             sections: [],
           },

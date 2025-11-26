@@ -33,15 +33,13 @@ test.describe('Long Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_articles',
+            id: 1,
             name: 'articles',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'description', type: 'long-text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'description', type: 'long-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -53,7 +51,7 @@ test.describe('Long Text Field', () => {
       )
       expect(columnInfo).toEqual({
         column_name: 'description',
-        data_type: 'text',
+        data_type: 'single-line-text',
         character_maximum_length: null,
         is_nullable: 'YES',
       })
@@ -74,15 +72,13 @@ test.describe('Long Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_posts',
+            id: 2,
             name: 'posts',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'content', type: 'long-text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'content', type: 'long-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -93,7 +89,7 @@ test.describe('Long Text Field', () => {
         "SELECT data_type, character_maximum_length FROM information_schema.columns WHERE table_name='posts' AND column_name='content'"
       )
       expect(dataTypeCheck).toEqual({
-        data_type: 'text',
+        data_type: 'single-line-text',
         character_maximum_length: null,
       })
 
@@ -113,15 +109,13 @@ test.describe('Long Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_comments',
+            id: 3,
             name: 'comments',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'body', type: 'long-text', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'body', type: 'long-text', required: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -153,15 +147,13 @@ test.describe('Long Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_pages',
+            id: 4,
             name: 'pages',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'content', type: 'long-text', required: true, indexed: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'content', type: 'long-text', required: true, indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -194,15 +186,13 @@ test.describe('Long Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 5,
             name: 'projects',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'notes', type: 'long-text', default: 'No notes' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'notes', type: 'long-text', default: 'No notes' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -239,20 +229,13 @@ test.describe('Long Text Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              {
-                name: 'long_text_field',
-                type: 'long-text',
-                required: true,
-                indexed: true,
-              },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'long_text_field', type: 'long-text', required: true, indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

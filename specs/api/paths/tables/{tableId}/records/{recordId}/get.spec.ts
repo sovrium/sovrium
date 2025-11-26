@@ -33,13 +33,13 @@ test.describe('Get record by ID', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 1,
             name: 'users',
             fields: [
-              { name: 'email', type: 'email', required: true },
-              { name: 'name', type: 'single-line-text' },
-              { name: 'phone', type: 'phone-number' },
-              { name: 'created_at', type: 'created-at' },
+              { id: 1, name: 'email', type: 'email', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'phone', type: 'phone-number' },
+              { id: 4, name: 'created_at', type: 'created-at' },
             ],
           },
         ],
@@ -77,9 +77,9 @@ test.describe('Get record by ID', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 2,
             name: 'users',
-            fields: [{ name: 'email', type: 'email', required: true }],
+            fields: [{ id: 1, name: 'email', type: 'email', required: true }],
           },
         ],
       })
@@ -108,12 +108,12 @@ test.describe('Get record by ID', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 3,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'email', type: 'email', required: true },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'email', type: 'email', required: true },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -139,11 +139,7 @@ test.describe('Get record by ID', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          {
-            id: 'tbl_confidential',
-            name: 'confidential',
-            fields: [{ name: 'data', type: 'long-text' }],
-          },
+          { id: 4, name: 'confidential', fields: [{ id: 1, name: 'data', type: 'long-text' }] },
         ],
       })
       await executeQuery(`
@@ -175,11 +171,11 @@ test.describe('Get record by ID', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 5,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -213,12 +209,12 @@ test.describe('Get record by ID', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 6,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'email', type: 'email', required: true },
-              { name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'email', type: 'email', required: true },
+              { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
             ],
           },
         ],
@@ -256,12 +252,12 @@ test.describe('Get record by ID', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 7,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'email', type: 'email', required: true },
-              { name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'email', type: 'email', required: true },
+              { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
             ],
           },
         ],
@@ -298,13 +294,13 @@ test.describe('Get record by ID', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 8,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'email', type: 'email', required: true },
-              { name: 'phone', type: 'phone-number' },
-              { name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'email', type: 'email', required: true },
+              { id: 3, name: 'phone', type: 'phone-number' },
+              { id: 4, name: 'salary', type: 'currency', currency: 'USD' },
             ],
           },
         ],
@@ -342,13 +338,13 @@ test.describe('Get record by ID', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 9,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'email', type: 'email', required: true },
-              { name: 'salary', type: 'currency', currency: 'USD' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'email', type: 'email', required: true },
+              { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -388,12 +384,12 @@ test.describe('Get record by ID', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 10,
             name: 'tasks',
             fields: [
-              { name: 'title', type: 'single-line-text' },
-              { name: 'created_at', type: 'created-at' },
-              { name: 'updated_at', type: 'updated-at' },
+              { id: 1, name: 'title', type: 'single-line-text' },
+              { id: 2, name: 'created_at', type: 'created-at' },
+              { id: 3, name: 'updated_at', type: 'updated-at' },
             ],
           },
         ],
@@ -434,11 +430,11 @@ test.describe('Get record by ID', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 11,
             name: 'users',
             fields: [
-              { name: 'email', type: 'email', required: true },
-              { name: 'name', type: 'single-line-text' },
+              { id: 1, name: 'email', type: 'email', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
             ],
           },
         ],

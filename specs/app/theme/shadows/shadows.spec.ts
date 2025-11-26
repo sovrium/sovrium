@@ -692,7 +692,7 @@ test.describe('Shadows', () => {
                 type: 'input',
                 props: {
                   'data-testid': 'text-input',
-                  type: 'text',
+                  type: 'single-line-text',
                 },
               },
             ],

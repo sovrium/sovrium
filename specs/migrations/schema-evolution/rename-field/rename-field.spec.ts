@@ -40,19 +40,14 @@ test.describe('Rename Field Migration', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 1,
             name: 'users',
             fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
-                name: 'id',
-                type: 'integer',
-                required: true,
-              },
-              {
-                id: 'field_email',
+                id: 1,
                 name: 'email_address',
                 type: 'email',
-                constraints: { required: true, unique: true },
               },
             ],
           },
@@ -101,19 +96,14 @@ test.describe('Rename Field Migration', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 2,
             name: 'products',
             fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
-                name: 'id',
-                type: 'integer',
-                required: true,
-              },
-              {
-                id: 'field_sku',
+                id: 1,
                 name: 'product_code',
-                type: 'text',
-                constraints: { required: true, unique: true, indexed: true },
+                type: 'single-line-text',
               },
             ],
           },
@@ -157,34 +147,24 @@ test.describe('Rename Field Migration', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_customers',
+            id: 3,
             name: 'customers',
             fields: [
-              {
-                name: 'id',
-                type: 'integer',
-                required: true,
-              },
-              {
-                name: 'name',
-                type: 'text',
-              },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
             ],
           },
           {
-            id: 'tbl_orders',
+            id: 4,
             name: 'orders',
             fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
-                name: 'id',
-                type: 'integer',
-                required: true,
-              },
-              {
-                id: 'field_customer_id',
+                id: 2,
                 name: 'client_id',
                 type: 'relationship',
-                relationship: { table: 'customers', field: 'id' },
+                relatedTable: 'customers',
+                relationType: 'many-to-one',
               },
             ],
           },
@@ -231,16 +211,12 @@ test.describe('Rename Field Migration', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 5,
             name: 'tasks',
             fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
-                name: 'id',
-                type: 'integer',
-                required: true,
-              },
-              {
-                id: 'field_status',
+                id: 1,
                 name: 'state',
                 type: 'single-select',
                 options: ['open', 'in_progress', 'done'],
@@ -292,19 +268,14 @@ test.describe('Rename Field Migration', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
-                name: 'id',
-                type: 'integer',
-                required: true,
-              },
-              {
-                id: 'field_old_name',
+                id: 1,
                 name: 'new_name',
-                type: 'text',
-                constraints: { required: true },
+                type: 'single-line-text',
               },
             ],
           },

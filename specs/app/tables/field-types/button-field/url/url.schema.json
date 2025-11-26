@@ -1,7 +1,0 @@
-{
-  "$id": "url.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "URL to open (when action is 'url')",
-  "description": "URL to open (when action is 'url')",
-  "type": "string"
-}

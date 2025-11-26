@@ -33,12 +33,12 @@ test.describe('Batch create records', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 1,
             name: 'users',
             fields: [
-              { name: 'email', type: 'email', required: true, unique: true },
-              { name: 'name', type: 'single-line-text' },
-              { name: 'created_at', type: 'created-at' },
+              { id: 1, name: 'email', type: 'email', required: true, unique: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'created_at', type: 'created-at' },
             ],
           },
         ],
@@ -93,11 +93,11 @@ test.describe('Batch create records', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 2,
             name: 'users',
             fields: [
-              { name: 'email', type: 'email', required: true },
-              { name: 'name', type: 'single-line-text' },
+              { id: 1, name: 'email', type: 'email', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
             ],
           },
         ],
@@ -143,11 +143,11 @@ test.describe('Batch create records', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 3,
             name: 'users',
             fields: [
-              { name: 'email', type: 'email', required: true },
-              { name: 'name', type: 'single-line-text' },
+              { id: 1, name: 'email', type: 'email', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
             ],
           },
         ],
@@ -194,11 +194,11 @@ test.describe('Batch create records', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 4,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -232,11 +232,11 @@ test.describe('Batch create records', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 5,
             name: 'projects',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -273,11 +273,11 @@ test.describe('Batch create records', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_documents',
+            id: 6,
             name: 'documents',
             fields: [
-              { name: 'title', type: 'single-line-text' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'title', type: 'single-line-text' },
+              { id: 2, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -312,12 +312,12 @@ test.describe('Batch create records', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 7,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'email', type: 'email' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'email', type: 'email' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -357,12 +357,12 @@ test.describe('Batch create records', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 8,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'salary', type: 'currency', currency: 'USD' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -402,12 +402,12 @@ test.describe('Batch create records', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 9,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'created_at', type: 'created-at' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'created_at', type: 'created-at' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -444,11 +444,11 @@ test.describe('Batch create records', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 10,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -485,13 +485,13 @@ test.describe('Batch create records', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 11,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'email', type: 'email' },
-              { name: 'salary', type: 'currency', currency: 'USD' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'email', type: 'email' },
+              { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -535,12 +535,12 @@ test.describe('Batch create records', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 12,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'salary', type: 'currency', currency: 'USD' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -582,13 +582,13 @@ test.describe('Batch create records', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 13,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'email', type: 'email' },
-              { name: 'salary', type: 'currency', currency: 'USD' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'email', type: 'email' },
+              { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -632,11 +632,11 @@ test.describe('Batch create records', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 14,
             name: 'users',
             fields: [
-              { name: 'email', type: 'email', required: true, unique: true },
-              { name: 'name', type: 'single-line-text' },
+              { id: 1, name: 'email', type: 'email', required: true, unique: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
             ],
           },
         ],
@@ -678,9 +678,9 @@ test.describe('Batch create records', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 15,
             name: 'users',
-            fields: [{ name: 'email', type: 'email', required: true }],
+            fields: [{ id: 1, name: 'email', type: 'email', required: true }],
           },
         ],
       })
@@ -724,13 +724,13 @@ test.describe('Batch create records', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 16,
             name: 'employees',
             fields: [
-              { name: 'name', type: 'single-line-text', required: true },
-              { name: 'email', type: 'email', required: true, unique: true },
-              { name: 'salary', type: 'currency', currency: 'USD' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text', required: true },
+              { id: 2, name: 'email', type: 'email', required: true, unique: true },
+              { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],

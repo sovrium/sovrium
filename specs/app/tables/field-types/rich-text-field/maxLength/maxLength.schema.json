@@ -1,8 +1,0 @@
-{
-  "$id": "maxLength.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Maximum length in characters",
-  "description": "Maximum length in characters",
-  "type": "integer",
-  "minimum": 1
-}

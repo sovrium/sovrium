@@ -1,9 +1,0 @@
-{
-  "$id": "onDelete.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Action to take when the related record is deleted",
-  "description": "PostgreSQL referential action for ON DELETE: cascade (delete child records), set-null (set foreign key to NULL), restrict (prevent deletion if children exist), no-action (similar to restrict with deferred check).",
-  "type": "string",
-  "default": "restrict",
-  "enum": ["cascade", "set-null", "restrict", "no-action"]
-}

@@ -34,15 +34,13 @@ test.describe('Indexed Field Property', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 1,
             name: 'users',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'email', type: 'email', indexed: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'email', type: 'email', indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -79,16 +77,14 @@ test.describe('Indexed Field Property', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 2,
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'text' },
-              { name: 'description', type: 'long-text', indexed: false },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'description', type: 'long-text', indexed: false },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -125,16 +121,14 @@ test.describe('Indexed Field Property', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_events',
+            id: 3,
             name: 'events',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'text' },
-              { name: 'occurred_at', type: 'datetime', indexed: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'occurred_at', type: 'datetime', indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -171,17 +165,15 @@ test.describe('Indexed Field Property', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_orders',
+            id: 4,
             name: 'orders',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'customer_id', type: 'integer', indexed: true },
-              { name: 'status', type: 'text' },
-              { name: 'total', type: 'decimal' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'customer_id', type: 'integer', indexed: true },
+              { id: 3, name: 'status', type: 'single-line-text' },
+              { id: 4, name: 'total', type: 'decimal' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -221,15 +213,13 @@ test.describe('Indexed Field Property', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_companies',
+            id: 5,
             name: 'companies',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'single-line-text', indexed: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -271,17 +261,15 @@ test.describe('Indexed Field Property', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'email', type: 'email', indexed: true },
-              { name: 'created_at', type: 'datetime', indexed: true },
-              { name: 'notes', type: 'long-text', indexed: false },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'email', type: 'email', indexed: true },
+              { id: 3, name: 'created_at', type: 'datetime', indexed: true },
+              { id: 4, name: 'notes', type: 'long-text', indexed: false },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

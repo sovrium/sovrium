@@ -39,7 +39,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 1,
             name: 'products',
             fields: [
               {
@@ -84,7 +84,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_customers',
+            id: 2,
             name: 'customers',
             fields: [
               {
@@ -110,7 +110,6 @@ test.describe('Data Tables', () => {
                 name: 'balance',
                 type: 'decimal',
                 precision: 10,
-                scale: 2,
               },
               {
                 id: 5,
@@ -152,7 +151,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_orders',
+            id: 3,
             name: 'orders',
             fields: [
               {
@@ -162,9 +161,7 @@ test.describe('Data Tables', () => {
                 required: true,
               },
             ],
-            primaryKey: {
-              fields: ['order_id'],
-            },
+            primaryKey: { type: 'composite', fields: ['order_id'] },
           },
         ],
       })
@@ -195,7 +192,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 4,
             name: 'products',
             fields: [
               {
@@ -254,7 +251,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_customers',
+            id: 5,
             name: 'customers',
             fields: [
               {
@@ -317,7 +314,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_items',
+            id: 6,
             name: 'items',
             fields: [
               {
@@ -352,7 +349,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 7,
             name: 'users',
             fields: [
               {
@@ -394,7 +391,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 8,
             name: 'products',
             fields: [
               {
@@ -435,7 +432,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_transactions',
+            id: 9,
             name: 'transactions',
             fields: [
               {
@@ -443,7 +440,6 @@ test.describe('Data Tables', () => {
                 name: 'amount',
                 type: 'decimal',
                 precision: 10,
-                scale: 2,
               },
             ],
           },
@@ -473,7 +469,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_settings',
+            id: 10,
             name: 'settings',
             fields: [
               {
@@ -508,7 +504,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 11,
             name: 'users',
             fields: [
               {
@@ -549,7 +545,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 12,
             name: 'products',
             fields: [
               {
@@ -563,7 +559,6 @@ test.describe('Data Tables', () => {
                 name: 'price',
                 type: 'decimal',
                 precision: 10,
-                scale: 2,
               },
             ],
           },
@@ -592,7 +587,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_inventory',
+            id: 13,
             name: 'inventory',
             fields: [
               {
@@ -639,7 +634,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 14,
             name: 'users',
             fields: [
               {
@@ -680,7 +675,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_customers',
+            id: 15,
             name: 'customers',
             fields: [
               {
@@ -699,7 +694,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_customers',
+            id: 16,
             name: 'customers',
             fields: [
               {
@@ -743,7 +738,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_temp_data',
+            id: 17,
             name: 'temp_data',
             fields: [
               {
@@ -766,7 +761,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_temp_data',
+            id: 18,
             name: 'temp_data',
             fields: [
               {
@@ -801,7 +796,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_customers',
+            id: 19,
             name: 'customers',
             fields: [
               {
@@ -846,7 +841,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_customers',
+            id: 20,
             name: 'customers',
             fields: [
               {
@@ -890,7 +885,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_customers',
+            id: 21,
             name: 'customers',
             fields: [
               {
@@ -931,7 +926,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_orders',
+            id: 22,
             name: 'orders',
             fields: [
               {
@@ -970,17 +965,14 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_items',
+            id: 23,
             name: 'items',
             fields: [
               {
                 id: 1,
                 name: 'status',
                 type: 'single-select',
-                options: [
-                  { value: 'active', label: 'Active' },
-                  { value: 'inactive', label: 'Inactive' },
-                ],
+                options: ['active', 'inactive'],
               },
             ],
           },
@@ -1012,7 +1004,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_obsolete_data',
+            id: 24,
             name: 'obsolete_data',
             fields: [
               {
@@ -1054,7 +1046,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_user_tenants',
+            id: 25,
             name: 'user_tenants',
             fields: [
               {
@@ -1070,9 +1062,7 @@ test.describe('Data Tables', () => {
                 required: true,
               },
             ],
-            primaryKey: {
-              fields: ['tenant_id', 'user_id'],
-            },
+            primaryKey: { type: 'composite', fields: ['tenant_id', 'user_id'] },
           },
         ],
       })
@@ -1103,7 +1093,7 @@ test.describe('Data Tables', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 26,
             name: 'products',
             fields: [
               {
@@ -1124,7 +1114,6 @@ test.describe('Data Tables', () => {
                 name: 'price',
                 type: 'decimal',
                 precision: 10,
-                scale: 2,
                 min: 0.01,
               },
               {

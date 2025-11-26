@@ -33,16 +33,14 @@ test.describe('View Group By', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 1,
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'status', type: 'text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'status', type: 'single-line-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'by_status',
@@ -81,16 +79,14 @@ test.describe('View Group By', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_items',
+            id: 2,
             name: 'items',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'text' },
-              { name: 'priority', type: 'integer' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'priority', type: 'integer' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'by_priority_asc',
@@ -98,7 +94,7 @@ test.describe('View Group By', () => {
                 type: 'grid',
                 groupBy: {
                   field: 'priority',
-                  direction: 'asc',
+                  order: 'asc',
                 },
               },
             ],
@@ -130,16 +126,14 @@ test.describe('View Group By', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 3,
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'text' },
-              { name: 'rating', type: 'integer' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'rating', type: 'integer' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'by_rating_desc',
@@ -147,7 +141,7 @@ test.describe('View Group By', () => {
                 type: 'grid',
                 groupBy: {
                   field: 'rating',
-                  direction: 'desc',
+                  order: 'desc',
                 },
               },
             ],
@@ -183,16 +177,14 @@ test.describe('View Group By', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 4,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'category', type: 'text' },
-              { name: 'value', type: 'integer' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'category', type: 'single-line-text' },
+              { id: 3, name: 'value', type: 'integer' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'grouped_view',
@@ -200,7 +192,7 @@ test.describe('View Group By', () => {
                 type: 'grid',
                 groupBy: {
                   field: 'category',
-                  direction: 'asc',
+                  order: 'asc',
                 },
               },
             ],

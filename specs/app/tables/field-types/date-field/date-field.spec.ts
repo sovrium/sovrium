@@ -33,15 +33,13 @@ test.describe('Date Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 1,
             name: 'users',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'birth_date', type: 'date' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'birth_date', type: 'date' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -73,15 +71,13 @@ test.describe('Date Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_events',
+            id: 2,
             name: 'events',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'event_date', type: 'date' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'event_date', type: 'date' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -104,15 +100,13 @@ test.describe('Date Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 3,
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'due_date', type: 'date', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'due_date', type: 'date', required: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -144,15 +138,13 @@ test.describe('Date Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_subscriptions',
+            id: 4,
             name: 'subscriptions',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'start_date', type: 'date', default: 'CURRENT_DATE' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'start_date', type: 'date', default: 'CURRENT_DATE' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -180,15 +172,13 @@ test.describe('Date Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_orders',
+            id: 5,
             name: 'orders',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'created_date', type: 'date', required: true, indexed: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'created_date', type: 'date', required: true, indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -218,20 +208,13 @@ test.describe('Date Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              {
-                name: 'date_field',
-                type: 'date',
-                required: true,
-                indexed: true,
-              },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'date_field', type: 'date', required: true, indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

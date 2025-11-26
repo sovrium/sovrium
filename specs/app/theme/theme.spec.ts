@@ -505,7 +505,7 @@ test.describe('Theme Configuration', () => {
           fonts: {
             title: {
               family: 'Bely Display',
-              weight: 700,
+              weights: [700],
               size: '2.5rem',
             },
             body: {

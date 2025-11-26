@@ -1,8 +1,0 @@
-{
-  "$id": "format.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Formula Field Display Format",
-  "description": "Display format hint for formula computation results. Formula fields compute values using expressions. Format controls result presentation: currency (monetary), percentage (0-100%), decimal (numeric with precision), date (datetime results), text (string results).",
-  "type": "string",
-  "examples": ["currency", "percentage", "decimal", "date", "text"]
-}

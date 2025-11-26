@@ -34,15 +34,13 @@ test.describe('Integer Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 1,
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'quantity', type: 'integer' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'quantity', type: 'integer' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -79,15 +77,13 @@ test.describe('Integer Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_inventory',
+            id: 2,
             name: 'inventory',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'stock', type: 'integer', min: 0, max: 1000 },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'stock', type: 'integer', min: 0, max: 1000 },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -123,15 +119,13 @@ test.describe('Integer Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_orders',
+            id: 3,
             name: 'orders',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'order_number', type: 'integer', unique: true, required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'order_number', type: 'integer', unique: true, required: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -169,15 +163,13 @@ test.describe('Integer Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_settings',
+            id: 4,
             name: 'settings',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'timeout', type: 'integer', default: 30 },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'timeout', type: 'integer', default: 30 },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -210,15 +202,13 @@ test.describe('Integer Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_leaderboard',
+            id: 5,
             name: 'leaderboard',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'score', type: 'integer', required: true, indexed: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'score', type: 'integer', required: true, indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -255,11 +245,12 @@ test.describe('Integer Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
+                id: 2,
                 name: 'integer_field',
                 type: 'integer',
                 required: true,
@@ -270,9 +261,7 @@ test.describe('Integer Field', () => {
                 default: 50,
               },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

@@ -43,7 +43,7 @@ test.describe('Table Fields', () => {
           name: 'test-app',
           tables: [
             {
-              id: 'tbl_users',
+              id: 1,
               name: 'users',
               fields: [
                 {
@@ -70,7 +70,7 @@ test.describe('Table Fields', () => {
           name: 'test-app',
           tables: [
             {
-              id: 'tbl_products',
+              id: 2,
               name: 'products',
               fields: [
                 {
@@ -84,7 +84,6 @@ test.describe('Table Fields', () => {
                   name: 'price',
                   type: 'decimal',
                   precision: 10,
-                  scale: 2,
                 },
                 {
                   id: 3,
@@ -118,13 +117,7 @@ test.describe('Table Fields', () => {
       await expect(
         startServerWithSchema({
           name: 'test-app',
-          tables: [
-            {
-              id: 'tbl_invalid',
-              name: 'invalid_table',
-              fields: [],
-            },
-          ],
+          tables: [{ id: 3, name: 'invalid_table', fields: [] }],
         })
       ).rejects.toThrow(/must be within the allowed range/)
 
@@ -132,13 +125,8 @@ test.describe('Table Fields', () => {
       await expect(
         startServerWithSchema({
           name: 'test-app',
-          tables: [
-            {
-              id: 'tbl_invalid',
-              name: 'invalid_table',
-              fields: undefined,
-            },
-          ],
+          // @ts-expect-error - Testing undefined fields
+          tables: [{ id: 4, name: 'invalid_table', fields: undefined }],
         })
       ).rejects.toThrow()
     }
@@ -157,7 +145,7 @@ test.describe('Table Fields', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_customers',
+            id: 5,
             name: 'customers',
             fields: [
               {
@@ -185,7 +173,6 @@ test.describe('Table Fields', () => {
                 name: 'balance',
                 type: 'decimal',
                 precision: 10,
-                scale: 2,
               },
               {
                 id: 5,

@@ -34,23 +34,21 @@ test.describe('View Filters', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 1,
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'status', type: 'text' },
-              { name: 'age', type: 'integer' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'status', type: 'single-line-text' },
+              { id: 3, name: 'age', type: 'integer' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'active_adults',
                 name: 'Active Adults',
                 type: 'grid',
                 filters: {
-                  operator: 'AND',
+                  conjunction: 'and',
                   conditions: [
                     { field: 'status', operator: 'equals', value: 'active' },
                     { field: 'age', operator: 'greaterThan', value: 18 },
@@ -84,26 +82,24 @@ test.describe('View Filters', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 2,
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'priority', type: 'text' },
-              { name: 'urgent', type: 'boolean' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'priority', type: 'single-line-text' },
+              { id: 3, name: 'urgent', type: 'checkbox' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'important_tasks',
                 name: 'Important Tasks',
                 type: 'grid',
                 filters: {
-                  operator: 'OR',
+                  conjunction: 'or',
                   conditions: [
                     { field: 'priority', operator: 'equals', value: 'high' },
-                    { field: 'urgent', operator: 'isTrue' },
+                    { field: 'urgent', operator: 'isTrue', value: true },
                   ],
                 },
               },
@@ -134,15 +130,13 @@ test.describe('View Filters', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_items',
+            id: 3,
             name: 'items',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'test_view',
@@ -183,23 +177,21 @@ test.describe('View Filters', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 4,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'category', type: 'text' },
-              { name: 'status', type: 'text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'category', type: 'single-line-text' },
+              { id: 3, name: 'status', type: 'single-line-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'filtered_view',
                 name: 'Filtered View',
                 type: 'grid',
                 filters: {
-                  operator: 'AND',
+                  conjunction: 'and',
                   conditions: [
                     { field: 'category', operator: 'equals', value: 'A' },
                     { field: 'status', operator: 'equals', value: 'active' },

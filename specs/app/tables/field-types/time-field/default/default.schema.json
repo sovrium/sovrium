@@ -1,8 +1,0 @@
-{
-  "$id": "default.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Default Time Value",
-  "description": "Default value for time field when no value is provided. Can be a static ISO 8601 time (HH:mm:ss) or dynamic keyword 'now' (PostgreSQL CURRENT_TIME). Used for business hours, recurring schedules, appointment slots.",
-  "type": "string",
-  "examples": ["09:00:00", "14:30:00", "now", "00:00:00", "23:59:59"]
-}

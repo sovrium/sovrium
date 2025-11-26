@@ -40,7 +40,7 @@ test.describe('Primary Key', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 1,
             name: 'users',
             fields: [
               {
@@ -92,7 +92,7 @@ test.describe('Primary Key', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_sessions',
+            id: 2,
             name: 'sessions',
             primaryKey: {
               type: 'uuid', // UUID primary key instead of default SERIAL
@@ -153,9 +153,10 @@ test.describe('Primary Key', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tenant_users',
+            id: 3,
             name: 'tenant_users',
             primaryKey: {
+              type: 'composite',
               fields: ['tenant_id', 'user_id'], // Composite primary key
             },
             fields: [
@@ -224,7 +225,7 @@ test.describe('Primary Key', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 4,
             name: 'products',
             fields: [
               {
@@ -271,7 +272,7 @@ test.describe('Primary Key', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_orders',
+            id: 5,
             name: 'orders',
             fields: [
               {
@@ -324,9 +325,10 @@ test.describe('Primary Key', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_items',
+            id: 6,
             name: 'items',
             primaryKey: {
+              type: 'composite',
               fields: ['id'], // Explicit INTEGER primary key (not auto-increment)
             },
             fields: [
@@ -381,7 +383,7 @@ test.describe('Primary Key', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_logs',
+            id: 7,
             name: 'logs',
             primaryKey: {
               type: 'bigserial', // BIGSERIAL instead of default SERIAL
@@ -440,9 +442,10 @@ test.describe('Primary Key', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_audit_log',
+            id: 8,
             name: 'audit_log',
             primaryKey: {
+              type: 'composite',
               fields: ['tenant_id', 'user_id', 'timestamp'], // 3-column composite primary key
             },
             fields: [
@@ -520,21 +523,21 @@ test.describe('Primary Key', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 9,
             name: 'users',
             fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
             // Default SERIAL primary key
           },
           {
-            id: 'tbl_sessions',
+            id: 10,
             name: 'sessions',
             primaryKey: { type: 'uuid' },
             fields: [{ id: 1, name: 'user_id', type: 'integer' }],
           },
           {
-            id: 'tbl_tenant_users',
+            id: 11,
             name: 'tenant_users',
-            primaryKey: { fields: ['tenant_id', 'user_id'] },
+            primaryKey: { type: 'composite', fields: ['tenant_id', 'user_id'] },
             fields: [
               { id: 1, name: 'tenant_id', type: 'integer', required: true },
               { id: 2, name: 'user_id', type: 'integer', required: true },

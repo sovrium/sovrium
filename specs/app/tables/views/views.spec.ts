@@ -44,17 +44,15 @@ test.describe('Table Views', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 1,
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'status', type: 'text' },
-              { name: 'priority', type: 'integer' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'status', type: 'single-line-text' },
+              { id: 4, name: 'priority', type: 'integer' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'active_tasks',
@@ -112,17 +110,15 @@ test.describe('Table Views', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 2,
             name: 'projects',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'text' },
-              { name: 'status', type: 'text' },
-              { name: 'priority', type: 'integer' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'status', type: 'single-line-text' },
+              { id: 4, name: 'priority', type: 'integer' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'high_priority_active',
@@ -185,16 +181,14 @@ test.describe('Table Views', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_articles',
+            id: 3,
             name: 'articles',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'created_at', type: 'timestamp' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'created_at', type: 'timestamp' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'recent_first',
@@ -252,17 +246,15 @@ test.describe('Table Views', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 4,
             name: 'employees',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'text' },
-              { name: 'department', type: 'text' },
-              { name: 'salary', type: 'decimal', constraints: { precision: 10, scale: 2 } },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'department', type: 'single-line-text' },
+              { id: 4, name: 'salary', type: 'decimal' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'by_department',
@@ -320,18 +312,16 @@ test.describe('Table Views', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 5,
             name: 'users',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'text' },
-              { name: 'email', type: 'text' },
-              { name: 'phone', type: 'text' },
-              { name: 'salary', type: 'decimal', constraints: { precision: 10, scale: 2 } },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'email', type: 'single-line-text' },
+              { id: 4, name: 'phone', type: 'single-line-text' },
+              { id: 5, name: 'salary', type: 'decimal' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'contact_info',
@@ -381,17 +371,15 @@ test.describe('Table Views', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_posts',
+            id: 6,
             name: 'posts',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'status', type: 'text' },
-              { name: 'published_at', type: 'timestamp' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'status', type: 'single-line-text' },
+              { id: 4, name: 'published_at', type: 'timestamp' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'published_posts',
@@ -460,18 +448,16 @@ test.describe('Table Views', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 7,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'category', type: 'text' },
-              { name: 'status', type: 'text' },
-              { name: 'created_at', type: 'timestamp' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'category', type: 'single-line-text' },
+              { id: 4, name: 'status', type: 'single-line-text' },
+              { id: 5, name: 'created_at', type: 'timestamp' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'active_view',

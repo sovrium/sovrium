@@ -37,6 +37,13 @@ export const DurationFieldSchema = BaseFieldSchema.pipe(
           })
         )
       ),
+      default: Schema.optional(
+        Schema.Number.pipe(
+          Schema.annotations({
+            description: 'Default duration value in seconds when creating new records',
+          })
+        )
+      ),
     })
   )
 ).pipe(

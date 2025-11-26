@@ -28,19 +28,18 @@ test.describe('Single Select Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 1,
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
+                id: 2,
                 name: 'status',
                 type: 'single-select',
                 options: ['todo', 'in_progress', 'done'],
               },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -66,19 +65,18 @@ test.describe('Single Select Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 2,
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
+                id: 2,
                 name: 'category',
                 type: 'single-select',
                 options: ['electronics', 'clothing', 'food'],
               },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -102,20 +100,19 @@ test.describe('Single Select Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_orders',
+            id: 3,
             name: 'orders',
             fields: [
-              { name: 'id', type: 'integer', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
+                id: 2,
                 name: 'priority',
                 type: 'single-select',
                 options: ['low', 'medium', 'high'],
                 required: true,
               },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -139,20 +136,19 @@ test.describe('Single Select Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tickets',
+            id: 4,
             name: 'tickets',
             fields: [
-              { name: 'id', type: 'integer', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
+                id: 2,
                 name: 'status',
                 type: 'single-select',
                 options: ['open', 'closed'],
                 default: 'open',
               },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -172,11 +168,12 @@ test.describe('Single Select Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_issues',
+            id: 5,
             name: 'issues',
             fields: [
-              { name: 'id', type: 'integer', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
+                id: 2,
                 name: 'type',
                 type: 'single-select',
                 options: ['bug', 'feature', 'task'],
@@ -184,9 +181,7 @@ test.describe('Single Select Field', () => {
                 indexed: true,
               },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -206,11 +201,12 @@ test.describe('Single Select Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
+                id: 2,
                 name: 'select_field',
                 type: 'single-select',
                 options: ['option1', 'option2', 'option3'],
@@ -219,9 +215,7 @@ test.describe('Single Select Field', () => {
                 default: 'option1',
               },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

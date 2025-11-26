@@ -1,6 +1,0 @@
-{
-  "$id": "json-schema.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "JSON Schema",
-  "x-specs": []
-}

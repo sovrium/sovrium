@@ -1,8 +1,0 @@
-{
-  "$id": "allowMultiple.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Whether to allow multiple users to be selected",
-  "description": "Whether to allow multiple users to be selected",
-  "type": "boolean",
-  "default": false
-}

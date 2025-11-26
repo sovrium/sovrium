@@ -29,15 +29,13 @@ test.describe('Duration Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 1,
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'duration', type: 'duration' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'duration', type: 'duration' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -63,15 +61,13 @@ test.describe('Duration Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 2,
             name: 'projects',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'estimated_time', type: 'duration' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'estimated_time', type: 'duration' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -93,15 +89,13 @@ test.describe('Duration Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_meetings',
+            id: 3,
             name: 'meetings',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'length', type: 'duration', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'length', type: 'duration', required: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -125,15 +119,13 @@ test.describe('Duration Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_sessions',
+            id: 4,
             name: 'sessions',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'timeout', type: 'duration', default: '30 minutes' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'timeout', type: 'duration', default: 1800 },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -153,15 +145,13 @@ test.describe('Duration Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_videos',
+            id: 5,
             name: 'videos',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'length', type: 'duration', required: true, indexed: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'length', type: 'duration', required: true, indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -181,15 +171,13 @@ test.describe('Duration Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'duration_field', type: 'duration', required: true, indexed: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'duration_field', type: 'duration', required: true, indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

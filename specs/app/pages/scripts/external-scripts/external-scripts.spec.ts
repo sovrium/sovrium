@@ -165,7 +165,7 @@ test.describe('External Scripts', () => {
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: an external script with crossorigin
-      const crossorigins = ['anonymous', 'use-credentials']
+      const crossorigins = ['anonymous', 'use-credentials'] as const
       for (const crossorigin of crossorigins) {
         await startServerWithSchema({
           name: 'test-app',

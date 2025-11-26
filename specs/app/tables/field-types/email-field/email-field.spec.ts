@@ -34,15 +34,13 @@ test.describe('Email Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 1,
             name: 'users',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'email', type: 'email' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'email', type: 'email' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -75,15 +73,13 @@ test.describe('Email Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_contacts',
+            id: 2,
             name: 'contacts',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'email', type: 'email' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'email', type: 'email' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -109,15 +105,13 @@ test.describe('Email Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_members',
+            id: 3,
             name: 'members',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'email', type: 'email', unique: true, required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'email', type: 'email', unique: true, required: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -149,15 +143,13 @@ test.describe('Email Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_subscribers',
+            id: 4,
             name: 'subscribers',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'email', type: 'email', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'email', type: 'email', required: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -189,15 +181,13 @@ test.describe('Email Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_customers',
+            id: 5,
             name: 'customers',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'email', type: 'email', unique: true, indexed: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'email', type: 'email', unique: true, indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -234,11 +224,12 @@ test.describe('Email Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
+                id: 2,
                 name: 'email_field',
                 type: 'email',
                 required: true,
@@ -246,9 +237,7 @@ test.describe('Email Field', () => {
                 indexed: true,
               },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

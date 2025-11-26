@@ -33,15 +33,13 @@ test.describe('Percentage Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 1,
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'completion', type: 'percentage' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'completion', type: 'percentage' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -71,15 +69,13 @@ test.describe('Percentage Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 2,
             name: 'projects',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'progress', type: 'percentage', min: 0, max: 100 },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'progress', type: 'percentage', min: 0, max: 100 },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -110,15 +106,13 @@ test.describe('Percentage Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_scores',
+            id: 3,
             name: 'scores',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'score', type: 'percentage', unique: true, required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'score', type: 'percentage', unique: true, required: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -151,15 +145,13 @@ test.describe('Percentage Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_promotions',
+            id: 4,
             name: 'promotions',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'discount', type: 'percentage', default: 10.0 },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'discount', type: 'percentage', default: 10.0 },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -187,15 +179,13 @@ test.describe('Percentage Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_reviews',
+            id: 5,
             name: 'reviews',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'rating', type: 'percentage', required: true, indexed: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'rating', type: 'percentage', required: true, indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -225,11 +215,12 @@ test.describe('Percentage Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
               {
+                id: 2,
                 name: 'percentage_field',
                 type: 'percentage',
                 required: true,
@@ -239,9 +230,7 @@ test.describe('Percentage Field', () => {
                 default: 50.0,
               },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

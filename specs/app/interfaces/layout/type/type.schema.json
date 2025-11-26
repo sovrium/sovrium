@@ -1,9 +1,0 @@
-{
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Layout Type",
-  "description": "Layout type: grid (12-column positioning), sidebar (left nav + content), or stacked (vertical flow)",
-  "type": "string",
-  "enum": ["grid", "sidebar", "stacked"],
-  "default": "grid",
-  "x-specs": []
-}

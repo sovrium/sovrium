@@ -1,9 +1,0 @@
-{
-  "$id": "itemType.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Type of items in the array",
-  "description": "Type of items in the array",
-  "type": "string",
-  "default": "text",
-  "enum": ["text", "number"]
-}

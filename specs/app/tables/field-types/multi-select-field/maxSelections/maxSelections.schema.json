@@ -1,8 +1,0 @@
-{
-  "$id": "maxSelections.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Maximum number of selections allowed",
-  "description": "Maximum number of selections allowed",
-  "type": "integer",
-  "minimum": 1
-}

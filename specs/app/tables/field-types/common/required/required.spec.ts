@@ -34,16 +34,14 @@ test.describe('Required Field Property', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 1,
             name: 'users',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'single-line-text', required: true },
-              { name: 'email', type: 'email' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'email', type: 'email' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -79,16 +77,14 @@ test.describe('Required Field Property', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 2,
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'single-line-text', required: true },
-              { name: 'description', type: 'long-text', required: false },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'description', type: 'long-text', required: false },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -155,18 +151,16 @@ test.describe('Required Field Property', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 3,
             name: 'employees',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'first_name', type: 'single-line-text', required: true },
-              { name: 'last_name', type: 'single-line-text', required: true },
-              { name: 'email', type: 'email' },
-              { name: 'phone', type: 'phone-number' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'first_name', type: 'single-line-text', required: true },
+              { id: 3, name: 'last_name', type: 'single-line-text', required: true },
+              { id: 4, name: 'email', type: 'email' },
+              { id: 5, name: 'phone', type: 'phone-number' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -216,16 +210,14 @@ test.describe('Required Field Property', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 4,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'required_field', type: 'single-line-text', required: true },
-              { name: 'optional_field', type: 'single-line-text', required: false },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'required_field', type: 'single-line-text', required: true },
+              { id: 3, name: 'optional_field', type: 'single-line-text', required: false },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

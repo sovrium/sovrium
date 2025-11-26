@@ -1,8 +1,0 @@
-{
-  "$id": "relatedField.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Name of the field in the related table to aggregate",
-  "description": "Name of the field in the related table to aggregate. Rollup fields apply aggregation functions (SUM, COUNT, AVG, etc.) to this field across all related child records.",
-  "type": "string",
-  "minLength": 1
-}

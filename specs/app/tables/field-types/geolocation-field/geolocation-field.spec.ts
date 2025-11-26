@@ -28,9 +28,9 @@ test.describe('Geolocation Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_locations',
+            id: 1,
             name: 'locations',
-            fields: [{ name: 'coordinates', type: 'geolocation' }],
+            fields: [{ id: 1, name: 'coordinates', type: 'geolocation' }],
           },
         ],
       })
@@ -62,11 +62,11 @@ test.describe('Geolocation Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_stores',
+            id: 2,
             name: 'stores',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'location', type: 'geolocation' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'location', type: 'geolocation' },
             ],
           },
         ],
@@ -102,9 +102,9 @@ test.describe('Geolocation Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_places',
+            id: 3,
             name: 'places',
-            fields: [{ name: 'position', type: 'geolocation', indexed: true }],
+            fields: [{ id: 1, name: 'position', type: 'geolocation', indexed: true }],
           },
         ],
       })
@@ -132,11 +132,11 @@ test.describe('Geolocation Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_venues',
+            id: 4,
             name: 'venues',
             fields: [
-              { name: 'name', type: 'single-line-text' },
-              { name: 'coords', type: 'geolocation' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'coords', type: 'geolocation' },
             ],
           },
         ],
@@ -166,9 +166,11 @@ test.describe('Geolocation Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_addresses',
+            id: 5,
             name: 'addresses',
-            fields: [{ name: 'location', type: 'geolocation', required: true, unique: true }],
+            fields: [
+              { id: 1, name: 'location', type: 'geolocation', required: true, unique: true },
+            ],
           },
         ],
       })
@@ -199,15 +201,13 @@ test.describe('Geolocation Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'position', type: 'geolocation', required: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'position', type: 'geolocation', required: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

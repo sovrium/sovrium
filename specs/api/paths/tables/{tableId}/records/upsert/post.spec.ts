@@ -33,12 +33,12 @@ test.describe('Upsert records (create or update)', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 1,
             name: 'users',
             fields: [
-              { name: 'email', type: 'email', required: true, unique: true },
-              { name: 'name', type: 'single-line-text' },
-              { name: 'status', type: 'single-line-text' },
+              { id: 1, name: 'email', type: 'email', required: true, unique: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'status', type: 'single-line-text' },
             ],
           },
         ],
@@ -98,11 +98,11 @@ test.describe('Upsert records (create or update)', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 2,
             name: 'users',
             fields: [
-              { name: 'email', type: 'email', required: true, unique: true },
-              { name: 'name', type: 'single-line-text' },
+              { id: 1, name: 'email', type: 'email', required: true, unique: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
             ],
           },
         ],
@@ -153,11 +153,11 @@ test.describe('Upsert records (create or update)', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 3,
             name: 'users',
             fields: [
-              { name: 'email', type: 'email', required: true, unique: true },
-              { name: 'name', type: 'single-line-text' },
+              { id: 1, name: 'email', type: 'email', required: true, unique: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
             ],
           },
         ],
@@ -205,12 +205,12 @@ test.describe('Upsert records (create or update)', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 4,
             name: 'employees',
             fields: [
-              { name: 'email', type: 'email', unique: true },
-              { name: 'name', type: 'single-line-text' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'email', type: 'email', unique: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -255,12 +255,12 @@ test.describe('Upsert records (create or update)', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 5,
             name: 'employees',
             fields: [
-              { name: 'email', type: 'email', unique: true },
-              { name: 'name', type: 'single-line-text' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'email', type: 'email', unique: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -296,12 +296,12 @@ test.describe('Upsert records (create or update)', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 6,
             name: 'employees',
             fields: [
-              { name: 'email', type: 'email', unique: true },
-              { name: 'name', type: 'single-line-text' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'email', type: 'email', unique: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -341,11 +341,11 @@ test.describe('Upsert records (create or update)', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_projects',
+            id: 7,
             name: 'projects',
             fields: [
-              { name: 'name', type: 'single-line-text', unique: true },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'name', type: 'single-line-text', unique: true },
+              { id: 2, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -380,12 +380,12 @@ test.describe('Upsert records (create or update)', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 8,
             name: 'employees',
             fields: [
-              { name: 'email', type: 'email', unique: true },
-              { name: 'name', type: 'single-line-text' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'email', type: 'email', unique: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -430,13 +430,13 @@ test.describe('Upsert records (create or update)', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 9,
             name: 'employees',
             fields: [
-              { name: 'email', type: 'email', unique: true },
-              { name: 'name', type: 'single-line-text' },
-              { name: 'salary', type: 'currency', currency: 'USD' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'email', type: 'email', unique: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -472,13 +472,13 @@ test.describe('Upsert records (create or update)', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 10,
             name: 'employees',
             fields: [
-              { name: 'email', type: 'email', unique: true },
-              { name: 'name', type: 'single-line-text' },
-              { name: 'salary', type: 'currency', currency: 'USD' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'email', type: 'email', unique: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -518,13 +518,13 @@ test.describe('Upsert records (create or update)', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 11,
             name: 'employees',
             fields: [
-              { name: 'email', type: 'email', unique: true },
-              { name: 'name', type: 'single-line-text' },
-              { name: 'created_at', type: 'created-at' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'email', type: 'email', unique: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'created_at', type: 'created-at' },
+              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -560,12 +560,12 @@ test.describe('Upsert records (create or update)', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 12,
             name: 'employees',
             fields: [
-              { name: 'email', type: 'email', unique: true },
-              { name: 'name', type: 'single-line-text' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'email', type: 'email', unique: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -607,13 +607,13 @@ test.describe('Upsert records (create or update)', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 13,
             name: 'employees',
             fields: [
-              { name: 'email', type: 'email', unique: true },
-              { name: 'name', type: 'single-line-text' },
-              { name: 'salary', type: 'currency', currency: 'USD' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'email', type: 'email', unique: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -662,13 +662,13 @@ test.describe('Upsert records (create or update)', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 14,
             name: 'employees',
             fields: [
-              { name: 'email', type: 'email', unique: true },
-              { name: 'name', type: 'single-line-text' },
-              { name: 'salary', type: 'currency', currency: 'USD' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'email', type: 'email', unique: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -715,13 +715,13 @@ test.describe('Upsert records (create or update)', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 15,
             name: 'employees',
             fields: [
-              { name: 'email', type: 'email', unique: true },
-              { name: 'name', type: 'single-line-text' },
-              { name: 'salary', type: 'currency', currency: 'USD' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'email', type: 'email', unique: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -775,13 +775,13 @@ test.describe('Upsert records (create or update)', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_employees',
+            id: 16,
             name: 'employees',
             fields: [
-              { name: 'email', type: 'email', required: true, unique: true },
-              { name: 'name', type: 'single-line-text' },
-              { name: 'salary', type: 'currency', currency: 'USD' },
-              { name: 'organization_id', type: 'single-line-text' },
+              { id: 1, name: 'email', type: 'email', required: true, unique: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
+              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],

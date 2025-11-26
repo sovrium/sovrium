@@ -44,16 +44,14 @@ test.describe('Table Permissions', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_admin_data',
+            id: 1,
             name: 'admin_data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'secret', type: 'text' },
-              { name: 'owner_id', type: 'integer' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'secret', type: 'single-line-text' },
+              { id: 3, name: 'owner_id', type: 'integer' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               table: {
                 read: {
@@ -108,17 +106,15 @@ test.describe('Table Permissions', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 2,
             name: 'users',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'text' },
-              { name: 'email', type: 'text' },
-              { name: 'salary', type: 'decimal', constraints: { precision: 10, scale: 2 } },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'email', type: 'single-line-text' },
+              { id: 4, name: 'salary', type: 'decimal' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               table: {
                 read: {
@@ -185,18 +181,16 @@ test.describe('Table Permissions', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 3,
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'notes', type: 'text' },
-              { name: 'owner_id', type: 'integer' },
-              { name: 'status', type: 'text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'notes', type: 'single-line-text' },
+              { id: 4, name: 'owner_id', type: 'integer' },
+              { id: 5, name: 'status', type: 'single-line-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               table: {
                 read: {
@@ -268,15 +262,13 @@ test.describe('Table Permissions', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_confidential',
+            id: 4,
             name: 'confidential',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'data', type: 'text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'data', type: 'single-line-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -324,18 +316,16 @@ test.describe('Table Permissions', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_posts',
+            id: 5,
             name: 'posts',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'body', type: 'text' },
-              { name: 'draft', type: 'boolean' },
-              { name: 'author_id', type: 'integer' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'body', type: 'single-line-text' },
+              { id: 4, name: 'draft', type: 'boolean' },
+              { id: 5, name: 'author_id', type: 'integer' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               table: {
                 read: {
@@ -408,19 +398,17 @@ test.describe('Table Permissions', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_documents',
+            id: 6,
             name: 'documents',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'content', type: 'text' },
-              { name: 'salary_info', type: 'text' },
-              { name: 'author_id', type: 'integer' },
-              { name: 'status', type: 'text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'content', type: 'single-line-text' },
+              { id: 4, name: 'salary_info', type: 'single-line-text' },
+              { id: 5, name: 'author_id', type: 'integer' },
+              { id: 6, name: 'status', type: 'single-line-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               table: {
                 read: {

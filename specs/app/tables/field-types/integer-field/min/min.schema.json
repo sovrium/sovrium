@@ -1,7 +1,0 @@
-{
-  "$id": "min.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Minimum value",
-  "description": "Minimum value",
-  "type": "number"
-}

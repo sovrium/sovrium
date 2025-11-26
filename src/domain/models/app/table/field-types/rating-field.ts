@@ -46,6 +46,13 @@ export const RatingFieldSchema = BaseFieldSchema.pipe(
           })
         )
       ),
+      default: Schema.optional(
+        Schema.Int.pipe(
+          Schema.annotations({
+            description: 'Default rating value when creating new records',
+          })
+        )
+      ),
     })
   )
 ).pipe(

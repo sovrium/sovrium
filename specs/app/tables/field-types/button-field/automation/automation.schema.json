@@ -1,7 +1,0 @@
-{
-  "$id": "automation.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Automation name to trigger (when action is 'automation')",
-  "description": "Automation name to trigger (when action is 'automation')",
-  "type": "string"
-}

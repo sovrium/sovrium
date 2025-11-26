@@ -1,9 +1,0 @@
-{
-  "$id": "format.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Barcode Format",
-  "description": "Barcode encoding format. Storage uses TEXT for barcode data. Format controls encoding type: qr (QR Code 2D matrix), ean13 (13-digit European Article Number), code128 (high-density linear barcode), code39 (alphanumeric barcode).",
-  "type": "string",
-  "default": "qr",
-  "enum": ["qr", "ean13", "code128", "code39"]
-}

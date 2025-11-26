@@ -1,8 +1,0 @@
-{
-  "$id": "default.schema.json",
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Default Date Value",
-  "description": "Default value for date field when no value is provided. Can be a static ISO 8601 date (YYYY-MM-DD) or dynamic keyword 'today' (PostgreSQL CURRENT_DATE). Applied automatically via DEFAULT constraint.",
-  "type": "string",
-  "examples": ["2024-12-31", "today", "2025-01-01"]
-}

@@ -28,15 +28,13 @@ test.describe('Created At Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_records',
+            id: 1,
             name: 'records',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'created_at', type: 'created-at' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'created_at', type: 'created-at' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -57,15 +55,13 @@ test.describe('Created At Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_posts',
+            id: 2,
             name: 'posts',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'created_at', type: 'created-at' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'created_at', type: 'created-at' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -85,15 +81,13 @@ test.describe('Created At Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_logs',
+            id: 3,
             name: 'logs',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'created_at', type: 'created-at' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'created_at', type: 'created-at' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -118,15 +112,13 @@ test.describe('Created At Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_events',
+            id: 4,
             name: 'events',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'created_at', type: 'created-at' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'created_at', type: 'created-at' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -146,15 +138,13 @@ test.describe('Created At Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_audit',
+            id: 5,
             name: 'audit',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'created_at', type: 'created-at', indexed: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'created_at', type: 'created-at', indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
@@ -174,15 +164,13 @@ test.describe('Created At Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'created_at', type: 'created-at', indexed: true },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'created_at', type: 'created-at', indexed: true },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })

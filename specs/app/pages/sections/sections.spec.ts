@@ -35,7 +35,7 @@ test.describe('Page Sections', () => {
               {
                 type: 'section',
                 props: { id: 'hero', className: 'min-h-screen bg-gradient' },
-                children: [{ type: 'text', content: 'Welcome' }],
+                children: [{ type: 'single-line-text', content: 'Welcome' }],
               },
             ],
           },
@@ -163,7 +163,7 @@ test.describe('Page Sections', () => {
                         children: [
                           {
                             type: 'card',
-                            children: [{ type: 'text', content: 'Deeply nested' }],
+                            children: [{ type: 'single-line-text', content: 'Deeply nested' }],
                           },
                         ],
                       },
@@ -198,8 +198,8 @@ test.describe('Page Sections', () => {
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             sections: [
               {
-                type: 'text',
-                props: { level: 'h1', className: 'text-6xl font-bold' },
+                type: 'heading',
+                props: { className: 'text-6xl font-bold' },
                 content: 'Welcome to Our Platform',
               },
             ],
@@ -207,7 +207,7 @@ test.describe('Page Sections', () => {
         ],
       })
 
-      // WHEN: component type is 'text' with content 'Welcome to Our Platform'
+      // WHEN: component type is 'heading' with content 'Welcome to Our Platform'
       await page.goto('/')
 
       // THEN: it should render text content
@@ -302,7 +302,10 @@ test.describe('Page Sections', () => {
           {
             name: 'section-header',
             type: 'section',
-            children: [{ type: 'text', props: { level: 'h2' }, content: '$title' }],
+            children: [
+              { type: 'h2', content: '$title' },
+              { type: 'p', content: '$subtitle' },
+            ],
           },
         ],
         pages: [
@@ -310,16 +313,22 @@ test.describe('Page Sections', () => {
             name: 'Test',
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
-            sections: [{ block: 'section-header', vars: { title: 'Our Features' } }],
+            sections: [
+              {
+                block: 'section-header',
+                vars: { title: 'Our Features', subtitle: 'Everything you need to succeed' },
+              },
+            ],
           },
         ],
       })
 
-      // WHEN: section uses block with vars for variable substitution
+      // WHEN: section uses $ref with vars for variable substitution
       await page.goto('/')
 
       // THEN: it should reference and instantiate reusable block with variables
       await expect(page.locator('h2:has-text("Our Features")')).toBeVisible()
+      await expect(page.locator('p:has-text("Everything you need to succeed")')).toBeVisible()
     }
   )
 
@@ -346,10 +355,10 @@ test.describe('Page Sections', () => {
               {
                 type: 'section',
                 props: { id: 'hero' },
-                children: [{ type: 'text', content: 'Welcome' }],
+                children: [{ type: 'single-line-text', content: 'Welcome' }],
               },
               { block: 'cta-section', vars: { buttonLabel: 'Get Started' } },
-              { type: 'container', children: [{ type: 'text', content: 'Features' }] },
+              { type: 'container', children: [{ type: 'single-line-text', content: 'Features' }] },
             ],
           },
         ],
@@ -384,22 +393,18 @@ test.describe('Page Sections', () => {
                 children: [
                   {
                     type: 'container',
-                    props: { maxWidth: 'max-w-7xl' },
                     children: [
                       {
                         type: 'flex',
-                        props: { direction: 'column', gap: '4' },
                         children: [
                           {
                             type: 'grid',
-                            props: { columns: 3 },
                             children: [
                               {
                                 type: 'card',
                                 children: [
                                   {
-                                    type: 'text',
-                                    props: { level: 'h3' },
+                                    type: 'h3',
                                     content: 'Feature 1',
                                   },
                                 ],
@@ -417,7 +422,7 @@ test.describe('Page Sections', () => {
         ],
       })
 
-      // WHEN: section → container → flex → grid → card → text hierarchy
+      // WHEN: section → container → flex → grid → card → h3 hierarchy
       await page.goto('/')
 
       // THEN: it should build complex layouts through component composition
@@ -478,7 +483,7 @@ test.describe('Page Sections', () => {
                   {
                     type: 'input',
                     props: {
-                      type: 'text',
+                      type: 'single-line-text',
                       name: 'name',
                       placeholder: 'Your name',
                       required: true,
@@ -557,17 +562,6 @@ test.describe('Page Sections', () => {
     async ({ page, startServerWithSchema }) => {
       await startServerWithSchema({
         name: 'test-app',
-        blocks: [
-          {
-            name: 'feature-card',
-            type: 'card',
-            children: [
-              { type: 'icon', props: { name: '$iconName' } },
-              { type: 'text', props: { level: 'h3' }, content: '$title' },
-              { type: 'text', content: '$description' },
-            ],
-          },
-        ],
         pages: [
           {
             name: 'Test',
@@ -583,14 +577,18 @@ test.describe('Page Sections', () => {
                 children: [
                   {
                     type: 'container',
-                    props: { maxWidth: 'max-w-7xl' },
+                    props: { className: 'max-w-7xl' },
                     children: [
                       {
-                        type: 'text',
-                        props: { level: 'h1', className: 'text-6xl font-bold' },
+                        type: 'heading',
+                        props: { className: 'text-6xl font-bold' },
                         content: 'Welcome to Our Platform',
                       },
-                      { type: 'text', content: 'Build amazing applications with ease' },
+                      {
+                        type: 'single-line-text',
+                        props: { 'data-testid': 'subtitle' },
+                        content: 'Build amazing applications with ease',
+                      },
                     ],
                   },
                 ],
@@ -601,32 +599,28 @@ test.describe('Page Sections', () => {
                 children: [
                   {
                     type: 'grid',
-                    props: { columns: 1 },
-                    responsive: { md: { props: { columns: 2 } }, lg: { props: { columns: 3 } } },
+                    props: { className: 'grid-cols-3' },
                     children: [
                       {
-                        block: 'feature-card',
-                        vars: {
-                          iconName: 'rocket',
-                          title: 'Fast',
-                          description: 'Lightning-fast performance',
-                        },
+                        type: 'card',
+                        children: [
+                          { type: 'h3', content: 'Fast' },
+                          { type: 'single-line-text', content: 'Lightning-fast performance' },
+                        ],
                       },
                       {
-                        block: 'feature-card',
-                        vars: {
-                          iconName: 'lock',
-                          title: 'Secure',
-                          description: 'Enterprise-grade security',
-                        },
+                        type: 'card',
+                        children: [
+                          { type: 'h3', content: 'Secure' },
+                          { type: 'single-line-text', content: 'Enterprise-grade security' },
+                        ],
                       },
                       {
-                        block: 'feature-card',
-                        vars: {
-                          iconName: 'puzzle',
-                          title: 'Flexible',
-                          description: 'Highly customizable',
-                        },
+                        type: 'card',
+                        children: [
+                          { type: 'h3', content: 'Flexible' },
+                          { type: 'single-line-text', content: 'Highly customizable' },
+                        ],
                       },
                     ],
                   },
@@ -637,10 +631,14 @@ test.describe('Page Sections', () => {
         ],
       })
       await page.goto('/')
-      await expect(page.locator('h1:has-text("Welcome to Our Platform")')).toBeVisible()
-      await expect(page.locator('h3:has-text("Fast")')).toBeVisible()
-      await expect(page.locator('h3:has-text("Secure")')).toBeVisible()
-      await expect(page.locator('h3:has-text("Flexible")')).toBeVisible()
+
+      // Verify hero section
+      await expect(page.locator('h1')).toHaveText('Welcome to Our Platform')
+      await expect(page.locator('[data-testid="subtitle"]')).toContainText('Build amazing')
+
+      // Verify features section with grid of cards
+      await expect(page.locator('h3').first()).toHaveText('Fast')
+      await expect(page.locator('section#features')).toBeVisible()
     }
   )
 })

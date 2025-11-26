@@ -34,27 +34,25 @@ test.describe('View Fields', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_products',
+            id: 1,
             name: 'products',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'text' },
-              { name: 'price', type: 'decimal' },
-              { name: 'internal_notes', type: 'text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'price', type: 'decimal' },
+              { id: 4, name: 'internal_notes', type: 'single-line-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'public_view',
                 name: 'Public View',
                 type: 'grid',
                 fields: [
-                  { name: 'id', visible: true, order: 1 },
-                  { name: 'name', visible: true, order: 2 },
-                  { name: 'price', visible: true, order: 3 },
-                  { name: 'internal_notes', visible: false },
+                  { field: 'id', visible: true },
+                  { field: 'name', visible: true },
+                  { field: 'price', visible: true },
+                  { field: 'internal_notes', visible: false },
                 ],
               },
             ],
@@ -82,27 +80,25 @@ test.describe('View Fields', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_tasks',
+            id: 2,
             name: 'tasks',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'title', type: 'text' },
-              { name: 'status', type: 'text' },
-              { name: 'priority', type: 'text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'status', type: 'single-line-text' },
+              { id: 4, name: 'priority', type: 'single-line-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'ordered_view',
                 name: 'Ordered View',
                 type: 'grid',
                 fields: [
-                  { name: 'priority', visible: true, order: 1 },
-                  { name: 'status', visible: true, order: 2 },
-                  { name: 'title', visible: true, order: 3 },
-                  { name: 'id', visible: true, order: 4 },
+                  { field: 'priority', visible: true },
+                  { field: 'status', visible: true },
+                  { field: 'title', visible: true },
+                  { field: 'id', visible: true },
                 ],
               },
             ],
@@ -131,27 +127,25 @@ test.describe('View Fields', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_users',
+            id: 3,
             name: 'users',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'username', type: 'text' },
-              { name: 'email', type: 'text' },
-              { name: 'password', type: 'text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'username', type: 'single-line-text' },
+              { id: 3, name: 'email', type: 'single-line-text' },
+              { id: 4, name: 'password', type: 'single-line-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'safe_view',
                 name: 'Safe View',
                 type: 'grid',
                 fields: [
-                  { name: 'id', visible: true, order: 1 },
-                  { name: 'username', visible: true, order: 2 },
-                  { name: 'email', visible: true, order: 3 },
-                  { name: 'password', visible: false },
+                  { field: 'id', visible: true },
+                  { field: 'username', visible: true },
+                  { field: 'email', visible: true },
+                  { field: 'password', visible: false },
                 ],
               },
             ],
@@ -180,27 +174,25 @@ test.describe('View Fields', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 4,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'name', type: 'text' },
-              { name: 'status', type: 'text' },
-              { name: 'secret', type: 'text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'status', type: 'single-line-text' },
+              { id: 4, name: 'secret', type: 'single-line-text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
             views: [
               {
                 id: 'custom_view',
                 name: 'Custom View',
                 type: 'grid',
                 fields: [
-                  { name: 'status', visible: true, order: 1, width: 100 },
-                  { name: 'name', visible: true, order: 2, width: 200 },
-                  { name: 'id', visible: true, order: 3, width: 80 },
-                  { name: 'secret', visible: false },
+                  { field: 'status', visible: true, width: 100 },
+                  { field: 'name', visible: true, width: 200 },
+                  { field: 'id', visible: true, width: 80 },
+                  { field: 'secret', visible: false },
                 ],
               },
             ],

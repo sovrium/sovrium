@@ -73,7 +73,6 @@ test.describe('Static Site Generation', () => {
               lang: 'en',
               title: 'Test App',
               description: 'Test application',
-              charset: 'UTF-8',
               viewport: 'width=device-width, initial-scale=1',
             },
             sections: [
@@ -306,7 +305,6 @@ test.describe('Static Site Generation', () => {
               lang: 'en',
               title: 'Formatted Page',
               description: 'Page with properly formatted HTML',
-              charset: 'UTF-8',
               viewport: 'width=device-width, initial-scale=1.0',
             },
             sections: [

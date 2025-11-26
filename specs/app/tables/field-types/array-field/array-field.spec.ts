@@ -28,9 +28,9 @@ test.describe('Array Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_articles',
+            id: 1,
             name: 'articles',
-            fields: [{ name: 'tags', type: 'array', itemType: 'text' }],
+            fields: [{ id: 1, name: 'tags', type: 'array', itemType: 'text' }],
           },
         ],
       })
@@ -61,9 +61,9 @@ test.describe('Array Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_posts',
+            id: 2,
             name: 'posts',
-            fields: [{ name: 'keywords', type: 'array', itemType: 'text' }],
+            fields: [{ id: 1, name: 'keywords', type: 'array', itemType: 'text' }],
           },
         ],
       })
@@ -97,9 +97,9 @@ test.describe('Array Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_datasets',
+            id: 3,
             name: 'datasets',
-            fields: [{ name: 'numbers', type: 'array', itemType: 'integer', maxItems: 10 }],
+            fields: [{ id: 1, name: 'numbers', type: 'array', itemType: 'integer', maxItems: 10 }],
           },
         ],
       })
@@ -128,9 +128,9 @@ test.describe('Array Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_documents',
+            id: 4,
             name: 'documents',
-            fields: [{ name: 'categories', type: 'array', itemType: 'text', indexed: true }],
+            fields: [{ id: 1, name: 'categories', type: 'array', itemType: 'text', indexed: true }],
           },
         ],
       })
@@ -158,9 +158,9 @@ test.describe('Array Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_recipes',
+            id: 5,
             name: 'recipes',
-            fields: [{ name: 'ingredients', type: 'array', itemType: 'text' }],
+            fields: [{ id: 1, name: 'ingredients', type: 'array', itemType: 'text' }],
           },
         ],
       })
@@ -194,15 +194,13 @@ test.describe('Array Field', () => {
         name: 'test-app',
         tables: [
           {
-            id: 'tbl_data',
+            id: 6,
             name: 'data',
             fields: [
-              { name: 'id', type: 'integer', required: true },
-              { name: 'items', type: 'array', itemType: 'text' },
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'items', type: 'array', itemType: 'text' },
             ],
-            primaryKey: {
-              fields: ['id'],
-            },
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
