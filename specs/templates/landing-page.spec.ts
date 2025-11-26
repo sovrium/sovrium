@@ -226,7 +226,8 @@ test.describe('Landing Page Template', () => {
       await test.step('10: Language switches from English to French', async () => {
         const languageSwitcher = page.locator('[data-testid="language-switcher"]')
         await languageSwitcher.click()
-        await page.locator('button:has-text("Français")').click()
+        // Use data-testid selector for reliability (locale-based)
+        await page.locator('[data-testid="language-option-fr-FR"]').click()
 
         // All content updates to French
         await expect(page.locator('h1')).toHaveText(
@@ -236,8 +237,9 @@ test.describe('Landing Page Template', () => {
         await expect(page.locator('a[href="#features"]')).toHaveText('Fonctionnalités')
         await expect(page.locator('a[href="#pricing"]')).toHaveText('Tarifs')
         await expect(page.locator('a[href="#contact"]')).toHaveText('Contact')
-        await expect(page.locator('button:has-text("Commencer")')).toBeVisible()
-        await expect(page.locator('button:has-text("En savoir plus")')).toBeVisible()
+        // Use exact match for hero CTA button (to avoid matching "Commencer maintenant")
+        await expect(page.getByRole('button', { name: 'Commencer', exact: true })).toBeVisible()
+        await expect(page.getByRole('button', { name: 'En savoir plus', exact: true })).toBeVisible()
         await expect(page.locator('h2:has-text("Pourquoi choisir Sovrium?")')).toBeVisible()
         await expect(page.locator('h3:has-text("Configuration déclarative")')).toBeVisible()
         await expect(page.locator('h3:has-text("Type-safe par défaut")')).toBeVisible()
@@ -266,7 +268,8 @@ test.describe('Landing Page Template', () => {
       await test.step('12: Language switches back to English', async () => {
         const languageSwitcher = page.locator('[data-testid="language-switcher"]')
         await languageSwitcher.click()
-        await page.locator('button:has-text("English")').click()
+        // Use data-testid selector for reliability (locale-based)
+        await page.locator('[data-testid="language-option-en-US"]').click()
 
         // Content reverts to English
         await expect(page.locator('h1')).toHaveText('Build Your Next App with Sovrium')

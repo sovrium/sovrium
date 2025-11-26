@@ -10,6 +10,7 @@ import { applySpacingStyles } from '../styling/spacing-resolver'
 import { buildFinalClassName, processComponentStyle } from '../styling/style-processor'
 import { substitutePropsThemeTokens } from '../styling/theme-tokens'
 import {
+  extractTranslationKeyFromContent,
   findFirstTranslationKey,
   getTranslationData,
   substitutePropsTranslationTokens,
@@ -90,10 +91,12 @@ function applyTokenSubstitutions(
  * @returns Processed intermediate values
  */
 function prepareProcessedValues(config: ComponentPropsConfig) {
-  const { type, props, children, currentLang, languages, theme, interactions } = config
+  const { type, props, children, content, currentLang, languages, theme, interactions } = config
 
   const substitutedProps = applyTokenSubstitutions(props, currentLang, languages, theme)
-  const firstTranslationKey = findFirstTranslationKey(children)
+  // Check both children and content for translation keys
+  const firstTranslationKey =
+    findFirstTranslationKey(children) || extractTranslationKeyFromContent(content)
   const translationData = getTranslationData(firstTranslationKey, languages)
   const styleWithShadow = processComponentStyle(
     type,

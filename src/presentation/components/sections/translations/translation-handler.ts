@@ -27,6 +27,15 @@ export function findFirstTranslationKey(
 }
 
 /**
+ * Extract translation key from content string
+ * Returns the key portion after $t: prefix if content is a translation token
+ */
+export function extractTranslationKeyFromContent(content: string | undefined): string | undefined {
+  if (!content || typeof content !== 'string') return undefined
+  return content.startsWith('$t:') ? content.slice(3) : undefined
+}
+
+/**
  * Get current language with fallback
  */
 export function getCurrentLanguage(
