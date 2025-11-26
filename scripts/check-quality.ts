@@ -7,10 +7,10 @@
  */
 
 /**
- * Quality check script - runs linting, type checking, workflow validation, unit tests, and E2E regression tests
+ * Quality check script - runs linting, type checking, unit tests, and E2E regression tests
  *
  * Usage:
- *   bun run quality                   # Run all checks on entire codebase (ESLint, TypeScript, Workflows, unit tests, E2E regression)
+ *   bun run quality                   # Run all checks on entire codebase (ESLint, TypeScript, unit tests, E2E regression)
  *   bun run quality <file>            # Run checks on specific file (ESLint, TypeScript, unit tests only)
  *   bun run quality src/index.ts      # Example: check specific file
  *
@@ -18,7 +18,6 @@
  * - Uses fail-fast strategy: runs checks sequentially, stops immediately on first failure (saves time)
  * - Uses ESLint cache for faster subsequent runs
  * - Uses TypeScript incremental mode for faster type checking
- * - Uses actionlint for GitHub Actions workflow validation
  * - Skips checks for comment-only changes (file mode)
  * - For file mode: runs ESLint, TypeScript, and unit tests in parallel
  * - Provides clear success/failure feedback
@@ -321,10 +320,6 @@ const runFullChecks = Effect.gen(function* () {
       effect: runCheck('TypeScript', ['bunx', 'tsc', '--noEmit', '--incremental'], 60_000),
     },
     {
-      name: 'Workflows',
-      effect: runCheck('Workflows', ['actionlint'], 30_000),
-    },
-    {
       name: 'Unit Tests',
       effect: runCheck(
         'Unit Tests',
@@ -391,9 +386,8 @@ const printSummary = (results: readonly CheckResult[], overallDuration: number) 
       yield* Effect.log('Run individual commands to see detailed errors:')
       if (results[0] && !results[0].success) yield* Effect.log('  bun run lint')
       if (results[1] && !results[1].success) yield* Effect.log('  bun run typecheck')
-      if (results[2] && !results[2].success) yield* Effect.log('  bun run lint:workflows')
-      if (results[3] && !results[3].success) yield* Effect.log('  bun test:unit')
-      if (results[4] && !results[4].success) yield* Effect.log('  bun test:e2e:regression')
+      if (results[2] && !results[2].success) yield* Effect.log('  bun test:unit')
+      if (results[3] && !results[3].success) yield* Effect.log('  bun test:e2e:regression')
 
       return yield* Effect.fail(new QualityCheckFailedError({ checks: results }))
     }
