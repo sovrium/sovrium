@@ -292,7 +292,7 @@ test.describe('Delete organization', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full deleteOrganization workflow',
+    'API-ORG-DELETE-ORGANIZATION-007: user can complete full deleteOrganization workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

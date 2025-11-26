@@ -733,7 +733,7 @@ test.describe('Create new record', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full record creation workflow',
+    'API-TABLES-RECORDS-CREATE-018: user can complete full record creation workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with permissions and validation

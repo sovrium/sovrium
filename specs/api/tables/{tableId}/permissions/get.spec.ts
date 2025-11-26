@@ -187,7 +187,7 @@ test.describe('Check table permissions', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full permissions check workflow',
+    'API-TABLES-PERMISSIONS-CHECK-007: user can complete full permissions check workflow',
     { tag: '@regression' },
     async ({ request }) => {
       // GIVEN: Application with representative permissions configuration

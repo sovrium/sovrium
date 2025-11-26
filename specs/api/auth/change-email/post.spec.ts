@@ -311,7 +311,7 @@ test.describe('Change email address', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full changeEmail workflow',
+    'API-AUTH-CHANGE-EMAIL-008: user can complete full changeEmail workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

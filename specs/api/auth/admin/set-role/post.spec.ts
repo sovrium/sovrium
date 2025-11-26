@@ -350,7 +350,7 @@ test.describe('Admin: Set user role', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full adminSetRole workflow',
+    'API-ADMIN-SET-ROLE-009: user can complete full adminSetRole workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

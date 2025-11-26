@@ -424,7 +424,7 @@ test.describe('Admin: Create user', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full adminCreateUser workflow',
+    'API-ADMIN-CREATE-USER-011: user can complete full adminCreateUser workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

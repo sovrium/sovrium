@@ -198,7 +198,7 @@ test.describe('Get current session', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full getSession workflow',
+    'API-AUTH-GET-SESSION-006: user can complete full getSession workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

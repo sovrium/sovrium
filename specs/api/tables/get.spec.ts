@@ -112,7 +112,7 @@ test.describe('List all tables', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full tables list workflow',
+    'API-TABLES-LIST-004: user can complete full tables list workflow',
     { tag: '@regression' },
     async ({ request }) => {
       // GIVEN: Application with representative tables configuration

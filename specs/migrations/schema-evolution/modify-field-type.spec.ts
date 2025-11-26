@@ -108,7 +108,7 @@ test.describe('Modify Field Type Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full modify-field-type workflow',
+    'MIG-MODIFY-TYPE-007: user can complete full modify-field-type workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative modify-field-type scenarios

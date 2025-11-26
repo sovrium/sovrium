@@ -132,7 +132,7 @@ test.describe('List table views', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full views list workflow',
+    'API-TABLES-VIEWS-LIST-005: user can complete full views list workflow',
     { tag: '@regression' },
     async ({ request }) => {
       // GIVEN: Application with representative views configuration

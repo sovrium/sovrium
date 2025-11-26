@@ -248,7 +248,7 @@ test.describe('Update user profile', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full updateUser workflow',
+    'API-AUTH-UPDATE-USER-007: user can complete full updateUser workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

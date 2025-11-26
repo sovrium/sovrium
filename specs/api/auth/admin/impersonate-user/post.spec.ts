@@ -304,7 +304,7 @@ test.describe('Admin: Impersonate user', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full adminImpersonateUser workflow',
+    'API-ADMIN-IMPERSONATE-USER-008: user can complete full adminImpersonateUser workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

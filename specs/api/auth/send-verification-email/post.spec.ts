@@ -246,7 +246,7 @@ test.describe('Send verification email', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full Sendverificationemail workflow',
+    'API-AUTH-SEND-VERIFICATION-EMAIL-007: user can complete full Sendverificationemail workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

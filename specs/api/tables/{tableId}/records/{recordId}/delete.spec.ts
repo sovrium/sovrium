@@ -447,7 +447,7 @@ test.describe('Delete record', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full record deletion workflow',
+    'API-TABLES-RECORDS-011: user can complete full record deletion workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application with representative table and permission configuration

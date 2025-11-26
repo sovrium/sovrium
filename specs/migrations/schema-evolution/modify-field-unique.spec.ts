@@ -69,7 +69,7 @@ test.describe('Modify Field Unique Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full modify-field-unique workflow',
+    'MIG-MODIFY-UNIQUE-004: user can complete full modify-field-unique workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative modify-field-unique scenarios

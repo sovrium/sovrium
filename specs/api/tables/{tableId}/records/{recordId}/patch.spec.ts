@@ -718,7 +718,7 @@ test.describe('Update record', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full record update workflow',
+    'API-TABLES-RECORDS-UPDATE-015: user can complete full record update workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application with representative table and permission configuration

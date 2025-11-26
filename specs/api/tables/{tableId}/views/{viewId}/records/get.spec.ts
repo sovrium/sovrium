@@ -220,7 +220,7 @@ test.fixme(
 )
 
 test.fixme(
-  'API-VIEW-RECORDS-REGRESSION: view API endpoints work correctly',
+  'API-VIEW-RECORDS-005: API-VIEW-RECORDS-REGRESSION: view API endpoints work correctly',
   { tag: '@regression' },
   async ({ startServerWithSchema, executeQuery, request }) => {
     // Basic view filtering smoke test

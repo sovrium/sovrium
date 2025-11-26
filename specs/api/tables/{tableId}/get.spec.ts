@@ -112,7 +112,7 @@ test.describe('Get table by ID', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full table retrieval workflow',
+    'API-TABLES-GET-004: user can complete full table retrieval workflow',
     { tag: '@regression' },
     async ({ request }) => {
       // GIVEN: Application with representative table

@@ -329,7 +329,7 @@ test.describe('Update organization', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full updateOrganization workflow',
+    'API-ORG-UPDATE-ORGANIZATION-008: user can complete full updateOrganization workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

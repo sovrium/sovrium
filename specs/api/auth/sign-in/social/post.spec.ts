@@ -77,7 +77,7 @@ test.describe('Sign in with social provider', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full Signinwithsocialprovider workflow',
+    'API-AUTH-SIGN-IN-SOCIAL-003: user can complete full Signinwithsocialprovider workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

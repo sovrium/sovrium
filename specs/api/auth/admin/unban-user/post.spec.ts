@@ -267,7 +267,7 @@ test.describe('Admin: Unban user', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full adminUnbanUser workflow',
+    'API-ADMIN-UNBAN-USER-007: user can complete full adminUnbanUser workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

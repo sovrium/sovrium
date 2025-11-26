@@ -350,7 +350,7 @@ test.describe('Reject organization invitation', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full rejectInvitation workflow',
+    'API-ORG-REJECT-INVITATION-008: user can complete full rejectInvitation workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

@@ -431,7 +431,7 @@ test.describe('Get record by ID', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full get record workflow',
+    'API-TABLES-RECORDS-GET-011: user can complete full get record workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with record and permissions

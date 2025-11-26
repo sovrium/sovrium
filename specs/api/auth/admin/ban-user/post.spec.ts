@@ -310,7 +310,7 @@ test.describe('Admin: Ban user', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full adminBanUser workflow',
+    'API-ADMIN-BAN-USER-008: user can complete full adminBanUser workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

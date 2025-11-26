@@ -368,7 +368,7 @@ test.describe('Admin: Revoke user session', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full adminRevokeUserSession workflow',
+    'API-ADMIN-REVOKE-USER-SESSION-009: user can complete full adminRevokeUserSession workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

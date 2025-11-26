@@ -1109,7 +1109,7 @@ test.describe('List records in table', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full list records workflow',
+    'API-TABLES-RECORDS-LIST-027: user can complete full list records workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with records and permissions

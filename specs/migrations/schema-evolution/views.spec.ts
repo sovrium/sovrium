@@ -108,7 +108,7 @@ test.describe('Database Views Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full views workflow',
+    'MIG-VIEW-007: user can complete full views workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative views scenarios

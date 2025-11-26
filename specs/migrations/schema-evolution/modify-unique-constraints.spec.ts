@@ -95,7 +95,7 @@ test.describe('Modify Unique Constraints Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full modify-unique-constraints workflow',
+    'MIG-MODIFY-UNIQUE-006: user can complete full modify-unique-constraints workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative modify-unique-constraints scenarios

@@ -266,7 +266,7 @@ test.describe('Rename Field Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full rename-field-migration workflow',
+    'MIG-ALTER-RENAME-005: user can complete full rename-field-migration workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative rename field scenarios

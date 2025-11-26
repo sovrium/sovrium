@@ -82,7 +82,7 @@ test.describe('Modify Field Options Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full modify-field-options workflow',
+    'MIG-MODIFY-OPTIONS-005: user can complete full modify-field-options workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative modify-field-options scenarios

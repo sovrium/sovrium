@@ -200,7 +200,7 @@ test.describe('Refresh session token', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full refreshSession workflow',
+    'API-AUTH-REFRESH-SESSION-006: user can complete full refreshSession workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

@@ -367,7 +367,7 @@ test.describe('Change password', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full Changepassword workflow',
+    'API-AUTH-CHANGE-PASSWORD-009: user can complete full Changepassword workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

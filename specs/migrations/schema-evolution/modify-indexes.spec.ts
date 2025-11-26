@@ -108,7 +108,7 @@ test.describe('Modify Indexes Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full modify-indexes workflow',
+    'MIG-MODIFY-INDEX-007: user can complete full modify-indexes workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative modify-indexes scenarios

@@ -288,7 +288,7 @@ test.describe('Admin: List user sessions', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full adminListUserSessions workflow',
+    'API-ADMIN-LIST-USER-SESSIONS-008: user can complete full adminListUserSessions workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

@@ -302,7 +302,7 @@ test.describe('Sign in with email and password', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full signInEmail workflow',
+    'API-AUTH-SIGN-IN-EMAIL-009: user can complete full signInEmail workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

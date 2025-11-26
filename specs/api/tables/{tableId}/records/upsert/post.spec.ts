@@ -788,7 +788,7 @@ test.describe('Upsert records (create or update)', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full upsert workflow',
+    'API-RECORDS-UPSERT-016: user can complete full upsert workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application with representative table and permission configuration

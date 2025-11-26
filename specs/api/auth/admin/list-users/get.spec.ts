@@ -296,7 +296,7 @@ test.describe('Admin: List users', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full adminListUsers workflow',
+    'API-ADMIN-LIST-USERS-008: user can complete full adminListUsers workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

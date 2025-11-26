@@ -325,7 +325,7 @@ test.describe('Admin: Set user password', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full adminSetUserPassword workflow',
+    'API-ADMIN-SET-USER-PASSWORD-008: user can complete full adminSetUserPassword workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

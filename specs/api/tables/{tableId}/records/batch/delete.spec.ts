@@ -570,7 +570,7 @@ test.describe('Batch delete records', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full batch delete workflow',
+    'API-RECORDS-012: user can complete full batch delete workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with multiple records

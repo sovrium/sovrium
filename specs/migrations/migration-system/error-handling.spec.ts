@@ -273,7 +273,7 @@ test.describe('Error Handling and Rollback', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full error-handling-and-rollback workflow',
+    'MIG-ERROR-006: user can complete full error-handling-and-rollback workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative error scenarios

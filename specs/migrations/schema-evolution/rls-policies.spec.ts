@@ -108,7 +108,7 @@ test.describe('Row-Level Security Policies Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full rls-policies workflow',
+    'MIG-RLS-007: user can complete full rls-policies workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative rls-policies scenarios

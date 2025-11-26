@@ -215,7 +215,7 @@ test.describe('Add Field Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full add-field-migration workflow',
+    'MIG-ALTER-ADD-005: user can complete full add-field-migration workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative add field scenarios

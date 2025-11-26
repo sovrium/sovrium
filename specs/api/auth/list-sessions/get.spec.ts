@@ -293,7 +293,7 @@ test.describe('List user sessions', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full listSessions workflow',
+    'API-AUTH-LIST-SESSIONS-008: user can complete full listSessions workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

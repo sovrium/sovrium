@@ -218,7 +218,7 @@ test.describe('Remove Field Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full remove-field-migration workflow',
+    'MIG-ALTER-REMOVE-005: user can complete full remove-field-migration workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative remove field scenarios

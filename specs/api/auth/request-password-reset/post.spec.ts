@@ -286,7 +286,7 @@ test.describe('Request password reset', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full Requestpasswordreset workflow',
+    'API-AUTH-REQUEST-PASSWORD-RESET-008: user can complete full Requestpasswordreset workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

@@ -381,7 +381,7 @@ test.describe('List organization invitations', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full listInvitations workflow',
+    'API-ORG-LIST-INVITATIONS-009: user can complete full listInvitations workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

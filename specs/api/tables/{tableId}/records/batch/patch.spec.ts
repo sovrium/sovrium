@@ -785,7 +785,7 @@ test.describe('Batch update records', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full batch update workflow',
+    'API-RECORDS-016: user can complete full batch update workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application with representative table and permission configuration

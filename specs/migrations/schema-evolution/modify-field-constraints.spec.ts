@@ -82,7 +82,7 @@ test.describe('Modify Field Constraints Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full modify-field-constraints workflow',
+    'MIG-MODIFY-CONSTRAINTS-005: user can complete full modify-field-constraints workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative modify-field-constraints scenarios

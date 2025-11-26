@@ -265,7 +265,7 @@ test.describe('Revoke specific session', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full revokeSession workflow',
+    'API-AUTH-REVOKE-SESSION-007: user can complete full revokeSession workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

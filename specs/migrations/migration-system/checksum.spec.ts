@@ -244,7 +244,7 @@ test.describe('Checksum Optimization', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full checksum-optimization workflow',
+    'MIG-CHECKSUM-005: user can complete full checksum-optimization workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative checksum system

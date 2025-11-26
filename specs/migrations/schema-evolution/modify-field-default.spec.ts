@@ -69,7 +69,7 @@ test.describe('Modify Field Default Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full modify-field-default workflow',
+    'MIG-MODIFY-DEFAULT-004: user can complete full modify-field-default workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative modify-field-default scenarios

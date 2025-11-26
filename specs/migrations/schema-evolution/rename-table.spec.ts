@@ -82,7 +82,7 @@ test.describe('Rename Table Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full rename-table workflow',
+    'MIG-RENAME-TABLE-005: user can complete full rename-table workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative rename-table scenarios

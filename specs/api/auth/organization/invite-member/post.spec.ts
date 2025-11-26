@@ -443,7 +443,7 @@ test.describe('Invite member to organization', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full inviteMember workflow',
+    'API-ORG-INVITE-MEMBER-010: user can complete full inviteMember workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

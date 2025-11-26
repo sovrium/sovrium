@@ -82,7 +82,7 @@ test.describe('Modify Field Required Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full modify-field-required workflow',
+    'MIG-MODIFY-REQUIRED-005: user can complete full modify-field-required workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative modify-field-required scenarios

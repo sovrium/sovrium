@@ -209,7 +209,7 @@ test.describe('Sign out user', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full Signoutuser workflow',
+    'API-AUTH-SIGN-OUT-006: user can complete full Signoutuser workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

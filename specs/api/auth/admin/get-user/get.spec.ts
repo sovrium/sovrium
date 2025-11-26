@@ -242,7 +242,7 @@ test.describe('Admin: Get user by ID', () => {
   // ============================================================================
 
   test.fixme(
-    'user can complete full adminGetUser workflow',
+    'API-ADMIN-GET-USER-007: user can complete full adminGetUser workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario
