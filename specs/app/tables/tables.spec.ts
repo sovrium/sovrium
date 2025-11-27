@@ -189,7 +189,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-004: should enforce all constraints (UNIQUE, NOT NULL, CHECK)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
