@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for URL Path
  *
- * Source: specs/app/pages/path/path.schema.json
+ * Source: src/domain/models/app/page/path.ts
  * Spec Count: 19
  *
  * Test Organization:

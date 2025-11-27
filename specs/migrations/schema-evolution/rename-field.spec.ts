@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Rename Field Migration
  *
- * Source: specs/migrations/schema-evolution/rename-field/rename-field.schema.json
+ * Source: src/domain/models/app/table/index.ts (Effect Schema)
  * Domain: migrations
  * Spec Count: 4
  *

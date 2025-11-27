@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Structured Data
  *
- * Source: specs/app/pages/meta/structured-data/structured-data.schema.json
+ * Source: src/domain/models/app/page/meta.ts
  * Spec Count: 10
  *
  * Test Organization:

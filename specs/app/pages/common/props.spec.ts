@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Component Props
  *
- * Source: specs/app/pages/common/props.schema.json
+ * Source: src/domain/models/app/page/common.ts
  * Spec Count: 10
  *
  * Test Organization:

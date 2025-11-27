@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Phone Number Field
  *
- * Source: specs/app/tables/field-types/phone-number-field/phone-number-field.schema.json
+ * Source: src/domain/models/app/table/field-types/phone-number-field.ts
  * Domain: app
  * Spec Count: 5
  *

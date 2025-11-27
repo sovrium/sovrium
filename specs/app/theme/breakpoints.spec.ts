@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Breakpoints
  *
- * Source: specs/app/theme/breakpoints/breakpoints.schema.json
+ * Source: src/domain/models/app/theme/index.ts
  * Spec Count: 9
  *
  * Test Organization:

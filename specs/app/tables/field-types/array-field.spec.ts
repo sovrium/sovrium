@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Array Field
  *
- * Source: specs/app/tables/field-types/array-field/array-field.schema.json
+ * Source: src/domain/models/app/table/field-types/array-field.ts
  * Domain: app
  * Spec Count: 5
  *

@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Component Interactions
  *
- * Source: specs/app/pages/common/interactions/interactions.schema.json
+ * Source: src/domain/models/app/page/common.ts
  * Spec Count: 8
  *
  * Test Organization:

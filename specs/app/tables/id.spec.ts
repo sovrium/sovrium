@@ -10,7 +10,7 @@ import { test } from '@/specs/fixtures'
 /**
  * E2E Tests for Table ID
  *
- * Source: specs/app/tables/id/id.schema.json
+ * Source: src/domain/models/app/table/index.ts
  * Domain: app
  * Spec Count: 6
  *

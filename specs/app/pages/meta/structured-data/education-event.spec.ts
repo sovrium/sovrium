@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Education Event Schema
  *
- * Source: specs/app/pages/meta/structured-data/education-event.schema.json
+ * Source: src/domain/models/app/page/meta.ts
  * Spec Count: 14
  *
  * Test Organization:

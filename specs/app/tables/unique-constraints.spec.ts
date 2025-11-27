@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Unique Constraints
  *
- * Source: specs/app/tables/unique-constraints/unique-constraints.schema.json
+ * Source: src/domain/models/app/table/index.ts
  * Domain: app
  * Spec Count: 7
  *

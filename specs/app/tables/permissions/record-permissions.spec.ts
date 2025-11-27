@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Record-Level Permissions
  *
- * Source: specs/app/tables/permissions/record-permissions/record-permissions.schema.json
+ * Source: src/domain/models/app/table/permissions/index.ts
  * Domain: app
  * Spec Count: 6
  *

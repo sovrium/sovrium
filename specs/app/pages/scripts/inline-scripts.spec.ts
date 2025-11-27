@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Inline Scripts
  *
- * Source: specs/app/pages/scripts/inline-scripts/inline-scripts.schema.json
+ * Source: src/domain/models/app/page/scripts.ts
  * Spec Count: 10
  *
  * Test Organization:

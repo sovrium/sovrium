@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Font Configuration
  *
- * Source: specs/app/theme/fonts/fonts.schema.json
+ * Source: src/domain/models/app/theme/index.ts
  * Spec Count: 12
  *
  * Test Organization:

@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for App Description
  *
- * Source: specs/app/description/description.schema.json
+ * Source: src/domain/models/app/description.ts
  * Specs: APP-DESCRIPTION-001 through APP-DESCRIPTION-015
  *
  * Test Organization:

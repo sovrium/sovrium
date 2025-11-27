@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for URL Field
  *
- * Source: specs/app/tables/field-types/url-field/url-field.schema.json
+ * Source: src/domain/models/app/table/field-types/url-field.ts
  * Domain: app
  * Spec Count: 5
  *

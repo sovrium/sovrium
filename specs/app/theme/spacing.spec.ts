@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Spacing Configuration
  *
- * Source: specs/app/theme/spacing/spacing.schema.json
+ * Source: src/domain/models/app/theme/index.ts
  * Spec Count: 13
  *
  * Test Organization:

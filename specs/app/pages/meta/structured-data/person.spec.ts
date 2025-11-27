@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Person Schema
  *
- * Source: specs/app/pages/meta/structured-data/person.schema.json
+ * Source: src/domain/models/app/page/meta.ts
  * Spec Count: 12
  *
  * Test Organization:

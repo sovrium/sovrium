@@ -11,7 +11,7 @@ import type { Locator } from '@/specs/fixtures'
 /**
  * E2E Tests for CTA Button
  *
- * Source: specs/app/pages/layout/navigation/cta-button.schema.json
+ * Source: src/domain/models/app/page/layout.ts
  * Spec Count: 10
  *
  * Test Organization:

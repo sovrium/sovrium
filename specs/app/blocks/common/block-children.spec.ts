@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Block Children
  *
- * Source: specs/app/blocks/common/block-children.schema.json
+ * Source: src/domain/models/app/block/common.ts
  * Spec Count: 10
  *
  * Test Organization:

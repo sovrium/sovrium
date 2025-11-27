@@ -16,7 +16,7 @@ declare global {
 /**
  * E2E Tests for Analytics Configuration
  *
- * Source: specs/app/pages/meta/analytics/analytics.schema.json
+ * Source: src/domain/models/app/page/meta.ts
  * Spec Count: 12
  *
  * Test Organization:

@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Rich Text Field
  *
- * Source: specs/app/tables/field-types/rich-text-field/rich-text-field.schema.json
+ * Source: src/domain/models/app/table/field-types/rich-text-field.ts
  * Domain: app
  * Spec Count: 5
  *

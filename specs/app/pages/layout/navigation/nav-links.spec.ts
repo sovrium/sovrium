@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Navigation Links
  *
- * Source: specs/app/pages/layout/navigation/nav-links.schema.json
+ * Source: src/domain/models/app/page/layout.ts
  * Spec Count: 10
  *
  * Test Organization:

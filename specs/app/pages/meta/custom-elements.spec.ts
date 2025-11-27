@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Custom Head Elements
  *
- * Source: specs/app/pages/meta/custom-elements/custom-elements.schema.json
+ * Source: src/domain/models/app/page/meta.ts
  * Spec Count: 8
  *
  * Test Organization:

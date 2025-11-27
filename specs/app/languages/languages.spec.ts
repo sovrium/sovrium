@@ -22,7 +22,7 @@ declare global {
 /**
  * E2E Tests for Languages Configuration
  *
- * Source: specs/app/languages/languages.schema.json
+ * Source: src/domain/models/app/languages.ts
  * Spec Count: 22
  *
  * Test Organization:

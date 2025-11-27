@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Created At Field
  *
- * Source: specs/app/tables/field-types/created-at-field/created-at-field.schema.json
+ * Source: src/domain/models/app/table/field-types/created-at-field.ts
  * Domain: app
  * Spec Count: 5
  *

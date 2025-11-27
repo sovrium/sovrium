@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Integer Field
  *
- * Source: specs/app/tables/field-types/integer-field/integer-field.schema.json
+ * Source: src/domain/models/app/table/field-types/integer-field.ts
  * Domain: app
  * Spec Count: 5
  *

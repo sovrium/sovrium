@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Scroll Interaction
  *
- * Source: specs/app/pages/common/interactions/scroll-interaction.schema.json
+ * Source: src/domain/models/app/page/common.ts
  * Spec Count: 12
  *
  * Test Organization:

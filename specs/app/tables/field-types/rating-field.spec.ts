@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Rating Field
  *
- * Source: specs/app/tables/field-types/rating-field/rating-field.schema.json
+ * Source: src/domain/models/app/table/field-types/rating-field.ts
  * Domain: app
  * Spec Count: 5
  *

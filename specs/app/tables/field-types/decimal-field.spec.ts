@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Decimal Field
  *
- * Source: specs/app/tables/field-types/decimal-field/decimal-field.schema.json
+ * Source: src/domain/models/app/table/field-types/decimal-field.ts
  * Domain: app
  * Spec Count: 5
  *

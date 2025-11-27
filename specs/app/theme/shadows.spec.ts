@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Shadows
  *
- * Source: specs/app/theme/shadows/shadows.schema.json
+ * Source: src/domain/models/app/theme/index.ts
  * Spec Count: 17 (16 @spec + 1 @regression)
  *
  * Test Organization:

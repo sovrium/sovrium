@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Color Palette
  *
- * Source: specs/app/theme/colors/colors.schema.json
+ * Source: src/domain/models/app/theme/index.ts
  * Spec Count: 15
  *
  * Test Organization:

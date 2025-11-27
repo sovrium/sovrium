@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Unique Field Property
  *
- * Source: specs/app/tables/field-types/common/unique/unique.schema.json
+ * Source: src/domain/models/app/table/field-types/base-field.ts
  * Domain: app
  * Spec Count: 5
  *

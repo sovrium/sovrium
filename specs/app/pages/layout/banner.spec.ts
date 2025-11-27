@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Banner Configuration
  *
- * Source: specs/app/pages/layout/banner/banner.schema.json
+ * Source: src/domain/models/app/page/layout.ts
  * Spec Count: 10
  *
  * Test Organization:

@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Autonumber Field
  *
- * Source: specs/app/tables/field-types/autonumber-field/autonumber-field.schema.json
+ * Source: src/domain/models/app/table/field-types/autonumber-field.ts
  * Domain: app
  * Spec Count: 5
  *

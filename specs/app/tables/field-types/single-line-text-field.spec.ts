@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Single Line Text Field
  *
- * Source: specs/app/tables/field-types/single-line-text-field/single-line-text-field.schema.json
+ * Source: src/domain/models/app/table/field-types/single-line-text-field.ts
  * Domain: app
  * Spec Count: 19
  *

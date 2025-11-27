@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Block Props
  *
- * Source: specs/app/blocks/common/block-props.schema.json
+ * Source: src/domain/models/app/block/common.ts
  * Spec Count: 14
  *
  * Test Organization:

@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Footer Configuration
  *
- * Source: specs/app/pages/layout/footer/footer.schema.json
+ * Source: src/domain/models/app/page/layout.ts
  * Spec Count: 14
  *
  * Test Organization:

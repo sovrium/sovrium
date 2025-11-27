@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for App Version
  *
- * Source: specs/app/version/version.schema.json
+ * Source: src/domain/models/app/version.ts
  * Specs: APP-VERSION-001 through APP-VERSION-007
  *
  * Test Organization:

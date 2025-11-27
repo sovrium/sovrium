@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Updated At Field
  *
- * Source: specs/app/tables/field-types/updated-at-field/updated-at-field.schema.json
+ * Source: src/domain/models/app/table/field-types/updated-at-field.ts
  * Domain: app
  * Spec Count: 5
  *

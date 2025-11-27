@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Page Layout
  *
- * Source: specs/app/pages/layout/layout.schema.json
+ * Source: src/domain/models/app/page/layout.ts
  * Spec Count: 8
  *
  * Test Organization:

@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for FAQ Page Schema
  *
- * Source: specs/app/pages/meta/structured-data/faq-page.schema.json
+ * Source: src/domain/models/app/page/meta.ts
  * Spec Count: 10
  *
  * Test Organization:

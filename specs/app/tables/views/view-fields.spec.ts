@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for View Fields
  *
- * Source: specs/app/tables/views/view/fields/fields.schema.json
+ * Source: src/domain/models/app/table/views/index.ts
  * Domain: app
  * Spec Count: 3
  *

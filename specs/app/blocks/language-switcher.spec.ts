@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Language Switcher Block
  *
- * Source: specs/app/blocks/language-switcher/language-switcher.schema.json
+ * Source: src/domain/models/app/block/language-switcher.ts
  * Spec Count: 3
  *
  * Test Organization:

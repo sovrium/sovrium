@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Email Field
  *
- * Source: specs/app/tables/field-types/email-field/email-field.schema.json
+ * Source: src/domain/models/app/table/field-types/email-field.ts
  * Domain: app
  * Spec Count: 5
  *

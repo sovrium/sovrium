@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Animation Configuration
  *
- * Source: specs/app/theme/animations/animations.schema.json
+ * Source: src/domain/models/app/theme/index.ts
  * Spec Count: 24 (23 @spec + 1 @regression)
  *
  * Test Organization:

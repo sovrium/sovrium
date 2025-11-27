@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Theme Configuration
  *
- * Source: specs/app/theme/theme.schema.json
+ * Source: src/domain/models/app/theme/index.ts
  * Spec Count: 11
  *
  * Test Organization:

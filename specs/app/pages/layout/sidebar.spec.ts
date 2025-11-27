@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Sidebar Configuration
  *
- * Source: specs/app/pages/layout/sidebar/sidebar.schema.json
+ * Source: src/domain/models/app/page/layout.ts
  * Spec Count: 12
  *
  * Test Organization:

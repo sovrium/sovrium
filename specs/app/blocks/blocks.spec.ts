@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Reusable Blocks
  *
- * Source: specs/app/blocks/blocks.schema.json
+ * Source: src/domain/models/app/blocks.ts
  * Spec Count: 12 (10 APP-BLOCKS + 2 INTEGRATION specs)
  *
  * Test Organization:

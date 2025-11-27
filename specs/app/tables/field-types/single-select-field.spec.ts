@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Single Select Field
  *
- * Source: specs/app/tables/field-types/single-select-field/single-select-field.schema.json
+ * Source: src/domain/models/app/table/field-types/single-select-field.ts
  * Domain: app
  * Spec Count: 5
  *

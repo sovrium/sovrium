@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Language Configuration
  *
- * Source: specs/app/languages/language-config.schema.json
+ * Source: src/domain/models/app/languages.ts
  * Spec Count: 8
  *
  * Test Organization:

@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Database Indexes
  *
- * Source: specs/app/tables/indexes/indexes.schema.json
+ * Source: src/domain/models/app/table/index.ts
  * Domain: app
  * Spec Count: 8
  *

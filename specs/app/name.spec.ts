@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for App Name Property
  *
- * Source: specs/app/name/name.schema.json
+ * Source: src/domain/models/app/name.ts
  * Property: name (application identifier following npm package naming conventions)
  *
  * Test Organization:

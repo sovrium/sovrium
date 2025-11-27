@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 /**
  * E2E Tests for Progress Field
  *
- * Source: specs/app/tables/field-types/progress-field/progress-field.schema.json
+ * Source: src/domain/models/app/table/field-types/progress-field.ts
  * Domain: app
  * Spec Count: 2
  *
