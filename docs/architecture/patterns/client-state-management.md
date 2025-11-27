@@ -7,16 +7,19 @@ Sovrium uses **TanStack Query** for server state management combined with **Effe
 ## State Categories
 
 ### Server State (TanStack Query)
+
 - Data fetched from API endpoints
 - Cached, deduplicated, and automatically refreshed
 - Examples: user data, table records, organization settings
 
 ### Client State (React State)
+
 - UI-only state not persisted to server
 - Ephemeral interactions
 - Examples: modal open/closed, form input values, sidebar collapsed
 
 ### Derived State (Computed)
+
 - Calculated from server or client state
 - Examples: filtered lists, aggregated totals, formatted dates
 
@@ -121,8 +124,7 @@ function EditUserForm({ userId }: { userId: number }) {
 
 ```typescript
 const mutation = useMutation({
-  mutationFn: (newData: UpdateUserInput) =>
-    Effect.runPromise(updateUser(userId, newData)),
+  mutationFn: (newData: UpdateUserInput) => Effect.runPromise(updateUser(userId, newData)),
 
   // Optimistically update cache before server responds
   onMutate: async (newData) => {
@@ -160,16 +162,13 @@ const mutation = useMutation({
 
 ```typescript
 // Entity queries
-['user', userId]                    // Single user
-['users']                           // User list
-['users', { role: 'admin' }]        // Filtered list
-
-// Nested resources
-['organization', orgId, 'members']  // Org members
-['table', tableId, 'records']       // Table records
-
-// Paginated queries
-['users', { page: 1, limit: 10 }]   // Paginated list
+;['user', userId]['users'][('users', { role: 'admin' })][ // Single user // User list // Filtered list
+  // Nested resources
+  ('organization', orgId, 'members')
+][('table', tableId, 'records')][ // Org members // Table records
+  // Paginated queries
+  ('users', { page: 1, limit: 10 })
+] // Paginated list
 ```
 
 ### Stale Time Configuration
@@ -203,9 +202,7 @@ queryClient.invalidateQueries({ queryKey: ['users'] })
 
 // Invalidate with predicate
 queryClient.invalidateQueries({
-  predicate: (query) =>
-    query.queryKey[0] === 'organization' &&
-    query.queryKey[1] === orgId,
+  predicate: (query) => query.queryKey[0] === 'organization' && query.queryKey[1] === orgId,
 })
 
 // Remove from cache entirely

@@ -447,16 +447,10 @@ Key workflow settings:
 
 ### Current Status
 
-View current progress:
+View current queue status:
 ```bash
-bun run scripts/tdd-automation/track-progress.ts
+bun run scripts/tdd-automation/queue-manager.ts status
 ```
-
-This generates:
-- Overall test progress (passing vs fixme)
-- Queue status (queued, in-progress, completed, failed)
-- Progress by feature area
-- Next specs to implement
 
 ## Key Differences from Typical Stacks
 

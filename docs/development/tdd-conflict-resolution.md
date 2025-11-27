@@ -277,15 +277,13 @@ bun test:e2e specs/app/blocks/blocks.spec.ts --grep "APP-BLOCKS-006"
 
 ## Monitoring & Metrics
 
-Track conflict metrics in TDD progress dashboard:
+Track conflict metrics in TDD monitoring:
 
 - Total conflicts encountered
 - Conflicts auto-resolved vs manual
 - Average resolution time
 - Files most frequently conflicted
 - Success rate after resolution
-
-Add to `scripts/tdd-automation/track-progress.ts`.
 
 ---
 

@@ -58,13 +58,6 @@ jobs:
         env:
           GITHUB_OUTPUT: ${{ github.output }}
 
-      - name: Validate schemas for scanned specs
-        id: validate
-        run: |
-          echo "🔍 Validating JSON Schema files for scanned specs..."
-          bun run scripts/tdd-automation/validate-schemas-for-specs.ts
-        continue-on-error: false
-
       - name: Analyze spec dependencies
         id: dependencies
         run: |
