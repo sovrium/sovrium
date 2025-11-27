@@ -277,6 +277,11 @@ const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]):
      */
     await db.begin(async (tx) => {
       for (const table of tables) {
+        // Drop existing table first to ensure schema matches configuration
+        // This prevents conflicts with Better Auth's user table or other pre-existing tables
+        const dropTableSQL = `DROP TABLE IF EXISTS ${table.name} CASCADE`
+        await tx.unsafe(dropTableSQL)
+
         const createTableSQL = generateCreateTableSQL(table)
         await tx.unsafe(createTableSQL)
 

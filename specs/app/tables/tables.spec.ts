@@ -353,7 +353,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-007: should create PostgreSQL VARCHAR(255) column with UNIQUE and NOT NULL constraints for email field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
