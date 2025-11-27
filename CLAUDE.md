@@ -30,16 +30,16 @@
 | Technology | Version | Purpose |
 |-----------|---------|---------|
 | **Bun** | 1.3.0 | Runtime & package manager |
-| **TypeScript** | ^5 | Type-safe language |
-| **Effect** | 3.19.5 | Functional programming, DI, error handling |
-| **Effect Schema** | 3.19.5 | Server validation (domain/application/infrastructure) |
-| **Hono** | 4.10.6 | Web framework (API routes, RPC client, OpenAPI) |
-| **Zod** | 4.1.12 | OpenAPI integration ONLY (src/domain/models/api/) + client forms |
+| **TypeScript** | ^5.9.3 | Type-safe language |
+| **Effect** | ^3.19.6 | Functional programming, DI, error handling |
+| **Effect Schema** | ^3.19.6 | Server validation (domain/application/infrastructure) |
+| **Hono** | ^4.10.7 | Web framework (API routes, RPC client, OpenAPI) |
+| **Zod** | ^4.1.13 | OpenAPI integration ONLY (src/domain/models/api/) + client forms |
 | **Better Auth** | 1.3.34 | Authentication |
 | **Drizzle ORM** | ^0.44.7 | Database (PostgreSQL via bun:sql) |
 | **React** | 19.2.0 | UI library |
 | **Tailwind CSS** | 4.1.17 | Styling (programmatic CSS compiler) |
-| **TanStack Query** | 5.90.10 | Server state management |
+| **TanStack Query** | ^5.90.11 | Server state management |
 | **TanStack Table** | ^8.21.3 | Data tables |
 
 ## Essential Commands

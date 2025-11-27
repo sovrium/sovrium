@@ -1,4 +1,4 @@
-# ESLint v9.38.0
+# ESLint v9.39.1
 
 ## Overview
 
@@ -16,7 +16,7 @@ Static code analysis tool that catches bugs, enforces best practices, and mainta
 **ESLint v9 Features**:
 
 - Flat configuration system (`eslint.config.ts`)
-- Improved TypeScript support (typescript-eslint v8.46.1)
+- Improved TypeScript support (typescript-eslint v8.48.0)
 - Modular config structure (`eslint/*.config.ts`)
 
 ## ESLint vs Other Tools
@@ -159,10 +159,10 @@ export default [
 
 ## Key Dependencies
 
-- **eslint v9.37.0**: Core ESLint linter engine
-- **@eslint/js v9.37.0**: ESLint's recommended JavaScript rules (flat config)
-- **typescript-eslint v8.46.1**: TypeScript-specific rules and parser
-- **globals v16.4.0**: Global variable definitions for different environments (browser, Node.js, Bun)
+- **eslint v9.39.1**: Core ESLint linter engine
+- **@eslint/js v9.39.1**: ESLint's recommended JavaScript rules (flat config)
+- **typescript-eslint v8.48.0**: TypeScript-specific rules and parser
+- **globals v16.5.0**: Global variable definitions for different environments (browser, Node.js, Bun)
 
 ## typescript-eslint Integration
 

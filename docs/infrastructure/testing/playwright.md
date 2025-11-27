@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Version**: 1.56.0
+**Version**: 1.57.0
 **Purpose**: Modern end-to-end testing framework for testing complete user workflows, UI interactions, and application behavior across real browsers. Playwright complements Bun's unit tests by verifying full application functionality from a user's perspective.
 
 ## What Playwright Provides
