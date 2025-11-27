@@ -98,7 +98,12 @@ const generateColumnDefinition = (field: Fields[number], isPrimaryKey: boolean):
   const columnType = mapFieldTypeToPostgres(field)
   // Primary key fields must always be NOT NULL, otherwise use the required flag
   const notNull = isPrimaryKey || ('required' in field && field.required) ? ' NOT NULL' : ''
-  return `${field.name} ${columnType}${notNull}`
+  // Add DEFAULT clause if default value is specified
+  const defaultValue =
+    'default' in field && field.default !== undefined
+      ? ` DEFAULT ${typeof field.default === 'boolean' ? field.default : `'${field.default}'`}`
+      : ''
+  return `${field.name} ${columnType}${notNull}${defaultValue}`
 }
 
 /**
