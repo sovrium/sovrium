@@ -72,6 +72,12 @@ const mapFieldTypeToPostgres = (field: Fields[number]): string => {
     const itemType = 'itemType' in field && field.itemType ? field.itemType : 'text'
     return `${itemType.toUpperCase()}[]`
   }
+
+  // Handle decimal with precision
+  if (field.type === 'decimal' && 'precision' in field && field.precision) {
+    return `NUMERIC(${field.precision},2)`
+  }
+
   return fieldTypeToPostgresMap[field.type] ?? 'TEXT'
 }
 
@@ -109,6 +115,14 @@ const generateArrayConstraints = (fields: readonly Fields[number][]): readonly s
     )
 
 /**
+ * Generate UNIQUE constraints for fields with unique property
+ */
+const generateUniqueConstraints = (fields: readonly Fields[number][]): readonly string[] =>
+  fields
+    .filter((field): field is Fields[number] & { unique: true } => 'unique' in field && !!field.unique)
+    .map((field) => `UNIQUE (${field.name})`)
+
+/**
  * Generate primary key constraint if defined
  */
 const generatePrimaryKeyConstraint = (table: Table): readonly string[] => {
@@ -119,10 +133,11 @@ const generatePrimaryKeyConstraint = (table: Table): readonly string[] => {
 }
 
 /**
- * Generate table constraints (CHECK constraints, primary key, etc.)
+ * Generate table constraints (CHECK constraints, UNIQUE constraints, primary key, etc.)
  */
 const generateTableConstraints = (table: Table): readonly string[] => [
   ...generateArrayConstraints(table.fields),
+  ...generateUniqueConstraints(table.fields),
   ...generatePrimaryKeyConstraint(table),
 ]
 
