@@ -103,9 +103,13 @@ const resolveImportPath = (importPath: string, fromFile: string): string | null 
     return null
   }
 
-  // Convert @/ alias to src/
+  // Convert @/ alias based on tsconfig paths
   let resolvedPath = importPath
-  if (resolvedPath.startsWith('@/')) {
+  if (resolvedPath.startsWith('@/specs/')) {
+    // @/specs/* maps to specs/* (not src/specs/*)
+    resolvedPath = resolvedPath.replace('@/specs/', 'specs/')
+  } else if (resolvedPath.startsWith('@/')) {
+    // @/* maps to src/*
     resolvedPath = resolvedPath.replace('@/', 'src/')
   } else {
     // Relative import - resolve relative to fromFile
