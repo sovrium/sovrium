@@ -37,8 +37,8 @@ export const paginationQuerySchema = z.object({
  * Common timestamp fields for audit trails.
  */
 export const timestampSchema = z.object({
-  createdAt: z.string().datetime().describe('ISO 8601 creation timestamp'),
-  updatedAt: z.string().datetime().describe('ISO 8601 last update timestamp'),
+  createdAt: z.iso.datetime().describe('ISO 8601 creation timestamp'),
+  updatedAt: z.iso.datetime().describe('ISO 8601 last update timestamp'),
 })
 
 /**

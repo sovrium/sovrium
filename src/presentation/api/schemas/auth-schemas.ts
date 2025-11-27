@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod'
+import { timestampSchema } from './common-schemas'
 
 // ============================================================================
 // User Schemas
@@ -17,15 +18,15 @@ import { z } from 'zod'
  * Represents a user in API responses.
  * Based on Better Auth user model.
  */
-export const userSchema = z.object({
-  id: z.string().describe('Unique user identifier'),
-  email: z.string().email().describe('User email address'),
-  name: z.string().nullable().describe('User display name'),
-  image: z.string().url().nullable().optional().describe('User avatar URL'),
-  emailVerified: z.boolean().describe('Whether email is verified'),
-  createdAt: z.string().datetime().describe('Account creation timestamp'),
-  updatedAt: z.string().datetime().describe('Last update timestamp'),
-})
+export const userSchema = z
+  .object({
+    id: z.string().describe('Unique user identifier'),
+    email: z.email().describe('User email address'),
+    name: z.string().nullable().describe('User display name'),
+    image: z.url().nullable().optional().describe('User avatar URL'),
+    emailVerified: z.boolean().describe('Whether email is verified'),
+  })
+  .merge(timestampSchema)
 
 /**
  * User with role schema (for admin endpoints)
@@ -34,7 +35,7 @@ export const userWithRoleSchema = userSchema.extend({
   role: z.enum(['user', 'admin']).describe('User role'),
   banned: z.boolean().optional().describe('Whether user is banned'),
   banReason: z.string().nullable().optional().describe('Reason for ban'),
-  banExpiresAt: z.string().datetime().nullable().optional().describe('Ban expiration'),
+  banExpiresAt: z.iso.datetime().nullable().optional().describe('Ban expiration'),
 })
 
 // ============================================================================
@@ -46,16 +47,16 @@ export const userWithRoleSchema = userSchema.extend({
  *
  * Represents an authentication session.
  */
-export const sessionSchema = z.object({
-  id: z.string().describe('Session identifier'),
-  userId: z.string().describe('User ID this session belongs to'),
-  token: z.string().describe('Session token'),
-  expiresAt: z.string().datetime().describe('Session expiration timestamp'),
-  createdAt: z.string().datetime().describe('Session creation timestamp'),
-  updatedAt: z.string().datetime().describe('Session last update timestamp'),
-  ipAddress: z.string().nullable().optional().describe('IP address of session'),
-  userAgent: z.string().nullable().optional().describe('User agent string'),
-})
+export const sessionSchema = z
+  .object({
+    id: z.string().describe('Session identifier'),
+    userId: z.string().describe('User ID this session belongs to'),
+    token: z.string().describe('Session token'),
+    expiresAt: z.iso.datetime().describe('Session expiration timestamp'),
+    ipAddress: z.string().nullable().optional().describe('IP address of session'),
+    userAgent: z.string().nullable().optional().describe('User agent string'),
+  })
+  .merge(timestampSchema)
 
 /**
  * Session with user schema
@@ -218,14 +219,14 @@ export const adminUnbanUserResponseSchema = z.object({
 /**
  * Organization schema
  */
-export const organizationSchema = z.object({
-  id: z.string().describe('Organization identifier'),
-  name: z.string().describe('Organization name'),
-  slug: z.string().describe('URL-friendly slug'),
-  logo: z.string().url().nullable().optional().describe('Organization logo URL'),
-  createdAt: z.string().datetime().describe('Creation timestamp'),
-  updatedAt: z.string().datetime().describe('Last update timestamp'),
-})
+export const organizationSchema = z
+  .object({
+    id: z.string().describe('Organization identifier'),
+    name: z.string().describe('Organization name'),
+    slug: z.string().describe('URL-friendly slug'),
+    logo: z.url().nullable().optional().describe('Organization logo URL'),
+  })
+  .merge(timestampSchema)
 
 /**
  * Organization member schema
@@ -235,7 +236,7 @@ export const organizationMemberSchema = z.object({
   userId: z.string().describe('User ID'),
   organizationId: z.string().describe('Organization ID'),
   role: z.enum(['owner', 'admin', 'member']).describe('Member role'),
-  createdAt: z.string().datetime().describe('Join timestamp'),
+  createdAt: z.iso.datetime().describe('Join timestamp'),
   user: userSchema.optional().describe('User details'),
 })
 
@@ -244,12 +245,12 @@ export const organizationMemberSchema = z.object({
  */
 export const organizationInvitationSchema = z.object({
   id: z.string().describe('Invitation ID'),
-  email: z.string().email().describe('Invited email'),
+  email: z.email().describe('Invited email'),
   organizationId: z.string().describe('Organization ID'),
   role: z.enum(['admin', 'member']).describe('Invited role'),
   status: z.enum(['pending', 'accepted', 'rejected', 'expired']).describe('Invitation status'),
-  expiresAt: z.string().datetime().describe('Expiration timestamp'),
-  createdAt: z.string().datetime().describe('Creation timestamp'),
+  expiresAt: z.iso.datetime().describe('Expiration timestamp'),
+  createdAt: z.iso.datetime().describe('Creation timestamp'),
 })
 
 /**
