@@ -478,7 +478,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-010: should create PostgreSQL BOOLEAN column with DEFAULT false for checkbox field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
