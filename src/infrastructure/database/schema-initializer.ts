@@ -138,7 +138,7 @@ const generateCreateTableSQL = (table: Table): string => {
   const hasIdField = table.fields.some((field) => field.name === 'id')
 
   // Add automatic id column if not explicitly defined
-  const idColumnDefinition = hasIdField ? [] : ['id INTEGER NOT NULL']
+  const idColumnDefinition = hasIdField ? [] : ['id SERIAL NOT NULL']
 
   const columnDefinitions = table.fields.map((field) => {
     const isPrimaryKey = primaryKeyFields.includes(field.name)
