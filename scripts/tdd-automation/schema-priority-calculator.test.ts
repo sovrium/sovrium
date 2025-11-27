@@ -36,6 +36,19 @@ describe('Spec ID Priority Calculator', () => {
       }
     })
 
+    test('MIGRATION specs should have priority 1,000,000-1,999,999 (same as MIG)', () => {
+      const migrationPriorities = [
+        calculateSpecPriority('MIGRATION-ERROR-001'),
+        calculateSpecPriority('MIGRATION-ALTER-ADD-001'),
+        calculateSpecPriority('MIGRATION-ROLLBACK-REGRESSION'),
+      ]
+
+      for (const priority of migrationPriorities) {
+        expect(priority).toBeGreaterThanOrEqual(1_000_000)
+        expect(priority).toBeLessThan(2_000_000)
+      }
+    })
+
     test('STATIC specs should have priority 2,000,000-2,999,999', () => {
       const staticPriorities = [
         calculateSpecPriority('STATIC-INDEX-001'),
@@ -116,6 +129,12 @@ describe('Spec ID Priority Calculator', () => {
       expect(getFeaturePathFromSpecId('MIG-ERROR-001')).toBe('mig/error')
       expect(getFeaturePathFromSpecId('MIG-ALTER-ADD-001')).toBe('mig/alter/add')
       expect(getFeaturePathFromSpecId('MIG-ERROR-REGRESSION')).toBe('mig/error')
+    })
+
+    test('should extract MIGRATION feature paths correctly', () => {
+      expect(getFeaturePathFromSpecId('MIGRATION-ERROR-001')).toBe('migration/error')
+      expect(getFeaturePathFromSpecId('MIGRATION-ALTER-ADD-001')).toBe('migration/alter/add')
+      expect(getFeaturePathFromSpecId('MIGRATION-ROLLBACK-REGRESSION')).toBe('migration/rollback')
     })
 
     test('should extract APP feature paths correctly', () => {

@@ -50,13 +50,13 @@ const DOMAIN_BASE_PRIORITIES: Record<SpecDomain, number> = {
 /**
  * Detect spec domain from spec ID prefix
  *
- * @param specId Full spec ID (e.g., "APP-VERSION-001", "MIG-ERROR-001")
+ * @param specId Full spec ID (e.g., "APP-VERSION-001", "MIGRATION-ERROR-001")
  * @returns Domain type
  */
 function getSpecDomain(specId: string): SpecDomain {
   const prefix = specId.split('-')[0]?.toUpperCase()
   if (prefix === 'APP') return 'app'
-  if (prefix === 'MIG') return 'migrations'
+  if (prefix === 'MIG' || prefix === 'MIGRATION') return 'migrations'
   if (prefix === 'STATIC') return 'static'
   if (prefix === 'API') return 'api'
   if (prefix === 'ADMIN') return 'admin'
