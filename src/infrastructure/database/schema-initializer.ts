@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { SQL } from 'bun'
 import { Effect, Console } from 'effect'
-import { Client } from 'pg'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/table'
 import type { Fields } from '@/domain/models/app/table/fields'
@@ -132,49 +132,47 @@ const generateIndexStatements = (table: Table): readonly string[] =>
     })
 
 /**
- * Create a PostgreSQL client effect with automatic cleanup
- * Note: Client type is from external pg library and cannot be made readonly
+ * Execute schema initialization using bun:sql with transaction support
+ * Uses Bun's native SQL driver for optimal performance
+ *
+ * Note: This function intentionally uses imperative patterns for database I/O.
+ * Side effects are unavoidable when executing DDL statements against PostgreSQL.
  */
-const withClient = <A>(
-  databaseUrl: string,
-  // eslint-disable-next-line functional/prefer-immutable-types
-  f: (client: Client) => Promise<A>
-): Effect.Effect<A, Error> =>
-  Effect.acquireUseRelease(
-    Effect.tryPromise({
-      try: async () => {
-        const client = new Client({ connectionString: databaseUrl })
-        // eslint-disable-next-line functional/no-expression-statements -- side effect required for database connection
-        await client.connect()
-        return client
-      },
-      catch: (error) => new Error(`Failed to connect: ${String(error)}`),
-    }),
-    (client) =>
-      Effect.tryPromise({
-        try: () => f(client),
-        catch: (error) => new Error(`Query failed: ${String(error)}`),
-      }),
-    (client) => Effect.promise(() => client.end())
-  )
+/* eslint-disable functional/no-expression-statements, functional/no-loop-statements */
+const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]): Promise<void> => {
+  const db = new SQL(databaseUrl)
 
-/**
- * Execute a single table's schema initialization
- * Note: Client type is from external pg library and cannot be made readonly
- */
-// eslint-disable-next-line functional/prefer-immutable-types
-const initializeTable = (client: Client, table: Table): Promise<void> =>
-  Promise.resolve()
-    .then(() => client.query(generateCreateTableSQL(table)))
-    .then(() =>
-      generateIndexStatements(table).reduce(
-        (promise, indexSQL) => promise.then(() => client.query(indexSQL)).then(() => undefined),
-        Promise.resolve()
-      )
-    )
+  try {
+    // Execute all DDL in a single transaction for atomicity
+    await db.begin(async (tx) => {
+      for (const table of tables) {
+        // Create table
+        const createTableSQL = generateCreateTableSQL(table)
+        await tx.unsafe(createTableSQL)
+
+        // Create indexes
+        for (const indexSQL of generateIndexStatements(table)) {
+          await tx.unsafe(indexSQL)
+        }
+      }
+    })
+  } finally {
+    // Close connection
+    await db.close()
+  }
+}
+/* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
 
 /**
  * Initialize database schema from app configuration
+ *
+ * Uses Bun's native SQL driver (bun:sql) for:
+ * - Zero-dependency PostgreSQL access
+ * - Optimal performance on Bun runtime
+ * - Built-in connection pooling
+ * - Transaction support with automatic rollback
+ *
+ * @see docs/infrastructure/database/runtime-sql-migrations/04-migration-executor.md
  */
 export const initializeSchema = (app: App): Effect.Effect<void, never> =>
   Effect.gen(function* () {
@@ -193,13 +191,11 @@ export const initializeSchema = (app: App): Effect.Effect<void, never> =>
 
     yield* Console.log('Initializing database schema...')
 
-    // Execute schema initialization with proper resource management
-    yield* withClient(databaseUrl, (client) =>
-      app.tables!.reduce(
-        (promise, table) => promise.then(() => initializeTable(client, table)),
-        Promise.resolve()
-      )
-    ).pipe(
+    // Execute schema initialization with bun:sql
+    yield* Effect.tryPromise({
+      try: () => executeSchemaInit(databaseUrl, app.tables!),
+      catch: (error) => new Error(`Schema initialization failed: ${String(error)}`),
+    }).pipe(
       Effect.catchAll((error) =>
         Console.error(`Error initializing database schema: ${error.message}`).pipe(
           Effect.flatMap(() => Effect.void)
