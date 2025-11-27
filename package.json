@@ -1,6 +1,7 @@
 {
   "name": "sovrium",
   "version": "0.0.1",
+  "packageManager": "bun@1.3.3",
   "description": "Configuration-driven web application platform built with Bun, Effect, React, and Tailwind CSS",
   "module": "src/index.ts",
   "bin": {

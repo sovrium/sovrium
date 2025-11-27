@@ -27,7 +27,7 @@ test.describe('View Fields', () => {
   test.fixme(
     'APP-TABLES-VIEW-001: should show only configured fields when a view has specific fields configured',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: a view with specific fields configured (fields not in array are hidden)
       await startServerWithSchema({
         name: 'test-app',
@@ -53,21 +53,36 @@ test.describe('View Fields', () => {
         ],
       })
 
-      // WHEN: displaying records in the view
-      await page.goto('/tables/tbl_products/views/public_view')
+      await executeQuery([
+        "INSERT INTO products (name, price, internal_notes) VALUES ('Widget', 19.99, 'Internal note here')",
+      ])
 
-      // THEN: only configured fields should be shown (internal_notes excluded from array)
-      await expect(page.locator('[data-field="id"]')).toBeVisible()
-      await expect(page.locator('[data-field="name"]')).toBeVisible()
-      await expect(page.locator('[data-field="price"]')).toBeVisible()
-      await expect(page.locator('[data-field="internal_notes"]')).toBeHidden()
+      // WHEN: querying the PostgreSQL VIEW
+      // THEN: only configured fields should be included (internal_notes excluded)
+
+      // View has only the specified columns
+      const viewColumns = await executeQuery(
+        "SELECT column_name FROM information_schema.columns WHERE table_name = 'public_view' ORDER BY ordinal_position"
+      )
+      expect(viewColumns).toEqual([
+        { column_name: 'id' },
+        { column_name: 'name' },
+        { column_name: 'price' },
+      ])
+
+      // View returns only visible fields
+      const viewRecords = await executeQuery('SELECT * FROM public_view')
+      expect(viewRecords[0]).toHaveProperty('id')
+      expect(viewRecords[0]).toHaveProperty('name')
+      expect(viewRecords[0]).toHaveProperty('price')
+      expect(viewRecords[0]).not.toHaveProperty('internal_notes')
     }
   )
 
   test.fixme(
     'APP-TABLES-VIEW-002: should display fields in the specified order when a view has fields configured with custom order',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: a view with fields configured with custom order
       await startServerWithSchema({
         name: 'test-app',
@@ -93,22 +108,30 @@ test.describe('View Fields', () => {
         ],
       })
 
-      // WHEN: displaying records in the view
-      await page.goto('/tables/tbl_tasks/views/ordered_view')
+      await executeQuery([
+        "INSERT INTO tasks (title, status, priority) VALUES ('Task 1', 'active', 'high')",
+      ])
 
-      // THEN: fields should appear in the specified order
-      const columns = page.locator('[data-field]')
-      await expect(columns.nth(0)).toHaveAttribute('data-field', 'priority')
-      await expect(columns.nth(1)).toHaveAttribute('data-field', 'status')
-      await expect(columns.nth(2)).toHaveAttribute('data-field', 'title')
-      await expect(columns.nth(3)).toHaveAttribute('data-field', 'id')
+      // WHEN: querying the PostgreSQL VIEW
+      // THEN: columns should appear in the specified order
+
+      // View columns are in the specified order
+      const viewColumns = await executeQuery(
+        "SELECT column_name FROM information_schema.columns WHERE table_name = 'ordered_view' ORDER BY ordinal_position"
+      )
+      expect(viewColumns).toEqual([
+        { column_name: 'priority' },
+        { column_name: 'status' },
+        { column_name: 'title' },
+        { column_name: 'id' },
+      ])
     }
   )
 
   test.fixme(
     'APP-TABLES-VIEW-003: should not show field when it is not included in the view fields array',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: a view with a field excluded from the fields array
       await startServerWithSchema({
         name: 'test-app',
@@ -134,11 +157,26 @@ test.describe('View Fields', () => {
         ],
       })
 
-      // WHEN: displaying records in the view
-      await page.goto('/tables/tbl_users/views/safe_view')
+      await executeQuery([
+        "INSERT INTO users (username, email, password) VALUES ('john_doe', 'john@example.com', 'secret_hash')",
+      ])
 
-      // THEN: that field should not be shown (password excluded from array)
-      await expect(page.locator('[data-field="password"]')).toBeHidden()
+      // WHEN: querying the PostgreSQL VIEW
+      // THEN: excluded field (password) should not be accessible
+
+      // View does not include password column
+      const viewColumns = await executeQuery(
+        "SELECT column_name FROM information_schema.columns WHERE table_name = 'safe_view' ORDER BY ordinal_position"
+      )
+      expect(viewColumns).toEqual([
+        { column_name: 'id' },
+        { column_name: 'username' },
+        { column_name: 'email' },
+      ])
+
+      // View record does not have password field
+      const viewRecords = await executeQuery('SELECT * FROM safe_view')
+      expect(viewRecords[0]).not.toHaveProperty('password')
     }
   )
 
@@ -149,7 +187,7 @@ test.describe('View Fields', () => {
   test.fixme(
     'APP-TABLES-VIEW-004: user can complete full view-fields workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative field configuration
       await startServerWithSchema({
         name: 'test-app',
@@ -175,15 +213,28 @@ test.describe('View Fields', () => {
         ],
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/tables/tbl_data/views/custom_view')
+      await executeQuery([
+        "INSERT INTO data (name, status, secret) VALUES ('Item 1', 'active', 'top_secret')",
+      ])
 
-      const columns = page.locator('[data-field]')
-      // THEN: fields should appear in array order, secret excluded
-      await expect(columns.nth(0)).toHaveAttribute('data-field', 'status')
-      await expect(columns.nth(1)).toHaveAttribute('data-field', 'name')
-      await expect(columns.nth(2)).toHaveAttribute('data-field', 'id')
-      await expect(page.locator('[data-field="secret"]')).toBeHidden()
+      // WHEN/THEN: Querying the PostgreSQL VIEW validates field configuration
+
+      // View has columns in specified order, secret excluded
+      const viewColumns = await executeQuery(
+        "SELECT column_name FROM information_schema.columns WHERE table_name = 'custom_view' ORDER BY ordinal_position"
+      )
+      expect(viewColumns).toEqual([
+        { column_name: 'status' },
+        { column_name: 'name' },
+        { column_name: 'id' },
+      ])
+
+      // View record contains only visible fields
+      const viewRecords = await executeQuery('SELECT * FROM custom_view')
+      expect(viewRecords[0]).toHaveProperty('status')
+      expect(viewRecords[0]).toHaveProperty('name')
+      expect(viewRecords[0]).toHaveProperty('id')
+      expect(viewRecords[0]).not.toHaveProperty('secret')
     }
   )
 })

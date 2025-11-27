@@ -281,7 +281,14 @@ export const PageSchema = Schema.Struct({
       value: Schema.Union(Schema.String, Schema.Number, Schema.Boolean),
     })
   ),
-})
+}).pipe(
+  Schema.annotations({
+    identifier: 'Page',
+    title: 'Page',
+    description:
+      'Complete page configuration with metadata, layout, sections, and scripts. Pages use a block-based layout system with reusable components.',
+  })
+)
 
 /**
  * TypeScript type for a Page

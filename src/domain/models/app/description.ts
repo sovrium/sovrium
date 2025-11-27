@@ -10,15 +10,16 @@ import { Schema } from 'effect'
 /**
  * Maximum length for application descriptions.
  * This limit prevents UI/database issues with very long descriptions.
+ * Set to 2000 to accommodate long-form descriptions while preventing abuse.
  */
-const DESCRIPTION_MAX_LENGTH = 500
+const DESCRIPTION_MAX_LENGTH = 2000
 
 /**
  * DescriptionSchema defines validation rules for application descriptions.
  *
  * Application descriptions must be single-line strings:
  * - No line breaks allowed (\n, \r, or \r\n)
- * - Maximum 500 characters
+ * - Maximum 2000 characters
  * - Can contain any characters except line breaks
  * - Empty strings are allowed
  * - Unicode characters and emojis are supported
@@ -36,7 +37,7 @@ const DESCRIPTION_MAX_LENGTH = 500
  * const invalid1 = 'Multi\nline'          // ❌ Contains \n
  * const invalid2 = 'Windows\r\nbreak'     // ❌ Contains \r\n
  * const invalid3 = 'Mac\rbreak'           // ❌ Contains \r
- * const invalid4 = 'x'.repeat(501)        // ❌ Exceeds 500 characters
+ * const invalid4 = 'x'.repeat(2001)       // ❌ Exceeds 2000 characters
  *
  * // Validate description
  * const validated = Schema.decodeUnknownSync(DescriptionSchema)(desc1)

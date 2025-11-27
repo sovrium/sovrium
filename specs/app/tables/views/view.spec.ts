@@ -27,7 +27,7 @@ test.describe('Table View', () => {
   test.fixme(
     'APP-TABLES-VIEW-001: should be valid when validating view schema with id, name, and type properties',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: a view with id, name, and type properties
       await startServerWithSchema({
         name: 'test-app',
@@ -50,12 +50,18 @@ test.describe('Table View', () => {
         ],
       })
 
-      // WHEN: validating the view schema
-      await page.goto('/')
+      // WHEN: checking the database for the created view
+      // THEN: the view should exist in the database
 
-      // THEN: the view should be valid
-      // View configuration accepted without validation errors
-      await expect(page.locator('body')).toBeAttached()
+      // View was created in database
+      const viewExists = await executeQuery(
+        "SELECT COUNT(*) as count FROM information_schema.views WHERE table_name = 'example_view'"
+      )
+      expect(viewExists.count).toBe(1)
+
+      // View is queryable
+      const viewRecords = await executeQuery('SELECT * FROM example_view')
+      expect(viewRecords).toEqual([])
     }
   )
 

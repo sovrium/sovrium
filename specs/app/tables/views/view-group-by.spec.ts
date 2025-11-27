@@ -27,7 +27,7 @@ test.describe('View Group By', () => {
   test.fixme(
     'APP-TABLES-VIEW-GROUP-BY-001: should organize records into groups by status values when a view is grouped by status field',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: a view grouped by status field
       await startServerWithSchema({
         name: 'test-app',
@@ -58,21 +58,37 @@ test.describe('View Group By', () => {
         "INSERT INTO tasks (title, status) VALUES ('Task 1', 'active'), ('Task 2', 'completed'), ('Task 3', 'active')",
       ])
 
-      // WHEN: displaying records
-      await page.goto('/tables/tbl_tasks/views/by_status')
+      // WHEN: querying the PostgreSQL VIEW
+      // THEN: records should be ordered by the groupBy field (status)
 
-      // THEN: records should be organized into groups by status values
-      await expect(page.locator('[data-group="active"]')).toBeVisible()
-      await expect(page.locator('[data-group="completed"]')).toBeVisible()
-      await expect(page.locator('[data-group="active"] [data-record]')).toHaveCount(2)
-      await expect(page.locator('[data-group="completed"] [data-record]')).toHaveCount(1)
+      // View exists in database
+      const viewExists = await executeQuery(
+        "SELECT COUNT(*) as count FROM information_schema.views WHERE table_name = 'by_status'"
+      )
+      expect(viewExists.count).toBe(1)
+
+      // Records are ordered by groupBy field (grouping puts same values together)
+      const viewRecords = await executeQuery('SELECT title, status FROM by_status')
+      // Records with same status should be adjacent (grouped)
+      expect(viewRecords).toHaveLength(3)
+
+      // Count records per status group
+      const activeCount = await executeQuery(
+        "SELECT COUNT(*) as count FROM by_status WHERE status = 'active'"
+      )
+      expect(activeCount.count).toBe(2)
+
+      const completedCount = await executeQuery(
+        "SELECT COUNT(*) as count FROM by_status WHERE status = 'completed'"
+      )
+      expect(completedCount.count).toBe(1)
     }
   )
 
   test.fixme(
     'APP-TABLES-VIEW-GROUP-BY-002: should order groups alphabetically/numerically from lowest to highest when a view is grouped by field with ascending direction',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: a view grouped by field with ascending direction
       await startServerWithSchema({
         name: 'test-app',
@@ -104,21 +120,23 @@ test.describe('View Group By', () => {
         "INSERT INTO items (name, priority) VALUES ('Item 1', 3), ('Item 2', 1), ('Item 3', 2)",
       ])
 
-      // WHEN: displaying groups
-      await page.goto('/tables/tbl_items/views/by_priority_asc')
+      // WHEN: querying the PostgreSQL VIEW
+      // THEN: records should be ordered by groupBy field ascending (1, 2, 3)
 
-      // THEN: groups should be ordered alphabetically/numerically from lowest to highest
-      const groups = page.locator('[data-group]')
-      await expect(groups.nth(0)).toHaveAttribute('data-group', '1')
-      await expect(groups.nth(1)).toHaveAttribute('data-group', '2')
-      await expect(groups.nth(2)).toHaveAttribute('data-group', '3')
+      // View returns records ordered by priority ascending
+      const viewRecords = await executeQuery('SELECT name, priority FROM by_priority_asc')
+      expect(viewRecords).toEqual([
+        { name: 'Item 2', priority: 1 },
+        { name: 'Item 3', priority: 2 },
+        { name: 'Item 1', priority: 3 },
+      ])
     }
   )
 
   test.fixme(
     'APP-TABLES-VIEW-GROUP-BY-003: should order groups from highest to lowest when a view is grouped by field with descending direction',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: a view grouped by field with descending direction
       await startServerWithSchema({
         name: 'test-app',
@@ -150,14 +168,16 @@ test.describe('View Group By', () => {
         "INSERT INTO products (name, rating) VALUES ('Product 1', 3), ('Product 2', 5), ('Product 3', 4)",
       ])
 
-      // WHEN: displaying groups
-      await page.goto('/tables/tbl_products/views/by_rating_desc')
+      // WHEN: querying the PostgreSQL VIEW
+      // THEN: records should be ordered by groupBy field descending (5, 4, 3)
 
-      // THEN: groups should be ordered from highest to lowest
-      const groups = page.locator('[data-group]')
-      await expect(groups.nth(0)).toHaveAttribute('data-group', '5')
-      await expect(groups.nth(1)).toHaveAttribute('data-group', '4')
-      await expect(groups.nth(2)).toHaveAttribute('data-group', '3')
+      // View returns records ordered by rating descending
+      const viewRecords = await executeQuery('SELECT name, rating FROM by_rating_desc')
+      expect(viewRecords).toEqual([
+        { name: 'Product 2', rating: 5 },
+        { name: 'Product 3', rating: 4 },
+        { name: 'Product 1', rating: 3 },
+      ])
     }
   )
 
@@ -168,7 +188,7 @@ test.describe('View Group By', () => {
   test.fixme(
     'APP-TABLES-VIEW-GROUP-BY-004: user can complete full view-group-by workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative grouping
       await startServerWithSchema({
         name: 'test-app',
@@ -198,15 +218,32 @@ test.describe('View Group By', () => {
 
       await executeQuery(["INSERT INTO data (category, value) VALUES ('A', 1), ('B', 2), ('A', 3)"])
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/tables/tbl_data/views/grouped_view')
+      // WHEN/THEN: Querying the PostgreSQL VIEW validates groupBy configuration
 
-      const groups = page.locator('[data-group]')
-      // THEN: assertion
-      await expect(groups.nth(0)).toHaveAttribute('data-group', 'A')
-      await expect(groups.nth(1)).toHaveAttribute('data-group', 'B')
-      await expect(page.locator('[data-group="A"] [data-record]')).toHaveCount(2)
-      await expect(page.locator('[data-group="B"] [data-record]')).toHaveCount(1)
+      // View exists in database
+      const viewExists = await executeQuery(
+        "SELECT COUNT(*) as count FROM information_schema.views WHERE table_name = 'grouped_view'"
+      )
+      expect(viewExists.count).toBe(1)
+
+      // View returns records ordered by category (groupBy field, ascending)
+      const viewRecords = await executeQuery('SELECT category, value FROM grouped_view')
+      expect(viewRecords).toEqual([
+        { category: 'A', value: 1 },
+        { category: 'A', value: 3 },
+        { category: 'B', value: 2 },
+      ])
+
+      // Category A has 2 records, B has 1
+      const categoryACounts = await executeQuery(
+        "SELECT COUNT(*) as count FROM grouped_view WHERE category = 'A'"
+      )
+      expect(categoryACounts.count).toBe(2)
+
+      const categoryBCounts = await executeQuery(
+        "SELECT COUNT(*) as count FROM grouped_view WHERE category = 'B'"
+      )
+      expect(categoryBCounts.count).toBe(1)
     }
   )
 })

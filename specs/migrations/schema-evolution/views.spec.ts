@@ -47,13 +47,13 @@ test.describe('Database Views Migration', () => {
               { id: 3, name: 'email', type: 'email' },
               { id: 4, name: 'active', type: 'checkbox', default: true },
             ],
-          },
-        ],
-        // @ts-expect-error - views is a future feature
-        views: [
-          {
-            name: 'active_users',
-            query: 'SELECT * FROM users WHERE active = true',
+            views: [
+              {
+                id: 'active_users',
+                name: 'Active Users',
+                query: 'SELECT * FROM users WHERE active = true',
+              },
+            ],
           },
         ],
       })
@@ -148,13 +148,13 @@ test.describe('Database Views Migration', () => {
               { id: 3, name: 'email', type: 'email' },
               { id: 4, name: 'role', type: 'single-line-text' },
             ],
-          },
-        ],
-        // @ts-expect-error - views is a future feature
-        views: [
-          {
-            name: 'user_summary',
-            query: 'SELECT id, name, email, role FROM users', // Query B: all fields
+            views: [
+              {
+                id: 'user_summary',
+                name: 'User Summary',
+                query: 'SELECT id, name, email, role FROM users', // Query B: all fields
+              },
+            ],
           },
         ],
       })
@@ -202,14 +202,15 @@ test.describe('Database Views Migration', () => {
               { id: 3, name: 'amount', type: 'decimal' },
               { id: 4, name: 'created_at', type: 'datetime' },
             ],
-          },
-        ],
-        // @ts-expect-error - materializedViews is a future feature
-        materializedViews: [
-          {
-            name: 'order_stats',
-            query:
-              'SELECT customer_id, COUNT(*) as order_count, SUM(amount) as total_amount FROM orders GROUP BY customer_id',
+            views: [
+              {
+                id: 'order_stats',
+                name: 'Order Stats',
+                query:
+                  'SELECT customer_id, COUNT(*) as order_count, SUM(amount) as total_amount FROM orders GROUP BY customer_id',
+                materialized: true,
+              },
+            ],
           },
         ],
       })
@@ -261,15 +262,16 @@ test.describe('Database Views Migration', () => {
               { id: 2, name: 'customer_id', type: 'integer' },
               { id: 3, name: 'amount', type: 'decimal' },
             ],
-          },
-        ],
-        // @ts-expect-error - materializedViews is a future feature
-        materializedViews: [
-          {
-            name: 'order_stats',
-            query:
-              'SELECT customer_id, COUNT(*) as order_count, SUM(amount) as total_amount FROM orders GROUP BY customer_id',
-            refreshOnMigration: true,
+            views: [
+              {
+                id: 'order_stats',
+                name: 'Order Stats',
+                query:
+                  'SELECT customer_id, COUNT(*) as order_count, SUM(amount) as total_amount FROM orders GROUP BY customer_id',
+                materialized: true,
+                refreshOnMigration: true,
+              },
+            ],
           },
         ],
       })
@@ -370,13 +372,13 @@ test.describe('Database Views Migration', () => {
               { id: 3, name: 'price', type: 'decimal' },
               { id: 4, name: 'in_stock', type: 'checkbox', default: true },
             ],
-          },
-        ],
-        // @ts-expect-error - views is a future feature
-        views: [
-          {
-            name: 'available_products',
-            query: 'SELECT id, name, price FROM products WHERE in_stock = true',
+            views: [
+              {
+                id: 'available_products',
+                name: 'Available Products',
+                query: 'SELECT id, name, price FROM products WHERE in_stock = true',
+              },
+            ],
           },
         ],
       })

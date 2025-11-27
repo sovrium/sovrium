@@ -311,7 +311,9 @@ test.describe('Filter Condition', () => {
       // WHEN/THEN: Querying the PostgreSQL VIEW validates multiple condition operators
 
       // View returns records matching all conditions (equals, greaterThan, in)
-      const viewRecords = await executeQuery('SELECT status, value, category FROM filtered_view ORDER BY id')
+      const viewRecords = await executeQuery(
+        'SELECT status, value, category FROM filtered_view ORDER BY id'
+      )
       // THEN: assertion
       expect(viewRecords).toHaveLength(2)
       expect(viewRecords).toEqual([
