@@ -3,7 +3,7 @@
 [![Spec Progress](https://img.shields.io/badge/specs-45%25%20(833%2F1835)-blue)](SPEC-STATE.md)
 [![Quality Score](https://img.shields.io/badge/quality-94%25-brightgreen)](SPEC-STATE.md)
 
-> **⚠️ Early Development**: Sovrium is in Phase 0 (Foundation). See [ROADMAP.md](ROADMAP.md) for implementation progress and [docs/specifications/vision.md](docs/specifications/vision.md) for the full product vision.
+> **⚠️ Early Development**: Sovrium is in Phase 0 (Foundation). See [SPEC-STATE.md](SPEC-STATE.md) for implementation progress and [docs/specifications/vision.md](docs/specifications/vision.md) for the full product vision.
 
 A configuration-driven web application platform built with Bun, Effect, React, and Tailwind CSS.
 
@@ -85,7 +85,7 @@ start(myApp, {
 - ✅ **Type Safety** - Effect Schema validation for configuration
 - ✅ **Graceful Shutdown** - Automatic SIGINT/SIGTERM handling
 
-**Coming Soon** (see [ROADMAP.md](ROADMAP.md)):
+**Coming Soon** (see [SPEC-STATE.md](SPEC-STATE.md)):
 
 - 📋 Dynamic routing with pages
 - 📋 CRUD operations for tables
@@ -151,7 +151,7 @@ sovrium/
 │   └── presentation/               # Presentation Layer - UI & API routes
 ├── scripts/                        # Build & utility scripts (TypeScript)
 ├── specs/                          # E2E tests (Playwright)
-├── ROADMAP.md                      # Implementation progress tracker
+├── SPEC-STATE.md                   # Implementation progress tracker (auto-generated)
 ├── CLAUDE.md                       # Technical documentation (for AI/developers)
 └── README.md                       # This file (for humans on GitHub)
 ```
@@ -165,7 +165,7 @@ sovrium/
 | Document                                                           | Purpose                                    |
 | ------------------------------------------------------------------ | ------------------------------------------ |
 | **[README.md](README.md)**                                         | Quick start guide (you are here)           |
-| **[ROADMAP.md](ROADMAP.md)**                                       | Current implementation status & roadmap    |
+| **[SPEC-STATE.md](SPEC-STATE.md)**                                 | Current implementation status (auto-generated) |
 | **[CLAUDE.md](CLAUDE.md)**                                         | Technical documentation & coding standards |
 | **[docs/specifications/vision.md](docs/specifications/vision.md)** | Product vision & future features           |
 
