@@ -30,16 +30,16 @@ const fieldTypeToPostgresMap: Record<string, string> = {
   integer: 'INTEGER',
   autonumber: 'INTEGER',
   decimal: 'DECIMAL',
-  'single-line-text': 'TEXT',
+  'single-line-text': 'VARCHAR(255)',
   'long-text': 'TEXT',
-  email: 'TEXT',
-  url: 'TEXT',
-  'phone-number': 'TEXT',
+  email: 'VARCHAR(255)',
+  url: 'VARCHAR(255)',
+  'phone-number': 'VARCHAR(255)',
   'rich-text': 'TEXT',
   checkbox: 'BOOLEAN',
   date: 'TIMESTAMP',
-  'single-select': 'TEXT',
-  status: 'TEXT',
+  'single-select': 'VARCHAR(255)',
+  status: 'VARCHAR(255)',
   'multi-select': 'TEXT[]',
   currency: 'DECIMAL',
   percentage: 'DECIMAL',
@@ -49,7 +49,7 @@ const fieldTypeToPostgresMap: Record<string, string> = {
   progress: 'DECIMAL',
   json: 'JSONB',
   geolocation: 'POINT',
-  barcode: 'TEXT',
+  barcode: 'VARCHAR(255)',
   'single-attachment': 'TEXT',
   'multiple-attachments': 'TEXT',
   relationship: 'TEXT',
@@ -134,12 +134,30 @@ const generateCreateTableSQL = (table: Table): string => {
   const primaryKeyFields =
     table.primaryKey?.type === 'composite' ? (table.primaryKey.fields ?? []) : []
 
+  // Check if an 'id' field already exists in the fields array
+  const hasIdField = table.fields.some((field) => field.name === 'id')
+
+  // Add automatic id column if not explicitly defined
+  const idColumnDefinition = hasIdField ? [] : ['id INTEGER NOT NULL']
+
   const columnDefinitions = table.fields.map((field) => {
     const isPrimaryKey = primaryKeyFields.includes(field.name)
     return generateColumnDefinition(field, isPrimaryKey)
   })
+
+  // Add PRIMARY KEY constraint on id if no custom primary key is defined
   const tableConstraints = generateTableConstraints(table)
-  const allDefinitions = [...columnDefinitions, ...tableConstraints]
+
+  // If no explicit primary key is defined, add PRIMARY KEY on id
+  const primaryKeyConstraint =
+    tableConstraints.length === 0 && !hasIdField ? ['PRIMARY KEY (id)'] : []
+
+  const allDefinitions = [
+    ...idColumnDefinition,
+    ...columnDefinitions,
+    ...tableConstraints,
+    ...primaryKeyConstraint,
+  ]
 
   return `CREATE TABLE IF NOT EXISTS ${table.name} (
   ${allDefinitions.join(',\n  ')}
