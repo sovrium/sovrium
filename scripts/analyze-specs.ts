@@ -92,6 +92,7 @@ interface SpecState {
     totalFixme: number
     totalPassing: number
     qualityScore: number
+    duplicateSpecIds: number
     issuesByType: {
       errors: number
       warnings: number
@@ -100,12 +101,22 @@ interface SpecState {
   }
   files: SpecFile[]
   coverageGaps: CoverageGap[]
+  duplicateSpecIds: DuplicateSpecId[]
 }
 
 interface CoverageGap {
   feature: string
   missingBehaviors: string[]
   suggestion: string
+}
+
+interface DuplicateSpecId {
+  specId: string
+  locations: Array<{
+    file: string
+    line: number
+    testName: string
+  }>
 }
 
 // =============================================================================
@@ -566,6 +577,41 @@ function detectCoverageGaps(files: SpecFile[]): CoverageGap[] {
   return gaps
 }
 
+/**
+ * Detect duplicate spec IDs across all files.
+ * Each spec ID should be unique across the entire test suite.
+ */
+function detectDuplicateSpecIds(files: SpecFile[]): DuplicateSpecId[] {
+  const specIdMap = new Map<string, Array<{ file: string; line: number; testName: string }>>()
+
+  // Collect all spec IDs with their locations
+  for (const file of files) {
+    for (const test of file.tests) {
+      if (test.id) {
+        if (!specIdMap.has(test.id)) {
+          specIdMap.set(test.id, [])
+        }
+        specIdMap.get(test.id)!.push({
+          file: file.relativePath,
+          line: test.lineNumber,
+          testName: test.name,
+        })
+      }
+    }
+  }
+
+  // Find duplicates (spec IDs that appear more than once)
+  const duplicates: DuplicateSpecId[] = []
+
+  for (const [specId, locations] of specIdMap) {
+    if (locations.length > 1) {
+      duplicates.push({ specId, locations })
+    }
+  }
+
+  return duplicates.sort((a, b) => a.specId.localeCompare(b.specId))
+}
+
 // =============================================================================
 // Output Generation
 // =============================================================================
@@ -597,6 +643,7 @@ function generateMarkdown(state: SpecState): string {
   lines.push(`| Errors | ${state.summary.issuesByType.errors} |`)
   lines.push(`| Warnings | ${state.summary.issuesByType.warnings} |`)
   lines.push(`| Suggestions | ${state.summary.issuesByType.suggestions} |`)
+  lines.push(`| Duplicate Spec IDs | ${state.summary.duplicateSpecIds} |`)
   lines.push('')
 
   // Progress bar
@@ -623,6 +670,25 @@ function generateMarkdown(state: SpecState): string {
       }
       lines.push('')
       lines.push(`> 💡 ${gap.suggestion}`)
+      lines.push('')
+    }
+  }
+
+  // Duplicate Spec IDs
+  if (state.duplicateSpecIds.length > 0) {
+    lines.push('## ❌ Duplicate Spec IDs')
+    lines.push('')
+    lines.push('> **CRITICAL**: Each spec ID must be unique across the entire test suite.')
+    lines.push('> Duplicate IDs will cause issues in the TDD automation queue.')
+    lines.push('')
+
+    for (const dup of state.duplicateSpecIds) {
+      lines.push(`### \`${dup.specId}\` (${dup.locations.length} occurrences)`)
+      lines.push('')
+      for (const loc of dup.locations) {
+        lines.push(`- \`${loc.file}:${loc.line}\``)
+        lines.push(`  ${loc.testName.substring(0, 80)}${loc.testName.length > 80 ? '...' : ''}`)
+      }
       lines.push('')
     }
   }
@@ -837,13 +903,38 @@ async function main() {
   const totalFixme = analyzedFiles.reduce((sum, f) => sum + f.metadata.fixmeTests, 0)
   const totalPassing = analyzedFiles.reduce((sum, f) => sum + f.metadata.passingTests, 0)
 
-  const allIssues = analyzedFiles.flatMap((f) => f.issues)
-  const errors = allIssues.filter((i) => i.type === 'error').length
-  const warnings = allIssues.filter((i) => i.type === 'warning').length
-  const suggestions = allIssues.filter((i) => i.type === 'suggestion').length
-
   const qualityScore = calculateQualityScore(analyzedFiles)
   const coverageGaps = detectCoverageGaps(analyzedFiles)
+  const duplicateSpecIds = detectDuplicateSpecIds(analyzedFiles)
+
+  // Add duplicate spec ID errors to the respective files
+  for (const dup of duplicateSpecIds) {
+    for (const loc of dup.locations) {
+      const file = analyzedFiles.find((f) => f.relativePath === loc.file)
+      if (file) {
+        file.issues.push({
+          type: 'error',
+          code: 'DUPLICATE_SPEC_ID',
+          message: `Spec ID "${dup.specId}" is duplicated (also in: ${
+            dup.locations
+              .filter((l) => l.file !== loc.file)
+              .map((l) => l.file)
+              .join(', ') || 'same file'
+          })`,
+          line: loc.line,
+          testId: dup.specId,
+        })
+      }
+    }
+  }
+
+  // Recalculate error counts after adding duplicate errors
+  const allIssuesWithDuplicates = analyzedFiles.flatMap((f) => f.issues)
+  const errorsWithDuplicates = allIssuesWithDuplicates.filter((i) => i.type === 'error').length
+  const warningsWithDuplicates = allIssuesWithDuplicates.filter((i) => i.type === 'warning').length
+  const suggestionsWithDuplicates = allIssuesWithDuplicates.filter(
+    (i) => i.type === 'suggestion'
+  ).length
 
   const state: SpecState = {
     generatedAt: new Date().toISOString(),
@@ -855,10 +946,16 @@ async function main() {
       totalFixme,
       totalPassing,
       qualityScore,
-      issuesByType: { errors, warnings, suggestions },
+      duplicateSpecIds: duplicateSpecIds.length,
+      issuesByType: {
+        errors: errorsWithDuplicates,
+        warnings: warningsWithDuplicates,
+        suggestions: suggestionsWithDuplicates,
+      },
     },
     files: analyzedFiles,
     coverageGaps,
+    duplicateSpecIds,
   }
 
   // Generate markdown
@@ -881,13 +978,24 @@ async function main() {
   console.log(`  ├─ Passing:     ${totalPassing}`)
   console.log(`  └─ Fixme:       ${totalFixme}`)
   console.log('')
-  console.log(`Issues:      ${allIssues.length} total`)
-  console.log(`  ├─ Errors:      ${errors}`)
-  console.log(`  ├─ Warnings:    ${warnings}`)
-  console.log(`  └─ Suggestions: ${suggestions}`)
+  console.log(`Issues:      ${allIssuesWithDuplicates.length} total`)
+  console.log(`  ├─ Errors:      ${errorsWithDuplicates}`)
+  console.log(`  ├─ Warnings:    ${warningsWithDuplicates}`)
+  console.log(`  └─ Suggestions: ${suggestionsWithDuplicates}`)
   console.log('')
 
-  if (errors > 0) {
+  if (duplicateSpecIds.length > 0) {
+    console.log('❌ DUPLICATE SPEC IDs:')
+    for (const dup of duplicateSpecIds) {
+      console.log(`   ${dup.specId} (${dup.locations.length} occurrences):`)
+      for (const loc of dup.locations) {
+        console.log(`     - ${loc.file}:${loc.line}`)
+      }
+    }
+    console.log('')
+  }
+
+  if (errorsWithDuplicates > 0) {
     console.log('❌ ERRORS:')
     for (const file of analyzedFiles) {
       for (const issue of file.issues.filter((i) => i.type === 'error')) {
@@ -919,8 +1027,8 @@ async function main() {
     }
   }
 
-  // Exit with error code if there are errors (unless --no-error or --filter is used)
-  if (errors > 0 && !noErrorExit) {
+  // Exit with error code if there are errors (including duplicates) (unless --no-error or --filter is used)
+  if (errorsWithDuplicates > 0 && !noErrorExit) {
     process.exit(1)
   }
 }

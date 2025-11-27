@@ -109,11 +109,8 @@ export const start = async (app: unknown, options: StartOptions = {}): Promise<S
     const server = yield* startServer(app, options)
 
     // Setup graceful shutdown (keeps process alive)
-    yield* withGracefulShutdown(server)
-
-    // This line is never reached due to Effect.never in withGracefulShutdown
-    // But TypeScript needs a return value
-    return server
+    // Use return yield* to signal this never returns (Effect.never in withGracefulShutdown)
+    return yield* withGracefulShutdown(server)
   }).pipe(
     // Provide dependencies (ServerFactory + PageRenderer)
     Effect.provide(AppLayer)

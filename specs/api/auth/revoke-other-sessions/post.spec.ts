@@ -267,7 +267,7 @@ test.describe('Revoke all other sessions', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-REVOKE-OTHER-SESSIONS-005: user can complete full revokeOtherSessions workflow',
+    'API-AUTH-REVOKE-OTHER-SESSIONS-006: user can complete full revokeOtherSessions workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

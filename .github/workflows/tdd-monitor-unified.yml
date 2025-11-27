@@ -142,7 +142,7 @@ jobs:
 
           gh workflow disable "tdd-queue-processor.yml" --repo ${{ github.repository }}
 
-          # Create incident issue
+          # Create incident issue (ignore label errors if labels don't exist)
           gh issue create \
             --repo ${{ github.repository }} \
             --title "🚨 TDD Circuit Breaker: High Failure Rate" \
@@ -165,7 +165,7 @@ jobs:
 
           ---
           *🤖 TDD Monitor (Unified)*" \
-            --label "tdd-automation,incident,priority:high"
+            --label "tdd-automation" || true
 
       - name: Close circuit breaker
         if: steps.analyze.outputs.should_open_circuit == 'false' && steps.circuit_status.outputs.is_open == 'true'

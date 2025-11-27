@@ -28,9 +28,8 @@ test.describe('Table Fields', () => {
   // ============================================================================
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
-
   test(
-    'APP-TABLES-001: should be accepted when validating input with at least 1 items',
+    'APP-TABLES-FIELDS-001: should be accepted when validating input with at least 1 items',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: user provides fields with at least 1 items
@@ -109,7 +108,7 @@ test.describe('Table Fields', () => {
   )
 
   test.fixme(
-    'APP-TABLES-002: should enforce minimum items when validating input with fewer than 1 items',
+    'APP-TABLES-FIELDS-002: should enforce minimum items when validating input with fewer than 1 items',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
       // GIVEN: user provides fields with fewer than 1 items
@@ -141,7 +140,7 @@ test.describe('Table Fields', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-003: user can complete full Table Fields workflow',
+    'APP-TABLES-FIELDS-003: user can complete full Table Fields workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application with tables containing various field configurations
