@@ -10,16 +10,16 @@ A configuration-driven web application platform built with Bun, Effect, React, a
 
 ## Prerequisites
 
-- [Bun](https://bun.com) v1.3.0 or higher
+- [Bun](https://bun.sh) v1.3.3 or higher
 
 ### Installing Bun
 
 ```bash
 # macOS, Linux, WSL
-curl -fsSL https://bun.com/install | bash
+curl -fsSL https://bun.sh/install | bash
 
 # Windows (PowerShell)
-powershell -c "irm bun.com/install.ps1 | iex"
+powershell -c "irm bun.sh/install.ps1 | iex"
 ```
 
 ## Quick Start
@@ -32,21 +32,23 @@ bun install
 
 ### 2. Run Your First Server
 
-**Option A: Use the template**
-
-```bash
-bun run templates/landing-page.ts
-```
-
-**Option B: Create your own**
-
 ```typescript
 // app.ts
 import { start } from 'sovrium'
 
 const myApp = {
   name: 'My App',
-  description: 'A simple Bun application',
+  pages: [
+    {
+      name: 'home',
+      path: '/',
+      meta: {
+        title: 'Home',
+        description: 'Welcome to my app',
+      },
+      sections: [],
+    },
+  ],
 }
 
 start(myApp)
@@ -82,23 +84,25 @@ start(myApp, {
 
 **Coming Soon** (see [ROADMAP.md](ROADMAP.md)):
 
-- 📋 Database integration (PostgreSQL + Drizzle ORM)
-- 📋 Authentication (Better Auth)
-- 📋 Dynamic routing
-- 📋 CRUD operations
+- 📋 Dynamic routing with pages
+- 📋 CRUD operations for tables
 - 📋 Admin dashboards
+- 📋 Multi-tenancy with organizations
 - 📋 And much more...
 
 ## Core Stack
 
-| Technology       | Version | Purpose                           |
-| ---------------- | ------- | --------------------------------- |
-| **Bun**          | 1.3.0   | Runtime & package manager         |
-| **TypeScript**   | ^5      | Type-safe language                |
-| **Effect**       | 3.18.4  | Functional programming (internal) |
-| **Hono**         | 4.10.3  | Web framework                     |
-| **React**        | 19.2.0  | UI library (SSR)                  |
-| **Tailwind CSS** | 4.1.16  | Styling                           |
+| Technology         | Version  | Purpose                                    |
+| ------------------ | -------- | ------------------------------------------ |
+| **Bun**            | 1.3.3    | Runtime & package manager                  |
+| **TypeScript**     | ^5.9.3   | Type-safe language                         |
+| **Effect**         | ^3.19.7  | Functional programming, DI, error handling |
+| **Hono**           | ^4.10.7  | Web framework (API routes, RPC, OpenAPI)   |
+| **React**          | ^19.2.0  | UI library (SSR)                           |
+| **Tailwind CSS**   | ^4.1.17  | Styling (programmatic CSS compiler)        |
+| **Drizzle ORM**    | ^0.44.7  | Database (PostgreSQL via bun:sql)          |
+| **Better Auth**    | ^1.4.3   | Authentication                             |
+| **TanStack Query** | ^5.90.11 | Server state management                    |
 
 Full stack details in [CLAUDE.md](CLAUDE.md#core-stack)
 
@@ -109,7 +113,7 @@ Full stack details in [CLAUDE.md](CLAUDE.md#core-stack)
 ```bash
 # Development
 bun install                      # Install dependencies
-bun run templates/landing-page.ts # Run example
+bun run start                    # Run CLI (src/cli.ts)
 
 # Code Quality
 bun run lint                     # Run ESLint
@@ -117,8 +121,10 @@ bun run format                   # Run Prettier
 bun run typecheck                # TypeScript check
 
 # Testing
-bun test:unit                    # Unit tests
+bun test:unit                    # Unit tests (Bun Test)
 bun test:e2e                     # E2E tests (Playwright)
+bun test:e2e:regression          # E2E regression tests (for CI)
+bun test:all                     # All tests (unit + E2E regression)
 bun test:unit:watch              # Unit tests in watch mode
 
 # Watch Mode
@@ -141,8 +147,6 @@ sovrium/
 │   ├── infrastructure/             # Infrastructure Layer - External services
 │   └── presentation/               # Presentation Layer - UI & API routes
 ├── scripts/                        # Build & utility scripts (TypeScript)
-├── templates/                      # Example applications
-│   └── landing-page.ts             # Minimal landing page template
 ├── specs/                          # E2E tests (Playwright)
 ├── ROADMAP.md                      # Implementation progress tracker
 ├── CLAUDE.md                       # Technical documentation (for AI/developers)
@@ -188,16 +192,19 @@ Sovrium uses **Bun** instead of Node.js:
 
 ### Commit Message Format
 
-This project uses **[Conventional Commits](https://www.conventionalcommits.org/)** for automated versioning:
+This project uses **[Conventional Commits](https://www.conventionalcommits.org/)**:
 
 ```bash
-feat(tables): add CRUD operations       # Minor version bump (0.X.0)
-fix(server): resolve port binding       # Patch version bump (0.0.X)
+release: publish                        # Triggers release (patch bump 0.0.X)
+feat(tables): add CRUD operations       # No version bump (regular work)
+fix(server): resolve port binding       # No version bump (regular work)
 docs(readme): update installation       # No version bump
-feat!: redesign configuration API       # Major version bump (X.0.0)
+refactor(auth): improve error handling  # No version bump
 ```
 
 **Types**: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `ci`
+
+**Releases**: Only commits with `release:` prefix trigger a new version. All other commit types are for tracking changes without publishing.
 
 See [CLAUDE.md](CLAUDE.md#commit-messages-conventional-commits---required) for full guidelines.
 
@@ -205,7 +212,7 @@ See [CLAUDE.md](CLAUDE.md#commit-messages-conventional-commits---required) for f
 
 1. **Fork & Clone** - Create your feature branch
 2. **Code** - Follow coding standards in [CLAUDE.md](CLAUDE.md)
-3. **Test** - Run `bun run lint && bun run typecheck && bun test`
+3. **Test** - Run `bun run lint && bun run typecheck && bun test:unit`
 4. **Commit** - Use conventional commits
 5. **Push** - Create a pull request
 
