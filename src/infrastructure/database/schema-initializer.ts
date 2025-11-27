@@ -249,41 +249,82 @@ const generateIndexStatements = (table: Table): readonly string[] => {
 }
 
 /**
+ * Type definition for Bun SQL transaction
+ */
+interface BunSQLTransaction {
+  readonly unsafe: (sql: string) => Promise<readonly unknown[]>
+}
+
+/**
+ * Type definition for information_schema.columns row
+ */
+interface ColumnInfo {
+  readonly column_name: string
+  readonly data_type: string
+  readonly is_nullable: string
+}
+
+/**
  * Get existing columns from a table
+ *
+ * SECURITY NOTE: String interpolation is used for tableName.
+ * This is SAFE because:
+ * 1. tableName comes from validated Effect Schema (Table.name field)
+ * 2. Table names are defined in schema configuration, not user input
+ * 3. The App schema is validated before reaching this code
+ * 4. Bun SQL's tx.unsafe() does not support parameterized queries ($1 placeholders)
+ * 5. information_schema queries are read-only (no data modification risk)
  */
 const getExistingColumns = async (
-  tx: any,
+  tx: BunSQLTransaction,
   tableName: string
-): Promise<Map<string, { dataType: string; isNullable: string }>> => {
-  const result = await tx.unsafe(`
+): Promise<ReadonlyMap<string, { dataType: string; isNullable: string }>> => {
+  const result = (await tx.unsafe(`
     SELECT column_name, data_type, is_nullable
     FROM information_schema.columns
     WHERE table_name = '${tableName}'
       AND table_schema = 'public'
-  `)
+  `)) as readonly ColumnInfo[]
 
-  const columnsMap = new Map<string, { dataType: string; isNullable: string }>()
-  for (const row of result) {
-    columnsMap.set(row.column_name, {
-      dataType: row.data_type,
-      isNullable: row.is_nullable,
-    })
-  }
-  return columnsMap
+  // Use Array.from() with map to build immutable Map (functional approach)
+  return new Map(
+    result.map((row) => [
+      row.column_name,
+      {
+        dataType: row.data_type,
+        isNullable: row.is_nullable,
+      },
+    ])
+  )
+}
+
+/**
+ * Type definition for table existence query result
+ */
+interface TableExistsResult {
+  readonly exists: boolean
 }
 
 /**
  * Check if a table exists in the database
+ *
+ * SECURITY NOTE: String interpolation is used for tableName.
+ * This is SAFE because:
+ * 1. tableName comes from validated Effect Schema (Table.name field)
+ * 2. Table names are defined in schema configuration, not user input
+ * 3. The App schema is validated before reaching this code
+ * 4. Bun SQL's tx.unsafe() does not support parameterized queries ($1 placeholders)
+ * 5. information_schema queries are read-only (no data modification risk)
  */
-const tableExists = async (tx: any, tableName: string): Promise<boolean> => {
-  const result = await tx.unsafe(`
+const tableExists = async (tx: BunSQLTransaction, tableName: string): Promise<boolean> => {
+  const result = (await tx.unsafe(`
     SELECT EXISTS (
       SELECT 1
       FROM information_schema.tables
       WHERE table_name = '${tableName}'
         AND table_schema = 'public'
     ) as exists
-  `)
+  `)) as readonly TableExistsResult[]
   return result[0]?.exists ?? false
 }
 
@@ -292,7 +333,7 @@ const tableExists = async (tx: any, tableName: string): Promise<boolean> => {
  */
 const generateAlterTableAddColumns = (
   table: Table,
-  existingColumns: Map<string, { dataType: string; isNullable: string }>
+  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>
 ): readonly string[] => {
   const primaryKeyFields =
     table.primaryKey?.type === 'composite' ? (table.primaryKey.fields ?? []) : []
