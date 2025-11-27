@@ -35,6 +35,11 @@ permissions:
   pull-requests: write
   actions: write
 
+# Only one monitor run at a time - cancel queued runs to prevent pile-up
+concurrency:
+  group: tdd-monitor-unified
+  cancel-in-progress: true
+
 env:
   STUCK_TIMEOUT_MINUTES: 90 # Specs stuck >90 min are recovered
   PR_STUCK_TIMEOUT_MINUTES: 120 # PRs stuck >120 min are force-closed
