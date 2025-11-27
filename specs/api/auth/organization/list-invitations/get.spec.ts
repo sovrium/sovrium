@@ -86,7 +86,8 @@ test.describe('List organization invitations', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('organizations')
+      expect(Array.isArray(data.organizations)).toBe(true)
 
       // Response includes all 3 invitations
     }
@@ -188,7 +189,8 @@ test.describe('List organization invitations', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('error')
+      expect(data.error).toHaveProperty('message')
     }
   )
 
@@ -222,7 +224,8 @@ test.describe('List organization invitations', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('error')
+      expect(data.error).toHaveProperty('message')
     }
   )
 
@@ -273,7 +276,8 @@ test.describe('List organization invitations', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('error')
+      expect(data.error).toHaveProperty('message')
     }
   )
 
@@ -318,7 +322,8 @@ test.describe('List organization invitations', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('error')
+      expect(data.error).toHaveProperty('message')
     }
   )
 
@@ -381,7 +386,8 @@ test.describe('List organization invitations', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('error')
+      expect(data.error).toHaveProperty('message')
     }
   )
 

@@ -70,7 +70,8 @@ test.describe('Get current session', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('session')
+      expect(data).toHaveProperty('user')
 
       // User password is not included in response (security)
     }
@@ -104,7 +105,8 @@ test.describe('Get current session', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('error')
+      expect(data.error).toHaveProperty('message')
     }
   )
 
@@ -140,7 +142,8 @@ test.describe('Get current session', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('error')
+      expect(data.error).toHaveProperty('message')
     }
   )
 
@@ -184,7 +187,8 @@ test.describe('Get current session', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('error')
+      expect(data.error).toHaveProperty('message')
     }
   )
 

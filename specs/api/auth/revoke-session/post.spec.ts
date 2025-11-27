@@ -128,7 +128,8 @@ test.describe('Revoke specific session', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('error')
+      expect(data.error).toHaveProperty('message')
     }
   )
 
@@ -165,7 +166,8 @@ test.describe('Revoke specific session', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('error')
+      expect(data.error).toHaveProperty('message')
     }
   )
 
@@ -210,7 +212,8 @@ test.describe('Revoke specific session', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('error')
+      expect(data.error).toHaveProperty('message')
     }
   )
 

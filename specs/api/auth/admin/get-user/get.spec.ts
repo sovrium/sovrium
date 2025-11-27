@@ -71,7 +71,9 @@ test.describe('Admin: Get user by ID', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('user')
+      expect(data.user).toHaveProperty('id')
+      expect(data.user).toHaveProperty('email')
 
       // Response includes correct user data
     }
@@ -115,7 +117,8 @@ test.describe('Admin: Get user by ID', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('error')
+      expect(data.error).toHaveProperty('message')
     }
   )
 
@@ -147,7 +150,8 @@ test.describe('Admin: Get user by ID', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('error')
+      expect(data.error).toHaveProperty('message')
     }
   )
 
@@ -192,7 +196,8 @@ test.describe('Admin: Get user by ID', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('error')
+      expect(data.error).toHaveProperty('message')
     }
   )
 
@@ -234,7 +239,8 @@ test.describe('Admin: Get user by ID', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('error')
+      expect(data.error).toHaveProperty('message')
     }
   )
 

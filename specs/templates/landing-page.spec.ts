@@ -239,7 +239,9 @@ test.describe('Landing Page Template', () => {
         await expect(page.locator('a[href="#contact"]')).toHaveText('Contact')
         // Use exact match for hero CTA button (to avoid matching "Commencer maintenant")
         await expect(page.getByRole('button', { name: 'Commencer', exact: true })).toBeVisible()
-        await expect(page.getByRole('button', { name: 'En savoir plus', exact: true })).toBeVisible()
+        await expect(
+          page.getByRole('button', { name: 'En savoir plus', exact: true })
+        ).toBeVisible()
         await expect(page.locator('h2:has-text("Pourquoi choisir Sovrium?")')).toBeVisible()
         await expect(page.locator('h3:has-text("Configuration déclarative")')).toBeVisible()
         await expect(page.locator('h3:has-text("Type-safe par défaut")')).toBeVisible()

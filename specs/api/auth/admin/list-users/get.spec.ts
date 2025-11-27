@@ -74,7 +74,8 @@ test.describe('Admin: List users', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('users')
+      expect(Array.isArray(data.users)).toBe(true)
 
       // Response includes all 3 users
     }
@@ -131,7 +132,8 @@ test.describe('Admin: List users', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('users')
+      expect(Array.isArray(data.users)).toBe(true)
     }
   )
 
@@ -215,7 +217,8 @@ test.describe('Admin: List users', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('error')
+      expect(data.error).toHaveProperty('message')
     }
   )
 
@@ -257,7 +260,8 @@ test.describe('Admin: List users', () => {
       const data = await response.json()
       // Validate response schema
       // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('error')
+      expect(data.error).toHaveProperty('message')
     }
   )
 

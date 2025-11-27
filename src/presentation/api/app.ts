@@ -7,6 +7,7 @@
 
 import { Effect } from 'effect'
 import { healthResponseSchema, type HealthResponse } from '@/domain/models/api/health-schemas'
+import { chainTableRoutes } from '@/presentation/api/routes'
 import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
 
@@ -38,51 +39,46 @@ import type { Hono } from 'hono'
  * @returns Hono app with all API routes chained
  */
 export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
-  return (
-    honoApp
-      // Health check endpoint
-      .get('/api/health', async (c) => {
-        // Use Effect.gen for functional composition
-        const program = Effect.gen(function* () {
-          // Build health response
-          const response: HealthResponse = {
-            status: 'ok',
-            timestamp: new Date().toISOString(),
-            app: {
-              name: app.name,
-            },
-          }
+  // Create health check endpoint
+  const honoWithHealth = honoApp.get('/api/health', async (c) => {
+    // Use Effect.gen for functional composition
+    const program = Effect.gen(function* () {
+      // Build health response
+      const response: HealthResponse = {
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        app: {
+          name: app.name,
+        },
+      }
 
-          // Validate response against schema (ensures type safety)
-          const validated = yield* Effect.try({
-            try: () => healthResponseSchema.parse(response),
-            catch: (error) => new Error(`Health response validation failed: ${error}`),
-          })
-
-          return validated
-        })
-
-        try {
-          // Run Effect program and return result
-          const data = await Effect.runPromise(program)
-          return c.json(data, 200)
-        } catch {
-          // Handle errors gracefully
-          return c.json(
-            {
-              error: 'Internal server error',
-              code: 'HEALTH_CHECK_FAILED',
-            },
-            500
-          )
-        }
+      // Validate response against schema (ensures type safety)
+      const validated = yield* Effect.try({
+        try: () => healthResponseSchema.parse(response),
+        catch: (error) => new Error(`Health response validation failed: ${error}`),
       })
 
-    // Future routes will be chained here:
-    // .get('/api/tables', handler)
-    // .get('/api/tables/:id', handler)
-    // .post('/api/tables/:id/records', handler)
-  )
+      return validated
+    })
+
+    try {
+      // Run Effect program and return result
+      const data = await Effect.runPromise(program)
+      return c.json(data, 200)
+    } catch {
+      // Handle errors gracefully
+      return c.json(
+        {
+          error: 'Internal server error',
+          code: 'HEALTH_CHECK_FAILED',
+        },
+        500
+      )
+    }
+  })
+
+  // Chain table routes (tables, records, views, permissions)
+  return chainTableRoutes(honoWithHealth)
 }
 
 /**
