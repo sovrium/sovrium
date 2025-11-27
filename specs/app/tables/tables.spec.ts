@@ -515,7 +515,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-011: should reject duplicate values with unique constraint violation error',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
