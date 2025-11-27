@@ -6,8 +6,11 @@
  */
 
 import { Effect } from 'effect'
-import { healthResponseSchema, type HealthResponse } from '@/domain/models/api/health-schemas'
 import { chainTableRoutes } from '@/presentation/api/routes'
+import {
+  healthResponseSchema,
+  type HealthResponse,
+} from '@/presentation/api/schemas/health-schemas'
 import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
 

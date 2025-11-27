@@ -6,7 +6,14 @@
  */
 
 import { Effect } from 'effect'
-import { errorResponseSchema } from '@/domain/models/api/error-schemas'
+import {
+  createRecordRequestSchema,
+  updateRecordRequestSchema,
+  batchCreateRecordsRequestSchema,
+  batchUpdateRecordsRequestSchema,
+  batchDeleteRecordsRequestSchema,
+  upsertRecordsRequestSchema,
+} from '@/presentation/api/schemas/request-schemas'
 import {
   listTablesResponseSchema,
   getTableResponseSchema,
@@ -27,32 +34,9 @@ import {
   type GetTableResponse,
   type ListRecordsResponse,
   type GetRecordResponse,
-} from '@/domain/models/api/tables-schemas'
-import type { Context, Hono } from 'hono'
-
-/**
- * Helper to run Effect program and handle errors
- */
-async function runEffect<T>(
-  c: Context,
-  program: Effect.Effect<T, Error>,
-  schema: { parse: (data: T) => T }
-) {
-  try {
-    const result = await Effect.runPromise(program)
-    const validated = schema.parse(result)
-    return c.json(validated, 200)
-  } catch (error) {
-    return c.json(
-      errorResponseSchema.parse({
-        success: false,
-        message: error instanceof Error ? error.message : 'Internal server error',
-        code: 'INTERNAL_ERROR',
-      }),
-      500
-    )
-  }
-}
+} from '@/presentation/api/schemas/tables-schemas'
+import { runEffect, validateRequest } from '@/presentation/api/utils'
+import type { Hono } from 'hono'
 
 // ============================================================================
 // Table Route Handlers
@@ -259,17 +243,19 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T) {
       runEffect(c, createListRecordsProgram(), listRecordsResponseSchema)
     )
     .post('/api/tables/:tableId/records', async (c) => {
-      const body = await c.req.json()
-      return runEffect(c, createRecordProgram(body.fields ?? {}), createRecordResponseSchema)
+      const result = await validateRequest(c, createRecordRequestSchema)
+      if (!result.success) return result.response
+      return runEffect(c, createRecordProgram(result.data.fields), createRecordResponseSchema)
     })
     .get('/api/tables/:tableId/records/:recordId', async (c) =>
       runEffect(c, createGetRecordProgram(c.req.param('recordId')), getRecordResponseSchema)
     )
     .patch('/api/tables/:tableId/records/:recordId', async (c) => {
-      const body = await c.req.json()
+      const result = await validateRequest(c, updateRecordRequestSchema)
+      if (!result.success) return result.response
       return runEffect(
         c,
-        updateRecordProgram(c.req.param('recordId'), body.fields ?? {}),
+        updateRecordProgram(c.req.param('recordId'), result.data.fields),
         updateRecordResponseSchema
       )
     })
@@ -281,20 +267,24 @@ function chainRecordRoutesMethods<T extends Hono>(honoApp: T) {
 function chainBatchRoutesMethods<T extends Hono>(honoApp: T) {
   return honoApp
     .post('/api/tables/:tableId/records/batch', async (c) => {
-      const body = await c.req.json()
-      return runEffect(c, batchCreateProgram(body.records ?? []), batchCreateRecordsResponseSchema)
+      const result = await validateRequest(c, batchCreateRecordsRequestSchema)
+      if (!result.success) return result.response
+      return runEffect(c, batchCreateProgram(result.data.records), batchCreateRecordsResponseSchema)
     })
     .patch('/api/tables/:tableId/records/batch', async (c) => {
-      const body = await c.req.json()
-      return runEffect(c, batchUpdateProgram(body.records ?? []), batchUpdateRecordsResponseSchema)
+      const result = await validateRequest(c, batchUpdateRecordsRequestSchema)
+      if (!result.success) return result.response
+      return runEffect(c, batchUpdateProgram(result.data.records), batchUpdateRecordsResponseSchema)
     })
     .delete('/api/tables/:tableId/records/batch', async (c) => {
-      const body = await c.req.json()
-      return runEffect(c, batchDeleteProgram(body.ids ?? []), batchDeleteRecordsResponseSchema)
+      const result = await validateRequest(c, batchDeleteRecordsRequestSchema)
+      if (!result.success) return result.response
+      return runEffect(c, batchDeleteProgram(result.data.ids), batchDeleteRecordsResponseSchema)
     })
     .post('/api/tables/:tableId/records/upsert', async (c) => {
-      const body = await c.req.json()
-      return runEffect(c, upsertProgram(body.records ?? []), upsertRecordsResponseSchema)
+      const result = await validateRequest(c, upsertRecordsRequestSchema)
+      if (!result.success) return result.response
+      return runEffect(c, upsertProgram(result.data.records), upsertRecordsResponseSchema)
     })
 }
 

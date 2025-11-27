@@ -6,30 +6,13 @@
  */
 
 /**
- * API Schema Exports
+ * API Schema Re-exports
  *
- * This module exports all Zod schemas used for API response validation
- * and OpenAPI documentation generation.
+ * @deprecated Import from '@/presentation/api/schemas' instead.
  *
- * Schema Organization:
- * - common-schemas: Pagination, timestamps, generic responses
- * - error-schemas: Error response formats
- * - health-schemas: Health check endpoint
- * - auth-schemas: Authentication and authorization
- * - tables-schemas: Table and record operations
+ * API Zod schemas have been moved to the Presentation layer where they belong.
+ * This file re-exports them for backward compatibility with documentation.
  */
 
-// Common schemas
-export * from './common-schemas'
-
-// Error schemas
-export * from './error-schemas'
-
-// Health check schemas
-export * from './health-schemas'
-
-// Authentication schemas
-export * from './auth-schemas'
-
-// Table and record schemas
-export * from './tables-schemas'
+// Re-export all schemas from presentation layer
+export * from '@/presentation/api/schemas'
