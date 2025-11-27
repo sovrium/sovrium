@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { AuthenticatedPermissionSchema } from './authenticated'
+import { CustomPermissionSchema } from './custom'
 import { OwnerPermissionSchema } from './owner'
 import { PublicPermissionSchema } from './public'
 import { RolesPermissionSchema } from './roles'
@@ -29,13 +30,17 @@ import { RolesPermissionSchema } from './roles'
  *
  * // Owner-based access (record owner only)
  * { type: 'owner', field: 'owner_id' }
+ *
+ * // Custom RLS condition
+ * { type: 'custom', condition: '{userId} = owner_id' }
  * ```
  */
 export const TablePermissionSchema = Schema.Union(
   PublicPermissionSchema,
   AuthenticatedPermissionSchema,
   RolesPermissionSchema,
-  OwnerPermissionSchema
+  OwnerPermissionSchema,
+  CustomPermissionSchema
 ).pipe(
   Schema.annotations({
     title: 'Table Permission',
@@ -46,6 +51,7 @@ export const TablePermissionSchema = Schema.Union(
       { type: 'authenticated' as const },
       { type: 'roles' as const, roles: ['admin', 'member'] },
       { type: 'owner' as const, field: 'owner_id' },
+      { type: 'custom' as const, condition: '{userId} = owner_id' },
     ],
   })
 )

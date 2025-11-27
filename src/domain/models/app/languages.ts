@@ -170,12 +170,26 @@ export const LanguagesSchema = Schema.Struct({
 }).pipe(
   Schema.filter((input) => {
     const supportedCodes = new Set(input.supported.map((lang) => lang.code))
+
+    // Default language must be in supported array
     if (!supportedCodes.has(input.default)) {
       return 'default language must be in supported array'
     }
+
+    // Fallback language must be in supported array (if specified)
     if (input.fallback && !supportedCodes.has(input.fallback)) {
       return 'fallback language must be in supported array'
     }
+
+    // If translations are provided, validate they only contain supported languages
+    if (input.translations) {
+      const translationCodes = Object.keys(input.translations)
+      const unsupportedCodes = translationCodes.filter((code) => !supportedCodes.has(code))
+      if (unsupportedCodes.length > 0) {
+        return `translations contain unsupported language codes: ${unsupportedCodes.join(', ')}. Only these are supported: ${[...supportedCodes].join(', ')}`
+      }
+    }
+
     return undefined
   }),
   Schema.annotations({

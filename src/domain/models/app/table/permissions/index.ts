@@ -6,7 +6,9 @@
  */
 
 import { Schema } from 'effect'
+import { TableFieldPermissionsSchema } from './field-permission'
 import { TablePermissionSchema } from './permission'
+import { RecordPermissionsSchema } from './record-permission'
 
 /**
  * Table Permissions Schema
@@ -85,6 +87,36 @@ export const TablePermissionsSchema = Schema.Struct({
    * Requires the table to have an `organization_id` field.
    */
   organizationScoped: Schema.optional(Schema.Boolean),
+
+  /**
+   * Field-level permissions for granular column access control.
+   *
+   * Allows restricting read/write access to specific fields based on roles.
+   * Useful for sensitive data like salary, SSN, or internal notes.
+   *
+   * @example Restrict salary field to admins
+   * ```typescript
+   * fields: [
+   *   { field: 'salary', read: { type: 'roles', roles: ['admin'] } }
+   * ]
+   * ```
+   */
+  fields: Schema.optional(TableFieldPermissionsSchema),
+
+  /**
+   * Record-level permissions (Row-Level Security).
+   *
+   * Defines PostgreSQL RLS policies with variable substitution.
+   * Useful for owner-based or organization-scoped record filtering.
+   *
+   * @example User can only read their own records
+   * ```typescript
+   * records: [
+   *   { action: 'read', condition: '{userId} = created_by' }
+   * ]
+   * ```
+   */
+  records: Schema.optional(RecordPermissionsSchema),
 }).pipe(
   Schema.annotations({
     title: 'Table Permissions',
@@ -121,4 +153,7 @@ export * from './public'
 export * from './authenticated'
 export * from './roles'
 export * from './owner'
+export * from './custom'
 export * from './permission'
+export * from './field-permission'
+export * from './record-permission'

@@ -320,7 +320,7 @@ test.describe('Table Permissions', () => {
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text' },
               { id: 3, name: 'body', type: 'single-line-text' },
-              { id: 4, name: 'draft', type: 'boolean' },
+              { id: 4, name: 'draft', type: 'checkbox' },
               { id: 5, name: 'author_id', type: 'integer' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },

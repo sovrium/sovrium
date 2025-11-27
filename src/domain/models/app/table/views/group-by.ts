@@ -15,13 +15,13 @@ import { Schema } from 'effect'
  * @example
  * ```typescript
  * { field: 'status' }
- * { field: 'category', order: 'asc' }
- * { field: 'priority', order: 'desc' }
+ * { field: 'category', direction: 'asc' }
+ * { field: 'priority', direction: 'desc' }
  * ```
  */
 export const ViewGroupBySchema = Schema.Struct({
   field: Schema.String,
-  order: Schema.optional(Schema.Literal('asc', 'desc')),
+  direction: Schema.optional(Schema.Literal('asc', 'desc')),
 }).pipe(
   Schema.annotations({
     title: 'View Group By',

@@ -177,7 +177,7 @@ describe('ViewSchema', () => {
         },
         sorts: [{ field: 'createdAt', direction: 'desc' as const }],
         fields: ['name', 'email', 'status'],
-        groupBy: { field: 'category', order: 'asc' as const },
+        groupBy: { field: 'category', direction: 'asc' as const },
       }
 
       // WHEN: The view is validated against the schema

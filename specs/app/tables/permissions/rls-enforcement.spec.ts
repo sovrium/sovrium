@@ -142,19 +142,15 @@ test.describe('Row-Level Security Enforcement', () => {
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text' },
               { id: 3, name: 'email', type: 'email' },
-              {
-                id: 4,
-                name: 'salary',
-                type: 'decimal',
-                permissions: { read: ['admin', 'hr'] },
-              },
-              {
-                id: 5,
-                name: 'ssn',
-                type: 'single-line-text',
-                permissions: { read: ['hr'] },
-              },
+              { id: 4, name: 'salary', type: 'decimal' },
+              { id: 5, name: 'ssn', type: 'single-line-text' },
             ],
+            permissions: {
+              fields: [
+                { field: 'salary', read: { type: 'roles', roles: ['admin', 'hr'] } },
+                { field: 'ssn', read: { type: 'roles', roles: ['hr'] } },
+              ],
+            },
           },
         ],
       })
@@ -201,20 +197,15 @@ test.describe('Row-Level Security Enforcement', () => {
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'display_name', type: 'single-line-text' },
               { id: 3, name: 'bio', type: 'long-text' },
-              {
-                id: 4,
-                name: 'verified',
-                type: 'checkbox',
-                permissions: { write: ['admin'] },
-              },
-              {
-                id: 5,
-                name: 'role',
-                type: 'single-select',
-                options: ['admin', 'member', 'guest'],
-                permissions: { write: ['admin'] },
-              },
+              { id: 4, name: 'verified', type: 'checkbox' },
+              { id: 5, name: 'role', type: 'single-select', options: ['admin', 'member', 'guest'] },
             ],
+            permissions: {
+              fields: [
+                { field: 'verified', write: { type: 'roles', roles: ['admin'] } },
+                { field: 'role', write: { type: 'roles', roles: ['admin'] } },
+              ],
+            },
           },
         ],
       })

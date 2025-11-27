@@ -10,66 +10,6 @@ import { FieldNameSchema } from '@/domain/models/app/table/field-name'
 import { IdSchema } from '@/domain/models/app/table/id'
 
 /**
- * Field Permissions Schema
- *
- * Role-based read/write permissions for individual fields.
- * When specified, only users with the listed roles can read/write this field.
- * If not specified, all authenticated users can access the field.
- *
- * @example Sensitive field - HR and admins only
- * ```typescript
- * const salaryField = {
- *   id: 1,
- *   name: 'salary',
- *   type: 'decimal',
- *   permissions: { read: ['admin', 'hr'], write: ['hr'] }
- * }
- * ```
- *
- * @example Admin-only field
- * ```typescript
- * const roleField = {
- *   id: 2,
- *   name: 'role',
- *   type: 'single-select',
- *   permissions: { write: ['admin'] }  // All can read, only admin can write
- * }
- * ```
- */
-export const FieldPermissionsSchema = Schema.Struct({
-  /**
-   * Roles that can read this field.
-   *
-   * If not specified, all authenticated users can read.
-   * When specified, only users with one of these roles can see the field value.
-   * Other users will not receive this field in API responses.
-   */
-  read: Schema.optional(Schema.Array(Schema.String)),
-
-  /**
-   * Roles that can write this field.
-   *
-   * If not specified, all authenticated users can write.
-   * When specified, only users with one of these roles can modify the field.
-   * Attempts to write by unauthorized users will be silently ignored or rejected.
-   */
-  write: Schema.optional(Schema.Array(Schema.String)),
-}).pipe(
-  Schema.annotations({
-    title: 'Field Permissions',
-    description:
-      'Role-based read/write permissions for this field. Restricts access to specific roles.',
-    examples: [
-      { read: ['admin', 'hr'], write: ['admin'] },
-      { read: ['admin', 'hr', 'manager'], write: ['hr'] },
-      { write: ['admin'] }, // All can read, only admin can write
-    ],
-  })
-)
-
-export type FieldPermissions = Schema.Schema.Type<typeof FieldPermissionsSchema>
-
-/**
  * Base Field Schema
  *
  * Common properties shared across all field types.
@@ -93,17 +33,9 @@ export const BaseFieldSchema = Schema.Struct({
   required: Schema.optional(Schema.Boolean),
   unique: Schema.optional(Schema.Boolean),
   indexed: Schema.optional(Schema.Boolean),
-
-  /**
-   * Role-based permissions for this field.
-   *
-   * Controls which roles can read and/or write this field's value.
-   * Useful for sensitive data like salary, SSN, or admin-only fields.
-   */
-  permissions: Schema.optional(FieldPermissionsSchema),
 }).pipe(
   Schema.annotations({
-    description: 'Base field properties: id, name, required, unique, indexed, permissions',
+    description: 'Base field properties: id, name, required, unique, indexed',
   })
 )
 

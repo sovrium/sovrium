@@ -8,11 +8,17 @@
 import { Schema } from 'effect'
 
 /**
+ * Maximum length for application descriptions.
+ * This limit prevents UI/database issues with very long descriptions.
+ */
+const DESCRIPTION_MAX_LENGTH = 500
+
+/**
  * DescriptionSchema defines validation rules for application descriptions.
  *
  * Application descriptions must be single-line strings:
  * - No line breaks allowed (\n, \r, or \r\n)
- * - No maximum length restriction
+ * - Maximum 500 characters
  * - Can contain any characters except line breaks
  * - Empty strings are allowed
  * - Unicode characters and emojis are supported
@@ -26,10 +32,11 @@ import { Schema } from 'effect'
  * const desc3 = 'Très bien! 你好 🎉'
  * const desc4 = ''
  *
- * // Invalid descriptions (contain line breaks)
+ * // Invalid descriptions (contain line breaks or too long)
  * const invalid1 = 'Multi\nline'          // ❌ Contains \n
  * const invalid2 = 'Windows\r\nbreak'     // ❌ Contains \r\n
  * const invalid3 = 'Mac\rbreak'           // ❌ Contains \r
+ * const invalid4 = 'x'.repeat(501)        // ❌ Exceeds 500 characters
  *
  * // Validate description
  * const validated = Schema.decodeUnknownSync(DescriptionSchema)(desc1)
@@ -39,9 +46,13 @@ export const DescriptionSchema = Schema.String.pipe(
   Schema.pattern(/^[^\r\n]*$/, {
     message: () => 'Description must be a single line (line breaks are not allowed)',
   }),
+  Schema.maxLength(DESCRIPTION_MAX_LENGTH, {
+    message: () =>
+      `Description must be ${DESCRIPTION_MAX_LENGTH} characters or less (current length exceeds limit)`,
+  }),
   Schema.annotations({
     title: 'Application Description',
-    description: 'A single-line description of the application (line breaks not allowed)',
+    description: `A single-line description of the application (max ${DESCRIPTION_MAX_LENGTH} characters, no line breaks)`,
     examples: [
       'A simple application',
       'My app - with special characters!@#$%',

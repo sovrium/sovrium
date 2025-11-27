@@ -77,15 +77,31 @@ describe('DescriptionSchema', () => {
       expect(result).toBe(description)
     })
 
-    test('should accept extremely long description', () => {
-      // GIVEN: An extremely long description (10000 characters)
-      const description = 'a'.repeat(10_000)
+    test('should reject description exceeding max length', () => {
+      // GIVEN: A description exceeding 500 characters
+      const description = 'a'.repeat(501)
 
       // WHEN: The description is validated against the schema
-      const result = Schema.decodeUnknownSync(DescriptionSchema)(description)
+      // THEN: Validation should throw an error
+      expect(() => {
+        Schema.decodeUnknownSync(DescriptionSchema)(description)
+      }).toThrow()
+    })
 
-      // THEN: The description should be accepted (no length limit)
-      expect(result).toBe(description)
+    test('should provide helpful error message for max length', () => {
+      // GIVEN: A description exceeding 500 characters
+      const description = 'a'.repeat(501)
+
+      // WHEN: The description is validated against the schema
+      try {
+        Schema.decodeUnknownSync(DescriptionSchema)(description)
+        expect(true).toBe(false) // Should not reach here
+      } catch (error) {
+        // THEN: Error should be ParseError and mention max length
+        expect(error).toBeInstanceOf(ParseResult.ParseError)
+        const message = String(error)
+        expect(message).toContain('500')
+      }
     })
 
     test('should accept description with multiple spaces', () => {

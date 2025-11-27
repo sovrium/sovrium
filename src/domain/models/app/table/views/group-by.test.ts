@@ -24,29 +24,29 @@ describe('ViewGroupBySchema', () => {
 
     test('should accept group by with ascending order', () => {
       // GIVEN: A group by with ascending order
-      const groupBy = { field: 'category', order: 'asc' }
+      const groupBy = { field: 'category', direction: 'asc' }
 
       // WHEN: The groupBy is validated against the schema
       const result = Schema.decodeUnknownSync(ViewGroupBySchema)(groupBy)
 
       // THEN: The groupBy should be accepted
-      expect(result).toEqual({ field: 'category', order: 'asc' })
+      expect(result).toEqual({ field: 'category', direction: 'asc' })
     })
 
     test('should accept group by with descending order', () => {
       // GIVEN: A group by with descending order
-      const groupBy = { field: 'priority', order: 'desc' }
+      const groupBy = { field: 'priority', direction: 'desc' }
 
       // WHEN: The groupBy is validated against the schema
       const result = Schema.decodeUnknownSync(ViewGroupBySchema)(groupBy)
 
       // THEN: The groupBy should be accepted
-      expect(result).toEqual({ field: 'priority', order: 'desc' })
+      expect(result).toEqual({ field: 'priority', direction: 'desc' })
     })
 
     test('should accept group by with complex field name', () => {
       // GIVEN: A group by with complex field name
-      const groupBy = { field: 'user_assigned_department', order: 'asc' as const }
+      const groupBy = { field: 'user_assigned_department', direction: 'asc' as const }
 
       // WHEN: The groupBy is validated against the schema
       const result = Schema.decodeUnknownSync(ViewGroupBySchema)(groupBy)
@@ -59,7 +59,7 @@ describe('ViewGroupBySchema', () => {
   describe('Invalid Group By', () => {
     test('should reject missing field', () => {
       // GIVEN: A group by without field
-      const groupBy = { order: 'asc' }
+      const groupBy = { direction: 'asc' }
 
       // WHEN/THEN: The groupBy validation should fail
       expect(() => {
@@ -69,7 +69,7 @@ describe('ViewGroupBySchema', () => {
 
     test('should reject invalid order', () => {
       // GIVEN: A group by with invalid order
-      const groupBy = { field: 'status', order: 'ascending' }
+      const groupBy = { field: 'status', direction: 'ascending' }
 
       // WHEN/THEN: The groupBy validation should fail
       expect(() => {
@@ -79,7 +79,7 @@ describe('ViewGroupBySchema', () => {
 
     test('should reject uppercase order', () => {
       // GIVEN: A group by with uppercase order
-      const groupBy = { field: 'status', order: 'ASC' }
+      const groupBy = { field: 'status', direction: 'ASC' }
 
       // WHEN/THEN: The groupBy validation should fail
       expect(() => {
@@ -109,7 +109,7 @@ describe('ViewGroupBySchema', () => {
 
     test('should reject non-string field', () => {
       // GIVEN: A group by with non-string field
-      const groupBy = { field: 123, order: 'asc' }
+      const groupBy = { field: 123, direction: 'asc' }
 
       // WHEN/THEN: The groupBy validation should fail
       expect(() => {
@@ -121,14 +121,14 @@ describe('ViewGroupBySchema', () => {
   describe('Type Inference', () => {
     test('should infer ViewGroupBy type correctly', () => {
       // GIVEN: A valid group by
-      const groupBy = { field: 'status', order: 'desc' as const }
+      const groupBy = { field: 'status', direction: 'desc' as const }
 
       // WHEN: The groupBy is validated against the schema
       const result = Schema.decodeUnknownSync(ViewGroupBySchema)(groupBy)
 
       // THEN: TypeScript should infer the correct type
       expect(result.field).toBe('status')
-      expect(result.order).toBe('desc')
+      expect(result.direction).toBe('desc')
     })
   })
 })

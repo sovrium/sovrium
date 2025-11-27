@@ -92,7 +92,7 @@ test.describe('View Group By', () => {
                 name: 'By Priority (Asc)',
                 groupBy: {
                   field: 'priority',
-                  order: 'asc',
+                  direction: 'asc',
                 },
               },
             ],
@@ -138,7 +138,7 @@ test.describe('View Group By', () => {
                 name: 'By Rating (Desc)',
                 groupBy: {
                   field: 'rating',
-                  order: 'desc',
+                  direction: 'desc',
                 },
               },
             ],
@@ -188,7 +188,7 @@ test.describe('View Group By', () => {
                 name: 'Grouped View',
                 groupBy: {
                   field: 'category',
-                  order: 'asc',
+                  direction: 'asc',
                 },
               },
             ],

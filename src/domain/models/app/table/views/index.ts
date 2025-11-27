@@ -52,8 +52,7 @@ import { ViewSortSchema } from './sorts'
  *   name: 'Active Tasks',
  *   isDefault: true,
  *   filters: {
- *     conjunction: 'and',
- *     conditions: [{ field: 'status', operator: 'equals', value: 'active' }]
+ *     and: [{ field: 'status', operator: 'equals', value: 'active' }]
  *   },
  *   sorts: [{ field: 'priority', direction: 'desc' }],
  * }
@@ -144,8 +143,7 @@ export const ViewSchema = Schema.Struct({
         name: 'Active Tasks',
         isDefault: true,
         filters: {
-          conjunction: 'and' as const,
-          conditions: [{ field: 'status', operator: 'equals', value: 'active' }],
+          and: [{ field: 'status', operator: 'equals', value: 'active' }],
         },
         sorts: [{ field: 'priority', direction: 'desc' as const }],
       },
