@@ -146,7 +146,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-003: should create PRIMARY KEY constraint on custom primary key field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
