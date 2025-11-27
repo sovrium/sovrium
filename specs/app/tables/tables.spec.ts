@@ -559,7 +559,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-012: should reject NULL values with NOT NULL constraint violation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
