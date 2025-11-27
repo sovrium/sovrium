@@ -1,11 +1,11 @@
 # Trademark Notice
 
-## Sovrium™ Trademark
+## Sovrium Trademark
 
-**Sovrium™** is a registered trademark of **ESSENTIAL SERVICES** in France (and potentially other jurisdictions).
+**Sovrium** is a registered trademark of **ESSENTIAL SERVICES** in France (and potentially other jurisdictions).
 
 - **Trademark Owner**: ESSENTIAL SERVICES
-- **Trademark**: Sovrium™
+- **Trademark**: Sovrium
 - **Registration**: France
 - **Domain**: sovrium.com
 
@@ -31,7 +31,7 @@ This protects the **code itself** under the Business Source License 1.1 (see LIC
 
 ### Trademark (Brand Protection)
 
-The Sovrium™ trademark protects the **brand identity** and ensures:
+The Sovrium trademark protects the **brand identity** and ensures:
 
 - Users know the official/authentic product
 - Third parties cannot create confusion by using similar names
@@ -70,7 +70,7 @@ Contact: **license@sovrium.com**
 ```
 ESSENTIAL SERVICES (Legal Entity - France)
 ├── Copyright Holder ──────► Source code (LICENSE.md)
-├── Trademark Owner ───────► "Sovrium™" brand
+├── Trademark Owner ───────► "Sovrium" brand
 └── Domain Owner ──────────► sovrium.com
 ```
 

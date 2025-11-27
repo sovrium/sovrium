@@ -2,7 +2,7 @@
 
 ## Overview
 
-Sovrium™ uses a **pure centralized i18n approach** with all translations defined in `languages.translations`. This provides better reusability, maintainability, and translator workflow by maintaining a single source of truth for all translations.
+Sovrium uses a **pure centralized i18n approach** with all translations defined in `languages.translations`. This provides better reusability, maintainability, and translator workflow by maintaining a single source of truth for all translations.
 
 ## The Centralized Pattern
 

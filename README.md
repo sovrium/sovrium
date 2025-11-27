@@ -1,13 +1,13 @@
-# Sovrium™
+# Sovrium
 
-[![Spec Progress](https://img.shields.io/badge/specs-45%25%20(833%2F1835)-blue)](SPEC-STATE.md)
+[![Spec Progress](<https://img.shields.io/badge/specs-45%25%20(833%2F1835)-blue>)](SPEC-STATE.md)
 [![Quality Score](https://img.shields.io/badge/quality-94%25-brightgreen)](SPEC-STATE.md)
 
 > **⚠️ Early Development**: Sovrium is in Phase 0 (Foundation). See [SPEC-STATE.md](SPEC-STATE.md) for implementation progress and [docs/specifications/vision.md](docs/specifications/vision.md) for the full product vision.
 
 A configuration-driven web application platform built with Bun, Effect, React, and Tailwind CSS.
 
-**Note**: Sovrium™ is a trademark of ESSENTIAL SERVICES. See [TRADEMARK.md](TRADEMARK.md) for trademark usage guidelines.
+**Note**: Sovrium is a trademark of ESSENTIAL SERVICES. See [TRADEMARK.md](TRADEMARK.md) for trademark usage guidelines.
 
 **Current Version**: 0.0.1 - Minimal web server with React SSR and dynamic CSS compilation
 
@@ -162,12 +162,12 @@ sovrium/
 
 ### Quick Reference
 
-| Document                                                           | Purpose                                    |
-| ------------------------------------------------------------------ | ------------------------------------------ |
-| **[README.md](README.md)**                                         | Quick start guide (you are here)           |
+| Document                                                           | Purpose                                        |
+| ------------------------------------------------------------------ | ---------------------------------------------- |
+| **[README.md](README.md)**                                         | Quick start guide (you are here)               |
 | **[SPEC-STATE.md](SPEC-STATE.md)**                                 | Current implementation status (auto-generated) |
-| **[CLAUDE.md](CLAUDE.md)**                                         | Technical documentation & coding standards |
-| **[docs/specifications/vision.md](docs/specifications/vision.md)** | Product vision & future features           |
+| **[CLAUDE.md](CLAUDE.md)**                                         | Technical documentation & coding standards     |
+| **[docs/specifications/vision.md](docs/specifications/vision.md)** | Product vision & future features               |
 
 ### Detailed Documentation
 
@@ -250,7 +250,7 @@ Sovrium is **source-available** under the Business Source License 1.1. The sourc
 See [LICENSE.md](LICENSE.md) for full BSL 1.1 terms and [TRADEMARK.md](TRADEMARK.md) for trademark usage.
 
 **Copyright**: © 2025 ESSENTIAL SERVICES
-**Trademark**: Sovrium™ is a trademark of ESSENTIAL SERVICES
+**Trademark**: Sovrium is a trademark of ESSENTIAL SERVICES
 
 ---
 

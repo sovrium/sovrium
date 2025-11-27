@@ -4,7 +4,7 @@
 
 **Licensor**: ESSENTIAL SERVICES
 
-**Licensed Work**: Sovrium™
+**Licensed Work**: Sovrium
 
 The Licensed Work is Copyright (c) 2025 ESSENTIAL SERVICES.
 
@@ -65,7 +65,7 @@ TO THE EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSED WORK IS PROVIDED ON AN "
 
 "Licensor" means ESSENTIAL SERVICES, the legal entity offering these terms.
 
-"Licensed Work" means the Sovrium™ software the Licensor makes available under this License.
+"Licensed Work" means the Sovrium software the Licensor makes available under this License.
 
 "You" refers to the individual or legal entity exercising rights under this License.
 
@@ -123,7 +123,7 @@ Contact **license@sovrium.com** with details about your use case. We offer flexi
 ## Additional Resources
 
 - **Enterprise Features**: See `LICENSE_EE.md` for `.ee.` file licensing
-- **Trademark**: See `TRADEMARK.md` for Sovrium™ trademark usage
+- **Trademark**: See `TRADEMARK.md` for Sovrium trademark usage
 - **Website**: https://sovrium.com
 - **GitHub**: https://github.com/sovrium/sovrium
 - **Commercial Licensing**: license@sovrium.com
@@ -142,6 +142,6 @@ When the Change Date arrives, this entire License will be replaced by the Apache
 
 **Copyright (c) 2025 ESSENTIAL SERVICES**
 
-**Sovrium™ is a trademark of ESSENTIAL SERVICES.**
+**Sovrium is a trademark of ESSENTIAL SERVICES.**
 
 For questions about this License, contact: **license@sovrium.com**
