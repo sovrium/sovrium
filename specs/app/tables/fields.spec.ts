@@ -28,8 +28,7 @@ test.describe('Table Fields', () => {
   // ============================================================================
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
-
-  test.fixme(
+  test(
     'APP-TABLES-FIELDS-001: should be accepted when validating input with at least 1 items',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
