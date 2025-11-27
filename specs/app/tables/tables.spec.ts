@@ -77,7 +77,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-002: should create PostgreSQL table with correct column types for different field types',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
