@@ -30,20 +30,44 @@ test.describe('Modify Field Required Migration', () => {
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with optional field 'phone' (TEXT NULL), no rows exist
+      await executeQuery([
+        `CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, phone TEXT)`,
+      ])
+
       // WHEN: field marked as required in schema
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'users',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'phone', type: 'phone-number', required: true },
+            ],
+          },
+        ],
+      })
+
       // THEN: ALTER TABLE ALTER COLUMN SET NOT NULL
 
-      // Setup initial schema
-      await executeQuery('CREATE TABLE IF NOT EXISTS test_table (id SERIAL PRIMARY KEY)')
-
-      // Execute schema change
-      await startServerWithSchema({ name: 'test-app', tables: [] })
-
-      // Verify schema change
-      const schemaInfo = await executeQuery(
-        "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='test_table'"
+      // Column is now NOT NULL
+      const columnCheck = await executeQuery(
+        `SELECT is_nullable FROM information_schema.columns WHERE table_name='users' AND column_name='phone'`
       )
-      expect(schemaInfo).toBeDefined()
+      expect(columnCheck.is_nullable).toBe('NO')
+
+      // Cannot insert NULL value
+      await expect(async () => {
+        await executeQuery(`INSERT INTO users (name, phone) VALUES ('Alice', NULL)`)
+      }).rejects.toThrow(/null value|violates not-null/i)
+
+      // Can insert with value
+      const validInsert = await executeQuery(
+        `INSERT INTO users (name, phone) VALUES ('Bob', '+1234567890') RETURNING phone`
+      )
+      expect(validInsert.phone).toBe('+1234567890')
     }
   )
 
@@ -52,20 +76,33 @@ test.describe('Modify Field Required Migration', () => {
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with optional field 'category' (TEXT NULL), existing rows present
+      await executeQuery([
+        `CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, category TEXT)`,
+        `INSERT INTO products (name, category) VALUES ('Widget', 'Electronics'), ('Gadget', NULL)`,
+      ])
+
       // WHEN: field marked as required without default value
       // THEN: Migration fails with error (cannot add NOT NULL without default when data exists)
+      await expect(async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'category', type: 'single-line-text', required: true }, // No default
+              ],
+            },
+          ],
+        })
+      }).rejects.toThrow(/null value|violates not-null|contains null/i)
 
-      // Setup initial schema
-      await executeQuery('CREATE TABLE IF NOT EXISTS test_table (id SERIAL PRIMARY KEY)')
-
-      // Execute schema change
-      await startServerWithSchema({ name: 'test-app', tables: [] })
-
-      // Verify schema change
-      const schemaInfo = await executeQuery(
-        "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='test_table'"
-      )
-      expect(schemaInfo).toBeDefined()
+      // Original data unchanged (migration rolled back)
+      const gadget = await executeQuery(`SELECT category FROM products WHERE name = 'Gadget'`)
+      expect(gadget.category).toBeNull()
     }
   )
 
@@ -74,20 +111,52 @@ test.describe('Modify Field Required Migration', () => {
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with optional field 'status', existing rows present
+      await executeQuery([
+        `CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50) NOT NULL, status TEXT)`,
+        `INSERT INTO orders (order_number, status) VALUES ('ORD-001', 'shipped'), ('ORD-002', NULL)`,
+      ])
+
       // WHEN: field marked as required with default value 'pending'
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 3,
+            name: 'orders',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'order_number', type: 'single-line-text', required: true },
+              {
+                id: 3,
+                name: 'status',
+                type: 'single-line-text',
+                required: true,
+                default: 'pending',
+              },
+            ],
+          },
+        ],
+      })
+
       // THEN: ALTER TABLE SET DEFAULT, backfill NULL values, then SET NOT NULL
 
-      // Setup initial schema
-      await executeQuery('CREATE TABLE IF NOT EXISTS test_table (id SERIAL PRIMARY KEY)')
-
-      // Execute schema change
-      await startServerWithSchema({ name: 'test-app', tables: [] })
-
-      // Verify schema change
-      const schemaInfo = await executeQuery(
-        "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='test_table'"
+      // Column is now NOT NULL
+      const columnCheck = await executeQuery(
+        `SELECT is_nullable FROM information_schema.columns WHERE table_name='orders' AND column_name='status'`
       )
-      expect(schemaInfo).toBeDefined()
+      expect(columnCheck.is_nullable).toBe('NO')
+
+      // Previously NULL values backfilled with default
+      const backfilled = await executeQuery(
+        `SELECT status FROM orders WHERE order_number = 'ORD-002'`
+      )
+      expect(backfilled.status).toBe('pending')
+
+      // Existing non-NULL values preserved
+      const preserved = await executeQuery(
+        `SELECT status FROM orders WHERE order_number = 'ORD-001'`
+      )
+      expect(preserved.status).toBe('shipped')
     }
   )
 
@@ -96,20 +165,43 @@ test.describe('Modify Field Required Migration', () => {
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'tasks' with required field 'priority' (TEXT NOT NULL)
+      await executeQuery([
+        `CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL, priority TEXT NOT NULL)`,
+        `INSERT INTO tasks (title, priority) VALUES ('Task 1', 'high'), ('Task 2', 'medium')`,
+      ])
+
       // WHEN: field marked as optional in schema
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 4,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text', required: true },
+              { id: 3, name: 'priority', type: 'single-line-text' }, // Now optional
+            ],
+          },
+        ],
+      })
+
       // THEN: ALTER TABLE ALTER COLUMN DROP NOT NULL
 
-      // Setup initial schema
-      await executeQuery('CREATE TABLE IF NOT EXISTS test_table (id SERIAL PRIMARY KEY)')
-
-      // Execute schema change
-      await startServerWithSchema({ name: 'test-app', tables: [] })
-
-      // Verify schema change
-      const schemaInfo = await executeQuery(
-        "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='test_table'"
+      // Column is now nullable
+      const columnCheck = await executeQuery(
+        `SELECT is_nullable FROM information_schema.columns WHERE table_name='tasks' AND column_name='priority'`
       )
-      expect(schemaInfo).toBeDefined()
+      expect(columnCheck.is_nullable).toBe('YES')
+
+      // Can now insert NULL value
+      await executeQuery(`INSERT INTO tasks (title, priority) VALUES ('Task 3', NULL)`)
+      const newTask = await executeQuery(`SELECT priority FROM tasks WHERE title = 'Task 3'`)
+      expect(newTask.priority).toBeNull()
+
+      // Existing data preserved
+      const existingTask = await executeQuery(`SELECT priority FROM tasks WHERE title = 'Task 1'`)
+      expect(existingTask.priority).toBe('high')
     }
   )
 
@@ -122,11 +214,48 @@ test.describe('Modify Field Required Migration', () => {
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative modify-field-required scenarios
-      // WHEN/THEN: Streamlined workflow testing integration points
+      await executeQuery([
+        `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT)`,
+        `INSERT INTO items (name, description) VALUES ('Item 1', 'Has description'), ('Item 2', NULL)`,
+      ])
 
-      // Focus on workflow continuity, not exhaustive coverage
-      // THEN: assertion
-      expect(true).toBe(false)
+      // WHEN: Make description required with default backfill
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 5,
+            name: 'items',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              {
+                id: 3,
+                name: 'description',
+                type: 'long-text',
+                required: true,
+                default: 'No description',
+              },
+            ],
+          },
+        ],
+      })
+
+      // THEN: NULL values backfilled, column is NOT NULL
+
+      // Previously NULL backfilled
+      const backfilled = await executeQuery(`SELECT description FROM items WHERE name = 'Item 2'`)
+      expect(backfilled.description).toBe('No description')
+
+      // Existing value preserved
+      const preserved = await executeQuery(`SELECT description FROM items WHERE name = 'Item 1'`)
+      expect(preserved.description).toBe('Has description')
+
+      // Column is now NOT NULL
+      const columnCheck = await executeQuery(
+        `SELECT is_nullable FROM information_schema.columns WHERE table_name='items' AND column_name='description'`
+      )
+      expect(columnCheck.is_nullable).toBe('NO')
     }
   )
 })

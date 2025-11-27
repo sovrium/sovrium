@@ -30,20 +30,45 @@ test.describe('Modify Field Unique Migration', () => {
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with field 'username' (TEXT) containing unique values
+      await executeQuery([
+        `CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, username VARCHAR(100))`,
+        `INSERT INTO users (name, username) VALUES ('Alice', 'alice123'), ('Bob', 'bob456')`,
+      ])
+
       // WHEN: unique constraint added to schema
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'users',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'username', type: 'single-line-text', unique: true },
+            ],
+          },
+        ],
+      })
+
       // THEN: ALTER TABLE ADD CONSTRAINT unique_users_username UNIQUE (username)
 
-      // Setup initial schema
-      await executeQuery('CREATE TABLE IF NOT EXISTS test_table (id SERIAL PRIMARY KEY)')
-
-      // Execute schema change
-      await startServerWithSchema({ name: 'test-app', tables: [] })
-
-      // Verify schema change
-      const schemaInfo = await executeQuery(
-        "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='test_table'"
+      // Unique constraint exists
+      const constraintCheck = await executeQuery(
+        `SELECT constraint_name FROM information_schema.table_constraints WHERE table_name='users' AND constraint_type='UNIQUE'`
       )
-      expect(schemaInfo).toBeDefined()
+      expect(constraintCheck.constraint_name).toMatch(/unique.*username/i)
+
+      // Duplicate username rejected
+      await expect(async () => {
+        await executeQuery(`INSERT INTO users (name, username) VALUES ('Charlie', 'alice123')`)
+      }).rejects.toThrow(/duplicate key|unique constraint/i)
+
+      // Unique username accepted
+      const newUser = await executeQuery(
+        `INSERT INTO users (name, username) VALUES ('Charlie', 'charlie789') RETURNING username`
+      )
+      expect(newUser.username).toBe('charlie789')
     }
   )
 
@@ -52,20 +77,41 @@ test.describe('Modify Field Unique Migration', () => {
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with field 'sku' containing duplicate values
+      await executeQuery([
+        `CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, sku VARCHAR(50))`,
+        `INSERT INTO products (name, sku) VALUES ('Widget A', 'SKU-001'), ('Widget B', 'SKU-001')`, // Duplicate SKUs
+      ])
+
       // WHEN: unique constraint added to 'sku'
       // THEN: Migration fails with unique violation error, transaction rolled back
+      await expect(async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 2,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'sku', type: 'single-line-text', unique: true },
+              ],
+            },
+          ],
+        })
+      }).rejects.toThrow(/duplicate key|unique constraint|already exists/i)
 
-      // Setup initial schema
-      await executeQuery('CREATE TABLE IF NOT EXISTS test_table (id SERIAL PRIMARY KEY)')
-
-      // Execute schema change
-      await startServerWithSchema({ name: 'test-app', tables: [] })
-
-      // Verify schema change
-      const schemaInfo = await executeQuery(
-        "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='test_table'"
+      // Original data unchanged (migration rolled back)
+      const duplicates = await executeQuery(
+        `SELECT COUNT(*) as count FROM products WHERE sku = 'SKU-001'`
       )
-      expect(schemaInfo).toBeDefined()
+      expect(duplicates.count).toBe(2)
+
+      // No unique constraint added
+      const constraintCheck = await executeQuery(
+        `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='products' AND constraint_type='UNIQUE' AND constraint_name LIKE '%sku%'`
+      )
+      expect(constraintCheck.count).toBe(0)
     }
   )
 
@@ -74,20 +120,40 @@ test.describe('Modify Field Unique Migration', () => {
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with field 'order_number' having UNIQUE constraint
+      await executeQuery([
+        `CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50) NOT NULL UNIQUE)`,
+        `INSERT INTO orders (order_number) VALUES ('ORD-001'), ('ORD-002')`,
+      ])
+
       // WHEN: unique constraint removed from schema
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 3,
+            name: 'orders',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'order_number', type: 'single-line-text', required: true }, // No unique
+            ],
+          },
+        ],
+      })
+
       // THEN: ALTER TABLE DROP CONSTRAINT unique_orders_order_number
 
-      // Setup initial schema
-      await executeQuery('CREATE TABLE IF NOT EXISTS test_table (id SERIAL PRIMARY KEY)')
-
-      // Execute schema change
-      await startServerWithSchema({ name: 'test-app', tables: [] })
-
-      // Verify schema change
-      const schemaInfo = await executeQuery(
-        "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='test_table'"
+      // Unique constraint removed
+      const constraintCheck = await executeQuery(
+        `SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='orders' AND constraint_type='UNIQUE' AND constraint_name LIKE '%order_number%'`
       )
-      expect(schemaInfo).toBeDefined()
+      expect(constraintCheck.count).toBe(0)
+
+      // Duplicate values now allowed
+      await executeQuery(`INSERT INTO orders (order_number) VALUES ('ORD-001')`)
+      const duplicates = await executeQuery(
+        `SELECT COUNT(*) as count FROM orders WHERE order_number = 'ORD-001'`
+      )
+      expect(duplicates.count).toBe(2)
     }
   )
 
@@ -100,11 +166,39 @@ test.describe('Modify Field Unique Migration', () => {
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative modify-field-unique scenarios
-      // WHEN/THEN: Streamlined workflow testing integration points
+      await executeQuery([
+        `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, code VARCHAR(50))`,
+        `INSERT INTO items (name, code) VALUES ('Item A', 'CODE-001'), ('Item B', 'CODE-002')`,
+      ])
 
-      // Focus on workflow continuity, not exhaustive coverage
-      // THEN: assertion
-      expect(true).toBe(false)
+      // WHEN: Add unique constraint to code field
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 4,
+            name: 'items',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'code', type: 'single-line-text', unique: true },
+            ],
+          },
+        ],
+      })
+
+      // THEN: Unique constraint enforced
+
+      // Unique value accepted
+      const newItem = await executeQuery(
+        `INSERT INTO items (name, code) VALUES ('Item C', 'CODE-003') RETURNING code`
+      )
+      expect(newItem.code).toBe('CODE-003')
+
+      // Duplicate value rejected
+      await expect(async () => {
+        await executeQuery(`INSERT INTO items (name, code) VALUES ('Item D', 'CODE-001')`)
+      }).rejects.toThrow(/duplicate key|unique constraint/i)
     }
   )
 })
