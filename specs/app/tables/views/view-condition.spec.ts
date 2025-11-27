@@ -58,13 +58,17 @@ test.describe('Filter Condition', () => {
         "INSERT INTO users (name, status) VALUES ('Alice', 'active'), ('Bob', 'inactive'), ('Charlie', 'active')",
       ])
 
-      // WHEN: filtering records
-      // THEN: only records with exact field value match should pass the filter
-      const result = await executeQuery(
-        "SELECT COUNT(*) as count FROM users WHERE status = 'active'"
-      )
+      // WHEN: querying the PostgreSQL VIEW
+      // THEN: only records with exact field value match are included
+
+      // View returns only records where status equals 'active'
+      const viewRecords = await executeQuery('SELECT name, status FROM active_users ORDER BY id')
       // THEN: assertion
-      expect(result.count).toBe(2)
+      expect(viewRecords).toHaveLength(2)
+      expect(viewRecords).toEqual([
+        { name: 'Alice', status: 'active' },
+        { name: 'Charlie', status: 'active' },
+      ])
     }
   )
 
@@ -101,13 +105,14 @@ test.describe('Filter Condition', () => {
         "INSERT INTO products (name) VALUES ('test product'), ('production item'), ('another test')",
       ])
 
-      // WHEN: filtering records
-      // THEN: records with substring match should pass the filter
-      const result = await executeQuery(
-        "SELECT COUNT(*) as count FROM products WHERE name LIKE '%test%'"
-      )
+      // WHEN: querying the PostgreSQL VIEW
+      // THEN: records with substring match are included
+
+      // View returns records where name contains 'test'
+      const viewRecords = await executeQuery('SELECT name FROM test_products ORDER BY id')
       // THEN: assertion
-      expect(result.count).toBe(2)
+      expect(viewRecords).toHaveLength(2)
+      expect(viewRecords).toEqual([{ name: 'test product' }, { name: 'another test' }])
     }
   )
 
@@ -145,10 +150,17 @@ test.describe('Filter Condition', () => {
         "INSERT INTO employees (name, age) VALUES ('Alice', 25), ('Bob', 17), ('Charlie', 30), ('Diana', 16)",
       ])
 
-      // WHEN: filtering records
-      // THEN: only records with field value greater than specified value should pass
-      const result = await executeQuery('SELECT COUNT(*) as count FROM employees WHERE age > 18')
-      expect(result.count).toBe(2)
+      // WHEN: querying the PostgreSQL VIEW
+      // THEN: only records with age greater than 18 are included
+
+      // View returns records where age > 18
+      const viewRecords = await executeQuery('SELECT name, age FROM adults ORDER BY id')
+      // THEN: assertion
+      expect(viewRecords).toHaveLength(2)
+      expect(viewRecords).toEqual([
+        { name: 'Alice', age: 25 },
+        { name: 'Charlie', age: 30 },
+      ])
     }
   )
 
@@ -186,13 +198,15 @@ test.describe('Filter Condition', () => {
         "INSERT INTO contacts (name, email) VALUES ('Alice', 'alice@example.com'), ('Bob', NULL), ('Charlie', ''), ('Diana', 'diana@example.com')",
       ])
 
-      // WHEN: filtering records
-      // THEN: only records where field is null or empty should pass
-      const result = await executeQuery(
-        "SELECT COUNT(*) as count FROM contacts WHERE email IS NULL OR email = ''"
-      )
+      // WHEN: querying the PostgreSQL VIEW
+      // THEN: only records where email is null or empty are included
+
+      // View returns records where email is empty
+      const viewRecords = await executeQuery('SELECT name, email FROM no_email ORDER BY id')
       // THEN: assertion
-      expect(result.count).toBe(2)
+      expect(viewRecords).toHaveLength(2)
+      expect(viewRecords[0].name).toBe('Bob')
+      expect(viewRecords[1].name).toBe('Charlie')
     }
   )
 
@@ -236,13 +250,18 @@ test.describe('Filter Condition', () => {
         "INSERT INTO items (name, category) VALUES ('Laptop', 'computers'), ('Chair', 'furniture'), ('Phone', 'phones'), ('Desk', 'furniture'), ('Tablet', 'electronics')",
       ])
 
-      // WHEN: filtering records
-      // THEN: records where field matches any value in the array should pass
-      const result = await executeQuery(
-        "SELECT COUNT(*) as count FROM items WHERE category IN ('electronics', 'computers', 'phones')"
-      )
+      // WHEN: querying the PostgreSQL VIEW
+      // THEN: records where category matches any value in array are included
+
+      // View returns records where category is in ['electronics', 'computers', 'phones']
+      const viewRecords = await executeQuery('SELECT name, category FROM tech_items ORDER BY id')
       // THEN: assertion
-      expect(result.count).toBe(3)
+      expect(viewRecords).toHaveLength(3)
+      expect(viewRecords).toEqual([
+        { name: 'Laptop', category: 'computers' },
+        { name: 'Phone', category: 'phones' },
+        { name: 'Tablet', category: 'electronics' },
+      ])
     }
   )
 
@@ -289,12 +308,16 @@ test.describe('Filter Condition', () => {
         "INSERT INTO data (status, value, category) VALUES ('active', 15, 'A'), ('active', 5, 'B'), ('inactive', 20, 'A'), ('active', 12, 'B')",
       ])
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      const result = await executeQuery(
-        "SELECT COUNT(*) as count FROM data WHERE status = 'active' AND value > 10 AND category IN ('A', 'B')"
-      )
+      // WHEN/THEN: Querying the PostgreSQL VIEW validates multiple condition operators
+
+      // View returns records matching all conditions (equals, greaterThan, in)
+      const viewRecords = await executeQuery('SELECT status, value, category FROM filtered_view ORDER BY id')
       // THEN: assertion
-      expect(result.count).toBe(2)
+      expect(viewRecords).toHaveLength(2)
+      expect(viewRecords).toEqual([
+        { status: 'active', value: 15, category: 'A' },
+        { status: 'active', value: 12, category: 'B' },
+      ])
     }
   )
 })

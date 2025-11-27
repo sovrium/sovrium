@@ -61,13 +61,14 @@ test.describe('View Filters', () => {
         "INSERT INTO products (status, age) VALUES ('active', 25), ('active', 15), ('inactive', 20)",
       ])
 
-      // WHEN: applying filters to records
-      // THEN: only records matching all conditions should be included
-      const result = await executeQuery(
-        "SELECT COUNT(*) as count FROM products WHERE status = 'active' AND age > 18"
-      )
+      // WHEN: querying the PostgreSQL VIEW
+      // THEN: only records matching all AND conditions are included
+
+      // View returns only records matching ALL conditions
+      const viewRecords = await executeQuery('SELECT * FROM active_adults')
       // THEN: assertion
-      expect(result.count).toBe(1)
+      expect(viewRecords).toHaveLength(1)
+      expect(viewRecords[0]).toEqual(expect.objectContaining({ status: 'active', age: 25 }))
     }
   )
 
@@ -108,13 +109,17 @@ test.describe('View Filters', () => {
         "INSERT INTO tasks (priority, urgent) VALUES ('high', false), ('low', true), ('low', false)",
       ])
 
-      // WHEN: applying filters to records
-      // THEN: records matching at least one condition should be included
-      const result = await executeQuery(
-        "SELECT COUNT(*) as count FROM tasks WHERE priority = 'high' OR urgent = true"
-      )
+      // WHEN: querying the PostgreSQL VIEW
+      // THEN: records matching at least one OR condition are included
+
+      // View returns records matching ANY condition
+      const viewRecords = await executeQuery('SELECT * FROM important_tasks ORDER BY id')
       // THEN: assertion
-      expect(result.count).toBe(2)
+      expect(viewRecords).toHaveLength(2)
+      // First record: high priority, not urgent
+      // Second record: low priority, urgent
+      expect(viewRecords[0].priority).toBe('high')
+      expect(viewRecords[1].urgent).toBe(true)
     }
   )
 
@@ -151,13 +156,14 @@ test.describe('View Filters', () => {
         "INSERT INTO items (name) VALUES ('test item'), ('production item'), ('test case')",
       ])
 
-      // WHEN: applying filters to records
-      // THEN: AND operator should be used by default
-      const result = await executeQuery(
-        "SELECT COUNT(*) as count FROM items WHERE name LIKE '%test%'"
-      )
+      // WHEN: querying the PostgreSQL VIEW
+      // THEN: view filters using contains operator
+
+      // View returns records where name contains 'test'
+      const viewRecords = await executeQuery('SELECT name FROM test_view ORDER BY id')
       // THEN: assertion
-      expect(result.count).toBe(2)
+      expect(viewRecords).toHaveLength(2)
+      expect(viewRecords).toEqual([{ name: 'test item' }, { name: 'test case' }])
     }
   )
 
@@ -202,12 +208,13 @@ test.describe('View Filters', () => {
         "INSERT INTO data (category, status) VALUES ('A', 'active'), ('A', 'inactive'), ('B', 'active')",
       ])
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      const result = await executeQuery(
-        "SELECT COUNT(*) as count FROM data WHERE category = 'A' AND status = 'active'"
-      )
+      // WHEN/THEN: Querying the PostgreSQL VIEW validates AND filter logic
+
+      // View returns only records matching ALL conditions
+      const viewRecords = await executeQuery('SELECT * FROM filtered_view')
       // THEN: assertion
-      expect(result.count).toBe(1)
+      expect(viewRecords).toHaveLength(1)
+      expect(viewRecords[0]).toEqual(expect.objectContaining({ category: 'A', status: 'active' }))
     }
   )
 })

@@ -65,29 +65,24 @@ test.describe('Table Views', () => {
         "INSERT INTO tasks (title, status, priority) VALUES ('Task 1', 'active', 1), ('Task 2', 'completed', 2), ('Task 3', 'active', 3)",
       ])
 
-      // WHEN: view is applied to query
-      // THEN: PostgreSQL WHERE clause filters records by condition
+      // WHEN: querying the PostgreSQL VIEW
+      // THEN: view returns only filtered records
 
-      // Filter translates to WHERE clause
-      const filterCount = await executeQuery(
-        "SELECT COUNT(*) as count FROM tasks WHERE status = 'active'"
+      // View filters records automatically
+      const viewRecords = await executeQuery('SELECT * FROM active_tasks ORDER BY id')
+      // THEN: assertion
+      expect(viewRecords).toHaveLength(2)
+      expect(viewRecords).toEqual([
+        expect.objectContaining({ title: 'Task 1', status: 'active' }),
+        expect.objectContaining({ title: 'Task 3', status: 'active' }),
+      ])
+
+      // Completed tasks excluded from view
+      const completedInView = await executeQuery(
+        "SELECT * FROM active_tasks WHERE status = 'completed'"
       )
       // THEN: assertion
-      expect(filterCount.count).toBe(2)
-
-      // Only active tasks returned
-      const activeTasks = await executeQuery(
-        "SELECT title FROM tasks WHERE status = 'active' ORDER BY id"
-      )
-      // THEN: assertion
-      expect(activeTasks).toEqual([{ title: 'Task 1' }, { title: 'Task 3' }])
-
-      // Completed tasks excluded
-      const completedCount = await executeQuery(
-        "SELECT COUNT(*) as count FROM tasks WHERE status = 'completed'"
-      )
-      // THEN: assertion
-      expect(completedCount.count).toBe(1)
+      expect(completedInView).toHaveLength(0)
     }
   )
 
@@ -137,29 +132,28 @@ test.describe('Table Views', () => {
         "INSERT INTO projects (name, status, priority) VALUES ('Project A', 'active', 1), ('Project B', 'active', 3), ('Project C', 'completed', 3)",
       ])
 
-      // WHEN: view is applied to query
-      // THEN: PostgreSQL combines conditions with AND operator
+      // WHEN: querying the PostgreSQL VIEW
+      // THEN: view combines conditions with AND operator
 
-      // Both conditions combined with AND
-      const andCount = await executeQuery(
-        "SELECT COUNT(*) as count FROM projects WHERE status = 'active' AND priority > 2"
-      )
+      // View returns only records matching ALL conditions
+      const viewRecords = await executeQuery('SELECT * FROM high_priority_active')
       // THEN: assertion
-      expect(andCount.count).toBe(1)
-
-      // Only Project B matches both conditions
-      const matchingProject = await executeQuery(
-        "SELECT name FROM projects WHERE status = 'active' AND priority > 2"
-      )
-      // THEN: assertion
-      expect(matchingProject.name).toBe('Project B')
+      expect(viewRecords).toHaveLength(1)
+      expect(viewRecords[0].name).toBe('Project B')
 
       // Project A excluded (priority not > 2)
-      const lowPriorityCount = await executeQuery(
-        "SELECT COUNT(*) as count FROM projects WHERE status = 'active' AND priority <= 2"
+      const projectA = await executeQuery(
+        "SELECT * FROM high_priority_active WHERE name = 'Project A'"
       )
       // THEN: assertion
-      expect(lowPriorityCount.count).toBe(1)
+      expect(projectA).toHaveLength(0)
+
+      // Project C excluded (status not active)
+      const projectC = await executeQuery(
+        "SELECT * FROM high_priority_active WHERE name = 'Project C'"
+      )
+      // THEN: assertion
+      expect(projectC).toHaveLength(0)
     }
   )
 
@@ -177,7 +171,7 @@ test.describe('Table Views', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'created_at', type: 'timestamp' },
+              { id: 3, name: 'created_at', type: 'datetime' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             views: [
@@ -200,33 +194,27 @@ test.describe('Table Views', () => {
         "INSERT INTO articles (title, created_at) VALUES ('Article 1', '2024-01-01 10:00:00'), ('Article 2', '2024-01-03 10:00:00'), ('Article 3', '2024-01-02 10:00:00')",
       ])
 
-      // WHEN: view is applied to query
-      // THEN: PostgreSQL ORDER BY clause sorts records accordingly
+      // WHEN: querying the PostgreSQL VIEW
+      // THEN: view returns records sorted by created_at DESC
 
-      // Records sorted by created_at descending
-      const sortedArticles = await executeQuery(
-        'SELECT title FROM articles ORDER BY created_at DESC'
-      )
+      // View returns records in sorted order
+      const viewRecords = await executeQuery('SELECT title FROM recent_first')
       // THEN: assertion
-      expect(sortedArticles).toEqual([
+      expect(viewRecords).toEqual([
         { title: 'Article 2' },
         { title: 'Article 3' },
         { title: 'Article 1' },
       ])
 
-      // Most recent article first
-      const mostRecent = await executeQuery(
-        'SELECT title FROM articles ORDER BY created_at DESC LIMIT 1'
-      )
+      // Most recent article first in view
+      const firstRecord = await executeQuery('SELECT title FROM recent_first LIMIT 1')
       // THEN: assertion
-      expect(mostRecent.title).toBe('Article 2')
+      expect(firstRecord.title).toBe('Article 2')
 
-      // Oldest article last
-      const oldest = await executeQuery(
-        'SELECT title FROM articles ORDER BY created_at ASC LIMIT 1'
-      )
+      // Oldest article last in view
+      const lastRecord = await executeQuery('SELECT title FROM recent_first OFFSET 2 LIMIT 1')
       // THEN: assertion
-      expect(oldest.title).toBe('Article 1')
+      expect(lastRecord.title).toBe('Article 1')
     }
   )
 
@@ -266,35 +254,27 @@ test.describe('Table Views', () => {
         "INSERT INTO employees (name, department, salary) VALUES ('Alice', 'Engineering', 75000), ('Bob', 'Engineering', 80000), ('Charlie', 'Marketing', 60000)",
       ])
 
-      // WHEN: view is applied to query
-      // THEN: PostgreSQL GROUP BY clause aggregates records by field
+      // WHEN: querying the PostgreSQL VIEW
+      // THEN: view returns records ordered by groupBy field
 
-      // Records grouped by department
-      const groupedCounts = await executeQuery(
-        'SELECT department, COUNT(*) as count FROM employees GROUP BY department ORDER BY department'
-      )
+      // View returns records ordered by department (groupBy field)
+      const viewRecords = await executeQuery('SELECT name, department FROM by_department')
       // THEN: assertion
-      expect(groupedCounts).toEqual([
-        { department: 'Engineering', count: 2 },
-        { department: 'Marketing', count: 1 },
+      expect(viewRecords).toEqual([
+        { name: 'Alice', department: 'Engineering' },
+        { name: 'Bob', department: 'Engineering' },
+        { name: 'Charlie', department: 'Marketing' },
       ])
 
-      // Aggregate functions work with GROUP BY
-      const groupedAvg = await executeQuery(
-        'SELECT department, AVG(salary) as avg_salary FROM employees GROUP BY department ORDER BY department'
-      )
+      // Records within same department are adjacent
+      const departments = await executeQuery('SELECT DISTINCT department FROM by_department')
       // THEN: assertion
-      expect(groupedAvg).toEqual([
-        { department: 'Engineering', avg_salary: 77_500.0 },
-        { department: 'Marketing', avg_salary: 60_000.0 },
-      ])
+      expect(departments).toHaveLength(2)
 
-      // Group order matches direction (asc)
-      const groupOrder = await executeQuery(
-        'SELECT department FROM employees GROUP BY department ORDER BY department ASC'
-      )
+      // Engineering records come first (asc order)
+      const firstRecord = await executeQuery('SELECT department FROM by_department LIMIT 1')
       // THEN: assertion
-      expect(groupOrder).toEqual([{ department: 'Engineering' }, { department: 'Marketing' }])
+      expect(firstRecord.department).toBe('Engineering')
     }
   )
 
@@ -321,7 +301,7 @@ test.describe('Table Views', () => {
               {
                 id: 'contact_info',
                 name: 'Contact Info',
-                visibleFields: ['name', 'email'],
+                fields: ['name', 'email'],
               },
             ],
           },
@@ -332,30 +312,27 @@ test.describe('Table Views', () => {
         "INSERT INTO users (name, email, phone, salary) VALUES ('Alice', 'alice@example.com', '555-1234', 75000)",
       ])
 
-      // WHEN: view is applied to query
-      // THEN: PostgreSQL SELECT includes only specified columns
+      // WHEN: querying the PostgreSQL VIEW
+      // THEN: view includes only specified columns
 
-      // Only specified fields in SELECT
-      const visibleFields = await executeQuery('SELECT name, email FROM users WHERE id = 1')
+      // View exposes only name and email columns
+      const viewRecords = await executeQuery('SELECT * FROM contact_info')
       // THEN: assertion
-      expect(visibleFields).toEqual({
-        name: 'Alice',
-        email: 'alice@example.com',
-      })
+      expect(viewRecords).toEqual([{ name: 'Alice', email: 'alice@example.com' }])
 
-      // Hidden fields not included in result
-      const hiddenFields = await executeQuery(
-        "SELECT column_name FROM information_schema.columns WHERE table_name='users' AND column_name IN ('phone', 'salary')"
+      // View columns match visibleFields configuration
+      const viewColumns = await executeQuery(
+        "SELECT column_name FROM information_schema.columns WHERE table_name='contact_info' ORDER BY ordinal_position"
       )
       // THEN: assertion
-      expect(hiddenFields).toEqual([{ column_name: 'phone' }, { column_name: 'salary' }])
+      expect(viewColumns).toEqual([{ column_name: 'name' }, { column_name: 'email' }])
 
-      // View config controls SELECT columns, not table schema
-      const columnCount = await executeQuery(
-        "SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='users'"
+      // Hidden fields (phone, salary) not accessible through view
+      const viewColumnCount = await executeQuery(
+        "SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='contact_info'"
       )
       // THEN: assertion
-      expect(columnCount.count).toBe(5)
+      expect(viewColumnCount.count).toBe(2)
     }
   )
 
@@ -374,7 +351,7 @@ test.describe('Table Views', () => {
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text' },
               { id: 3, name: 'status', type: 'single-line-text' },
-              { id: 4, name: 'published_at', type: 'timestamp' },
+              { id: 4, name: 'published_at', type: 'datetime' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             views: [
@@ -407,29 +384,28 @@ test.describe('Table Views', () => {
         "INSERT INTO posts (title, status, published_at) VALUES ('Post 1', 'published', '2024-01-01'), ('Post 2', 'draft', NULL), ('Post 3', 'published', '2024-01-02')",
       ])
 
-      // WHEN: no specific view is requested
-      // THEN: default view configuration is applied to query
+      // WHEN: querying the default PostgreSQL VIEW
+      // THEN: view applies filter and sort configuration
 
-      // Default view filter applied
-      const filterCount = await executeQuery(
-        "SELECT COUNT(*) as count FROM posts WHERE status = 'published'"
+      // Default view filters and sorts records
+      const viewRecords = await executeQuery('SELECT title, status FROM published_posts')
+      // THEN: assertion
+      expect(viewRecords).toEqual([
+        { title: 'Post 3', status: 'published' },
+        { title: 'Post 1', status: 'published' },
+      ])
+
+      // View excludes draft posts
+      const draftInView = await executeQuery("SELECT * FROM published_posts WHERE status = 'draft'")
+      // THEN: assertion
+      expect(draftInView).toHaveLength(0)
+
+      // View is marked as default (metadata check)
+      const viewExists = await executeQuery(
+        "SELECT COUNT(*) as count FROM information_schema.views WHERE table_name = 'published_posts'"
       )
       // THEN: assertion
-      expect(filterCount.count).toBe(2)
-
-      // Default view sort applied
-      const sortedPosts = await executeQuery(
-        "SELECT title FROM posts WHERE status = 'published' ORDER BY published_at DESC"
-      )
-      // THEN: assertion
-      expect(sortedPosts).toEqual([{ title: 'Post 3' }, { title: 'Post 1' }])
-
-      // Draft posts excluded by default view
-      const draftCount = await executeQuery(
-        "SELECT COUNT(*) as count FROM posts WHERE status = 'draft'"
-      )
-      // THEN: assertion
-      expect(draftCount.count).toBe(1)
+      expect(viewExists.count).toBe(1)
     }
   )
 
@@ -453,7 +429,7 @@ test.describe('Table Views', () => {
               { id: 2, name: 'title', type: 'single-line-text' },
               { id: 3, name: 'category', type: 'single-line-text' },
               { id: 4, name: 'status', type: 'single-line-text' },
-              { id: 5, name: 'created_at', type: 'timestamp' },
+              { id: 5, name: 'created_at', type: 'datetime' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             views: [
@@ -486,31 +462,29 @@ test.describe('Table Views', () => {
         "INSERT INTO data (title, category, status, created_at) VALUES ('Item 1', 'A', 'active', '2024-01-01'), ('Item 2', 'B', 'inactive', '2024-01-02'), ('Item 3', 'A', 'active', '2024-01-03')",
       ])
 
-      // WHEN/THEN: Streamlined workflow testing integration points
+      // WHEN/THEN: Querying the PostgreSQL VIEW validates filter and sort
 
-      // Filter works
-      const filteredCount = await executeQuery(
-        "SELECT COUNT(*) as count FROM data WHERE status = 'active'"
-      )
+      // View filters and sorts records correctly
+      const viewRecords = await executeQuery('SELECT title, status FROM active_view')
       // THEN: assertion
-      expect(filteredCount.count).toBe(2)
-
-      // Sort works
-      const sortedItems = await executeQuery(
-        "SELECT title FROM data WHERE status = 'active' ORDER BY created_at DESC"
-      )
-      // THEN: assertion
-      expect(sortedItems).toEqual([{ title: 'Item 3' }, { title: 'Item 1' }])
-
-      // Grouping works (representative case)
-      const groupedData = await executeQuery(
-        'SELECT category, COUNT(*) as count FROM data GROUP BY category ORDER BY category'
-      )
-      // THEN: assertion
-      expect(groupedData).toEqual([
-        { category: 'A', count: 2 },
-        { category: 'B', count: 1 },
+      expect(viewRecords).toEqual([
+        { title: 'Item 3', status: 'active' },
+        { title: 'Item 1', status: 'active' },
       ])
+
+      // View excludes inactive records
+      const inactiveInView = await executeQuery(
+        "SELECT * FROM active_view WHERE status = 'inactive'"
+      )
+      // THEN: assertion
+      expect(inactiveInView).toHaveLength(0)
+
+      // View exists in database
+      const viewExists = await executeQuery(
+        "SELECT COUNT(*) as count FROM information_schema.views WHERE table_name = 'active_view'"
+      )
+      // THEN: assertion
+      expect(viewExists.count).toBe(1)
 
       // Focus on workflow continuity, not exhaustive coverage
     }

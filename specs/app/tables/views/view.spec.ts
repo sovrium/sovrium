@@ -98,7 +98,7 @@ test.describe('Table View', () => {
   test.fixme(
     'APP-TABLES-VIEW-003: should be applied automatically when view marked as isDefault: true and no specific view is requested via API',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: a view marked as isDefault: true
       await startServerWithSchema({
         name: 'test-app',
@@ -136,15 +136,17 @@ test.describe('Table View', () => {
         "INSERT INTO tasks (title, status) VALUES ('Task 1', 'active'), ('Task 2', 'completed'), ('Task 3', 'active')",
       ])
 
-      // WHEN: no specific view is requested via API
-      await page.goto('/')
+      // WHEN: querying the PostgreSQL VIEW
+      // THEN: view returns only active tasks
 
-      // THEN: this view's configuration should be applied automatically
-      const activeCount = await executeQuery(
-        "SELECT COUNT(*) as count FROM tasks WHERE status = 'active'"
-      )
+      // View filters records based on isDefault configuration
+      const viewRecords = await executeQuery('SELECT title, status FROM active_tasks ORDER BY id')
       // THEN: assertion
-      expect(activeCount.count).toBe(2)
+      expect(viewRecords).toHaveLength(2)
+      expect(viewRecords).toEqual([
+        { title: 'Task 1', status: 'active' },
+        { title: 'Task 3', status: 'active' },
+      ])
     }
   )
 
@@ -155,7 +157,7 @@ test.describe('Table View', () => {
   test.fixme(
     'APP-TABLES-VIEW-004: user can complete full view workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative view
       await startServerWithSchema({
         name: 'test-app',
@@ -200,26 +202,22 @@ test.describe('Table View', () => {
         "INSERT INTO items (title, status, priority) VALUES ('Item 1', 'active', 1), ('Item 2', 'inactive', 2), ('Item 3', 'active', 3)",
       ])
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
+      // WHEN/THEN: Querying the PostgreSQL VIEW validates configuration
 
-      // View configuration is valid
+      // View filters and sorts records correctly
+      const viewRecords = await executeQuery('SELECT title, status, priority FROM default_view')
       // THEN: assertion
-      await expect(page.locator('body')).toBeAttached()
+      expect(viewRecords).toEqual([
+        { title: 'Item 3', status: 'active', priority: 3 },
+        { title: 'Item 1', status: 'active', priority: 1 },
+      ])
 
-      // Default view filter applies
-      const filteredCount = await executeQuery(
-        "SELECT COUNT(*) as count FROM items WHERE status = 'active'"
+      // Inactive items excluded from view
+      const inactiveInView = await executeQuery(
+        "SELECT * FROM default_view WHERE status = 'inactive'"
       )
       // THEN: assertion
-      expect(filteredCount.count).toBe(2)
-
-      // Default view sort applies
-      const sortedItems = await executeQuery(
-        "SELECT title FROM items WHERE status = 'active' ORDER BY priority DESC"
-      )
-      // THEN: assertion
-      expect(sortedItems).toEqual([{ title: 'Item 3' }, { title: 'Item 1' }])
+      expect(inactiveInView).toHaveLength(0)
 
       // Focus on workflow continuity, not exhaustive coverage
     }
