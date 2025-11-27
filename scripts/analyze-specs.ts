@@ -813,7 +813,9 @@ async function main() {
   let specFiles = await findSpecFiles(SPECS_DIR)
 
   if (filterPattern) {
-    const regex = new RegExp(filterPattern)
+    // Escape special regex characters to prevent ReDoS attacks (CWE-400/CWE-730)
+    const escapedPattern = filterPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const regex = new RegExp(escapedPattern)
     specFiles = specFiles.filter((f) => regex.test(f))
     console.log(`📁 Filtered to ${specFiles.length} files matching: ${filterPattern}`)
   } else {
