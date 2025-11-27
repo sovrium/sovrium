@@ -29,7 +29,7 @@ test.describe('Page ID', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-PAGES-ID-001: should validate as unique identifier',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -55,7 +55,7 @@ test.describe('Page ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ID-002: should follow shared ID pattern from common definitions',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -81,7 +81,7 @@ test.describe('Page ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ID-003: should allow auto-generated ID (ID is optional)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -106,7 +106,7 @@ test.describe('Page ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ID-004: should accept UUID as identifier',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -134,7 +134,7 @@ test.describe('Page ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ID-005: should accept numeric string identifiers',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -160,7 +160,7 @@ test.describe('Page ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-PAGES-ID-006: should ensure uniqueness across all pages in array',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -213,7 +213,7 @@ test.describe('Page ID', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-PAGES-ID-007: user can complete full page ID workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {

@@ -461,7 +461,7 @@ test.describe('Block Children', () => {
   // ONE OPTIMIZED test verifying components work together efficiently
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-BLOCKS-CHILDREN-011: user can complete full children workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {

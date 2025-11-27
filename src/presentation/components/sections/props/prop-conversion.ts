@@ -57,6 +57,7 @@ export const RESERVED_PROPS = new Set([
   'onMouseEnter',
   'onMouseLeave',
   // Application-specific props
+  'level', // For text elements (h1-h6, p, label)
   'animation',
   'data-testid',
   'data-block',

@@ -254,6 +254,9 @@ export const COMPONENT_REGISTRY: Partial<Record<Component['type'], ComponentRend
 
   // Content elements
   text: ({ elementProps, content }) => Renderers.renderTextElement(elementProps, content),
+  'single-line-text': ({ elementProps, content }) =>
+    Renderers.renderTextElement(elementProps, content),
+  'long-text': ({ elementProps, content }) => Renderers.renderTextElement(elementProps, content),
 
   paragraph: ({ elementProps, content, renderedChildren }) =>
     Renderers.renderParagraph(elementProps, content, renderedChildren),

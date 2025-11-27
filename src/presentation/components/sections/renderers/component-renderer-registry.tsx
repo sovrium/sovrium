@@ -100,6 +100,10 @@ const COMPONENT_RENDERERS: Readonly<Record<string, ComponentRenderer>> = {
   // Content elements
   text: ({ elementPropsWithSpacing, content }) =>
     Renderers.renderTextElement(elementPropsWithSpacing, content),
+  'single-line-text': ({ elementPropsWithSpacing, content }) =>
+    Renderers.renderTextElement(elementPropsWithSpacing, content),
+  'long-text': ({ elementPropsWithSpacing, content }) =>
+    Renderers.renderTextElement(elementPropsWithSpacing, content),
   paragraph: ({ elementPropsWithSpacing, content, renderedChildren }) =>
     Renderers.renderParagraph(elementPropsWithSpacing, content, renderedChildren),
   p: ({ elementPropsWithSpacing, content, renderedChildren }) =>
