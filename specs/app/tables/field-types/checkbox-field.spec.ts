@@ -26,7 +26,7 @@ test.describe('Checkbox Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-CHECKBOX-FIELD-001: should create PostgreSQL BOOLEAN column when table configuration has checkbox field',
+    'APP-TABLES-FIELD-TYPES-CHECKBOX-001: should create PostgreSQL BOOLEAN column when table configuration has checkbox field',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with checkbox field 'is_active'
@@ -72,7 +72,7 @@ test.describe('Checkbox Field', () => {
   )
 
   test.fixme(
-    'APP-CHECKBOX-FIELD-002: should store true/false values correctly when checkbox is checked or unchecked',
+    'APP-TABLES-FIELD-TYPES-CHECKBOX-002: should store true/false values correctly when checkbox is checked or unchecked',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table with checkbox field 'completed'
@@ -106,7 +106,7 @@ test.describe('Checkbox Field', () => {
   )
 
   test.fixme(
-    'APP-CHECKBOX-FIELD-003: should reject NULL value when checkbox field is required',
+    'APP-TABLES-FIELD-TYPES-CHECKBOX-003: should reject NULL value when checkbox field is required',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table with required checkbox field 'terms_accepted'
@@ -147,7 +147,7 @@ test.describe('Checkbox Field', () => {
   )
 
   test.fixme(
-    'APP-CHECKBOX-FIELD-004: should apply DEFAULT value when row inserted without providing value',
+    'APP-TABLES-FIELD-TYPES-CHECKBOX-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table with checkbox field 'enabled' and default value FALSE
@@ -183,7 +183,7 @@ test.describe('Checkbox Field', () => {
   )
 
   test.fixme(
-    'APP-CHECKBOX-FIELD-005: should create btree index for fast queries when checkbox field has indexed=true',
+    'APP-TABLES-FIELD-TYPES-CHECKBOX-005: should create btree index for fast queries when checkbox field has indexed=true',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with checkbox field 'published', indexed=true
@@ -220,7 +220,7 @@ test.describe('Checkbox Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-CHECKBOX-FIELD-006: user can complete full checkbox-field workflow',
+    'APP-TABLES-FIELD-TYPES-CHECKBOX-006: user can complete full checkbox-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative checkbox field

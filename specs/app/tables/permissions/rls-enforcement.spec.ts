@@ -30,7 +30,7 @@ test.describe('Row-Level Security Enforcement', () => {
   // ============================================================================
 
   test.fixme(
-    'RLS-ENFORCE-001: should filter records based on user ownership policy',
+    'APP-TABLES-RLS-ENFORCEMENT-001: should filter records based on user ownership policy',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with owner-based RLS policy
@@ -94,7 +94,7 @@ test.describe('Row-Level Security Enforcement', () => {
   )
 
   test.fixme(
-    'RLS-ENFORCE-002: should prevent reading records not matching RLS policy',
+    'APP-TABLES-RLS-ENFORCEMENT-002: should prevent reading records not matching RLS policy',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with strict RLS
@@ -151,7 +151,7 @@ test.describe('Row-Level Security Enforcement', () => {
   )
 
   test.fixme(
-    'RLS-ENFORCE-003: should enforce field-level read restrictions',
+    'APP-TABLES-RLS-ENFORCEMENT-003: should enforce field-level read restrictions',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with field-level read restrictions
@@ -213,7 +213,7 @@ test.describe('Row-Level Security Enforcement', () => {
   )
 
   test.fixme(
-    'RLS-ENFORCE-004: should enforce field-level write restrictions',
+    'APP-TABLES-RLS-ENFORCEMENT-004: should enforce field-level write restrictions',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with field-level write restrictions
@@ -279,7 +279,7 @@ test.describe('Row-Level Security Enforcement', () => {
   )
 
   test.fixme(
-    'RLS-ENFORCE-005: should apply RLS policies on INSERT operations',
+    'APP-TABLES-RLS-ENFORCEMENT-005: should apply RLS policies on INSERT operations',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with INSERT RLS policy
@@ -342,7 +342,7 @@ test.describe('Row-Level Security Enforcement', () => {
   )
 
   test.fixme(
-    'RLS-ENFORCE-006: should apply RLS policies on UPDATE operations',
+    'APP-TABLES-RLS-ENFORCEMENT-006: should apply RLS policies on UPDATE operations',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with UPDATE RLS policy
@@ -404,7 +404,7 @@ test.describe('Row-Level Security Enforcement', () => {
   )
 
   test.fixme(
-    'RLS-ENFORCE-007: should apply RLS policies on DELETE operations',
+    'APP-TABLES-RLS-ENFORCEMENT-007: should apply RLS policies on DELETE operations',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with DELETE RLS policy
@@ -466,7 +466,7 @@ test.describe('Row-Level Security Enforcement', () => {
   )
 
   test.fixme(
-    'RLS-ENFORCE-008: should support role-based RLS policies',
+    'APP-TABLES-RLS-ENFORCEMENT-008: should support role-based RLS policies',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with role-based access
@@ -550,7 +550,7 @@ test.describe('Row-Level Security Enforcement', () => {
   // ============================================================================
 
   test.fixme(
-    'RLS-ENFORCE-009: row-level security enforcement workflow',
+    'APP-TABLES-RLS-ENFORCEMENT-009: row-level security enforcement workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with owner-based RLS

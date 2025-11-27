@@ -26,7 +26,7 @@ test.describe('Unique Field Property', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-FIELD-UNIQUE-001: should prevent duplicate values when field has unique: true',
+    'APP-TABLES-FIELD-UNIQUE-001: should prevent duplicate values when field has unique: true',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: field with unique: true
@@ -74,7 +74,7 @@ test.describe('Unique Field Property', () => {
   )
 
   test.fixme(
-    'APP-FIELD-UNIQUE-002: should allow duplicate values when field has unique: false (default)',
+    'APP-TABLES-FIELD-UNIQUE-002: should allow duplicate values when field has unique: false (default)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: field with unique: false (default)
@@ -123,7 +123,7 @@ test.describe('Unique Field Property', () => {
   )
 
   test.fixme(
-    'APP-FIELD-UNIQUE-003: should fail migration when attempting to add UNIQUE constraint with existing duplicates',
+    'APP-TABLES-FIELD-UNIQUE-003: should fail migration when attempting to add UNIQUE constraint with existing duplicates',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: unique field with existing duplicate values
@@ -155,7 +155,7 @@ test.describe('Unique Field Property', () => {
   )
 
   test.fixme(
-    'APP-FIELD-UNIQUE-004: should automatically create index for efficient lookups when UNIQUE constraint is added',
+    'APP-TABLES-FIELD-UNIQUE-004: should automatically create index for efficient lookups when UNIQUE constraint is added',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: unique constraint creates automatic index
@@ -197,7 +197,7 @@ test.describe('Unique Field Property', () => {
   )
 
   test.fixme(
-    'APP-FIELD-UNIQUE-005: should allow multiple NULLs when unique field allows NULL values (SQL standard)',
+    'APP-TABLES-FIELD-UNIQUE-005: should allow multiple NULLs when unique field allows NULL values (SQL standard)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: unique field allows NULL values (SQL standard)
@@ -252,7 +252,7 @@ test.describe('Unique Field Property', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-FIELD-UNIQUE-006: user can complete full unique-field workflow',
+    'APP-TABLES-FIELD-UNIQUE-006: user can complete full unique-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative unique fields

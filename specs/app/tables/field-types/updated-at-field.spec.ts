@@ -21,7 +21,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Updated At Field', () => {
   test.fixme(
-    'APP-UPDATED-AT-FIELD-001: should create PostgreSQL TIMESTAMPTZ column with DEFAULT NOW()',
+    'APP-TABLES-FIELD-TYPES-UPDATED-AT-001: should create PostgreSQL TIMESTAMPTZ column with DEFAULT NOW()',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -52,7 +52,7 @@ test.describe('Updated At Field', () => {
   )
 
   test.fixme(
-    'APP-UPDATED-AT-FIELD-002: should automatically update timestamp when row is modified',
+    'APP-TABLES-FIELD-TYPES-UPDATED-AT-002: should automatically update timestamp when row is modified',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -91,7 +91,7 @@ test.describe('Updated At Field', () => {
   )
 
   test.fixme(
-    'APP-UPDATED-AT-FIELD-003: should set initial timestamp on creation',
+    'APP-TABLES-FIELD-TYPES-UPDATED-AT-003: should set initial timestamp on creation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -124,7 +124,7 @@ test.describe('Updated At Field', () => {
   )
 
   test.fixme(
-    'APP-UPDATED-AT-FIELD-004: should reject NULL values (always required)',
+    'APP-TABLES-FIELD-TYPES-UPDATED-AT-004: should reject NULL values (always required)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -153,7 +153,7 @@ test.describe('Updated At Field', () => {
   )
 
   test.fixme(
-    'APP-UPDATED-AT-FIELD-005: should create btree index for fast queries when indexed=true',
+    'APP-TABLES-FIELD-TYPES-UPDATED-AT-005: should create btree index for fast queries when indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -182,7 +182,7 @@ test.describe('Updated At Field', () => {
   )
 
   test.fixme(
-    'APP-UPDATED-AT-FIELD-006: user can complete full updated-at-field workflow',
+    'APP-TABLES-FIELD-TYPES-UPDATED-AT-006: user can complete full updated-at-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

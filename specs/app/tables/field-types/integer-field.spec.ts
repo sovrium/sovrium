@@ -26,7 +26,7 @@ test.describe('Integer Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-INTEGER-FIELD-001: should create PostgreSQL INTEGER column when table configuration has integer field',
+    'APP-TABLES-FIELD-TYPES-INTEGER-001: should create PostgreSQL INTEGER column when table configuration has integer field',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with integer field 'quantity'
@@ -72,7 +72,7 @@ test.describe('Integer Field', () => {
   )
 
   test.fixme(
-    'APP-INTEGER-FIELD-002: should reject values outside min/max range when CHECK constraint enforces range validation',
+    'APP-TABLES-FIELD-TYPES-INTEGER-002: should reject values outside min/max range when CHECK constraint enforces range validation',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'inventory' with integer field 'stock' (min=0, max=1000)
@@ -118,7 +118,7 @@ test.describe('Integer Field', () => {
   )
 
   test.fixme(
-    'APP-INTEGER-FIELD-003: should enforce NOT NULL and UNIQUE constraints when integer field is required and unique',
+    'APP-TABLES-FIELD-TYPES-INTEGER-003: should enforce NOT NULL and UNIQUE constraints when integer field is required and unique',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with integer field 'order_number' (required, unique)
@@ -167,7 +167,7 @@ test.describe('Integer Field', () => {
   )
 
   test.fixme(
-    'APP-INTEGER-FIELD-004: should apply DEFAULT value when row inserted without providing value',
+    'APP-TABLES-FIELD-TYPES-INTEGER-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'settings' with integer field 'timeout' and default value 30
@@ -209,7 +209,7 @@ test.describe('Integer Field', () => {
   )
 
   test.fixme(
-    'APP-INTEGER-FIELD-005: should create btree index for fast numerical queries when integer field has indexed=true',
+    'APP-TABLES-FIELD-TYPES-INTEGER-005: should create btree index for fast numerical queries when integer field has indexed=true',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with integer field 'score', indexed=true
@@ -254,7 +254,7 @@ test.describe('Integer Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-INTEGER-FIELD-006: user can complete full integer-field workflow',
+    'APP-TABLES-FIELD-TYPES-INTEGER-006: user can complete full integer-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative integer field

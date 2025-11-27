@@ -21,7 +21,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Array Field', () => {
   test(
-    'APP-ARRAY-FIELD-001: should create PostgreSQL TEXT array column',
+    'APP-TABLES-FIELD-TYPES-ARRAY-001: should create PostgreSQL TEXT array column',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -61,7 +61,7 @@ test.describe('Array Field', () => {
   )
 
   test(
-    'APP-ARRAY-FIELD-002: should support array containment, overlap, and length',
+    'APP-TABLES-FIELD-TYPES-ARRAY-002: should support array containment, overlap, and length',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -107,7 +107,7 @@ test.describe('Array Field', () => {
   )
 
   test.fixme(
-    'APP-ARRAY-FIELD-003: should enforce maximum array size via CHECK constraint',
+    'APP-TABLES-FIELD-TYPES-ARRAY-003: should enforce maximum array size via CHECK constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -143,7 +143,7 @@ test.describe('Array Field', () => {
   )
 
   test.fixme(
-    'APP-ARRAY-FIELD-004: should create GIN index for efficient array queries',
+    'APP-TABLES-FIELD-TYPES-ARRAY-004: should create GIN index for efficient array queries',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -179,7 +179,7 @@ test.describe('Array Field', () => {
   )
 
   test.fixme(
-    'APP-ARRAY-FIELD-005: should support dynamic array manipulation',
+    'APP-TABLES-FIELD-TYPES-ARRAY-005: should support dynamic array manipulation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -221,7 +221,7 @@ test.describe('Array Field', () => {
   )
 
   test.fixme(
-    'APP-ARRAY-FIELD-006: user can complete full array-field workflow',
+    'APP-TABLES-FIELD-TYPES-ARRAY-006: user can complete full array-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

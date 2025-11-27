@@ -22,7 +22,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Formula Field', () => {
   test.fixme(
-    'APP-FORMULA-FIELD-001: should create GENERATED ALWAYS AS column for arithmetic formula',
+    'APP-TABLES-FIELD-TYPES-FORMULA-001: should create GENERATED ALWAYS AS column for arithmetic formula',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -86,7 +86,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-FORMULA-FIELD-002: should perform text concatenation with GENERATED column',
+    'APP-TABLES-FIELD-TYPES-FORMULA-002: should perform text concatenation with GENERATED column',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -148,7 +148,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-FORMULA-FIELD-003: should support conditional expressions with CASE WHEN',
+    'APP-TABLES-FIELD-TYPES-FORMULA-003: should support conditional expressions with CASE WHEN',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -210,7 +210,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-FORMULA-FIELD-004: should apply mathematical functions like ROUND',
+    'APP-TABLES-FIELD-TYPES-FORMULA-004: should apply mathematical functions like ROUND',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -269,7 +269,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-FORMULA-FIELD-005: should evaluate boolean date logic for overdue detection',
+    'APP-TABLES-FIELD-TYPES-FORMULA-005: should evaluate boolean date logic for overdue detection',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -335,7 +335,7 @@ test.describe('Formula Field', () => {
   )
 
   test.fixme(
-    'APP-FORMULA-FIELD-006: user can complete full formula-field workflow',
+    'APP-TABLES-FIELD-TYPES-FORMULA-006: user can complete full formula-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

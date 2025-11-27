@@ -30,7 +30,7 @@ test.describe('Session Permission Enforcement', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ENFORCE-SESSION-001: should prevent user from accessing another users sessions',
+    'API-AUTH-ENFORCE-SESSION-001: should prevent user from accessing another users sessions',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Two users with separate sessions
@@ -72,7 +72,7 @@ test.describe('Session Permission Enforcement', () => {
   )
 
   test.fixme(
-    'API-ENFORCE-SESSION-002: should prevent user from revoking another users session',
+    'API-AUTH-ENFORCE-SESSION-002: should prevent user from revoking another users session',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Two users with separate sessions
@@ -112,7 +112,7 @@ test.describe('Session Permission Enforcement', () => {
   )
 
   test.fixme(
-    'API-ENFORCE-SESSION-003: should invalidate session immediately after sign-out',
+    'API-AUTH-ENFORCE-SESSION-003: should invalidate session immediately after sign-out',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Authenticated user
@@ -146,7 +146,7 @@ test.describe('Session Permission Enforcement', () => {
   )
 
   test.fixme(
-    'API-ENFORCE-SESSION-004: should enforce session expiration strictly',
+    'API-AUTH-ENFORCE-SESSION-004: should enforce session expiration strictly',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Session that just expired
@@ -177,7 +177,7 @@ test.describe('Session Permission Enforcement', () => {
   )
 
   test.fixme(
-    'API-ENFORCE-SESSION-005: should prevent session token reuse after refresh',
+    'API-AUTH-ENFORCE-SESSION-005: should prevent session token reuse after refresh',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: User with active session
@@ -214,7 +214,7 @@ test.describe('Session Permission Enforcement', () => {
   )
 
   test.fixme(
-    'API-ENFORCE-SESSION-006: should allow user to revoke all own sessions except current',
+    'API-AUTH-ENFORCE-SESSION-006: should allow user to revoke all own sessions except current',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: User with multiple sessions
@@ -255,7 +255,7 @@ test.describe('Session Permission Enforcement', () => {
   )
 
   test.fixme(
-    'API-ENFORCE-SESSION-007: should bind session to original IP/user-agent when strict mode enabled',
+    'API-AUTH-ENFORCE-SESSION-007: should bind session to original IP/user-agent when strict mode enabled',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Session created with specific IP and user-agent
@@ -294,7 +294,7 @@ test.describe('Session Permission Enforcement', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ENFORCE-SESSION-008: session enforcement workflow',
+    'API-AUTH-ENFORCE-SESSION-008: session enforcement workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: User with active session

@@ -21,7 +21,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('JSON Field', () => {
   test.fixme(
-    'APP-JSON-FIELD-001: should create PostgreSQL JSONB column for structured JSON data',
+    'APP-TABLES-FIELD-TYPES-JSON-001: should create PostgreSQL JSONB column for structured JSON data',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -56,7 +56,7 @@ test.describe('JSON Field', () => {
   )
 
   test.fixme(
-    'APP-JSON-FIELD-002: should support -> and ->> operators for field extraction',
+    'APP-TABLES-FIELD-TYPES-JSON-002: should support -> and ->> operators for field extraction',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -94,7 +94,7 @@ test.describe('JSON Field', () => {
   )
 
   test.fixme(
-    'APP-JSON-FIELD-003: should support containment and existence operators',
+    'APP-TABLES-FIELD-TYPES-JSON-003: should support containment and existence operators',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -132,7 +132,7 @@ test.describe('JSON Field', () => {
   )
 
   test.fixme(
-    'APP-JSON-FIELD-004: should create GIN index for efficient JSON queries',
+    'APP-TABLES-FIELD-TYPES-JSON-004: should create GIN index for efficient JSON queries',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -168,7 +168,7 @@ test.describe('JSON Field', () => {
   )
 
   test.fixme(
-    'APP-JSON-FIELD-005: should support in-place JSON field updates',
+    'APP-TABLES-FIELD-TYPES-JSON-005: should support in-place JSON field updates',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -202,7 +202,7 @@ test.describe('JSON Field', () => {
   )
 
   test.fixme(
-    'APP-JSON-FIELD-006: user can complete full json-field workflow',
+    'APP-TABLES-FIELD-TYPES-JSON-006: user can complete full json-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

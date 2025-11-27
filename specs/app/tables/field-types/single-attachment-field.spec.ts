@@ -9,7 +9,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Single Attachment Field', () => {
   test.fixme(
-    'APP-SINGLE-ATTACHMENT-FIELD-001: should create VARCHAR column for single file URL storage',
+    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-001: should create VARCHAR column for single file URL storage',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -34,7 +34,7 @@ test.describe('Single Attachment Field', () => {
   )
 
   test.fixme(
-    'APP-SINGLE-ATTACHMENT-FIELD-002: should store file metadata as JSONB',
+    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-002: should store file metadata as JSONB',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -57,7 +57,7 @@ test.describe('Single Attachment Field', () => {
   )
 
   test.fixme(
-    'APP-SINGLE-ATTACHMENT-FIELD-003: should enforce file type validation via CHECK constraint',
+    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-003: should enforce file type validation via CHECK constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -87,7 +87,7 @@ test.describe('Single Attachment Field', () => {
   )
 
   test.fixme(
-    'APP-SINGLE-ATTACHMENT-FIELD-004: should enforce file size limit via CHECK constraint',
+    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-004: should enforce file size limit via CHECK constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -110,7 +110,7 @@ test.describe('Single Attachment Field', () => {
   )
 
   test.fixme(
-    'APP-SINGLE-ATTACHMENT-FIELD-005: should support NULL for optional attachments',
+    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-005: should support NULL for optional attachments',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -135,7 +135,7 @@ test.describe('Single Attachment Field', () => {
   )
 
   test.fixme(
-    'APP-SINGLE-ATTACHMENT-FIELD-006: user can complete full single-attachment-field workflow',
+    'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-006: user can complete full single-attachment-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

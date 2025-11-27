@@ -31,7 +31,7 @@ test.describe('Admin: List users', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ADMIN-LIST-USERS-001: should returns 200 OK with paginated user list',
+    'API-AUTH-ADMIN-LIST-USERS-001: should returns 200 OK with paginated user list',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user with multiple users in system
@@ -82,7 +82,7 @@ test.describe('Admin: List users', () => {
   )
 
   test.fixme(
-    'API-ADMIN-LIST-USERS-002: should returns 200 OK with paginated results',
+    'API-AUTH-ADMIN-LIST-USERS-002: should returns 200 OK with paginated results',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user with multiple users in system
@@ -138,7 +138,7 @@ test.describe('Admin: List users', () => {
   )
 
   test.fixme(
-    'API-ADMIN-LIST-USERS-003: should returns 200 OK with users sorted correctly',
+    'API-AUTH-ADMIN-LIST-USERS-003: should returns 200 OK with users sorted correctly',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user with multiple users
@@ -190,7 +190,7 @@ test.describe('Admin: List users', () => {
   )
 
   test.fixme(
-    'API-ADMIN-LIST-USERS-004: should returns 401 Unauthorized',
+    'API-AUTH-ADMIN-LIST-USERS-004: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -223,7 +223,7 @@ test.describe('Admin: List users', () => {
   )
 
   test.fixme(
-    'API-ADMIN-LIST-USERS-005: should returns 403 Forbidden',
+    'API-AUTH-ADMIN-LIST-USERS-005: should returns 403 Forbidden',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated regular user (non-admin)
@@ -266,7 +266,7 @@ test.describe('Admin: List users', () => {
   )
 
   test.fixme(
-    'API-ADMIN-LIST-USERS-006: should returns 200 OK with users but password field excluded for security',
+    'API-AUTH-ADMIN-LIST-USERS-006: should returns 200 OK with users but password field excluded for security',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user with users in system
@@ -307,7 +307,7 @@ test.describe('Admin: List users', () => {
   )
 
   test.fixme(
-    'API-ADMIN-LIST-USERS-007: should returns 200 OK with only admin user in list',
+    'API-AUTH-ADMIN-LIST-USERS-007: should returns 200 OK with only admin user in list',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user with no other users in system
@@ -349,7 +349,7 @@ test.describe('Admin: List users', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ADMIN-LIST-USERS-008: user can complete full adminListUsers workflow',
+    'API-AUTH-ADMIN-LIST-USERS-008: user can complete full adminListUsers workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

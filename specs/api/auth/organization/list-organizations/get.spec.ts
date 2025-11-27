@@ -88,7 +88,7 @@ test.describe('List user organizations', () => {
   )
 
   test.fixme(
-    'API-ORG-LIST-ORGANIZATIONS-002: should returns 200 OK with empty organizations array',
+    'API-AUTH-ORG-LIST-ORGANIZATIONS-002: should returns 200 OK with empty organizations array',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user who is not member of any organization
@@ -126,7 +126,7 @@ test.describe('List user organizations', () => {
   )
 
   test.fixme(
-    'API-ORG-LIST-ORGANIZATIONS-003: should returns 401 Unauthorized',
+    'API-AUTH-ORG-LIST-ORGANIZATIONS-003: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -214,7 +214,7 @@ test.describe('List user organizations', () => {
   )
 
   test.fixme(
-    'API-ORG-LIST-ORGANIZATIONS-005: should returns 200 OK with correct role for each organization',
+    'API-AUTH-ORG-LIST-ORGANIZATIONS-005: should returns 200 OK with correct role for each organization',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user with different roles across organizations
@@ -281,7 +281,7 @@ test.describe('List user organizations', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-LIST-ORGANIZATIONS-006: user can complete full listOrganizations workflow',
+    'API-AUTH-ORG-LIST-ORGANIZATIONS-006: user can complete full listOrganizations workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

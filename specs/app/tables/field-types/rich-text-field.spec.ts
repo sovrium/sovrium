@@ -22,7 +22,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Rich Text Field', () => {
   test.fixme(
-    'APP-RICH-TEXT-FIELD-001: should create PostgreSQL TEXT column for markdown/rich text storage',
+    'APP-TABLES-FIELD-TYPES-RICH-TEXT-001: should create PostgreSQL TEXT column for markdown/rich text storage',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -57,7 +57,7 @@ test.describe('Rich Text Field', () => {
   )
 
   test.fixme(
-    'APP-RICH-TEXT-FIELD-002: should enforce maximum length via CHECK constraint',
+    'APP-TABLES-FIELD-TYPES-RICH-TEXT-002: should enforce maximum length via CHECK constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -87,7 +87,7 @@ test.describe('Rich Text Field', () => {
   )
 
   test.fixme(
-    'APP-RICH-TEXT-FIELD-003: should support full-text search with GIN index',
+    'APP-TABLES-FIELD-TYPES-RICH-TEXT-003: should support full-text search with GIN index',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -123,7 +123,7 @@ test.describe('Rich Text Field', () => {
   )
 
   test.fixme(
-    'APP-RICH-TEXT-FIELD-004: should enable full-text search with to_tsvector and to_tsquery',
+    'APP-TABLES-FIELD-TYPES-RICH-TEXT-004: should enable full-text search with to_tsvector and to_tsquery',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -156,7 +156,7 @@ test.describe('Rich Text Field', () => {
   )
 
   test.fixme(
-    'APP-RICH-TEXT-FIELD-005: should enforce NOT NULL and UNIQUE constraints',
+    'APP-TABLES-FIELD-TYPES-RICH-TEXT-005: should enforce NOT NULL and UNIQUE constraints',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -196,7 +196,7 @@ test.describe('Rich Text Field', () => {
   )
 
   test.fixme(
-    'APP-RICH-TEXT-FIELD-006: user can complete full rich-text-field workflow',
+    'APP-TABLES-FIELD-TYPES-RICH-TEXT-006: user can complete full rich-text-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

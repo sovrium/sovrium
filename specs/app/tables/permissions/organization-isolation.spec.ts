@@ -30,7 +30,7 @@ test.describe('Organization Data Isolation', () => {
   // ============================================================================
 
   test.fixme(
-    'ORG-ISOLATION-001: should prevent access to data from other organizations',
+    'APP-TABLES-ORG-ISOLATION-001: should prevent access to data from other organizations',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Multi-organization setup with separate data
@@ -100,7 +100,7 @@ test.describe('Organization Data Isolation', () => {
   )
 
   test.fixme(
-    'ORG-ISOLATION-002: should deny direct access to other organization records',
+    'APP-TABLES-ORG-ISOLATION-002: should deny direct access to other organization records',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Multi-organization setup
@@ -156,7 +156,7 @@ test.describe('Organization Data Isolation', () => {
   )
 
   test.fixme(
-    'ORG-ISOLATION-003: should prevent creating records in other organizations',
+    'APP-TABLES-ORG-ISOLATION-003: should prevent creating records in other organizations',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Multi-organization setup
@@ -218,7 +218,7 @@ test.describe('Organization Data Isolation', () => {
   )
 
   test.fixme(
-    'ORG-ISOLATION-004: should prevent updating records in other organizations',
+    'APP-TABLES-ORG-ISOLATION-004: should prevent updating records in other organizations',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Multi-organization setup with records
@@ -279,7 +279,7 @@ test.describe('Organization Data Isolation', () => {
   )
 
   test.fixme(
-    'ORG-ISOLATION-005: should prevent deleting records in other organizations',
+    'APP-TABLES-ORG-ISOLATION-005: should prevent deleting records in other organizations',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Multi-organization setup with records
@@ -340,7 +340,7 @@ test.describe('Organization Data Isolation', () => {
   )
 
   test.fixme(
-    'ORG-ISOLATION-006: should allow organization admin to access all org data',
+    'APP-TABLES-ORG-ISOLATION-006: should allow organization admin to access all org data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Organization with admin and member
@@ -414,7 +414,7 @@ test.describe('Organization Data Isolation', () => {
   )
 
   test.fixme(
-    'ORG-ISOLATION-007: should support users in multiple organizations',
+    'APP-TABLES-ORG-ISOLATION-007: should support users in multiple organizations',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: User belonging to multiple organizations
@@ -497,7 +497,7 @@ test.describe('Organization Data Isolation', () => {
   // ============================================================================
 
   test.fixme(
-    'ORG-ISOLATION-008: organization data isolation workflow',
+    'APP-TABLES-ORG-ISOLATION-008: organization data isolation workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Two organizations with separate data

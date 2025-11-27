@@ -32,7 +32,7 @@ test.describe('Cancel organization invitation', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-CANCEL-INVITATION-001: should returns 200 OK and invitation status updated to cancelled',
+    'API-AUTH-ORG-CANCEL-INVITATION-001: should returns 200 OK and invitation status updated to cancelled',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner and a pending invitation
@@ -90,7 +90,7 @@ test.describe('Cancel organization invitation', () => {
   )
 
   test.fixme(
-    'API-ORG-CANCEL-INVITATION-002: should returns 400 Bad Request with validation error',
+    'API-AUTH-ORG-CANCEL-INVITATION-002: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner
@@ -139,7 +139,7 @@ test.describe('Cancel organization invitation', () => {
   )
 
   test.fixme(
-    'API-ORG-CANCEL-INVITATION-003: should returns 401 Unauthorized',
+    'API-AUTH-ORG-CANCEL-INVITATION-003: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -177,7 +177,7 @@ test.describe('Cancel organization invitation', () => {
   )
 
   test.fixme(
-    'API-ORG-CANCEL-INVITATION-004: should returns 403 Forbidden',
+    'API-AUTH-ORG-CANCEL-INVITATION-004: should returns 403 Forbidden',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated regular member (not owner/admin)
@@ -232,7 +232,7 @@ test.describe('Cancel organization invitation', () => {
   )
 
   test.fixme(
-    'API-ORG-CANCEL-INVITATION-005: should returns 404 Not Found',
+    'API-AUTH-ORG-CANCEL-INVITATION-005: should returns 404 Not Found',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner
@@ -284,7 +284,7 @@ test.describe('Cancel organization invitation', () => {
   )
 
   test.fixme(
-    'API-ORG-CANCEL-INVITATION-006: should returns 409 Conflict',
+    'API-AUTH-ORG-CANCEL-INVITATION-006: should returns 409 Conflict',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner and an accepted invitation
@@ -345,7 +345,7 @@ test.describe('Cancel organization invitation', () => {
   )
 
   test.fixme(
-    'API-ORG-CANCEL-INVITATION-007: should returns 409 Conflict',
+    'API-AUTH-ORG-CANCEL-INVITATION-007: should returns 409 Conflict',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner and an already cancelled invitation
@@ -400,7 +400,7 @@ test.describe('Cancel organization invitation', () => {
   )
 
   test.fixme(
-    'API-ORG-CANCEL-INVITATION-008: should returns 404 Not Found (prevent organization enumeration)',
+    'API-AUTH-ORG-CANCEL-INVITATION-008: should returns 404 Not Found (prevent organization enumeration)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated owner of one organization and an invitation from different organization
@@ -472,7 +472,7 @@ test.describe('Cancel organization invitation', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-CANCEL-INVITATION-009: user can complete full cancelInvitation workflow',
+    'API-AUTH-ORG-CANCEL-INVITATION-009: user can complete full cancelInvitation workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

@@ -22,7 +22,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('User Field', () => {
   test.fixme(
-    'APP-USER-FIELD-001: should create PostgreSQL INTEGER column with FOREIGN KEY to users',
+    'APP-TABLES-FIELD-TYPES-USER-001: should create PostgreSQL INTEGER column with FOREIGN KEY to users',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -72,7 +72,7 @@ test.describe('User Field', () => {
   )
 
   test.fixme(
-    'APP-USER-FIELD-002: should enforce valid user foreign key references',
+    'APP-TABLES-FIELD-TYPES-USER-002: should enforce valid user foreign key references',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -119,7 +119,7 @@ test.describe('User Field', () => {
   )
 
   test.fixme(
-    'APP-USER-FIELD-003: should support multiple user assignments via junction table',
+    'APP-TABLES-FIELD-TYPES-USER-003: should support multiple user assignments via junction table',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -160,7 +160,7 @@ test.describe('User Field', () => {
   )
 
   test.fixme(
-    'APP-USER-FIELD-004: should return user profile data via JOIN',
+    'APP-TABLES-FIELD-TYPES-USER-004: should return user profile data via JOIN',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -212,7 +212,7 @@ test.describe('User Field', () => {
   )
 
   test.fixme(
-    'APP-USER-FIELD-005: should create btree index for fast user filtering when indexed=true',
+    'APP-TABLES-FIELD-TYPES-USER-005: should create btree index for fast user filtering when indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -243,7 +243,7 @@ test.describe('User Field', () => {
   )
 
   test.fixme(
-    'APP-USER-FIELD-006: user can complete full user-field workflow',
+    'APP-TABLES-FIELD-TYPES-USER-006: user can complete full user-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

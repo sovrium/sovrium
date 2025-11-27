@@ -21,7 +21,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Multi Select Field', () => {
   test.fixme(
-    'APP-MULTI-SELECT-FIELD-001: should create PostgreSQL TEXT ARRAY column for multi select storage',
+    'APP-TABLES-FIELD-TYPES-MULTI-SELECT-001: should create PostgreSQL TEXT ARRAY column for multi select storage',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -66,7 +66,7 @@ test.describe('Multi Select Field', () => {
   )
 
   test.fixme(
-    'APP-MULTI-SELECT-FIELD-002: should allow storing multiple values from predefined options',
+    'APP-TABLES-FIELD-TYPES-MULTI-SELECT-002: should allow storing multiple values from predefined options',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -107,7 +107,7 @@ test.describe('Multi Select Field', () => {
   )
 
   test.fixme(
-    'APP-MULTI-SELECT-FIELD-003: should reject NULL value when multi-select field is required',
+    'APP-TABLES-FIELD-TYPES-MULTI-SELECT-003: should reject NULL value when multi-select field is required',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -147,7 +147,7 @@ test.describe('Multi Select Field', () => {
   )
 
   test.fixme(
-    'APP-MULTI-SELECT-FIELD-004: should apply DEFAULT value when row inserted without providing value',
+    'APP-TABLES-FIELD-TYPES-MULTI-SELECT-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -182,7 +182,7 @@ test.describe('Multi Select Field', () => {
   )
 
   test.fixme(
-    'APP-MULTI-SELECT-FIELD-005: should create GIN index for fast array queries when multi-select field has indexed=true',
+    'APP-TABLES-FIELD-TYPES-MULTI-SELECT-005: should create GIN index for fast array queries when multi-select field has indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -218,7 +218,7 @@ test.describe('Multi Select Field', () => {
   )
 
   test.fixme(
-    'APP-MULTI-SELECT-FIELD-006: user can complete full multi-select-field workflow',
+    'APP-TABLES-FIELD-TYPES-MULTI-SELECT-006: user can complete full multi-select-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

@@ -25,7 +25,7 @@ test.describe('Decimal Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-DECIMAL-FIELD-001: should create PostgreSQL DECIMAL column when table configuration has decimal field',
+    'APP-TABLES-FIELD-TYPES-DECIMAL-001: should create PostgreSQL DECIMAL column when table configuration has decimal field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with decimal field 'price'
@@ -63,7 +63,7 @@ test.describe('Decimal Field', () => {
   )
 
   test.fixme(
-    'APP-DECIMAL-FIELD-002: should reject values outside min/max range when CHECK constraint enforces range validation',
+    'APP-TABLES-FIELD-TYPES-DECIMAL-002: should reject values outside min/max range when CHECK constraint enforces range validation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with decimal field 'amount' (min=0, max=1000)
@@ -103,7 +103,7 @@ test.describe('Decimal Field', () => {
   )
 
   test.fixme(
-    'APP-DECIMAL-FIELD-003: should enforce NOT NULL and UNIQUE constraints when decimal field is required and unique',
+    'APP-TABLES-FIELD-TYPES-DECIMAL-003: should enforce NOT NULL and UNIQUE constraints when decimal field is required and unique',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with decimal field 'value' (required, unique)
@@ -146,7 +146,7 @@ test.describe('Decimal Field', () => {
   )
 
   test.fixme(
-    'APP-DECIMAL-FIELD-004: should apply DEFAULT value when row inserted without providing value',
+    'APP-TABLES-FIELD-TYPES-DECIMAL-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with decimal field 'rate' and default value 1.5
@@ -182,7 +182,7 @@ test.describe('Decimal Field', () => {
   )
 
   test.fixme(
-    'APP-DECIMAL-FIELD-005: should create btree index for fast numerical queries when decimal field has indexed=true',
+    'APP-TABLES-FIELD-TYPES-DECIMAL-005: should create btree index for fast numerical queries when decimal field has indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with decimal field 'score', indexed=true
@@ -219,7 +219,7 @@ test.describe('Decimal Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-DECIMAL-FIELD-006: user can complete full decimal-field workflow',
+    'APP-TABLES-FIELD-TYPES-DECIMAL-006: user can complete full decimal-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative decimal field

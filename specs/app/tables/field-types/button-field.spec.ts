@@ -9,7 +9,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Button Field', () => {
   test.fixme(
-    'APP-BUTTON-FIELD-001: should not create database column (UI-only field)',
+    'APP-TABLES-FIELD-TYPES-BUTTON-001: should not create database column (UI-only field)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -41,7 +41,7 @@ test.describe('Button Field', () => {
   )
 
   test.fixme(
-    'APP-BUTTON-FIELD-002: should store button action configuration in table metadata',
+    'APP-TABLES-FIELD-TYPES-BUTTON-002: should store button action configuration in table metadata',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -77,7 +77,7 @@ test.describe('Button Field', () => {
   )
 
   test.fixme(
-    'APP-BUTTON-FIELD-003: should trigger server-side action on button click',
+    'APP-TABLES-FIELD-TYPES-BUTTON-003: should trigger server-side action on button click',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -118,7 +118,7 @@ test.describe('Button Field', () => {
   )
 
   test.fixme(
-    'APP-BUTTON-FIELD-004: should support conditional button visibility based on record state',
+    'APP-TABLES-FIELD-TYPES-BUTTON-004: should support conditional button visibility based on record state',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -158,7 +158,7 @@ test.describe('Button Field', () => {
   )
 
   test.fixme(
-    'APP-BUTTON-FIELD-005: should log button action execution in audit trail',
+    'APP-TABLES-FIELD-TYPES-BUTTON-005: should log button action execution in audit trail',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -192,7 +192,7 @@ test.describe('Button Field', () => {
   )
 
   test.fixme(
-    'APP-BUTTON-FIELD-006: user can complete full button-field workflow',
+    'APP-TABLES-FIELD-TYPES-BUTTON-006: user can complete full button-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

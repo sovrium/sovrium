@@ -26,7 +26,7 @@ test.describe('Currency Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-CURRENCY-FIELD-001: should create PostgreSQL DECIMAL column for currency storage when table configuration has currency field',
+    'APP-TABLES-FIELD-TYPES-CURRENCY-001: should create PostgreSQL DECIMAL column for currency storage when table configuration has currency field',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with currency field 'price'
@@ -64,7 +64,7 @@ test.describe('Currency Field', () => {
   )
 
   test.fixme(
-    'APP-CURRENCY-FIELD-002: should reject values outside min/max range when CHECK constraint enforces range validation',
+    'APP-TABLES-FIELD-TYPES-CURRENCY-002: should reject values outside min/max range when CHECK constraint enforces range validation',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table with currency field 'budget' (min=0, max=10000)
@@ -104,7 +104,7 @@ test.describe('Currency Field', () => {
   )
 
   test.fixme(
-    'APP-CURRENCY-FIELD-003: should enforce NOT NULL and UNIQUE constraints when currency field is required and unique',
+    'APP-TABLES-FIELD-TYPES-CURRENCY-003: should enforce NOT NULL and UNIQUE constraints when currency field is required and unique',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table with currency field 'transaction_id' (required, unique)
@@ -154,7 +154,7 @@ test.describe('Currency Field', () => {
   )
 
   test.fixme(
-    'APP-CURRENCY-FIELD-004: should apply DEFAULT value when row inserted without providing value',
+    'APP-TABLES-FIELD-TYPES-CURRENCY-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table with currency field 'fee' and default value 9.99
@@ -190,7 +190,7 @@ test.describe('Currency Field', () => {
   )
 
   test.fixme(
-    'APP-CURRENCY-FIELD-005: should create btree index for fast queries when currency field has indexed=true',
+    'APP-TABLES-FIELD-TYPES-CURRENCY-005: should create btree index for fast queries when currency field has indexed=true',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with currency field 'total', indexed=true
@@ -234,7 +234,7 @@ test.describe('Currency Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-CURRENCY-FIELD-006: user can complete full currency-field workflow',
+    'APP-TABLES-FIELD-TYPES-CURRENCY-006: user can complete full currency-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative currency field

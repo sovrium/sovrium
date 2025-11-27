@@ -21,7 +21,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Created At Field', () => {
   test.fixme(
-    'APP-CREATED-AT-FIELD-001: should create PostgreSQL TIMESTAMPTZ column with DEFAULT NOW()',
+    'APP-TABLES-FIELD-TYPES-CREATED-AT-001: should create PostgreSQL TIMESTAMPTZ column with DEFAULT NOW()',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -52,7 +52,7 @@ test.describe('Created At Field', () => {
   )
 
   test.fixme(
-    'APP-CREATED-AT-FIELD-002: should automatically set timestamp when row is created',
+    'APP-TABLES-FIELD-TYPES-CREATED-AT-002: should automatically set timestamp when row is created',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -81,7 +81,7 @@ test.describe('Created At Field', () => {
   )
 
   test.fixme(
-    'APP-CREATED-AT-FIELD-003: should be immutable after creation (no updates allowed)',
+    'APP-TABLES-FIELD-TYPES-CREATED-AT-003: should be immutable after creation (no updates allowed)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -116,7 +116,7 @@ test.describe('Created At Field', () => {
   )
 
   test.fixme(
-    'APP-CREATED-AT-FIELD-004: should reject NULL values (always required)',
+    'APP-TABLES-FIELD-TYPES-CREATED-AT-004: should reject NULL values (always required)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -145,7 +145,7 @@ test.describe('Created At Field', () => {
   )
 
   test.fixme(
-    'APP-CREATED-AT-FIELD-005: should create btree index for fast queries when indexed=true',
+    'APP-TABLES-FIELD-TYPES-CREATED-AT-005: should create btree index for fast queries when indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -174,7 +174,7 @@ test.describe('Created At Field', () => {
   )
 
   test.fixme(
-    'APP-CREATED-AT-FIELD-006: user can complete full created-at-field workflow',
+    'APP-TABLES-FIELD-TYPES-CREATED-AT-006: user can complete full created-at-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

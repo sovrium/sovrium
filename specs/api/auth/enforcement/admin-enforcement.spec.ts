@@ -30,7 +30,7 @@ test.describe('Admin Permission Enforcement', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ENFORCE-ADMIN-001: should deny access to all admin endpoints for unauthenticated users',
+    'API-AUTH-ENFORCE-ADMIN-001: should deny access to all admin endpoints for unauthenticated users',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Server with admin plugin enabled
@@ -69,7 +69,7 @@ test.describe('Admin Permission Enforcement', () => {
   )
 
   test.fixme(
-    'API-ENFORCE-ADMIN-002: should deny access to admin endpoints for regular users',
+    'API-AUTH-ENFORCE-ADMIN-002: should deny access to admin endpoints for regular users',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Authenticated regular user (role: user)
@@ -105,7 +105,7 @@ test.describe('Admin Permission Enforcement', () => {
   )
 
   test.fixme(
-    'API-ENFORCE-ADMIN-003: should allow admin access to all admin endpoints',
+    'API-AUTH-ENFORCE-ADMIN-003: should allow admin access to all admin endpoints',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Authenticated admin user
@@ -139,7 +139,7 @@ test.describe('Admin Permission Enforcement', () => {
   )
 
   test.fixme(
-    'API-ENFORCE-ADMIN-004: should prevent regular users from elevating their own role',
+    'API-AUTH-ENFORCE-ADMIN-004: should prevent regular users from elevating their own role',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Regular user attempting to become admin
@@ -177,7 +177,7 @@ test.describe('Admin Permission Enforcement', () => {
   )
 
   test.fixme(
-    'API-ENFORCE-ADMIN-005: should reject expired session tokens',
+    'API-AUTH-ENFORCE-ADMIN-005: should reject expired session tokens',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Admin with expired session
@@ -210,7 +210,7 @@ test.describe('Admin Permission Enforcement', () => {
   )
 
   test.fixme(
-    'API-ENFORCE-ADMIN-006: should reject invalid/malformed session tokens',
+    'API-AUTH-ENFORCE-ADMIN-006: should reject invalid/malformed session tokens',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Server running
@@ -248,7 +248,7 @@ test.describe('Admin Permission Enforcement', () => {
   )
 
   test.fixme(
-    'API-ENFORCE-ADMIN-007: should prevent banned admin from accessing admin endpoints',
+    'API-AUTH-ENFORCE-ADMIN-007: should prevent banned admin from accessing admin endpoints',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Banned admin user
@@ -283,7 +283,7 @@ test.describe('Admin Permission Enforcement', () => {
   )
 
   test.fixme(
-    'API-ENFORCE-ADMIN-008: should enforce rate limiting on admin endpoints',
+    'API-AUTH-ENFORCE-ADMIN-008: should enforce rate limiting on admin endpoints',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Admin user making many requests
@@ -328,7 +328,7 @@ test.describe('Admin Permission Enforcement', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ENFORCE-ADMIN-009: admin permission enforcement workflow',
+    'API-AUTH-ENFORCE-ADMIN-009: admin permission enforcement workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Users with different roles

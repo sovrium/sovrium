@@ -22,7 +22,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Lookup Field', () => {
   test.fixme(
-    'APP-LOOKUP-FIELD-001: should retrieve related field via JOIN',
+    'APP-TABLES-FIELD-TYPES-LOOKUP-001: should retrieve related field via JOIN',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -61,7 +61,7 @@ test.describe('Lookup Field', () => {
   )
 
   test.fixme(
-    'APP-LOOKUP-FIELD-002: should support multiple lookup fields through same relationship',
+    'APP-TABLES-FIELD-TYPES-LOOKUP-002: should support multiple lookup fields through same relationship',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -87,7 +87,7 @@ test.describe('Lookup Field', () => {
   )
 
   test.fixme(
-    'APP-LOOKUP-FIELD-003: should create VIEW to encapsulate lookup logic',
+    'APP-TABLES-FIELD-TYPES-LOOKUP-003: should create VIEW to encapsulate lookup logic',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -123,7 +123,7 @@ test.describe('Lookup Field', () => {
   )
 
   test.fixme(
-    'APP-LOOKUP-FIELD-004: should return NULL when relationship is NULL via LEFT JOIN',
+    'APP-TABLES-FIELD-TYPES-LOOKUP-004: should return NULL when relationship is NULL via LEFT JOIN',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -158,7 +158,7 @@ test.describe('Lookup Field', () => {
   )
 
   test.fixme(
-    'APP-LOOKUP-FIELD-005: should reflect updated values immediately when related record changes',
+    'APP-TABLES-FIELD-TYPES-LOOKUP-005: should reflect updated values immediately when related record changes',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -189,7 +189,7 @@ test.describe('Lookup Field', () => {
   )
 
   test.fixme(
-    'APP-LOOKUP-FIELD-006: user can complete full lookup-field workflow',
+    'APP-TABLES-FIELD-TYPES-LOOKUP-006: user can complete full lookup-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

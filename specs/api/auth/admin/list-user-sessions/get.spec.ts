@@ -31,7 +31,7 @@ test.describe('Admin: List user sessions', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ADMIN-LIST-USER-SESSIONS-001: should returns 200 OK with all active user sessions',
+    'API-AUTH-ADMIN-LIST-USER-SESSIONS-001: should returns 200 OK with all active user sessions',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user and a user with multiple sessions
@@ -84,7 +84,7 @@ test.describe('Admin: List user sessions', () => {
   )
 
   test.fixme(
-    'API-ADMIN-LIST-USER-SESSIONS-002: should returns 400 Bad Request with validation error',
+    'API-AUTH-ADMIN-LIST-USER-SESSIONS-002: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user
@@ -127,7 +127,7 @@ test.describe('Admin: List user sessions', () => {
   )
 
   test.fixme(
-    'API-ADMIN-LIST-USER-SESSIONS-003: should returns 401 Unauthorized',
+    'API-AUTH-ADMIN-LIST-USER-SESSIONS-003: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -160,7 +160,7 @@ test.describe('Admin: List user sessions', () => {
   )
 
   test.fixme(
-    'API-ADMIN-LIST-USER-SESSIONS-004: should returns 403 Forbidden',
+    'API-AUTH-ADMIN-LIST-USER-SESSIONS-004: should returns 403 Forbidden',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated regular user (non-admin)
@@ -206,7 +206,7 @@ test.describe('Admin: List user sessions', () => {
   )
 
   test.fixme(
-    'API-ADMIN-LIST-USER-SESSIONS-005: should returns 404 Not Found',
+    'API-AUTH-ADMIN-LIST-USER-SESSIONS-005: should returns 404 Not Found',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user
@@ -249,7 +249,7 @@ test.describe('Admin: List user sessions', () => {
   )
 
   test.fixme(
-    'API-ADMIN-LIST-USER-SESSIONS-006: should returns 200 OK with empty sessions array',
+    'API-AUTH-ADMIN-LIST-USER-SESSIONS-006: should returns 200 OK with empty sessions array',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user and a user with no active sessions
@@ -290,7 +290,7 @@ test.describe('Admin: List user sessions', () => {
   )
 
   test.fixme(
-    'API-ADMIN-LIST-USER-SESSIONS-007: should returns 200 OK with only active sessions (expired filtered out)',
+    'API-AUTH-ADMIN-LIST-USER-SESSIONS-007: should returns 200 OK with only active sessions (expired filtered out)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user and a user with active and expired sessions
@@ -341,7 +341,7 @@ test.describe('Admin: List user sessions', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ADMIN-LIST-USER-SESSIONS-008: user can complete full adminListUserSessions workflow',
+    'API-AUTH-ADMIN-LIST-USER-SESSIONS-008: user can complete full adminListUserSessions workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

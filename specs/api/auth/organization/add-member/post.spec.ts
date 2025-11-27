@@ -31,7 +31,7 @@ test.describe('Add member to organization', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-ADD-MEMBER-001: should returns 201 Created with member data',
+    'API-AUTH-ORG-ADD-MEMBER-001: should returns 201 Created with member data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner and an existing user
@@ -91,7 +91,7 @@ test.describe('Add member to organization', () => {
   )
 
   test.fixme(
-    'API-ORG-ADD-MEMBER-002: should returns 400 Bad Request with validation errors',
+    'API-AUTH-ORG-ADD-MEMBER-002: should returns 400 Bad Request with validation errors',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner
@@ -140,7 +140,7 @@ test.describe('Add member to organization', () => {
   )
 
   test.fixme(
-    'API-ORG-ADD-MEMBER-003: should returns 401 Unauthorized',
+    'API-AUTH-ORG-ADD-MEMBER-003: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -180,7 +180,7 @@ test.describe('Add member to organization', () => {
   )
 
   test.fixme(
-    'API-ORG-ADD-MEMBER-004: should returns 403 Forbidden',
+    'API-AUTH-ORG-ADD-MEMBER-004: should returns 403 Forbidden',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated regular member (not owner/admin)
@@ -237,7 +237,7 @@ test.describe('Add member to organization', () => {
   )
 
   test.fixme(
-    'API-ORG-ADD-MEMBER-005: should returns 404 Not Found',
+    'API-AUTH-ORG-ADD-MEMBER-005: should returns 404 Not Found',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner
@@ -291,7 +291,7 @@ test.describe('Add member to organization', () => {
   )
 
   test.fixme(
-    'API-ORG-ADD-MEMBER-006: should returns 409 Conflict error',
+    'API-AUTH-ORG-ADD-MEMBER-006: should returns 409 Conflict error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner and a user who is already member
@@ -355,7 +355,7 @@ test.describe('Add member to organization', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-ADD-MEMBER-007: user can complete full addMember workflow',
+    'API-AUTH-ORG-ADD-MEMBER-007: user can complete full addMember workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

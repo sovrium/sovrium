@@ -8,7 +8,7 @@
 import { test, expect } from '@/specs/fixtures'
 
 test.fixme(
-  'API-VIEW-RECORDS-001: should return records filtered by view configuration',
+  'API-TABLES-VIEW-RECORDS-001: should return records filtered by view configuration',
   { tag: '@spec' },
   async ({ startServerWithSchema, executeQuery, request }) => {
     // GIVEN: table 'tasks' with view 'active_tasks' filtering status='active'
@@ -72,7 +72,7 @@ test.fixme(
 )
 
 test.fixme(
-  'API-VIEW-RECORDS-002: should return records sorted by view configuration',
+  'API-TABLES-VIEW-RECORDS-002: should return records sorted by view configuration',
   { tag: '@spec' },
   async ({ startServerWithSchema, executeQuery, request }) => {
     // GIVEN: table 'products' with view sorted by price DESC
@@ -124,7 +124,7 @@ test.fixme(
 )
 
 test.fixme(
-  'API-VIEW-RECORDS-003: should return only visible fields configured in view',
+  'API-TABLES-VIEW-RECORDS-003: should return only visible fields configured in view',
   { tag: '@spec' },
   async ({ startServerWithSchema, executeQuery, request }) => {
     // GIVEN: table 'users' with view showing only name and email (hiding phone)
@@ -181,7 +181,7 @@ test.fixme(
 )
 
 test.fixme(
-  'API-VIEW-RECORDS-004: should return 403 when user lacks view access',
+  'API-TABLES-VIEW-RECORDS-004: should return 403 when user lacks view access',
   { tag: '@spec' },
   async ({ startServerWithSchema, request }) => {
     // GIVEN: table with view restricted to admin role
@@ -220,7 +220,7 @@ test.fixme(
 )
 
 test.fixme(
-  'API-VIEW-RECORDS-005: API-VIEW-RECORDS-REGRESSION: view API endpoints work correctly',
+  'API-TABLES-VIEW-RECORDS-005: API-VIEW-RECORDS-REGRESSION: view API endpoints work correctly',
   { tag: '@regression' },
   async ({ startServerWithSchema, executeQuery, request }) => {
     // Basic view filtering smoke test

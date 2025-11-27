@@ -31,7 +31,7 @@ test.describe('Accept organization invitation', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-ACCEPT-INVITATION-001: should returns 200 OK, user added to organization, invitation marked as accepted',
+    'API-AUTH-ORG-ACCEPT-INVITATION-001: should returns 200 OK, user added to organization, invitation marked as accepted',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user and a valid pending invitation
@@ -102,7 +102,7 @@ test.describe('Accept organization invitation', () => {
   )
 
   test.fixme(
-    'API-ORG-ACCEPT-INVITATION-002: should returns 400 Bad Request with validation error',
+    'API-AUTH-ORG-ACCEPT-INVITATION-002: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -145,7 +145,7 @@ test.describe('Accept organization invitation', () => {
   )
 
   test.fixme(
-    'API-ORG-ACCEPT-INVITATION-003: should returns 401 Unauthorized',
+    'API-AUTH-ORG-ACCEPT-INVITATION-003: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -183,7 +183,7 @@ test.describe('Accept organization invitation', () => {
   )
 
   test.fixme(
-    'API-ORG-ACCEPT-INVITATION-004: should returns 404 Not Found',
+    'API-AUTH-ORG-ACCEPT-INVITATION-004: should returns 404 Not Found',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -229,7 +229,7 @@ test.describe('Accept organization invitation', () => {
   )
 
   test.fixme(
-    'API-ORG-ACCEPT-INVITATION-005: should returns 410 Gone',
+    'API-AUTH-ORG-ACCEPT-INVITATION-005: should returns 410 Gone',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user and an expired invitation
@@ -287,7 +287,7 @@ test.describe('Accept organization invitation', () => {
   )
 
   test.fixme(
-    'API-ORG-ACCEPT-INVITATION-006: should returns 409 Conflict',
+    'API-AUTH-ORG-ACCEPT-INVITATION-006: should returns 409 Conflict',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user who is already organization member
@@ -342,7 +342,7 @@ test.describe('Accept organization invitation', () => {
   )
 
   test.fixme(
-    'API-ORG-ACCEPT-INVITATION-007: should returns 404 Not Found (prevent invitation enumeration)',
+    'API-AUTH-ORG-ACCEPT-INVITATION-007: should returns 404 Not Found (prevent invitation enumeration)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user and an invitation for different email
@@ -404,7 +404,7 @@ test.describe('Accept organization invitation', () => {
   )
 
   test.fixme(
-    'API-ORG-ACCEPT-INVITATION-008: should returns 409 Conflict',
+    'API-AUTH-ORG-ACCEPT-INVITATION-008: should returns 409 Conflict',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user and an invitation already accepted
@@ -469,7 +469,7 @@ test.describe('Accept organization invitation', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-ACCEPT-INVITATION-009: user can complete full acceptInvitation workflow',
+    'API-AUTH-ORG-ACCEPT-INVITATION-009: user can complete full acceptInvitation workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

@@ -32,7 +32,7 @@ test.describe('Delete organization', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-DELETE-ORGANIZATION-001: should returns 200 OK and permanently deletes organization with all members',
+    'API-AUTH-ORG-DELETE-ORGANIZATION-001: should returns 200 OK and permanently deletes organization with all members',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner
@@ -99,7 +99,7 @@ test.describe('Delete organization', () => {
   )
 
   test.fixme(
-    'API-ORG-DELETE-ORGANIZATION-002: should returns 400 Bad Request with validation error',
+    'API-AUTH-ORG-DELETE-ORGANIZATION-002: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner
@@ -142,7 +142,7 @@ test.describe('Delete organization', () => {
   )
 
   test.fixme(
-    'API-ORG-DELETE-ORGANIZATION-003: should returns 401 Unauthorized',
+    'API-AUTH-ORG-DELETE-ORGANIZATION-003: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -180,7 +180,7 @@ test.describe('Delete organization', () => {
   )
 
   test.fixme(
-    'API-ORG-DELETE-ORGANIZATION-004: should returns 403 Forbidden',
+    'API-AUTH-ORG-DELETE-ORGANIZATION-004: should returns 403 Forbidden',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization member (non-owner)
@@ -232,7 +232,7 @@ test.describe('Delete organization', () => {
   )
 
   test.fixme(
-    'API-ORG-DELETE-ORGANIZATION-005: should returns 404 Not Found',
+    'API-AUTH-ORG-DELETE-ORGANIZATION-005: should returns 404 Not Found',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -278,7 +278,7 @@ test.describe('Delete organization', () => {
   )
 
   test.fixme(
-    'API-ORG-DELETE-ORGANIZATION-006: should returns 404 Not Found (not 403 to prevent organization enumeration)',
+    'API-AUTH-ORG-DELETE-ORGANIZATION-006: should returns 404 Not Found (not 403 to prevent organization enumeration)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Two organizations with different owners
@@ -340,7 +340,7 @@ test.describe('Delete organization', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-DELETE-ORGANIZATION-007: user can complete full deleteOrganization workflow',
+    'API-AUTH-ORG-DELETE-ORGANIZATION-007: user can complete full deleteOrganization workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

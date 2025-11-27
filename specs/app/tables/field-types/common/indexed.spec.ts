@@ -26,7 +26,7 @@ test.describe('Indexed Field Property', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-FIELD-INDEXED-001: should create btree index optimizing queries when field has indexed: true',
+    'APP-TABLES-FIELD-INDEXED-001: should create btree index optimizing queries when field has indexed: true',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: field with indexed: true
@@ -72,7 +72,7 @@ test.describe('Indexed Field Property', () => {
   )
 
   test.fixme(
-    'APP-FIELD-INDEXED-002: should not create index for field when field has indexed: false (default)',
+    'APP-TABLES-FIELD-INDEXED-002: should not create index for field when field has indexed: false (default)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: field with indexed: false (default)
@@ -119,7 +119,7 @@ test.describe('Indexed Field Property', () => {
   )
 
   test.fixme(
-    'APP-FIELD-INDEXED-003: should optimize date range and ORDER BY queries when timestamp field has indexed: true',
+    'APP-TABLES-FIELD-INDEXED-003: should optimize date range and ORDER BY queries when timestamp field has indexed: true',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: timestamp field with indexed: true
@@ -166,7 +166,7 @@ test.describe('Indexed Field Property', () => {
   )
 
   test.fixme(
-    'APP-FIELD-INDEXED-004: should use index for WHERE, JOIN, and ORDER BY operations when frequently queried field has indexed: true',
+    'APP-TABLES-FIELD-INDEXED-004: should use index for WHERE, JOIN, and ORDER BY operations when frequently queried field has indexed: true',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: frequently queried field with indexed: true
@@ -217,7 +217,7 @@ test.describe('Indexed Field Property', () => {
   )
 
   test.fixme(
-    'APP-FIELD-INDEXED-005: should improve prefix searches when text field has indexed: true for LIKE queries',
+    'APP-TABLES-FIELD-INDEXED-005: should improve prefix searches when text field has indexed: true for LIKE queries',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: text field with indexed: true for LIKE queries
@@ -269,7 +269,7 @@ test.describe('Indexed Field Property', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-FIELD-INDEXED-006: user can complete full indexed-field workflow',
+    'APP-TABLES-FIELD-INDEXED-006: user can complete full indexed-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative indexed fields

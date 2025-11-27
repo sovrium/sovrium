@@ -31,7 +31,7 @@ test.describe('Update member role', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-UPDATE-MEMBER-ROLE-001: should returns 200 OK with updated member data',
+    'API-AUTH-ORG-UPDATE-MEMBER-ROLE-001: should returns 200 OK with updated member data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner and an existing member
@@ -94,7 +94,7 @@ test.describe('Update member role', () => {
   )
 
   test.fixme(
-    'API-ORG-UPDATE-MEMBER-ROLE-002: should returns 400 Bad Request with validation errors',
+    'API-AUTH-ORG-UPDATE-MEMBER-ROLE-002: should returns 400 Bad Request with validation errors',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner
@@ -143,7 +143,7 @@ test.describe('Update member role', () => {
   )
 
   test.fixme(
-    'API-ORG-UPDATE-MEMBER-ROLE-003: should returns 401 Unauthorized',
+    'API-AUTH-ORG-UPDATE-MEMBER-ROLE-003: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -183,7 +183,7 @@ test.describe('Update member role', () => {
   )
 
   test.fixme(
-    'API-ORG-UPDATE-MEMBER-ROLE-004: should returns 403 Forbidden',
+    'API-AUTH-ORG-UPDATE-MEMBER-ROLE-004: should returns 403 Forbidden',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated regular member (not owner/admin)
@@ -243,7 +243,7 @@ test.describe('Update member role', () => {
   )
 
   test.fixme(
-    'API-ORG-UPDATE-MEMBER-ROLE-005: should returns 404 Not Found',
+    'API-AUTH-ORG-UPDATE-MEMBER-ROLE-005: should returns 404 Not Found',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner
@@ -297,7 +297,7 @@ test.describe('Update member role', () => {
   )
 
   test.fixme(
-    'API-ORG-UPDATE-MEMBER-ROLE-006: should returns 200 OK (idempotent operation)',
+    'API-AUTH-ORG-UPDATE-MEMBER-ROLE-006: should returns 200 OK (idempotent operation)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner and an existing admin member
@@ -358,7 +358,7 @@ test.describe('Update member role', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-UPDATE-MEMBER-ROLE-007: user can complete full updateMemberRole workflow',
+    'API-AUTH-ORG-UPDATE-MEMBER-ROLE-007: user can complete full updateMemberRole workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

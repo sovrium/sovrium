@@ -21,7 +21,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Geolocation Field', () => {
   test.fixme(
-    'APP-GEOLOCATION-FIELD-001: should create PostgreSQL POINT type for latitude/longitude storage',
+    'APP-TABLES-FIELD-TYPES-GEOLOCATION-001: should create PostgreSQL POINT type for latitude/longitude storage',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -63,7 +63,7 @@ test.describe('Geolocation Field', () => {
   )
 
   test.fixme(
-    'APP-GEOLOCATION-FIELD-002: should support distance calculations with <-> operator',
+    'APP-TABLES-FIELD-TYPES-GEOLOCATION-002: should support distance calculations with <-> operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -110,7 +110,7 @@ test.describe('Geolocation Field', () => {
   )
 
   test.fixme(
-    'APP-GEOLOCATION-FIELD-003: should create GiST index for spatial queries',
+    'APP-TABLES-FIELD-TYPES-GEOLOCATION-003: should create GiST index for spatial queries',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -146,7 +146,7 @@ test.describe('Geolocation Field', () => {
   )
 
   test.fixme(
-    'APP-GEOLOCATION-FIELD-004: should support bounding box queries with box containment',
+    'APP-TABLES-FIELD-TYPES-GEOLOCATION-004: should support bounding box queries with box containment',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -185,7 +185,7 @@ test.describe('Geolocation Field', () => {
   )
 
   test.fixme(
-    'APP-GEOLOCATION-FIELD-005: should enforce NOT NULL and UNIQUE constraints on POINT column',
+    'APP-TABLES-FIELD-TYPES-GEOLOCATION-005: should enforce NOT NULL and UNIQUE constraints on POINT column',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -226,7 +226,7 @@ test.describe('Geolocation Field', () => {
   )
 
   test.fixme(
-    'APP-GEOLOCATION-FIELD-006: user can complete full geolocation-field workflow',
+    'APP-TABLES-FIELD-TYPES-GEOLOCATION-006: user can complete full geolocation-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

@@ -9,7 +9,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Color Field', () => {
   test.fixme(
-    'APP-COLOR-FIELD-001: should create VARCHAR(7) column for hex color storage',
+    'APP-TABLES-FIELD-TYPES-COLOR-001: should create VARCHAR(7) column for hex color storage',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -29,7 +29,7 @@ test.describe('Color Field', () => {
   )
 
   test.fixme(
-    'APP-COLOR-FIELD-002: should enforce hex color format via CHECK constraint',
+    'APP-TABLES-FIELD-TYPES-COLOR-002: should enforce hex color format via CHECK constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -45,7 +45,7 @@ test.describe('Color Field', () => {
   )
 
   test.fixme(
-    'APP-COLOR-FIELD-003: should store valid hex color values',
+    'APP-TABLES-FIELD-TYPES-COLOR-003: should store valid hex color values',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -63,7 +63,7 @@ test.describe('Color Field', () => {
   )
 
   test.fixme(
-    'APP-COLOR-FIELD-004: should support NULL for optional colors',
+    'APP-TABLES-FIELD-TYPES-COLOR-004: should support NULL for optional colors',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -83,7 +83,7 @@ test.describe('Color Field', () => {
   )
 
   test.fixme(
-    'APP-COLOR-FIELD-005: should require NOT NULL when color is required',
+    'APP-TABLES-FIELD-TYPES-COLOR-005: should require NOT NULL when color is required',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -105,7 +105,7 @@ test.describe('Color Field', () => {
   )
 
   test.fixme(
-    'APP-COLOR-FIELD-006: user can complete full color-field workflow',
+    'APP-TABLES-FIELD-TYPES-COLOR-006: user can complete full color-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

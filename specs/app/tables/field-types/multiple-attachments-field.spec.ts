@@ -9,7 +9,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Multiple Attachments Field', () => {
   test.fixme(
-    'APP-MULTIPLE-ATTACHMENTS-FIELD-001: should create JSONB ARRAY column for multiple file storage',
+    'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-001: should create JSONB ARRAY column for multiple file storage',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -34,7 +34,7 @@ test.describe('Multiple Attachments Field', () => {
   )
 
   test.fixme(
-    'APP-MULTIPLE-ATTACHMENTS-FIELD-002: should store array of file metadata objects',
+    'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-002: should store array of file metadata objects',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -61,7 +61,7 @@ test.describe('Multiple Attachments Field', () => {
   )
 
   test.fixme(
-    'APP-MULTIPLE-ATTACHMENTS-FIELD-003: should enforce maximum attachment count via CHECK constraint',
+    'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-003: should enforce maximum attachment count via CHECK constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -84,7 +84,7 @@ test.describe('Multiple Attachments Field', () => {
   )
 
   test.fixme(
-    'APP-MULTIPLE-ATTACHMENTS-FIELD-004: should support querying by attachment properties',
+    'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-004: should support querying by attachment properties',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -107,7 +107,7 @@ test.describe('Multiple Attachments Field', () => {
   )
 
   test.fixme(
-    'APP-MULTIPLE-ATTACHMENTS-FIELD-005: should create GIN index for efficient JSON queries',
+    'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-005: should create GIN index for efficient JSON queries',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -132,7 +132,7 @@ test.describe('Multiple Attachments Field', () => {
   )
 
   test.fixme(
-    'APP-MULTIPLE-ATTACHMENTS-FIELD-006: user can complete full multiple-attachments-field workflow',
+    'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-006: user can complete full multiple-attachments-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

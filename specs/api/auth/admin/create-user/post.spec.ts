@@ -31,7 +31,7 @@ test.describe('Admin: Create user', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ADMIN-CREATE-USER-001: should returns 201 Created with user data',
+    'API-AUTH-ADMIN-CREATE-USER-001: should returns 201 Created with user data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user
@@ -86,7 +86,7 @@ test.describe('Admin: Create user', () => {
   )
 
   test.fixme(
-    'API-ADMIN-CREATE-USER-002: should returns 201 Created with email pre-verified',
+    'API-AUTH-ADMIN-CREATE-USER-002: should returns 201 Created with email pre-verified',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user
@@ -132,7 +132,7 @@ test.describe('Admin: Create user', () => {
   )
 
   test.fixme(
-    'API-ADMIN-CREATE-USER-003: should returns 400 Bad Request with validation errors',
+    'API-AUTH-ADMIN-CREATE-USER-003: should returns 400 Bad Request with validation errors',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user
@@ -175,7 +175,7 @@ test.describe('Admin: Create user', () => {
   )
 
   test.fixme(
-    'API-ADMIN-CREATE-USER-004: should returns 400 Bad Request with validation error',
+    'API-AUTH-ADMIN-CREATE-USER-004: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user
@@ -223,7 +223,7 @@ test.describe('Admin: Create user', () => {
   )
 
   test.fixme(
-    'API-ADMIN-CREATE-USER-005: should returns 400 Bad Request with validation error',
+    'API-AUTH-ADMIN-CREATE-USER-005: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user
@@ -271,7 +271,7 @@ test.describe('Admin: Create user', () => {
   )
 
   test.fixme(
-    'API-ADMIN-CREATE-USER-006: should returns 401 Unauthorized',
+    'API-AUTH-ADMIN-CREATE-USER-006: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -311,7 +311,7 @@ test.describe('Admin: Create user', () => {
   )
 
   test.fixme(
-    'API-ADMIN-CREATE-USER-007: should returns 403 Forbidden',
+    'API-AUTH-ADMIN-CREATE-USER-007: should returns 403 Forbidden',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated regular user (non-admin)
@@ -359,7 +359,7 @@ test.describe('Admin: Create user', () => {
   )
 
   test.fixme(
-    'API-ADMIN-CREATE-USER-008: should returns 409 Conflict error',
+    'API-AUTH-ADMIN-CREATE-USER-008: should returns 409 Conflict error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user and an existing user
@@ -410,7 +410,7 @@ test.describe('Admin: Create user', () => {
   )
 
   test.fixme(
-    'API-ADMIN-CREATE-USER-009: should returns 201 Created with sanitized name (XSS payload neutralized)',
+    'API-AUTH-ADMIN-CREATE-USER-009: should returns 201 Created with sanitized name (XSS payload neutralized)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user
@@ -453,7 +453,7 @@ test.describe('Admin: Create user', () => {
   )
 
   test.fixme(
-    'API-ADMIN-CREATE-USER-010: should returns 201 Created with Unicode name preserved',
+    'API-AUTH-ADMIN-CREATE-USER-010: should returns 201 Created with Unicode name preserved',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user
@@ -500,7 +500,7 @@ test.describe('Admin: Create user', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ADMIN-CREATE-USER-011: user can complete full adminCreateUser workflow',
+    'API-AUTH-ADMIN-CREATE-USER-011: user can complete full adminCreateUser workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

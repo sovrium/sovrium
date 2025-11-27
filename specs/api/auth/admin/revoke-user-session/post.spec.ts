@@ -31,7 +31,7 @@ test.describe('Admin: Revoke user session', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ADMIN-REVOKE-USER-SESSION-001: should returns 200 OK and revokes the session',
+    'API-AUTH-ADMIN-REVOKE-USER-SESSION-001: should returns 200 OK and revokes the session',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user and a user with active session
@@ -87,7 +87,7 @@ test.describe('Admin: Revoke user session', () => {
   )
 
   test.fixme(
-    'API-ADMIN-REVOKE-USER-SESSION-002: should returns 400 Bad Request with validation errors',
+    'API-AUTH-ADMIN-REVOKE-USER-SESSION-002: should returns 400 Bad Request with validation errors',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user
@@ -130,7 +130,7 @@ test.describe('Admin: Revoke user session', () => {
   )
 
   test.fixme(
-    'API-ADMIN-REVOKE-USER-SESSION-003: should returns 401 Unauthorized',
+    'API-AUTH-ADMIN-REVOKE-USER-SESSION-003: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -169,7 +169,7 @@ test.describe('Admin: Revoke user session', () => {
   )
 
   test.fixme(
-    'API-ADMIN-REVOKE-USER-SESSION-004: should returns 403 Forbidden',
+    'API-AUTH-ADMIN-REVOKE-USER-SESSION-004: should returns 403 Forbidden',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated regular user (non-admin)
@@ -222,7 +222,7 @@ test.describe('Admin: Revoke user session', () => {
   )
 
   test.fixme(
-    'API-ADMIN-REVOKE-USER-SESSION-005: should returns 404 Not Found',
+    'API-AUTH-ADMIN-REVOKE-USER-SESSION-005: should returns 404 Not Found',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user
@@ -269,7 +269,7 @@ test.describe('Admin: Revoke user session', () => {
   )
 
   test.fixme(
-    'API-ADMIN-REVOKE-USER-SESSION-006: should returns 404 Not Found',
+    'API-AUTH-ADMIN-REVOKE-USER-SESSION-006: should returns 404 Not Found',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user and an existing user
@@ -319,7 +319,7 @@ test.describe('Admin: Revoke user session', () => {
   )
 
   test.fixme(
-    'API-ADMIN-REVOKE-USER-SESSION-007: should returns 404 Not Found (session ownership validation)',
+    'API-AUTH-ADMIN-REVOKE-USER-SESSION-007: should returns 404 Not Found (session ownership validation)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user with two users and sessions
@@ -375,7 +375,7 @@ test.describe('Admin: Revoke user session', () => {
   )
 
   test.fixme(
-    'API-ADMIN-REVOKE-USER-SESSION-008: should returns 200 OK (idempotent operation)',
+    'API-AUTH-ADMIN-REVOKE-USER-SESSION-008: should returns 200 OK (idempotent operation)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user and an already revoked session
@@ -429,7 +429,7 @@ test.describe('Admin: Revoke user session', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ADMIN-REVOKE-USER-SESSION-009: user can complete full adminRevokeUserSession workflow',
+    'API-AUTH-ADMIN-REVOKE-USER-SESSION-009: user can complete full adminRevokeUserSession workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

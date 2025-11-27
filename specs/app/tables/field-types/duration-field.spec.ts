@@ -22,7 +22,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Duration Field', () => {
   test.fixme(
-    'APP-DURATION-FIELD-001: should create PostgreSQL INTERVAL column when table configuration has duration field',
+    'APP-TABLES-FIELD-TYPES-DURATION-001: should create PostgreSQL INTERVAL column when table configuration has duration field',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -59,7 +59,7 @@ test.describe('Duration Field', () => {
   )
 
   test.fixme(
-    'APP-DURATION-FIELD-002: should store various duration formats (hours, days, etc)',
+    'APP-TABLES-FIELD-TYPES-DURATION-002: should store various duration formats (hours, days, etc)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -91,7 +91,7 @@ test.describe('Duration Field', () => {
   )
 
   test.fixme(
-    'APP-DURATION-FIELD-003: should reject NULL value when duration field is required',
+    'APP-TABLES-FIELD-TYPES-DURATION-003: should reject NULL value when duration field is required',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -125,7 +125,7 @@ test.describe('Duration Field', () => {
   )
 
   test.fixme(
-    'APP-DURATION-FIELD-004: should apply DEFAULT value when row inserted without providing value',
+    'APP-TABLES-FIELD-TYPES-DURATION-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -154,7 +154,7 @@ test.describe('Duration Field', () => {
   )
 
   test.fixme(
-    'APP-DURATION-FIELD-005: should create btree index for fast queries when duration field has indexed=true',
+    'APP-TABLES-FIELD-TYPES-DURATION-005: should create btree index for fast queries when duration field has indexed=true',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -183,7 +183,7 @@ test.describe('Duration Field', () => {
   )
 
   test.fixme(
-    'APP-DURATION-FIELD-006: user can complete full duration-field workflow',
+    'APP-TABLES-FIELD-TYPES-DURATION-006: user can complete full duration-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

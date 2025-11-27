@@ -21,7 +21,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Status Field', () => {
   test.fixme(
-    'APP-STATUS-FIELD-001: should create PostgreSQL VARCHAR column with CHECK constraint for status values',
+    'APP-TABLES-FIELD-TYPES-STATUS-001: should create PostgreSQL VARCHAR column with CHECK constraint for status values',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -74,7 +74,7 @@ test.describe('Status Field', () => {
   )
 
   test.fixme(
-    'APP-STATUS-FIELD-002: should reject value not in status options via CHECK constraint',
+    'APP-TABLES-FIELD-TYPES-STATUS-002: should reject value not in status options via CHECK constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -124,7 +124,7 @@ test.describe('Status Field', () => {
   )
 
   test.fixme(
-    'APP-STATUS-FIELD-003: should enforce NOT NULL and UNIQUE constraints when required/unique',
+    'APP-TABLES-FIELD-TYPES-STATUS-003: should enforce NOT NULL and UNIQUE constraints when required/unique',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -182,7 +182,7 @@ test.describe('Status Field', () => {
   )
 
   test.fixme(
-    'APP-STATUS-FIELD-004: should apply DEFAULT value when row inserted without providing value',
+    'APP-TABLES-FIELD-TYPES-STATUS-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -235,7 +235,7 @@ test.describe('Status Field', () => {
   )
 
   test.fixme(
-    'APP-STATUS-FIELD-005: should create btree index for fast status filtering when indexed=true',
+    'APP-TABLES-FIELD-TYPES-STATUS-005: should create btree index for fast status filtering when indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -285,7 +285,7 @@ test.describe('Status Field', () => {
   )
 
   test.fixme(
-    'APP-STATUS-FIELD-006: user can complete full status-field workflow',
+    'APP-TABLES-FIELD-TYPES-STATUS-006: user can complete full status-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

@@ -31,7 +31,7 @@ test.describe('Create organization', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-CREATE-ORGANIZATION-001: should returns 201 Created with organization data and user is set as owner',
+    'API-AUTH-ORG-CREATE-ORGANIZATION-001: should returns 201 Created with organization data and user is set as owner',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -93,7 +93,7 @@ test.describe('Create organization', () => {
   )
 
   test.fixme(
-    'API-ORG-CREATE-ORGANIZATION-002: should returns 201 Created with auto-generated slug from name',
+    'API-AUTH-ORG-CREATE-ORGANIZATION-002: should returns 201 Created with auto-generated slug from name',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -134,7 +134,7 @@ test.describe('Create organization', () => {
   )
 
   test.fixme(
-    'API-ORG-CREATE-ORGANIZATION-003: should returns 400 Bad Request with validation error',
+    'API-AUTH-ORG-CREATE-ORGANIZATION-003: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -177,7 +177,7 @@ test.describe('Create organization', () => {
   )
 
   test.fixme(
-    'API-ORG-CREATE-ORGANIZATION-004: should returns 401 Unauthorized',
+    'API-AUTH-ORG-CREATE-ORGANIZATION-004: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -215,7 +215,7 @@ test.describe('Create organization', () => {
   )
 
   test.fixme(
-    'API-ORG-CREATE-ORGANIZATION-005: should returns 409 Conflict error',
+    'API-AUTH-ORG-CREATE-ORGANIZATION-005: should returns 409 Conflict error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user and an existing organization
@@ -269,7 +269,7 @@ test.describe('Create organization', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-CREATE-ORGANIZATION-006: user can complete full createOrganization workflow',
+    'API-AUTH-ORG-CREATE-ORGANIZATION-006: user can complete full createOrganization workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

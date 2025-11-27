@@ -31,7 +31,7 @@ test.describe('Invite member to organization', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-INVITE-MEMBER-001: should returns 201 Created with invitation token and sends invitation email',
+    'API-AUTH-ORG-INVITE-MEMBER-001: should returns 201 Created with invitation token and sends invitation email',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner
@@ -88,7 +88,7 @@ test.describe('Invite member to organization', () => {
   )
 
   test.fixme(
-    'API-ORG-INVITE-MEMBER-002: should returns 400 Bad Request with validation errors',
+    'API-AUTH-ORG-INVITE-MEMBER-002: should returns 400 Bad Request with validation errors',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner
@@ -137,7 +137,7 @@ test.describe('Invite member to organization', () => {
   )
 
   test.fixme(
-    'API-ORG-INVITE-MEMBER-003: should returns 400 Bad Request with validation error',
+    'API-AUTH-ORG-INVITE-MEMBER-003: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner
@@ -191,7 +191,7 @@ test.describe('Invite member to organization', () => {
   )
 
   test.fixme(
-    'API-ORG-INVITE-MEMBER-004: should returns 401 Unauthorized',
+    'API-AUTH-ORG-INVITE-MEMBER-004: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -231,7 +231,7 @@ test.describe('Invite member to organization', () => {
   )
 
   test.fixme(
-    'API-ORG-INVITE-MEMBER-005: should returns 403 Forbidden',
+    'API-AUTH-ORG-INVITE-MEMBER-005: should returns 403 Forbidden',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated regular member (not owner/admin)
@@ -285,7 +285,7 @@ test.describe('Invite member to organization', () => {
   )
 
   test.fixme(
-    'API-ORG-INVITE-MEMBER-006: should returns 404 Not Found',
+    'API-AUTH-ORG-INVITE-MEMBER-006: should returns 404 Not Found',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -333,7 +333,7 @@ test.describe('Invite member to organization', () => {
   )
 
   test.fixme(
-    'API-ORG-INVITE-MEMBER-007: should returns 409 Conflict error',
+    'API-AUTH-ORG-INVITE-MEMBER-007: should returns 409 Conflict error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner and a user who is already a member
@@ -393,7 +393,7 @@ test.describe('Invite member to organization', () => {
   )
 
   test.fixme(
-    'API-ORG-INVITE-MEMBER-008: should returns 409 Conflict error',
+    'API-AUTH-ORG-INVITE-MEMBER-008: should returns 409 Conflict error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner and an existing pending invitation
@@ -450,7 +450,7 @@ test.describe('Invite member to organization', () => {
   )
 
   test.fixme(
-    'API-ORG-INVITE-MEMBER-009: should returns 409 Conflict (case-insensitive email matching)',
+    'API-AUTH-ORG-INVITE-MEMBER-009: should returns 409 Conflict (case-insensitive email matching)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner
@@ -514,7 +514,7 @@ test.describe('Invite member to organization', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-INVITE-MEMBER-010: user can complete full inviteMember workflow',
+    'API-AUTH-ORG-INVITE-MEMBER-010: user can complete full inviteMember workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

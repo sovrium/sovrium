@@ -10,7 +10,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Relationship Field', () => {
   test.fixme(
-    'APP-RELATIONSHIP-FIELD-001: should create INTEGER column with FOREIGN KEY constraint',
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-001: should create INTEGER column with FOREIGN KEY constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -28,7 +28,7 @@ test.describe('Relationship Field', () => {
   )
 
   test.fixme(
-    'APP-RELATIONSHIP-FIELD-002: should reject invalid foreign key reference',
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-002: should reject invalid foreign key reference',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -45,7 +45,7 @@ test.describe('Relationship Field', () => {
   )
 
   test.fixme(
-    'APP-RELATIONSHIP-FIELD-003: should CASCADE delete child records when parent deleted',
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-003: should CASCADE delete child records when parent deleted',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -65,7 +65,7 @@ test.describe('Relationship Field', () => {
   )
 
   test.fixme(
-    'APP-RELATIONSHIP-FIELD-004: should SET NULL on delete when onDelete=set-null',
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-004: should SET NULL on delete when onDelete=set-null',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -85,7 +85,7 @@ test.describe('Relationship Field', () => {
   )
 
   test.fixme(
-    'APP-RELATIONSHIP-FIELD-005: should RESTRICT deletion when child records exist',
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-005: should RESTRICT deletion when child records exist',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -103,7 +103,7 @@ test.describe('Relationship Field', () => {
   )
 
   test.fixme(
-    'APP-RELATIONSHIP-FIELD-006: should support one-to-one relationship with UNIQUE constraint',
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-006: should support one-to-one relationship with UNIQUE constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -121,7 +121,7 @@ test.describe('Relationship Field', () => {
   )
 
   test.fixme(
-    'APP-RELATIONSHIP-FIELD-007: should support many-to-many via junction table',
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-007: should support many-to-many via junction table',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -141,7 +141,7 @@ test.describe('Relationship Field', () => {
   )
 
   test.fixme(
-    'APP-RELATIONSHIP-FIELD-008: should support self-referencing relationships',
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-008: should support self-referencing relationships',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -159,7 +159,7 @@ test.describe('Relationship Field', () => {
   )
 
   test.fixme(
-    'APP-RELATIONSHIP-FIELD-009: should create btree index on foreign key when indexed=true',
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-009: should create btree index on foreign key when indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -178,7 +178,7 @@ test.describe('Relationship Field', () => {
   )
 
   test.fixme(
-    'APP-RELATIONSHIP-FIELD-010: should support CASCADE updates when onUpdate=cascade',
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-010: should support CASCADE updates when onUpdate=cascade',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -198,7 +198,7 @@ test.describe('Relationship Field', () => {
   )
 
   test.fixme(
-    'APP-RELATIONSHIP-FIELD-011: user can complete full relationship-field workflow',
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-011: user can complete full relationship-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

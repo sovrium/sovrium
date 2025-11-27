@@ -31,7 +31,7 @@ test.describe('List organization invitations', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-LIST-INVITATIONS-001: should returns 200 OK with all invitations regardless of status',
+    'API-AUTH-ORG-LIST-INVITATIONS-001: should returns 200 OK with all invitations regardless of status',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner and multiple invitations
@@ -94,7 +94,7 @@ test.describe('List organization invitations', () => {
   )
 
   test.fixme(
-    'API-ORG-LIST-INVITATIONS-002: should returns 200 OK with only pending invitations',
+    'API-AUTH-ORG-LIST-INVITATIONS-002: should returns 200 OK with only pending invitations',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner and multiple invitations with different statuses
@@ -152,7 +152,7 @@ test.describe('List organization invitations', () => {
   )
 
   test.fixme(
-    'API-ORG-LIST-INVITATIONS-003: should returns 400 Bad Request with validation error',
+    'API-AUTH-ORG-LIST-INVITATIONS-003: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -195,7 +195,7 @@ test.describe('List organization invitations', () => {
   )
 
   test.fixme(
-    'API-ORG-LIST-INVITATIONS-004: should returns 401 Unauthorized',
+    'API-AUTH-ORG-LIST-INVITATIONS-004: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -230,7 +230,7 @@ test.describe('List organization invitations', () => {
   )
 
   test.fixme(
-    'API-ORG-LIST-INVITATIONS-005: should returns 403 Forbidden',
+    'API-AUTH-ORG-LIST-INVITATIONS-005: should returns 403 Forbidden',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated regular member (not owner/admin)
@@ -282,7 +282,7 @@ test.describe('List organization invitations', () => {
   )
 
   test.fixme(
-    'API-ORG-LIST-INVITATIONS-006: should returns 404 Not Found',
+    'API-AUTH-ORG-LIST-INVITATIONS-006: should returns 404 Not Found',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -328,7 +328,7 @@ test.describe('List organization invitations', () => {
   )
 
   test.fixme(
-    'API-ORG-LIST-INVITATIONS-007: should returns 404 Not Found (prevent organization enumeration)',
+    'API-AUTH-ORG-LIST-INVITATIONS-007: should returns 404 Not Found (prevent organization enumeration)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated owner of one organization
@@ -392,7 +392,7 @@ test.describe('List organization invitations', () => {
   )
 
   test.fixme(
-    'API-ORG-LIST-INVITATIONS-008: should returns 200 OK with empty invitations array',
+    'API-AUTH-ORG-LIST-INVITATIONS-008: should returns 200 OK with empty invitations array',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated organization owner with no invitations
@@ -443,7 +443,7 @@ test.describe('List organization invitations', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-LIST-INVITATIONS-009: user can complete full listInvitations workflow',
+    'API-AUTH-ORG-LIST-INVITATIONS-009: user can complete full listInvitations workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

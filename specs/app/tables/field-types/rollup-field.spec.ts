@@ -22,7 +22,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Rollup Field', () => {
   test.fixme(
-    'APP-ROLLUP-FIELD-001: should calculate SUM aggregation from related records',
+    'APP-TABLES-FIELD-TYPES-ROLLUP-001: should calculate SUM aggregation from related records',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -57,7 +57,7 @@ test.describe('Rollup Field', () => {
   )
 
   test.fixme(
-    'APP-ROLLUP-FIELD-002: should return COUNT aggregation of related records',
+    'APP-TABLES-FIELD-TYPES-ROLLUP-002: should return COUNT aggregation of related records',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -92,7 +92,7 @@ test.describe('Rollup Field', () => {
   )
 
   test.fixme(
-    'APP-ROLLUP-FIELD-003: should support AVG, MIN, MAX statistical aggregations',
+    'APP-TABLES-FIELD-TYPES-ROLLUP-003: should support AVG, MIN, MAX statistical aggregations',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -127,7 +127,7 @@ test.describe('Rollup Field', () => {
   )
 
   test.fixme(
-    'APP-ROLLUP-FIELD-004: should efficiently aggregate across multiple parent records with GROUP BY',
+    'APP-TABLES-FIELD-TYPES-ROLLUP-004: should efficiently aggregate across multiple parent records with GROUP BY',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -159,7 +159,7 @@ test.describe('Rollup Field', () => {
   )
 
   test.fixme(
-    'APP-ROLLUP-FIELD-005: should create VIEW to encapsulate rollup aggregation logic',
+    'APP-TABLES-FIELD-TYPES-ROLLUP-005: should create VIEW to encapsulate rollup aggregation logic',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -195,7 +195,7 @@ test.describe('Rollup Field', () => {
   )
 
   test.fixme(
-    'APP-ROLLUP-FIELD-006: user can complete full rollup-field workflow',
+    'APP-TABLES-FIELD-TYPES-ROLLUP-006: user can complete full rollup-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

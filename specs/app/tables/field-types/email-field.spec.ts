@@ -26,7 +26,7 @@ test.describe('Email Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-FIELD-EMAIL-001: should create PostgreSQL VARCHAR(255) column for email storage when table configuration has email field',
+    'APP-TABLES-FIELD-EMAIL-001: should create PostgreSQL VARCHAR(255) column for email storage when table configuration has email field',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with email field 'email'
@@ -67,7 +67,7 @@ test.describe('Email Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-EMAIL-002: should store email as lowercase when inserting email with mixed case',
+    'APP-TABLES-FIELD-EMAIL-002: should store email as lowercase when inserting email with mixed case',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'contacts' with email field 'email', application normalizes emails to lowercase before storage
@@ -101,7 +101,7 @@ test.describe('Email Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-EMAIL-003: should reject duplicate email when table has email field with unique constraint',
+    'APP-TABLES-FIELD-EMAIL-003: should reject duplicate email when table has email field with unique constraint',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'members' with email field 'email' (required, unique), existing row email='john@example.com'
@@ -143,7 +143,7 @@ test.describe('Email Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-EMAIL-004: should reject NULL value when table has required email field',
+    'APP-TABLES-FIELD-EMAIL-004: should reject NULL value when table has required email field',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'subscribers' with required email field 'email'
@@ -184,7 +184,7 @@ test.describe('Email Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-EMAIL-005: should create btree index for fast email lookups when email field has indexed=true',
+    'APP-TABLES-FIELD-EMAIL-005: should create btree index for fast email lookups when email field has indexed=true',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with email field, indexed=true
@@ -229,7 +229,7 @@ test.describe('Email Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-FIELD-EMAIL-006: user can complete full email-field workflow',
+    'APP-TABLES-FIELD-EMAIL-006: user can complete full email-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative email field

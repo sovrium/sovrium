@@ -25,7 +25,7 @@ test.describe('Single Line Text Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-FIELD-SINGLE-LINE-TEXT-001: should create PostgreSQL VARCHAR(255) column',
+    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-001: should create PostgreSQL VARCHAR(255) column',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN/WHEN: table configuration with single-line-text field 'title'
@@ -56,7 +56,7 @@ test.describe('Single Line Text Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-SINGLE-LINE-TEXT-002: should reject duplicate values with UNIQUE constraint',
+    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-002: should reject duplicate values with UNIQUE constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN/WHEN: table 'users' with single-line-text field 'username' (required, unique)
@@ -96,7 +96,7 @@ test.describe('Single Line Text Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-SINGLE-LINE-TEXT-003: should reject NULL values with NOT NULL constraint',
+    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-003: should reject NULL values with NOT NULL constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN/WHEN: table 'tasks' with required single-line-text field 'title'
@@ -130,7 +130,7 @@ test.describe('Single Line Text Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-SINGLE-LINE-TEXT-004: should create btree index for fast text lookups',
+    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-004: should create btree index for fast text lookups',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN/WHEN: table configuration with single-line-text field, indexed=true
@@ -174,7 +174,7 @@ test.describe('Single Line Text Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-SINGLE-LINE-TEXT-005: should apply DEFAULT value when row inserted without value',
+    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-005: should apply DEFAULT value when row inserted without value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN/WHEN: table with single-line-text field 'name' and default value 'Untitled'
@@ -209,7 +209,7 @@ test.describe('Single Line Text Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-SINGLE-LINE-TEXT-006: should store and retrieve unicode text correctly',
+    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-006: should store and retrieve unicode text correctly',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN/WHEN: table with single-line-text field accepting unicode characters
@@ -241,7 +241,7 @@ test.describe('Single Line Text Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-SINGLE-LINE-TEXT-007: should reject text exceeding VARCHAR(255) limit',
+    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-007: should reject text exceeding VARCHAR(255) limit',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN/WHEN: table with single-line-text field with VARCHAR(255) limit
@@ -270,7 +270,7 @@ test.describe('Single Line Text Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-SINGLE-LINE-TEXT-008: should safely escape special characters without SQL injection',
+    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-008: should safely escape special characters without SQL injection',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN/WHEN: table with single-line-text field handling special characters
@@ -308,7 +308,7 @@ test.describe('Single Line Text Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-SINGLE-LINE-TEXT-009: should handle bulk insert efficiently without errors',
+    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-009: should handle bulk insert efficiently without errors',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN/WHEN: table with single-line-text field and 1000 records
@@ -338,7 +338,7 @@ test.describe('Single Line Text Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-SINGLE-LINE-TEXT-010: should use btree index for fast lookup',
+    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-010: should use btree index for fast lookup',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN/WHEN: table with indexed single-line-text field and 10000 records
@@ -379,7 +379,7 @@ test.describe('Single Line Text Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-SINGLE-LINE-TEXT-011: should execute text search and return matching records',
+    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-011: should execute text search and return matching records',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN/WHEN: table with single-line-text field and 5000 records
@@ -424,7 +424,7 @@ test.describe('Single Line Text Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-SINGLE-LINE-TEXT-012: should prevent duplicate insertion with UNIQUE constraint',
+    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-012: should prevent duplicate insertion with UNIQUE constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN/WHEN: table with unique single-line-text field and concurrent insert attempts
@@ -461,7 +461,7 @@ test.describe('Single Line Text Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-SINGLE-LINE-TEXT-013: should apply row-level locking and ensure data consistency',
+    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-013: should apply row-level locking and ensure data consistency',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN/WHEN: table with single-line-text field and active transaction updating record
@@ -504,7 +504,7 @@ test.describe('Single Line Text Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-SINGLE-LINE-TEXT-014: should handle concurrent writes without data loss or corruption',
+    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-014: should handle concurrent writes without data loss or corruption',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN/WHEN: table with single-line-text field and multiple concurrent inserts
@@ -544,7 +544,7 @@ test.describe('Single Line Text Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-SINGLE-LINE-TEXT-015: should store empty string as distinct from NULL',
+    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-015: should store empty string as distinct from NULL',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN/WHEN: table with single-line-text field accepting empty strings
@@ -584,7 +584,7 @@ test.describe('Single Line Text Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-SINGLE-LINE-TEXT-016: should preserve whitespace without trimming',
+    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-016: should preserve whitespace without trimming',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN/WHEN: table with single-line-text field handling whitespace
@@ -623,7 +623,7 @@ test.describe('Single Line Text Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-SINGLE-LINE-TEXT-017: should accept both boundary values correctly',
+    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-017: should accept both boundary values correctly',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN/WHEN: table with single-line-text field storing minimal and maximal length strings
@@ -663,7 +663,7 @@ test.describe('Single Line Text Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-SINGLE-LINE-TEXT-018: should accept empty string as valid non-NULL value',
+    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-018: should accept empty string as valid non-NULL value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN/WHEN: table with required single-line-text field
@@ -697,7 +697,7 @@ test.describe('Single Line Text Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-SINGLE-LINE-TEXT-019: should store control characters without interpretation',
+    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-019: should store control characters without interpretation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN/WHEN: table with single-line-text field containing special boundary characters
@@ -742,7 +742,7 @@ test.describe('Single Line Text Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-FIELD-SINGLE-LINE-TEXT-020: user can complete full single-line-text-field workflow',
+    'APP-TABLES-FIELD-SINGLE-LINE-TEXT-020: user can complete full single-line-text-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN/WHEN: Table with comprehensive text field configuration

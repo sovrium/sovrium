@@ -9,7 +9,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Barcode Field', () => {
   test.fixme(
-    'APP-BARCODE-FIELD-001: should create VARCHAR column for barcode storage',
+    'APP-TABLES-FIELD-TYPES-BARCODE-001: should create VARCHAR column for barcode storage',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -29,7 +29,7 @@ test.describe('Barcode Field', () => {
   )
 
   test.fixme(
-    'APP-BARCODE-FIELD-002: should enforce barcode format via CHECK constraint',
+    'APP-TABLES-FIELD-TYPES-BARCODE-002: should enforce barcode format via CHECK constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -51,7 +51,7 @@ test.describe('Barcode Field', () => {
   )
 
   test.fixme(
-    'APP-BARCODE-FIELD-003: should store valid barcode values',
+    'APP-TABLES-FIELD-TYPES-BARCODE-003: should store valid barcode values',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -69,7 +69,7 @@ test.describe('Barcode Field', () => {
   )
 
   test.fixme(
-    'APP-BARCODE-FIELD-004: should enforce UNIQUE constraint for barcode uniqueness',
+    'APP-TABLES-FIELD-TYPES-BARCODE-004: should enforce UNIQUE constraint for barcode uniqueness',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -93,7 +93,7 @@ test.describe('Barcode Field', () => {
   )
 
   test.fixme(
-    'APP-BARCODE-FIELD-005: should create index on barcode for fast lookups',
+    'APP-TABLES-FIELD-TYPES-BARCODE-005: should create index on barcode for fast lookups',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -117,7 +117,7 @@ test.describe('Barcode Field', () => {
   )
 
   test.fixme(
-    'APP-BARCODE-FIELD-006: user can complete full barcode-field workflow',
+    'APP-TABLES-FIELD-TYPES-BARCODE-006: user can complete full barcode-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

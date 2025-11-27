@@ -31,7 +31,7 @@ test.describe('Reject organization invitation', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-REJECT-INVITATION-001: should returns 200 OK and invitation status updated to rejected',
+    'API-AUTH-ORG-REJECT-INVITATION-001: should returns 200 OK and invitation status updated to rejected',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user and a valid pending invitation
@@ -101,7 +101,7 @@ test.describe('Reject organization invitation', () => {
   )
 
   test.fixme(
-    'API-ORG-REJECT-INVITATION-002: should returns 400 Bad Request with validation error',
+    'API-AUTH-ORG-REJECT-INVITATION-002: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -144,7 +144,7 @@ test.describe('Reject organization invitation', () => {
   )
 
   test.fixme(
-    'API-ORG-REJECT-INVITATION-003: should returns 401 Unauthorized',
+    'API-AUTH-ORG-REJECT-INVITATION-003: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -182,7 +182,7 @@ test.describe('Reject organization invitation', () => {
   )
 
   test.fixme(
-    'API-ORG-REJECT-INVITATION-004: should returns 404 Not Found',
+    'API-AUTH-ORG-REJECT-INVITATION-004: should returns 404 Not Found',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user
@@ -228,7 +228,7 @@ test.describe('Reject organization invitation', () => {
   )
 
   test.fixme(
-    'API-ORG-REJECT-INVITATION-005: should returns 410 Gone',
+    'API-AUTH-ORG-REJECT-INVITATION-005: should returns 410 Gone',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user and an expired invitation
@@ -286,7 +286,7 @@ test.describe('Reject organization invitation', () => {
   )
 
   test.fixme(
-    'API-ORG-REJECT-INVITATION-006: should returns 404 Not Found (prevent invitation enumeration)',
+    'API-AUTH-ORG-REJECT-INVITATION-006: should returns 404 Not Found (prevent invitation enumeration)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user and an invitation for different email
@@ -348,7 +348,7 @@ test.describe('Reject organization invitation', () => {
   )
 
   test.fixme(
-    'API-ORG-REJECT-INVITATION-007: should returns 409 Conflict',
+    'API-AUTH-ORG-REJECT-INVITATION-007: should returns 409 Conflict',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated user and an invitation already rejected
@@ -410,7 +410,7 @@ test.describe('Reject organization invitation', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ORG-REJECT-INVITATION-008: user can complete full rejectInvitation workflow',
+    'API-AUTH-ORG-REJECT-INVITATION-008: user can complete full rejectInvitation workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

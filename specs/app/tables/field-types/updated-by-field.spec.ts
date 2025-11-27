@@ -21,7 +21,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Updated By Field', () => {
   test.fixme(
-    'APP-UPDATED-BY-FIELD-001: should create PostgreSQL INTEGER NOT NULL column with FOREIGN KEY and trigger',
+    'APP-TABLES-FIELD-TYPES-UPDATED-BY-001: should create PostgreSQL INTEGER NOT NULL column with FOREIGN KEY and trigger',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // Create external users table
@@ -73,7 +73,7 @@ test.describe('Updated By Field', () => {
   )
 
   test.fixme(
-    'APP-UPDATED-BY-FIELD-002: should reflect the most recent editor user ID',
+    'APP-TABLES-FIELD-TYPES-UPDATED-BY-002: should reflect the most recent editor user ID',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -130,7 +130,7 @@ test.describe('Updated By Field', () => {
   )
 
   test.fixme(
-    'APP-UPDATED-BY-FIELD-003: should support efficient filtering by last editor',
+    'APP-TABLES-FIELD-TYPES-UPDATED-BY-003: should support efficient filtering by last editor',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -188,7 +188,7 @@ test.describe('Updated By Field', () => {
   )
 
   test.fixme(
-    'APP-UPDATED-BY-FIELD-004: should support dual audit trail with created_by',
+    'APP-TABLES-FIELD-TYPES-UPDATED-BY-004: should support dual audit trail with created_by',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -242,7 +242,7 @@ test.describe('Updated By Field', () => {
   )
 
   test.fixme(
-    'APP-UPDATED-BY-FIELD-005: should create btree index for fast editor filtering when indexed=true',
+    'APP-TABLES-FIELD-TYPES-UPDATED-BY-005: should create btree index for fast editor filtering when indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // Create external users table
@@ -285,7 +285,7 @@ test.describe('Updated By Field', () => {
   )
 
   test.fixme(
-    'APP-UPDATED-BY-FIELD-006: user can complete full updated-by-field workflow',
+    'APP-TABLES-FIELD-TYPES-UPDATED-BY-006: user can complete full updated-by-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration

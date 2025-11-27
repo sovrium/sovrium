@@ -25,7 +25,7 @@ test.describe('Date Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-DATE-FIELD-001: should create PostgreSQL DATE column when table configuration has date field',
+    'APP-TABLES-FIELD-TYPES-DATE-001: should create PostgreSQL DATE column when table configuration has date field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with date field 'birth_date'
@@ -65,7 +65,7 @@ test.describe('Date Field', () => {
   )
 
   test.fixme(
-    'APP-DATE-FIELD-002: should store date values without time component',
+    'APP-TABLES-FIELD-TYPES-DATE-002: should store date values without time component',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with date field 'event_date'
@@ -95,7 +95,7 @@ test.describe('Date Field', () => {
   )
 
   test.fixme(
-    'APP-DATE-FIELD-003: should reject NULL value when date field is required',
+    'APP-TABLES-FIELD-TYPES-DATE-003: should reject NULL value when date field is required',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with required date field 'due_date'
@@ -136,7 +136,7 @@ test.describe('Date Field', () => {
   )
 
   test.fixme(
-    'APP-DATE-FIELD-004: should apply DEFAULT value when row inserted without providing value',
+    'APP-TABLES-FIELD-TYPES-DATE-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with date field 'start_date' and default value CURRENT_DATE
@@ -172,7 +172,7 @@ test.describe('Date Field', () => {
   )
 
   test.fixme(
-    'APP-DATE-FIELD-005: should create btree index for fast queries when date field has indexed=true',
+    'APP-TABLES-FIELD-TYPES-DATE-005: should create btree index for fast queries when date field has indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with date field 'created_date', indexed=true
@@ -209,7 +209,7 @@ test.describe('Date Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-DATE-FIELD-006: user can complete full date-field workflow',
+    'APP-TABLES-FIELD-TYPES-DATE-006: user can complete full date-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative date field

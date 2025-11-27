@@ -21,7 +21,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Created By Field', () => {
   test.fixme(
-    'APP-CREATED-BY-FIELD-001: should create PostgreSQL INTEGER NOT NULL column with FOREIGN KEY to users',
+    'APP-TABLES-FIELD-TYPES-CREATED-BY-001: should create PostgreSQL INTEGER NOT NULL column with FOREIGN KEY to users',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // Create external users table for foreign key reference
@@ -70,7 +70,7 @@ test.describe('Created By Field', () => {
   )
 
   test.fixme(
-    'APP-CREATED-BY-FIELD-002: should store the creator user reference permanently',
+    'APP-TABLES-FIELD-TYPES-CREATED-BY-002: should store the creator user reference permanently',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // Create external users table and seed data
@@ -120,7 +120,7 @@ test.describe('Created By Field', () => {
   )
 
   test.fixme(
-    'APP-CREATED-BY-FIELD-003: should enforce immutability via application (no UPDATE trigger)',
+    'APP-TABLES-FIELD-TYPES-CREATED-BY-003: should enforce immutability via application (no UPDATE trigger)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // Create external users table and seed data
@@ -169,7 +169,7 @@ test.describe('Created By Field', () => {
   )
 
   test.fixme(
-    'APP-CREATED-BY-FIELD-004: should support efficient filtering by creator',
+    'APP-TABLES-FIELD-TYPES-CREATED-BY-004: should support efficient filtering by creator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // Create external users table and seed data
@@ -226,7 +226,7 @@ test.describe('Created By Field', () => {
   )
 
   test.fixme(
-    'APP-CREATED-BY-FIELD-005: should create btree index for fast creator filtering when indexed=true',
+    'APP-TABLES-FIELD-TYPES-CREATED-BY-005: should create btree index for fast creator filtering when indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // Create external users table
@@ -269,7 +269,7 @@ test.describe('Created By Field', () => {
   )
 
   test.fixme(
-    'APP-CREATED-BY-FIELD-006: user can complete full created-by-field workflow',
+    'APP-TABLES-FIELD-TYPES-CREATED-BY-006: user can complete full created-by-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // Create external users table and seed data

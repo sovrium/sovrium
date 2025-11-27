@@ -31,7 +31,7 @@ test.describe('Admin: Get user by ID', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ADMIN-GET-USER-001: should returns 200 OK with user details',
+    'API-AUTH-ADMIN-GET-USER-001: should returns 200 OK with user details',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user and an existing user
@@ -80,7 +80,7 @@ test.describe('Admin: Get user by ID', () => {
   )
 
   test.fixme(
-    'API-ADMIN-GET-USER-002: should returns 400 Bad Request with validation error',
+    'API-AUTH-ADMIN-GET-USER-002: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user
@@ -123,7 +123,7 @@ test.describe('Admin: Get user by ID', () => {
   )
 
   test.fixme(
-    'API-ADMIN-GET-USER-003: should returns 401 Unauthorized',
+    'API-AUTH-ADMIN-GET-USER-003: should returns 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: A running server
@@ -156,7 +156,7 @@ test.describe('Admin: Get user by ID', () => {
   )
 
   test.fixme(
-    'API-ADMIN-GET-USER-004: should returns 403 Forbidden',
+    'API-AUTH-ADMIN-GET-USER-004: should returns 403 Forbidden',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated regular user (non-admin)
@@ -202,7 +202,7 @@ test.describe('Admin: Get user by ID', () => {
   )
 
   test.fixme(
-    'API-ADMIN-GET-USER-005: should returns 404 Not Found',
+    'API-AUTH-ADMIN-GET-USER-005: should returns 404 Not Found',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user
@@ -245,7 +245,7 @@ test.describe('Admin: Get user by ID', () => {
   )
 
   test.fixme(
-    'API-ADMIN-GET-USER-006: should returns 200 OK with user details but password field excluded for security',
+    'API-AUTH-ADMIN-GET-USER-006: should returns 200 OK with user details but password field excluded for security',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: An authenticated admin user and an existing user
@@ -290,7 +290,7 @@ test.describe('Admin: Get user by ID', () => {
   // ============================================================================
 
   test.fixme(
-    'API-ADMIN-GET-USER-007: user can complete full adminGetUser workflow',
+    'API-AUTH-ADMIN-GET-USER-007: user can complete full adminGetUser workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Representative test scenario

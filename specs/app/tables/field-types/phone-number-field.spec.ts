@@ -26,7 +26,7 @@ test.describe('Phone Number Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-FIELD-PHONE-NUMBER-001: should create PostgreSQL VARCHAR(255) column for phone number storage when table configuration has phone-number field',
+    'APP-TABLES-FIELD-PHONE-NUMBER-001: should create PostgreSQL VARCHAR(255) column for phone number storage when table configuration has phone-number field',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with phone-number field 'phone'
@@ -67,7 +67,7 @@ test.describe('Phone Number Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-PHONE-NUMBER-002: should store all formats as-is without validation when inserting international phone numbers with different formats',
+    'APP-TABLES-FIELD-PHONE-NUMBER-002: should store all formats as-is without validation when inserting international phone numbers with different formats',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'customers' with phone-number field 'mobile'
@@ -115,7 +115,7 @@ test.describe('Phone Number Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-PHONE-NUMBER-003: should reject duplicate phone number when table has phone-number field with unique constraint',
+    'APP-TABLES-FIELD-PHONE-NUMBER-003: should reject duplicate phone number when table has phone-number field with unique constraint',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with phone-number field 'phone' (required, unique), existing row phone='+1-555-1234'
@@ -157,7 +157,7 @@ test.describe('Phone Number Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-PHONE-NUMBER-004: should reject NULL value when table has required phone-number field',
+    'APP-TABLES-FIELD-PHONE-NUMBER-004: should reject NULL value when table has required phone-number field',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'support_tickets' with required phone-number field 'contact_phone'
@@ -198,7 +198,7 @@ test.describe('Phone Number Field', () => {
   )
 
   test.fixme(
-    'APP-FIELD-PHONE-NUMBER-005: should create btree index for fast phone number lookups when phone-number field has indexed=true',
+    'APP-TABLES-FIELD-PHONE-NUMBER-005: should create btree index for fast phone number lookups when phone-number field has indexed=true',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with phone-number field, indexed=true
@@ -243,7 +243,7 @@ test.describe('Phone Number Field', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-FIELD-PHONE-NUMBER-006: user can complete full phone-number-field workflow',
+    'APP-TABLES-FIELD-PHONE-NUMBER-006: user can complete full phone-number-field workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative phone-number field

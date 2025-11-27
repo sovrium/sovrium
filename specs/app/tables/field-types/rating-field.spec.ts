@@ -21,7 +21,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Rating Field', () => {
   test.fixme(
-    'APP-RATING-FIELD-001: should create PostgreSQL INTEGER column for rating storage when table configuration has rating field',
+    'APP-TABLES-FIELD-TYPES-RATING-001: should create PostgreSQL INTEGER column for rating storage when table configuration has rating field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with rating field
@@ -57,7 +57,7 @@ test.describe('Rating Field', () => {
   )
 
   test.fixme(
-    'APP-RATING-FIELD-002: should enforce range constraint for rating values (typically 1-5)',
+    'APP-TABLES-FIELD-TYPES-RATING-002: should enforce range constraint for rating values (typically 1-5)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -96,7 +96,7 @@ test.describe('Rating Field', () => {
   )
 
   test.fixme(
-    'APP-RATING-FIELD-003: should reject NULL value when rating field is required',
+    'APP-TABLES-FIELD-TYPES-RATING-003: should reject NULL value when rating field is required',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -130,7 +130,7 @@ test.describe('Rating Field', () => {
   )
 
   test.fixme(
-    'APP-RATING-FIELD-004: should apply DEFAULT value when row inserted without providing value',
+    'APP-TABLES-FIELD-TYPES-RATING-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -159,7 +159,7 @@ test.describe('Rating Field', () => {
   )
 
   test.fixme(
-    'APP-RATING-FIELD-005: should create btree index for fast queries when rating field has indexed=true',
+    'APP-TABLES-FIELD-TYPES-RATING-005: should create btree index for fast queries when rating field has indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -188,7 +188,7 @@ test.describe('Rating Field', () => {
   )
 
   test.fixme(
-    'APP-RATING-FIELD-006: user can complete full rating-field workflow',
+    'APP-TABLES-FIELD-TYPES-RATING-006: user can complete full rating-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
