@@ -594,18 +594,16 @@ export const test = base.extend<ServerFixtures>({
             const result = await client.query(sql)
             const rows = result.rows
             const rowCount = result.rowCount || 0
-            // Return rows array directly for multi-row results (ergonomic array access)
-            // Spread first row properties for single-row queries (ergonomic property access)
-            lastResult = rows.length === 1 ? { rows, rowCount, ...rows[0] } : rows
+            // Always include rows/rowCount, spread first row for single-row queries
+            lastResult = rows.length === 1 ? { rows, rowCount, ...rows[0] } : { rows, rowCount }
           }
           return lastResult
         } else {
           const result = params ? await client.query(query, params) : await client.query(query)
           const rows = result.rows
           const rowCount = result.rowCount || 0
-          // Return rows array directly for multi-row results (ergonomic array access)
-          // Spread first row properties for single-row queries (ergonomic property access)
-          return rows.length === 1 ? { rows, rowCount, ...rows[0] } : rows
+          // Always include rows/rowCount, spread first row for single-row queries
+          return rows.length === 1 ? { rows, rowCount, ...rows[0] } : { rows, rowCount }
         }
       } finally {
         // Close connection after each query execution
