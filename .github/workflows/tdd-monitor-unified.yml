@@ -631,7 +631,6 @@ jobs:
         run: |
           echo "📊 Running spec analysis..."
           bun run analyze:specs --no-error || true
-          bun run format SPEC-STATE.md
 
       - name: Check for changes
         id: changes

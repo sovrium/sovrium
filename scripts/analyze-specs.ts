@@ -40,6 +40,7 @@
 
 import { readdir, readFile, writeFile } from 'node:fs/promises'
 import { join, relative, basename } from 'node:path'
+import * as prettier from 'prettier'
 
 // =============================================================================
 // Types
@@ -961,8 +962,13 @@ async function main() {
   // Generate markdown
   const markdown = generateMarkdown(state)
 
-  // Write output
-  await writeFile(OUTPUT_FILE, markdown)
+  // Format with Prettier and write output
+  const prettierConfig = await prettier.resolveConfig(OUTPUT_FILE)
+  const formattedMarkdown = await prettier.format(markdown, {
+    ...prettierConfig,
+    parser: 'markdown',
+  })
+  await writeFile(OUTPUT_FILE, formattedMarkdown)
 
   // Console output
   console.log('')
