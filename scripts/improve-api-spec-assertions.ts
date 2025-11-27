@@ -117,7 +117,8 @@ const ASSERTION_PATTERNS: Record<string, string> = {
 }
 
 // Placeholder pattern to replace
-const PLACEHOLDER_PATTERN = /expect\(data\)\.toMatchObject\(\{ success: expect\.any\(Boolean\) \}\)/g
+const PLACEHOLDER_PATTERN =
+  /expect\(data\)\.toMatchObject\(\{ success: expect\.any\(Boolean\) \}\)/g
 
 async function findSpecFiles(dir: string): Promise<string[]> {
   const files: string[] = []

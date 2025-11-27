@@ -63,9 +63,7 @@ test.describe('Session Permission Enforcement', () => {
       if (response.status() === 200) {
         const data = await response.json()
         // Should not contain User 2's session
-        const otherUserSessions = data.sessions?.filter(
-          (s: { userId: string }) => s.userId === '2'
-        )
+        const otherUserSessions = data.sessions?.filter((s: { userId: string }) => s.userId === '2')
         expect(otherUserSessions?.length ?? 0).toBe(0)
       } else {
         expect(response.status()).toBe(403)

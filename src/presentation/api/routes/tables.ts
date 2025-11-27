@@ -166,7 +166,9 @@ function batchCreateProgram(recordsData: readonly { fields?: Record<string, unkn
   return Effect.succeed({ records, count: records.length })
 }
 
-function batchUpdateProgram(recordsData: readonly { id: string; fields?: Record<string, unknown> }[]) {
+function batchUpdateProgram(
+  recordsData: readonly { id: string; fields?: Record<string, unknown> }[]
+) {
   const records = recordsData.map((r) => ({
     id: r.id,
     fields: r.fields ?? {},
@@ -240,7 +242,9 @@ function getViewRecordsProgram() {
 
 function chainTableRoutesMethods<T extends Hono>(honoApp: T) {
   return honoApp
-    .get('/api/tables', async (c) => runEffect(c, createListTablesProgram(), listTablesResponseSchema))
+    .get('/api/tables', async (c) =>
+      runEffect(c, createListTablesProgram(), listTablesResponseSchema)
+    )
     .get('/api/tables/:tableId', async (c) =>
       runEffect(c, createGetTableProgram(c.req.param('tableId')), getTableResponseSchema)
     )
