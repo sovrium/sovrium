@@ -249,6 +249,92 @@ const generateIndexStatements = (table: Table): readonly string[] => {
 }
 
 /**
+ * Query existing table schema from database
+ */
+type ColumnInfo = {
+  column_name: string
+  data_type: string
+  is_nullable: string
+  column_default: string | null
+}
+
+const getExistingColumns = async (
+  tx: any,
+  tableName: string
+): Promise<readonly ColumnInfo[]> => {
+  try {
+    const result = await tx.unsafe(
+      `SELECT column_name, data_type, is_nullable, column_default
+       FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = '${tableName}'
+       ORDER BY ordinal_position`
+    )
+    return (result as readonly ColumnInfo[]) || []
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Check if table exists
+ */
+const tableExists = async (tx: any, tableName: string): Promise<boolean> => {
+  try {
+    const result = await tx.unsafe(
+      `SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = '${tableName}'
+      ) as exists`
+    )
+    return result[0]?.exists === true || result[0]?.exists === 't'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Generate ALTER TABLE statements for schema changes
+ */
+const generateMigrationStatements = (
+  table: Table,
+  existingColumns: readonly ColumnInfo[]
+): readonly string[] => {
+  const statements: string[] = []
+
+  // Get desired column names (excluding auto-generated id if not explicit)
+  const hasIdField = table.fields.some((field) => field.name === 'id')
+  const hasCustomPrimaryKey = table.primaryKey?.type === 'composite' &&
+                              (table.primaryKey.fields?.length ?? 0) > 0
+  const desiredColumns = new Set([
+    ...(hasIdField || hasCustomPrimaryKey ? [] : ['id']),
+    ...table.fields.map((f) => f.name),
+  ])
+
+  // Get existing column names
+  const existingColumnNames = new Set(existingColumns.map((c) => c.column_name))
+
+  // Find columns to add
+  for (const field of table.fields) {
+    if (!existingColumnNames.has(field.name)) {
+      const primaryKeyFields =
+        table.primaryKey?.type === 'composite' ? (table.primaryKey.fields ?? []) : []
+      const isPrimaryKey = primaryKeyFields.includes(field.name)
+      const columnDef = generateColumnDefinition(field, isPrimaryKey)
+      statements.push(`ALTER TABLE ${table.name} ADD COLUMN ${columnDef}`)
+    }
+  }
+
+  // Find columns to drop
+  for (const existingCol of existingColumns) {
+    if (!desiredColumns.has(existingCol.column_name)) {
+      statements.push(`ALTER TABLE ${table.name} DROP COLUMN ${existingCol.column_name}`)
+    }
+  }
+
+  return statements
+}
+
+/**
  * Execute schema initialization using bun:sql with transaction support
  * Uses Bun's native SQL driver for optimal performance
  *
@@ -282,14 +368,24 @@ const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]):
      */
     await db.begin(async (tx) => {
       for (const table of tables) {
-        // Drop existing table first to ensure schema matches configuration
-        // This prevents conflicts with Better Auth's user table or other pre-existing tables
-        const dropTableSQL = `DROP TABLE IF EXISTS ${table.name} CASCADE`
-        await tx.unsafe(dropTableSQL)
+        // Check if table exists
+        const exists = await tableExists(tx, table.name)
 
-        const createTableSQL = generateCreateTableSQL(table)
-        await tx.unsafe(createTableSQL)
+        if (exists) {
+          // Table exists - perform migration
+          const existingColumns = await getExistingColumns(tx, table.name)
+          const migrationStatements = generateMigrationStatements(table, existingColumns)
 
+          for (const statement of migrationStatements) {
+            await tx.unsafe(statement)
+          }
+        } else {
+          // Table doesn't exist - create it
+          const createTableSQL = generateCreateTableSQL(table)
+          await tx.unsafe(createTableSQL)
+        }
+
+        // Always ensure indexes are created (idempotent with IF NOT EXISTS)
         for (const indexSQL of generateIndexStatements(table)) {
           await tx.unsafe(indexSQL)
         }
