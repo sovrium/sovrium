@@ -635,12 +635,25 @@ jobs:
       - name: Check for changes
         id: changes
         run: |
-          if git diff --quiet SPEC-STATE.md 2>/dev/null; then
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-            echo "✅ No changes to SPEC-STATE.md"
-          else
-            echo "has_changes=true" >> $GITHUB_OUTPUT
+          # Check both files that analyze-specs.ts may update
+          SPEC_CHANGED=false
+          README_CHANGED=false
+
+          if ! git diff --quiet SPEC-STATE.md 2>/dev/null; then
+            SPEC_CHANGED=true
             echo "📝 SPEC-STATE.md has changes"
+          fi
+
+          if ! git diff --quiet README.md 2>/dev/null; then
+            README_CHANGED=true
+            echo "📝 README.md has changes (badges updated)"
+          fi
+
+          if [ "$SPEC_CHANGED" = "true" ] || [ "$README_CHANGED" = "true" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "✅ No changes to SPEC-STATE.md or README.md"
           fi
 
       - name: Commit and push changes
@@ -649,7 +662,8 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
 
-          git add SPEC-STATE.md
+          # Add both files (git add only stages if file has changes)
+          git add SPEC-STATE.md README.md
           git commit -m "chore: update SPEC-STATE.md [skip ci]
 
           🤖 Generated with [Claude Code](https://claude.com/claude-code)
@@ -658,7 +672,7 @@ jobs:
 
           git push
 
-          echo "✅ SPEC-STATE.md committed and pushed"
+          echo "✅ SPEC-STATE.md and README.md committed and pushed"
 
   # Job 6: Summary Report
   # Generates summary of monitoring actions
