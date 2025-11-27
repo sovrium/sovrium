@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Rich Text Field
@@ -198,7 +197,7 @@ test.describe('Rich Text Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-RICH-TEXT-006: user can complete full rich-text-field workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',

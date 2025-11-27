@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Autonumber Field
@@ -24,7 +23,7 @@ test.describe('Autonumber Field', () => {
   test(
     'APP-TABLES-FIELD-TYPES-AUTONUMBER-001: should create PostgreSQL SERIAL column for auto-incrementing numbers',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
@@ -55,7 +54,7 @@ test.describe('Autonumber Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-AUTONUMBER-002: should automatically increment value for each new record',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
@@ -89,7 +88,7 @@ test.describe('Autonumber Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-AUTONUMBER-003: should be immutable after creation (no manual updates)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
@@ -124,7 +123,7 @@ test.describe('Autonumber Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-AUTONUMBER-004: should always be NOT NULL (automatically generated)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
@@ -153,7 +152,7 @@ test.describe('Autonumber Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-AUTONUMBER-005: should create unique index automatically for autonumber field',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
@@ -182,7 +181,7 @@ test.describe('Autonumber Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-AUTONUMBER-006: user can complete full autonumber-field workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',

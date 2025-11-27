@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Reset password
@@ -168,7 +167,7 @@ test.describe('Reset password', () => {
   test.fixme(
     'API-AUTH-RESET-PASSWORD-004: should  (or 400 depending on better auth version)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
@@ -289,7 +288,7 @@ test.describe('Reset password', () => {
   test.fixme(
     'API-AUTH-RESET-PASSWORD-007: should  request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',

@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Modify Field Required Migration
@@ -28,7 +27,7 @@ test.describe('Modify Field Required Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-REQUIRED-001: should alter table alter column set not null',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with optional field 'phone' (TEXT NULL), no rows exist
       await executeQuery([
         `CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, phone TEXT)`,
@@ -74,7 +73,7 @@ test.describe('Modify Field Required Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-REQUIRED-002: should migration fails with error (cannot add not null without default when data exists)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with optional field 'category' (TEXT NULL), existing rows present
       await executeQuery([
         `CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, category TEXT)`,
@@ -109,7 +108,7 @@ test.describe('Modify Field Required Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-REQUIRED-003: should alter table set default, backfill null values, then set not null',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with optional field 'status', existing rows present
       await executeQuery([
         `CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50) NOT NULL, status TEXT)`,
@@ -163,7 +162,7 @@ test.describe('Modify Field Required Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-REQUIRED-004: should alter table alter column drop not null',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'tasks' with required field 'priority' (TEXT NOT NULL)
       await executeQuery([
         `CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL, priority TEXT NOT NULL)`,
@@ -212,7 +211,7 @@ test.describe('Modify Field Required Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-REQUIRED-005: user can complete full modify-field-required workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative modify-field-required scenarios
       await executeQuery([
         `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT)`,

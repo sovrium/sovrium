@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Modify Field Default Migration
@@ -28,7 +27,7 @@ test.describe('Modify Field Default Migration', () => {
   test.fixme(
     "MIG-MODIFY-DEFAULT-001: should alter table alter column set default 'medium'",
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'tasks' with priority field (TEXT), no default value
       await executeQuery([
         `CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL, priority TEXT)`,
@@ -73,7 +72,7 @@ test.describe('Modify Field Default Migration', () => {
   test.fixme(
     "MIG-MODIFY-DEFAULT-002: should alter table alter column set default 'pending' (replaces old default)",
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with status field, existing default 'draft'
       await executeQuery([
         `CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, status TEXT DEFAULT 'draft')`,
@@ -120,7 +119,7 @@ test.describe('Modify Field Default Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-DEFAULT-003: should alter table alter column drop default',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with created_at field, existing default NOW()
       await executeQuery([
         `CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50) NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW())`,
@@ -171,7 +170,7 @@ test.describe('Modify Field Default Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-DEFAULT-004: user can complete full modify-field-default workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative modify-field-default scenarios
       await executeQuery([
         `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, status TEXT)`,

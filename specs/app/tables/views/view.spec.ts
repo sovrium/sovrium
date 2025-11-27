@@ -5,17 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-/* eslint-disable @typescript-eslint/no-unused-vars */
-// @ts-nocheck
-/**
-
- * Copyright (c) 2025 ESSENTIAL SERVICES
- *
- * This source code is licensed under the Business Source License 1.1
- * found in the LICENSE.md file in the root directory of this source tree.
- */
-
 import { test, expect } from '@/specs/fixtures'
 
 /**
@@ -73,7 +62,7 @@ test.describe('Table View', () => {
   test.fixme(
     'APP-TABLES-VIEW-002: should fail with pattern mismatch error when validating view schema with invalid id format (contains uppercase or spaces)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ startServerWithSchema }) => {
       // GIVEN: a view with invalid id format (contains uppercase or spaces)
       // WHEN: validating the view schema
       // THEN: validation should fail with pattern mismatch error
@@ -129,7 +118,7 @@ test.describe('Table View', () => {
                 name: 'Active Tasks',
                 isDefault: true,
                 filters: {
-                  operator: 'AND',
+                  conjunction: 'and',
                   conditions: [
                     {
                       field: 'status',
@@ -188,7 +177,7 @@ test.describe('Table View', () => {
                 name: 'Default View',
                 isDefault: true,
                 filters: {
-                  operator: 'AND',
+                  conjunction: 'and',
                   conditions: [
                     {
                       field: 'status',

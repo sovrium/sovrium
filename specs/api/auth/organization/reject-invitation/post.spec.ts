@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Reject organization invitation
@@ -135,7 +134,7 @@ test.describe('Reject organization invitation', () => {
   test.fixme(
     'API-AUTH-ORG-REJECT-INVITATION-003: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',

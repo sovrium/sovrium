@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Modify Field Unique Migration
@@ -28,7 +27,7 @@ test.describe('Modify Field Unique Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-UNIQUE-001: should alter table add constraint unique_users_username unique (username)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with field 'username' (TEXT) containing unique values
       await executeQuery([
         `CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, username VARCHAR(100))`,
@@ -75,7 +74,7 @@ test.describe('Modify Field Unique Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-UNIQUE-002: should migration fails with unique violation error, transaction rolled back',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with field 'sku' containing duplicate values
       await executeQuery([
         `CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, sku VARCHAR(50))`,
@@ -118,7 +117,7 @@ test.describe('Modify Field Unique Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-UNIQUE-003: should alter table drop constraint unique_orders_order_number',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with field 'order_number' having UNIQUE constraint
       await executeQuery([
         `CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50) NOT NULL UNIQUE)`,
@@ -164,7 +163,7 @@ test.describe('Modify Field Unique Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-UNIQUE-004: user can complete full modify-field-unique workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative modify-field-unique scenarios
       await executeQuery([
         `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, code VARCHAR(50))`,

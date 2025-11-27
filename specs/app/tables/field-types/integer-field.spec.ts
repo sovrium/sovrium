@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Integer Field
@@ -28,7 +27,7 @@ test.describe('Integer Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-INTEGER-001: should create PostgreSQL INTEGER column when table configuration has integer field',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with integer field 'quantity'
       await startServerWithSchema({
         name: 'test-app',
@@ -74,7 +73,7 @@ test.describe('Integer Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-INTEGER-002: should reject values outside min/max range when CHECK constraint enforces range validation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'inventory' with integer field 'stock' (min=0, max=1000)
       await startServerWithSchema({
         name: 'test-app',
@@ -120,7 +119,7 @@ test.describe('Integer Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-INTEGER-003: should enforce NOT NULL and UNIQUE constraints when integer field is required and unique',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with integer field 'order_number' (required, unique)
       await startServerWithSchema({
         name: 'test-app',
@@ -169,7 +168,7 @@ test.describe('Integer Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-INTEGER-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'settings' with integer field 'timeout' and default value 30
       await startServerWithSchema({
         name: 'test-app',
@@ -211,7 +210,7 @@ test.describe('Integer Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-INTEGER-005: should create btree index for fast numerical queries when integer field has indexed=true',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with integer field 'score', indexed=true
       await startServerWithSchema({
         name: 'test-app',
@@ -256,7 +255,7 @@ test.describe('Integer Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-INTEGER-006: user can complete full integer-field workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative integer field
       await startServerWithSchema({
         name: 'test-app',

@@ -7,162 +7,110 @@
 
 import { describe, expect, test } from 'bun:test'
 import { Schema } from 'effect'
-import { ViewFieldConfigSchema } from './fields'
+import { ViewFieldsSchema } from './fields'
 
-describe('ViewFieldConfigSchema', () => {
-  describe('Valid Field Configs', () => {
-    test('should accept minimal field config', () => {
-      // GIVEN: A minimal field configuration
-      const config = { field: 'name' }
+describe('ViewFieldsSchema', () => {
+  describe('Valid Fields', () => {
+    test('should accept empty array', () => {
+      // GIVEN: An empty fields array
+      const fields: readonly string[] = []
 
-      // WHEN: The config is validated against the schema
-      const result = Schema.decodeUnknownSync(ViewFieldConfigSchema)(config)
+      // WHEN: The fields are validated against the schema
+      const result = Schema.decodeUnknownSync(ViewFieldsSchema)(fields)
 
-      // THEN: The config should be accepted
-      expect(result).toEqual({ field: 'name' })
+      // THEN: The fields should be accepted
+      expect(result).toEqual([])
     })
 
-    test('should accept field config with visibility true', () => {
-      // GIVEN: A field config with visibility true
-      const config = { field: 'email', visible: true }
+    test('should accept array with single field', () => {
+      // GIVEN: An array with a single field name
+      const fields = ['name']
 
-      // WHEN: The config is validated against the schema
-      const result = Schema.decodeUnknownSync(ViewFieldConfigSchema)(config)
+      // WHEN: The fields are validated against the schema
+      const result = Schema.decodeUnknownSync(ViewFieldsSchema)(fields)
 
-      // THEN: The config should be accepted
-      expect(result).toEqual({ field: 'email', visible: true })
+      // THEN: The fields should be accepted
+      expect(result).toEqual(['name'])
     })
 
-    test('should accept field config with visibility false', () => {
-      // GIVEN: A field config with visibility false
-      const config = { field: 'password', visible: false }
+    test('should accept array with multiple fields', () => {
+      // GIVEN: An array with multiple field names
+      const fields = ['name', 'email', 'created_at']
 
-      // WHEN: The config is validated against the schema
-      const result = Schema.decodeUnknownSync(ViewFieldConfigSchema)(config)
+      // WHEN: The fields are validated against the schema
+      const result = Schema.decodeUnknownSync(ViewFieldsSchema)(fields)
 
-      // THEN: The config should be accepted
-      expect(result).toEqual({ field: 'password', visible: false })
+      // THEN: The fields should be accepted
+      expect(result).toEqual(['name', 'email', 'created_at'])
     })
 
-    test('should accept field config with width', () => {
-      // GIVEN: A field config with width
-      const config = { field: 'description', width: 300 }
+    test('should preserve field order', () => {
+      // GIVEN: An array with fields in specific order
+      const fields = ['z_field', 'a_field', 'm_field']
 
-      // WHEN: The config is validated against the schema
-      const result = Schema.decodeUnknownSync(ViewFieldConfigSchema)(config)
+      // WHEN: The fields are validated against the schema
+      const result = Schema.decodeUnknownSync(ViewFieldsSchema)(fields)
 
-      // THEN: The config should be accepted
-      expect(result).toEqual({ field: 'description', width: 300 })
-    })
-
-    test('should accept full field config', () => {
-      // GIVEN: A full field configuration
-      const config = { field: 'notes', visible: false, width: 200 }
-
-      // WHEN: The config is validated against the schema
-      const result = Schema.decodeUnknownSync(ViewFieldConfigSchema)(config)
-
-      // THEN: The config should be accepted
-      expect(result).toEqual({ field: 'notes', visible: false, width: 200 })
-    })
-
-    test('should accept field config with zero width', () => {
-      // GIVEN: A field config with zero width
-      const config = { field: 'hidden', width: 0 }
-
-      // WHEN: The config is validated against the schema
-      const result = Schema.decodeUnknownSync(ViewFieldConfigSchema)(config)
-
-      // THEN: The config should be accepted
-      expect(result).toEqual({ field: 'hidden', width: 0 })
-    })
-
-    test('should accept field config with large width', () => {
-      // GIVEN: A field config with large width
-      const config = { field: 'content', width: 1000 }
-
-      // WHEN: The config is validated against the schema
-      const result = Schema.decodeUnknownSync(ViewFieldConfigSchema)(config)
-
-      // THEN: The config should be accepted
-      expect(result).toEqual({ field: 'content', width: 1000 })
+      // THEN: The order should be preserved
+      expect(result).toEqual(['z_field', 'a_field', 'm_field'])
     })
   })
 
-  describe('Invalid Field Configs', () => {
-    test('should reject missing field', () => {
-      // GIVEN: A config without field
-      const config = { visible: true }
-
-      // WHEN/THEN: The config validation should fail
-      expect(() => {
-        Schema.decodeUnknownSync(ViewFieldConfigSchema)(config)
-      }).toThrow()
-    })
-
+  describe('Invalid Fields', () => {
     test('should reject null', () => {
       // GIVEN: A null value
-      const config = null
+      const fields = null
 
-      // WHEN/THEN: The config validation should fail
+      // WHEN/THEN: The validation should fail
       expect(() => {
-        Schema.decodeUnknownSync(ViewFieldConfigSchema)(config)
+        Schema.decodeUnknownSync(ViewFieldsSchema)(fields)
       }).toThrow()
     })
 
-    test('should reject empty object', () => {
-      // GIVEN: An empty object
-      const config = {}
+    test('should reject non-array', () => {
+      // GIVEN: A non-array value
+      const fields = 'name'
 
-      // WHEN/THEN: The config validation should fail
+      // WHEN/THEN: The validation should fail
       expect(() => {
-        Schema.decodeUnknownSync(ViewFieldConfigSchema)(config)
+        Schema.decodeUnknownSync(ViewFieldsSchema)(fields)
       }).toThrow()
     })
 
-    test('should reject non-string field', () => {
-      // GIVEN: A config with non-string field
-      const config = { field: 123, visible: true }
+    test('should reject array with non-string elements', () => {
+      // GIVEN: An array with non-string elements
+      const fields = ['name', 123, 'email']
 
-      // WHEN/THEN: The config validation should fail
+      // WHEN/THEN: The validation should fail
       expect(() => {
-        Schema.decodeUnknownSync(ViewFieldConfigSchema)(config)
+        Schema.decodeUnknownSync(ViewFieldsSchema)(fields)
       }).toThrow()
     })
 
-    test('should reject non-boolean visible', () => {
-      // GIVEN: A config with non-boolean visible
-      const config = { field: 'name', visible: 'yes' }
+    test('should reject array with object elements', () => {
+      // GIVEN: An array with object elements (old format)
+      const fields = [{ field: 'name', visible: true }]
 
-      // WHEN/THEN: The config validation should fail
+      // WHEN/THEN: The validation should fail
       expect(() => {
-        Schema.decodeUnknownSync(ViewFieldConfigSchema)(config)
-      }).toThrow()
-    })
-
-    test('should reject non-number width', () => {
-      // GIVEN: A config with non-number width
-      const config = { field: 'name', width: '200px' }
-
-      // WHEN/THEN: The config validation should fail
-      expect(() => {
-        Schema.decodeUnknownSync(ViewFieldConfigSchema)(config)
+        Schema.decodeUnknownSync(ViewFieldsSchema)(fields)
       }).toThrow()
     })
   })
 
   describe('Type Inference', () => {
-    test('should infer ViewFieldConfig type correctly', () => {
-      // GIVEN: A valid field config
-      const config = { field: 'email', visible: true, width: 250 }
+    test('should infer ViewFields type correctly', () => {
+      // GIVEN: A valid fields array
+      const fields = ['name', 'email', 'status']
 
-      // WHEN: The config is validated against the schema
-      const result = Schema.decodeUnknownSync(ViewFieldConfigSchema)(config)
+      // WHEN: The fields are validated against the schema
+      const result = Schema.decodeUnknownSync(ViewFieldsSchema)(fields)
 
       // THEN: TypeScript should infer the correct type
-      expect(result.field).toBe('email')
-      expect(result.visible).toBe(true)
-      expect(result.width).toBe(250)
+      expect(result.length).toBe(3)
+      expect(result[0]).toBe('name')
+      expect(result[1]).toBe('email')
+      expect(result[2]).toBe('status')
     })
   })
 })

@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Rollup Field
@@ -24,7 +23,7 @@ test.describe('Rollup Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-ROLLUP-001: should calculate SUM aggregation from related records',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255))',
@@ -59,7 +58,7 @@ test.describe('Rollup Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-ROLLUP-002: should return COUNT aggregation of related records',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255))',
@@ -94,7 +93,7 @@ test.describe('Rollup Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-ROLLUP-003: should support AVG, MIN, MAX statistical aggregations',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255))',
@@ -129,7 +128,7 @@ test.describe('Rollup Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-ROLLUP-004: should efficiently aggregate across multiple parent records with GROUP BY',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE departments (id SERIAL PRIMARY KEY, name VARCHAR(255))',
@@ -161,7 +160,7 @@ test.describe('Rollup Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-ROLLUP-005: should create VIEW to encapsulate rollup aggregation logic',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE accounts (id SERIAL PRIMARY KEY, account_name VARCHAR(255))',

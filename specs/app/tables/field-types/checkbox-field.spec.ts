@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Checkbox Field
@@ -28,7 +27,7 @@ test.describe('Checkbox Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-CHECKBOX-001: should create PostgreSQL BOOLEAN column when table configuration has checkbox field',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with checkbox field 'is_active'
       await startServerWithSchema({
         name: 'test-app',
@@ -74,7 +73,7 @@ test.describe('Checkbox Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-CHECKBOX-002: should store true/false values correctly when checkbox is checked or unchecked',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with checkbox field 'completed'
       await startServerWithSchema({
         name: 'test-app',
@@ -108,7 +107,7 @@ test.describe('Checkbox Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-CHECKBOX-003: should reject NULL value when checkbox field is required',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with required checkbox field 'terms_accepted'
       await startServerWithSchema({
         name: 'test-app',
@@ -149,7 +148,7 @@ test.describe('Checkbox Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-CHECKBOX-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with checkbox field 'enabled' and default value FALSE
       await startServerWithSchema({
         name: 'test-app',
@@ -185,7 +184,7 @@ test.describe('Checkbox Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-CHECKBOX-005: should create btree index for fast queries when checkbox field has indexed=true',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with checkbox field 'published', indexed=true
       await startServerWithSchema({
         name: 'test-app',
@@ -222,7 +221,7 @@ test.describe('Checkbox Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-CHECKBOX-006: user can complete full checkbox-field workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative checkbox field
       await startServerWithSchema({
         name: 'test-app',

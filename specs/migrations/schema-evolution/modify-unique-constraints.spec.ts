@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Modify Unique Constraints Migration
@@ -28,7 +27,7 @@ test.describe('Modify Unique Constraints Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-UNIQUE-001: should alter table add constraint unique creates constraint',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with email field (not unique)
       await executeQuery([
         `CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, email VARCHAR(255))`,
@@ -77,7 +76,7 @@ test.describe('Modify Unique Constraints Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-UNIQUE-002: should alter table drop constraint removes constraint',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'accounts' with existing unique constraint on username
       await executeQuery([
         `CREATE TABLE accounts (id SERIAL PRIMARY KEY, username VARCHAR(100) NOT NULL UNIQUE)`,
@@ -119,7 +118,7 @@ test.describe('Modify Unique Constraints Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-UNIQUE-003: should alter table add constraint unique (col1, col2) enforces multi-column uniqueness',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'tenant_users' with no unique constraints
       await executeQuery([
         `CREATE TABLE tenant_users (id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL, email VARCHAR(255) NOT NULL)`,
@@ -165,7 +164,7 @@ test.describe('Modify Unique Constraints Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-UNIQUE-004: should migration fails with data validation error and rolls back',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with duplicate data in 'sku' field
       await executeQuery([
         `CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, sku VARCHAR(50))`,
@@ -208,7 +207,7 @@ test.describe('Modify Unique Constraints Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-UNIQUE-005: should drop old constraint and add new composite constraint',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with existing unique constraint uq_orders_number
       await executeQuery([
         `CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50) NOT NULL UNIQUE, tenant_id INTEGER NOT NULL)`,
@@ -263,7 +262,7 @@ test.describe('Modify Unique Constraints Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-UNIQUE-006: user can complete full modify-unique-constraints workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative modify-unique-constraints scenarios
       await executeQuery([
         `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, code VARCHAR(50), org_id INTEGER NOT NULL)`,

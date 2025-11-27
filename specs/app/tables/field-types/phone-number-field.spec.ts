@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Phone Number Field
@@ -28,7 +27,7 @@ test.describe('Phone Number Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-PHONE-NUMBER-001: should create PostgreSQL VARCHAR(255) column for phone number storage when table configuration has phone-number field',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with phone-number field 'phone'
       await startServerWithSchema({
         name: 'test-app',
@@ -69,7 +68,7 @@ test.describe('Phone Number Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-PHONE-NUMBER-002: should store all formats as-is without validation when inserting international phone numbers with different formats',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'customers' with phone-number field 'mobile'
       await startServerWithSchema({
         name: 'test-app',
@@ -117,7 +116,7 @@ test.describe('Phone Number Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-PHONE-NUMBER-003: should reject duplicate phone number when table has phone-number field with unique constraint',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with phone-number field 'phone' (required, unique), existing row phone='+1-555-1234'
       await startServerWithSchema({
         name: 'test-app',
@@ -159,7 +158,7 @@ test.describe('Phone Number Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-PHONE-NUMBER-004: should reject NULL value when table has required phone-number field',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'support_tickets' with required phone-number field 'contact_phone'
       await startServerWithSchema({
         name: 'test-app',
@@ -200,7 +199,7 @@ test.describe('Phone Number Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-PHONE-NUMBER-005: should create btree index for fast phone number lookups when phone-number field has indexed=true',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with phone-number field, indexed=true
       await startServerWithSchema({
         name: 'test-app',
@@ -245,7 +244,7 @@ test.describe('Phone Number Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-PHONE-NUMBER-006: user can complete full phone-number-field workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative phone-number field
       await startServerWithSchema({
         name: 'test-app',

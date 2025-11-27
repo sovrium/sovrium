@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Filter Condition
@@ -28,7 +27,7 @@ test.describe('Filter Condition', () => {
   test.fixme(
     'APP-TABLES-VIEW-CONDITION-001: should pass only records with exact field value match when a condition has equals operator and matching value',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: a condition with equals operator and matching value
       await startServerWithSchema({
         name: 'test-app',
@@ -73,7 +72,7 @@ test.describe('Filter Condition', () => {
   test.fixme(
     'APP-TABLES-VIEW-CONDITION-002: should pass records with substring match when a condition has contains operator on text field',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: a condition with contains operator on text field
       await startServerWithSchema({
         name: 'test-app',
@@ -117,7 +116,7 @@ test.describe('Filter Condition', () => {
   test.fixme(
     'APP-TABLES-VIEW-CONDITION-003: should pass only records with field value greater than specified value when a condition has greaterThan operator on numeric field',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: a condition with greaterThan operator on numeric field
       await startServerWithSchema({
         name: 'test-app',
@@ -159,7 +158,7 @@ test.describe('Filter Condition', () => {
   test.fixme(
     'APP-TABLES-VIEW-CONDITION-004: should pass only records where field is null or empty when a condition has isEmpty operator',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: a condition with isEmpty operator
       await startServerWithSchema({
         name: 'test-app',
@@ -204,7 +203,7 @@ test.describe('Filter Condition', () => {
   test.fixme(
     'APP-TABLES-VIEW-CONDITION-005: should pass records where field matches any value in the array when a condition has in operator and array of values',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: a condition with in operator and array of values
       await startServerWithSchema({
         name: 'test-app',
@@ -259,7 +258,7 @@ test.describe('Filter Condition', () => {
   test.fixme(
     'APP-TABLES-VIEW-CONDITION-006: user can complete full filter-condition workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative filter conditions
       await startServerWithSchema({
         name: 'test-app',

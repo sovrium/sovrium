@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Modify Field Options Migration
@@ -28,7 +27,7 @@ test.describe('Modify Field Options Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-OPTIONS-001: should drop check constraint, add new check with additional value',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'tasks' with status field (enum: 'pending', 'in_progress', 'completed')
       await executeQuery([
         `CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL, status TEXT CHECK (status IN ('pending', 'in_progress', 'completed')))`,
@@ -80,7 +79,7 @@ test.describe('Modify Field Options Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-OPTIONS-002: should drop check constraint, add new check without removed value',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with category field (enum: 'electronics', 'clothing', 'books', 'furniture'), no rows use 'furniture'
       await executeQuery([
         `CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, category TEXT CHECK (category IN ('electronics', 'clothing', 'books', 'furniture')))`,
@@ -132,7 +131,7 @@ test.describe('Modify Field Options Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-OPTIONS-003: should migration fails with data validation error (existing data uses removed option)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with priority field (enum: 'low', 'medium', 'high'), existing rows use 'medium'
       await executeQuery([
         `CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50) NOT NULL, priority TEXT CHECK (priority IN ('low', 'medium', 'high')))`,
@@ -174,7 +173,7 @@ test.describe('Modify Field Options Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-OPTIONS-004: should add check constraint with jsonb validation expression',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'preferences' with tags field (JSONB array)
       await executeQuery([
         `CREATE TABLE preferences (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL, tags JSONB DEFAULT '[]')`,
@@ -226,7 +225,7 @@ test.describe('Modify Field Options Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-OPTIONS-005: user can complete full modify-field-options workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative modify-field-options scenarios
       await executeQuery([
         `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, type TEXT CHECK (type IN ('type_a', 'type_b')))`,

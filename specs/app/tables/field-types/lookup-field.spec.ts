@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Lookup Field
@@ -24,7 +23,7 @@ test.describe('Lookup Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-LOOKUP-001: should retrieve related field via JOIN',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255))',
@@ -63,7 +62,7 @@ test.describe('Lookup Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-LOOKUP-002: should support multiple lookup fields through same relationship',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), department VARCHAR(100))',
@@ -89,7 +88,7 @@ test.describe('Lookup Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-LOOKUP-003: should create VIEW to encapsulate lookup logic',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE categories (id SERIAL PRIMARY KEY, name VARCHAR(255))',
@@ -125,7 +124,7 @@ test.describe('Lookup Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-LOOKUP-004: should return NULL when relationship is NULL via LEFT JOIN',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE companies (id SERIAL PRIMARY KEY, name VARCHAR(255))',
@@ -160,7 +159,7 @@ test.describe('Lookup Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-LOOKUP-005: should reflect updated values immediately when related record changes',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255), price DECIMAL(10,2))',

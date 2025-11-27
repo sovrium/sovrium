@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Update member role
@@ -134,7 +133,7 @@ test.describe('Update member role', () => {
   test.fixme(
     'API-AUTH-ORG-UPDATE-MEMBER-ROLE-003: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',

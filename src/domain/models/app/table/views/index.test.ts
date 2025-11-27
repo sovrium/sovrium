@@ -10,7 +10,7 @@ import { Schema } from 'effect'
 import { ViewSchema, ViewsSchema } from '.'
 
 describe('ViewSchema', () => {
-  describe('Valid Views', () => {
+  describe('Valid Views - Minimal', () => {
     test('should accept minimal view', () => {
       // GIVEN: A minimal view configuration
       const view = { id: 1, name: 'All Records' }
@@ -32,25 +32,66 @@ describe('ViewSchema', () => {
       // THEN: The view should be accepted
       expect(result).toEqual({ id: 'default', name: 'Default View' })
     })
+  })
 
-    test('should accept grid view with type', () => {
-      // GIVEN: A grid view
-      const view = { id: 1, name: 'Grid View', type: 'grid' }
+  describe('Valid Views - SQL Query Mode', () => {
+    test('should accept SQL query view', () => {
+      // GIVEN: A view with SQL query
+      const view = {
+        id: 'active_users',
+        name: 'Active Users',
+        query: 'SELECT * FROM users WHERE active = true',
+      }
 
       // WHEN: The view is validated against the schema
       const result = Schema.decodeUnknownSync(ViewSchema)(view)
 
       // THEN: The view should be accepted
-      expect(result).toEqual({ id: 1, name: 'Grid View', type: 'grid' })
+      expect(result).toEqual(view)
     })
 
-    test('should accept kanban view with groupBy', () => {
-      // GIVEN: A kanban view with groupBy
+    test('should accept materialized view', () => {
+      // GIVEN: A materialized view
       const view = {
-        id: 2,
-        name: 'Task Board',
-        type: 'kanban' as const,
-        groupBy: { field: 'status' },
+        id: 'order_stats',
+        name: 'Order Statistics',
+        query:
+          'SELECT customer_id, COUNT(*) as order_count, SUM(amount) as total FROM orders GROUP BY customer_id',
+        materialized: true,
+      }
+
+      // WHEN: The view is validated against the schema
+      const result = Schema.decodeUnknownSync(ViewSchema)(view)
+
+      // THEN: The view should be accepted
+      expect(result).toEqual(view)
+    })
+
+    test('should accept materialized view with refreshOnMigration', () => {
+      // GIVEN: A materialized view with refresh on migration
+      const view = {
+        id: 'daily_stats',
+        name: 'Daily Statistics',
+        query: 'SELECT date, COUNT(*) as count FROM events GROUP BY date',
+        materialized: true,
+        refreshOnMigration: true,
+      }
+
+      // WHEN: The view is validated against the schema
+      const result = Schema.decodeUnknownSync(ViewSchema)(view)
+
+      // THEN: The view should be accepted
+      expect(result).toEqual(view)
+    })
+  })
+
+  describe('Valid Views - JSON Config Mode', () => {
+    test('should accept view with isDefault', () => {
+      // GIVEN: A default view
+      const view = {
+        id: 1,
+        name: 'Default View',
+        isDefault: true,
       }
 
       // WHEN: The view is validated against the schema
@@ -65,7 +106,6 @@ describe('ViewSchema', () => {
       const view = {
         id: 3,
         name: 'Active Items',
-        type: 'grid' as const,
         filters: {
           conjunction: 'and' as const,
           conditions: [{ field: 'status', operator: 'equals', value: 'active' }],
@@ -97,16 +137,12 @@ describe('ViewSchema', () => {
       expect(result).toEqual(view)
     })
 
-    test('should accept view with field configurations', () => {
-      // GIVEN: A view with field configurations
+    test('should accept view with fields', () => {
+      // GIVEN: A view with field names
       const view = {
         id: 5,
         name: 'Custom Fields',
-        fields: [
-          { field: 'name', visible: true, width: 200 },
-          { field: 'email', visible: true, width: 250 },
-          { field: 'notes', visible: false },
-        ],
+        fields: ['name', 'email', 'notes'],
       }
 
       // WHEN: The view is validated against the schema
@@ -116,47 +152,35 @@ describe('ViewSchema', () => {
       expect(result).toEqual(view)
     })
 
-    test('should accept fully configured view', () => {
+    test('should accept view with groupBy', () => {
+      // GIVEN: A view with groupBy
+      const view = {
+        id: 2,
+        name: 'Task Board',
+        groupBy: { field: 'status' },
+      }
+
+      // WHEN: The view is validated against the schema
+      const result = Schema.decodeUnknownSync(ViewSchema)(view)
+
+      // THEN: The view should be accepted
+      expect(result).toEqual(view)
+    })
+
+    test('should accept fully configured JSON view', () => {
       // GIVEN: A fully configured view
       const view = {
         id: 6,
         name: 'Complete View',
-        type: 'grid' as const,
+        isDefault: true,
         filters: {
           conjunction: 'and' as const,
           conditions: [{ field: 'archived', operator: 'equals', value: false }],
         },
         sorts: [{ field: 'createdAt', direction: 'desc' as const }],
-        fields: [{ field: 'name', visible: true, width: 200 }],
+        fields: ['name', 'email', 'status'],
         groupBy: { field: 'category', order: 'asc' as const },
       }
-
-      // WHEN: The view is validated against the schema
-      const result = Schema.decodeUnknownSync(ViewSchema)(view)
-
-      // THEN: The view should be accepted
-      expect(result).toEqual(view)
-    })
-
-    test('should accept calendar view', () => {
-      // GIVEN: A calendar view
-      const view = {
-        id: 'calendar-view',
-        name: 'Schedule',
-        type: 'calendar' as const,
-        sorts: [{ field: 'dueDate', direction: 'asc' as const }],
-      }
-
-      // WHEN: The view is validated against the schema
-      const result = Schema.decodeUnknownSync(ViewSchema)(view)
-
-      // THEN: The view should be accepted
-      expect(result).toEqual(view)
-    })
-
-    test('should accept gallery view', () => {
-      // GIVEN: A gallery view
-      const view = { id: 7, name: 'Image Gallery', type: 'gallery' as const }
 
       // WHEN: The view is validated against the schema
       const result = Schema.decodeUnknownSync(ViewSchema)(view)
@@ -170,7 +194,6 @@ describe('ViewSchema', () => {
       const view = {
         id: 8,
         name: 'Admin View',
-        type: 'grid' as const,
         permissions: { read: ['admin'], write: ['admin'] },
       }
 
@@ -196,16 +219,6 @@ describe('ViewSchema', () => {
     test('should reject view without name', () => {
       // GIVEN: A view without name
       const view = { id: 1 }
-
-      // WHEN/THEN: The view validation should fail
-      expect(() => {
-        Schema.decodeUnknownSync(ViewSchema)(view)
-      }).toThrow()
-    })
-
-    test('should reject view with invalid type', () => {
-      // GIVEN: A view with invalid type
-      const view = { id: 1, name: 'Invalid Type', type: 'spreadsheet' }
 
       // WHEN/THEN: The view validation should fail
       expect(() => {
@@ -260,6 +273,35 @@ describe('ViewSchema', () => {
         Schema.decodeUnknownSync(ViewSchema)(view)
       }).toThrow()
     })
+
+    test('should reject view with non-boolean materialized', () => {
+      // GIVEN: A view with non-boolean materialized
+      const view = {
+        id: 1,
+        name: 'Invalid',
+        query: 'SELECT * FROM users',
+        materialized: 'yes',
+      }
+
+      // WHEN/THEN: The view validation should fail
+      expect(() => {
+        Schema.decodeUnknownSync(ViewSchema)(view)
+      }).toThrow()
+    })
+
+    test('should reject view with non-boolean isDefault', () => {
+      // GIVEN: A view with non-boolean isDefault
+      const view = {
+        id: 1,
+        name: 'Invalid',
+        isDefault: 'true',
+      }
+
+      // WHEN/THEN: The view validation should fail
+      expect(() => {
+        Schema.decodeUnknownSync(ViewSchema)(view)
+      }).toThrow()
+    })
   })
 })
 
@@ -287,12 +329,25 @@ describe('ViewsSchema', () => {
       expect(result).toEqual([{ id: 1, name: 'Default' }])
     })
 
-    test('should accept multiple views', () => {
-      // GIVEN: Multiple views
+    test('should accept multiple views with different modes', () => {
+      // GIVEN: Multiple views with different modes
       const views = [
-        { id: 1, name: 'All Records', type: 'grid' as const },
-        { id: 2, name: 'Board', type: 'kanban' as const, groupBy: { field: 'status' } },
-        { id: 3, name: 'Calendar', type: 'calendar' as const },
+        { id: 'sql_view', name: 'SQL View', query: 'SELECT * FROM users' },
+        {
+          id: 2,
+          name: 'Config View',
+          isDefault: true,
+          filters: {
+            conjunction: 'and' as const,
+            conditions: [{ field: 'active', operator: 'equals', value: true }],
+          },
+        },
+        {
+          id: 'mat_view',
+          name: 'Materialized',
+          query: 'SELECT COUNT(*) FROM orders',
+          materialized: true,
+        },
       ]
 
       // WHEN: The views are validated against the schema
@@ -351,12 +406,31 @@ describe('ViewsSchema', () => {
 })
 
 describe('Type Inference', () => {
-  test('should infer View type correctly', () => {
-    // GIVEN: A valid view
+  test('should infer View type correctly for SQL view', () => {
+    // GIVEN: A valid SQL view
+    const view = {
+      id: 'active_users',
+      name: 'Active Users',
+      query: 'SELECT * FROM users WHERE active = true',
+      materialized: true,
+    }
+
+    // WHEN: The view is validated against the schema
+    const result = Schema.decodeUnknownSync(ViewSchema)(view)
+
+    // THEN: TypeScript should infer the correct type
+    expect(result.id).toBe('active_users')
+    expect(result.name).toBe('Active Users')
+    expect(result.query).toBe('SELECT * FROM users WHERE active = true')
+    expect(result.materialized).toBe(true)
+  })
+
+  test('should infer View type correctly for config view', () => {
+    // GIVEN: A valid config view
     const view = {
       id: 1,
-      name: 'Test View',
-      type: 'grid' as const,
+      name: 'Default View',
+      isDefault: true,
     }
 
     // WHEN: The view is validated against the schema
@@ -364,8 +438,8 @@ describe('Type Inference', () => {
 
     // THEN: TypeScript should infer the correct type
     expect(result.id).toBe(1)
-    expect(result.name).toBe('Test View')
-    expect(result.type).toBe('grid')
+    expect(result.name).toBe('Default View')
+    expect(result.isDefault).toBe(true)
   })
 
   test('should infer Views type correctly', () => {

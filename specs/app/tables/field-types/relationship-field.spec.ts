@@ -6,13 +6,12 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 test.describe('Relationship Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-001: should create INTEGER column with FOREIGN KEY constraint',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
@@ -30,7 +29,7 @@ test.describe('Relationship Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-002: should reject invalid foreign key reference',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE customers (id SERIAL PRIMARY KEY)',
@@ -47,7 +46,7 @@ test.describe('Relationship Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-003: should CASCADE delete child records when parent deleted',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE posts (id SERIAL PRIMARY KEY)',
@@ -67,7 +66,7 @@ test.describe('Relationship Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-004: should SET NULL on delete when onDelete=set-null',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE categories (id SERIAL PRIMARY KEY)',
@@ -87,7 +86,7 @@ test.describe('Relationship Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-005: should RESTRICT deletion when child records exist',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE authors (id SERIAL PRIMARY KEY)',
@@ -105,7 +104,7 @@ test.describe('Relationship Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-006: should support one-to-one relationship with UNIQUE constraint',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY)',
@@ -123,7 +122,7 @@ test.describe('Relationship Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-007: should support many-to-many via junction table',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE students (id SERIAL PRIMARY KEY)',
@@ -143,7 +142,7 @@ test.describe('Relationship Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-008: should support self-referencing relationships',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE employees (id SERIAL PRIMARY KEY, manager_id INTEGER REFERENCES employees(id))',
@@ -161,7 +160,7 @@ test.describe('Relationship Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-009: should create btree index on foreign key when indexed=true',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE departments (id SERIAL PRIMARY KEY)',
@@ -180,7 +179,7 @@ test.describe('Relationship Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-010: should support CASCADE updates when onUpdate=cascade',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE teams (id INTEGER PRIMARY KEY, name VARCHAR(255))',
@@ -200,7 +199,7 @@ test.describe('Relationship Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-011: user can complete full relationship-field workflow',
     { tag: '@regression' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE categories (id SERIAL PRIMARY KEY)',

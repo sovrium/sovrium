@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Sign up with email and password
@@ -208,7 +207,7 @@ test.describe('Sign up with email and password', () => {
   test.fixme(
     'API-AUTH-SIGN-UP-EMAIL-006: should returns 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',

@@ -42,11 +42,9 @@ test.describe('Table-Level Permissions', () => {
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              table: {
-                read: {
-                  type: 'roles',
-                  roles: ['member'],
-                },
+              read: {
+                type: 'roles',
+                roles: ['member'],
               },
             },
           },
@@ -111,11 +109,9 @@ test.describe('Table-Level Permissions', () => {
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              table: {
-                create: {
-                  type: 'roles',
-                  roles: ['admin'],
-                },
+              create: {
+                type: 'roles',
+                roles: ['admin'],
               },
             },
           },
@@ -180,10 +176,8 @@ test.describe('Table-Level Permissions', () => {
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              table: {
-                read: {
-                  type: 'public',
-                },
+              read: {
+                type: 'public',
               },
             },
           },
@@ -241,10 +235,8 @@ test.describe('Table-Level Permissions', () => {
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              table: {
-                update: {
-                  type: 'authenticated',
-                },
+              update: {
+                type: 'authenticated',
               },
             },
           },
@@ -309,9 +301,7 @@ test.describe('Table-Level Permissions', () => {
               { id: 2, name: 'data', type: 'single-line-text' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
-            permissions: {
-              table: {},
-            },
+            permissions: {},
           },
         ],
       })
@@ -376,14 +366,12 @@ test.describe('Table-Level Permissions', () => {
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              table: {
-                read: {
-                  type: 'authenticated',
-                },
-                create: {
-                  type: 'roles',
-                  roles: ['admin'],
-                },
+              read: {
+                type: 'authenticated',
+              },
+              create: {
+                type: 'roles',
+                roles: ['admin'],
               },
             },
           },

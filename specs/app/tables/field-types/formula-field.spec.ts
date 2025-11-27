@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Formula Field
@@ -337,7 +336,7 @@ test.describe('Formula Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-FORMULA-006: user can complete full formula-field workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',

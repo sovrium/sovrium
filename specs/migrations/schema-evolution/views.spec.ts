@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Database Views Migration
@@ -28,7 +27,7 @@ test.describe('Database Views Migration', () => {
   test.fixme(
     'MIGRATION-VIEW-001: should create view for read-only access',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' exists, no views defined
       await executeQuery([
         `CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, email VARCHAR(255), active BOOLEAN DEFAULT true)`,
@@ -81,7 +80,7 @@ test.describe('Database Views Migration', () => {
   test.fixme(
     'MIGRATION-VIEW-002: should drop view when removed',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: view 'active_users' exists
       await executeQuery([
         `CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, active BOOLEAN DEFAULT true)`,
@@ -128,7 +127,7 @@ test.describe('Database Views Migration', () => {
   test.fixme(
     'MIGRATION-VIEW-003: should alter view via drop and create',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: view 'user_summary' exists with query A
       await executeQuery([
         `CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, email VARCHAR(255), role VARCHAR(50))`,
@@ -183,7 +182,7 @@ test.describe('Database Views Migration', () => {
   test.fixme(
     'MIGRATION-VIEW-004: should create materialized view',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' exists, no materialized views
       await executeQuery([
         `CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER, amount NUMERIC(10,2), created_at TIMESTAMPTZ DEFAULT NOW())`,
@@ -233,7 +232,7 @@ test.describe('Database Views Migration', () => {
   test.fixme(
     'MIGRATION-VIEW-005: should refresh materialized view',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: materialized view 'order_stats' exists with stale data
       await executeQuery([
         `CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER, amount NUMERIC(10,2))`,
@@ -289,7 +288,7 @@ test.describe('Database Views Migration', () => {
   test.fixme(
     'MIGRATION-VIEW-006: should drop view cascade',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: view 'user_orders' exists, view 'active_orders' depends on it
       await executeQuery([
         `CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL)`,
@@ -351,7 +350,7 @@ test.describe('Database Views Migration', () => {
   test.fixme(
     'MIGRATION-VIEW-007: user can complete full views workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative views scenarios
       await executeQuery([
         `CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, price NUMERIC(10,2), in_stock BOOLEAN DEFAULT true)`,

@@ -137,11 +137,7 @@ test.fixme(
             {
               id: 'view_contact',
               name: 'contact_info',
-              fields: [
-                { field: 'fld_name', visible: true },
-                { field: 'fld_email', visible: true },
-                { field: 'fld_phone', visible: false },
-              ],
+              fields: ['fld_name', 'fld_email'],
             },
           ],
         },

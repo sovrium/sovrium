@@ -17,11 +17,11 @@ import { test, expect } from '@/specs/fixtures'
  * 1. @spec tests - One per spec (8 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  *
- * RLS Enforcement Scenarios:
- * - Record filtering by user/role
+ * Enforcement Scenarios:
+ * - Owner-based record filtering (owner permission type)
+ * - Role-based access control (roles permission type)
  * - Field-level read restrictions
  * - Field-level write restrictions
- * - Dynamic policy evaluation
  */
 
 test.describe('Row-Level Security Enforcement', () => {
@@ -33,7 +33,7 @@ test.describe('Row-Level Security Enforcement', () => {
     'APP-TABLES-RLS-ENFORCEMENT-001: should filter records based on user ownership policy',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Table with owner-based RLS policy
+      // GIVEN: Table with owner-based permission
       await startServerWithSchema({
         name: 'test-app',
         auth: {
@@ -48,13 +48,9 @@ test.describe('Row-Level Security Enforcement', () => {
               { id: 2, name: 'title', type: 'single-line-text' },
               { id: 3, name: 'owner_id', type: 'integer' },
             ],
-            rls: [
-              {
-                name: 'owner_access',
-                command: 'SELECT',
-                using: 'owner_id = current_user_id()',
-              },
-            ],
+            permissions: {
+              read: { type: 'owner', field: 'owner_id' },
+            },
           },
         ],
       })
@@ -85,10 +81,10 @@ test.describe('Row-Level Security Enforcement', () => {
   )
 
   test.fixme(
-    'APP-TABLES-RLS-ENFORCEMENT-002: should prevent reading records not matching RLS policy',
+    'APP-TABLES-RLS-ENFORCEMENT-002: should prevent reading records not matching permission policy',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Table with strict RLS
+      // GIVEN: Table with owner-based permission
       await startServerWithSchema({
         name: 'test-app',
         auth: {
@@ -103,13 +99,9 @@ test.describe('Row-Level Security Enforcement', () => {
               { id: 2, name: 'secret', type: 'single-line-text' },
               { id: 3, name: 'user_id', type: 'integer' },
             ],
-            rls: [
-              {
-                name: 'user_only',
-                command: 'SELECT',
-                using: 'user_id = current_user_id()',
-              },
-            ],
+            permissions: {
+              read: { type: 'owner', field: 'user_id' },
+            },
           },
         ],
       })
@@ -255,10 +247,10 @@ test.describe('Row-Level Security Enforcement', () => {
   )
 
   test.fixme(
-    'APP-TABLES-RLS-ENFORCEMENT-005: should apply RLS policies on INSERT operations',
+    'APP-TABLES-RLS-ENFORCEMENT-005: should apply owner permission on INSERT operations',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Table with INSERT RLS policy
+      // GIVEN: Table with owner-based create permission
       await startServerWithSchema({
         name: 'test-app',
         auth: {
@@ -273,13 +265,9 @@ test.describe('Row-Level Security Enforcement', () => {
               { id: 2, name: 'title', type: 'single-line-text' },
               { id: 3, name: 'created_by', type: 'integer' },
             ],
-            rls: [
-              {
-                name: 'insert_own',
-                command: 'INSERT',
-                withCheck: 'created_by = current_user_id()',
-              },
-            ],
+            permissions: {
+              create: { type: 'owner', field: 'created_by' },
+            },
           },
         ],
       })
@@ -310,10 +298,10 @@ test.describe('Row-Level Security Enforcement', () => {
   )
 
   test.fixme(
-    'APP-TABLES-RLS-ENFORCEMENT-006: should apply RLS policies on UPDATE operations',
+    'APP-TABLES-RLS-ENFORCEMENT-006: should apply owner permission on UPDATE operations',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Table with UPDATE RLS policy
+      // GIVEN: Table with owner-based update permission
       await startServerWithSchema({
         name: 'test-app',
         auth: {
@@ -328,13 +316,9 @@ test.describe('Row-Level Security Enforcement', () => {
               { id: 2, name: 'content', type: 'long-text' },
               { id: 3, name: 'owner_id', type: 'integer' },
             ],
-            rls: [
-              {
-                name: 'update_own',
-                command: 'UPDATE',
-                using: 'owner_id = current_user_id()',
-              },
-            ],
+            permissions: {
+              update: { type: 'owner', field: 'owner_id' },
+            },
           },
         ],
       })
@@ -364,10 +348,10 @@ test.describe('Row-Level Security Enforcement', () => {
   )
 
   test.fixme(
-    'APP-TABLES-RLS-ENFORCEMENT-007: should apply RLS policies on DELETE operations',
+    'APP-TABLES-RLS-ENFORCEMENT-007: should apply owner permission on DELETE operations',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Table with DELETE RLS policy
+      // GIVEN: Table with owner-based delete permission
       await startServerWithSchema({
         name: 'test-app',
         auth: {
@@ -382,13 +366,9 @@ test.describe('Row-Level Security Enforcement', () => {
               { id: 2, name: 'text', type: 'long-text' },
               { id: 3, name: 'author_id', type: 'integer' },
             ],
-            rls: [
-              {
-                name: 'delete_own',
-                command: 'DELETE',
-                using: 'author_id = current_user_id()',
-              },
-            ],
+            permissions: {
+              delete: { type: 'owner', field: 'author_id' },
+            },
           },
         ],
       })
@@ -417,7 +397,7 @@ test.describe('Row-Level Security Enforcement', () => {
   )
 
   test.fixme(
-    'APP-TABLES-RLS-ENFORCEMENT-008: should support role-based RLS policies',
+    'APP-TABLES-RLS-ENFORCEMENT-008: should support role-based permissions',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with role-based access
@@ -435,29 +415,23 @@ test.describe('Row-Level Security Enforcement', () => {
               { id: 2, name: 'title', type: 'single-line-text' },
               { id: 3, name: 'department', type: 'single-line-text' },
             ],
-            rls: [
-              {
-                name: 'manager_all',
-                command: 'SELECT',
-                using: "current_user_role() = 'manager'",
-              },
-              {
-                name: 'user_own_dept',
-                command: 'SELECT',
-                using: 'department = current_user_department()',
-              },
-            ],
+            permissions: {
+              read: { type: 'roles', roles: ['manager', 'admin'] },
+              create: { type: 'roles', roles: ['admin'] },
+              update: { type: 'roles', roles: ['admin'] },
+              delete: { type: 'roles', roles: ['admin'] },
+            },
           },
         ],
       })
 
       await executeQuery([
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, department, created_at, updated_at) VALUES
-         (1, 'manager@example.com', '$2a$10$hash', 'Manager', true, 'manager', 'all', NOW(), NOW()),
-         (2, 'sales@example.com', '$2a$10$hash', 'Sales User', true, 'user', 'sales', NOW(), NOW())`,
+        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES
+         (1, 'manager@example.com', '$2a$10$hash', 'Manager', true, 'manager', NOW(), NOW()),
+         (2, 'viewer@example.com', '$2a$10$hash', 'Viewer', true, 'viewer', NOW(), NOW())`,
         `INSERT INTO sessions (id, user_id, token, expires_at) VALUES
          (1, 1, 'manager_token', NOW() + INTERVAL '7 days'),
-         (2, 2, 'sales_token', NOW() + INTERVAL '7 days')`,
+         (2, 2, 'viewer_token', NOW() + INTERVAL '7 days')`,
         `INSERT INTO reports (id, title, department) VALUES
          (1, 'Sales Q1', 'sales'),
          (2, 'Engineering Q1', 'engineering'),
@@ -474,18 +448,13 @@ test.describe('Row-Level Security Enforcement', () => {
       const managerData = await managerResponse.json()
       expect(managerData.records).toHaveLength(3)
 
-      // WHEN: Sales user queries reports
-      const salesResponse = await page.request.get('/api/tables/reports/records', {
-        headers: { Authorization: 'Bearer sales_token' },
+      // WHEN: Viewer queries reports
+      const viewerResponse = await page.request.get('/api/tables/reports/records', {
+        headers: { Authorization: 'Bearer viewer_token' },
       })
 
-      // THEN: Sales user only sees sales reports
-      expect(salesResponse.status()).toBe(200)
-      const salesData = await salesResponse.json()
-      expect(salesData.records).toHaveLength(2)
-      expect(salesData.records.every((r: { department: string }) => r.department === 'sales')).toBe(
-        true
-      )
+      // THEN: Viewer denied access
+      expect([403, 404]).toContain(viewerResponse.status())
     }
   )
 
@@ -497,7 +466,7 @@ test.describe('Row-Level Security Enforcement', () => {
     'APP-TABLES-RLS-ENFORCEMENT-009: row-level security enforcement workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Table with owner-based RLS
+      // GIVEN: Table with owner-based permissions
       await startServerWithSchema({
         name: 'test-app',
         auth: {
@@ -512,14 +481,12 @@ test.describe('Row-Level Security Enforcement', () => {
               { id: 2, name: 'name', type: 'single-line-text' },
               { id: 3, name: 'user_id', type: 'integer' },
             ],
-            rls: [
-              {
-                name: 'owner_access',
-                command: 'ALL',
-                using: 'user_id = current_user_id()',
-                withCheck: 'user_id = current_user_id()',
-              },
-            ],
+            permissions: {
+              read: { type: 'owner', field: 'user_id' },
+              create: { type: 'owner', field: 'user_id' },
+              update: { type: 'owner', field: 'user_id' },
+              delete: { type: 'owner', field: 'user_id' },
+            },
           },
         ],
       })

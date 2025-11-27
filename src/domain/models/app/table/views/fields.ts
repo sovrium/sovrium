@@ -8,26 +8,21 @@
 import { Schema } from 'effect'
 
 /**
- * View Field Configuration Schema
+ * View Fields Schema
  *
- * Configuration for field visibility and width in the view.
+ * Array of field names to include in the view.
+ * Fields are included in the order specified.
  *
  * @example
  * ```typescript
- * { field: 'name', visible: true, width: 200 }
- * { field: 'email', visible: true, width: 250 }
- * { field: 'notes', visible: false }
+ * ['name', 'email', 'created_at']
  * ```
  */
-export const ViewFieldConfigSchema = Schema.Struct({
-  field: Schema.String,
-  visible: Schema.optional(Schema.Boolean),
-  width: Schema.optional(Schema.Number),
-}).pipe(
+export const ViewFieldsSchema = Schema.Array(Schema.String).pipe(
   Schema.annotations({
-    title: 'View Field Configuration',
-    description: 'Configuration for field visibility and display width in the view.',
+    title: 'View Fields',
+    description: 'Array of field names to include in the view.',
   })
 )
 
-export type ViewFieldConfig = Schema.Schema.Type<typeof ViewFieldConfigSchema>
+export type ViewFields = Schema.Schema.Type<typeof ViewFieldsSchema>

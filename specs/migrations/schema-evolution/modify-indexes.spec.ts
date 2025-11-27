@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Modify Indexes Migration
@@ -28,7 +27,7 @@ test.describe('Modify Indexes Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-INDEX-001: should create index creates btree index on specified field',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with no custom indexes
       await executeQuery([
         `CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, sku VARCHAR(50), price NUMERIC(10,2))`,
@@ -69,7 +68,7 @@ test.describe('Modify Indexes Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-INDEX-002: should create index creates multi-column btree index',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'contacts' with no indexes
       await executeQuery([
         `CREATE TABLE contacts (id SERIAL PRIMARY KEY, first_name VARCHAR(100), last_name VARCHAR(100), email VARCHAR(255))`,
@@ -107,7 +106,7 @@ test.describe('Modify Indexes Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-INDEX-003: should drop index removes index from table',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with existing index idx_users_email
       await executeQuery([
         `CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, email VARCHAR(255))`,
@@ -144,7 +143,7 @@ test.describe('Modify Indexes Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-INDEX-004: should drop old index and create new composite index',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with index on single field 'customer_id'
       await executeQuery([
         `CREATE TABLE orders (id SERIAL PRIMARY KEY, customer_id INTEGER, created_at TIMESTAMPTZ DEFAULT NOW())`,
@@ -190,7 +189,7 @@ test.describe('Modify Indexes Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-INDEX-005: should drop regular index and create unique index',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'accounts' with regular index on username
       await executeQuery([
         `CREATE TABLE accounts (id SERIAL PRIMARY KEY, username VARCHAR(100) NOT NULL)`,
@@ -231,7 +230,7 @@ test.describe('Modify Indexes Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-INDEX-006: should create index concurrently allows reads/writes during creation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: large table 'events' requiring non-blocking index creation
       await executeQuery([
         `CREATE TABLE events (id SERIAL PRIMARY KEY, event_type VARCHAR(100), created_at TIMESTAMPTZ DEFAULT NOW())`,
@@ -275,7 +274,7 @@ test.describe('Modify Indexes Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-INDEX-007: user can complete full modify-indexes workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative modify-indexes scenarios
       await executeQuery([
         `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, category VARCHAR(100), sku VARCHAR(50))`,

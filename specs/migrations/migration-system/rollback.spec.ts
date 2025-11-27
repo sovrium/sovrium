@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Migration Rollback
@@ -33,7 +32,7 @@ test.describe('Migration Rollback', () => {
   test.fixme(
     'MIGRATION-ROLLBACK-001: should detect checksum mismatch and prevent migration',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Existing database with tables and checksum from previous schema
       await executeQuery([
         `CREATE TABLE IF NOT EXISTS _sovrium_schema_checksum (id TEXT PRIMARY KEY, checksum TEXT NOT NULL, updated_at TIMESTAMP DEFAULT NOW())`,
@@ -74,7 +73,7 @@ test.describe('Migration Rollback', () => {
   test.fixme(
     'MIGRATION-ROLLBACK-002: should rollback to last known good state on checksum validation failure',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Database with stored checksum and migration history
       await executeQuery([
         `CREATE TABLE IF NOT EXISTS _sovrium_schema_checksum (id TEXT PRIMARY KEY, checksum TEXT NOT NULL, updated_at TIMESTAMP DEFAULT NOW())`,
@@ -116,7 +115,7 @@ test.describe('Migration Rollback', () => {
   test.fixme(
     'MIGRATION-ROLLBACK-003: should provide manual rollback command to restore previous schema version',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: Multiple schema versions in migration history
       await executeQuery([
         `CREATE TABLE IF NOT EXISTS _sovrium_migration_history (
@@ -150,7 +149,7 @@ test.describe('Migration Rollback', () => {
   test.fixme(
     'MIGRATION-ROLLBACK-004: should restore data integrity after failed migration rollback',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with existing data
       await executeQuery([
         `CREATE TABLE orders (id SERIAL PRIMARY KEY, total DECIMAL(10,2) NOT NULL)`,
@@ -192,7 +191,7 @@ test.describe('Migration Rollback', () => {
   test.fixme(
     'MIGRATION-ROLLBACK-005: should handle cascading rollback for dependent tables',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Tables with foreign key relationships
       await executeQuery([
         `CREATE TABLE categories (id SERIAL PRIMARY KEY, name VARCHAR(100))`,
@@ -250,7 +249,7 @@ test.describe('Migration Rollback', () => {
   test.fixme(
     'MIGRATION-ROLLBACK-006: should log rollback operations for audit trail',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Audit logging enabled for migrations
       await executeQuery([
         `CREATE TABLE IF NOT EXISTS _sovrium_migration_log (
@@ -295,7 +294,7 @@ test.describe('Migration Rollback', () => {
   test.fixme(
     'MIGRATION-ROLLBACK-007: should support schema downgrade from version N to N-1',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: Schema at version N with additional fields
       await executeQuery([
         `CREATE TABLE IF NOT EXISTS _sovrium_schema_version (
@@ -327,7 +326,7 @@ test.describe('Migration Rollback', () => {
   test.fixme(
     'MIGRATION-ROLLBACK-008: should prevent rollback if it would cause data loss without confirmation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: Table with data in column to be removed by rollback
       await executeQuery([
         `CREATE TABLE customers (
@@ -361,7 +360,7 @@ test.describe('Migration Rollback', () => {
   test.fixme(
     'MIGRATION-ROLLBACK-009: user can complete full migration rollback workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application with migration history and rollback capabilities
 
       // Setup migration history table

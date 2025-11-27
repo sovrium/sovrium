@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Duration Field
@@ -24,7 +23,7 @@ test.describe('Duration Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-DURATION-001: should create PostgreSQL INTERVAL column when table configuration has duration field',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
@@ -61,7 +60,7 @@ test.describe('Duration Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-DURATION-002: should store various duration formats (hours, days, etc)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
@@ -93,7 +92,7 @@ test.describe('Duration Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-DURATION-003: should reject NULL value when duration field is required',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
@@ -127,7 +126,7 @@ test.describe('Duration Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-DURATION-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
@@ -156,7 +155,7 @@ test.describe('Duration Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-DURATION-005: should create btree index for fast queries when duration field has indexed=true',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
@@ -185,7 +184,7 @@ test.describe('Duration Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-DURATION-006: user can complete full duration-field workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',

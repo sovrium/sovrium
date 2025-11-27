@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Migration Audit Trail
@@ -33,7 +32,7 @@ test.describe('Migration Audit Trail', () => {
   test.fixme(
     'MIGRATION-AUDIT-001: should record migration history with timestamp and checksum',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Fresh database with no migration history
 
       // WHEN: First migration is applied
@@ -64,7 +63,7 @@ test.describe('Migration Audit Trail', () => {
   test.fixme(
     'MIGRATION-AUDIT-002: should store complete schema snapshot in migration history',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application schema with tables
 
       // WHEN: Migration is applied
@@ -100,7 +99,7 @@ test.describe('Migration Audit Trail', () => {
   test.fixme(
     'MIGRATION-AUDIT-003: should track incremental version numbers for each migration',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Database with existing migration history
       await executeQuery([
         `CREATE TABLE IF NOT EXISTS _sovrium_migration_history (
@@ -142,7 +141,7 @@ test.describe('Migration Audit Trail', () => {
   test.fixme(
     'MIGRATION-AUDIT-004: should log rollback operations with reason and timestamp',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Previous migration exists
       await executeQuery([
         `CREATE TABLE IF NOT EXISTS _sovrium_migration_log (
@@ -188,7 +187,7 @@ test.describe('Migration Audit Trail', () => {
   test.fixme(
     'MIGRATION-AUDIT-005: should provide query interface for migration history',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: Multiple migrations in history
       await executeQuery([
         `CREATE TABLE IF NOT EXISTS _sovrium_migration_history (
@@ -231,7 +230,7 @@ test.describe('Migration Audit Trail', () => {
   test.fixme(
     'MIGRATION-AUDIT-006: should detect and report schema drift from audit history',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: Recorded schema state and actual database state differ
       await executeQuery([
         `CREATE TABLE IF NOT EXISTS _sovrium_schema_checksum (
@@ -272,7 +271,7 @@ test.describe('Migration Audit Trail', () => {
   test.fixme(
     'MIGRATION-AUDIT-007: user can complete full migration audit workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Fresh database
 
       // WHEN: Apply initial migration

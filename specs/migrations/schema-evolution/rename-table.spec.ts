@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Rename Table Migration
@@ -28,7 +27,7 @@ test.describe('Rename Table Migration', () => {
   test.fixme(
     'MIGRATION-RENAME-TABLE-001: should alter table rename preserves data, indexes, and constraints',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: existing table 'users' with data and indexes
       await executeQuery([
         `CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, email VARCHAR(255) UNIQUE)`,
@@ -80,7 +79,7 @@ test.describe('Rename Table Migration', () => {
   test.fixme(
     'MIGRATION-RENAME-TABLE-002: should automatically updates foreign key references',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'posts' referenced by foreign key from 'comments'
       await executeQuery([
         `CREATE TABLE posts (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL)`,
@@ -132,7 +131,7 @@ test.describe('Rename Table Migration', () => {
   test.fixme(
     'MIGRATION-RENAME-TABLE-003: should all indexes and constraints remain functional',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with multiple indexes and constraints
       await executeQuery([
         `CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, sku VARCHAR(50) UNIQUE, price NUMERIC(10,2) CHECK (price > 0))`,
@@ -183,7 +182,7 @@ test.describe('Rename Table Migration', () => {
   test.fixme(
     'MIGRATION-RENAME-TABLE-004: should migration fails with error and transaction rolls back',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table rename where new name conflicts with existing table
       await executeQuery([
         `CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL)`,
@@ -242,7 +241,7 @@ test.describe('Rename Table Migration', () => {
   test.fixme(
     'MIGRATION-RENAME-TABLE-005: user can complete full rename-table workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative rename-table scenarios
       await executeQuery([
         `CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, department VARCHAR(100))`,

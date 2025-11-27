@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Modify Field Type Migration
@@ -28,7 +27,7 @@ test.describe('Modify Field Type Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-TYPE-001: should alter table alter column type text',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with field 'bio' (VARCHAR(255))
       await executeQuery([
         `CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, bio VARCHAR(255))`,
@@ -74,7 +73,7 @@ test.describe('Modify Field Type Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-TYPE-002: should alter table alter column type varchar(50) using left(sku, 50)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with field 'sku' (TEXT)
       await executeQuery([
         `CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, sku TEXT)`,
@@ -118,7 +117,7 @@ test.describe('Modify Field Type Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-TYPE-003: should alter table alter column type numeric(10,2)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with field 'total' (INTEGER)
       await executeQuery([
         `CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50) NOT NULL, total INTEGER)`,
@@ -167,7 +166,7 @@ test.describe('Modify Field Type Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-TYPE-004: should alter table alter column type integer using count::integer',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'metrics' with field 'count' stored as TEXT
       await executeQuery([
         `CREATE TABLE metrics (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, count TEXT)`,
@@ -212,7 +211,7 @@ test.describe('Modify Field Type Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-TYPE-005: should alter table alter column type timestamptz using occurred_at::timestamptz',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'events' with field 'occurred_at' (TEXT) containing ISO-8601 strings
       await executeQuery([
         `CREATE TABLE events (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, occurred_at TEXT)`,
@@ -260,7 +259,7 @@ test.describe('Modify Field Type Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-TYPE-006: should migration fails with data conversion error, transaction rolled back',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'data' with field 'value' (TEXT) containing non-numeric values
       await executeQuery([
         `CREATE TABLE data (id SERIAL PRIMARY KEY, label VARCHAR(255) NOT NULL, value TEXT)`,
@@ -305,7 +304,7 @@ test.describe('Modify Field Type Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-TYPE-007: user can complete full modify-field-type workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative modify-field-type scenarios
       await executeQuery([
         `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, quantity TEXT, price INTEGER)`,

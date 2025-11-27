@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for View Fields
@@ -26,10 +25,10 @@ test.describe('View Fields', () => {
   // ============================================================================
 
   test.fixme(
-    'APP-TABLES-VIEW-001: should show only configured visible fields when a view has specific fields configured as visible',
+    'APP-TABLES-VIEW-001: should show only configured fields when a view has specific fields configured',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: a view with specific fields configured as visible
+    async ({ page, startServerWithSchema }) => {
+      // GIVEN: a view with specific fields configured (fields not in array are hidden)
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -47,12 +46,7 @@ test.describe('View Fields', () => {
               {
                 id: 'public_view',
                 name: 'Public View',
-                fields: [
-                  { field: 'id', visible: true },
-                  { field: 'name', visible: true },
-                  { field: 'price', visible: true },
-                  { field: 'internal_notes', visible: false },
-                ],
+                fields: ['id', 'name', 'price'],
               },
             ],
           },
@@ -62,7 +56,7 @@ test.describe('View Fields', () => {
       // WHEN: displaying records in the view
       await page.goto('/tables/tbl_products/views/public_view')
 
-      // THEN: only configured visible fields should be shown
+      // THEN: only configured fields should be shown (internal_notes excluded from array)
       await expect(page.locator('[data-field="id"]')).toBeVisible()
       await expect(page.locator('[data-field="name"]')).toBeVisible()
       await expect(page.locator('[data-field="price"]')).toBeVisible()
@@ -73,7 +67,7 @@ test.describe('View Fields', () => {
   test.fixme(
     'APP-TABLES-VIEW-002: should display fields in the specified order when a view has fields configured with custom order',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: a view with fields configured with custom order
       await startServerWithSchema({
         name: 'test-app',
@@ -92,12 +86,7 @@ test.describe('View Fields', () => {
               {
                 id: 'ordered_view',
                 name: 'Ordered View',
-                fields: [
-                  { field: 'priority', visible: true },
-                  { field: 'status', visible: true },
-                  { field: 'title', visible: true },
-                  { field: 'id', visible: true },
-                ],
+                fields: ['priority', 'status', 'title', 'id'],
               },
             ],
           },
@@ -117,10 +106,10 @@ test.describe('View Fields', () => {
   )
 
   test.fixme(
-    'APP-TABLES-VIEW-003: should not show field when a view has a field marked as visible: false',
+    'APP-TABLES-VIEW-003: should not show field when it is not included in the view fields array',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: a view with a field marked as visible: false
+    async ({ page, startServerWithSchema }) => {
+      // GIVEN: a view with a field excluded from the fields array
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -138,12 +127,7 @@ test.describe('View Fields', () => {
               {
                 id: 'safe_view',
                 name: 'Safe View',
-                fields: [
-                  { field: 'id', visible: true },
-                  { field: 'username', visible: true },
-                  { field: 'email', visible: true },
-                  { field: 'password', visible: false },
-                ],
+                fields: ['id', 'username', 'email'],
               },
             ],
           },
@@ -153,7 +137,7 @@ test.describe('View Fields', () => {
       // WHEN: displaying records in the view
       await page.goto('/tables/tbl_users/views/safe_view')
 
-      // THEN: that field should not be shown
+      // THEN: that field should not be shown (password excluded from array)
       await expect(page.locator('[data-field="password"]')).toBeHidden()
     }
   )
@@ -165,7 +149,7 @@ test.describe('View Fields', () => {
   test.fixme(
     'APP-TABLES-VIEW-004: user can complete full view-fields workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: Application configured with representative field configuration
       await startServerWithSchema({
         name: 'test-app',
@@ -184,12 +168,7 @@ test.describe('View Fields', () => {
               {
                 id: 'custom_view',
                 name: 'Custom View',
-                fields: [
-                  { field: 'status', visible: true, width: 100 },
-                  { field: 'name', visible: true, width: 200 },
-                  { field: 'id', visible: true, width: 80 },
-                  { field: 'secret', visible: false },
-                ],
+                fields: ['status', 'name', 'id'],
               },
             ],
           },
@@ -200,7 +179,7 @@ test.describe('View Fields', () => {
       await page.goto('/tables/tbl_data/views/custom_view')
 
       const columns = page.locator('[data-field]')
-      // THEN: assertion
+      // THEN: fields should appear in array order, secret excluded
       await expect(columns.nth(0)).toHaveAttribute('data-field', 'status')
       await expect(columns.nth(1)).toHaveAttribute('data-field', 'name')
       await expect(columns.nth(2)).toHaveAttribute('data-field', 'id')

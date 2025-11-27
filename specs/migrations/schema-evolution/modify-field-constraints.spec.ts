@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for Modify Field Constraints Migration
@@ -28,7 +27,7 @@ test.describe('Modify Field Constraints Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-CONSTRAINTS-001: should alter table add constraint check with range validation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with price field (NUMERIC), no constraints
       await executeQuery([
         `CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, price NUMERIC(10,2) NOT NULL)`,
@@ -74,7 +73,7 @@ test.describe('Modify Field Constraints Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-CONSTRAINTS-002: should drop old check constraint, add new check with updated max',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'inventory' with quantity field, existing constraint (quantity >= 0 AND quantity <= 100)
       await executeQuery([
         `CREATE TABLE inventory (id SERIAL PRIMARY KEY, item VARCHAR(255) NOT NULL, quantity INTEGER NOT NULL CHECK (quantity >= 0 AND quantity <= 100))`,
@@ -121,7 +120,7 @@ test.describe('Modify Field Constraints Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-CONSTRAINTS-003: should migration fails due to invalid existing data (negative age)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with age field (INTEGER), no constraint, existing rows with age = -5
       await executeQuery([
         `CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, age INTEGER)`,
@@ -156,7 +155,7 @@ test.describe('Modify Field Constraints Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-CONSTRAINTS-004: should alter table drop constraint removes validation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with discount field, existing constraint (discount >= 0 AND discount <= 100)
       await executeQuery([
         `CREATE TABLE orders (id SERIAL PRIMARY KEY, order_number VARCHAR(50) NOT NULL, discount INTEGER NOT NULL CHECK (discount >= 0 AND discount <= 100))`,
@@ -202,7 +201,7 @@ test.describe('Modify Field Constraints Migration', () => {
   test.fixme(
     'MIGRATION-MODIFY-CONSTRAINTS-005: user can complete full modify-field-constraints workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative modify-field-constraints scenarios
       await executeQuery([
         `CREATE TABLE pricing (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, amount NUMERIC(10,2) NOT NULL)`,

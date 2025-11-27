@@ -336,12 +336,10 @@ test.describe('Organization Data Isolation', () => {
             ],
             permissions: {
               organizationScoped: true,
-              table: {
-                read: { type: 'roles', roles: ['admin', 'member'] },
-                create: { type: 'roles', roles: ['admin'] },
-                update: { type: 'roles', roles: ['admin'] },
-                delete: { type: 'roles', roles: ['admin'] },
-              },
+              read: { type: 'roles', roles: ['admin', 'member'] },
+              create: { type: 'roles', roles: ['admin'] },
+              update: { type: 'roles', roles: ['admin'] },
+              delete: { type: 'roles', roles: ['admin'] },
             },
           },
         ],

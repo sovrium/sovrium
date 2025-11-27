@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * E2E Tests for User Field
@@ -121,7 +120,7 @@ test.describe('User Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-USER-003: should support multiple user assignments via junction table',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
@@ -214,7 +213,7 @@ test.describe('User Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-USER-005: should create btree index for fast user filtering when indexed=true',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ executeQuery }) => {
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',

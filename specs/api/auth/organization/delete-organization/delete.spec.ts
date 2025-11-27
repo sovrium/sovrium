@@ -6,7 +6,6 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /* eslint-disable drizzle/enforce-delete-with-where */
 /**
@@ -133,7 +132,7 @@ test.describe('Delete organization', () => {
   test.fixme(
     'API-AUTH-ORG-DELETE-ORGANIZATION-003: should returns 401 Unauthorized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
