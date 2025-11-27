@@ -118,39 +118,27 @@ const generateArrayConstraints = (fields: readonly Fields[number][]): readonly s
 /**
  * Generate CHECK constraints for numeric fields with min/max values
  */
-const generateNumericConstraints = (fields: readonly Fields[number][]): readonly string[] => {
-  const constraints: string[] = []
+const generateNumericConstraints = (fields: readonly Fields[number][]): readonly string[] =>
+  fields
+    .filter(
+      (field): field is Fields[number] & { type: 'integer' | 'decimal' } =>
+        (field.type === 'integer' || field.type === 'decimal') &&
+        (('min' in field && typeof field.min === 'number') ||
+          ('max' in field && typeof field.max === 'number'))
+    )
+    .map((field) => {
+      const hasMin = 'min' in field && typeof field.min === 'number'
+      const hasMax = 'max' in field && typeof field.max === 'number'
 
-  for (const field of fields) {
-    // Only handle numeric types (integer, decimal)
-    if (field.type !== 'integer' && field.type !== 'decimal') {
-      continue
-    }
+      const conditions = [
+        ...(hasMin ? [`${field.name} >= ${field.min}`] : []),
+        ...(hasMax ? [`${field.name} <= ${field.max}`] : []),
+      ]
 
-    const hasMin = 'min' in field && typeof field.min === 'number'
-    const hasMax = 'max' in field && typeof field.max === 'number'
-
-    if (!hasMin && !hasMax) {
-      continue
-    }
-
-    const conditions: string[] = []
-
-    if (hasMin) {
-      conditions.push(`${field.name} >= ${field.min}`)
-    }
-
-    if (hasMax) {
-      conditions.push(`${field.name} <= ${field.max}`)
-    }
-
-    const constraintName = `check_${field.name}_range`
-    const constraintCondition = conditions.join(' AND ')
-    constraints.push(`CONSTRAINT ${constraintName} CHECK (${constraintCondition})`)
-  }
-
-  return constraints
-}
+      const constraintName = `check_${field.name}_range`
+      const constraintCondition = conditions.join(' AND ')
+      return `CONSTRAINT ${constraintName} CHECK (${constraintCondition})`
+    })
 
 /**
  * Generate UNIQUE constraints for fields with unique property
