@@ -219,3 +219,48 @@ export const BrandedViewIdSchema = Schema.String.pipe(
 )
 
 export type BrandedViewId = Schema.Schema.Type<typeof BrandedViewIdSchema>
+
+/**
+ * Helper functions to create branded IDs
+ *
+ * These functions use type assertions to convert plain values to branded types.
+ * Use these in test fixtures and production code where you have trusted numeric IDs.
+ *
+ * For untrusted input, use Schema.decodeUnknownSync(TableIdSchema)(value) instead.
+ */
+
+/**
+ * Create a branded TableId from a plain number
+ *
+ * @param id - Positive integer >= 1
+ * @returns Branded TableId
+ *
+ * @example
+ * ```typescript
+ * const tableId = makeTableId(1)
+ * const table: Table = { id: tableId, name: 'users', fields: [] }
+ * ```
+ */
+export const makeTableId = (id: number): TableId => id as unknown as TableId
+
+/**
+ * Create a branded FieldId from a plain number
+ *
+ * @param id - Positive integer >= 1
+ * @returns Branded FieldId
+ *
+ * @example
+ * ```typescript
+ * const fieldId = makeFieldId(1)
+ * const field = { id: fieldId, name: 'email', type: 'email' }
+ * ```
+ */
+export const makeFieldId = (id: number): FieldId => id as unknown as FieldId
+
+/**
+ * Create a branded RecordId from a plain number
+ *
+ * @param id - Positive integer >= 1
+ * @returns Branded RecordId
+ */
+export const makeRecordId = (id: number): RecordId => id as unknown as RecordId

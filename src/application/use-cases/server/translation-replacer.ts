@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { resolveTranslation } from '@/presentation/translations/translation-resolver'
+import { resolveTranslation } from '@/domain/utils/translation-resolver'
 import type { App, Page } from '@/domain/models/app'
 import type { LanguageConfig } from '@/domain/models/app/language/language-config'
 import type { Languages } from '@/domain/models/app/languages'

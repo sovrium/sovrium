@@ -6,10 +6,22 @@
  */
 
 import { SQL } from 'bun'
-import { Effect, Console } from 'effect'
+import { Config, Effect, Console, Data, type ConfigError } from 'effect'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/table'
 import type { Fields } from '@/domain/models/app/table/fields'
+
+/**
+ * Schema initialization error types
+ */
+export class SchemaInitializationError extends Data.TaggedError('SchemaInitializationError')<{
+  readonly message: string
+  readonly cause?: unknown
+}> {}
+
+export class NoDatabaseUrlError extends Data.TaggedError('NoDatabaseUrlError')<{
+  readonly message: string
+}> {}
 
 /**
  * Field type to PostgreSQL type mapping
@@ -171,14 +183,31 @@ const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]):
   const db = new SQL(databaseUrl)
 
   try {
-    // Execute all DDL in a single transaction for atomicity
+    /**
+     * SECURITY NOTE: tx.unsafe() is intentionally used here for DDL execution.
+     *
+     * This is SAFE because:
+     * 1. SQL is generated from validated Effect Schema objects, not user input
+     *    - Table names come from schema definitions validated at startup
+     *    - Field names/types are constrained by the domain model (Fields type)
+     * 2. DDL statements (CREATE TABLE, CREATE INDEX) cannot use parameterized queries
+     *    - PostgreSQL does not support $1 placeholders in DDL statements
+     *    - Table and column names must be interpolated directly
+     * 3. All identifiers come from validated schema definitions
+     *    - The App schema is validated via Effect Schema before reaching this code
+     *    - Invalid identifiers would fail schema validation, not reach SQL execution
+     * 4. Transaction boundary provides atomicity
+     *    - If any statement fails, the entire transaction rolls back
+     *    - No partial schema state is possible
+     *
+     * This pattern is standard for schema migration tools (Drizzle, Prisma, etc.)
+     * which all generate and execute DDL strings directly.
+     */
     await db.begin(async (tx) => {
       for (const table of tables) {
-        // Create table
         const createTableSQL = generateCreateTableSQL(table)
         await tx.unsafe(createTableSQL)
 
-        // Create indexes
         for (const indexSQL of generateIndexStatements(table)) {
           await tx.unsafe(indexSQL)
         }
@@ -192,7 +221,12 @@ const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]):
 /* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
 
 /**
- * Initialize database schema from app configuration
+ * Error type union for schema initialization
+ */
+export type SchemaError = SchemaInitializationError | NoDatabaseUrlError
+
+/**
+ * Initialize database schema from app configuration (internal with error handling)
  *
  * Uses Bun's native SQL driver (bun:sql) for:
  * - Zero-dependency PostgreSQL access
@@ -200,9 +234,14 @@ const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]):
  * - Built-in connection pooling
  * - Transaction support with automatic rollback
  *
+ * Errors are logged and handled internally - returns Effect<void, never>
+ * for simpler composition in application layer.
+ *
  * @see docs/infrastructure/database/runtime-sql-migrations/04-migration-executor.md
  */
-export const initializeSchema = (app: App): Effect.Effect<void, never> =>
+const initializeSchemaInternal = (
+  app: App
+): Effect.Effect<void, SchemaError | ConfigError.ConfigError> =>
   Effect.gen(function* () {
     // Skip if no tables defined
     if (!app.tables || app.tables.length === 0) {
@@ -210,9 +249,13 @@ export const initializeSchema = (app: App): Effect.Effect<void, never> =>
       return
     }
 
-    // Get database URL from environment
-    const databaseUrl = Bun.env.DATABASE_URL
-    if (!databaseUrl) {
+    // Get database URL from Effect Config (reads from environment)
+    const databaseUrlConfig = yield* Config.string('DATABASE_URL').pipe(
+      Config.withDefault('')
+    )
+
+    // Skip if no DATABASE_URL configured
+    if (!databaseUrlConfig) {
       yield* Console.log('No DATABASE_URL found, skipping schema initialization')
       return
     }
@@ -221,15 +264,32 @@ export const initializeSchema = (app: App): Effect.Effect<void, never> =>
 
     // Execute schema initialization with bun:sql
     yield* Effect.tryPromise({
-      try: () => executeSchemaInit(databaseUrl, app.tables!),
-      catch: (error) => new Error(`Schema initialization failed: ${String(error)}`),
-    }).pipe(
-      Effect.catchAll((error) =>
-        Console.error(`Error initializing database schema: ${error.message}`).pipe(
-          Effect.flatMap(() => Effect.void)
-        )
-      )
-    )
+      try: () => executeSchemaInit(databaseUrlConfig, app.tables!),
+      catch: (error) =>
+        new SchemaInitializationError({
+          message: `Schema initialization failed: ${String(error)}`,
+          cause: error,
+        }),
+    })
 
     yield* Console.log('✓ Database schema initialized successfully')
   })
+
+/**
+ * Initialize database schema from app configuration
+ *
+ * Public API that handles errors internally to maintain backward compatibility.
+ * Logs errors but doesn't propagate them - schema initialization failures
+ * shouldn't prevent server startup (database may be optional).
+ *
+ * @param app - Application configuration with tables
+ * @returns Effect that always succeeds (errors logged internally)
+ */
+export const initializeSchema = (app: App): Effect.Effect<void, never> =>
+  initializeSchemaInternal(app).pipe(
+    Effect.catchAll((error) =>
+      Console.error(`Error initializing database schema: ${error._tag}`).pipe(
+        Effect.flatMap(() => Effect.void)
+      )
+    )
+  )

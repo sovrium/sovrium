@@ -8,16 +8,20 @@
 import { Effect, Console, Schema } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
 import { StaticGenerationError } from '@/application/errors/static-generation-error'
+import {
+  CSSCompiler as CSSCompilerService,
+  type CSSCompilationError,
+} from '@/application/ports/css-compiler'
 import { PageRenderer as PageRendererService } from '@/application/ports/page-renderer'
 import { ServerFactory as ServerFactoryService } from '@/application/ports/server-factory'
+import {
+  StaticSiteGenerator as StaticSiteGeneratorService,
+  type SSGGenerationError,
+} from '@/application/ports/static-site-generator'
 import { AppSchema } from '@/domain/models/app'
-import { compileCSS } from '@/infrastructure/css/compiler'
-import { generateStaticSite } from '@/infrastructure/server/ssg-adapter'
 import type { App, Page } from '@/domain/models/app'
-import type { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
 import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
 import type { FileCopyError } from '@/infrastructure/filesystem/copy-directory'
-import type { SSGGenerationError } from '@/infrastructure/server/ssg-adapter'
 import type { Context } from 'effect'
 import type * as fs from 'node:fs/promises'
 import type * as path from 'node:path'
@@ -25,6 +29,7 @@ import type * as path from 'node:path'
 // Service types extracted from Context.Tag
 type ServerFactory = Context.Tag.Service<typeof ServerFactoryService>
 type PageRenderer = Context.Tag.Service<typeof PageRendererService>
+type StaticSiteGenerator = Context.Tag.Service<typeof StaticSiteGeneratorService>
 
 /**
  * Options for static site generation
@@ -73,7 +78,8 @@ const generateMultiLanguageFiles = (
   outputDir: string,
   replaceAppTokens: (app: App, lang: string) => App,
   serverFactory: ServerFactory,
-  pageRenderer: PageRenderer
+  pageRenderer: PageRenderer,
+  staticSiteGenerator: StaticSiteGenerator
 ): Effect.Effect<
   readonly string[],
   AppValidationError | CSSCompilationError | ServerCreationError | SSGGenerationError,
@@ -119,7 +125,7 @@ const generateMultiLanguageFiles = (
             validatedLangApp.pages
               ?.filter((page) => !page.path.startsWith('/_'))
               .map((page) => page.path) || []
-          const ssgResult = yield* generateStaticSite(serverInstance.app, {
+          const ssgResult = yield* staticSiteGenerator.generate(serverInstance.app, {
             outputDir: langOutputDir,
             pagePaths,
           })
@@ -156,7 +162,7 @@ const generateMultiLanguageFiles = (
     yield* defaultServer.stop
 
     // Generate only root index.html
-    const rootSSGResult = yield* generateStaticSite(defaultServer.app, {
+    const rootSSGResult = yield* staticSiteGenerator.generate(defaultServer.app, {
       outputDir,
       pagePaths: ['/'],
     })
@@ -172,7 +178,8 @@ const generateSingleLanguageFiles = (
   validatedApp: App,
   outputDir: string,
   serverFactory: ServerFactory,
-  pageRenderer: PageRenderer
+  pageRenderer: PageRenderer,
+  staticSiteGenerator: StaticSiteGenerator
 ): Effect.Effect<
   readonly string[],
   CSSCompilationError | ServerCreationError | SSGGenerationError,
@@ -198,7 +205,7 @@ const generateSingleLanguageFiles = (
       validatedApp.pages?.filter((page) => !page.path.startsWith('/_')).map((page) => page.path) ||
       []
     yield* Console.log(`📝 Generating static HTML files for ${pagePaths.length} pages...`)
-    const ssgResult = yield* generateStaticSite(serverInstance.app, {
+    const ssgResult = yield* staticSiteGenerator.generate(serverInstance.app, {
       outputDir,
       pagePaths,
     })
@@ -372,7 +379,7 @@ export const generateStatic = (
   | ServerCreationError
   | SSGGenerationError
   | FileCopyError,
-  ServerFactoryService | PageRendererService
+  ServerFactoryService | PageRendererService | CSSCompilerService | StaticSiteGeneratorService
 > =>
   // eslint-disable-next-line max-lines-per-function, max-statements, complexity -- Complex Effect generator with multiple file generation steps and support file creation
   Effect.gen(function* () {
@@ -426,6 +433,8 @@ export const generateStatic = (
     // Step 3: Get services from context
     const serverFactory = yield* ServerFactoryService
     const pageRenderer = yield* PageRendererService
+    const cssCompiler = yield* CSSCompilerService
+    const staticSiteGenerator = yield* StaticSiteGeneratorService
 
     const outputDir = options.outputDir || './static'
 
@@ -437,13 +446,20 @@ export const generateStatic = (
             outputDir,
             replaceAppTokens,
             serverFactory,
-            pageRenderer
+            pageRenderer,
+            staticSiteGenerator
           )
-        : yield* generateSingleLanguageFiles(validatedApp, outputDir, serverFactory, pageRenderer)
+        : yield* generateSingleLanguageFiles(
+            validatedApp,
+            outputDir,
+            serverFactory,
+            pageRenderer,
+            staticSiteGenerator
+          )
 
     // Step 5: Get CSS from cache (already compiled during server creation)
     yield* Console.log('🎨 Getting compiled CSS...')
-    const { css } = yield* compileCSS(validatedApp)
+    const { css } = yield* cssCompiler.compile(validatedApp)
 
     // Create assets directory
     yield* Effect.tryPromise({
