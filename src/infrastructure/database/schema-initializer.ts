@@ -196,8 +196,7 @@ const generateCreateTableSQL = (table: Table): string => {
   const tableConstraints = generateTableConstraints(table)
 
   // If no explicit primary key is defined, add PRIMARY KEY on id
-  const primaryKeyConstraint =
-    !hasCustomPrimaryKey && !hasIdField ? ['PRIMARY KEY (id)'] : []
+  const primaryKeyConstraint = !hasCustomPrimaryKey && !hasIdField ? ['PRIMARY KEY (id)'] : []
 
   const allDefinitions = [
     ...idColumnDefinition,

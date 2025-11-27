@@ -37,7 +37,7 @@ concurrency:
 
 env:
   MAX_INFRASTRUCTURE_RETRIES: 3
-  CLAUDE_TIMEOUT_MINUTES: 30
+  CLAUDE_TIMEOUT_MINUTES: 60
 
 jobs:
   # Pre-check job: Validate context exists before running Claude Code
@@ -309,7 +309,7 @@ jobs:
   # Main Claude Code execution with timeout monitoring
   execute-claude:
     runs-on: ubuntu-latest
-    timeout-minutes: 35 # Slightly longer than Claude timeout to allow cleanup
+    timeout-minutes: 65 # Slightly longer than Claude timeout to allow cleanup
     needs: [validate-context, classify-previous-error]
     if: |
       always() &&
@@ -371,7 +371,7 @@ jobs:
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1
-        timeout-minutes: 30
+        timeout-minutes: 60
         continue-on-error: true # Capture exit code instead of failing immediately
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -407,11 +407,11 @@ jobs:
               DURATION=$((END_EPOCH - START_EPOCH))
               echo "📊 Step duration: ${DURATION}s"
 
-              # Timeout detection: anything > 29 minutes (1740 seconds) is likely a timeout
-              if [ "$DURATION" -ge 1740 ]; then
+              # Timeout detection: anything > 59 minutes (3540 seconds) is likely a timeout
+              if [ "$DURATION" -ge 3540 ]; then
                 IS_INFRA_ERROR=true
                 ERROR_TYPE="timeout_confirmed"
-                echo "⏱️ TIMEOUT DETECTED: Step ran for ${DURATION}s (>= 1740s threshold)"
+                echo "⏱️ TIMEOUT DETECTED: Step ran for ${DURATION}s (>= 3540s threshold)"
               fi
             fi
           fi
