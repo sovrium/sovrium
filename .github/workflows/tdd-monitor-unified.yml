@@ -391,6 +391,10 @@ jobs:
             --limit 50)
 
           UPDATED_COUNT=0
+          SKIPPED_COUNT=0
+          NOW=$(date +%s)
+          # Only post update comment if no similar comment in last 2 hours
+          COOLDOWN_SECONDS=7200
 
           echo "$PRS" | jq -r '.[] | @json' | while read -r pr; do
             PR_NUMBER=$(echo "$pr" | jq -r '.number')
@@ -402,6 +406,18 @@ jobs:
             if [ "$MERGE_STATE" = "BEHIND" ] || [ "$MERGEABLE" = "UNKNOWN" ]; then
               echo ""
               echo "⚠️  PR #$PR_NUMBER branch is behind main"
+
+              # Check for recent "@claude update branch" comment to prevent spam
+              RECENT_UPDATE_COMMENT=$(gh api \
+                "/repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+                --jq "[.[] | select(.body | contains(\"@claude update branch\")) | select(.created_at > \"$(date -u -d '2 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-2H +%Y-%m-%dT%H:%M:%SZ)\")] | length" 2>/dev/null || echo "0")
+
+              if [ "$RECENT_UPDATE_COMMENT" -gt 0 ]; then
+                echo "   ⏭️  Skipping - update already requested within last 2 hours"
+                SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+                continue
+              fi
+
               echo "   Triggering branch update..."
 
               # Post @claude comment to update branch
@@ -429,7 +445,11 @@ jobs:
           if [ "$UPDATED_COUNT" -gt 0 ]; then
             echo ""
             echo "✅ Triggered branch update for $UPDATED_COUNT PR(s)"
-          else
+          fi
+          if [ "$SKIPPED_COUNT" -gt 0 ]; then
+            echo "⏭️  Skipped $SKIPPED_COUNT PR(s) (update already requested recently)"
+          fi
+          if [ "$UPDATED_COUNT" -eq 0 ] && [ "$SKIPPED_COUNT" -eq 0 ]; then
             echo "✅ All PR branches are up-to-date"
           fi
 
