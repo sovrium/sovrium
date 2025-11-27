@@ -317,7 +317,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-006: should create PostgreSQL VARCHAR(255) column for single-line-text field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
