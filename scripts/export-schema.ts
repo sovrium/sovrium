@@ -39,8 +39,9 @@ const getVersion = async (): Promise<string> => {
 
   // Check for --version flag
   const versionIndex = args.indexOf('--version')
-  if (versionIndex !== -1 && args[versionIndex + 1]) {
-    return args[versionIndex + 1]
+  const versionArg = args[versionIndex + 1]
+  if (versionIndex !== -1 && versionArg) {
+    return versionArg
   }
 
   // Check for --release flag (use package.json version)

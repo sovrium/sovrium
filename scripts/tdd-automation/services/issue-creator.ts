@@ -11,8 +11,11 @@
  * Handles GitHub issue creation for spec items
  */
 
+import { writeFileSync, unlinkSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import * as Effect from 'effect/Effect'
-import { CommandService, logError, skip, success } from '../../lib/effect'
+import { CommandService, logError, logWarn, skip, success } from '../../lib/effect'
 import { specHasIssue } from './queue-operations'
 import type { SpecItem } from './types'
 import type { LoggerService } from '../../lib/effect'
@@ -67,12 +70,19 @@ This spec will be automatically picked up by the TDD queue processor and impleme
 
 **Validation runs automatically**: Spec test → Regression tests → Quality checks`
 
-    // Use heredoc to avoid shell escaping issues with backticks and special characters
+    // Write body to temp file to avoid shell escaping issues
+    // Heredocs don't work reliably across all shell environments (especially in CI)
+    const tempFile = join(tmpdir(), `gh-issue-body-${spec.specId}-${Date.now()}.md`)
+    try {
+      writeFileSync(tempFile, bodyText, 'utf-8')
+    } catch (error) {
+      yield* logError(`Failed to write temp file for ${spec.specId}: ${error}`)
+      return -1
+    }
+
     const output = yield* cmd
       .exec(
-        `gh issue create --title ${JSON.stringify(title)} --body-file - --label "tdd-spec:queued,tdd-automation" <<'EOFBODY'
-${bodyText}
-EOFBODY`,
+        `gh issue create --title ${JSON.stringify(title)} --body-file ${JSON.stringify(tempFile)} --label "tdd-spec:queued,tdd-automation"`,
         { throwOnError: false }
       )
       .pipe(
@@ -84,12 +94,24 @@ EOFBODY`,
         })
       )
 
+    // Clean up temp file
+    try {
+      unlinkSync(tempFile)
+    } catch {
+      // Ignore cleanup errors
+    }
+
     // Extract issue number from URL (gh outputs the URL)
     const issueMatch = output.match(/\/issues\/(\d+)/)
     const issueNumber = issueMatch?.[1] ? parseInt(issueMatch[1], 10) : -1
 
     if (issueNumber > 0) {
       yield* success(`Created issue #${issueNumber} for ${spec.specId}`)
+    } else if (output.trim()) {
+      // Log unexpected output for debugging
+      yield* logWarn(`Unexpected gh output for ${spec.specId}: ${output.slice(0, 100)}`)
+    } else {
+      yield* logWarn(`No output from gh issue create for ${spec.specId}`)
     }
 
     return issueNumber
