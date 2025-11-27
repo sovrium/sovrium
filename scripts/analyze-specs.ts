@@ -982,11 +982,11 @@ async function main() {
   // Update badges using regex
   const updatedReadme = readmeContent
     .replace(
-      /\[!\[Spec Progress\]\(https:\/\/img\.shields\.io\/badge\/specs-[^\)]+\)\]/,
+      /\[!\[Spec Progress\]\(https:\/\/img\.shields\.io\/badge\/specs-[^)]+\)\]/,
       `[![Spec Progress](https://img.shields.io/badge/${specsBadge})]`
     )
     .replace(
-      /\[!\[Quality Score\]\(https:\/\/img\.shields\.io\/badge\/quality-[^\)]+\)\]/,
+      /\[!\[Quality Score\]\(https:\/\/img\.shields\.io\/badge\/quality-[^)]+\)\]/,
       `[![Quality Score](https://img.shields.io/badge/${qualityBadge})]`
     )
 
