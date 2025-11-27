@@ -603,7 +603,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-013: should enforce CHECK constraint and reject values outside range',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
