@@ -66,9 +66,14 @@ const mapFieldTypeToPostgres = (field: Fields[number]): string => {
 /**
  * Generate column definition with constraints
  */
-const generateColumnDefinition = (field: Fields[number]): string => {
+const generateColumnDefinition = (field: Fields[number], isPrimaryKey: boolean): string => {
   // Autonumber fields use SERIAL (auto-incrementing integer with sequence)
   if (field.type === 'autonumber') {
+    return `${field.name} SERIAL NOT NULL`
+  }
+
+  // Integer primary key fields also use SERIAL for auto-increment
+  if (field.type === 'integer' && isPrimaryKey) {
     return `${field.name} SERIAL NOT NULL`
   }
 
@@ -113,7 +118,13 @@ const generateTableConstraints = (table: Table): readonly string[] => [
  * Generate CREATE TABLE statement
  */
 const generateCreateTableSQL = (table: Table): string => {
-  const columnDefinitions = table.fields.map(generateColumnDefinition)
+  // Identify primary key fields
+  const primaryKeyFields = table.primaryKey?.type === 'composite' ? table.primaryKey.fields ?? [] : []
+
+  const columnDefinitions = table.fields.map((field) => {
+    const isPrimaryKey = primaryKeyFields.includes(field.name)
+    return generateColumnDefinition(field, isPrimaryKey)
+  })
   const tableConstraints = generateTableConstraints(table)
   const allDefinitions = [...columnDefinitions, ...tableConstraints]
 
