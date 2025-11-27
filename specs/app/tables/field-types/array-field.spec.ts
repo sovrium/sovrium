@@ -60,7 +60,7 @@ test.describe('Array Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-ARRAY-FIELD-002: should support array containment, overlap, and length',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -71,14 +71,18 @@ test.describe('Array Field', () => {
           {
             id: 2,
             name: 'posts',
-            fields: [{ id: 1, name: 'keywords', type: 'array', itemType: 'text' }],
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'keywords', type: 'array', itemType: 'text' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
       })
 
       // WHEN: querying the database
       await executeQuery(
-        "INSERT INTO posts (keywords) VALUES (ARRAY['nodejs', 'express']), (ARRAY['nodejs', 'fastify']), (ARRAY['python', 'flask'])"
+        "INSERT INTO posts (id, keywords) VALUES (1, ARRAY['nodejs', 'express']), (2, ARRAY['nodejs', 'fastify']), (3, ARRAY['python', 'flask'])"
       )
 
       // WHEN: querying the database

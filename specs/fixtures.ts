@@ -488,8 +488,12 @@ export const test = base.extend<ServerFixtures>({
         throw new Error('Database not initialized')
       }
 
-      // Import pg module
-      const { Client } = await import('pg')
+      // Import pg module and configure type parsers
+      const { Client, types } = await import('pg')
+
+      // Parse bigint as number (COUNT, array_length, etc. return bigint)
+      // This prevents "2" (string) vs 2 (number) type mismatches in tests
+      types.setTypeParser(types.builtins.INT8, (val: string) => parseInt(val, 10))
 
       // Get test database name from startServerWithSchema fixture
       const testDbName = (testInfo as any)._testDatabaseName
