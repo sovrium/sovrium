@@ -107,7 +107,7 @@ test.describe('Table Fields', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELDS-002: should enforce minimum items when validating input with fewer than 1 items',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {

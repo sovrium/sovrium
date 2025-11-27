@@ -96,7 +96,7 @@ export const FieldsSchema = Schema.Array(
     ArrayFieldSchema
   )
 ).pipe(
-  Schema.minItems(1),
+  Schema.itemsCount({ min: 1 }, { message: () => 'must be within the allowed range' }),
   Schema.annotations({
     title: 'Table Fields',
     description:
