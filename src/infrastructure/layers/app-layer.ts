@@ -7,6 +7,7 @@
 
 import { Layer } from 'effect'
 import { CSSCompilerLive } from '@/infrastructure/css/css-compiler-live'
+import { DevToolsLayerOptional } from '@/infrastructure/devtools'
 import { ServerFactoryLive } from '@/infrastructure/server/server-factory-live'
 import { StaticSiteGeneratorLive } from '@/infrastructure/server/static-site-generator-live'
 import { PageRendererLive } from '@/presentation/layers/page-renderer-live'
@@ -38,5 +39,6 @@ export const AppLayer = Layer.mergeAll(
   ServerFactoryLive,
   PageRendererLive,
   CSSCompilerLive,
-  StaticSiteGeneratorLive
+  StaticSiteGeneratorLive,
+  DevToolsLayerOptional
 )

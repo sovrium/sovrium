@@ -903,11 +903,6 @@ async function main() {
   const totalFixme = analyzedFiles.reduce((sum, f) => sum + f.metadata.fixmeTests, 0)
   const totalPassing = analyzedFiles.reduce((sum, f) => sum + f.metadata.passingTests, 0)
 
-  const allIssues = analyzedFiles.flatMap((f) => f.issues)
-  const errors = allIssues.filter((i) => i.type === 'error').length
-  const warnings = allIssues.filter((i) => i.type === 'warning').length
-  const suggestions = allIssues.filter((i) => i.type === 'suggestion').length
-
   const qualityScore = calculateQualityScore(analyzedFiles)
   const coverageGaps = detectCoverageGaps(analyzedFiles)
   const duplicateSpecIds = detectDuplicateSpecIds(analyzedFiles)
@@ -920,7 +915,12 @@ async function main() {
         file.issues.push({
           type: 'error',
           code: 'DUPLICATE_SPEC_ID',
-          message: `Spec ID "${dup.specId}" is duplicated (also in: ${dup.locations.filter((l) => l.file !== loc.file).map((l) => l.file).join(', ') || 'same file'})`,
+          message: `Spec ID "${dup.specId}" is duplicated (also in: ${
+            dup.locations
+              .filter((l) => l.file !== loc.file)
+              .map((l) => l.file)
+              .join(', ') || 'same file'
+          })`,
           line: loc.line,
           testId: dup.specId,
         })
@@ -932,7 +932,9 @@ async function main() {
   const allIssuesWithDuplicates = analyzedFiles.flatMap((f) => f.issues)
   const errorsWithDuplicates = allIssuesWithDuplicates.filter((i) => i.type === 'error').length
   const warningsWithDuplicates = allIssuesWithDuplicates.filter((i) => i.type === 'warning').length
-  const suggestionsWithDuplicates = allIssuesWithDuplicates.filter((i) => i.type === 'suggestion').length
+  const suggestionsWithDuplicates = allIssuesWithDuplicates.filter(
+    (i) => i.type === 'suggestion'
+  ).length
 
   const state: SpecState = {
     generatedAt: new Date().toISOString(),
@@ -993,7 +995,7 @@ async function main() {
     console.log('')
   }
 
-  if (errors > 0) {
+  if (errorsWithDuplicates > 0) {
     console.log('❌ ERRORS:')
     for (const file of analyzedFiles) {
       for (const issue of file.issues.filter((i) => i.type === 'error')) {

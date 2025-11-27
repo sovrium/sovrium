@@ -199,16 +199,10 @@ describe('Server - Integration Tests', () => {
       const program = Effect.gen(function* () {
         const serverInstance = yield* createServer(config)
 
-        const res = yield* Effect.tryPromise({
-          try: () => fetch(serverInstance.url),
-          catch: (error) => error,
-        })
+        const res = yield* Effect.promise(() => fetch(serverInstance.url))
 
         expect(res.status).toBe(200)
-        const text = yield* Effect.tryPromise({
-          try: () => res.text(),
-          catch: (error) => error,
-        })
+        const text = yield* Effect.promise(() => res.text())
         expect(text).toContain('Test Server App')
 
         yield* serverInstance.stop
@@ -223,16 +217,10 @@ describe('Server - Integration Tests', () => {
       const program = Effect.gen(function* () {
         const serverInstance = yield* createServer(config)
 
-        const res = yield* Effect.tryPromise({
-          try: () => fetch(`${serverInstance.url}/api/health`),
-          catch: (error) => error,
-        })
+        const res = yield* Effect.promise(() => fetch(`${serverInstance.url}/api/health`))
 
         expect(res.status).toBe(200)
-        const json = yield* Effect.tryPromise({
-          try: () => res.json(),
-          catch: (error) => error,
-        })
+        const json = yield* Effect.promise(() => res.json())
         expect(json.status).toBe('ok')
         expect(json.app.name).toBe('Test Server App')
 
@@ -248,17 +236,11 @@ describe('Server - Integration Tests', () => {
       const program = Effect.gen(function* () {
         const serverInstance = yield* createServer(config)
 
-        const res = yield* Effect.tryPromise({
-          try: () => fetch(`${serverInstance.url}/assets/output.css`),
-          catch: (error) => error,
-        })
+        const res = yield* Effect.promise(() => fetch(`${serverInstance.url}/assets/output.css`))
 
         expect(res.status).toBe(200)
         expect(res.headers.get('Content-Type')).toBe('text/css')
-        const css = yield* Effect.tryPromise({
-          try: () => res.text(),
-          catch: (error) => error,
-        })
+        const css = yield* Effect.promise(() => res.text())
         expect(css.length).toBeGreaterThan(0)
 
         yield* serverInstance.stop
@@ -273,10 +255,9 @@ describe('Server - Integration Tests', () => {
       const program = Effect.gen(function* () {
         const serverInstance = yield* createServer(config)
 
-        const res = yield* Effect.tryPromise({
-          try: () => fetch(`${serverInstance.url}/assets/language-switcher.js`),
-          catch: (error) => error,
-        })
+        const res = yield* Effect.promise(
+          () => fetch(`${serverInstance.url}/assets/language-switcher.js`)
+        )
 
         expect(res.status).toBe(200)
         expect(res.headers.get('Content-Type')).toBe('application/javascript')
@@ -293,16 +274,10 @@ describe('Server - Integration Tests', () => {
       const program = Effect.gen(function* () {
         const serverInstance = yield* createServer(config)
 
-        const res = yield* Effect.tryPromise({
-          try: () => fetch(`${serverInstance.url}/nonexistent`),
-          catch: (error) => error,
-        })
+        const res = yield* Effect.promise(() => fetch(`${serverInstance.url}/nonexistent`))
 
         expect(res.status).toBe(404)
-        const text = yield* Effect.tryPromise({
-          try: () => res.text(),
-          catch: (error) => error,
-        })
+        const text = yield* Effect.promise(() => res.text())
         expect(text).toContain('404')
 
         yield* serverInstance.stop
@@ -317,16 +292,10 @@ describe('Server - Integration Tests', () => {
       const program = Effect.gen(function* () {
         const serverInstance = yield* createServer(config)
 
-        const res = yield* Effect.tryPromise({
-          try: () => fetch(`${serverInstance.url}/about`),
-          catch: (error) => error,
-        })
+        const res = yield* Effect.promise(() => fetch(`${serverInstance.url}/about`))
 
         expect(res.status).toBe(200)
-        const text = yield* Effect.tryPromise({
-          try: () => res.text(),
-          catch: (error) => error,
-        })
+        const text = yield* Effect.promise(() => res.text())
         expect(text).toContain('About')
 
         yield* serverInstance.stop
@@ -354,10 +323,7 @@ describe('Server - Integration Tests', () => {
       const program = Effect.gen(function* () {
         const serverInstance = yield* createServer(config)
 
-        const res = yield* Effect.tryPromise({
-          try: () => fetch(`${serverInstance.url}/fr/`),
-          catch: (error) => error,
-        })
+        const res = yield* Effect.promise(() => fetch(`${serverInstance.url}/fr/`))
 
         expect(res.status).toBe(200)
 
@@ -384,14 +350,12 @@ describe('Server - Integration Tests', () => {
       const program = Effect.gen(function* () {
         const serverInstance = yield* createServer(config)
 
-        const res = yield* Effect.tryPromise({
-          try: () =>
-            fetch(serverInstance.url, {
-              headers: { 'Accept-Language': 'fr-FR,fr;q=0.9' },
-              redirect: 'manual',
-            }),
-          catch: (error) => error,
-        })
+        const res = yield* Effect.promise(() =>
+          fetch(serverInstance.url, {
+            headers: { 'Accept-Language': 'fr-FR,fr;q=0.9' },
+            redirect: 'manual',
+          })
+        )
 
         expect(res.status).toBe(302)
         expect(res.headers.get('Location')).toBe('/fr/')
@@ -413,10 +377,7 @@ describe('Server - Integration Tests', () => {
       const program = Effect.gen(function* () {
         const serverInstance = yield* createServer(config)
 
-        const res = yield* Effect.tryPromise({
-          try: () => fetch(`${serverInstance.url}/test/error`),
-          catch: (error) => error,
-        })
+        const res = yield* Effect.promise(() => fetch(`${serverInstance.url}/test/error`))
 
         // Server should handle error with error handler
         // Error handler returns 500 or the error might propagate differently
@@ -439,10 +400,7 @@ describe('Server - Integration Tests', () => {
       const program = Effect.gen(function* () {
         const serverInstance = yield* createServer(config)
 
-        const res = yield* Effect.tryPromise({
-          try: () => fetch(`${serverInstance.url}/test/error`),
-          catch: (error) => error,
-        })
+        const res = yield* Effect.promise(() => fetch(`${serverInstance.url}/test/error`))
 
         expect(res.status).toBe(404)
 
