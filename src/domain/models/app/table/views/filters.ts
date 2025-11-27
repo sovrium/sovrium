@@ -111,6 +111,7 @@ export const ViewFilterNodeSchema: Schema.Schema<ViewFilterNode> = Schema.Union(
   })
 ).pipe(
   Schema.annotations({
+    identifier: 'ViewFilterNode',
     title: 'Filter Node',
     description: 'A filter condition or a logical group (and/or) of filter nodes.',
   })
