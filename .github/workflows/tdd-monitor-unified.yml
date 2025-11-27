@@ -650,7 +650,7 @@ jobs:
           git config --local user.name "github-actions[bot]"
 
           git add SPEC-STATE.md
-          git commit -m "chore: update SPEC-STATE.md after test implementation
+          git commit -m "chore: update SPEC-STATE.md [skip ci]
 
           🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
