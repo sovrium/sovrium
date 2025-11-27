@@ -61,5 +61,7 @@ drizzle-kit.log
 !drizzle/*.sql
 test-output.log
 
-# TDD automation lock files (idempotency)
+# TDD automation generated files
 .github/tdd-queue-populate.lock
+.github/tdd-queue-scan.json
+.github/tdd-queue-dependencies.json
