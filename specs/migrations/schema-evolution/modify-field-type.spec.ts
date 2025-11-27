@@ -26,7 +26,7 @@ test.describe('Modify Field Type Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-MODIFY-TYPE-001: should alter table alter column type text',
+    'MIGRATION-MODIFY-TYPE-001: should alter table alter column type text',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with field 'bio' (VARCHAR(255))
@@ -48,7 +48,7 @@ test.describe('Modify Field Type Migration', () => {
   )
 
   test.fixme(
-    'MIG-MODIFY-TYPE-002: should alter table alter column type varchar(50) using left(sku, 50)',
+    'MIGRATION-MODIFY-TYPE-002: should alter table alter column type varchar(50) using left(sku, 50)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with field 'sku' (TEXT)
@@ -70,7 +70,7 @@ test.describe('Modify Field Type Migration', () => {
   )
 
   test.fixme(
-    'MIG-MODIFY-TYPE-003: should alter table alter column type numeric(10,2)',
+    'MIGRATION-MODIFY-TYPE-003: should alter table alter column type numeric(10,2)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with field 'total' (INTEGER)
@@ -92,7 +92,7 @@ test.describe('Modify Field Type Migration', () => {
   )
 
   test.fixme(
-    'MIG-MODIFY-TYPE-004: should alter table alter column type integer using count::integer',
+    'MIGRATION-MODIFY-TYPE-004: should alter table alter column type integer using count::integer',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'metrics' with field 'count' stored as TEXT
@@ -114,7 +114,7 @@ test.describe('Modify Field Type Migration', () => {
   )
 
   test.fixme(
-    'MIG-MODIFY-TYPE-005: should alter table alter column type timestamptz using occurred_at::timestamptz',
+    'MIGRATION-MODIFY-TYPE-005: should alter table alter column type timestamptz using occurred_at::timestamptz',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'events' with field 'occurred_at' (TEXT) containing ISO-8601 strings
@@ -136,7 +136,7 @@ test.describe('Modify Field Type Migration', () => {
   )
 
   test.fixme(
-    'MIG-MODIFY-TYPE-006: should migration fails with data conversion error, transaction rolled back',
+    'MIGRATION-MODIFY-TYPE-006: should migration fails with data conversion error, transaction rolled back',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'data' with field 'value' (TEXT) containing non-numeric values
@@ -162,7 +162,7 @@ test.describe('Modify Field Type Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-MODIFY-TYPE-007: user can complete full modify-field-type workflow',
+    'MIGRATION-MODIFY-TYPE-007: user can complete full modify-field-type workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative modify-field-type scenarios

@@ -31,7 +31,7 @@ test.describe('Migration Rollback', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-ROLLBACK-001: should detect checksum mismatch and prevent migration',
+    'MIGRATION-ROLLBACK-001: should detect checksum mismatch and prevent migration',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Existing database with tables and checksum from previous schema
@@ -72,7 +72,7 @@ test.describe('Migration Rollback', () => {
   )
 
   test.fixme(
-    'MIG-ROLLBACK-002: should rollback to last known good state on checksum validation failure',
+    'MIGRATION-ROLLBACK-002: should rollback to last known good state on checksum validation failure',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Database with stored checksum and migration history
@@ -114,7 +114,7 @@ test.describe('Migration Rollback', () => {
   )
 
   test.fixme(
-    'MIG-ROLLBACK-003: should provide manual rollback command to restore previous schema version',
+    'MIGRATION-ROLLBACK-003: should provide manual rollback command to restore previous schema version',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Multiple schema versions in migration history
@@ -148,7 +148,7 @@ test.describe('Migration Rollback', () => {
   )
 
   test.fixme(
-    'MIG-ROLLBACK-004: should restore data integrity after failed migration rollback',
+    'MIGRATION-ROLLBACK-004: should restore data integrity after failed migration rollback',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with existing data
@@ -190,7 +190,7 @@ test.describe('Migration Rollback', () => {
   )
 
   test.fixme(
-    'MIG-ROLLBACK-005: should handle cascading rollback for dependent tables',
+    'MIGRATION-ROLLBACK-005: should handle cascading rollback for dependent tables',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Tables with foreign key relationships
@@ -248,7 +248,7 @@ test.describe('Migration Rollback', () => {
   )
 
   test.fixme(
-    'MIG-ROLLBACK-006: should log rollback operations for audit trail',
+    'MIGRATION-ROLLBACK-006: should log rollback operations for audit trail',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Audit logging enabled for migrations
@@ -293,7 +293,7 @@ test.describe('Migration Rollback', () => {
   )
 
   test.fixme(
-    'MIG-ROLLBACK-007: should support schema downgrade from version N to N-1',
+    'MIGRATION-ROLLBACK-007: should support schema downgrade from version N to N-1',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Schema at version N with additional fields
@@ -325,7 +325,7 @@ test.describe('Migration Rollback', () => {
   )
 
   test.fixme(
-    'MIG-ROLLBACK-008: should prevent rollback if it would cause data loss without confirmation',
+    'MIGRATION-ROLLBACK-008: should prevent rollback if it would cause data loss without confirmation',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with data in column to be removed by rollback
@@ -359,7 +359,7 @@ test.describe('Migration Rollback', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-ROLLBACK-009: user can complete full migration rollback workflow',
+    'MIGRATION-ROLLBACK-009: user can complete full migration rollback workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application with migration history and rollback capabilities

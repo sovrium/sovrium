@@ -26,7 +26,7 @@ test.describe('Modify Indexes Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-MODIFY-INDEX-001: should create index creates btree index on specified field',
+    'MIGRATION-MODIFY-INDEX-001: should create index creates btree index on specified field',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with no custom indexes
@@ -48,7 +48,7 @@ test.describe('Modify Indexes Migration', () => {
   )
 
   test.fixme(
-    'MIG-MODIFY-INDEX-002: should create index creates multi-column btree index',
+    'MIGRATION-MODIFY-INDEX-002: should create index creates multi-column btree index',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'contacts' with no indexes
@@ -70,7 +70,7 @@ test.describe('Modify Indexes Migration', () => {
   )
 
   test.fixme(
-    'MIG-MODIFY-INDEX-003: should drop index removes index from table',
+    'MIGRATION-MODIFY-INDEX-003: should drop index removes index from table',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with existing index idx_users_email
@@ -92,7 +92,7 @@ test.describe('Modify Indexes Migration', () => {
   )
 
   test.fixme(
-    'MIG-MODIFY-INDEX-004: should drop old index and create new composite index',
+    'MIGRATION-MODIFY-INDEX-004: should drop old index and create new composite index',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with index on single field 'customer_id'
@@ -114,7 +114,7 @@ test.describe('Modify Indexes Migration', () => {
   )
 
   test.fixme(
-    'MIG-MODIFY-INDEX-005: should drop regular index and create unique index',
+    'MIGRATION-MODIFY-INDEX-005: should drop regular index and create unique index',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'accounts' with regular index on username
@@ -136,7 +136,7 @@ test.describe('Modify Indexes Migration', () => {
   )
 
   test.fixme(
-    'MIG-MODIFY-INDEX-006: should create index concurrently allows reads/writes during creation',
+    'MIGRATION-MODIFY-INDEX-006: should create index concurrently allows reads/writes during creation',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: large table 'events' requiring non-blocking index creation
@@ -162,7 +162,7 @@ test.describe('Modify Indexes Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-MODIFY-INDEX-007: user can complete full modify-indexes workflow',
+    'MIGRATION-MODIFY-INDEX-007: user can complete full modify-indexes workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative modify-indexes scenarios

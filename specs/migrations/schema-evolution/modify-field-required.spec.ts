@@ -26,7 +26,7 @@ test.describe('Modify Field Required Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-MODIFY-REQUIRED-001: should alter table alter column set not null',
+    'MIGRATION-MODIFY-REQUIRED-001: should alter table alter column set not null',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with optional field 'phone' (TEXT NULL), no rows exist
@@ -48,7 +48,7 @@ test.describe('Modify Field Required Migration', () => {
   )
 
   test.fixme(
-    'MIG-MODIFY-REQUIRED-002: should migration fails with error (cannot add not null without default when data exists)',
+    'MIGRATION-MODIFY-REQUIRED-002: should migration fails with error (cannot add not null without default when data exists)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with optional field 'category' (TEXT NULL), existing rows present
@@ -70,7 +70,7 @@ test.describe('Modify Field Required Migration', () => {
   )
 
   test.fixme(
-    'MIG-MODIFY-REQUIRED-003: should alter table set default, backfill null values, then set not null',
+    'MIGRATION-MODIFY-REQUIRED-003: should alter table set default, backfill null values, then set not null',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with optional field 'status', existing rows present
@@ -92,7 +92,7 @@ test.describe('Modify Field Required Migration', () => {
   )
 
   test.fixme(
-    'MIG-MODIFY-REQUIRED-004: should alter table alter column drop not null',
+    'MIGRATION-MODIFY-REQUIRED-004: should alter table alter column drop not null',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'tasks' with required field 'priority' (TEXT NOT NULL)
@@ -118,7 +118,7 @@ test.describe('Modify Field Required Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-MODIFY-REQUIRED-005: user can complete full modify-field-required workflow',
+    'MIGRATION-MODIFY-REQUIRED-005: user can complete full modify-field-required workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative modify-field-required scenarios

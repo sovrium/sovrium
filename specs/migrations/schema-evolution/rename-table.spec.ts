@@ -26,7 +26,7 @@ test.describe('Rename Table Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-RENAME-TABLE-001: should alter table rename preserves data, indexes, and constraints',
+    'MIGRATION-RENAME-TABLE-001: should alter table rename preserves data, indexes, and constraints',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: existing table 'users' with data and indexes
@@ -48,7 +48,7 @@ test.describe('Rename Table Migration', () => {
   )
 
   test.fixme(
-    'MIG-RENAME-TABLE-002: should automatically updates foreign key references',
+    'MIGRATION-RENAME-TABLE-002: should automatically updates foreign key references',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'posts' referenced by foreign key from 'comments'
@@ -70,7 +70,7 @@ test.describe('Rename Table Migration', () => {
   )
 
   test.fixme(
-    'MIG-RENAME-TABLE-003: should all indexes and constraints remain functional',
+    'MIGRATION-RENAME-TABLE-003: should all indexes and constraints remain functional',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with multiple indexes and constraints
@@ -92,7 +92,7 @@ test.describe('Rename Table Migration', () => {
   )
 
   test.fixme(
-    'MIG-RENAME-TABLE-004: should migration fails with error and transaction rolls back',
+    'MIGRATION-RENAME-TABLE-004: should migration fails with error and transaction rolls back',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table rename where new name conflicts with existing table
@@ -118,7 +118,7 @@ test.describe('Rename Table Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-RENAME-TABLE-005: user can complete full rename-table workflow',
+    'MIGRATION-RENAME-TABLE-005: user can complete full rename-table workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative rename-table scenarios

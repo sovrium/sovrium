@@ -26,7 +26,7 @@ test.describe('Error Handling and Rollback', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-ERROR-001: should rollback PostgreSQL transaction when runtime migration attempts to generate SQL for invalid type',
+    'MIGRATION-ERROR-001: should rollback PostgreSQL transaction when runtime migration attempts to generate SQL for invalid type',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration with invalid field type 'INVALID_TYPE'
@@ -84,7 +84,7 @@ test.describe('Error Handling and Rollback', () => {
   )
 
   test.fixme(
-    'MIG-ERROR-002: should rollback all changes when migration fails mid-execution',
+    'MIGRATION-ERROR-002: should rollback all changes when migration fails mid-execution',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: multiple tables being created, second table has SQL syntax error
@@ -135,7 +135,7 @@ test.describe('Error Handling and Rollback', () => {
   )
 
   test.fixme(
-    'MIG-ERROR-003: should rollback transaction when ALTER TABLE operation fails due to constraint violation',
+    'MIGRATION-ERROR-003: should rollback transaction when ALTER TABLE operation fails due to constraint violation',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: ALTER TABLE operation fails (e.g., adding NOT NULL column without default to non-empty table)
@@ -189,7 +189,7 @@ test.describe('Error Handling and Rollback', () => {
   )
 
   test.fixme(
-    'MIG-ERROR-004: should fail and rollback all table creations when foreign key references non-existent table',
+    'MIGRATION-ERROR-004: should fail and rollback all table creations when foreign key references non-existent table',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: foreign key reference to non-existent table
@@ -231,7 +231,7 @@ test.describe('Error Handling and Rollback', () => {
   )
 
   test.fixme(
-    'MIG-ERROR-005: should abort application startup when database connection error occurs',
+    'MIGRATION-ERROR-005: should abort application startup when database connection error occurs',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: migration system connection to database fails
@@ -273,7 +273,7 @@ test.describe('Error Handling and Rollback', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-ERROR-006: user can complete full error-handling-and-rollback workflow',
+    'MIGRATION-ERROR-006: user can complete full error-handling-and-rollback workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative error scenarios

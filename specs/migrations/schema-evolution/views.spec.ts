@@ -26,7 +26,7 @@ test.describe('Database Views Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-VIEW-001: should create view for read-only access',
+    'MIGRATION-VIEW-001: should create view for read-only access',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' exists, no views defined
@@ -48,7 +48,7 @@ test.describe('Database Views Migration', () => {
   )
 
   test.fixme(
-    'MIG-VIEW-002: should drop view when removed',
+    'MIGRATION-VIEW-002: should drop view when removed',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: view 'active_users' exists
@@ -70,7 +70,7 @@ test.describe('Database Views Migration', () => {
   )
 
   test.fixme(
-    'MIG-VIEW-003: should alter view via drop and create',
+    'MIGRATION-VIEW-003: should alter view via drop and create',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: view 'user_summary' exists with query A
@@ -92,7 +92,7 @@ test.describe('Database Views Migration', () => {
   )
 
   test.fixme(
-    'MIG-VIEW-004: should create materialized view',
+    'MIGRATION-VIEW-004: should create materialized view',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' exists, no materialized views
@@ -114,7 +114,7 @@ test.describe('Database Views Migration', () => {
   )
 
   test.fixme(
-    'MIG-VIEW-005: should refresh materialized view',
+    'MIGRATION-VIEW-005: should refresh materialized view',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: materialized view 'order_stats' exists with stale data
@@ -136,7 +136,7 @@ test.describe('Database Views Migration', () => {
   )
 
   test.fixme(
-    'MIG-VIEW-006: should drop view cascade',
+    'MIGRATION-VIEW-006: should drop view cascade',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: view 'user_orders' exists, view 'active_orders' depends on it
@@ -162,7 +162,7 @@ test.describe('Database Views Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-VIEW-007: user can complete full views workflow',
+    'MIGRATION-VIEW-007: user can complete full views workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative views scenarios

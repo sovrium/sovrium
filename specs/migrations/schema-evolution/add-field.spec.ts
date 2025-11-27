@@ -26,7 +26,7 @@ test.describe('Add Field Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-ALTER-ADD-001: should add TEXT NOT NULL column to existing table when runtime migration generates ALTER TABLE ADD COLUMN',
+    'MIGRATION-ALTER-ADD-001: should add TEXT NOT NULL column to existing table when runtime migration generates ALTER TABLE ADD COLUMN',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with email field exists, new field 'name' (single-line-text, required) is added to schema
@@ -72,7 +72,7 @@ test.describe('Add Field Migration', () => {
   )
 
   test.fixme(
-    'MIG-ALTER-ADD-002: should add TEXT column without NOT NULL constraint when ALTER TABLE adds nullable column',
+    'MIGRATION-ALTER-ADD-002: should add TEXT column without NOT NULL constraint when ALTER TABLE adds nullable column',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with title field, new optional field 'description' (long-text) is added
@@ -117,7 +117,7 @@ test.describe('Add Field Migration', () => {
   )
 
   test.fixme(
-    'MIG-ALTER-ADD-003: should add TEXT column with CHECK constraint for enum values when ALTER TABLE adds column with CHECK constraint',
+    'MIGRATION-ALTER-ADD-003: should add TEXT column with CHECK constraint for enum values when ALTER TABLE adds column with CHECK constraint',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'tasks' exists, new field 'priority' (single-select with options) is added
@@ -166,7 +166,7 @@ test.describe('Add Field Migration', () => {
   )
 
   test.fixme(
-    'MIG-ALTER-ADD-004: should add column with default value applied to existing rows when ALTER TABLE adds column with DEFAULT',
+    'MIGRATION-ALTER-ADD-004: should add column with default value applied to existing rows when ALTER TABLE adds column with DEFAULT',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' exists, new field 'total' (decimal) with default value is added
@@ -215,7 +215,7 @@ test.describe('Add Field Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-ALTER-ADD-005: user can complete full add-field-migration workflow',
+    'MIGRATION-ALTER-ADD-005: user can complete full add-field-migration workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative add field scenarios

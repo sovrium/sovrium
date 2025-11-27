@@ -26,7 +26,7 @@ test.describe('Remove Field Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-ALTER-REMOVE-001: should remove phone column and preserve other columns when runtime migration generates ALTER TABLE DROP COLUMN',
+    'MIGRATION-ALTER-REMOVE-001: should remove phone column and preserve other columns when runtime migration generates ALTER TABLE DROP COLUMN',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with email and phone fields, phone field is removed from schema
@@ -69,7 +69,7 @@ test.describe('Remove Field Migration', () => {
   )
 
   test.fixme(
-    'MIG-ALTER-REMOVE-002: should drop column and preserve column order for remaining fields when ALTER TABLE removes column from middle of schema',
+    'MIGRATION-ALTER-REMOVE-002: should drop column and preserve column order for remaining fields when ALTER TABLE removes column from middle of schema',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with multiple fields, middle field is removed
@@ -112,7 +112,7 @@ test.describe('Remove Field Migration', () => {
   )
 
   test.fixme(
-    'MIG-ALTER-REMOVE-003: should automatically drop associated index when ALTER TABLE drops column with index',
+    'MIGRATION-ALTER-REMOVE-003: should automatically drop associated index when ALTER TABLE drops column with index',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'tasks' with indexed field, indexed field is removed
@@ -156,7 +156,7 @@ test.describe('Remove Field Migration', () => {
   )
 
   test.fixme(
-    'MIG-ALTER-REMOVE-004: should remove column and CASCADE drop foreign key constraint when ALTER TABLE drops column with foreign key constraint',
+    'MIGRATION-ALTER-REMOVE-004: should remove column and CASCADE drop foreign key constraint when ALTER TABLE drops column with foreign key constraint',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with foreign key field, relationship field is removed
@@ -218,7 +218,7 @@ test.describe('Remove Field Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-ALTER-REMOVE-005: user can complete full remove-field-migration workflow',
+    'MIGRATION-ALTER-REMOVE-005: user can complete full remove-field-migration workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative remove field scenarios

@@ -31,7 +31,7 @@ test.describe('Migration Audit Trail', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-AUDIT-001: should record migration history with timestamp and checksum',
+    'MIGRATION-AUDIT-001: should record migration history with timestamp and checksum',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Fresh database with no migration history
@@ -62,7 +62,7 @@ test.describe('Migration Audit Trail', () => {
   )
 
   test.fixme(
-    'MIG-AUDIT-002: should store complete schema snapshot in migration history',
+    'MIGRATION-AUDIT-002: should store complete schema snapshot in migration history',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application schema with tables
@@ -98,7 +98,7 @@ test.describe('Migration Audit Trail', () => {
   )
 
   test.fixme(
-    'MIG-AUDIT-003: should track incremental version numbers for each migration',
+    'MIGRATION-AUDIT-003: should track incremental version numbers for each migration',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Database with existing migration history
@@ -140,7 +140,7 @@ test.describe('Migration Audit Trail', () => {
   )
 
   test.fixme(
-    'MIG-AUDIT-004: should log rollback operations with reason and timestamp',
+    'MIGRATION-AUDIT-004: should log rollback operations with reason and timestamp',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Previous migration exists
@@ -186,7 +186,7 @@ test.describe('Migration Audit Trail', () => {
   )
 
   test.fixme(
-    'MIG-AUDIT-005: should provide query interface for migration history',
+    'MIGRATION-AUDIT-005: should provide query interface for migration history',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Multiple migrations in history
@@ -229,7 +229,7 @@ test.describe('Migration Audit Trail', () => {
   )
 
   test.fixme(
-    'MIG-AUDIT-006: should detect and report schema drift from audit history',
+    'MIGRATION-AUDIT-006: should detect and report schema drift from audit history',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Recorded schema state and actual database state differ
@@ -270,7 +270,7 @@ test.describe('Migration Audit Trail', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-AUDIT-007: user can complete full migration audit workflow',
+    'MIGRATION-AUDIT-007: user can complete full migration audit workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Fresh database

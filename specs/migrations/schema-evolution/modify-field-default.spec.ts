@@ -70,7 +70,7 @@ test.describe('Modify Field Default Migration', () => {
   )
 
   test.fixme(
-    'MIG-MODIFY-DEFAULT-003: should alter table alter column drop default',
+    'MIGRATION-MODIFY-DEFAULT-003: should alter table alter column drop default',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with created_at field, existing default NOW()
@@ -96,7 +96,7 @@ test.describe('Modify Field Default Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-MODIFY-DEFAULT-004: user can complete full modify-field-default workflow',
+    'MIGRATION-MODIFY-DEFAULT-004: user can complete full modify-field-default workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative modify-field-default scenarios

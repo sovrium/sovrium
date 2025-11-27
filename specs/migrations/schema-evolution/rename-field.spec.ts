@@ -26,7 +26,7 @@ test.describe('Rename Field Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-ALTER-RENAME-001: should generate RENAME COLUMN instead of DROP+ADD when runtime migration detects rename via field ID',
+    'MIGRATION-ALTER-RENAME-001: should generate RENAME COLUMN instead of DROP+ADD when runtime migration detects rename via field ID',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'users' with field id=1 name='email', field name changed to 'email_address' (same id)
@@ -85,7 +85,7 @@ test.describe('Rename Field Migration', () => {
   )
 
   test.fixme(
-    'MIG-ALTER-RENAME-002: should rename column and automatically update index reference when RENAME COLUMN is executed on indexed field',
+    'MIGRATION-ALTER-RENAME-002: should rename column and automatically update index reference when RENAME COLUMN is executed on indexed field',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'products' with indexed field 'sku' renamed to 'product_code'
@@ -138,7 +138,7 @@ test.describe('Rename Field Migration', () => {
   )
 
   test.fixme(
-    'MIG-ALTER-RENAME-003: should rename column and preserve foreign key constraint when RENAME COLUMN on foreign key field',
+    'MIGRATION-ALTER-RENAME-003: should rename column and preserve foreign key constraint when RENAME COLUMN on foreign key field',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'orders' with foreign key field 'customer_id' renamed to 'client_id'
@@ -208,7 +208,7 @@ test.describe('Rename Field Migration', () => {
   )
 
   test.fixme(
-    'MIG-ALTER-RENAME-004: should rename column but CHECK constraint references old name when RENAME COLUMN on field with CHECK constraint',
+    'MIGRATION-ALTER-RENAME-004: should rename column but CHECK constraint references old name when RENAME COLUMN on field with CHECK constraint',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'tasks' with field 'status' (CHECK constraint) renamed to 'state'
@@ -266,7 +266,7 @@ test.describe('Rename Field Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-ALTER-RENAME-005: user can complete full rename-field-migration workflow',
+    'MIGRATION-ALTER-RENAME-005: user can complete full rename-field-migration workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative rename field scenarios

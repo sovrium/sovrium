@@ -26,7 +26,7 @@ test.describe('Row-Level Security Policies Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-RLS-001: should enable rls + create select policy',
+    'MIGRATION-RLS-001: should enable rls + create select policy',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'documents' exists without RLS
@@ -48,7 +48,7 @@ test.describe('Row-Level Security Policies Migration', () => {
   )
 
   test.fixme(
-    'MIG-RLS-002: should create insert policy',
+    'MIGRATION-RLS-002: should create insert policy',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'posts' with RLS enabled and SELECT policy
@@ -70,7 +70,7 @@ test.describe('Row-Level Security Policies Migration', () => {
   )
 
   test.fixme(
-    'MIG-RLS-003: should create update policy',
+    'MIGRATION-RLS-003: should create update policy',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'comments' with RLS and SELECT/INSERT policies
@@ -92,7 +92,7 @@ test.describe('Row-Level Security Policies Migration', () => {
   )
 
   test.fixme(
-    'MIG-RLS-004: should drop rls policy',
+    'MIGRATION-RLS-004: should drop rls policy',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'tasks' with RLS and multiple policies
@@ -114,7 +114,7 @@ test.describe('Row-Level Security Policies Migration', () => {
   )
 
   test.fixme(
-    'MIG-RLS-005: should alter policy via drop and create',
+    'MIGRATION-RLS-005: should alter policy via drop and create',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'projects' with RLS policy using old expression
@@ -136,7 +136,7 @@ test.describe('Row-Level Security Policies Migration', () => {
   )
 
   test.fixme(
-    'MIG-RLS-006: should disable rls on table',
+    'MIGRATION-RLS-006: should disable rls on table',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: table 'logs' with RLS enabled and policies
@@ -162,7 +162,7 @@ test.describe('Row-Level Security Policies Migration', () => {
   // ============================================================================
 
   test.fixme(
-    'MIG-RLS-007: user can complete full rls-policies workflow',
+    'MIGRATION-RLS-007: user can complete full rls-policies workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, executeQuery }) => {
       // GIVEN: Application configured with representative rls-policies scenarios
