@@ -46,10 +46,10 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Validate spec IDs are unique
+      - name: Analyze specs and validate uniqueness
         run: |
-          echo "🔍 Validating spec IDs are unique..."
-          bun run validate:spec-ids
+          echo "🔍 Analyzing specs and validating spec IDs are unique..."
+          bun run analyze:specs
 
       - name: Scan for RED tests with .fixme()
         id: scan
