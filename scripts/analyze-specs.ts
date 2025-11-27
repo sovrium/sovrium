@@ -980,10 +980,20 @@ async function main() {
   const qualityBadge = `quality-${qualityScore}%25-brightgreen`
 
   // Update badges using regex
+  // Handle angle-bracket format: [![text](<url>)] - match until >
+  // Handle regular format: [![text](url)] - match until )
   const updatedReadme = readmeContent
     .replace(
+      /\[!\[Spec Progress\]\(<https:\/\/img\.shields\.io\/badge\/specs-[^>]+>\)\]/,
+      `[![Spec Progress](<https://img.shields.io/badge/${specsBadge}>)]`
+    )
+    .replace(
       /\[!\[Spec Progress\]\(https:\/\/img\.shields\.io\/badge\/specs-[^)]+\)\]/,
-      `[![Spec Progress](https://img.shields.io/badge/${specsBadge})]`
+      `[![Spec Progress](<https://img.shields.io/badge/${specsBadge}>)]`
+    )
+    .replace(
+      /\[!\[Quality Score\]\(<https:\/\/img\.shields\.io\/badge\/quality-[^>]+>\)\]/,
+      `[![Quality Score](https://img.shields.io/badge/${qualityBadge})]`
     )
     .replace(
       /\[!\[Quality Score\]\(https:\/\/img\.shields\.io\/badge\/quality-[^)]+\)\]/,
