@@ -440,7 +440,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-009: should create PostgreSQL NUMERIC(10,2) column for decimal field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
