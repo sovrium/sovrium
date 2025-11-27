@@ -33,11 +33,7 @@ test.describe('Get view details', () => {
       // Database and auth configured by test fixtures
 
       // WHEN: User requests specific view details
-      const response = await request.get('/api/tables/1/views/active_projects', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const response = await request.get('/api/tables/1/views/active_projects', {})
 
       // THEN: View configuration should be returned with all properties
       expect(response.status()).toBe(200)
@@ -61,11 +57,7 @@ test.describe('Get view details', () => {
       // Test data configured for this scenario
 
       // WHEN: User requests non-existent view
-      const response = await request.get('/api/tables/1/views/non_existent', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const response = await request.get('/api/tables/1/views/non_existent', {})
 
       // THEN: 404 Not Found error should be returned with 'View not found' message
       expect(response.status()).toBe(404)
@@ -87,11 +79,7 @@ test.describe('Get view details', () => {
       // No setup needed
 
       // WHEN: User requests view details
-      const response = await request.get('/api/tables/9999/views/active_projects', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const response = await request.get('/api/tables/9999/views/active_projects', {})
 
       // THEN: 404 Not Found error should be returned with 'Table not found' message
       expect(response.status()).toBe(404)
@@ -113,11 +101,7 @@ test.describe('Get view details', () => {
       // Test data configured for this scenario
 
       // WHEN: User requests view details
-      const response = await request.get('/api/tables/1/views/status_board', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const response = await request.get('/api/tables/1/views/status_board', {})
 
       // THEN: All view properties including filters, sorts, and groupBy should be included in response
       expect(response.status()).toBe(200)
@@ -142,11 +126,7 @@ test.describe('Get view details', () => {
       // Test data configured for this scenario
 
       // WHEN: User requests view with field configurations
-      const response = await request.get('/api/tables/1/views/project_timeline', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const response = await request.get('/api/tables/1/views/project_timeline', {})
 
       // THEN: Fields array with visibility and order should be included in response
       expect(response.status()).toBe(200)
@@ -177,11 +157,7 @@ test.describe('Get view details', () => {
 
       // WHEN/THEN: Streamlined workflow testing integration points
       // Test successful retrieval
-      const successResponse = await request.get('/api/tables/1/views/active_projects', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const successResponse = await request.get('/api/tables/1/views/active_projects', {})
       // THEN: assertion
       expect(successResponse.status()).toBe(200)
       const view = await successResponse.json()
@@ -191,20 +167,12 @@ test.describe('Get view details', () => {
       expect(view).toHaveProperty('type')
 
       // Test view not found
-      const viewNotFoundResponse = await request.get('/api/tables/1/views/non_existent', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const viewNotFoundResponse = await request.get('/api/tables/1/views/non_existent', {})
       // THEN: assertion
       expect(viewNotFoundResponse.status()).toBe(404)
 
       // Test table not found
-      const tableNotFoundResponse = await request.get('/api/tables/9999/views/active_projects', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const tableNotFoundResponse = await request.get('/api/tables/9999/views/active_projects', {})
       // THEN: assertion
       expect(tableNotFoundResponse.status()).toBe(404)
     }

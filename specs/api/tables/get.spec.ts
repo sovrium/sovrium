@@ -33,11 +33,7 @@ test.describe('List all tables', () => {
       // Tests verify API responses match database state
 
       // WHEN: User requests list of all tables
-      const response = await request.get('/api/tables', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const response = await request.get('/api/tables', {})
 
       // THEN: Response should be 200 OK with array of tables
       expect(response.status()).toBe(200)
@@ -68,11 +64,7 @@ test.describe('List all tables', () => {
       // Application starts with clean slate for this test
 
       // WHEN: User requests list of all tables
-      const response = await request.get('/api/tables', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const response = await request.get('/api/tables', {})
 
       // THEN: Response should be 200 OK with empty array
       expect(response.status()).toBe(200)
@@ -119,11 +111,7 @@ test.describe('List all tables', () => {
 
       // WHEN/THEN: Streamlined workflow testing integration points
       // Test authenticated access
-      const authResponse = await request.get('/api/tables', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const authResponse = await request.get('/api/tables', {})
       // THEN: assertion
       expect(authResponse.status()).toBe(200)
       const tables = await authResponse.json()

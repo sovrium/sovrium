@@ -51,7 +51,6 @@ test.describe('Upsert records (create or update)', () => {
       // WHEN: Upsert with fieldsToMergeOn=['email'] - 1 existing match, 1 new record
       const response = await request.post('/api/tables/1/records/upsert', {
         headers: {
-          Authorization: 'Bearer test_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -113,7 +112,6 @@ test.describe('Upsert records (create or update)', () => {
       // WHEN: Upsert with fieldsToMergeOn=['email'] - both records are new
       const response = await request.post('/api/tables/1/records/upsert', {
         headers: {
-          Authorization: 'Bearer test_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -170,7 +168,6 @@ test.describe('Upsert records (create or update)', () => {
       // WHEN: Upsert with 1 valid record and 1 missing email (validation error)
       const response = await request.post('/api/tables/1/records/upsert', {
         headers: {
-          Authorization: 'Bearer test_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -277,7 +274,6 @@ test.describe('Upsert records (create or update)', () => {
       // WHEN: Member attempts upsert with new records
       const response = await request.post('/api/tables/1/records/upsert', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -323,7 +319,6 @@ test.describe('Upsert records (create or update)', () => {
       // WHEN: Member attempts upsert with existing records
       const response = await request.post('/api/tables/1/records/upsert', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -364,7 +359,6 @@ test.describe('Upsert records (create or update)', () => {
       // WHEN: Viewer attempts upsert
       const response = await request.post('/api/tables/1/records/upsert', {
         headers: {
-          Authorization: 'Bearer viewer_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -409,7 +403,6 @@ test.describe('Upsert records (create or update)', () => {
       // WHEN: Admin upserts records without specifying organization_id
       const response = await request.post('/api/tables/1/records/upsert', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -457,7 +450,6 @@ test.describe('Upsert records (create or update)', () => {
       // WHEN: Member attempts upsert creating record with protected field
       const response = await request.post('/api/tables/1/records/upsert', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -504,7 +496,6 @@ test.describe('Upsert records (create or update)', () => {
       // WHEN: Member attempts upsert updating record with protected field
       const response = await request.post('/api/tables/1/records/upsert', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -547,7 +538,6 @@ test.describe('Upsert records (create or update)', () => {
       // WHEN: Admin upserts with id or created_at in payload
       const response = await request.post('/api/tables/1/records/upsert', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -589,7 +579,6 @@ test.describe('Upsert records (create or update)', () => {
       // WHEN: Member upserts with organization_id='org_456' in payload
       const response = await request.post('/api/tables/1/records/upsert', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -642,7 +631,6 @@ test.describe('Upsert records (create or update)', () => {
       // WHEN: Member upserts records successfully
       const response = await request.post('/api/tables/1/records/upsert', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -699,7 +687,6 @@ test.describe('Upsert records (create or update)', () => {
       // WHEN: Admin upserts records with all fields
       const response = await request.post('/api/tables/1/records/upsert', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -754,7 +741,6 @@ test.describe('Upsert records (create or update)', () => {
       // WHEN: Member upserts mixed creates/updates with only permitted fields
       const response = await request.post('/api/tables/1/records/upsert', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -813,7 +799,6 @@ test.describe('Upsert records (create or update)', () => {
       // Test successful upsert (admin with full access)
       const successResponse = await request.post('/api/tables/1/records/upsert', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -840,7 +825,6 @@ test.describe('Upsert records (create or update)', () => {
       // Test validation error with rollback
       const validationResponse = await request.post('/api/tables/1/records/upsert', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -854,7 +838,6 @@ test.describe('Upsert records (create or update)', () => {
       // Test permission denied (member without create permission)
       const forbiddenResponse = await request.post('/api/tables/1/records/upsert', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -881,7 +864,6 @@ test.describe('Upsert records (create or update)', () => {
       // Test field-level write restriction
       const fieldForbiddenResponse = await request.post('/api/tables/1/records/upsert', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {

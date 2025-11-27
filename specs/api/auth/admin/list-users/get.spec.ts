@@ -38,12 +38,8 @@ test.describe('Admin: List users', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -62,9 +58,7 @@ test.describe('Admin: List users', () => {
       )
 
       // WHEN: Admin requests list of users
-      const response = await page.request.get('/api/auth/admin/list-users', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.get('/api/auth/admin/list-users', {})
 
       // THEN: Returns 200 OK with paginated user list
       // Returns 200 OK
@@ -89,12 +83,8 @@ test.describe('Admin: List users', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -116,9 +106,7 @@ test.describe('Admin: List users', () => {
       )
 
       // WHEN: Admin requests users with limit and offset
-      const response = await page.request.get('/api/auth/admin/list-users?limit=2&offset=1', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.get('/api/auth/admin/list-users?limit=2&offset=1', {})
 
       // THEN: Returns 200 OK with paginated results
       // Returns 200 OK
@@ -145,12 +133,8 @@ test.describe('Admin: List users', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -174,9 +158,7 @@ test.describe('Admin: List users', () => {
       // WHEN: Admin requests users sorted by email ascending
       const response = await page.request.get(
         '/api/auth/admin/list-users?sortBy=email&sortOrder=asc',
-        {
-          headers: { Authorization: 'Bearer admin_token' },
-        }
+        {}
       )
 
       // THEN: Returns 200 OK with users sorted correctly
@@ -197,12 +179,8 @@ test.describe('Admin: List users', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -230,12 +208,8 @@ test.describe('Admin: List users', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -248,9 +222,7 @@ test.describe('Admin: List users', () => {
       )
 
       // WHEN: Regular user attempts to list users
-      const response = await page.request.get('/api/auth/admin/list-users', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.get('/api/auth/admin/list-users', {})
 
       // THEN: Returns 403 Forbidden
       // Returns 403 Forbidden
@@ -273,12 +245,8 @@ test.describe('Admin: List users', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -294,9 +262,7 @@ test.describe('Admin: List users', () => {
       )
 
       // WHEN: Admin requests list of users
-      const response = await page.request.get('/api/auth/admin/list-users', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.get('/api/auth/admin/list-users', {})
 
       // THEN: Returns 200 OK with users but password field excluded for security
       // Returns 200 OK
@@ -314,12 +280,8 @@ test.describe('Admin: List users', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -332,9 +294,7 @@ test.describe('Admin: List users', () => {
       )
 
       // WHEN: Admin requests list of users
-      const response = await page.request.get('/api/auth/admin/list-users', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.get('/api/auth/admin/list-users', {})
 
       // THEN: Returns 200 OK with only admin user in list
       // Returns 200 OK
@@ -356,18 +316,13 @@ test.describe('Admin: List users', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

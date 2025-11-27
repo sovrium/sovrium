@@ -164,7 +164,9 @@ test.describe('Modify Indexes Migration', () => {
               { id: 2, name: 'customer_id', type: 'integer' },
               { id: 3, name: 'created_at', type: 'datetime' },
             ],
-            indexes: [{ name: 'idx_orders_customer_created', fields: ['customer_id', 'created_at'] }],
+            indexes: [
+              { name: 'idx_orders_customer_created', fields: ['customer_id', 'created_at'] },
+            ],
           },
         ],
       })

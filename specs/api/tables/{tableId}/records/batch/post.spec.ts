@@ -47,7 +47,6 @@ test.describe('Batch create records', () => {
       // WHEN: Batch create 3 valid records with returnRecords=true
       const response = await request.post('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer test_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -108,7 +107,6 @@ test.describe('Batch create records', () => {
       // WHEN: Batch create 2 records with returnRecords=false
       const response = await request.post('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer test_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -159,7 +157,6 @@ test.describe('Batch create records', () => {
       // WHEN: Batch create with 1 valid record and 1 missing email
       const response = await request.post('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer test_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -251,7 +248,6 @@ test.describe('Batch create records', () => {
       // WHEN: Member attempts batch create
       const response = await request.post('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -293,7 +289,6 @@ test.describe('Batch create records', () => {
       // WHEN: Viewer attempts batch create
       const response = await request.post('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer viewer_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -334,7 +329,6 @@ test.describe('Batch create records', () => {
       // WHEN: Admin batch creates records without specifying organization_id
       const response = await request.post('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -380,7 +374,6 @@ test.describe('Batch create records', () => {
       // WHEN: Member attempts batch create with protected field
       const response = await request.post('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -426,7 +419,6 @@ test.describe('Batch create records', () => {
       // WHEN: Admin batch creates with id in payload
       const response = await request.post('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -468,7 +460,6 @@ test.describe('Batch create records', () => {
       // WHEN: Member batch creates with organization_id='org_456' in payload
       const response = await request.post('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -512,7 +503,6 @@ test.describe('Batch create records', () => {
       // WHEN: Member batch creates records successfully
       const response = await request.post('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -563,7 +553,6 @@ test.describe('Batch create records', () => {
       // WHEN: Admin batch creates records with all fields
       const response = await request.post('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -612,7 +601,6 @@ test.describe('Batch create records', () => {
       // WHEN: Member batch creates with only permitted fields
       const response = await request.post('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -662,7 +650,6 @@ test.describe('Batch create records', () => {
       // WHEN: Batch create with duplicate email values
       const response = await request.post('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer test_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -711,7 +698,6 @@ test.describe('Batch create records', () => {
 
       const response = await request.post('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer test_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -761,7 +747,6 @@ test.describe('Batch create records', () => {
       // Test successful batch create (admin with full access)
       const successResponse = await request.post('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -788,7 +773,6 @@ test.describe('Batch create records', () => {
       // Test validation error with rollback
       const validationResponse = await request.post('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -809,7 +793,6 @@ test.describe('Batch create records', () => {
       // Test permission denied (member without create permission)
       const forbiddenResponse = await request.post('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -834,7 +817,6 @@ test.describe('Batch create records', () => {
       // Test field-level write restriction
       const fieldForbiddenResponse = await request.post('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {

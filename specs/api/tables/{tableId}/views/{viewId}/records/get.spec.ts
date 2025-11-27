@@ -31,7 +31,6 @@ test.fixme(
             {
               id: 'view_active',
               name: 'active_tasks',
-              type: 'grid',
               filters: {
                 conjunction: 'and',
                 conditions: [{ field: 'fld_status', operator: 'is', value: 'active' }],
@@ -51,9 +50,7 @@ test.fixme(
     `)
 
     // WHEN: GET /api/tables/tbl_tasks/views/view_active/records
-    const response = await request.get('/api/tables/tbl_tasks/views/view_active/records', {
-      headers: { Authorization: 'Bearer valid_token' },
-    })
+    const response = await request.get('/api/tables/tbl_tasks/views/view_active/records', {})
 
     // THEN: only active tasks returned
     expect(response.status()).toBe(200)
@@ -90,7 +87,6 @@ test.fixme(
             {
               id: 'view_by_price',
               name: 'by_price',
-              type: 'grid',
               sorts: [{ field: 'fld_price', direction: 'desc' }],
             },
           ],
@@ -106,9 +102,7 @@ test.fixme(
     `)
 
     // WHEN: GET /api/tables/tbl_products/views/view_by_price/records
-    const response = await request.get('/api/tables/tbl_products/views/view_by_price/records', {
-      headers: { Authorization: 'Bearer valid_token' },
-    })
+    const response = await request.get('/api/tables/tbl_products/views/view_by_price/records', {})
 
     // THEN: records sorted by price descending
     expect(response.status()).toBe(200)
@@ -143,7 +137,6 @@ test.fixme(
             {
               id: 'view_contact',
               name: 'contact_info',
-              type: 'grid',
               fields: [
                 { field: 'fld_name', visible: true },
                 { field: 'fld_email', visible: true },
@@ -161,9 +154,7 @@ test.fixme(
     `)
 
     // WHEN: GET /api/tables/tbl_users/views/view_contact/records
-    const response = await request.get('/api/tables/tbl_users/views/view_contact/records', {
-      headers: { Authorization: 'Bearer valid_token' },
-    })
+    const response = await request.get('/api/tables/tbl_users/views/view_contact/records', {})
 
     // THEN: only name and email returned (phone excluded)
     expect(response.status()).toBe(200)
@@ -196,7 +187,6 @@ test.fixme(
             {
               id: 'view_admin',
               name: 'admin_view',
-              type: 'grid',
               permissions: {
                 allowedRoles: ['admin'],
               },
@@ -239,7 +229,6 @@ test.fixme(
             {
               id: 'view_active',
               name: 'active_items',
-              type: 'grid',
               filters: {
                 conjunction: 'and',
                 conditions: [{ field: 'fld_active', operator: 'is', value: true }],
@@ -254,9 +243,7 @@ test.fixme(
       `INSERT INTO items (name, active) VALUES ('Item 1', true), ('Item 2', false)`
     )
 
-    const response = await request.get('/api/tables/tbl_items/views/view_active/records', {
-      headers: { Authorization: 'Bearer valid_token' },
-    })
+    const response = await request.get('/api/tables/tbl_items/views/view_active/records', {})
 
     const body = await response.json()
     expect(body.records).toHaveLength(1)

@@ -138,7 +138,9 @@ test.describe('Modify Unique Constraints Migration', () => {
               { id: 2, name: 'tenant_id', type: 'integer', required: true },
               { id: 3, name: 'email', type: 'email', required: true },
             ],
-            uniqueConstraints: [{ name: 'uq_tenant_users_tenant_email', fields: ['tenant_id', 'email'] }],
+            uniqueConstraints: [
+              { name: 'uq_tenant_users_tenant_email', fields: ['tenant_id', 'email'] },
+            ],
           },
         ],
       })
@@ -225,7 +227,9 @@ test.describe('Modify Unique Constraints Migration', () => {
               { id: 2, name: 'order_number', type: 'single-line-text', required: true },
               { id: 3, name: 'tenant_id', type: 'integer', required: true },
             ],
-            uniqueConstraints: [{ name: 'uq_orders_number_tenant', fields: ['order_number', 'tenant_id'] }],
+            uniqueConstraints: [
+              { name: 'uq_orders_number_tenant', fields: ['order_number', 'tenant_id'] },
+            ],
           },
         ],
       })

@@ -35,11 +35,7 @@ test.describe('Get table by ID', () => {
       // CREATE INDEX idx_users_email ON users(email)
 
       // WHEN: User requests table by ID
-      const response = await request.get('/api/tables/1', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const response = await request.get('/api/tables/1', {})
 
       // THEN: Response should be 200 OK with table configuration
       expect(response.status()).toBe(200)
@@ -71,11 +67,7 @@ test.describe('Get table by ID', () => {
       // No setup needed
 
       // WHEN: User requests non-existent table
-      const response = await request.get('/api/tables/9999', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const response = await request.get('/api/tables/9999', {})
 
       // THEN: Response should be 404 Not Found
       expect(response.status()).toBe(404)
@@ -120,11 +112,7 @@ test.describe('Get table by ID', () => {
 
       // WHEN/THEN: Streamlined workflow testing integration points
       // Test successful retrieval
-      const successResponse = await request.get('/api/tables/1', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const successResponse = await request.get('/api/tables/1', {})
       // THEN: assertion
       expect(successResponse.status()).toBe(200)
       const table = await successResponse.json()
@@ -134,11 +122,7 @@ test.describe('Get table by ID', () => {
       expect(table).toHaveProperty('fields')
 
       // Test not found error
-      const notFoundResponse = await request.get('/api/tables/9999', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const notFoundResponse = await request.get('/api/tables/9999', {})
       // THEN: assertion
       expect(notFoundResponse.status()).toBe(404)
     }

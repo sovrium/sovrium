@@ -38,12 +38,8 @@ test.describe('Refresh session token', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -56,9 +52,7 @@ test.describe('Refresh session token', () => {
       )
 
       // WHEN: User requests to refresh their session
-      const response = await page.request.post('/api/auth/refresh-session', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.post('/api/auth/refresh-session', {})
 
       // THEN: Returns 200 OK with new token and extended expiration
       // Returns 200 OK
@@ -86,19 +80,13 @@ test.describe('Refresh session token', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: User attempts refresh without authentication token
-      const response = await page.request.post('/api/auth/refresh-session', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.post('/api/auth/refresh-session', {})
 
       // THEN: Returns 401 Unauthorized
       // Returns 401 Unauthorized
@@ -121,19 +109,13 @@ test.describe('Refresh session token', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: User attempts refresh with invalid token
-      const response = await page.request.post('/api/auth/refresh-session', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.post('/api/auth/refresh-session', {})
 
       // THEN: Returns 401 Unauthorized
       // Returns 401 Unauthorized
@@ -156,12 +138,8 @@ test.describe('Refresh session token', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -174,9 +152,7 @@ test.describe('Refresh session token', () => {
       )
 
       // WHEN: User attempts to refresh with expired token
-      const response = await page.request.post('/api/auth/refresh-session', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.post('/api/auth/refresh-session', {})
 
       // THEN: Returns 401 Unauthorized (cannot refresh expired session)
       // Returns 401 Unauthorized
@@ -199,12 +175,8 @@ test.describe('Refresh session token', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -217,9 +189,7 @@ test.describe('Refresh session token', () => {
       )
 
       // WHEN: User attempts to use the old token after refresh
-      const response = await page.request.post('/api/auth/refresh-session', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.post('/api/auth/refresh-session', {})
 
       // THEN: Returns 401 Unauthorized (old token is invalidated)
       // Returns 401 Unauthorized
@@ -246,18 +216,13 @@ test.describe('Refresh session token', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

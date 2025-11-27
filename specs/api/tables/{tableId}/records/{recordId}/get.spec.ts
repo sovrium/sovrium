@@ -50,11 +50,7 @@ test.describe('Get record by ID', () => {
       `)
 
       // WHEN: User requests record by ID
-      const response = await request.get('/api/tables/1/records/1', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const response = await request.get('/api/tables/1/records/1', {})
 
       // THEN: Returns 200 with complete record data
       expect(response.status()).toBe(200)
@@ -86,11 +82,7 @@ test.describe('Get record by ID', () => {
       })
 
       // WHEN: User requests non-existent record
-      const response = await request.get('/api/tables/1/records/9999', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const response = await request.get('/api/tables/1/records/9999', {})
 
       // THEN: Returns 404 Not Found
       expect(response.status()).toBe(404)
@@ -150,11 +142,7 @@ test.describe('Get record by ID', () => {
       `)
 
       // WHEN: User without permission attempts to fetch record
-      const response = await request.get('/api/tables/1/records/1', {
-        headers: {
-          Authorization: 'Bearer viewer_token',
-        },
-      })
+      const response = await request.get('/api/tables/1/records/1', {})
 
       // THEN: Returns 403 Forbidden
       expect(response.status()).toBe(403)
@@ -229,11 +217,7 @@ test.describe('Get record by ID', () => {
       `)
 
       // WHEN: Admin requests record
-      const response = await request.get('/api/tables/1/records/1', {
-        headers: {
-          Authorization: 'Bearer admin_token',
-        },
-      })
+      const response = await request.get('/api/tables/1/records/1', {})
 
       // THEN: Returns all fields including salary
       expect(response.status()).toBe(200)
@@ -273,11 +257,7 @@ test.describe('Get record by ID', () => {
       `)
 
       // WHEN: Member requests record
-      const response = await request.get('/api/tables/1/records/1', {
-        headers: {
-          Authorization: 'Bearer member_token',
-        },
-      })
+      const response = await request.get('/api/tables/1/records/1', {})
 
       // THEN: Returns record without salary field
       expect(response.status()).toBe(200)
@@ -317,11 +297,7 @@ test.describe('Get record by ID', () => {
       `)
 
       // WHEN: Viewer requests record
-      const response = await request.get('/api/tables/1/records/1', {
-        headers: {
-          Authorization: 'Bearer viewer_token',
-        },
-      })
+      const response = await request.get('/api/tables/1/records/1', {})
 
       // THEN: Returns only permitted fields
       expect(response.status()).toBe(200)
@@ -408,11 +384,7 @@ test.describe('Get record by ID', () => {
       `)
 
       // WHEN: User requests record
-      const response = await request.get('/api/tables/1/records/1', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const response = await request.get('/api/tables/1/records/1', {})
 
       // THEN: Returns readonly fields in response (can read but not write)
       expect(response.status()).toBe(200)
@@ -454,11 +426,7 @@ test.describe('Get record by ID', () => {
       `)
 
       // WHEN/THEN: Fetch record by ID
-      const response = await request.get('/api/tables/1/records/1', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const response = await request.get('/api/tables/1/records/1', {})
 
       // THEN: assertion
       expect(response.status()).toBe(200)

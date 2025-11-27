@@ -38,12 +38,8 @@ test.describe('Admin: Set user role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -60,7 +56,6 @@ test.describe('Admin: Set user role', () => {
 
       // WHEN: Admin updates user role to member
       const response = await page.request.post('/api/auth/admin/set-role', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
           role: 'member',
@@ -92,12 +87,8 @@ test.describe('Admin: Set user role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -110,9 +101,7 @@ test.describe('Admin: Set user role', () => {
       )
 
       // WHEN: Admin submits request without required fields
-      const response = await page.request.post('/api/auth/admin/set-role', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.post('/api/auth/admin/set-role', {})
 
       // THEN: Returns 400 Bad Request with validation errors
       // Returns 400 Bad Request
@@ -135,12 +124,8 @@ test.describe('Admin: Set user role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -157,7 +142,6 @@ test.describe('Admin: Set user role', () => {
 
       // WHEN: Admin submits request with invalid role value
       const response = await page.request.post('/api/auth/admin/set-role', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
           role: 'superadmin',
@@ -185,18 +169,13 @@ test.describe('Admin: Set user role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Unauthenticated user attempts to set role
       const response = await page.request.post('/api/auth/admin/set-role', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
           role: 'member',
@@ -224,12 +203,8 @@ test.describe('Admin: Set user role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -246,7 +221,6 @@ test.describe('Admin: Set user role', () => {
 
       // WHEN: Regular user attempts to set another user's role
       const response = await page.request.post('/api/auth/admin/set-role', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
           role: 'admin',
@@ -274,12 +248,8 @@ test.describe('Admin: Set user role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -293,7 +263,6 @@ test.describe('Admin: Set user role', () => {
 
       // WHEN: Admin attempts to set role for non-existent user
       const response = await page.request.post('/api/auth/admin/set-role', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '999',
           role: 'member',
@@ -321,12 +290,8 @@ test.describe('Admin: Set user role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -343,7 +308,6 @@ test.describe('Admin: Set user role', () => {
 
       // WHEN: Admin promotes member to admin role
       const response = await page.request.post('/api/auth/admin/set-role', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
           role: 'admin',
@@ -368,12 +332,8 @@ test.describe('Admin: Set user role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -390,7 +350,6 @@ test.describe('Admin: Set user role', () => {
 
       // WHEN: Admin sets user role to their current role (no change)
       const response = await page.request.post('/api/auth/admin/set-role', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
           role: 'member',
@@ -419,18 +378,13 @@ test.describe('Admin: Set user role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

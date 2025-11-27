@@ -38,12 +38,8 @@ test.describe('Get current session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -56,11 +52,7 @@ test.describe('Get current session', () => {
       )
 
       // WHEN: User requests current session information
-      const response = await page.request.get('/api/auth/get-session', {
-        headers: {
-          Authorization: 'Bearer valid_session_token',
-        },
-      })
+      const response = await page.request.get('/api/auth/get-session', {})
 
       // THEN: Returns 200 OK with session and user data
       // Returns 200 OK
@@ -85,12 +77,8 @@ test.describe('Get current session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -118,12 +106,8 @@ test.describe('Get current session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -155,12 +139,8 @@ test.describe('Get current session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -200,12 +180,8 @@ test.describe('Get current session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -218,11 +194,7 @@ test.describe('Get current session', () => {
       )
 
       // WHEN: User requests session information
-      const response = await page.request.get('/api/auth/get-session', {
-        headers: {
-          Authorization: 'Bearer valid_token',
-        },
-      })
+      const response = await page.request.get('/api/auth/get-session', {})
 
       // THEN: Returns session with IP address and user agent metadata
       // Returns 200 OK
@@ -244,18 +216,13 @@ test.describe('Get current session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

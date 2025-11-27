@@ -53,7 +53,6 @@ test.describe('Batch delete records', () => {
       // WHEN: Batch delete IDs [1, 2]
       const response = await request.delete('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer test_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -109,7 +108,6 @@ test.describe('Batch delete records', () => {
       // WHEN: Batch delete includes ID=1 (exists) and ID=9999 (not found)
       const response = await request.delete('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer test_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -153,7 +151,6 @@ test.describe('Batch delete records', () => {
       const ids = Array.from({ length: 1001 }, (_, i) => i + 1)
       const response = await request.delete('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer test_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -243,7 +240,6 @@ test.describe('Batch delete records', () => {
       // WHEN: Member attempts batch delete
       const response = await request.delete('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -295,7 +291,6 @@ test.describe('Batch delete records', () => {
       // WHEN: Viewer attempts batch delete
       const response = await request.delete('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer viewer_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -340,7 +335,6 @@ test.describe('Batch delete records', () => {
       // WHEN: Admin attempts to batch delete records from different organization
       const response = await request.delete('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -393,7 +387,6 @@ test.describe('Batch delete records', () => {
       // WHEN: Admin batch deletes records from their organization
       const response = await request.delete('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -453,7 +446,6 @@ test.describe('Batch delete records', () => {
       // WHEN: Owner batch deletes records from their organization
       const response = await request.delete('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer owner_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -504,7 +496,6 @@ test.describe('Batch delete records', () => {
       // WHEN: Member attempts to batch delete records from org_456
       const response = await request.delete('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -548,7 +539,6 @@ test.describe('Batch delete records', () => {
       // WHEN: Member attempts batch delete with both permission and org violations
       const response = await request.delete('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -601,7 +591,6 @@ test.describe('Batch delete records', () => {
       // 1. Successful batch delete
       const successResponse = await request.delete('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -624,7 +613,6 @@ test.describe('Batch delete records', () => {
       // 2. Transaction rollback on partial failure
       const rollbackResponse = await request.delete('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -644,7 +632,6 @@ test.describe('Batch delete records', () => {
       // 3. Test payload size limit
       const tooLargeResponse = await request.delete('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {

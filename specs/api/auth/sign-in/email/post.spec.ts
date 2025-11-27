@@ -38,12 +38,8 @@ test.describe('Sign in with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -54,7 +50,6 @@ test.describe('Sign in with email and password', () => {
 
       // WHEN: User submits correct email and password
       const response = await page.request.post('/api/auth/sign-in/email', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           email: 'test@example.com',
           password: 'ValidPassword123!',
@@ -82,18 +77,13 @@ test.describe('Sign in with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: User submits request without email field
       const response = await page.request.post('/api/auth/sign-in/email', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           password: 'ValidPassword123!',
         },
@@ -120,18 +110,13 @@ test.describe('Sign in with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: User submits request without password field
       const response = await page.request.post('/api/auth/sign-in/email', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           email: 'test@example.com',
         },
@@ -158,18 +143,13 @@ test.describe('Sign in with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: User submits request with invalid email format
       const response = await page.request.post('/api/auth/sign-in/email', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           email: 'not-an-email',
           password: 'ValidPassword123!',
@@ -197,12 +177,8 @@ test.describe('Sign in with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -213,7 +189,6 @@ test.describe('Sign in with email and password', () => {
 
       // WHEN: User submits correct email but wrong password
       const response = await page.request.post('/api/auth/sign-in/email', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           email: 'test@example.com',
           password: 'WrongPassword123!',
@@ -241,18 +216,13 @@ test.describe('Sign in with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: User attempts sign-in with non-existent email
       const response = await page.request.post('/api/auth/sign-in/email', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           email: 'nonexistent@example.com',
           password: 'AnyPassword123!',
@@ -280,12 +250,8 @@ test.describe('Sign in with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -296,7 +262,6 @@ test.describe('Sign in with email and password', () => {
 
       // WHEN: User signs in with uppercase email variation
       const response = await page.request.post('/api/auth/sign-in/email', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           email: 'TEST@EXAMPLE.COM',
           password: 'ValidPassword123!',
@@ -324,12 +289,8 @@ test.describe('Sign in with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -340,7 +301,6 @@ test.describe('Sign in with email and password', () => {
 
       // WHEN: User signs in with rememberMe set to true
       const response = await page.request.post('/api/auth/sign-in/email', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           email: 'test@example.com',
           password: 'ValidPassword123!',
@@ -373,18 +333,13 @@ test.describe('Sign in with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

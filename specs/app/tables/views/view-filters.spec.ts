@@ -46,7 +46,6 @@ test.describe('View Filters', () => {
               {
                 id: 'active_adults',
                 name: 'Active Adults',
-                type: 'grid',
                 filters: {
                   conjunction: 'and',
                   conditions: [
@@ -95,7 +94,6 @@ test.describe('View Filters', () => {
               {
                 id: 'important_tasks',
                 name: 'Important Tasks',
-                type: 'grid',
                 filters: {
                   conjunction: 'or',
                   conditions: [
@@ -143,7 +141,6 @@ test.describe('View Filters', () => {
               {
                 id: 'test_view',
                 name: 'Test View',
-                type: 'grid',
                 filters: {
                   conditions: [{ field: 'name', operator: 'contains', value: 'test' }],
                 },
@@ -192,7 +189,6 @@ test.describe('View Filters', () => {
               {
                 id: 'filtered_view',
                 name: 'Filtered View',
-                type: 'grid',
                 filters: {
                   conjunction: 'and',
                   conditions: [

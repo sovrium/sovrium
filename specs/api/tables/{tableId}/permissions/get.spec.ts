@@ -36,11 +36,7 @@ test.describe('Check table permissions', () => {
       // CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), salary DECIMAL(10,2), created_at TIMESTAMP, updated_at TIMESTAMP)
 
       // WHEN: User checks permissions for a table
-      const response = await request.get('/api/tables/1/permissions', {
-        headers: {
-          Authorization: 'Bearer admin_token',
-        },
-      })
+      const response = await request.get('/api/tables/1/permissions', {})
 
       // THEN: All table and field permissions should be returned as true
       expect(response.status()).toBe(200)
@@ -66,11 +62,7 @@ test.describe('Check table permissions', () => {
       // Member: read + update only, salary field restricted
 
       // WHEN: User checks permissions for a table
-      const response = await request.get('/api/tables/1/permissions', {
-        headers: {
-          Authorization: 'Bearer member_token',
-        },
-      })
+      const response = await request.get('/api/tables/1/permissions', {})
 
       // THEN: Permissions should reflect user's role restrictions
       expect(response.status()).toBe(200)
@@ -114,11 +106,7 @@ test.describe('Check table permissions', () => {
       // No setup needed
 
       // WHEN: User checks permissions for invalid table ID
-      const response = await request.get('/api/tables/9999/permissions', {
-        headers: {
-          Authorization: 'Bearer admin_token',
-        },
-      })
+      const response = await request.get('/api/tables/9999/permissions', {})
 
       // THEN: 404 Not Found error should be returned
       expect(response.status()).toBe(404)
@@ -139,11 +127,7 @@ test.describe('Check table permissions', () => {
       // Database and auth configured by test fixturesns, salary field blocked
 
       // WHEN: User checks permissions
-      const response = await request.get('/api/tables/1/permissions', {
-        headers: {
-          Authorization: 'Bearer viewer_token',
-        },
-      })
+      const response = await request.get('/api/tables/1/permissions', {})
 
       // THEN: Sensitive fields should show read: false and write: false
       expect(response.status()).toBe(200)
@@ -167,11 +151,7 @@ test.describe('Check table permissions', () => {
       // Test data configured for this scenario
 
       // WHEN: User checks permissions
-      const response = await request.get('/api/tables/1/permissions', {
-        headers: {
-          Authorization: 'Bearer viewer_token',
-        },
-      })
+      const response = await request.get('/api/tables/1/permissions', {})
 
       // THEN: All write operations should be false (create, update, delete)
       expect(response.status()).toBe(200)
@@ -199,11 +179,7 @@ test.describe('Check table permissions', () => {
 
       // WHEN/THEN: Streamlined workflow testing integration points
       // Test admin permissions
-      const adminResponse = await request.get('/api/tables/1/permissions', {
-        headers: {
-          Authorization: 'Bearer admin_token',
-        },
-      })
+      const adminResponse = await request.get('/api/tables/1/permissions', {})
       // THEN: assertion
       expect(adminResponse.status()).toBe(200)
       const adminData = await adminResponse.json()
@@ -212,11 +188,7 @@ test.describe('Check table permissions', () => {
       expect(adminData.table.create).toBe(true)
 
       // Test viewer restrictions
-      const viewerResponse = await request.get('/api/tables/1/permissions', {
-        headers: {
-          Authorization: 'Bearer viewer_token',
-        },
-      })
+      const viewerResponse = await request.get('/api/tables/1/permissions', {})
       // THEN: assertion
       expect(viewerResponse.status()).toBe(200)
       const viewerData = await viewerResponse.json()

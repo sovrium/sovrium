@@ -46,7 +46,6 @@ test.describe('View Sorts', () => {
               {
                 id: 'by_price_asc',
                 name: 'By Price (Asc)',
-                type: 'grid',
                 sorts: [
                   {
                     field: 'price',
@@ -91,7 +90,6 @@ test.describe('View Sorts', () => {
               {
                 id: 'by_priority_desc',
                 name: 'By Priority (Desc)',
-                type: 'grid',
                 sorts: [
                   {
                     field: 'priority',
@@ -137,7 +135,6 @@ test.describe('View Sorts', () => {
               {
                 id: 'multi_sort',
                 name: 'Multi Sort',
-                type: 'grid',
                 sorts: [
                   {
                     field: 'department',
@@ -198,7 +195,6 @@ test.describe('View Sorts', () => {
               {
                 id: 'sorted_view',
                 name: 'Sorted View',
-                type: 'grid',
                 sorts: [
                   {
                     field: 'category',

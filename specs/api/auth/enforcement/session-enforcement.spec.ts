@@ -37,11 +37,8 @@ test.describe('Session Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin'],
         },
       })
 
@@ -55,9 +52,7 @@ test.describe('Session Permission Enforcement', () => {
       ])
 
       // WHEN: User 1 tries to access User 2's sessions
-      const response = await page.request.get('/api/auth/session/list?userId=2', {
-        headers: { Authorization: 'Bearer user1_token' },
-      })
+      const response = await page.request.get('/api/auth/session/list?userId=2', {})
 
       // THEN: Access denied or only own sessions returned
       if (response.status() === 200) {
@@ -79,11 +74,8 @@ test.describe('Session Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin'],
         },
       })
 
@@ -98,7 +90,6 @@ test.describe('Session Permission Enforcement', () => {
 
       // WHEN: User 1 tries to revoke User 2's session
       const response = await page.request.post('/api/auth/session/revoke', {
-        headers: { Authorization: 'Bearer user1_token' },
         data: { sessionId: '2' },
       })
 
@@ -119,8 +110,7 @@ test.describe('Session Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
+          authentication: ['email-and-password'],
         },
       })
 
@@ -132,15 +122,11 @@ test.describe('Session Permission Enforcement', () => {
       ])
 
       // WHEN: User signs out
-      const signOutResponse = await page.request.post('/api/auth/sign-out', {
-        headers: { Authorization: 'Bearer user_token' },
-      })
+      const signOutResponse = await page.request.post('/api/auth/sign-out', {})
       expect(signOutResponse.ok()).toBe(true)
 
       // THEN: Session token immediately invalid
-      const protectedResponse = await page.request.get('/api/auth/session', {
-        headers: { Authorization: 'Bearer user_token' },
-      })
+      const protectedResponse = await page.request.get('/api/auth/session', {})
       expect(protectedResponse.status()).toBe(401)
     }
   )
@@ -153,8 +139,7 @@ test.describe('Session Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
+          authentication: ['email-and-password'],
         },
       })
 
@@ -184,8 +169,7 @@ test.describe('Session Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
+          authentication: ['email-and-password'],
         },
       })
 
@@ -221,8 +205,7 @@ test.describe('Session Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
+          authentication: ['email-and-password'],
         },
       })
 
@@ -236,15 +219,11 @@ test.describe('Session Permission Enforcement', () => {
       ])
 
       // WHEN: User revokes all other sessions
-      const response = await page.request.post('/api/auth/session/revoke-others', {
-        headers: { Authorization: 'Bearer current_session' },
-      })
+      const response = await page.request.post('/api/auth/session/revoke-others', {})
       expect(response.ok()).toBe(true)
 
       // THEN: Current session still valid
-      const currentSessionResponse = await page.request.get('/api/auth/session', {
-        headers: { Authorization: 'Bearer current_session' },
-      })
+      const currentSessionResponse = await page.request.get('/api/auth/session', {})
       expect(currentSessionResponse.status()).toBe(200)
 
       // Other sessions revoked
@@ -262,8 +241,7 @@ test.describe('Session Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
+          authentication: ['email-and-password'],
         },
       })
 
@@ -277,7 +255,6 @@ test.describe('Session Permission Enforcement', () => {
       // WHEN: Request from different IP/user-agent
       const response = await page.request.get('/api/auth/session', {
         headers: {
-          Authorization: 'Bearer session_token',
           'User-Agent': 'Different-Agent',
           'X-Forwarded-For': '10.0.0.1',
         },
@@ -301,8 +278,7 @@ test.describe('Session Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
+          authentication: ['email-and-password'],
         },
       })
 
@@ -314,20 +290,14 @@ test.describe('Session Permission Enforcement', () => {
       ])
 
       // Test 1: Valid session - success
-      const validResponse = await page.request.get('/api/auth/session', {
-        headers: { Authorization: 'Bearer valid_token' },
-      })
+      const validResponse = await page.request.get('/api/auth/session', {})
       expect(validResponse.status()).toBe(200)
 
       // Test 2: Sign out
-      await page.request.post('/api/auth/sign-out', {
-        headers: { Authorization: 'Bearer valid_token' },
-      })
+      await page.request.post('/api/auth/sign-out', {})
 
       // Test 3: Token now invalid
-      const invalidResponse = await page.request.get('/api/auth/session', {
-        headers: { Authorization: 'Bearer valid_token' },
-      })
+      const invalidResponse = await page.request.get('/api/auth/session', {})
       expect(invalidResponse.status()).toBe(401)
     }
   )

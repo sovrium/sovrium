@@ -37,8 +37,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
+          authentication: ['email-and-password'],
         },
         tables: [
           {
@@ -49,19 +48,13 @@ test.describe('Row-Level Security Enforcement', () => {
               { id: 2, name: 'title', type: 'single-line-text' },
               { id: 3, name: 'owner_id', type: 'integer' },
             ],
-            // @ts-expect-error - Future schema property for RLS
-            permissions: {
-              rls: {
-                enabled: true,
-                policies: [
-                  {
-                    name: 'owner_access',
-                    operation: 'SELECT',
-                    condition: 'owner_id = current_user_id()',
-                  },
-                ],
+            rls: [
+              {
+                name: 'owner_access',
+                command: 'SELECT',
+                using: 'owner_id = current_user_id()',
               },
-            },
+            ],
           },
         ],
       })
@@ -81,9 +74,7 @@ test.describe('Row-Level Security Enforcement', () => {
       ])
 
       // WHEN: User 1 queries notes
-      const response = await page.request.get('/api/tables/notes/records', {
-        headers: { Authorization: 'Bearer user1_token' },
-      })
+      const response = await page.request.get('/api/tables/notes/records', {})
 
       // THEN: Only User 1's notes returned
       expect(response.status()).toBe(200)
@@ -101,8 +92,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
+          authentication: ['email-and-password'],
         },
         tables: [
           {
@@ -113,19 +103,13 @@ test.describe('Row-Level Security Enforcement', () => {
               { id: 2, name: 'secret', type: 'single-line-text' },
               { id: 3, name: 'user_id', type: 'integer' },
             ],
-            // @ts-expect-error - Future schema property for RLS
-            permissions: {
-              rls: {
-                enabled: true,
-                policies: [
-                  {
-                    name: 'user_only',
-                    operation: 'SELECT',
-                    condition: 'user_id = current_user_id()',
-                  },
-                ],
+            rls: [
+              {
+                name: 'user_only',
+                command: 'SELECT',
+                using: 'user_id = current_user_id()',
               },
-            },
+            ],
           },
         ],
       })
@@ -141,9 +125,7 @@ test.describe('Row-Level Security Enforcement', () => {
       ])
 
       // WHEN: User 1 tries to access record belonging to User 2
-      const response = await page.request.get('/api/tables/private_data/records/2', {
-        headers: { Authorization: 'Bearer user1_token' },
-      })
+      const response = await page.request.get('/api/tables/private_data/records/2', {})
 
       // THEN: Access denied or record not found
       expect([403, 404]).toContain(response.status())
@@ -158,8 +140,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
+          authentication: ['email-and-password'],
         },
         tables: [
           {
@@ -173,14 +154,12 @@ test.describe('Row-Level Security Enforcement', () => {
                 id: 4,
                 name: 'salary',
                 type: 'decimal',
-                // @ts-expect-error - Future field-level permissions
                 permissions: { read: ['admin', 'hr'] },
               },
               {
                 id: 5,
                 name: 'ssn',
                 type: 'single-line-text',
-                // @ts-expect-error - Future field-level permissions
                 permissions: { read: ['hr'] },
               },
             ],
@@ -220,8 +199,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
+          authentication: ['email-and-password'],
         },
         tables: [
           {
@@ -235,14 +213,13 @@ test.describe('Row-Level Security Enforcement', () => {
                 id: 4,
                 name: 'verified',
                 type: 'checkbox',
-                // @ts-expect-error - Future field-level permissions
                 permissions: { write: ['admin'] },
               },
               {
                 id: 5,
                 name: 'role',
                 type: 'single-select',
-                // @ts-expect-error - Future field-level permissions
+                options: ['admin', 'member', 'guest'],
                 permissions: { write: ['admin'] },
               },
             ],
@@ -261,7 +238,6 @@ test.describe('Row-Level Security Enforcement', () => {
 
       // WHEN: Regular user tries to update protected fields
       const response = await page.request.patch('/api/tables/profiles/records/1', {
-        headers: { Authorization: 'Bearer user_token' },
         data: {
           display_name: 'Updated Name',
           verified: true,
@@ -286,8 +262,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
+          authentication: ['email-and-password'],
         },
         tables: [
           {
@@ -298,19 +273,13 @@ test.describe('Row-Level Security Enforcement', () => {
               { id: 2, name: 'title', type: 'single-line-text' },
               { id: 3, name: 'created_by', type: 'integer' },
             ],
-            // @ts-expect-error - Future schema property for RLS
-            permissions: {
-              rls: {
-                enabled: true,
-                policies: [
-                  {
-                    name: 'insert_own',
-                    operation: 'INSERT',
-                    condition: 'created_by = current_user_id()',
-                  },
-                ],
+            rls: [
+              {
+                name: 'insert_own',
+                command: 'INSERT',
+                withCheck: 'created_by = current_user_id()',
               },
-            },
+            ],
           },
         ],
       })
@@ -324,7 +293,6 @@ test.describe('Row-Level Security Enforcement', () => {
 
       // WHEN: User tries to create record with different owner
       const response = await page.request.post('/api/tables/tasks/records', {
-        headers: { Authorization: 'Bearer user_token' },
         data: {
           title: 'My Task',
           created_by: 999, // Different user ID
@@ -349,8 +317,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
+          authentication: ['email-and-password'],
         },
         tables: [
           {
@@ -361,19 +328,13 @@ test.describe('Row-Level Security Enforcement', () => {
               { id: 2, name: 'content', type: 'long-text' },
               { id: 3, name: 'owner_id', type: 'integer' },
             ],
-            // @ts-expect-error - Future schema property for RLS
-            permissions: {
-              rls: {
-                enabled: true,
-                policies: [
-                  {
-                    name: 'update_own',
-                    operation: 'UPDATE',
-                    condition: 'owner_id = current_user_id()',
-                  },
-                ],
+            rls: [
+              {
+                name: 'update_own',
+                command: 'UPDATE',
+                using: 'owner_id = current_user_id()',
               },
-            },
+            ],
           },
         ],
       })
@@ -390,7 +351,6 @@ test.describe('Row-Level Security Enforcement', () => {
 
       // WHEN: User 1 tries to update User 2's document
       const response = await page.request.patch('/api/tables/documents/records/2', {
-        headers: { Authorization: 'Bearer user1_token' },
         data: { content: 'Hacked!' },
       })
 
@@ -411,8 +371,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
+          authentication: ['email-and-password'],
         },
         tables: [
           {
@@ -423,19 +382,13 @@ test.describe('Row-Level Security Enforcement', () => {
               { id: 2, name: 'text', type: 'long-text' },
               { id: 3, name: 'author_id', type: 'integer' },
             ],
-            // @ts-expect-error - Future schema property for RLS
-            permissions: {
-              rls: {
-                enabled: true,
-                policies: [
-                  {
-                    name: 'delete_own',
-                    operation: 'DELETE',
-                    condition: 'author_id = current_user_id()',
-                  },
-                ],
+            rls: [
+              {
+                name: 'delete_own',
+                command: 'DELETE',
+                using: 'author_id = current_user_id()',
               },
-            },
+            ],
           },
         ],
       })
@@ -452,9 +405,7 @@ test.describe('Row-Level Security Enforcement', () => {
 
       // WHEN: User 1 tries to delete User 2's comment
       // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is Playwright API call, not Drizzle
-      const response = await page.request.delete('/api/tables/comments/records/2', {
-        headers: { Authorization: 'Bearer user1_token' },
-      })
+      const response = await page.request.delete('/api/tables/comments/records/2', {})
 
       // THEN: Delete denied
       expect([403, 404]).toContain(response.status())
@@ -473,8 +424,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
+          authentication: ['email-and-password'],
         },
         tables: [
           {
@@ -485,24 +435,18 @@ test.describe('Row-Level Security Enforcement', () => {
               { id: 2, name: 'title', type: 'single-line-text' },
               { id: 3, name: 'department', type: 'single-line-text' },
             ],
-            // @ts-expect-error - Future schema property for RLS
-            permissions: {
-              rls: {
-                enabled: true,
-                policies: [
-                  {
-                    name: 'manager_all',
-                    operation: 'SELECT',
-                    condition: "current_user_role() = 'manager'",
-                  },
-                  {
-                    name: 'user_own_dept',
-                    operation: 'SELECT',
-                    condition: 'department = current_user_department()',
-                  },
-                ],
+            rls: [
+              {
+                name: 'manager_all',
+                command: 'SELECT',
+                using: "current_user_role() = 'manager'",
               },
-            },
+              {
+                name: 'user_own_dept',
+                command: 'SELECT',
+                using: 'department = current_user_department()',
+              },
+            ],
           },
         ],
       })
@@ -557,8 +501,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
+          authentication: ['email-and-password'],
         },
         tables: [
           {
@@ -569,19 +512,14 @@ test.describe('Row-Level Security Enforcement', () => {
               { id: 2, name: 'name', type: 'single-line-text' },
               { id: 3, name: 'user_id', type: 'integer' },
             ],
-            // @ts-expect-error - Future schema property for RLS
-            permissions: {
-              rls: {
-                enabled: true,
-                policies: [
-                  {
-                    name: 'owner_access',
-                    operation: 'ALL',
-                    condition: 'user_id = current_user_id()',
-                  },
-                ],
+            rls: [
+              {
+                name: 'owner_access',
+                command: 'ALL',
+                using: 'user_id = current_user_id()',
+                withCheck: 'user_id = current_user_id()',
               },
-            },
+            ],
           },
         ],
       })
@@ -598,22 +536,17 @@ test.describe('Row-Level Security Enforcement', () => {
       ])
 
       // Test 1: Read own - success
-      const readResponse = await page.request.get('/api/tables/items/records', {
-        headers: { Authorization: 'Bearer user1_token' },
-      })
+      const readResponse = await page.request.get('/api/tables/items/records', {})
       expect(readResponse.status()).toBe(200)
       const readData = await readResponse.json()
       expect(readData.records).toHaveLength(1)
 
       // Test 2: Read other - filtered out
-      const otherResponse = await page.request.get('/api/tables/items/records/2', {
-        headers: { Authorization: 'Bearer user1_token' },
-      })
+      const otherResponse = await page.request.get('/api/tables/items/records/2', {})
       expect([403, 404]).toContain(otherResponse.status())
 
       // Test 3: Update other - denied
       const updateResponse = await page.request.patch('/api/tables/items/records/2', {
-        headers: { Authorization: 'Bearer user1_token' },
         data: { name: 'Hacked' },
       })
       expect([403, 404]).toContain(updateResponse.status())

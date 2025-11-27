@@ -38,12 +38,8 @@ test.describe('Add member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -66,7 +62,6 @@ test.describe('Add member to organization', () => {
 
       // WHEN: Owner adds user as member
       const response = await page.request.post('/api/auth/organization/add-member', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           userId: '2',
@@ -98,12 +93,8 @@ test.describe('Add member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -122,9 +113,7 @@ test.describe('Add member to organization', () => {
       )
 
       // WHEN: Owner submits request without required fields
-      const response = await page.request.post('/api/auth/organization/add-member', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.post('/api/auth/organization/add-member', {})
 
       // THEN: Returns 400 Bad Request with validation errors
       // Returns 400 Bad Request
@@ -147,18 +136,13 @@ test.describe('Add member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Unauthenticated user attempts to add member
       const response = await page.request.post('/api/auth/organization/add-member', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           userId: '2',
@@ -187,12 +171,8 @@ test.describe('Add member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -215,7 +195,6 @@ test.describe('Add member to organization', () => {
 
       // WHEN: Member attempts to add another member
       const response = await page.request.post('/api/auth/organization/add-member', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           userId: '2',
@@ -244,12 +223,8 @@ test.describe('Add member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -269,7 +244,6 @@ test.describe('Add member to organization', () => {
 
       // WHEN: Owner attempts to add non-existent user
       const response = await page.request.post('/api/auth/organization/add-member', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           userId: '999',
@@ -298,12 +272,8 @@ test.describe('Add member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -329,7 +299,6 @@ test.describe('Add member to organization', () => {
 
       // WHEN: Owner attempts to add existing member
       const response = await page.request.post('/api/auth/organization/add-member', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           userId: '2',
@@ -362,18 +331,13 @@ test.describe('Add member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

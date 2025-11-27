@@ -51,7 +51,6 @@ test.describe('Update record', () => {
       // WHEN: User updates record with new email and name
       const response = await request.patch('/api/tables/1/records/1', {
         headers: {
-          Authorization: 'Bearer test_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -100,7 +99,6 @@ test.describe('Update record', () => {
       // WHEN: User attempts to update non-existent record
       const response = await request.patch('/api/tables/1/records/9999', {
         headers: {
-          Authorization: 'Bearer test_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -172,7 +170,6 @@ test.describe('Update record', () => {
       // WHEN: Member attempts to update a record
       const response = await request.patch('/api/tables/1/records/1', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -217,7 +214,6 @@ test.describe('Update record', () => {
       // WHEN: Viewer attempts to update a record
       const response = await request.patch('/api/tables/1/records/1', {
         headers: {
-          Authorization: 'Bearer viewer_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -261,7 +257,6 @@ test.describe('Update record', () => {
       // WHEN: User attempts to update record in different organization
       const response = await request.patch('/api/tables/1/records/1', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -304,7 +299,6 @@ test.describe('Update record', () => {
       // WHEN: Admin updates record with sensitive field (salary)
       const response = await request.patch('/api/tables/1/records/1', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -356,7 +350,6 @@ test.describe('Update record', () => {
       // WHEN: Member includes salary field in update request
       const response = await request.patch('/api/tables/1/records/1', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -409,7 +402,6 @@ test.describe('Update record', () => {
       // WHEN: Update request includes id or created_at fields
       const response = await request.patch('/api/tables/1/records/1', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -458,7 +450,6 @@ test.describe('Update record', () => {
       // WHEN: Update request includes both permitted and omitted fields
       const response = await request.patch('/api/tables/1/records/1', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -516,7 +507,6 @@ test.describe('Update record', () => {
       // WHEN: Update body includes organization_id different from user's org
       const response = await request.patch('/api/tables/1/records/1', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -570,7 +560,6 @@ test.describe('Update record', () => {
       // WHEN: Member updates record with only permitted fields in their org
       const response = await request.patch('/api/tables/1/records/1', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -627,7 +616,6 @@ test.describe('Update record', () => {
       // WHEN: User updates with mix of permitted and forbidden fields
       const response = await request.patch('/api/tables/1/records/1', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -684,7 +672,6 @@ test.describe('Update record', () => {
       // WHEN: Update is successful
       const response = await request.patch('/api/tables/1/records/1', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -749,7 +736,6 @@ test.describe('Update record', () => {
       // Test successful update (admin with full access)
       const successResponse = await request.patch('/api/tables/1/records/1', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -771,7 +757,6 @@ test.describe('Update record', () => {
       // Test record not found
       const notFoundResponse = await request.patch('/api/tables/1/records/9999', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -784,7 +769,6 @@ test.describe('Update record', () => {
       // Test permission denied (member without update permission)
       const forbiddenResponse = await request.patch('/api/tables/1/records/2', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -809,7 +793,6 @@ test.describe('Update record', () => {
       // Test field-level write restriction (member trying to update salary)
       const fieldForbiddenResponse = await request.patch('/api/tables/1/records/3', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {

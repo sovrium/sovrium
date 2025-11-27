@@ -38,12 +38,8 @@ test.describe('Invite member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -63,7 +59,6 @@ test.describe('Invite member to organization', () => {
 
       // WHEN: Owner invites new user by email
       const response = await page.request.post('/api/auth/organization/invite-member', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           email: 'newuser@example.com',
@@ -95,12 +90,8 @@ test.describe('Invite member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -119,9 +110,7 @@ test.describe('Invite member to organization', () => {
       )
 
       // WHEN: Owner submits request without required fields
-      const response = await page.request.post('/api/auth/organization/invite-member', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.post('/api/auth/organization/invite-member', {})
 
       // THEN: Returns 400 Bad Request with validation errors
       // Returns 400 Bad Request
@@ -144,12 +133,8 @@ test.describe('Invite member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -169,7 +154,6 @@ test.describe('Invite member to organization', () => {
 
       // WHEN: Owner submits invitation with invalid email format
       const response = await page.request.post('/api/auth/organization/invite-member', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           email: 'invalid-email',
@@ -198,18 +182,13 @@ test.describe('Invite member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Unauthenticated user attempts to invite member
       const response = await page.request.post('/api/auth/organization/invite-member', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           email: 'newuser@example.com',
@@ -238,12 +217,8 @@ test.describe('Invite member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -263,7 +238,6 @@ test.describe('Invite member to organization', () => {
 
       // WHEN: Member attempts to invite another user
       const response = await page.request.post('/api/auth/organization/invite-member', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           email: 'newuser@example.com',
@@ -292,12 +266,8 @@ test.describe('Invite member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -311,7 +281,6 @@ test.describe('Invite member to organization', () => {
 
       // WHEN: User attempts to invite to non-existent organization
       const response = await page.request.post('/api/auth/organization/invite-member', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '999',
           email: 'newuser@example.com',
@@ -340,12 +309,8 @@ test.describe('Invite member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -371,7 +336,6 @@ test.describe('Invite member to organization', () => {
 
       // WHEN: Owner attempts to invite existing member
       const response = await page.request.post('/api/auth/organization/invite-member', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           email: 'existing@example.com',
@@ -400,12 +364,8 @@ test.describe('Invite member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -428,7 +388,6 @@ test.describe('Invite member to organization', () => {
 
       // WHEN: Owner attempts to invite user with pending invitation
       const response = await page.request.post('/api/auth/organization/invite-member', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           email: 'pending@example.com',
@@ -457,12 +416,8 @@ test.describe('Invite member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -488,7 +443,6 @@ test.describe('Invite member to organization', () => {
 
       // WHEN: Owner invites user with email in different case than existing member
       const response = await page.request.post('/api/auth/organization/invite-member', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           email: 'EXISTING@EXAMPLE.COM',
@@ -521,18 +475,13 @@ test.describe('Invite member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

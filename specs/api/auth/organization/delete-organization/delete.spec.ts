@@ -39,12 +39,8 @@ test.describe('Delete organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -70,7 +66,6 @@ test.describe('Delete organization', () => {
 
       // WHEN: Owner deletes the organization
       const response = await page.request.delete('/api/auth/organization/delete-organization', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
         },
@@ -106,12 +101,8 @@ test.describe('Delete organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -124,9 +115,7 @@ test.describe('Delete organization', () => {
       )
 
       // WHEN: Owner submits request without organizationId
-      const response = await page.request.delete('/api/auth/organization/delete-organization', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.delete('/api/auth/organization/delete-organization', {})
 
       // THEN: Returns 400 Bad Request with validation error
       // Returns 400 Bad Request
@@ -149,18 +138,13 @@ test.describe('Delete organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Unauthenticated user attempts to delete organization
       const response = await page.request.delete('/api/auth/organization/delete-organization', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
         },
@@ -187,12 +171,8 @@ test.describe('Delete organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -212,7 +192,6 @@ test.describe('Delete organization', () => {
 
       // WHEN: Member attempts to delete organization
       const response = await page.request.delete('/api/auth/organization/delete-organization', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
         },
@@ -239,12 +218,8 @@ test.describe('Delete organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -258,7 +233,6 @@ test.describe('Delete organization', () => {
 
       // WHEN: User attempts to delete non-existent organization
       const response = await page.request.delete('/api/auth/organization/delete-organization', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '999',
         },
@@ -285,12 +259,8 @@ test.describe('Delete organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -319,7 +289,6 @@ test.describe('Delete organization', () => {
 
       // WHEN: Owner A attempts to delete Organization B
       const response = await page.request.delete('/api/auth/organization/delete-organization', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '2',
         },
@@ -347,18 +316,13 @@ test.describe('Delete organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

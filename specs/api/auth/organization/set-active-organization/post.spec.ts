@@ -38,12 +38,8 @@ test.describe('Set active organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -69,7 +65,6 @@ test.describe('Set active organization', () => {
 
       // WHEN: User sets active organization
       const response = await page.request.post('/api/auth/organization/set-active-organization', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '2',
         },
@@ -99,12 +94,8 @@ test.describe('Set active organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -117,9 +108,7 @@ test.describe('Set active organization', () => {
       )
 
       // WHEN: User submits request without organizationId
-      const response = await page.request.post('/api/auth/organization/set-active-organization', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.post('/api/auth/organization/set-active-organization', {})
 
       // THEN: Returns 400 Bad Request with validation error
       // Returns 400 Bad Request
@@ -142,18 +131,13 @@ test.describe('Set active organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Unauthenticated user attempts to set active organization
       const response = await page.request.post('/api/auth/organization/set-active-organization', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
         },
@@ -180,12 +164,8 @@ test.describe('Set active organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -199,7 +179,6 @@ test.describe('Set active organization', () => {
 
       // WHEN: User attempts to set non-existent organization as active
       const response = await page.request.post('/api/auth/organization/set-active-organization', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '999',
         },
@@ -226,12 +205,8 @@ test.describe('Set active organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -254,7 +229,6 @@ test.describe('Set active organization', () => {
 
       // WHEN: User attempts to set that organization as active
       const response = await page.request.post('/api/auth/organization/set-active-organization', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
         },
@@ -285,18 +259,13 @@ test.describe('Set active organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

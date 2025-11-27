@@ -33,11 +33,7 @@ test.describe('List table views', () => {
       // Database and auth configured by test fixtures
 
       // WHEN: User requests list of views
-      const response = await request.get('/api/tables/1/views', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const response = await request.get('/api/tables/1/views', {})
 
       // THEN: All views should be returned with complete configurations
       expect(response.status()).toBe(200)
@@ -68,11 +64,7 @@ test.describe('List table views', () => {
       // Schema managed by application
 
       // WHEN: User requests list of views
-      const response = await request.get('/api/tables/1/views', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const response = await request.get('/api/tables/1/views', {})
 
       // THEN: An empty array should be returned
       expect(response.status()).toBe(200)
@@ -92,11 +84,7 @@ test.describe('List table views', () => {
       // No setup needed
 
       // WHEN: User requests list of views
-      const response = await request.get('/api/tables/9999/views', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const response = await request.get('/api/tables/9999/views', {})
 
       // THEN: 404 Not Found error should be returned
       expect(response.status()).toBe(404)
@@ -142,11 +130,7 @@ test.describe('List table views', () => {
 
       // WHEN/THEN: Streamlined workflow testing integration points
       // Test successful retrieval
-      const successResponse = await request.get('/api/tables/1/views', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const successResponse = await request.get('/api/tables/1/views', {})
       // THEN: assertion
       expect(successResponse.status()).toBe(200)
       const views = await successResponse.json()
@@ -154,11 +138,7 @@ test.describe('List table views', () => {
       expect(Array.isArray(views)).toBe(true)
 
       // Test not found error
-      const notFoundResponse = await request.get('/api/tables/9999/views', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const notFoundResponse = await request.get('/api/tables/9999/views', {})
       // THEN: assertion
       expect(notFoundResponse.status()).toBe(404)
     }

@@ -38,12 +38,8 @@ test.describe('Admin: Revoke user session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -63,7 +59,6 @@ test.describe('Admin: Revoke user session', () => {
 
       // WHEN: Admin revokes specific user session
       const response = await page.request.post('/api/auth/admin/revoke-user-session', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
           sessionId: '2',
@@ -94,12 +89,8 @@ test.describe('Admin: Revoke user session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -112,9 +103,7 @@ test.describe('Admin: Revoke user session', () => {
       )
 
       // WHEN: Admin submits request without required fields
-      const response = await page.request.post('/api/auth/admin/revoke-user-session', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.post('/api/auth/admin/revoke-user-session', {})
 
       // THEN: Returns 400 Bad Request with validation errors
       // Returns 400 Bad Request
@@ -137,18 +126,13 @@ test.describe('Admin: Revoke user session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Unauthenticated user attempts to revoke session
       const response = await page.request.post('/api/auth/admin/revoke-user-session', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
           sessionId: '2',
@@ -176,12 +160,8 @@ test.describe('Admin: Revoke user session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -201,7 +181,6 @@ test.describe('Admin: Revoke user session', () => {
 
       // WHEN: Regular user attempts to revoke another user's session
       const response = await page.request.post('/api/auth/admin/revoke-user-session', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
           sessionId: '2',
@@ -229,12 +208,8 @@ test.describe('Admin: Revoke user session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -248,7 +223,6 @@ test.describe('Admin: Revoke user session', () => {
 
       // WHEN: Admin attempts to revoke session for non-existent user
       const response = await page.request.post('/api/auth/admin/revoke-user-session', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '999',
           sessionId: '2',
@@ -276,12 +250,8 @@ test.describe('Admin: Revoke user session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -298,7 +268,6 @@ test.describe('Admin: Revoke user session', () => {
 
       // WHEN: Admin attempts to revoke non-existent session
       const response = await page.request.post('/api/auth/admin/revoke-user-session', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
           sessionId: '999',
@@ -326,12 +295,8 @@ test.describe('Admin: Revoke user session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -357,7 +322,6 @@ test.describe('Admin: Revoke user session', () => {
 
       // WHEN: Admin attempts to revoke session belonging to different user
       const response = await page.request.post('/api/auth/admin/revoke-user-session', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
           sessionId: '3',
@@ -382,12 +346,8 @@ test.describe('Admin: Revoke user session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -407,7 +367,6 @@ test.describe('Admin: Revoke user session', () => {
 
       // WHEN: Admin attempts to revoke already revoked session
       const response = await page.request.post('/api/auth/admin/revoke-user-session', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
           sessionId: '2',
@@ -436,18 +395,13 @@ test.describe('Admin: Revoke user session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

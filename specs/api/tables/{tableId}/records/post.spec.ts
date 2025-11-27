@@ -47,7 +47,6 @@ test.describe('Create new record', () => {
       // WHEN: User creates record with valid data
       const response = await request.post('/api/tables/1/records', {
         headers: {
-          Authorization: 'Bearer test_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -87,7 +86,6 @@ test.describe('Create new record', () => {
       // WHEN: User attempts to create record in non-existent table
       const response = await request.post('/api/tables/9999/records', {
         headers: {
-          Authorization: 'Bearer test_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -127,7 +125,6 @@ test.describe('Create new record', () => {
       // WHEN: User creates record without required field
       const response = await request.post('/api/tables/1/records', {
         headers: {
-          Authorization: 'Bearer test_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -173,7 +170,6 @@ test.describe('Create new record', () => {
       // WHEN: User attempts to create record with duplicate email
       const response = await request.post('/api/tables/1/records', {
         headers: {
-          Authorization: 'Bearer test_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -245,7 +241,6 @@ test.describe('Create new record', () => {
       // WHEN: Member attempts to create a record
       const response = await request.post('/api/tables/1/records', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -277,7 +272,6 @@ test.describe('Create new record', () => {
       // WHEN: Viewer attempts to create a record
       const response = await request.post('/api/tables/1/records', {
         headers: {
-          Authorization: 'Bearer viewer_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -310,7 +304,6 @@ test.describe('Create new record', () => {
       // WHEN: User attempts to create record in different organization's table
       const response = await request.post('/api/tables/1/records', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -350,7 +343,6 @@ test.describe('Create new record', () => {
       // WHEN: Admin creates record with sensitive field (salary)
       const response = await request.post('/api/tables/1/records', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -395,7 +387,6 @@ test.describe('Create new record', () => {
       // WHEN: Member includes salary field in create request
       const response = await request.post('/api/tables/1/records', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -438,7 +429,6 @@ test.describe('Create new record', () => {
       // WHEN: Viewer attempts to create with write-protected fields
       const response = await request.post('/api/tables/1/records', {
         headers: {
-          Authorization: 'Bearer viewer_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -479,7 +469,6 @@ test.describe('Create new record', () => {
       // WHEN: Create request includes id or created_at fields
       const response = await request.post('/api/tables/1/records', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -524,7 +513,6 @@ test.describe('Create new record', () => {
       // WHEN: User creates with mix of permitted and forbidden fields
       const response = await request.post('/api/tables/1/records', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -568,7 +556,6 @@ test.describe('Create new record', () => {
       // WHEN: Organization ID field exists in table
       const response = await request.post('/api/tables/1/records', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -615,7 +602,6 @@ test.describe('Create new record', () => {
       // WHEN: Request body includes organization_id different from user's org
       const response = await request.post('/api/tables/1/records', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -658,7 +644,6 @@ test.describe('Create new record', () => {
       // WHEN: Member creates record with only permitted fields
       const response = await request.post('/api/tables/1/records', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -702,7 +687,6 @@ test.describe('Create new record', () => {
       // WHEN: Some fields are omitted due to write restrictions
       const response = await request.post('/api/tables/1/records', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -755,7 +739,6 @@ test.describe('Create new record', () => {
       // WHEN/THEN: Create valid record
       const response = await request.post('/api/tables/1/records', {
         headers: {
-          Authorization: 'Bearer test_token',
           'Content-Type': 'application/json',
         },
         data: {

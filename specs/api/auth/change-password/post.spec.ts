@@ -37,12 +37,8 @@ test.describe('Change password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -57,7 +53,6 @@ test.describe('Change password', () => {
       // WHEN: User submits correct current password and valid new password
       const response = await page.request.post('/api/auth/change-password', {
         headers: {
-          Authorization: 'Bearer valid_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -88,12 +83,8 @@ test.describe('Change password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -114,7 +105,6 @@ test.describe('Change password', () => {
       // WHEN: User changes password with revokeOtherSessions enabled
       const response = await page.request.post('/api/auth/change-password', {
         headers: {
-          Authorization: 'Bearer current_session',
           'Content-Type': 'application/json',
         },
         data: {
@@ -146,12 +136,8 @@ test.describe('Change password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -166,7 +152,6 @@ test.describe('Change password', () => {
       // WHEN: User submits request without newPassword field
       const response = await page.request.post('/api/auth/change-password', {
         headers: {
-          Authorization: 'Bearer valid_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -195,12 +180,8 @@ test.describe('Change password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -215,7 +196,6 @@ test.describe('Change password', () => {
       // WHEN: User submits request without currentPassword field
       const response = await page.request.post('/api/auth/change-password', {
         headers: {
-          Authorization: 'Bearer valid_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -244,12 +224,8 @@ test.describe('Change password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -264,7 +240,6 @@ test.describe('Change password', () => {
       // WHEN: User submits new password shorter than minimum length (8 characters)
       const response = await page.request.post('/api/auth/change-password', {
         headers: {
-          Authorization: 'Bearer valid_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -294,12 +269,8 @@ test.describe('Change password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -335,12 +306,8 @@ test.describe('Change password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -355,7 +322,6 @@ test.describe('Change password', () => {
       // WHEN: User submits incorrect current password
       const response = await page.request.post('/api/auth/change-password', {
         headers: {
-          Authorization: 'Bearer valid_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -383,12 +349,8 @@ test.describe('Change password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -403,7 +365,6 @@ test.describe('Change password', () => {
       // WHEN: User attempts to change password to the same password
       const response = await page.request.post('/api/auth/change-password', {
         headers: {
-          Authorization: 'Bearer valid_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -434,18 +395,13 @@ test.describe('Change password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

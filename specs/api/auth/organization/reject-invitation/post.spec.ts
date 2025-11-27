@@ -38,12 +38,8 @@ test.describe('Reject organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -69,7 +65,6 @@ test.describe('Reject organization invitation', () => {
 
       // WHEN: User rejects the invitation
       const response = await page.request.post('/api/auth/organization/reject-invitation', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           invitationId: '1',
         },
@@ -108,12 +103,8 @@ test.describe('Reject organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -126,9 +117,7 @@ test.describe('Reject organization invitation', () => {
       )
 
       // WHEN: User submits request without invitationId
-      const response = await page.request.post('/api/auth/organization/reject-invitation', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.post('/api/auth/organization/reject-invitation', {})
 
       // THEN: Returns 400 Bad Request with validation error
       // Returns 400 Bad Request
@@ -151,18 +140,13 @@ test.describe('Reject organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Unauthenticated user attempts to reject invitation
       const response = await page.request.post('/api/auth/organization/reject-invitation', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           invitationId: '1',
         },
@@ -189,12 +173,8 @@ test.describe('Reject organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -208,7 +188,6 @@ test.describe('Reject organization invitation', () => {
 
       // WHEN: User attempts to reject non-existent invitation
       const response = await page.request.post('/api/auth/organization/reject-invitation', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           invitationId: '999',
         },
@@ -235,12 +214,8 @@ test.describe('Reject organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -266,7 +241,6 @@ test.describe('Reject organization invitation', () => {
 
       // WHEN: User attempts to reject expired invitation
       const response = await page.request.post('/api/auth/organization/reject-invitation', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           invitationId: '1',
         },
@@ -293,12 +267,8 @@ test.describe('Reject organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -324,7 +294,6 @@ test.describe('Reject organization invitation', () => {
 
       // WHEN: User attempts to reject invitation not addressed to them
       const response = await page.request.post('/api/auth/organization/reject-invitation', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           invitationId: '1',
         },
@@ -355,12 +324,8 @@ test.describe('Reject organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -386,7 +351,6 @@ test.describe('Reject organization invitation', () => {
 
       // WHEN: User attempts to reject the same invitation again
       const response = await page.request.post('/api/auth/organization/reject-invitation', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           invitationId: '1',
         },
@@ -417,18 +381,13 @@ test.describe('Reject organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

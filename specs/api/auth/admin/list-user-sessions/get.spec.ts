@@ -38,12 +38,8 @@ test.describe('Admin: List user sessions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -65,9 +61,7 @@ test.describe('Admin: List user sessions', () => {
       )
 
       // WHEN: Admin requests list of user sessions
-      const response = await page.request.get('/api/auth/admin/list-user-sessions?userId=2', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.get('/api/auth/admin/list-user-sessions?userId=2', {})
 
       // THEN: Returns 200 OK with all active user sessions
       // Returns 200 OK
@@ -91,12 +85,8 @@ test.describe('Admin: List user sessions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -109,9 +99,7 @@ test.describe('Admin: List user sessions', () => {
       )
 
       // WHEN: Admin requests sessions without userId parameter
-      const response = await page.request.get('/api/auth/admin/list-user-sessions', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.get('/api/auth/admin/list-user-sessions', {})
 
       // THEN: Returns 400 Bad Request with validation error
       // Returns 400 Bad Request
@@ -134,12 +122,8 @@ test.describe('Admin: List user sessions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -167,12 +151,8 @@ test.describe('Admin: List user sessions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -188,9 +168,7 @@ test.describe('Admin: List user sessions', () => {
       )
 
       // WHEN: Regular user attempts to list another user's sessions
-      const response = await page.request.get('/api/auth/admin/list-user-sessions?userId=2', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.get('/api/auth/admin/list-user-sessions?userId=2', {})
 
       // THEN: Returns 403 Forbidden
       // Returns 403 Forbidden
@@ -213,12 +191,8 @@ test.describe('Admin: List user sessions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -231,9 +205,7 @@ test.describe('Admin: List user sessions', () => {
       )
 
       // WHEN: Admin requests sessions for non-existent user
-      const response = await page.request.get('/api/auth/admin/list-user-sessions?userId=999', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.get('/api/auth/admin/list-user-sessions?userId=999', {})
 
       // THEN: Returns 404 Not Found
       // Returns 404 Not Found
@@ -256,12 +228,8 @@ test.describe('Admin: List user sessions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -277,9 +245,7 @@ test.describe('Admin: List user sessions', () => {
       )
 
       // WHEN: Admin requests list of user sessions
-      const response = await page.request.get('/api/auth/admin/list-user-sessions?userId=2', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.get('/api/auth/admin/list-user-sessions?userId=2', {})
 
       // THEN: Returns 200 OK with empty sessions array
       // Returns 200 OK
@@ -297,12 +263,8 @@ test.describe('Admin: List user sessions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -324,9 +286,7 @@ test.describe('Admin: List user sessions', () => {
       )
 
       // WHEN: Admin requests list of user sessions
-      const response = await page.request.get('/api/auth/admin/list-user-sessions?userId=2', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.get('/api/auth/admin/list-user-sessions?userId=2', {})
 
       // THEN: Returns 200 OK with only active sessions (expired filtered out)
       // Returns 200 OK
@@ -348,18 +308,13 @@ test.describe('Admin: List user sessions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

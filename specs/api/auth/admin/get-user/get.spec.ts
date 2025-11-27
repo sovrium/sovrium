@@ -38,12 +38,8 @@ test.describe('Admin: Get user by ID', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -59,9 +55,7 @@ test.describe('Admin: Get user by ID', () => {
       )
 
       // WHEN: Admin requests user details by ID
-      const response = await page.request.get('/api/auth/admin/get-user?userId=2', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.get('/api/auth/admin/get-user?userId=2', {})
 
       // THEN: Returns 200 OK with user details
       // Returns 200 OK
@@ -87,12 +81,8 @@ test.describe('Admin: Get user by ID', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -105,9 +95,7 @@ test.describe('Admin: Get user by ID', () => {
       )
 
       // WHEN: Admin requests user without userId parameter
-      const response = await page.request.get('/api/auth/admin/get-user', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.get('/api/auth/admin/get-user', {})
 
       // THEN: Returns 400 Bad Request with validation error
       // Returns 400 Bad Request
@@ -130,12 +118,8 @@ test.describe('Admin: Get user by ID', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -163,12 +147,8 @@ test.describe('Admin: Get user by ID', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -184,9 +164,7 @@ test.describe('Admin: Get user by ID', () => {
       )
 
       // WHEN: Regular user attempts to get another user's details
-      const response = await page.request.get('/api/auth/admin/get-user?userId=2', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.get('/api/auth/admin/get-user?userId=2', {})
 
       // THEN: Returns 403 Forbidden
       // Returns 403 Forbidden
@@ -209,12 +187,8 @@ test.describe('Admin: Get user by ID', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -227,9 +201,7 @@ test.describe('Admin: Get user by ID', () => {
       )
 
       // WHEN: Admin requests user with non-existent ID
-      const response = await page.request.get('/api/auth/admin/get-user?userId=999', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.get('/api/auth/admin/get-user?userId=999', {})
 
       // THEN: Returns 404 Not Found
       // Returns 404 Not Found
@@ -252,12 +224,8 @@ test.describe('Admin: Get user by ID', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -273,9 +241,7 @@ test.describe('Admin: Get user by ID', () => {
       )
 
       // WHEN: Admin requests user details
-      const response = await page.request.get('/api/auth/admin/get-user?userId=2', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.get('/api/auth/admin/get-user?userId=2', {})
 
       // THEN: Returns 200 OK with user details but password field excluded for security
       // Returns 200 OK
@@ -297,18 +263,13 @@ test.describe('Admin: Get user by ID', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

@@ -38,12 +38,8 @@ test.describe('List organization members', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -76,9 +72,7 @@ test.describe('List organization members', () => {
       // WHEN: User requests list of organization members
       const response = await page.request.get(
         '/api/auth/organization/list-members?organizationId=1',
-        {
-          headers: { Authorization: 'Bearer admin_token' },
-        }
+        {}
       )
 
       // THEN: Returns 200 OK with all members and their roles
@@ -104,12 +98,8 @@ test.describe('List organization members', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -122,9 +112,7 @@ test.describe('List organization members', () => {
       )
 
       // WHEN: User requests members without organizationId parameter
-      const response = await page.request.get('/api/auth/organization/list-members', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.get('/api/auth/organization/list-members', {})
 
       // THEN: Returns 400 Bad Request with validation error
       // Returns 400 Bad Request
@@ -147,12 +135,8 @@ test.describe('List organization members', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -182,12 +166,8 @@ test.describe('List organization members', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -202,9 +182,7 @@ test.describe('List organization members', () => {
       // WHEN: User requests members of non-existent organization
       const response = await page.request.get(
         '/api/auth/organization/list-members?organizationId=999',
-        {
-          headers: { Authorization: 'Bearer admin_token' },
-        }
+        {}
       )
 
       // THEN: Returns 404 Not Found
@@ -228,12 +206,8 @@ test.describe('List organization members', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -257,9 +231,7 @@ test.describe('List organization members', () => {
       // WHEN: User attempts to list organization members
       const response = await page.request.get(
         '/api/auth/organization/list-members?organizationId=1',
-        {
-          headers: { Authorization: 'Bearer admin_token' },
-        }
+        {}
       )
 
       // THEN: Returns 404 Not Found (not 403 to prevent organization enumeration)
@@ -283,12 +255,8 @@ test.describe('List organization members', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -315,9 +283,7 @@ test.describe('List organization members', () => {
       // WHEN: User requests list of members
       const response = await page.request.get(
         '/api/auth/organization/list-members?organizationId=1',
-        {
-          headers: { Authorization: 'Bearer admin_token' },
-        }
+        {}
       )
 
       // THEN: Returns 200 OK with member data but password field excluded for security
@@ -340,18 +306,13 @@ test.describe('List organization members', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

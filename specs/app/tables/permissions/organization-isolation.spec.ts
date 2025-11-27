@@ -37,11 +37,8 @@ test.describe('Organization Data Isolation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['organization'],
         },
         tables: [
           {
@@ -52,7 +49,6 @@ test.describe('Organization Data Isolation', () => {
               { id: 2, name: 'name', type: 'single-line-text' },
               { id: 3, name: 'organization_id', type: 'integer' },
             ],
-            // @ts-expect-error - Future schema property for RLS
             permissions: {
               organizationScoped: true,
             },
@@ -107,11 +103,8 @@ test.describe('Organization Data Isolation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['organization'],
         },
         tables: [
           {
@@ -122,7 +115,6 @@ test.describe('Organization Data Isolation', () => {
               { id: 2, name: 'title', type: 'single-line-text' },
               { id: 3, name: 'organization_id', type: 'integer' },
             ],
-            // @ts-expect-error - Future schema property for RLS
             permissions: {
               organizationScoped: true,
             },
@@ -146,9 +138,7 @@ test.describe('Organization Data Isolation', () => {
       ])
 
       // WHEN: Org A user tries to access Org B document directly
-      const response = await page.request.get('/api/tables/documents/records/2', {
-        headers: { Authorization: 'Bearer org_a_token' },
-      })
+      const response = await page.request.get('/api/tables/documents/records/2', {})
 
       // THEN: Access denied
       expect([403, 404]).toContain(response.status())
@@ -163,11 +153,8 @@ test.describe('Organization Data Isolation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['organization'],
         },
         tables: [
           {
@@ -178,7 +165,6 @@ test.describe('Organization Data Isolation', () => {
               { id: 2, name: 'title', type: 'single-line-text' },
               { id: 3, name: 'organization_id', type: 'integer' },
             ],
-            // @ts-expect-error - Future schema property for RLS
             permissions: {
               organizationScoped: true,
             },
@@ -200,7 +186,6 @@ test.describe('Organization Data Isolation', () => {
 
       // WHEN: Org A user tries to create task in Org B
       const response = await page.request.post('/api/tables/tasks/records', {
-        headers: { Authorization: 'Bearer org_a_token' },
         data: {
           title: 'Sneaky Task',
           organization_id: 2, // Trying to create in Org B
@@ -225,11 +210,8 @@ test.describe('Organization Data Isolation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['organization'],
         },
         tables: [
           {
@@ -240,7 +222,6 @@ test.describe('Organization Data Isolation', () => {
               { id: 2, name: 'value', type: 'single-line-text' },
               { id: 3, name: 'organization_id', type: 'integer' },
             ],
-            // @ts-expect-error - Future schema property for RLS
             permissions: {
               organizationScoped: true,
             },
@@ -265,7 +246,6 @@ test.describe('Organization Data Isolation', () => {
 
       // WHEN: Org A user tries to update Org B setting
       const response = await page.request.patch('/api/tables/settings/records/2', {
-        headers: { Authorization: 'Bearer org_a_token' },
         data: { value: 'Hacked Value' },
       })
 
@@ -286,11 +266,8 @@ test.describe('Organization Data Isolation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['organization'],
         },
         tables: [
           {
@@ -301,7 +278,6 @@ test.describe('Organization Data Isolation', () => {
               { id: 2, name: 'name', type: 'single-line-text' },
               { id: 3, name: 'organization_id', type: 'integer' },
             ],
-            // @ts-expect-error - Future schema property for RLS
             permissions: {
               organizationScoped: true,
             },
@@ -326,9 +302,7 @@ test.describe('Organization Data Isolation', () => {
 
       // WHEN: Org A user tries to delete Org B item
       // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is Playwright API call, not Drizzle
-      const response = await page.request.delete('/api/tables/items/records/2', {
-        headers: { Authorization: 'Bearer org_a_token' },
-      })
+      const response = await page.request.delete('/api/tables/items/records/2', {})
 
       // THEN: Delete denied
       expect([403, 404]).toContain(response.status())
@@ -347,11 +321,8 @@ test.describe('Organization Data Isolation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['organization'],
         },
         tables: [
           {
@@ -363,12 +334,13 @@ test.describe('Organization Data Isolation', () => {
               { id: 3, name: 'organization_id', type: 'integer' },
               { id: 4, name: 'created_by', type: 'integer' },
             ],
-            // @ts-expect-error - Future schema property for RLS
             permissions: {
               organizationScoped: true,
-              roles: {
-                admin: ['read', 'write', 'delete'],
-                member: ['read'],
+              table: {
+                read: { type: 'roles', roles: ['admin', 'member'] },
+                create: { type: 'roles', roles: ['admin'] },
+                update: { type: 'roles', roles: ['admin'] },
+                delete: { type: 'roles', roles: ['admin'] },
               },
             },
           },
@@ -393,9 +365,7 @@ test.describe('Organization Data Isolation', () => {
       ])
 
       // WHEN: Admin queries all docs
-      const adminResponse = await page.request.get('/api/tables/internal_docs/records', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const adminResponse = await page.request.get('/api/tables/internal_docs/records', {})
 
       // THEN: Admin sees all organization docs
       expect(adminResponse.status()).toBe(200)
@@ -404,9 +374,7 @@ test.describe('Organization Data Isolation', () => {
 
       // WHEN: Admin deletes member's doc
       // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is Playwright API call, not Drizzle
-      const deleteResponse = await page.request.delete('/api/tables/internal_docs/records/2', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const deleteResponse = await page.request.delete('/api/tables/internal_docs/records/2', {})
 
       // THEN: Delete succeeds
       expect(deleteResponse.status()).toBe(200)
@@ -421,11 +389,8 @@ test.describe('Organization Data Isolation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['organization'],
         },
         tables: [
           {
@@ -436,7 +401,6 @@ test.describe('Organization Data Isolation', () => {
               { id: 2, name: 'note', type: 'long-text' },
               { id: 3, name: 'organization_id', type: 'integer' },
             ],
-            // @ts-expect-error - Future schema property for RLS
             permissions: {
               organizationScoped: true,
             },
@@ -465,7 +429,6 @@ test.describe('Organization Data Isolation', () => {
       // WHEN: User queries with Org A context
       const orgAResponse = await page.request.get('/api/tables/team_notes/records', {
         headers: {
-          Authorization: 'Bearer user_token',
           'X-Organization-Id': '1',
         },
       })
@@ -479,7 +442,6 @@ test.describe('Organization Data Isolation', () => {
       // WHEN: User queries with Org B context
       const orgBResponse = await page.request.get('/api/tables/team_notes/records', {
         headers: {
-          Authorization: 'Bearer user_token',
           'X-Organization-Id': '2',
         },
       })
@@ -504,11 +466,8 @@ test.describe('Organization Data Isolation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['organization'],
         },
         tables: [
           {
@@ -519,7 +478,6 @@ test.describe('Organization Data Isolation', () => {
               { id: 2, name: 'name', type: 'single-line-text' },
               { id: 3, name: 'organization_id', type: 'integer' },
             ],
-            // @ts-expect-error - Future schema property for RLS
             permissions: {
               organizationScoped: true,
             },
@@ -543,31 +501,24 @@ test.describe('Organization Data Isolation', () => {
       ])
 
       // Test 1: List - only own org resources
-      const listResponse = await page.request.get('/api/tables/resources/records', {
-        headers: { Authorization: 'Bearer user_token' },
-      })
+      const listResponse = await page.request.get('/api/tables/resources/records', {})
       expect(listResponse.status()).toBe(200)
       const listData = await listResponse.json()
       expect(listData.records).toHaveLength(1)
 
       // Test 2: Read other org - denied
-      const readResponse = await page.request.get('/api/tables/resources/records/2', {
-        headers: { Authorization: 'Bearer user_token' },
-      })
+      const readResponse = await page.request.get('/api/tables/resources/records/2', {})
       expect([403, 404]).toContain(readResponse.status())
 
       // Test 3: Update other org - denied
       const updateResponse = await page.request.patch('/api/tables/resources/records/2', {
-        headers: { Authorization: 'Bearer user_token' },
         data: { name: 'Hacked' },
       })
       expect([403, 404]).toContain(updateResponse.status())
 
       // Test 4: Delete other org - denied
       // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is Playwright API call, not Drizzle
-      const deleteResponse = await page.request.delete('/api/tables/resources/records/2', {
-        headers: { Authorization: 'Bearer user_token' },
-      })
+      const deleteResponse = await page.request.delete('/api/tables/resources/records/2', {})
       expect([403, 404]).toContain(deleteResponse.status())
     }
   )

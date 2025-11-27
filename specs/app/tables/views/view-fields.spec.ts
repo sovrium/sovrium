@@ -47,7 +47,6 @@ test.describe('View Fields', () => {
               {
                 id: 'public_view',
                 name: 'Public View',
-                type: 'grid',
                 fields: [
                   { field: 'id', visible: true },
                   { field: 'name', visible: true },
@@ -93,7 +92,6 @@ test.describe('View Fields', () => {
               {
                 id: 'ordered_view',
                 name: 'Ordered View',
-                type: 'grid',
                 fields: [
                   { field: 'priority', visible: true },
                   { field: 'status', visible: true },
@@ -140,7 +138,6 @@ test.describe('View Fields', () => {
               {
                 id: 'safe_view',
                 name: 'Safe View',
-                type: 'grid',
                 fields: [
                   { field: 'id', visible: true },
                   { field: 'username', visible: true },
@@ -187,7 +184,6 @@ test.describe('View Fields', () => {
               {
                 id: 'custom_view',
                 name: 'Custom View',
-                type: 'grid',
                 fields: [
                   { field: 'status', visible: true, width: 100 },
                   { field: 'name', visible: true, width: 200 },

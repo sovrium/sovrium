@@ -38,12 +38,8 @@ test.describe('Revoke all other sessions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -62,9 +58,7 @@ test.describe('Revoke all other sessions', () => {
       )
 
       // WHEN: User revokes all other sessions
-      const response = await page.request.post('/api/auth/revoke-other-sessions', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.post('/api/auth/revoke-other-sessions', {})
 
       // THEN: Returns 200 OK and revokes all sessions except current one
       // Returns 200 OK
@@ -98,19 +92,13 @@ test.describe('Revoke all other sessions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Unauthenticated user attempts to revoke other sessions
-      const response = await page.request.post('/api/auth/revoke-other-sessions', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.post('/api/auth/revoke-other-sessions', {})
 
       // THEN: Returns 401 Unauthorized
       // Returns 401 Unauthorized
@@ -133,12 +121,8 @@ test.describe('Revoke all other sessions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -151,9 +135,7 @@ test.describe('Revoke all other sessions', () => {
       )
 
       // WHEN: User revokes other sessions (none exist)
-      const response = await page.request.post('/api/auth/revoke-other-sessions', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.post('/api/auth/revoke-other-sessions', {})
 
       // THEN: Returns 200 OK (no sessions to revoke)
       // Returns 200 OK
@@ -181,12 +163,8 @@ test.describe('Revoke all other sessions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -205,9 +183,7 @@ test.describe('Revoke all other sessions', () => {
       )
 
       // WHEN: User revokes other sessions from one device
-      const response = await page.request.post('/api/auth/revoke-other-sessions', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.post('/api/auth/revoke-other-sessions', {})
 
       // THEN: Returns 200 OK and revokes all sessions except current device
       // Returns 200 OK
@@ -235,12 +211,8 @@ test.describe('Revoke all other sessions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -265,9 +237,7 @@ test.describe('Revoke all other sessions', () => {
       )
 
       // WHEN: User A revokes their other sessions
-      const response = await page.request.post('/api/auth/revoke-other-sessions', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.post('/api/auth/revoke-other-sessions', {})
 
       // THEN: Returns 200 OK and only revokes User A's sessions (User B unaffected)
       // Returns 200 OK
@@ -305,18 +275,13 @@ test.describe('Revoke all other sessions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

@@ -38,12 +38,8 @@ test.describe('List user organizations', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -68,9 +64,7 @@ test.describe('List user organizations', () => {
       )
 
       // WHEN: User requests list of their organizations
-      const response = await page.request.get('/api/auth/organization/list-organizations', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.get('/api/auth/organization/list-organizations', {})
 
       // THEN: Returns 200 OK with all organizations and user's roles
       // Returns 200 OK
@@ -95,12 +89,8 @@ test.describe('List user organizations', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -113,9 +103,7 @@ test.describe('List user organizations', () => {
       )
 
       // WHEN: User requests list of their organizations
-      const response = await page.request.get('/api/auth/organization/list-organizations', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.get('/api/auth/organization/list-organizations', {})
 
       // THEN: Returns 200 OK with empty organizations array
       // Returns 200 OK
@@ -133,12 +121,8 @@ test.describe('List user organizations', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -166,12 +150,8 @@ test.describe('List user organizations', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -199,9 +179,7 @@ test.describe('List user organizations', () => {
       )
 
       // WHEN: User A requests list of organizations
-      const response = await page.request.get('/api/auth/organization/list-organizations', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.get('/api/auth/organization/list-organizations', {})
 
       // THEN: Returns 200 OK with only User A's organizations (User B's not visible)
       // Returns 200 OK
@@ -221,12 +199,8 @@ test.describe('List user organizations', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -257,9 +231,7 @@ test.describe('List user organizations', () => {
       )
 
       // WHEN: User requests list of organizations
-      const response = await page.request.get('/api/auth/organization/list-organizations', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.get('/api/auth/organization/list-organizations', {})
 
       // THEN: Returns 200 OK with correct role for each organization
       // Returns 200 OK
@@ -288,18 +260,13 @@ test.describe('List user organizations', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

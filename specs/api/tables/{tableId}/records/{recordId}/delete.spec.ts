@@ -45,11 +45,7 @@ test.describe('Delete record', () => {
       `)
 
       // WHEN: User deletes record by ID
-      const response = await request.delete('/api/tables/1/records/1', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const response = await request.delete('/api/tables/1/records/1', {})
 
       // THEN: Returns 204 No Content and record is removed from database
       expect(response.status()).toBe(204)
@@ -78,11 +74,7 @@ test.describe('Delete record', () => {
       })
 
       // WHEN: User attempts to delete non-existent record
-      const response = await request.delete('/api/tables/1/records/9999', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const response = await request.delete('/api/tables/1/records/9999', {})
 
       // THEN: Returns 404 Not Found
       expect(response.status()).toBe(404)
@@ -159,11 +151,7 @@ test.describe('Delete record', () => {
       `)
 
       // WHEN: Member attempts to delete a record
-      const response = await request.delete('/api/tables/1/records/1', {
-        headers: {
-          Authorization: 'Bearer member_token',
-        },
-      })
+      const response = await request.delete('/api/tables/1/records/1', {})
 
       // THEN: Returns 403 Forbidden error
       expect(response.status()).toBe(403)
@@ -206,11 +194,7 @@ test.describe('Delete record', () => {
       `)
 
       // WHEN: Viewer attempts to delete a record
-      const response = await request.delete('/api/tables/1/records/1', {
-        headers: {
-          Authorization: 'Bearer viewer_token',
-        },
-      })
+      const response = await request.delete('/api/tables/1/records/1', {})
 
       // THEN: Returns 403 Forbidden error
       expect(response.status()).toBe(403)
@@ -248,11 +232,7 @@ test.describe('Delete record', () => {
       `)
 
       // WHEN: Admin attempts to delete record from organization org_456
-      const response = await request.delete('/api/tables/1/records/1', {
-        headers: {
-          Authorization: 'Bearer admin_token',
-        },
-      })
+      const response = await request.delete('/api/tables/1/records/1', {})
 
       // THEN: Returns 404 Not Found (organization isolation)
       expect(response.status()).toBe(404)
@@ -296,11 +276,7 @@ test.describe('Delete record', () => {
       `)
 
       // WHEN: Admin deletes a record from their organization
-      const response = await request.delete('/api/tables/1/records/1', {
-        headers: {
-          Authorization: 'Bearer admin_token',
-        },
-      })
+      const response = await request.delete('/api/tables/1/records/1', {})
 
       // THEN: Returns 204 No Content and record is deleted
       expect(response.status()).toBe(204)
@@ -337,11 +313,7 @@ test.describe('Delete record', () => {
       `)
 
       // WHEN: Owner deletes a record from their organization
-      const response = await request.delete('/api/tables/1/records/1', {
-        headers: {
-          Authorization: 'Bearer owner_token',
-        },
-      })
+      const response = await request.delete('/api/tables/1/records/1', {})
 
       // THEN: Returns 204 No Content and record is deleted
       expect(response.status()).toBe(204)
@@ -378,11 +350,7 @@ test.describe('Delete record', () => {
       `)
 
       // WHEN: Admin attempts to delete record from different organization
-      const response = await request.delete('/api/tables/1/records/1', {
-        headers: {
-          Authorization: 'Bearer admin_token',
-        },
-      })
+      const response = await request.delete('/api/tables/1/records/1', {})
 
       // THEN: Returns 404 Not Found (not 403 - prevents org enumeration)
       expect(response.status()).toBe(404)
@@ -426,11 +394,7 @@ test.describe('Delete record', () => {
       `)
 
       // WHEN: Member attempts delete with both permission and org violations
-      const response = await request.delete('/api/tables/1/records/1', {
-        headers: {
-          Authorization: 'Bearer member_token',
-        },
-      })
+      const response = await request.delete('/api/tables/1/records/1', {})
 
       // THEN: Returns 404 Not Found (org isolation checked first)
       expect(response.status()).toBe(404)
@@ -473,11 +437,7 @@ test.describe('Delete record', () => {
       // WHEN/THEN: Streamlined workflow testing integration points
 
       // Test successful deletion (admin with permission)
-      const successResponse = await request.delete('/api/tables/1/records/1', {
-        headers: {
-          Authorization: 'Bearer admin_token',
-        },
-      })
+      const successResponse = await request.delete('/api/tables/1/records/1', {})
       // THEN: assertion
       expect(successResponse.status()).toBe(204)
 
@@ -487,20 +447,12 @@ test.describe('Delete record', () => {
       expect(verifyDelete.rows[0].count).toBe(0)
 
       // Test record not found
-      const notFoundResponse = await request.delete('/api/tables/1/records/9999', {
-        headers: {
-          Authorization: 'Bearer admin_token',
-        },
-      })
+      const notFoundResponse = await request.delete('/api/tables/1/records/9999', {})
       // THEN: assertion
       expect(notFoundResponse.status()).toBe(404)
 
       // Test permission denied
-      const forbiddenResponse = await request.delete('/api/tables/1/records/2', {
-        headers: {
-          Authorization: 'Bearer member_token',
-        },
-      })
+      const forbiddenResponse = await request.delete('/api/tables/1/records/2', {})
       // THEN: assertion
       expect(forbiddenResponse.status()).toBe(403)
 

@@ -37,11 +37,8 @@ test.describe('Admin Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin'],
         },
       })
 
@@ -76,11 +73,8 @@ test.describe('Admin Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin'],
         },
       })
 
@@ -94,9 +88,7 @@ test.describe('Admin Permission Enforcement', () => {
       // WHEN: Regular user accesses admin endpoints
       // THEN: All requests return 403 Forbidden
 
-      const response = await page.request.get('/api/auth/admin/list-users', {
-        headers: { Authorization: 'Bearer regular_user_token' },
-      })
+      const response = await page.request.get('/api/auth/admin/list-users', {})
 
       expect(response.status()).toBe(403)
       const data = await response.json()
@@ -112,11 +104,8 @@ test.describe('Admin Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin'],
         },
       })
 
@@ -130,9 +119,7 @@ test.describe('Admin Permission Enforcement', () => {
       // WHEN: Admin accesses admin endpoints
       // THEN: Request succeeds with 200
 
-      const response = await page.request.get('/api/auth/admin/list-users', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.get('/api/auth/admin/list-users', {})
 
       expect(response.status()).toBe(200)
     }
@@ -146,11 +133,8 @@ test.describe('Admin Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin'],
         },
       })
 
@@ -163,7 +147,6 @@ test.describe('Admin Permission Enforcement', () => {
 
       // WHEN: User attempts to set their own role to admin
       const response = await page.request.post('/api/auth/admin/set-role', {
-        headers: { Authorization: 'Bearer user_token' },
         data: { userId: '1', role: 'admin' },
       })
 
@@ -184,11 +167,8 @@ test.describe('Admin Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin'],
         },
       })
 
@@ -217,11 +197,8 @@ test.describe('Admin Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin'],
         },
       })
 
@@ -255,11 +232,8 @@ test.describe('Admin Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin'],
         },
       })
 
@@ -290,11 +264,8 @@ test.describe('Admin Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin'],
         },
       })
 
@@ -308,11 +279,7 @@ test.describe('Admin Permission Enforcement', () => {
       // WHEN: Exceeding rate limit
       const requests = []
       for (let i = 0; i < 100; i++) {
-        requests.push(
-          page.request.get('/api/auth/admin/list-users', {
-            headers: { Authorization: 'Bearer admin_token' },
-          })
-        )
+        requests.push(page.request.get('/api/auth/admin/list-users', {}))
       }
 
       const responses = await Promise.all(requests)
@@ -335,11 +302,8 @@ test.describe('Admin Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin'],
         },
       })
 
@@ -357,15 +321,11 @@ test.describe('Admin Permission Enforcement', () => {
       expect(unauthResponse.status()).toBe(401)
 
       // Test 2: Regular user - 403
-      const userResponse = await page.request.get('/api/auth/admin/list-users', {
-        headers: { Authorization: 'Bearer user_token' },
-      })
+      const userResponse = await page.request.get('/api/auth/admin/list-users', {})
       expect(userResponse.status()).toBe(403)
 
       // Test 3: Admin - 200
-      const adminResponse = await page.request.get('/api/auth/admin/list-users', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const adminResponse = await page.request.get('/api/auth/admin/list-users', {})
       expect(adminResponse.status()).toBe(200)
     }
   )

@@ -46,7 +46,6 @@ test.describe('Filter Condition', () => {
               {
                 id: 'active_users',
                 name: 'Active Users',
-                type: 'grid',
                 filters: {
                   conjunction: 'and',
                   conditions: [{ field: 'status', operator: 'equals', value: 'active' }],
@@ -91,7 +90,6 @@ test.describe('Filter Condition', () => {
               {
                 id: 'test_products',
                 name: 'Test Products',
-                type: 'grid',
                 filters: {
                   conjunction: 'and',
                   conditions: [{ field: 'name', operator: 'contains', value: 'test' }],
@@ -137,7 +135,6 @@ test.describe('Filter Condition', () => {
               {
                 id: 'adults',
                 name: 'Adults',
-                type: 'grid',
                 filters: {
                   conjunction: 'and',
                   conditions: [{ field: 'age', operator: 'greaterThan', value: 18 }],
@@ -180,7 +177,6 @@ test.describe('Filter Condition', () => {
               {
                 id: 'no_email',
                 name: 'No Email',
-                type: 'grid',
                 filters: {
                   conjunction: 'and',
                   conditions: [{ field: 'email', operator: 'isEmpty', value: null }],
@@ -226,7 +222,6 @@ test.describe('Filter Condition', () => {
               {
                 id: 'tech_items',
                 name: 'Tech Items',
-                type: 'grid',
                 filters: {
                   conjunction: 'and',
                   conditions: [
@@ -283,7 +278,6 @@ test.describe('Filter Condition', () => {
               {
                 id: 'filtered_view',
                 name: 'Filtered View',
-                type: 'grid',
                 filters: {
                   conjunction: 'and',
                   conditions: [

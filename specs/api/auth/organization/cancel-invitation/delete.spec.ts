@@ -39,12 +39,8 @@ test.describe('Cancel organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -67,7 +63,6 @@ test.describe('Cancel organization invitation', () => {
 
       // WHEN: Owner cancels the invitation
       const response = await page.request.delete('/api/auth/organization/cancel-invitation', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           invitationId: '1',
         },
@@ -97,12 +92,8 @@ test.describe('Cancel organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -121,9 +112,7 @@ test.describe('Cancel organization invitation', () => {
       )
 
       // WHEN: Owner submits request without invitationId
-      const response = await page.request.delete('/api/auth/organization/cancel-invitation', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.delete('/api/auth/organization/cancel-invitation', {})
 
       // THEN: Returns 400 Bad Request with validation error
       // Returns 400 Bad Request
@@ -146,18 +135,13 @@ test.describe('Cancel organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Unauthenticated user attempts to cancel invitation
       const response = await page.request.delete('/api/auth/organization/cancel-invitation', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           invitationId: '1',
         },
@@ -184,12 +168,8 @@ test.describe('Cancel organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -212,7 +192,6 @@ test.describe('Cancel organization invitation', () => {
 
       // WHEN: Member attempts to cancel invitation
       const response = await page.request.delete('/api/auth/organization/cancel-invitation', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           invitationId: '1',
         },
@@ -239,12 +218,8 @@ test.describe('Cancel organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -264,7 +239,6 @@ test.describe('Cancel organization invitation', () => {
 
       // WHEN: Owner attempts to cancel non-existent invitation
       const response = await page.request.delete('/api/auth/organization/cancel-invitation', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           invitationId: '999',
         },
@@ -291,12 +265,8 @@ test.describe('Cancel organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -325,7 +295,6 @@ test.describe('Cancel organization invitation', () => {
 
       // WHEN: Owner attempts to cancel already accepted invitation
       const response = await page.request.delete('/api/auth/organization/cancel-invitation', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           invitationId: '1',
         },
@@ -352,12 +321,8 @@ test.describe('Cancel organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -380,7 +345,6 @@ test.describe('Cancel organization invitation', () => {
 
       // WHEN: Owner attempts to cancel the same invitation again
       const response = await page.request.delete('/api/auth/organization/cancel-invitation', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           invitationId: '1',
         },
@@ -407,12 +371,8 @@ test.describe('Cancel organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -444,7 +404,6 @@ test.describe('Cancel organization invitation', () => {
 
       // WHEN: Owner attempts to cancel invitation from another organization
       const response = await page.request.delete('/api/auth/organization/cancel-invitation', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           invitationId: '1',
         },
@@ -479,18 +438,13 @@ test.describe('Cancel organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

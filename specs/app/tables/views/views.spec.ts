@@ -57,7 +57,6 @@ test.describe('Table Views', () => {
               {
                 id: 'active_tasks',
                 name: 'Active Tasks',
-                type: 'grid',
                 filters: {
                   operator: 'AND',
                   conditions: [
@@ -126,7 +125,6 @@ test.describe('Table Views', () => {
               {
                 id: 'high_priority_active',
                 name: 'High Priority Active',
-                type: 'grid',
                 filters: {
                   operator: 'AND',
                   conditions: [
@@ -199,7 +197,6 @@ test.describe('Table Views', () => {
               {
                 id: 'recent_first',
                 name: 'Recent First',
-                type: 'grid',
                 sorts: [
                   {
                     field: 'created_at',
@@ -268,7 +265,6 @@ test.describe('Table Views', () => {
               {
                 id: 'by_department',
                 name: 'By Department',
-                type: 'kanban',
                 groupBy: {
                   field: 'department',
                   direction: 'asc',
@@ -338,7 +334,6 @@ test.describe('Table Views', () => {
               {
                 id: 'contact_info',
                 name: 'Contact Info',
-                type: 'grid',
                 visibleFields: ['name', 'email'],
               },
             ],
@@ -399,7 +394,6 @@ test.describe('Table Views', () => {
               {
                 id: 'published_posts',
                 name: 'Published Posts',
-                type: 'grid',
                 isDefault: true,
                 filters: {
                   operator: 'AND',
@@ -480,7 +474,6 @@ test.describe('Table Views', () => {
               {
                 id: 'active_view',
                 name: 'Active Items',
-                type: 'grid',
                 isDefault: true,
                 filters: {
                   operator: 'AND',

@@ -39,12 +39,8 @@ test.describe('Remove member from organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -70,7 +66,6 @@ test.describe('Remove member from organization', () => {
 
       // WHEN: Owner removes member from organization
       const response = await page.request.delete('/api/auth/organization/remove-member', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           userId: '2',
@@ -101,12 +96,8 @@ test.describe('Remove member from organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -125,9 +116,7 @@ test.describe('Remove member from organization', () => {
       )
 
       // WHEN: Owner submits request without required fields
-      const response = await page.request.delete('/api/auth/organization/remove-member', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.delete('/api/auth/organization/remove-member', {})
 
       // THEN: Returns 400 Bad Request with validation errors
       // Returns 400 Bad Request
@@ -150,18 +139,13 @@ test.describe('Remove member from organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Unauthenticated user attempts to remove member
       const response = await page.request.delete('/api/auth/organization/remove-member', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           userId: '2',
@@ -189,12 +173,8 @@ test.describe('Remove member from organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -220,7 +200,6 @@ test.describe('Remove member from organization', () => {
 
       // WHEN: Member attempts to remove another member
       const response = await page.request.delete('/api/auth/organization/remove-member', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           userId: '2',
@@ -248,12 +227,8 @@ test.describe('Remove member from organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -273,7 +248,6 @@ test.describe('Remove member from organization', () => {
 
       // WHEN: Owner attempts to remove non-existent member
       const response = await page.request.delete('/api/auth/organization/remove-member', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           userId: '999',
@@ -301,12 +275,8 @@ test.describe('Remove member from organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -326,7 +296,6 @@ test.describe('Remove member from organization', () => {
 
       // WHEN: Owner attempts to remove themselves (last owner)
       const response = await page.request.delete('/api/auth/organization/remove-member', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           userId: '1',
@@ -358,12 +327,8 @@ test.describe('Remove member from organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -389,7 +354,6 @@ test.describe('Remove member from organization', () => {
 
       // WHEN: Non-owner member removes themselves from organization
       const response = await page.request.delete('/api/auth/organization/remove-member', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           userId: '2',
@@ -414,12 +378,8 @@ test.describe('Remove member from organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -454,7 +414,6 @@ test.describe('Remove member from organization', () => {
 
       // WHEN: Owner attempts to remove member from another organization
       const response = await page.request.delete('/api/auth/organization/remove-member', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '2',
           userId: '3',
@@ -490,18 +449,13 @@ test.describe('Remove member from organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

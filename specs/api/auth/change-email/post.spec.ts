@@ -38,12 +38,8 @@ test.describe('Change email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -58,7 +54,6 @@ test.describe('Change email address', () => {
       // WHEN: User requests to change email to unused address
       const response = await page.request.post('/api/auth/change-email', {
         headers: {
-          Authorization: 'Bearer valid_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -86,12 +81,8 @@ test.describe('Change email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -106,7 +97,6 @@ test.describe('Change email address', () => {
       // WHEN: User submits request without newEmail field
       const response = await page.request.post('/api/auth/change-email', {
         headers: {
-          Authorization: 'Bearer valid_token',
           'Content-Type': 'application/json',
         },
         data: {},
@@ -133,12 +123,8 @@ test.describe('Change email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -153,7 +139,6 @@ test.describe('Change email address', () => {
       // WHEN: User submits request with invalid email format
       const response = await page.request.post('/api/auth/change-email', {
         headers: {
-          Authorization: 'Bearer valid_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -182,12 +167,8 @@ test.describe('Change email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -222,12 +203,8 @@ test.describe('Change email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -245,7 +222,6 @@ test.describe('Change email address', () => {
       // WHEN: User attempts to change to an already registered email
       const response = await page.request.post('/api/auth/change-email', {
         headers: {
-          Authorization: 'Bearer valid_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -274,12 +250,8 @@ test.describe('Change email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -294,7 +266,6 @@ test.describe('Change email address', () => {
       // WHEN: User attempts to change to their current email
       const response = await page.request.post('/api/auth/change-email', {
         headers: {
-          Authorization: 'Bearer valid_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -316,12 +287,8 @@ test.describe('Change email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -339,7 +306,6 @@ test.describe('Change email address', () => {
       // WHEN: User changes to uppercase variation of existing email
       const response = await page.request.post('/api/auth/change-email', {
         headers: {
-          Authorization: 'Bearer valid_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -372,18 +338,13 @@ test.describe('Change email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

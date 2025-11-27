@@ -53,11 +53,7 @@ test.describe('List records in table', () => {
       `)
 
       // WHEN: User requests all records
-      const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const response = await request.get('/api/tables/1/records', {})
 
       // THEN: Returns 200 with array of 3 records and pagination metadata
       expect(response.status()).toBe(200)
@@ -78,11 +74,7 @@ test.describe('List records in table', () => {
       // GIVEN: A running server with no table ID 9999
 
       // WHEN: User requests records from non-existent table
-      const response = await request.get('/api/tables/9999/records', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const response = await request.get('/api/tables/9999/records', {})
 
       // THEN: Returns 404 Not Found
       expect(response.status()).toBe(404)
@@ -123,9 +115,6 @@ test.describe('List records in table', () => {
 
       // WHEN: User requests records with filter for status=active
       const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
         params: {
           filter: JSON.stringify({
             operator: 'AND',
@@ -172,9 +161,6 @@ test.describe('List records in table', () => {
 
       // WHEN: User requests records sorted by priority descending
       const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
         params: {
           sort: 'priority:desc',
         },
@@ -219,9 +205,6 @@ test.describe('List records in table', () => {
 
       // WHEN: User requests only specific fields
       const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
         params: {
           fields: 'id,name,email',
         },
@@ -258,9 +241,6 @@ test.describe('List records in table', () => {
 
       // WHEN: User requests with limit=20 and offset=40
       const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
         params: {
           limit: '20',
           offset: '40',
@@ -307,9 +287,6 @@ test.describe('List records in table', () => {
 
       // WHEN: User requests records with view parameter
       const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
         params: {
           view: 'active_only',
         },
@@ -352,9 +329,6 @@ test.describe('List records in table', () => {
 
       // WHEN: User requests records grouped by status field
       const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
         params: {
           groupBy: 'status',
         },
@@ -398,9 +372,6 @@ test.describe('List records in table', () => {
 
       // WHEN: User requests with aggregations (count, sum, avg)
       const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
         params: {
           aggregate: JSON.stringify({
             count: true,
@@ -451,9 +422,6 @@ test.describe('List records in table', () => {
 
       // WHEN: User filters by Airtable-style formula
       const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
         params: {
           filterByFormula: "AND({status}='active', {priority}>=3)",
         },
@@ -497,9 +465,6 @@ test.describe('List records in table', () => {
 
       // WHEN: User sorts by priority desc, then created_at desc
       const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
         params: {
           sort: 'priority:desc,created_at:desc',
         },
@@ -544,9 +509,6 @@ test.describe('List records in table', () => {
 
       // WHEN: User combines view and explicit filter
       const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
         params: {
           view: 'active_only',
           filter: JSON.stringify({
@@ -594,11 +556,7 @@ test.describe('List records in table', () => {
       })
 
       // WHEN: User without permission requests records
-      const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer viewer_token',
-        },
-      })
+      const response = await request.get('/api/tables/1/records', {})
 
       // THEN: Returns 403 Forbidden
       expect(response.status()).toBe(403)
@@ -658,11 +616,7 @@ test.describe('List records in table', () => {
       `)
 
       // WHEN: Admin requests records
-      const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer admin_token',
-        },
-      })
+      const response = await request.get('/api/tables/1/records', {})
 
       // THEN: Returns all fields including salary
       expect(response.status()).toBe(200)
@@ -698,11 +652,7 @@ test.describe('List records in table', () => {
       `)
 
       // WHEN: Member requests records
-      const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer member_token',
-        },
-      })
+      const response = await request.get('/api/tables/1/records', {})
 
       // THEN: Returns records without salary field
       expect(response.status()).toBe(200)
@@ -741,11 +691,7 @@ test.describe('List records in table', () => {
       `)
 
       // WHEN: Viewer requests records
-      const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer viewer_token',
-        },
-      })
+      const response = await request.get('/api/tables/1/records', {})
 
       // THEN: Returns only permitted fields
       expect(response.status()).toBe(200)
@@ -865,11 +811,7 @@ test.describe('List records in table', () => {
       })
 
       // WHEN: User requests records (no data in their org)
-      const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
-      })
+      const response = await request.get('/api/tables/1/records', {})
 
       // THEN: Returns 200 with empty array
       expect(response.status()).toBe(200)
@@ -910,9 +852,6 @@ test.describe('List records in table', () => {
 
       // WHEN: Member requests paginated records
       const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer member_token',
-        },
         params: {
           limit: '10',
           offset: '20',
@@ -951,9 +890,6 @@ test.describe('List records in table', () => {
 
       // WHEN: Member sorts by salary (field they cannot read)
       const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer member_token',
-        },
         params: {
           sort: 'salary:desc',
         },
@@ -990,9 +926,6 @@ test.describe('List records in table', () => {
 
       // WHEN: Member filters by salary (field they cannot read)
       const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer member_token',
-        },
         params: {
           filter: JSON.stringify({
             operator: 'AND',
@@ -1032,9 +965,6 @@ test.describe('List records in table', () => {
 
       // WHEN: Member aggregates salary (field they cannot read)
       const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer member_token',
-        },
         params: {
           aggregate: JSON.stringify({
             sum: ['salary'],
@@ -1082,9 +1012,6 @@ test.describe('List records in table', () => {
 
       // WHEN: Member aggregates permitted fields only
       const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer member_token',
-        },
         params: {
           aggregate: JSON.stringify({
             count: true,
@@ -1137,9 +1064,6 @@ test.describe('List records in table', () => {
 
       // WHEN/THEN: List records with filtering and sorting
       const response = await request.get('/api/tables/1/records', {
-        headers: {
-          Authorization: 'Bearer test_token',
-        },
         params: {
           filter: JSON.stringify({
             operator: 'AND',

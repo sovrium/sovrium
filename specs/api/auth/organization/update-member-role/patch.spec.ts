@@ -38,12 +38,8 @@ test.describe('Update member role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -69,7 +65,6 @@ test.describe('Update member role', () => {
 
       // WHEN: Owner updates member role to admin
       const response = await page.request.patch('/api/auth/organization/update-member-role', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           userId: '2',
@@ -101,12 +96,8 @@ test.describe('Update member role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -125,9 +116,7 @@ test.describe('Update member role', () => {
       )
 
       // WHEN: Owner submits request without required fields
-      const response = await page.request.patch('/api/auth/organization/update-member-role', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.patch('/api/auth/organization/update-member-role', {})
 
       // THEN: Returns 400 Bad Request with validation errors
       // Returns 400 Bad Request
@@ -150,18 +139,13 @@ test.describe('Update member role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Unauthenticated user attempts to update member role
       const response = await page.request.patch('/api/auth/organization/update-member-role', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           userId: '2',
@@ -190,12 +174,8 @@ test.describe('Update member role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -221,7 +201,6 @@ test.describe('Update member role', () => {
 
       // WHEN: Member attempts to update another member's role
       const response = await page.request.patch('/api/auth/organization/update-member-role', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           userId: '2',
@@ -250,12 +229,8 @@ test.describe('Update member role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -275,7 +250,6 @@ test.describe('Update member role', () => {
 
       // WHEN: Owner attempts to update role of non-existent member
       const response = await page.request.patch('/api/auth/organization/update-member-role', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           userId: '999',
@@ -304,12 +278,8 @@ test.describe('Update member role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -335,7 +305,6 @@ test.describe('Update member role', () => {
 
       // WHEN: Owner updates member role to their current role
       const response = await page.request.patch('/api/auth/organization/update-member-role', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           userId: '2',
@@ -365,18 +334,13 @@ test.describe('Update member role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

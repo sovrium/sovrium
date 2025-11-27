@@ -38,12 +38,8 @@ test.describe('Update user profile', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -57,7 +53,6 @@ test.describe('Update user profile', () => {
 
       // WHEN: User updates their profile information
       const response = await page.request.patch('/api/auth/update-user', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           name: 'New Name',
           image: 'https://new-avatar.com/new.jpg',
@@ -88,12 +83,8 @@ test.describe('Update user profile', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -107,7 +98,6 @@ test.describe('Update user profile', () => {
 
       // WHEN: User updates only name field
       const response = await page.request.patch('/api/auth/update-user', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           name: 'Updated Name Only',
         },
@@ -131,18 +121,13 @@ test.describe('Update user profile', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Unauthenticated user attempts to update profile
       const response = await page.request.patch('/api/auth/update-user', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           name: 'New Name',
         },
@@ -169,12 +154,8 @@ test.describe('Update user profile', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -188,7 +169,6 @@ test.describe('Update user profile', () => {
 
       // WHEN: User submits name with XSS payload
       const response = await page.request.patch('/api/auth/update-user', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           name: "<script>alert('xss')</script>Malicious",
         },
@@ -210,12 +190,8 @@ test.describe('Update user profile', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -229,7 +205,6 @@ test.describe('Update user profile', () => {
 
       // WHEN: User updates name with Unicode characters
       const response = await page.request.patch('/api/auth/update-user', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           name: 'José García 日本語',
         },
@@ -251,12 +226,8 @@ test.describe('Update user profile', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -270,7 +241,6 @@ test.describe('Update user profile', () => {
 
       // WHEN: User sets image to null (removes profile image)
       const response = await page.request.patch('/api/auth/update-user', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           image: null,
         },
@@ -298,18 +268,13 @@ test.describe('Update user profile', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

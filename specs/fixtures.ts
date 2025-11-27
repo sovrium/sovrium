@@ -301,6 +301,42 @@ async function stopServer(serverProcess: ChildProcess): Promise<void> {
 }
 
 /**
+ * Auth-related types for test fixtures
+ */
+type AuthUser = {
+  id: string
+  email: string
+  name: string
+  emailVerified: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+type AuthSession = {
+  id: string
+  userId: string
+  token: string
+  expiresAt: string
+}
+
+type SignUpData = {
+  email: string
+  password: string
+  name: string
+}
+
+type SignInData = {
+  email: string
+  password: string
+  rememberMe?: boolean
+}
+
+type AuthResult = {
+  user: AuthUser
+  session?: AuthSession
+}
+
+/**
  * Custom fixtures for CLI server with AppSchema configuration and database isolation
  */
 type ServerFixtures = {
@@ -340,6 +376,41 @@ type ServerFixtures = {
       bundleOptimization?: 'split' | 'none'
     }
   ) => Promise<string>
+
+  /**
+   * Sign up a new user
+   * Creates a new user account with the provided credentials
+   * @returns The created user data
+   */
+  signUp: (data: SignUpData) => Promise<AuthResult>
+
+  /**
+   * Sign in with email and password
+   * Authenticates the user and sets session cookies automatically
+   * Subsequent page.request calls will include auth cookies
+   * @returns The authenticated user and session data
+   */
+  signIn: (data: SignInData) => Promise<AuthResult>
+
+  /**
+   * Sign out the current user
+   * Clears session cookies
+   */
+  signOut: () => Promise<void>
+
+  /**
+   * Create and authenticate a test user in one call
+   * Convenience fixture that combines signUp + signIn
+   * @returns The authenticated user and session data
+   */
+  createAuthenticatedUser: (data?: Partial<SignUpData>) => Promise<AuthResult>
+
+  /**
+   * Create and authenticate an admin user
+   * Creates a user, sets role to admin, then signs in
+   * @returns The authenticated admin user and session data
+   */
+  createAuthenticatedAdmin: (data?: Partial<SignUpData>) => Promise<AuthResult>
 }
 
 /**
@@ -643,6 +714,201 @@ export const test = base.extend<ServerFixtures>({
     for (const tempDir of tempDirs) {
       await rm(tempDir, { recursive: true, force: true })
     }
+  },
+
+  // Auth fixture: Sign up a new user
+  signUp: async ({ page }, use) => {
+    await use(async (data: SignUpData): Promise<AuthResult> => {
+      const response = await page.request.post('/api/auth/sign-up/email', {
+        data: {
+          email: data.email,
+          password: data.password,
+          name: data.name,
+        },
+      })
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Sign up failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      const result = await response.json()
+      return {
+        user: result.user,
+        session: result.session,
+      }
+    })
+  },
+
+  // Auth fixture: Sign in with email and password
+  // Cookies are automatically set and shared with page.request
+  signIn: async ({ page }, use) => {
+    await use(async (data: SignInData): Promise<AuthResult> => {
+      const response = await page.request.post('/api/auth/sign-in/email', {
+        data: {
+          email: data.email,
+          password: data.password,
+          ...(data.rememberMe !== undefined && { rememberMe: data.rememberMe }),
+        },
+      })
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Sign in failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      const result = await response.json()
+      return {
+        user: result.user,
+        session: result.session,
+      }
+    })
+  },
+
+  // Auth fixture: Sign out the current user
+  signOut: async ({ page }, use) => {
+    await use(async (): Promise<void> => {
+      const response = await page.request.post('/api/auth/sign-out')
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Sign out failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+    })
+  },
+
+  // Auth fixture: Create and authenticate a test user in one call
+  // Convenience fixture that combines signUp + signIn with sensible defaults
+  createAuthenticatedUser: async ({ page }, use) => {
+    let userCounter = 0
+
+    await use(async (data?: Partial<SignUpData>): Promise<AuthResult> => {
+      userCounter++
+      const timestamp = Date.now()
+      const defaultData: SignUpData = {
+        email: data?.email ?? `test-user-${timestamp}-${userCounter}@example.com`,
+        password: data?.password ?? 'TestPassword123!',
+        name: data?.name ?? `Test User ${userCounter}`,
+      }
+
+      // Sign up
+      const signUpResponse = await page.request.post('/api/auth/sign-up/email', {
+        data: defaultData,
+      })
+
+      if (!signUpResponse.ok()) {
+        const errorData = await signUpResponse.json().catch(() => ({}))
+        throw new Error(
+          `Sign up failed with status ${signUpResponse.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      // Sign in (to set cookies)
+      const signInResponse = await page.request.post('/api/auth/sign-in/email', {
+        data: {
+          email: defaultData.email,
+          password: defaultData.password,
+        },
+      })
+
+      if (!signInResponse.ok()) {
+        const errorData = await signInResponse.json().catch(() => ({}))
+        throw new Error(
+          `Sign in failed with status ${signInResponse.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      const result = await signInResponse.json()
+      return {
+        user: result.user,
+        session: result.session,
+      }
+    })
+  },
+
+  // Auth fixture: Create and authenticate an admin user
+  // Creates user, updates role to admin via executeQuery, then signs in
+  createAuthenticatedAdmin: async ({ page }, use, testInfo) => {
+    let userCounter = 0
+
+    await use(async (data?: Partial<SignUpData>): Promise<AuthResult> => {
+      userCounter++
+      const timestamp = Date.now()
+      const defaultData: SignUpData = {
+        email: data?.email ?? `admin-${timestamp}-${userCounter}@example.com`,
+        password: data?.password ?? 'AdminPassword123!',
+        name: data?.name ?? `Admin User ${userCounter}`,
+      }
+
+      // Sign up
+      const signUpResponse = await page.request.post('/api/auth/sign-up/email', {
+        data: defaultData,
+      })
+
+      if (!signUpResponse.ok()) {
+        const errorData = await signUpResponse.json().catch(() => ({}))
+        throw new Error(
+          `Admin sign up failed with status ${signUpResponse.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      const signUpResult = await signUpResponse.json()
+      const userId = signUpResult.user?.id
+
+      if (!userId) {
+        throw new Error('Failed to get user ID from sign up response')
+      }
+
+      // Update user role to admin via database
+      const connectionUrl = process.env.TEST_DATABASE_CONTAINER_URL
+      if (!connectionUrl) {
+        throw new Error('Database not initialized for admin role update')
+      }
+
+      const testDbName = (testInfo as any)._testDatabaseName
+      if (testDbName) {
+        const { Client } = await import('pg')
+        const url = new URL(connectionUrl)
+        const pathParts = url.pathname.split('/')
+        pathParts[1] = testDbName
+        url.pathname = pathParts.join('/')
+
+        const client = new Client({ connectionString: url.toString() })
+        await client.connect()
+        try {
+          await client.query(`UPDATE "user" SET role = 'admin' WHERE id = $1`, [userId])
+        } finally {
+          await client.end()
+        }
+      }
+
+      // Sign in (to set cookies with updated role)
+      const signInResponse = await page.request.post('/api/auth/sign-in/email', {
+        data: {
+          email: defaultData.email,
+          password: defaultData.password,
+        },
+      })
+
+      if (!signInResponse.ok()) {
+        const errorData = await signInResponse.json().catch(() => ({}))
+        throw new Error(
+          `Admin sign in failed with status ${signInResponse.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      const result = await signInResponse.json()
+      return {
+        user: { ...result.user, role: 'admin' },
+        session: result.session,
+      }
+    })
   },
 })
 

@@ -45,7 +45,6 @@ test.describe('View Group By', () => {
               {
                 id: 'by_status',
                 name: 'By Status',
-                type: 'grid',
                 groupBy: {
                   field: 'status',
                 },
@@ -91,7 +90,6 @@ test.describe('View Group By', () => {
               {
                 id: 'by_priority_asc',
                 name: 'By Priority (Asc)',
-                type: 'grid',
                 groupBy: {
                   field: 'priority',
                   order: 'asc',
@@ -138,7 +136,6 @@ test.describe('View Group By', () => {
               {
                 id: 'by_rating_desc',
                 name: 'By Rating (Desc)',
-                type: 'grid',
                 groupBy: {
                   field: 'rating',
                   order: 'desc',
@@ -189,7 +186,6 @@ test.describe('View Group By', () => {
               {
                 id: 'grouped_view',
                 name: 'Grouped View',
-                type: 'grid',
                 groupBy: {
                   field: 'category',
                   order: 'asc',

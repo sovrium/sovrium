@@ -38,12 +38,8 @@ test.describe('Admin: Impersonate user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -60,7 +56,6 @@ test.describe('Admin: Impersonate user', () => {
 
       // WHEN: Admin impersonates the user
       const response = await page.request.post('/api/auth/admin/impersonate-user', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
         },
@@ -90,12 +85,8 @@ test.describe('Admin: Impersonate user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -108,9 +99,7 @@ test.describe('Admin: Impersonate user', () => {
       )
 
       // WHEN: Admin submits request without userId
-      const response = await page.request.post('/api/auth/admin/impersonate-user', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.post('/api/auth/admin/impersonate-user', {})
 
       // THEN: Returns 400 Bad Request with validation error
       // Returns 400 Bad Request
@@ -133,18 +122,13 @@ test.describe('Admin: Impersonate user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Unauthenticated user attempts to impersonate user
       const response = await page.request.post('/api/auth/admin/impersonate-user', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
         },
@@ -171,12 +155,8 @@ test.describe('Admin: Impersonate user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -193,7 +173,6 @@ test.describe('Admin: Impersonate user', () => {
 
       // WHEN: Regular user attempts to impersonate another user
       const response = await page.request.post('/api/auth/admin/impersonate-user', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
         },
@@ -220,12 +199,8 @@ test.describe('Admin: Impersonate user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -242,7 +217,6 @@ test.describe('Admin: Impersonate user', () => {
 
       // WHEN: Admin attempts to impersonate banned user
       const response = await page.request.post('/api/auth/admin/impersonate-user', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
         },
@@ -269,12 +243,8 @@ test.describe('Admin: Impersonate user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -288,7 +258,6 @@ test.describe('Admin: Impersonate user', () => {
 
       // WHEN: Admin attempts to impersonate non-existent user
       const response = await page.request.post('/api/auth/admin/impersonate-user', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '999',
         },
@@ -315,12 +284,8 @@ test.describe('Admin: Impersonate user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -337,7 +302,6 @@ test.describe('Admin: Impersonate user', () => {
 
       // WHEN: Admin impersonates user
       const response = await page.request.post('/api/auth/admin/impersonate-user', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
         },
@@ -365,18 +329,13 @@ test.describe('Admin: Impersonate user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

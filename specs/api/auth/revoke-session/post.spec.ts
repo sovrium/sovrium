@@ -38,12 +38,8 @@ test.describe('Revoke specific session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -60,7 +56,6 @@ test.describe('Revoke specific session', () => {
 
       // WHEN: User revokes a specific session
       const response = await page.request.post('/api/auth/revoke-session', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           sessionId: '2',
         },
@@ -98,12 +93,8 @@ test.describe('Revoke specific session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -116,9 +107,7 @@ test.describe('Revoke specific session', () => {
       )
 
       // WHEN: User submits request without sessionId field
-      const response = await page.request.post('/api/auth/revoke-session', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.post('/api/auth/revoke-session', {})
 
       // THEN: Returns 400 Bad Request with validation error
       // Returns 400 Bad Request
@@ -141,18 +130,13 @@ test.describe('Revoke specific session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Unauthenticated user attempts to revoke a session
       const response = await page.request.post('/api/auth/revoke-session', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           sessionId: 'session_123',
         },
@@ -179,12 +163,8 @@ test.describe('Revoke specific session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -198,7 +178,6 @@ test.describe('Revoke specific session', () => {
 
       // WHEN: User attempts to revoke non-existent session
       const response = await page.request.post('/api/auth/revoke-session', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           sessionId: '999',
         },
@@ -225,12 +204,8 @@ test.describe('Revoke specific session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -250,7 +225,6 @@ test.describe('Revoke specific session', () => {
 
       // WHEN: User A attempts to revoke User B's session
       const response = await page.request.post('/api/auth/revoke-session', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           sessionId: '2',
         },
@@ -274,12 +248,8 @@ test.describe('Revoke specific session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -293,7 +263,6 @@ test.describe('Revoke specific session', () => {
 
       // WHEN: User revokes their own current session
       const response = await page.request.post('/api/auth/revoke-session', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           sessionId: '1',
         },
@@ -321,18 +290,13 @@ test.describe('Revoke specific session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

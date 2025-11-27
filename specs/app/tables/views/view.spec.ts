@@ -55,7 +55,6 @@ test.describe('Table View', () => {
               {
                 id: 'example_view',
                 name: 'Example View',
-                type: 'grid',
               },
             ],
           },
@@ -98,7 +97,6 @@ test.describe('Table View', () => {
                 {
                   id: 'Invalid View ID',
                   name: 'Example View',
-                  type: 'grid',
                 },
               ],
             },
@@ -129,7 +127,6 @@ test.describe('Table View', () => {
               {
                 id: 'active_tasks',
                 name: 'Active Tasks',
-                type: 'grid',
                 isDefault: true,
                 filters: {
                   operator: 'AND',
@@ -189,7 +186,6 @@ test.describe('Table View', () => {
               {
                 id: 'default_view',
                 name: 'Default View',
-                type: 'grid',
                 isDefault: true,
                 filters: {
                   operator: 'AND',

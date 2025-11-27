@@ -38,12 +38,8 @@ test.describe('List organization invitations', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -73,9 +69,7 @@ test.describe('List organization invitations', () => {
       // WHEN: Owner requests list of all invitations
       const response = await page.request.get(
         '/api/auth/organization/list-invitations?organizationId=1',
-        {
-          headers: { Authorization: 'Bearer admin_token' },
-        }
+        {}
       )
 
       // THEN: Returns 200 OK with all invitations regardless of status
@@ -101,12 +95,8 @@ test.describe('List organization invitations', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -136,9 +126,7 @@ test.describe('List organization invitations', () => {
       // WHEN: Owner requests list filtered by pending status
       const response = await page.request.get(
         '/api/auth/organization/list-invitations?organizationId=1&status=pending',
-        {
-          headers: { Authorization: 'Bearer admin_token' },
-        }
+        {}
       )
 
       // THEN: Returns 200 OK with only pending invitations
@@ -159,12 +147,8 @@ test.describe('List organization invitations', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -177,9 +161,7 @@ test.describe('List organization invitations', () => {
       )
 
       // WHEN: User requests invitations without organizationId parameter
-      const response = await page.request.get('/api/auth/organization/list-invitations', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.get('/api/auth/organization/list-invitations', {})
 
       // THEN: Returns 400 Bad Request with validation error
       // Returns 400 Bad Request
@@ -202,12 +184,8 @@ test.describe('List organization invitations', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -237,12 +215,8 @@ test.describe('List organization invitations', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -263,9 +237,7 @@ test.describe('List organization invitations', () => {
       // WHEN: Member attempts to list invitations
       const response = await page.request.get(
         '/api/auth/organization/list-invitations?organizationId=1',
-        {
-          headers: { Authorization: 'Bearer admin_token' },
-        }
+        {}
       )
 
       // THEN: Returns 403 Forbidden
@@ -289,12 +261,8 @@ test.describe('List organization invitations', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -309,9 +277,7 @@ test.describe('List organization invitations', () => {
       // WHEN: User requests invitations for non-existent organization
       const response = await page.request.get(
         '/api/auth/organization/list-invitations?organizationId=999',
-        {
-          headers: { Authorization: 'Bearer admin_token' },
-        }
+        {}
       )
 
       // THEN: Returns 404 Not Found
@@ -335,12 +301,8 @@ test.describe('List organization invitations', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -373,9 +335,7 @@ test.describe('List organization invitations', () => {
       // WHEN: Owner attempts to list invitations from another organization
       const response = await page.request.get(
         '/api/auth/organization/list-invitations?organizationId=2',
-        {
-          headers: { Authorization: 'Bearer admin_token' },
-        }
+        {}
       )
 
       // THEN: Returns 404 Not Found (prevent organization enumeration)
@@ -399,12 +359,8 @@ test.describe('List organization invitations', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -425,9 +381,7 @@ test.describe('List organization invitations', () => {
       // WHEN: Owner requests list of invitations
       const response = await page.request.get(
         '/api/auth/organization/list-invitations?organizationId=1',
-        {
-          headers: { Authorization: 'Bearer admin_token' },
-        }
+        {}
       )
 
       // THEN: Returns 200 OK with empty invitations array
@@ -450,18 +404,13 @@ test.describe('List organization invitations', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

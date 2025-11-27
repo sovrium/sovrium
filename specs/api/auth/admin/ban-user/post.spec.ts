@@ -38,11 +38,8 @@ test.describe('Admin: Ban user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin'],
         },
       })
 
@@ -62,9 +59,6 @@ test.describe('Admin: Ban user', () => {
 
       // WHEN: Admin bans the user
       const response = await page.request.post('/api/auth/admin/ban-user', {
-        headers: {
-          Authorization: 'Bearer admin_token',
-        },
         data: {
           userId: '2',
         },
@@ -110,11 +104,8 @@ test.describe('Admin: Ban user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin'],
         },
       })
 
@@ -131,9 +122,6 @@ test.describe('Admin: Ban user', () => {
 
       // WHEN: Admin bans user with reason
       const response = await page.request.post('/api/auth/admin/ban-user', {
-        headers: {
-          Authorization: 'Bearer admin_token',
-        },
         data: {
           userId: '2',
           reason: 'Violation of terms of service',
@@ -165,11 +153,8 @@ test.describe('Admin: Ban user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin'],
         },
       })
 
@@ -183,9 +168,6 @@ test.describe('Admin: Ban user', () => {
 
       // WHEN: Admin submits request without userId
       const response = await page.request.post('/api/auth/admin/ban-user', {
-        headers: {
-          Authorization: 'Bearer admin_token',
-        },
         data: {},
       })
 
@@ -210,17 +192,13 @@ test.describe('Admin: Ban user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin'],
         },
       })
 
       // WHEN: Unauthenticated user attempts to ban user
       const response = await page.request.post('/api/auth/admin/ban-user', {
-        headers: {},
         data: {
           userId: '2',
         },
@@ -247,11 +225,8 @@ test.describe('Admin: Ban user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin'],
         },
       })
 
@@ -268,9 +243,6 @@ test.describe('Admin: Ban user', () => {
 
       // WHEN: Regular user attempts to ban another user
       const response = await page.request.post('/api/auth/admin/ban-user', {
-        headers: {
-          Authorization: 'Bearer user_token',
-        },
         data: {
           userId: '2',
         },
@@ -297,11 +269,8 @@ test.describe('Admin: Ban user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin'],
         },
       })
 
@@ -315,9 +284,6 @@ test.describe('Admin: Ban user', () => {
 
       // WHEN: Admin attempts to ban non-existent user
       const response = await page.request.post('/api/auth/admin/ban-user', {
-        headers: {
-          Authorization: 'Bearer admin_token',
-        },
         data: {
           userId: '999',
         },
@@ -344,11 +310,8 @@ test.describe('Admin: Ban user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin'],
         },
       })
 
@@ -365,9 +328,6 @@ test.describe('Admin: Ban user', () => {
 
       // WHEN: Admin bans already banned user
       const response = await page.request.post('/api/auth/admin/ban-user', {
-        headers: {
-          Authorization: 'Bearer admin_token',
-        },
         data: {
           userId: '2',
         },
@@ -399,11 +359,8 @@ test.describe('Admin: Ban user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin'],
         },
       })
 
@@ -423,9 +380,6 @@ test.describe('Admin: Ban user', () => {
 
       // WHEN: Execute workflow - Admin bans user with policy violation
       const response = await page.request.post('/api/auth/admin/ban-user', {
-        headers: {
-          Authorization: 'Bearer admin_token',
-        },
         data: {
           userId: '2',
           reason: 'Repeated policy violations',

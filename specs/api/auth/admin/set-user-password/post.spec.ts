@@ -38,12 +38,8 @@ test.describe('Admin: Set user password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -60,7 +56,6 @@ test.describe('Admin: Set user password', () => {
 
       // WHEN: Admin sets new password for user
       const response = await page.request.post('/api/auth/admin/set-user-password', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
           newPassword: 'NewSecurePass123!',
@@ -95,12 +90,8 @@ test.describe('Admin: Set user password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -123,7 +114,6 @@ test.describe('Admin: Set user password', () => {
 
       // WHEN: Admin sets password with revokeOtherSessions enabled
       const response = await page.request.post('/api/auth/admin/set-user-password', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
           newPassword: 'NewSecurePass123!',
@@ -157,12 +147,8 @@ test.describe('Admin: Set user password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -175,9 +161,7 @@ test.describe('Admin: Set user password', () => {
       )
 
       // WHEN: Admin submits request without required fields
-      const response = await page.request.post('/api/auth/admin/set-user-password', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.post('/api/auth/admin/set-user-password', {})
 
       // THEN: Returns 400 Bad Request with validation errors
       // Returns 400 Bad Request
@@ -200,12 +184,8 @@ test.describe('Admin: Set user password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -222,7 +202,6 @@ test.describe('Admin: Set user password', () => {
 
       // WHEN: Admin submits password shorter than 8 characters
       const response = await page.request.post('/api/auth/admin/set-user-password', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
           newPassword: 'short',
@@ -250,18 +229,13 @@ test.describe('Admin: Set user password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Unauthenticated user attempts to set password
       const response = await page.request.post('/api/auth/admin/set-user-password', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
           newPassword: 'NewSecurePass123!',
@@ -289,12 +263,8 @@ test.describe('Admin: Set user password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -311,7 +281,6 @@ test.describe('Admin: Set user password', () => {
 
       // WHEN: Regular user attempts to set another user's password
       const response = await page.request.post('/api/auth/admin/set-user-password', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '2',
           newPassword: 'NewSecurePass123!',
@@ -339,12 +308,8 @@ test.describe('Admin: Set user password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -358,7 +323,6 @@ test.describe('Admin: Set user password', () => {
 
       // WHEN: Admin attempts to set password for non-existent user
       const response = await page.request.post('/api/auth/admin/set-user-password', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           userId: '999',
           newPassword: 'NewSecurePass123!',
@@ -390,18 +354,13 @@ test.describe('Admin: Set user password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

@@ -38,12 +38,8 @@ test.describe('Admin: Create user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -57,7 +53,6 @@ test.describe('Admin: Create user', () => {
 
       // WHEN: Admin creates a new user with valid data
       const response = await page.request.post('/api/auth/admin/create-user', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           email: 'newuser@example.com',
           name: 'New User',
@@ -93,12 +88,8 @@ test.describe('Admin: Create user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -112,7 +103,6 @@ test.describe('Admin: Create user', () => {
 
       // WHEN: Admin creates user with emailVerified: true
       const response = await page.request.post('/api/auth/admin/create-user', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           email: 'verified@example.com',
           name: 'Verified User',
@@ -139,12 +129,8 @@ test.describe('Admin: Create user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -157,9 +143,7 @@ test.describe('Admin: Create user', () => {
       )
 
       // WHEN: Admin submits request without required fields
-      const response = await page.request.post('/api/auth/admin/create-user', {
-        headers: { Authorization: 'Bearer admin_token' },
-      })
+      const response = await page.request.post('/api/auth/admin/create-user', {})
 
       // THEN: Returns 400 Bad Request with validation errors
       // Returns 400 Bad Request
@@ -182,12 +166,8 @@ test.describe('Admin: Create user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -201,7 +181,6 @@ test.describe('Admin: Create user', () => {
 
       // WHEN: Admin submits request with invalid email format
       const response = await page.request.post('/api/auth/admin/create-user', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           email: 'not-an-email',
           name: 'Test User',
@@ -230,12 +209,8 @@ test.describe('Admin: Create user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -249,7 +224,6 @@ test.describe('Admin: Create user', () => {
 
       // WHEN: Admin submits request with password shorter than 8 characters
       const response = await page.request.post('/api/auth/admin/create-user', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           email: 'newuser@example.com',
           name: 'Test User',
@@ -278,18 +252,13 @@ test.describe('Admin: Create user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Unauthenticated user attempts to create user
       const response = await page.request.post('/api/auth/admin/create-user', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           email: 'newuser@example.com',
           name: 'Test User',
@@ -318,12 +287,8 @@ test.describe('Admin: Create user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -337,7 +302,6 @@ test.describe('Admin: Create user', () => {
 
       // WHEN: Regular user attempts to create user
       const response = await page.request.post('/api/auth/admin/create-user', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           email: 'newuser@example.com',
           name: 'Test User',
@@ -366,12 +330,8 @@ test.describe('Admin: Create user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -388,7 +348,6 @@ test.describe('Admin: Create user', () => {
 
       // WHEN: Admin attempts to create user with existing email
       const response = await page.request.post('/api/auth/admin/create-user', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           email: 'existing@example.com',
           name: 'Another User',
@@ -417,12 +376,8 @@ test.describe('Admin: Create user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -436,7 +391,6 @@ test.describe('Admin: Create user', () => {
 
       // WHEN: Admin submits name with XSS payload
       const response = await page.request.post('/api/auth/admin/create-user', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           email: 'xsstest@example.com',
           name: "<script>alert('xss')</script>Malicious",
@@ -460,12 +414,8 @@ test.describe('Admin: Create user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -479,7 +429,6 @@ test.describe('Admin: Create user', () => {
 
       // WHEN: Admin creates user with Unicode characters in name
       const response = await page.request.post('/api/auth/admin/create-user', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           email: 'unicode@example.com',
           name: 'José García 日本語',
@@ -507,18 +456,13 @@ test.describe('Admin: Create user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

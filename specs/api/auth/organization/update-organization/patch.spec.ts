@@ -38,12 +38,8 @@ test.describe('Update organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -63,7 +59,6 @@ test.describe('Update organization', () => {
 
       // WHEN: Owner updates organization details
       const response = await page.request.patch('/api/auth/organization/update-organization', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           name: 'New Name',
@@ -95,12 +90,8 @@ test.describe('Update organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -120,7 +111,6 @@ test.describe('Update organization', () => {
 
       // WHEN: Owner updates only name field
       const response = await page.request.patch('/api/auth/organization/update-organization', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           name: 'Updated Name Only',
@@ -145,12 +135,8 @@ test.describe('Update organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -164,7 +150,6 @@ test.describe('Update organization', () => {
 
       // WHEN: Owner submits request without organizationId
       const response = await page.request.patch('/api/auth/organization/update-organization', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           name: 'New Name',
         },
@@ -191,18 +176,13 @@ test.describe('Update organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Unauthenticated user attempts to update organization
       const response = await page.request.patch('/api/auth/organization/update-organization', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           name: 'New Name',
@@ -230,12 +210,8 @@ test.describe('Update organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -255,7 +231,6 @@ test.describe('Update organization', () => {
 
       // WHEN: Member attempts to update organization
       const response = await page.request.patch('/api/auth/organization/update-organization', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           name: 'New Name',
@@ -283,12 +258,8 @@ test.describe('Update organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -302,7 +273,6 @@ test.describe('Update organization', () => {
 
       // WHEN: User attempts to update non-existent organization
       const response = await page.request.patch('/api/auth/organization/update-organization', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '999',
           name: 'New Name',
@@ -330,12 +300,8 @@ test.describe('Update organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
@@ -358,7 +324,6 @@ test.describe('Update organization', () => {
 
       // WHEN: Owner attempts to update slug to existing slug
       const response = await page.request.patch('/api/auth/organization/update-organization', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: {
           organizationId: '1',
           slug: 'existing-slug',
@@ -390,18 +355,13 @@ test.describe('Update organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          enabled: true,
-          emailAndPassword: { enabled: true },
-          plugins: {
-            admin: { enabled: true },
-            organization: { enabled: true },
-          },
+          authentication: ['email-and-password'],
+          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Execute workflow
       const response = await page.request.post('/api/auth/workflow', {
-        headers: { Authorization: 'Bearer admin_token' },
         data: { test: true },
       })
 

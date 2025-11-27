@@ -53,7 +53,6 @@ test.describe('Batch update records', () => {
       // WHEN: Batch update both records with returnRecords=true
       const response = await request.patch('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer test_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -118,7 +117,6 @@ test.describe('Batch update records', () => {
       // WHEN: Batch update with returnRecords=false
       const response = await request.patch('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer test_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -168,7 +166,6 @@ test.describe('Batch update records', () => {
       // WHEN: Batch update with invalid data (setting email to NULL)
       const response = await request.patch('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer test_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -268,7 +265,6 @@ test.describe('Batch update records', () => {
       // WHEN: Member attempts batch update
       const response = await request.patch('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -314,7 +310,6 @@ test.describe('Batch update records', () => {
       // WHEN: Viewer attempts batch update
       const response = await request.patch('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer viewer_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -359,7 +354,6 @@ test.describe('Batch update records', () => {
       // WHEN: Admin from org_123 attempts to update record from org_456
       const response = await request.patch('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -412,7 +406,6 @@ test.describe('Batch update records', () => {
       // WHEN: Member attempts batch update with protected field
       const response = await request.patch('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -460,7 +453,6 @@ test.describe('Batch update records', () => {
       // WHEN: Admin attempts to update readonly field
       const response = await request.patch('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -506,7 +498,6 @@ test.describe('Batch update records', () => {
       // WHEN: Member updates with different organization_id
       const response = await request.patch('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -555,7 +546,6 @@ test.describe('Batch update records', () => {
       // WHEN: Member batch updates successfully
       const response = await request.patch('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -611,7 +601,6 @@ test.describe('Batch update records', () => {
       // WHEN: Admin batch updates with all fields
       const response = await request.patch('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -663,7 +652,6 @@ test.describe('Batch update records', () => {
       // WHEN: Member batch updates with only permitted fields
       const response = await request.patch('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -707,7 +695,6 @@ test.describe('Batch update records', () => {
       // WHEN: Batch update includes existing and non-existing IDs
       const response = await request.patch('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer test_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -760,7 +747,6 @@ test.describe('Batch update records', () => {
       // WHEN: Update is successful
       const response = await request.patch('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -816,7 +802,6 @@ test.describe('Batch update records', () => {
       // Test successful batch update (admin with full access)
       const successResponse = await request.patch('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -841,7 +826,6 @@ test.describe('Batch update records', () => {
       // Test validation error with rollback
       const validationResponse = await request.patch('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer admin_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -857,7 +841,6 @@ test.describe('Batch update records', () => {
       // Test permission denied (member without update permission)
       const forbiddenResponse = await request.patch('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
@@ -882,7 +865,6 @@ test.describe('Batch update records', () => {
       // Test field-level write restriction
       const fieldForbiddenResponse = await request.patch('/api/tables/1/records/batch', {
         headers: {
-          Authorization: 'Bearer member_token',
           'Content-Type': 'application/json',
         },
         data: {
