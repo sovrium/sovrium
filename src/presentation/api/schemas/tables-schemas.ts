@@ -50,28 +50,28 @@ export const fieldValueSchema = z.union([
  *
  * Represents a table definition in API responses.
  */
-export const tableSchema = z.object({
-  id: z.string().describe('Table identifier'),
-  name: z.string().describe('Table name'),
-  description: z.string().optional().describe('Table description'),
-  fields: z.array(baseFieldSchema).describe('Table fields'),
-  primaryKey: z.string().optional().describe('Primary key field'),
-  createdAt: z.string().datetime().describe('Creation timestamp'),
-  updatedAt: z.string().datetime().describe('Last update timestamp'),
-})
+export const tableSchema = z
+  .object({
+    id: z.string().describe('Table identifier'),
+    name: z.string().describe('Table name'),
+    description: z.string().optional().describe('Table description'),
+    fields: z.array(baseFieldSchema).describe('Table fields'),
+    primaryKey: z.string().optional().describe('Primary key field'),
+  })
+  .extend(timestampSchema.shape)
 
 /**
  * Table summary schema (for list endpoints)
  */
-export const tableSummarySchema = z.object({
-  id: z.string().describe('Table identifier'),
-  name: z.string().describe('Table name'),
-  description: z.string().optional().describe('Table description'),
-  fieldCount: z.number().describe('Number of fields'),
-  recordCount: z.number().optional().describe('Number of records'),
-  createdAt: z.string().datetime().describe('Creation timestamp'),
-  updatedAt: z.string().datetime().describe('Last update timestamp'),
-})
+export const tableSummarySchema = z
+  .object({
+    id: z.string().describe('Table identifier'),
+    name: z.string().describe('Table name'),
+    description: z.string().optional().describe('Table description'),
+    fieldCount: z.number().describe('Number of fields'),
+    recordCount: z.number().optional().describe('Number of records'),
+  })
+  .extend(timestampSchema.shape)
 
 // ============================================================================
 // Record Schemas
@@ -82,14 +82,14 @@ export const tableSummarySchema = z.object({
  *
  * Represents a record in a table.
  */
-export const recordSchema = z.object({
-  id: z.string().describe('Record identifier'),
-  fields: z.record(z.string(), fieldValueSchema).describe('Record field values'),
-  createdAt: z.string().datetime().describe('Creation timestamp'),
-  updatedAt: z.string().datetime().describe('Last update timestamp'),
-  createdBy: z.string().optional().describe('User who created the record'),
-  updatedBy: z.string().optional().describe('User who last updated the record'),
-})
+export const recordSchema = z
+  .object({
+    id: z.string().describe('Record identifier'),
+    fields: z.record(z.string(), fieldValueSchema).describe('Record field values'),
+    createdBy: z.string().optional().describe('User who created the record'),
+    updatedBy: z.string().optional().describe('User who last updated the record'),
+  })
+  .extend(timestampSchema.shape)
 
 // ============================================================================
 // Table API Response Schemas
@@ -216,17 +216,17 @@ export const upsertRecordsResponseSchema = z.object({
 /**
  * View schema
  */
-export const viewSchema = z.object({
-  id: z.string().describe('View identifier'),
-  name: z.string().describe('View name'),
-  tableId: z.string().describe('Parent table ID'),
-  fields: z.array(z.string()).optional().describe('Visible field IDs'),
-  filters: z.array(z.unknown()).optional().describe('View filters'),
-  sorts: z.array(z.unknown()).optional().describe('View sorts'),
-  groupBy: z.string().optional().describe('Group by field'),
-  createdAt: z.string().datetime().describe('Creation timestamp'),
-  updatedAt: z.string().datetime().describe('Last update timestamp'),
-})
+export const viewSchema = z
+  .object({
+    id: z.string().describe('View identifier'),
+    name: z.string().describe('View name'),
+    tableId: z.string().describe('Parent table ID'),
+    fields: z.array(z.string()).optional().describe('Visible field IDs'),
+    filters: z.array(z.unknown()).optional().describe('View filters'),
+    sorts: z.array(z.unknown()).optional().describe('View sorts'),
+    groupBy: z.string().optional().describe('Group by field'),
+  })
+  .extend(timestampSchema.shape)
 
 /**
  * List views response schema

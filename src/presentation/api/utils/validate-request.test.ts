@@ -64,7 +64,7 @@ describe('validateRequest', () => {
         user: z.object({
           profile: z.object({
             name: z.string(),
-            email: z.string().email(),
+            email: z.email(),
           }),
           preferences: z.object({
             theme: z.enum(['light', 'dark']),
@@ -209,7 +209,7 @@ describe('validateRequest', () => {
       const schema = z.object({
         user: z.object({
           profile: z.object({
-            email: z.string().email(),
+            email: z.email(),
           }),
         }),
       })
@@ -233,7 +233,7 @@ describe('validateRequest', () => {
       const schema = z.object({
         name: z.string().min(1, 'Name is required'),
         age: z.number().positive('Age must be positive'),
-        email: z.string().email('Invalid email format'),
+        email: z.email('Invalid email format'),
       })
 
       const result = await validateRequest(c, schema)
@@ -492,7 +492,7 @@ describe('validateRequest', () => {
         email: 'test@example.com',
       })
       const schema = z.discriminatedUnion('type', [
-        z.object({ type: z.literal('email'), email: z.string().email() }),
+        z.object({ type: z.literal('email'), email: z.email() }),
         z.object({ type: z.literal('phone'), phone: z.string() }),
       ])
 

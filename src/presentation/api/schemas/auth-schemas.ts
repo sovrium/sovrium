@@ -26,7 +26,7 @@ export const userSchema = z
     image: z.url().nullable().optional().describe('User avatar URL'),
     emailVerified: z.boolean().describe('Whether email is verified'),
   })
-  .merge(timestampSchema)
+  .extend(timestampSchema.shape)
 
 /**
  * User with role schema (for admin endpoints)
@@ -56,7 +56,7 @@ export const sessionSchema = z
     ipAddress: z.string().nullable().optional().describe('IP address of session'),
     userAgent: z.string().nullable().optional().describe('User agent string'),
   })
-  .merge(timestampSchema)
+  .extend(timestampSchema.shape)
 
 /**
  * Session with user schema
@@ -226,7 +226,7 @@ export const organizationSchema = z
     slug: z.string().describe('URL-friendly slug'),
     logo: z.url().nullable().optional().describe('Organization logo URL'),
   })
-  .merge(timestampSchema)
+  .extend(timestampSchema.shape)
 
 /**
  * Organization member schema

@@ -77,7 +77,7 @@ describe('runEffect', () => {
           id: z.string(),
           profile: z.object({
             name: z.string(),
-            email: z.string().email(),
+            email: z.email(),
           }),
         }),
         metadata: z.object({
