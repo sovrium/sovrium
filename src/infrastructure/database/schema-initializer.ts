@@ -232,7 +232,15 @@ const generateIndexStatements = (table: Table): readonly string[] => {
       return `CREATE UNIQUE INDEX IF NOT EXISTS ${indexName} ON ${table.name} (${field.name})`
     })
 
-  return [...indexedFields, ...autonumberIndexes]
+  // Create custom indexes from table.indexes configuration
+  const customIndexes =
+    table.indexes?.map((index) => {
+      const uniqueClause = index.unique ? 'UNIQUE ' : ''
+      const fields = index.fields.join(', ')
+      return `CREATE ${uniqueClause}INDEX IF NOT EXISTS ${index.name} ON ${table.name} (${fields})`
+    }) ?? []
+
+  return [...indexedFields, ...autonumberIndexes, ...customIndexes]
 }
 
 /**

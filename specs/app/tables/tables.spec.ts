@@ -252,7 +252,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-005: should return complete table metadata via introspection queries',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
