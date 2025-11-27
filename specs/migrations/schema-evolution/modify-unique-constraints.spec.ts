@@ -223,7 +223,12 @@ test.describe('Modify Unique Constraints Migration', () => {
             name: 'orders',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'order_number', type: 'single-line-text', required: true },
+              {
+                id: 2,
+                name: 'order_number',
+                type: 'single-line-text',
+                required: true,
+              },
               { id: 3, name: 'tenant_id', type: 'integer', required: true },
             ],
             uniqueConstraints: [

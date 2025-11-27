@@ -6,8 +6,8 @@
  */
 
 import { Schema } from 'effect'
+import { TableIdSchema } from '@/domain/models/app/common/branded-ids'
 import { FieldsSchema } from './fields'
-import { IdSchema } from './id'
 import { IndexesSchema } from './indexes'
 import { NameSchema } from './name'
 import { TablePermissionsSchema } from './permissions'
@@ -41,7 +41,7 @@ import { ViewSchema } from './views'
  */
 
 export const TableSchema = Schema.Struct({
-  id: IdSchema,
+  id: TableIdSchema,
   name: NameSchema,
   fields: FieldsSchema,
   primaryKey: Schema.optional(PrimaryKeySchema),
@@ -96,7 +96,13 @@ export const TableSchema = Schema.Struct({
         name: 'products',
         fields: [
           { id: 1, name: 'title', type: 'single-line-text' as const, required: true },
-          { id: 2, name: 'price', type: 'currency' as const, required: true, currency: 'USD' },
+          {
+            id: 2,
+            name: 'price',
+            type: 'currency' as const,
+            required: true,
+            currency: 'USD',
+          },
           { id: 3, name: 'description', type: 'long-text' as const, required: false },
         ],
         primaryKey: { type: 'composite', fields: ['id'] },

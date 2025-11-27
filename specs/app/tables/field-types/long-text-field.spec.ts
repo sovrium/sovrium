@@ -158,7 +158,13 @@ test.describe('Long Text Field', () => {
             name: 'pages',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'content', type: 'long-text', required: true, indexed: true },
+              {
+                id: 2,
+                name: 'content',
+                type: 'long-text',
+                required: true,
+                indexed: true,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },
@@ -245,7 +251,13 @@ test.describe('Long Text Field', () => {
             name: 'data',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'long_text_field', type: 'long-text', required: true, indexed: true },
+              {
+                id: 2,
+                name: 'long_text_field',
+                type: 'long-text',
+                required: true,
+                indexed: true,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },

@@ -126,7 +126,13 @@ test.describe('Phone Number Field', () => {
             name: 'users',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'phone', type: 'phone-number', unique: true, required: true },
+              {
+                id: 2,
+                name: 'phone',
+                type: 'phone-number',
+                unique: true,
+                required: true,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },
@@ -209,7 +215,13 @@ test.describe('Phone Number Field', () => {
             name: 'employees',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'phone', type: 'phone-number', unique: true, indexed: true },
+              {
+                id: 2,
+                name: 'phone',
+                type: 'phone-number',
+                unique: true,
+                indexed: true,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },

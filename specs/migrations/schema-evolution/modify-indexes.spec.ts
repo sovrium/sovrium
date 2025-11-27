@@ -206,7 +206,13 @@ test.describe('Modify Indexes Migration', () => {
             name: 'accounts',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'username', type: 'single-line-text', required: true, unique: true },
+              {
+                id: 2,
+                name: 'username',
+                type: 'single-line-text',
+                required: true,
+                unique: true,
+              },
             ],
           },
         ],

@@ -194,7 +194,13 @@ test.describe('Checkbox Field', () => {
             name: 'posts',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'published', type: 'checkbox', required: true, indexed: true },
+              {
+                id: 2,
+                name: 'published',
+                type: 'checkbox',
+                required: true,
+                indexed: true,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },

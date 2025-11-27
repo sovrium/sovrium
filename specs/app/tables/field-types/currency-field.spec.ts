@@ -75,7 +75,14 @@ test.describe('Currency Field', () => {
             name: 'projects',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'budget', type: 'currency', currency: 'USD', min: 0, max: 10_000 },
+              {
+                id: 2,
+                name: 'budget',
+                type: 'currency',
+                currency: 'USD',
+                min: 0,
+                max: 10_000,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },

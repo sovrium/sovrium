@@ -166,7 +166,13 @@ test.describe('Unique Field Property', () => {
             name: 'sessions',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'token', type: 'single-line-text', unique: true, required: true },
+              {
+                id: 2,
+                name: 'token',
+                type: 'single-line-text',
+                unique: true,
+                required: true,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },
@@ -208,7 +214,13 @@ test.describe('Unique Field Property', () => {
             name: 'contacts',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'phone', type: 'phone-number', unique: true, required: false },
+              {
+                id: 2,
+                name: 'phone',
+                type: 'phone-number',
+                unique: true,
+                required: false,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },
@@ -270,7 +282,12 @@ test.describe('Unique Field Property', () => {
                 unique: true,
                 required: true,
               },
-              { id: 3, name: 'non_unique_field', type: 'single-line-text', unique: false },
+              {
+                id: 3,
+                name: 'non_unique_field',
+                type: 'single-line-text',
+                unique: false,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },

@@ -250,9 +250,7 @@ const initializeSchemaInternal = (
     }
 
     // Get database URL from Effect Config (reads from environment)
-    const databaseUrlConfig = yield* Config.string('DATABASE_URL').pipe(
-      Config.withDefault('')
-    )
+    const databaseUrlConfig = yield* Config.string('DATABASE_URL').pipe(Config.withDefault(''))
 
     // Skip if no DATABASE_URL configured
     if (!databaseUrlConfig) {

@@ -165,7 +165,13 @@ test.describe('Duration Field', () => {
             name: 'videos',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'length', type: 'duration', required: true, indexed: true },
+              {
+                id: 2,
+                name: 'length',
+                type: 'duration',
+                required: true,
+                indexed: true,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },
@@ -194,7 +200,13 @@ test.describe('Duration Field', () => {
             name: 'data',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'duration_field', type: 'duration', required: true, indexed: true },
+              {
+                id: 2,
+                name: 'duration_field',
+                type: 'duration',
+                required: true,
+                indexed: true,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },

@@ -211,7 +211,12 @@ test.describe('Row-Level Security Enforcement', () => {
               { id: 2, name: 'display_name', type: 'single-line-text' },
               { id: 3, name: 'bio', type: 'long-text' },
               { id: 4, name: 'verified', type: 'checkbox' },
-              { id: 5, name: 'role', type: 'single-select', options: ['admin', 'member', 'guest'] },
+              {
+                id: 5,
+                name: 'role',
+                type: 'single-select',
+                options: ['admin', 'member', 'guest'],
+              },
             ],
             permissions: {
               fields: [

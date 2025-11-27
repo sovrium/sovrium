@@ -234,7 +234,11 @@ test.describe('Create new record', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          { id: 5, name: 'projects', fields: [{ id: 1, name: 'name', type: 'single-line-text' }] },
+          {
+            id: 5,
+            name: 'projects',
+            fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+          },
         ],
       })
 
@@ -265,7 +269,11 @@ test.describe('Create new record', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          { id: 6, name: 'tasks', fields: [{ id: 1, name: 'title', type: 'single-line-text' }] },
+          {
+            id: 6,
+            name: 'tasks',
+            fields: [{ id: 1, name: 'title', type: 'single-line-text' }],
+          },
         ],
       })
 
@@ -297,7 +305,11 @@ test.describe('Create new record', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          { id: 7, name: 'employees', fields: [{ id: 1, name: 'name', type: 'single-line-text' }] },
+          {
+            id: 7,
+            name: 'employees',
+            fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+          },
         ],
       })
 
@@ -547,7 +559,12 @@ test.describe('Create new record', () => {
             name: 'projects',
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text', required: true },
+              {
+                id: 2,
+                name: 'organization_id',
+                type: 'single-line-text',
+                required: true,
+              },
             ],
           },
         ],

@@ -133,7 +133,12 @@ test.describe('Modify Field Unique Migration', () => {
             name: 'orders',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'order_number', type: 'single-line-text', required: true }, // No unique
+              {
+                id: 2,
+                name: 'order_number',
+                type: 'single-line-text',
+                required: true,
+              }, // No unique
             ],
           },
         ],

@@ -225,8 +225,18 @@ test.describe('Required Field Property', () => {
             name: 'data',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'required_field', type: 'single-line-text', required: true },
-              { id: 3, name: 'optional_field', type: 'single-line-text', required: false },
+              {
+                id: 2,
+                name: 'required_field',
+                type: 'single-line-text',
+                required: true,
+              },
+              {
+                id: 3,
+                name: 'optional_field',
+                type: 'single-line-text',
+                required: false,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },

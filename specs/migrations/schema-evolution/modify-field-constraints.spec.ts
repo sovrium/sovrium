@@ -44,7 +44,14 @@ test.describe('Modify Field Constraints Migration', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
-              { id: 3, name: 'price', type: 'decimal', required: true, min: 0, max: 10_000 },
+              {
+                id: 3,
+                name: 'price',
+                type: 'decimal',
+                required: true,
+                min: 0,
+                max: 10_000,
+              },
             ],
           },
         ],
@@ -90,7 +97,14 @@ test.describe('Modify Field Constraints Migration', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'item', type: 'single-line-text', required: true },
-              { id: 3, name: 'quantity', type: 'integer', required: true, min: 0, max: 1000 },
+              {
+                id: 3,
+                name: 'quantity',
+                type: 'integer',
+                required: true,
+                min: 0,
+                max: 1000,
+              },
             ],
           },
         ],
@@ -171,7 +185,12 @@ test.describe('Modify Field Constraints Migration', () => {
             name: 'orders',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'order_number', type: 'single-line-text', required: true },
+              {
+                id: 2,
+                name: 'order_number',
+                type: 'single-line-text',
+                required: true,
+              },
               { id: 3, name: 'discount', type: 'integer', required: true }, // No min/max constraints
             ],
           },
@@ -218,7 +237,14 @@ test.describe('Modify Field Constraints Migration', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
-              { id: 3, name: 'amount', type: 'decimal', required: true, min: 0, max: 1000 },
+              {
+                id: 3,
+                name: 'amount',
+                type: 'decimal',
+                required: true,
+                min: 0,
+                max: 1000,
+              },
             ],
           },
         ],

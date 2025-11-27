@@ -109,7 +109,13 @@ test.describe('Progress Field', () => {
             name: 'data',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'progress_field', type: 'progress', required: true, default: 0 },
+              {
+                id: 2,
+                name: 'progress_field',
+                type: 'progress',
+                required: true,
+                default: 0,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },

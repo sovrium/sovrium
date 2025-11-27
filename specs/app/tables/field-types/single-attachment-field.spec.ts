@@ -41,7 +41,11 @@ test.describe('Single Attachment Field', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          { id: 2, name: 'attachments', fields: [{ id: 1, name: 'file_meta', type: 'json' }] },
+          {
+            id: 2,
+            name: 'attachments',
+            fields: [{ id: 1, name: 'file_meta', type: 'json' }],
+          },
         ],
       })
 

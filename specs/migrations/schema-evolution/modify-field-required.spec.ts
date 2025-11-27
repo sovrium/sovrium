@@ -124,7 +124,12 @@ test.describe('Modify Field Required Migration', () => {
             name: 'orders',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'order_number', type: 'single-line-text', required: true },
+              {
+                id: 2,
+                name: 'order_number',
+                type: 'single-line-text',
+                required: true,
+              },
               {
                 id: 3,
                 name: 'status',

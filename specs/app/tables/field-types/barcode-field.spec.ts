@@ -16,7 +16,11 @@ test.describe('Barcode Field', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          { id: 1, name: 'products', fields: [{ id: 1, name: 'barcode', type: 'barcode' }] },
+          {
+            id: 1,
+            name: 'products',
+            fields: [{ id: 1, name: 'barcode', type: 'barcode' }],
+          },
         ],
       })
       // WHEN: querying the database
@@ -57,7 +61,13 @@ test.describe('Barcode Field', () => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
-        tables: [{ id: 3, name: 'inventory', fields: [{ id: 1, name: 'code', type: 'barcode' }] }],
+        tables: [
+          {
+            id: 3,
+            name: 'inventory',
+            fields: [{ id: 1, name: 'code', type: 'barcode' }],
+          },
+        ],
       })
       // WHEN: executing query
       await executeQuery("INSERT INTO inventory (code) VALUES ('1234567890123')")

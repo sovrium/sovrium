@@ -167,7 +167,13 @@ test.describe('Time Field', () => {
             name: 'events',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'event_time', type: 'time', required: true, indexed: true },
+              {
+                id: 2,
+                name: 'event_time',
+                type: 'time',
+                required: true,
+                indexed: true,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },
@@ -196,7 +202,13 @@ test.describe('Time Field', () => {
             name: 'data',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'time_field', type: 'time', required: true, indexed: true },
+              {
+                id: 2,
+                name: 'time_field',
+                type: 'time',
+                required: true,
+                indexed: true,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },

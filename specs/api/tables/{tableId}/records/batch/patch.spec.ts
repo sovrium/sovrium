@@ -685,7 +685,11 @@ test.describe('Batch update records', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          { id: 14, name: 'users', fields: [{ id: 1, name: 'name', type: 'single-line-text' }] },
+          {
+            id: 14,
+            name: 'users',
+            fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+          },
         ],
       })
       await executeQuery(`

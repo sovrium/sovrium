@@ -6,8 +6,8 @@
  */
 
 import { Schema } from 'effect'
+import { FieldIdSchema } from '@/domain/models/app/common/branded-ids'
 import { FieldNameSchema } from '@/domain/models/app/table/field-name'
-import { IdSchema } from '@/domain/models/app/table/id'
 
 /**
  * Base Field Schema
@@ -28,7 +28,7 @@ import { IdSchema } from '@/domain/models/app/table/id'
  * ```
  */
 export const BaseFieldSchema = Schema.Struct({
-  id: IdSchema,
+  id: FieldIdSchema,
   name: FieldNameSchema,
   required: Schema.optional(Schema.Boolean),
   unique: Schema.optional(Schema.Boolean),

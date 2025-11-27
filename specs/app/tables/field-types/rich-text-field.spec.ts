@@ -27,7 +27,13 @@ test.describe('Rich Text Field', () => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
-        tables: [{ id: 1, name: 'posts', fields: [{ id: 1, name: 'content', type: 'rich-text' }] }],
+        tables: [
+          {
+            id: 1,
+            name: 'posts',
+            fields: [{ id: 1, name: 'content', type: 'rich-text' }],
+          },
+        ],
       })
 
       // WHEN: querying the database
@@ -129,7 +135,11 @@ test.describe('Rich Text Field', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          { id: 4, name: 'comments', fields: [{ id: 1, name: 'message', type: 'rich-text' }] },
+          {
+            id: 4,
+            name: 'comments',
+            fields: [{ id: 1, name: 'message', type: 'rich-text' }],
+          },
         ],
       })
 

@@ -27,7 +27,13 @@ test.describe('JSON Field', () => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
-        tables: [{ id: 1, name: 'products', fields: [{ id: 1, name: 'metadata', type: 'json' }] }],
+        tables: [
+          {
+            id: 1,
+            name: 'products',
+            fields: [{ id: 1, name: 'metadata', type: 'json' }],
+          },
+        ],
       })
 
       // WHEN: querying the database
@@ -62,7 +68,13 @@ test.describe('JSON Field', () => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
-        tables: [{ id: 2, name: 'settings', fields: [{ id: 1, name: 'config', type: 'json' }] }],
+        tables: [
+          {
+            id: 2,
+            name: 'settings',
+            fields: [{ id: 1, name: 'config', type: 'json' }],
+          },
+        ],
       })
 
       // WHEN: querying the database
@@ -100,7 +112,13 @@ test.describe('JSON Field', () => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
-        tables: [{ id: 3, name: 'users', fields: [{ id: 1, name: 'preferences', type: 'json' }] }],
+        tables: [
+          {
+            id: 3,
+            name: 'users',
+            fields: [{ id: 1, name: 'preferences', type: 'json' }],
+          },
+        ],
       })
 
       // WHEN: querying the database
@@ -174,7 +192,13 @@ test.describe('JSON Field', () => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
-        tables: [{ id: 5, name: 'events', fields: [{ id: 1, name: 'payload', type: 'json' }] }],
+        tables: [
+          {
+            id: 5,
+            name: 'events',
+            fields: [{ id: 1, name: 'payload', type: 'json' }],
+          },
+        ],
       })
 
       // WHEN: executing query

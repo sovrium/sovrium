@@ -124,7 +124,11 @@ test.describe('Update record', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          { id: 3, name: 'tasks', fields: [{ id: 1, name: 'title', type: 'single-line-text' }] },
+          {
+            id: 3,
+            name: 'tasks',
+            fields: [{ id: 1, name: 'title', type: 'single-line-text' }],
+          },
         ],
       })
       await executeQuery(`
@@ -160,7 +164,11 @@ test.describe('Update record', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          { id: 4, name: 'projects', fields: [{ id: 1, name: 'name', type: 'single-line-text' }] },
+          {
+            id: 4,
+            name: 'projects',
+            fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+          },
         ],
       })
       await executeQuery(`

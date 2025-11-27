@@ -16,7 +16,11 @@ test.describe('Color Field', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          { id: 1, name: 'themes', fields: [{ id: 1, name: 'primary_color', type: 'color' }] },
+          {
+            id: 1,
+            name: 'themes',
+            fields: [{ id: 1, name: 'primary_color', type: 'color' }],
+          },
         ],
       })
       // WHEN: querying the database
@@ -35,7 +39,13 @@ test.describe('Color Field', () => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
-        tables: [{ id: 2, name: 'colors', fields: [{ id: 1, name: 'value', type: 'color' }] }],
+        tables: [
+          {
+            id: 2,
+            name: 'colors',
+            fields: [{ id: 1, name: 'value', type: 'color' }],
+          },
+        ],
       })
       // WHEN: executing query
       await expect(executeQuery("INSERT INTO colors (value) VALUES ('invalid')")).rejects.toThrow(
@@ -51,7 +61,13 @@ test.describe('Color Field', () => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
-        tables: [{ id: 3, name: 'palettes', fields: [{ id: 1, name: 'color', type: 'color' }] }],
+        tables: [
+          {
+            id: 3,
+            name: 'palettes',
+            fields: [{ id: 1, name: 'color', type: 'color' }],
+          },
+        ],
       })
       // WHEN: executing query
       await executeQuery("INSERT INTO palettes (color) VALUES ('#FF5733'), ('#3498DB')")
@@ -70,7 +86,11 @@ test.describe('Color Field', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          { id: 4, name: 'items', fields: [{ id: 1, name: 'accent_color', type: 'color' }] },
+          {
+            id: 4,
+            name: 'items',
+            fields: [{ id: 1, name: 'accent_color', type: 'color' }],
+          },
         ],
       })
       // WHEN: executing query
@@ -111,7 +131,13 @@ test.describe('Color Field', () => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
-        tables: [{ id: 6, name: 'data', fields: [{ id: 1, name: 'color', type: 'color' }] }],
+        tables: [
+          {
+            id: 6,
+            name: 'data',
+            fields: [{ id: 1, name: 'color', type: 'color' }],
+          },
+        ],
       })
       // WHEN: executing query
       await executeQuery("INSERT INTO data (color) VALUES ('#ABCDEF')")

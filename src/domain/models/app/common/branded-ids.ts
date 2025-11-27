@@ -21,72 +21,63 @@ const BaseNumericIdSchema = Schema.Int.pipe(
 )
 
 /**
- * Table ID - Branded type for table identifiers
+ * Table ID - Numeric identifier for tables
  *
  * Unique identifier for tables within an application.
- * Branded to prevent accidentally using a FieldId where a TableId is expected.
+ * Simple positive integer - structural typing provides sufficient type safety.
  *
  * @example
  * ```typescript
- * const tableId: TableId = 1 as TableId
- * // Type error: Cannot assign FieldId to TableId
- * const wrong: TableId = fieldId
+ * const table = { id: 1, name: 'users', fields: [] }
  * ```
  */
 export const TableIdSchema = BaseNumericIdSchema.pipe(
-  Schema.brand('TableId'),
   Schema.annotations({
     identifier: 'TableId',
     title: 'Table ID',
-    description: 'Unique identifier for a table (branded type). Examples: 1, 2, 100',
+    description: 'Unique identifier for a table. Examples: 1, 2, 100',
   })
 )
 
 export type TableId = Schema.Schema.Type<typeof TableIdSchema>
 
 /**
- * Field ID - Branded type for field identifiers
+ * Field ID - Numeric identifier for fields
  *
  * Unique identifier for fields within a table.
  * Field IDs are unique within their parent table, not globally.
  *
  * @example
  * ```typescript
- * const fieldId: FieldId = 1 as FieldId
- * // Type error: Cannot assign TableId to FieldId
- * const wrong: FieldId = tableId
+ * const field = { id: 1, name: 'email', type: 'email' }
  * ```
  */
 export const FieldIdSchema = BaseNumericIdSchema.pipe(
-  Schema.brand('FieldId'),
   Schema.annotations({
     identifier: 'FieldId',
     title: 'Field ID',
-    description:
-      'Unique identifier for a field within a table (branded type). Examples: 1, 2, 3, 100',
+    description: 'Unique identifier for a field within a table. Examples: 1, 2, 3, 100',
   })
 )
 
 export type FieldId = Schema.Schema.Type<typeof FieldIdSchema>
 
 /**
- * Record ID - Branded type for record identifiers
+ * Record ID - Numeric identifier for records
  *
  * Unique identifier for records within a table.
  * Record IDs are unique within their parent table.
  *
  * @example
  * ```typescript
- * const recordId: RecordId = 1 as RecordId
+ * const record = { id: 1, data: { ... } }
  * ```
  */
 export const RecordIdSchema = BaseNumericIdSchema.pipe(
-  Schema.brand('RecordId'),
   Schema.annotations({
     identifier: 'RecordId',
     title: 'Record ID',
-    description:
-      'Unique identifier for a record within a table (branded type). Examples: 1, 2, 3, 1000',
+    description: 'Unique identifier for a record within a table. Examples: 1, 2, 3, 1000',
   })
 )
 
@@ -219,48 +210,3 @@ export const BrandedViewIdSchema = Schema.String.pipe(
 )
 
 export type BrandedViewId = Schema.Schema.Type<typeof BrandedViewIdSchema>
-
-/**
- * Helper functions to create branded IDs
- *
- * These functions use type assertions to convert plain values to branded types.
- * Use these in test fixtures and production code where you have trusted numeric IDs.
- *
- * For untrusted input, use Schema.decodeUnknownSync(TableIdSchema)(value) instead.
- */
-
-/**
- * Create a branded TableId from a plain number
- *
- * @param id - Positive integer >= 1
- * @returns Branded TableId
- *
- * @example
- * ```typescript
- * const tableId = makeTableId(1)
- * const table: Table = { id: tableId, name: 'users', fields: [] }
- * ```
- */
-export const makeTableId = (id: number): TableId => id as unknown as TableId
-
-/**
- * Create a branded FieldId from a plain number
- *
- * @param id - Positive integer >= 1
- * @returns Branded FieldId
- *
- * @example
- * ```typescript
- * const fieldId = makeFieldId(1)
- * const field = { id: fieldId, name: 'email', type: 'email' }
- * ```
- */
-export const makeFieldId = (id: number): FieldId => id as unknown as FieldId
-
-/**
- * Create a branded RecordId from a plain number
- *
- * @param id - Positive integer >= 1
- * @returns Branded RecordId
- */
-export const makeRecordId = (id: number): RecordId => id as unknown as RecordId

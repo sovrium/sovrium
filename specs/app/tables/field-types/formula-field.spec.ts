@@ -280,7 +280,13 @@ test.describe('Formula Field', () => {
             name: 'invoices',
             fields: [
               { id: 1, name: 'due_date', type: 'date', required: true },
-              { id: 2, name: 'paid', type: 'checkbox', required: true, default: false },
+              {
+                id: 2,
+                name: 'paid',
+                type: 'checkbox',
+                required: true,
+                default: false,
+              },
               {
                 id: 3,
                 name: 'is_overdue',

@@ -152,7 +152,12 @@ export const AppSchema = Schema.Struct({
             id: 1,
             name: 'tasks',
             fields: [
-              { id: 1, name: 'title', type: 'single-line-text' as const, required: true },
+              {
+                id: 1,
+                name: 'title',
+                type: 'single-line-text' as const,
+                required: true,
+              },
               { id: 2, name: 'completed', type: 'checkbox' as const, required: true },
             ],
           },

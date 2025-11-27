@@ -129,7 +129,13 @@ test.describe('Integer Field', () => {
             name: 'orders',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'order_number', type: 'integer', unique: true, required: true },
+              {
+                id: 2,
+                name: 'order_number',
+                type: 'integer',
+                unique: true,
+                required: true,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },

@@ -231,7 +231,11 @@ test.describe('List records in table', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          { id: 5, name: 'items', fields: [{ id: 1, name: 'name', type: 'single-line-text' }] },
+          {
+            id: 5,
+            name: 'items',
+            fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+          },
         ],
       })
 
@@ -529,7 +533,11 @@ test.describe('List records in table', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          { id: 12, name: 'projects', fields: [{ id: 1, name: 'name', type: 'single-line-text' }] },
+          {
+            id: 12,
+            name: 'projects',
+            fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+          },
         ],
       })
 
@@ -549,7 +557,11 @@ test.describe('List records in table', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          { id: 13, name: 'confidential', fields: [{ id: 1, name: 'data', type: 'long-text' }] },
+          {
+            id: 13,
+            name: 'confidential',
+            fields: [{ id: 1, name: 'data', type: 'long-text' }],
+          },
         ],
       })
 

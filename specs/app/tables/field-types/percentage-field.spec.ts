@@ -115,7 +115,13 @@ test.describe('Percentage Field', () => {
             name: 'scores',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'score', type: 'percentage', unique: true, required: true },
+              {
+                id: 2,
+                name: 'score',
+                type: 'percentage',
+                unique: true,
+                required: true,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },
@@ -194,7 +200,13 @@ test.describe('Percentage Field', () => {
             name: 'reviews',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'rating', type: 'percentage', required: true, indexed: true },
+              {
+                id: 2,
+                name: 'rating',
+                type: 'percentage',
+                required: true,
+                indexed: true,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },

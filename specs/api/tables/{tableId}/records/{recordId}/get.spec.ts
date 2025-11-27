@@ -133,7 +133,11 @@ test.describe('Get record by ID', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          { id: 4, name: 'confidential', fields: [{ id: 1, name: 'data', type: 'long-text' }] },
+          {
+            id: 4,
+            name: 'confidential',
+            fields: [{ id: 1, name: 'data', type: 'long-text' }],
+          },
         ],
       })
       await executeQuery(`

@@ -117,7 +117,15 @@ test.describe('Array Field', () => {
           {
             id: 3,
             name: 'datasets',
-            fields: [{ id: 1, name: 'numbers', type: 'array', itemType: 'integer', maxItems: 10 }],
+            fields: [
+              {
+                id: 1,
+                name: 'numbers',
+                type: 'array',
+                itemType: 'integer',
+                maxItems: 10,
+              },
+            ],
           },
         ],
       })
@@ -153,7 +161,15 @@ test.describe('Array Field', () => {
           {
             id: 4,
             name: 'documents',
-            fields: [{ id: 1, name: 'categories', type: 'array', itemType: 'text', indexed: true }],
+            fields: [
+              {
+                id: 1,
+                name: 'categories',
+                type: 'array',
+                itemType: 'text',
+                indexed: true,
+              },
+            ],
           },
         ],
       })

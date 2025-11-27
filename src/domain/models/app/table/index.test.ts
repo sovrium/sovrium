@@ -42,7 +42,13 @@ describe('TableSchema', () => {
         name: 'products',
         fields: [
           { id: 1, name: 'title', type: 'single-line-text' as const, required: true },
-          { id: 2, name: 'price', type: 'currency' as const, required: true, currency: 'USD' },
+          {
+            id: 2,
+            name: 'price',
+            type: 'currency' as const,
+            required: true,
+            currency: 'USD',
+          },
           { id: 3, name: 'description', type: 'long-text' as const, required: false },
         ],
       }

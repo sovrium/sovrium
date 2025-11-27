@@ -145,7 +145,13 @@ describe('TablesSchema', () => {
           fields: [
             { id: 1, name: 'integer', type: 'integer' as const },
             { id: 2, name: 'decimal', type: 'decimal' as const, precision: 2 },
-            { id: 3, name: 'currency', type: 'currency' as const, currency: 'USD', precision: 2 },
+            {
+              id: 3,
+              name: 'currency',
+              type: 'currency' as const,
+              currency: 'USD',
+              precision: 2,
+            },
             { id: 4, name: 'percentage', type: 'percentage' as const, precision: 1 },
           ],
         },

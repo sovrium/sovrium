@@ -196,7 +196,13 @@ test.describe('Geolocation Field', () => {
             id: 5,
             name: 'addresses',
             fields: [
-              { id: 1, name: 'location', type: 'geolocation', required: true, unique: true },
+              {
+                id: 1,
+                name: 'location',
+                type: 'geolocation',
+                required: true,
+                unique: true,
+              },
             ],
           },
         ],

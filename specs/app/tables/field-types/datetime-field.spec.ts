@@ -186,7 +186,13 @@ test.describe('DateTime Field', () => {
             name: 'logs',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'created_at', type: 'datetime', required: true, indexed: true },
+              {
+                id: 2,
+                name: 'created_at',
+                type: 'datetime',
+                required: true,
+                indexed: true,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },
@@ -223,7 +229,13 @@ test.describe('DateTime Field', () => {
             name: 'data',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'datetime_field', type: 'datetime', required: true, indexed: true },
+              {
+                id: 2,
+                name: 'datetime_field',
+                type: 'datetime',
+                required: true,
+                indexed: true,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },

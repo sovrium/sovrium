@@ -184,7 +184,13 @@ test.describe('Date Field', () => {
             name: 'orders',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'created_date', type: 'date', required: true, indexed: true },
+              {
+                id: 2,
+                name: 'created_date',
+                type: 'date',
+                required: true,
+                indexed: true,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },
@@ -221,7 +227,13 @@ test.describe('Date Field', () => {
             name: 'data',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'date_field', type: 'date', required: true, indexed: true },
+              {
+                id: 2,
+                name: 'date_field',
+                type: 'date',
+                required: true,
+                indexed: true,
+              },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },
