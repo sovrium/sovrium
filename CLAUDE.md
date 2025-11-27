@@ -42,6 +42,19 @@
 | **TanStack Query** | ^5.90.11 | Server state management |
 | **TanStack Table** | ^8.21.3 | Data tables |
 
+## Authorization & Multi-Tenancy
+
+**Strategy**: RBAC (Role-Based Access Control) + Field-Level Permissions + Organization Isolation
+
+| Concept | Description |
+|---------|-------------|
+| **Roles** | owner, admin, member, viewer (4 default roles per organization) |
+| **Organization Isolation** | Multi-tenant with `organization_id` filtering on all queries |
+| **Field-Level Permissions** | Granular read/write control per field based on role |
+| **Security** | Return 404 for cross-org access attempts (prevents enumeration) |
+
+**Documentation**: See `@docs/architecture/patterns/authorization-*.md` (7 comprehensive guides)
+
 ## Essential Commands
 
 ```bash
