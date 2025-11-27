@@ -29,7 +29,7 @@ test.describe('Data Tables', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-001: should create PostgreSQL table with columns when table configuration is applied',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
