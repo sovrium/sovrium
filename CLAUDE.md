@@ -1,10 +1,10 @@
-# CLAUDE.md - Sovrium™ Project Documentation
+# CLAUDE.md - Sovrium Project Documentation
 
 > **Note**: This is a streamlined version. Detailed documentation is available in `docs/` directory and imported on-demand when needed.
 
 ## Project Context
 
-**Vision**: Sovrium™ aims to be a configuration-driven application platform (see `@docs/specifications/vision.md` for full vision)
+**Vision**: Sovrium aims to be a configuration-driven application platform (see `@docs/specifications/vision.md` for full vision)
 **Current Status**: Phase 0 - Foundation (minimal schema with metadata only)
 **Implementation Progress**: See `ROADMAP.md` for detailed feature tracking and development phases
 
@@ -12,7 +12,7 @@
 
 ## Quick Reference
 
-**Project**: Sovrium™ (npm package: "sovrium")
+**Project**: Sovrium (npm package: "sovrium")
 **Legal Entity**: ESSENTIAL SERVICES (copyright holder & trademark owner)
 **Version**: 0.0.1 (managed by semantic-release)
 **License**: Business Source License 1.1 (BSL 1.1)
@@ -498,7 +498,7 @@ To track your token usage and cost:
 
 **License**: Business Source License 1.1 (BSL 1.1)
 - **Copyright**: ESSENTIAL SERVICES (legal entity, owns the code)
-- **Trademark**: Sovrium™ is a trademark of ESSENTIAL SERVICES (registered in France)
+- **Trademark**: Sovrium is a trademark of ESSENTIAL SERVICES (registered in France)
 - **Free for**: Internal business use, personal projects, educational purposes, non-competing client deployments
 - **NOT allowed**: Commercial hosted/managed services to third parties (requires commercial license)
 - **Change Date**: 2029-01-01 (automatically becomes Apache License 2.0)

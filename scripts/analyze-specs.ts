@@ -138,6 +138,7 @@ const TODO_PATTERN = /\/\/\s*TODO[:\s](.+?)(?:\n|$)/gi
 
 const SPECS_DIR = join(process.cwd(), 'specs')
 const OUTPUT_FILE = join(process.cwd(), 'SPEC-STATE.md')
+const README_FILE = join(process.cwd(), 'README.md')
 
 // =============================================================================
 // Analysis Functions
@@ -969,6 +970,34 @@ async function main() {
     parser: 'markdown',
   })
   await writeFile(OUTPUT_FILE, formattedMarkdown)
+
+  // Update README badges with current progress
+  const progressPercent = Math.round((totalPassing / Math.max(totalTests, 1)) * 100)
+  const readmeContent = await readFile(README_FILE, 'utf-8')
+
+  // URL-encode the badge values
+  const specsBadge = `specs-${progressPercent}%25%20(${totalPassing}%2F${totalTests})-blue`
+  const qualityBadge = `quality-${qualityScore}%25-brightgreen`
+
+  // Update badges using regex
+  const updatedReadme = readmeContent
+    .replace(
+      /\[!\[Spec Progress\]\(https:\/\/img\.shields\.io\/badge\/specs-[^\)]+\)\]/,
+      `[![Spec Progress](https://img.shields.io/badge/${specsBadge})]`
+    )
+    .replace(
+      /\[!\[Quality Score\]\(https:\/\/img\.shields\.io\/badge\/quality-[^\)]+\)\]/,
+      `[![Quality Score](https://img.shields.io/badge/${qualityBadge})]`
+    )
+
+  if (updatedReadme !== readmeContent) {
+    const formattedReadme = await prettier.format(updatedReadme, {
+      ...prettierConfig,
+      parser: 'markdown',
+    })
+    await writeFile(README_FILE, formattedReadme)
+    console.log(`✅ Updated: ${README_FILE}`)
+  }
 
   // Console output
   console.log('')

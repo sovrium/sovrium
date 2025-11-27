@@ -216,7 +216,7 @@ export const termsOfService: Page = {
                 },
                 {
                   type: 'paragraph',
-                  content: 'Sovrium™ is a registered trademark of ESSENTIAL SERVICES. You may:',
+                  content: 'Sovrium is a registered trademark of ESSENTIAL SERVICES. You may:',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -636,7 +636,7 @@ export const termsOfService: Page = {
             {
               type: 'paragraph',
               content:
-                '© 2025 ESSENTIAL SERVICES. Sovrium™ is a trademark of ESSENTIAL SERVICES.',
+                '© 2025 ESSENTIAL SERVICES. Sovrium is a trademark of ESSENTIAL SERVICES.',
               props: { className: 'text-sovereignty-gray-500 text-sm' },
             },
           ],

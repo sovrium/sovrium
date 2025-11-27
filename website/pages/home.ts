@@ -49,7 +49,7 @@ export const home: Page = {
           children: [
             {
               type: 'h1',
-              content: 'Sovrium™',
+              content: 'Sovrium',
               props: {
                 className:
                   'text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-6 bg-gradient-to-r from-sovereignty-accent to-sovereignty-teal bg-clip-text text-transparent',
@@ -1426,7 +1426,7 @@ export const home: Page = {
             {
               type: 'paragraph',
               content:
-                '© 2025 ESSENTIAL SERVICES. Sovrium™ is a trademark of ESSENTIAL SERVICES.',
+                '© 2025 ESSENTIAL SERVICES. Sovrium is a trademark of ESSENTIAL SERVICES.',
               props: { className: 'text-sovereignty-gray-500 text-sm' },
             },
           ],
