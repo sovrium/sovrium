@@ -96,7 +96,8 @@ const generateColumnDefinition = (field: Fields[number], isPrimaryKey: boolean):
   }
 
   const columnType = mapFieldTypeToPostgres(field)
-  const notNull = 'required' in field && field.required ? ' NOT NULL' : ''
+  // Primary key fields must always be NOT NULL, otherwise use the required flag
+  const notNull = isPrimaryKey || ('required' in field && field.required) ? ' NOT NULL' : ''
   return `${field.name} ${columnType}${notNull}`
 }
 
@@ -154,8 +155,11 @@ const generateCreateTableSQL = (table: Table): string => {
   // Check if an 'id' field already exists in the fields array
   const hasIdField = table.fields.some((field) => field.name === 'id')
 
-  // Add automatic id column if not explicitly defined
-  const idColumnDefinition = hasIdField ? [] : ['id SERIAL NOT NULL']
+  // Check if a custom primary key is defined
+  const hasCustomPrimaryKey = table.primaryKey && primaryKeyFields.length > 0
+
+  // Add automatic id column only if not explicitly defined AND no custom primary key
+  const idColumnDefinition = hasIdField || hasCustomPrimaryKey ? [] : ['id SERIAL NOT NULL']
 
   const columnDefinitions = table.fields.map((field) => {
     const isPrimaryKey = primaryKeyFields.includes(field.name)
@@ -167,7 +171,7 @@ const generateCreateTableSQL = (table: Table): string => {
 
   // If no explicit primary key is defined, add PRIMARY KEY on id
   const primaryKeyConstraint =
-    tableConstraints.length === 0 && !hasIdField ? ['PRIMARY KEY (id)'] : []
+    !hasCustomPrimaryKey && !hasIdField ? ['PRIMARY KEY (id)'] : []
 
   const allDefinitions = [
     ...idColumnDefinition,
