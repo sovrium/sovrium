@@ -3,17 +3,17 @@
 ## Overview
 
 **Purpose**: Schema validation library for OpenAPI API contracts and client-side forms
-**Scope**: Limited to `src/domain/models/api/` and `src/presentation/` (client forms)
+**Scope**: Limited to `src/presentation/api/schemas/` and `src/presentation/` (client forms)
 **Enforced By**: ESLint boundaries (lines 1086-1120 in eslint.config.ts)
 
 ## Critical Architectural Decision: Zod vs Effect Schema
 
 **Sovrium uses two validation libraries with strict separation**:
 
-| Library           | Version | Usage                     | Allowed Locations                     | Why                                |
-| ----------------- | ------- | ------------------------- | ------------------------------------- | ---------------------------------- |
-| **Effect Schema** | 3.19.5  | Server validation, domain | All `src/` files (default)            | Project standard, Effect ecosystem |
-| **Zod**           | 4.1.12  | OpenAPI + client forms    | `src/domain/models/api/` + forms only | OpenAPI tooling compatibility      |
+| Library           | Version | Usage                     | Allowed Locations                            | Why                                |
+| ----------------- | ------- | ------------------------- | -------------------------------------------- | ---------------------------------- |
+| **Effect Schema** | 3.19.5  | Server validation, domain | All `src/` files (default)                   | Project standard, Effect ecosystem |
+| **Zod**           | 4.1.12  | OpenAPI + client forms    | `src/presentation/api/schemas/` + forms only | OpenAPI tooling compatibility      |
 
 **Why This Separation Exists**:
 
@@ -42,7 +42,7 @@ bun add @hookform/resolvers    # 5.2.2 - React Hook Form + Zod integration
 {
   files: ['src/**/*.{ts,tsx}'],
   ignores: [
-    'src/domain/models/api/**/*.{ts,tsx}', // Exception for API models
+    'src/presentation/api/schemas/**/*.{ts,tsx}', // Exception for API models
     'src/presentation/**/*.{ts,tsx}', // Exception for presentation layer
   ],
   rules: {
@@ -52,11 +52,11 @@ bun add @hookform/resolvers    # 5.2.2 - React Hook Form + Zod integration
         paths: [
           {
             name: 'zod',
-            message: 'Zod is restricted in src/ - use Effect Schema for server validation. EXCEPTIONS: Zod is allowed in src/domain/models/api for OpenAPI/Hono integration AND src/presentation for client forms.'
+            message: 'Zod is restricted in src/ - use Effect Schema for server validation. EXCEPTIONS: Zod is allowed in src/presentation/api/schemas for OpenAPI/Hono integration AND src/presentation for client forms.'
           },
           {
             name: '@hono/zod-validator',
-            message: 'Zod validator is restricted - use Effect Schema. EXCEPTION: Allowed in src/domain/models/api and src/presentation/api/routes for API validation.'
+            message: 'Zod validator is restricted - use Effect Schema. EXCEPTION: Allowed in src/presentation/api/schemas and src/presentation/api/routes for API validation.'
           }
         ]
       }
@@ -68,9 +68,9 @@ bun add @hookform/resolvers    # 5.2.2 - React Hook Form + Zod integration
 ### Exception Rules (eslint.config.ts lines 1128-1147)
 
 ```typescript
-// API models in src/domain/models/api can use Zod for OpenAPI/Hono integration
+// API models in src/presentation/api/schemas can use Zod for OpenAPI/Hono integration
 {
-  files: ['src/domain/models/api/**/*.{ts,tsx}'],
+  files: ['src/presentation/api/schemas/**/*.{ts,tsx}'],
   rules: {
     'no-restricted-imports': 'off', // Allow Zod and @hono/zod-validator
   }
@@ -89,12 +89,12 @@ bun add @hookform/resolvers    # 5.2.2 - React Hook Form + Zod integration
 
 ### ✅ Allowed Locations
 
-| Location                               | Purpose                        | Imports Allowed                     |
-| -------------------------------------- | ------------------------------ | ----------------------------------- |
-| `src/domain/models/api/*-schemas.ts`   | OpenAPI API contracts          | `zod`, `@hono/zod-openapi`          |
-| `src/presentation/api/routes/*.ts`     | API route request validation   | `@hono/zod-validator`               |
-| `src/presentation/components/**/*.tsx` | Client-side form validation    | `zod`, `@hookform/resolvers`        |
-| `src/presentation/hooks/*.ts`          | Form hooks with Zod validation | `zod`, `react-hook-form`, resolvers |
+| Location                                    | Purpose                        | Imports Allowed                     |
+| ------------------------------------------- | ------------------------------ | ----------------------------------- |
+| `src/presentation/api/schemas/*-schemas.ts` | OpenAPI API contracts          | `zod`, `@hono/zod-openapi`          |
+| `src/presentation/api/routes/*.ts`          | API route request validation   | `@hono/zod-validator`               |
+| `src/presentation/components/**/*.tsx`      | Client-side form validation    | `zod`, `@hookform/resolvers`        |
+| `src/presentation/hooks/*.ts`               | Form hooks with Zod validation | `zod`, `react-hook-form`, resolvers |
 
 ### ❌ Forbidden Locations
 
@@ -111,10 +111,10 @@ bun add @hookform/resolvers    # 5.2.2 - React Hook Form + Zod integration
 
 ### 1. Server API Models (OpenAPI Integration)
 
-**File**: `src/domain/models/api/*-schemas.ts`
+**File**: `src/presentation/api/schemas/*-schemas.ts`
 
 ```typescript
-// src/domain/models/api/user-schemas.ts
+// src/presentation/api/schemas/user-schemas.ts
 import { z } from 'zod'
 
 /**
@@ -178,7 +178,7 @@ import {
   createUserRequestSchema,
   updateUserRequestSchema,
   type UserResponse,
-} from '@/domain/models/api/user-schemas'
+} from '@/presentation/api/schemas/user-schemas'
 
 export const createUsersRoute = () => {
   const route = new Hono()
@@ -301,7 +301,10 @@ Exports OpenAPI schema to `schemas/{version}/app.openapi.json` for:
 ```typescript
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
 import { z } from 'zod'
-import { userResponseSchema, createUserRequestSchema } from '@/domain/models/api/user-schemas'
+import {
+  userResponseSchema,
+  createUserRequestSchema,
+} from '@/presentation/api/schemas/user-schemas'
 
 const createOpenApiApp = () => {
   const app = new OpenAPIHono()
@@ -517,7 +520,7 @@ export const TableSchema = Schema.Struct({
 
 export type Table = typeof TableSchema.Type
 
-// src/domain/models/api/table-schemas.ts (Zod)
+// src/presentation/api/schemas/table-schemas.ts (Zod)
 import { z } from 'zod'
 
 export const tableResponseSchema = z.object({
@@ -533,7 +536,7 @@ export type TableResponse = z.infer<typeof tableResponseSchema>
 import { Effect } from 'effect'
 import { Hono } from 'hono'
 import { TableSchema, type Table } from '@/domain/models/table'
-import { tableResponseSchema, type TableResponse } from '@/domain/models/api/table-schemas'
+import { tableResponseSchema, type TableResponse } from '@/presentation/api/schemas/table-schemas'
 
 export const createTablesRoute = () => {
   const route = new Hono()
@@ -576,7 +579,7 @@ export const createTablesRoute = () => {
 | ------------------------------ | --------------------- | ----------------------------------- | --------------------------- |
 | Domain model validation        | Effect Schema         | `src/domain/models/*.ts`            | Project standard            |
 | Business logic validation      | Effect Schema         | `src/domain/validators/*.ts`        | Type safety + DI            |
-| API request/response contracts | Zod                   | `src/domain/models/api/*.ts`        | OpenAPI tooling requirement |
+| API request/response contracts | Zod                   | `src/presentation/api/schemas/*.ts` | OpenAPI tooling requirement |
 | API route validation           | `@hono/zod-validator` | `src/presentation/api/routes/*.ts`  | OpenAPI integration         |
 | Client-side forms              | Zod                   | `src/presentation/components/*.tsx` | React Hook Form integration |
 | Database models                | Drizzle Schema        | `src/infrastructure/database/*.ts`  | ORM requirement             |
@@ -586,18 +589,18 @@ export const createTablesRoute = () => {
 
 ### 1. Single Source of Truth
 
-✅ **Do**: Define Zod schemas once in `src/domain/models/api/`, import everywhere
+✅ **Do**: Define Zod schemas once in `src/presentation/api/schemas/`, import everywhere
 
 ```typescript
-// src/domain/models/api/user-schemas.ts
+// src/presentation/api/schemas/user-schemas.ts
 export const userSchema = z.object({ name: z.string() })
 
 // src/presentation/api/routes/users.ts
-import { userSchema } from '@/domain/models/api/user-schemas'
+import { userSchema } from '@/presentation/api/schemas/user-schemas'
 route.post('/', zValidator('json', userSchema), ...)
 
 // src/presentation/api/openapi-schema.ts
-import { userSchema } from '@/domain/models/api/user-schemas'
+import { userSchema } from '@/presentation/api/schemas/user-schemas'
 const createUserRoute = createRoute({
   request: { body: { content: { 'application/json': { schema: userSchema } } } }
 })
@@ -740,12 +743,12 @@ const userSchema = z.object({
 
 ```
 Zod is restricted in src/ - use Effect Schema for server validation.
-EXCEPTION: Zod is allowed in src/domain/models/api for OpenAPI/Hono integration.
+EXCEPTION: Zod is allowed in src/presentation/api/schemas for OpenAPI/Hono integration.
 ```
 
 **Solutions**:
 
-1. **For API schemas**: Move to `src/domain/models/api/*-schemas.ts`
+1. **For API schemas**: Move to `src/presentation/api/schemas/*-schemas.ts`
 2. **For domain models**: Use Effect Schema instead
 3. **For validation**: Use Effect Schema in application layer
 

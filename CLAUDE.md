@@ -34,7 +34,7 @@
 | **Effect** | ^3.19.6 | Functional programming, DI, error handling |
 | **Effect Schema** | ^3.19.6 | Server validation (domain/application/infrastructure) |
 | **Hono** | ^4.10.7 | Web framework (API routes, RPC client, OpenAPI) |
-| **Zod** | ^4.1.13 | OpenAPI integration ONLY (src/domain/models/api/) + client forms |
+| **Zod** | ^4.1.13 | OpenAPI integration ONLY (src/presentation/api/schemas/) + client forms |
 | **Better Auth** | 1.3.34 | Authentication |
 | **Drizzle ORM** | ^0.44.7 | Database (PostgreSQL via bun:sql) |
 | **React** | 19.2.0 | UI library |

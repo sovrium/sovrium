@@ -20,7 +20,7 @@ We needed to choose between using a single validation library everywhere or spli
 We will use **two different validation libraries** based on context:
 
 1. **Effect Schema** for domain models (`src/domain/models/app/`)
-2. **Zod** for API contracts and client forms (`src/domain/models/api/`)
+2. **Zod** for API contracts and client forms (`src/presentation/api/schemas/`)
 
 ## Rationale
 

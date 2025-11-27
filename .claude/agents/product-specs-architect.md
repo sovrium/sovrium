@@ -89,7 +89,7 @@ You are an elite Product Specifications Architect for the Sovrium project. You s
 - Ensure schemas follow the layer-based architecture (Domain layer = pure business logic)
 - Apply DRY principles - single source of truth for all data structures
 - Use branded types and refinements for domain validation
-- Coordinate with Zod schemas in domain/models/api for OpenAPI integration
+- Coordinate with Zod schemas in presentation/api/schemas for OpenAPI integration
 
 ### 2. E2E Test Specification Creation
 - Design comprehensive E2E tests in `specs/` directory using Playwright
@@ -108,7 +108,7 @@ You are an elite Product Specifications Architect for the Sovrium project. You s
 
 **Schema Separation Strategy**:
 - **Effect Schema** (`src/domain/models/app/`): Server-side validation, domain models, business logic
-- **Zod** (`src/domain/models/api/`): OpenAPI integration, API contracts, client-server communication
+- **Zod** (`src/presentation/api/schemas/`): OpenAPI integration, API contracts, client-server communication
 - **When both needed**: Domain model uses Effect Schema, API endpoint uses Zod (converted from Effect Schema if possible)
 
 1. **Effect Schema First**: Use Effect Schema for server-side validation

@@ -63,15 +63,15 @@ export default [
     },
   },
 
-  // Zod Restriction - Forbid Zod usage in src/ (except API models and presentation layer)
+  // Zod Restriction - Forbid Zod usage in src/ (except presentation layer)
   // Project standard: Effect Schema for server validation
-  // EXCEPTIONS:
-  // - src/domain/models/api allows Zod for OpenAPI/Hono integration
-  // - src/presentation allows Zod for client forms (React Hook Form)
+  // EXCEPTION: src/presentation allows Zod for:
+  // - API schemas and OpenAPI/Hono integration (src/presentation/api/schemas)
+  // - Client forms (React Hook Form)
+  // - API route validation (@hono/zod-validator)
   {
     files: ['src/**/*.{ts,tsx}'],
     ignores: [
-      'src/domain/models/api/**/*.{ts,tsx}', // Exception for API models
       'src/presentation/**/*.{ts,tsx}', // Exception for presentation layer (forms, API routes, OpenAPI)
     ],
     rules: {
@@ -82,25 +82,16 @@ export default [
             {
               name: 'zod',
               message:
-                'Zod is restricted in src/ - use Effect Schema for server validation. EXCEPTIONS: Zod is allowed in src/domain/models/api for OpenAPI/Hono integration AND src/presentation for client forms.',
+                'Zod is restricted in src/ - use Effect Schema for server validation. EXCEPTION: Zod is allowed in src/presentation for OpenAPI/Hono integration and client forms.',
             },
             {
               name: '@hono/zod-validator',
               message:
-                'Zod validator is restricted in src/ - use Effect Schema for validation. EXCEPTION: @hono/zod-validator is allowed in src/domain/models/api and src/presentation/api/routes for API validation.',
+                'Zod validator is restricted in src/ - use Effect Schema for validation. EXCEPTION: @hono/zod-validator is allowed in src/presentation/api/routes for API validation.',
             },
           ],
         },
       ],
-    },
-  },
-
-  // Zod Allowed - API models exception
-  // API models in src/domain/models/api can use Zod for OpenAPI/Hono integration
-  {
-    files: ['src/domain/models/api/**/*.{ts,tsx}'],
-    rules: {
-      'no-restricted-imports': 'off', // Allow Zod and @hono/zod-validator imports
     },
   },
 

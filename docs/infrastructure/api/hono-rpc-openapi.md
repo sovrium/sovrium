@@ -10,10 +10,10 @@ Sovrium uses a **dual-track API architecture** that provides both type-safe RPC 
 
 **Sovrium uses two validation libraries with strict separation**:
 
-| Library           | Version | Usage                            | Allowed Locations                                         | Enforced By       |
-| ----------------- | ------- | -------------------------------- | --------------------------------------------------------- | ----------------- |
-| **Effect Schema** | 3.19.5  | Server validation, domain models | All `src/` files                                          | Project standard  |
-| **Zod**           | 4.1.12  | OpenAPI integration ONLY         | `src/domain/models/api/` + `src/presentation/api/routes/` | ESLint boundaries |
+| Library           | Version | Usage                            | Allowed Locations                                                | Enforced By       |
+| ----------------- | ------- | -------------------------------- | ---------------------------------------------------------------- | ----------------- |
+| **Effect Schema** | 3.19.5  | Server validation, domain models | All `src/` files                                                 | Project standard  |
+| **Zod**           | 4.1.12  | OpenAPI integration ONLY         | `src/presentation/api/schemas/` + `src/presentation/api/routes/` | ESLint boundaries |
 
 **Why This Separation Exists**:
 
@@ -28,7 +28,7 @@ Sovrium uses a **dual-track API architecture** that provides both type-safe RPC 
 // Zod is FORBIDDEN in src/ except specific API directories
 {
   files: ['src/**/*.{ts,tsx}'],
-  ignores: ['src/domain/models/api/**/*.{ts,tsx}'], // Exception
+  ignores: ['src/presentation/api/schemas/**/*.{ts,tsx}'], // Exception
   rules: {
     'no-restricted-imports': [
       'error',
@@ -36,11 +36,11 @@ Sovrium uses a **dual-track API architecture** that provides both type-safe RPC 
         paths: [
           {
             name: 'zod',
-            message: 'Zod is restricted in src/ - use Effect Schema for server validation. EXCEPTION: Zod is allowed in src/domain/models/api for OpenAPI/Hono integration.'
+            message: 'Zod is restricted in src/ - use Effect Schema for server validation. EXCEPTION: Zod is allowed in src/presentation/api/schemas for OpenAPI/Hono integration.'
           },
           {
             name: '@hono/zod-validator',
-            message: 'Zod validator is restricted - use Effect Schema. EXCEPTION: Allowed in src/domain/models/api for API routes.'
+            message: 'Zod validator is restricted - use Effect Schema. EXCEPTION: Allowed in src/presentation/api/schemas for API routes.'
           }
         ]
       }
@@ -52,7 +52,7 @@ Sovrium uses a **dual-track API architecture** that provides both type-safe RPC 
 **What This Means for Code Generation**:
 
 - ✅ **Use Effect Schema**: All domain models, validators, and business logic
-- ✅ **Use Zod**: ONLY for `src/domain/models/api/*-schemas.ts` files (OpenAPI contracts)
+- ✅ **Use Zod**: ONLY for `src/presentation/api/schemas/*-schemas.ts` files (OpenAPI contracts)
 - ❌ **Don't use Zod**: Anywhere else in `src/` (ESLint will error)
 - ✅ **Use `@hono/zod-validator`**: ONLY in `src/presentation/api/routes/*.ts` for request validation
 
@@ -61,7 +61,7 @@ Sovrium uses a **dual-track API architecture** that provides both type-safe RPC 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │ SHARED ZOD SCHEMAS (Domain Layer)                                │
-│ src/domain/models/api/*.ts                                       │
+│ src/presentation/api/schemas/*.ts                                       │
 │ - healthResponseSchema                                           │
 │ - tableSchema, recordSchema (future)                            │
 └────────────────┬─────────────────────────────────────────────────┘
@@ -151,13 +151,13 @@ schemas/
 
 ### Step 1: Define Zod Schemas (Domain Layer)
 
-**CRITICAL**: Zod schemas MUST be in `src/domain/models/api/` directory. This is the ONLY location where Zod is allowed (enforced by ESLint).
+**CRITICAL**: Zod schemas MUST be in `src/presentation/api/schemas/` directory. This is the ONLY location where Zod is allowed (enforced by ESLint).
 
-Create shared schemas in `src/domain/models/api/`:
+Create shared schemas in `src/presentation/api/schemas/`:
 
 ```typescript
-// src/domain/models/api/user-schemas.ts
-// NOTE: Zod import is ONLY allowed in src/domain/models/api/ files
+// src/presentation/api/schemas/user-schemas.ts
+// NOTE: Zod import is ONLY allowed in src/presentation/api/schemas/ files
 import { z } from 'zod'
 
 export const userResponseSchema = z.object({
@@ -189,7 +189,7 @@ import {
   userResponseSchema,
   createUserRequestSchema,
   type UserResponse,
-} from '@/domain/models/api/user-schemas'
+} from '@/presentation/api/schemas/user-schemas'
 
 export const createUsersRoute = () => {
   const route = new Hono()
@@ -281,7 +281,10 @@ Update `src/presentation/api/openapi-schema.ts`:
 
 ```typescript
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
-import { userResponseSchema, createUserRequestSchema } from '@/domain/models/api/user-schemas'
+import {
+  userResponseSchema,
+  createUserRequestSchema,
+} from '@/presentation/api/schemas/user-schemas'
 
 const createOpenApiApp = () => {
   const app = new OpenAPIHono()
@@ -559,11 +562,11 @@ const schema2 = z.object({ name: z.string() }) // Duplication!
 ✅ **Do**: Define once in domain layer, import everywhere
 
 ```typescript
-// domain/models/api/schemas.ts
+// presentation/api/schemas/schemas.ts
 export const userSchema = z.object({ name: z.string() })
 
 // Both files import the same schema
-import { userSchema } from '@/domain/models/api/schemas'
+import { userSchema } from '@/presentation/api/schemas/schemas'
 ```
 
 ### 2. Use Effect.gen for All Handlers
@@ -658,12 +661,12 @@ export type ApiAppType = ReturnType<typeof createApiApp>
 
 ```
 Zod is restricted in src/ - use Effect Schema for server validation.
-EXCEPTION: Zod is allowed in src/domain/models/api for OpenAPI/Hono integration.
+EXCEPTION: Zod is allowed in src/presentation/api/schemas for OpenAPI/Hono integration.
 ```
 
 **Solution**:
 
-1. **For API schemas**: Move Zod schema to `src/domain/models/api/*-schemas.ts`
+1. **For API schemas**: Move Zod schema to `src/presentation/api/schemas/*-schemas.ts`
 2. **For domain models**: Use Effect Schema instead of Zod
 3. **For validation**: Use Effect Schema throughout application layer
 
@@ -693,14 +696,14 @@ export const UserSchema = Schema.Struct({
 
 **Quick Decision Guide**:
 
-| Scenario                       | Use                   | Location                                | Why                         |
-| ------------------------------ | --------------------- | --------------------------------------- | --------------------------- |
-| Domain model validation        | Effect Schema         | `src/domain/models/*.ts`                | Project standard            |
-| Business logic validation      | Effect Schema         | `src/domain/validators/*.ts`            | Type safety + DI            |
-| API request/response contracts | Zod                   | `src/domain/models/api/*-schemas.ts`    | OpenAPI tooling requirement |
-| API route validation           | `@hono/zod-validator` | `src/presentation/api/routes/*.ts`      | OpenAPI integration         |
-| Client-side forms              | Zod                   | React Hook Form integration             | Client validation only      |
-| Database models                | Drizzle Schema        | `src/infrastructure/database/schema.ts` | ORM requirement             |
+| Scenario                       | Use                   | Location                                    | Why                         |
+| ------------------------------ | --------------------- | ------------------------------------------- | --------------------------- |
+| Domain model validation        | Effect Schema         | `src/domain/models/*.ts`                    | Project standard            |
+| Business logic validation      | Effect Schema         | `src/domain/validators/*.ts`                | Type safety + DI            |
+| API request/response contracts | Zod                   | `src/presentation/api/schemas/*-schemas.ts` | OpenAPI tooling requirement |
+| API route validation           | `@hono/zod-validator` | `src/presentation/api/routes/*.ts`          | OpenAPI integration         |
+| Client-side forms              | Zod                   | React Hook Form integration                 | Client validation only      |
+| Database models                | Drizzle Schema        | `src/infrastructure/database/schema.ts`     | ORM requirement             |
 
 **Detailed Guidelines**:
 
@@ -729,14 +732,14 @@ export const TableSchema = Schema.Struct({
 
 ### Use Zod When:
 
-- ✅ Defining OpenAPI API contracts in `src/domain/models/api/*-schemas.ts`
+- ✅ Defining OpenAPI API contracts in `src/presentation/api/schemas/*-schemas.ts`
 - ✅ Using `@hono/zod-validator` in `src/presentation/api/routes/*.ts`
 - ✅ Client-side React Hook Form validation (presentation layer only)
 
 **Example**:
 
 ```typescript
-// src/domain/models/api/table-schemas.ts
+// src/presentation/api/schemas/table-schemas.ts
 import { z } from 'zod'
 
 export const tableResponseSchema = z.object({
@@ -752,7 +755,7 @@ export const tableResponseSchema = z.object({
 When you need to convert between Zod (API layer) and Effect Schema (domain layer):
 
 ```typescript
-// src/domain/models/api/table-schemas.ts
+// src/presentation/api/schemas/table-schemas.ts
 import { z } from 'zod'
 import { Schema } from 'effect'
 import { TableSchema } from '@/domain/models/table'

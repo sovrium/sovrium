@@ -56,10 +56,10 @@ React Hook Form manages form state internally and only triggers re-renders when 
 
 Zod is **restricted** in most of `src/` to prevent architectural inconsistency. It's **only allowed** in:
 
-| Location                             | Purpose                   | Why Zod is Allowed            |
-| ------------------------------------ | ------------------------- | ----------------------------- |
-| `src/domain/models/api/*-schemas.ts` | OpenAPI API contracts     | OpenAPI tooling compatibility |
-| `src/presentation/**/*.{ts,tsx}`     | Client forms + API routes | React Hook Form + Hono        |
+| Location                                    | Purpose                   | Why Zod is Allowed            |
+| ------------------------------------------- | ------------------------- | ----------------------------- |
+| `src/presentation/api/schemas/*-schemas.ts` | OpenAPI API contracts     | OpenAPI tooling compatibility |
+| `src/presentation/**/*.{ts,tsx}`            | Client forms + API routes | React Hook Form + Hono        |
 
 **Key Points**:
 

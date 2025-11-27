@@ -11,7 +11,7 @@ Zod is a TypeScript-first schema declaration and validation library. In Sovrium,
 
 While Effect Schema is the primary validation library for domain models, Zod is used in two specific contexts:
 
-1. **OpenAPI Integration** (`src/domain/models/api/`):
+1. **OpenAPI Integration** (`src/presentation/api/schemas/`):
    - Integrates with `@hono/zod-openapi` for automatic OpenAPI spec generation
    - Provides HTTP request/response schemas for API documentation
    - Enables type-safe RPC client generation
@@ -33,7 +33,7 @@ While Effect Schema is the primary validation library for domain models, Zod is 
 
 ### When to Use Zod
 
-- **OpenAPI schemas** (`src/domain/models/api/`)
+- **OpenAPI schemas** (`src/presentation/api/schemas/`)
 - **HTTP request/response contracts**
 - **Client form validation** (with React Hook Form)
 - **API documentation generation**
@@ -43,7 +43,7 @@ While Effect Schema is the primary validation library for domain models, Zod is 
 ### 1. Schema Definition
 
 ```typescript
-// src/domain/models/api/health-schemas.ts
+// src/presentation/api/schemas/health-schemas.ts
 import { z } from 'zod'
 
 // Define schema for API response
@@ -69,7 +69,7 @@ export type HealthResponse = z.infer<typeof HealthResponseSchema>
 ```typescript
 // src/presentation/api/routes/health.ts
 import { createRoute, OpenAPIHono } from '@hono/zod-openapi'
-import { HealthResponseSchema } from '@/domain/models/api/health-schemas'
+import { HealthResponseSchema } from '@/presentation/api/schemas/health-schemas'
 
 const route = createRoute({
   method: 'get',
@@ -154,7 +154,7 @@ export function UserForm() {
 ### Request/Response Schemas
 
 ```typescript
-// src/domain/models/api/user-schemas.ts
+// src/presentation/api/schemas/user-schemas.ts
 import { z } from 'zod'
 
 // Request body schema
@@ -185,7 +185,7 @@ export const ErrorResponseSchema = z.object({
 ### Shared Schemas
 
 ```typescript
-// src/domain/models/api/common-schemas.ts
+// src/presentation/api/schemas/common-schemas.ts
 import { z } from 'zod'
 
 // Pagination params (reusable)
@@ -255,8 +255,8 @@ if (response.ok) {
 import { z } from 'zod'
 const UserSchema = z.object({...}) // Should use Effect Schema here
 
-// ✅ CORRECT: Zod in domain/models/api/
-// src/domain/models/api/user-schemas.ts
+// ✅ CORRECT: Zod in presentation/api/schemas/
+// src/presentation/api/schemas/user-schemas.ts
 import { z } from 'zod'
 const UserResponseSchema = z.object({...}) // Correct for API contracts
 ```
@@ -273,7 +273,7 @@ const UserZodSchema = z.object({...}) // Duplicate validation
 
 // ✅ CORRECT: Clear separation
 // domain/models/app/user.ts - Effect Schema for domain
-// domain/models/api/user-schemas.ts - Zod for API
+// presentation/api/schemas/user-schemas.ts - Zod for API
 ```
 
 ### 3. ESLint Restrictions
@@ -287,7 +287,7 @@ ESLint enforces Zod usage restrictions:
 // - src/infrastructure/**/* (Effect Schema only)
 
 // ✅ ALLOWED in:
-// - src/domain/models/api/**/* (API contracts)
+// - src/presentation/api/schemas/**/* (API contracts)
 // - src/presentation/**/* (forms, API routes)
 ```
 

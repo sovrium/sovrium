@@ -96,7 +96,7 @@ export class InsufficientPermissionsError {
 
 ### API Error Schemas (Response Formatting)
 
-Located in `src/domain/models/api/error-schemas.ts`:
+Located in `src/presentation/api/schemas/error-schemas.ts`:
 
 ```typescript
 import { z } from 'zod'
