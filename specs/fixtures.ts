@@ -595,7 +595,8 @@ export const test = base.extend<ServerFixtures>({
             const rows = result.rows
             const rowCount = result.rowCount || 0
             // Spread first row properties if there's exactly one row (for convenient property access)
-            lastResult = rows.length === 1 ? { rows, rowCount, ...rows[0] } : { rows, rowCount }
+            // Return rows array directly for multiple rows (makes test code more ergonomic)
+            lastResult = rows.length === 1 ? { rows, rowCount, ...rows[0] } : rows
           }
           return lastResult
         } else {
@@ -603,7 +604,8 @@ export const test = base.extend<ServerFixtures>({
           const rows = result.rows
           const rowCount = result.rowCount || 0
           // Spread first row properties if there's exactly one row (for convenient property access)
-          return rows.length === 1 ? { rows, rowCount, ...rows[0] } : { rows, rowCount }
+          // Return rows array directly for multiple rows (makes test code more ergonomic)
+          return rows.length === 1 ? { rows, rowCount, ...rows[0] } : rows
         }
       } finally {
         // Close connection after each query execution
