@@ -7,16 +7,19 @@ Sovrium uses **Effect.ts typed errors** for predictable, composable error handli
 ## Core Principles
 
 ### 1. No Throw Statements
+
 - Use `Effect.fail(error)` instead of `throw`
 - Enforced via ESLint `no-throw-statements` rule
 - Errors are values, not exceptions
 
 ### 2. Discriminated Union Errors
+
 - All errors have a `readonly _tag` property
 - Enables type-safe error matching with `Effect.catchTag`
 - Pattern: `{ readonly _tag: 'ErrorName', readonly cause: unknown }`
 
 ### 3. Layer-Specific Errors
+
 - **Domain**: Business rule violations
 - **Application**: Use case failures, validation errors
 - **Infrastructure**: Technical failures (DB, network, filesystem)
@@ -165,9 +168,7 @@ const getUser = (id: number) =>
 
 // Presentation Layer - Maps to API response
 const handler = async (c: Context) => {
-  const result = await Effect.runPromise(
-    getUser(parseInt(c.req.param('id'))).pipe(Effect.either)
-  )
+  const result = await Effect.runPromise(getUser(parseInt(c.req.param('id'))).pipe(Effect.either))
 
   if (result._tag === 'Left') {
     const error = result.left
@@ -196,9 +197,7 @@ const program = Effect.gen(function* () {
     Effect.succeed({ user: null, error: 'User not found' })
   ),
   // Catch all remaining errors
-  Effect.catchAll((error) =>
-    Effect.fail(new ApplicationError('Unexpected error', error))
-  )
+  Effect.catchAll((error) => Effect.fail(new ApplicationError('Unexpected error', error)))
 )
 ```
 
@@ -267,14 +266,14 @@ function hasTag<T extends string>(error: unknown, tag: T): error is { _tag: T } 
 
 ### Mapping Technical Errors to User Messages
 
-| Technical Error | HTTP Status | User Message |
-|----------------|-------------|--------------|
-| `UserNotFoundError` | 404 | "User not found" |
-| `InvalidEmailError` | 400 | "Please enter a valid email address" |
-| `InsufficientPermissionsError` | 403 | "You don't have permission to perform this action" |
-| `AuthError` | 401 | "Please sign in to continue" |
-| `DatabaseError` | 500 | "Something went wrong. Please try again." |
-| `RateLimitError` | 429 | "Too many requests. Please wait a moment." |
+| Technical Error                | HTTP Status | User Message                                       |
+| ------------------------------ | ----------- | -------------------------------------------------- |
+| `UserNotFoundError`            | 404         | "User not found"                                   |
+| `InvalidEmailError`            | 400         | "Please enter a valid email address"               |
+| `InsufficientPermissionsError` | 403         | "You don't have permission to perform this action" |
+| `AuthError`                    | 401         | "Please sign in to continue"                       |
+| `DatabaseError`                | 500         | "Something went wrong. Please try again."          |
+| `RateLimitError`               | 429         | "Too many requests. Please wait a moment."         |
 
 ### Security Considerations
 
@@ -322,10 +321,10 @@ test('should return 404 for non-existent user', async ({ page }) => {
 
 ### ESLint Rules (Active)
 
-| Rule | Purpose |
-|------|---------|
-| `no-throw-statements` | Prevents `throw`, enforces `Effect.fail` |
-| `functional/no-throw-statements` | FP enforcement |
+| Rule                             | Purpose                                  |
+| -------------------------------- | ---------------------------------------- |
+| `no-throw-statements`            | Prevents `throw`, enforces `Effect.fail` |
+| `functional/no-throw-statements` | FP enforcement                           |
 
 ### TypeScript Enforcement
 

@@ -417,9 +417,7 @@ describe('upsertRecordsRequestSchema', () => {
           fields: { index: i },
         })),
       }
-      expect(() => upsertRecordsRequestSchema.parse(input)).toThrow(
-        'Maximum 100 records per batch'
-      )
+      expect(() => upsertRecordsRequestSchema.parse(input)).toThrow('Maximum 100 records per batch')
     })
 
     test('rejects non-array records', () => {
@@ -487,18 +485,12 @@ describe('schema type inference', () => {
 
   test('UpsertRecordsRequest type matches schema output', () => {
     const input = {
-      records: [
-        { id: 'rec123', fields: { name: 'Update' } },
-        { fields: { name: 'Create' } },
-      ],
+      records: [{ id: 'rec123', fields: { name: 'Update' } }, { fields: { name: 'Create' } }],
     }
     const result = upsertRecordsRequestSchema.parse(input)
 
     const typed: typeof result = {
-      records: [
-        { id: 'rec123', fields: { name: 'Update' } },
-        { fields: { name: 'Create' } },
-      ],
+      records: [{ id: 'rec123', fields: { name: 'Update' } }, { fields: { name: 'Create' } }],
     }
     expect(typed).toEqual(result)
   })

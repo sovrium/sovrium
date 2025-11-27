@@ -7,12 +7,14 @@ Sovrium uses **Effect.ts** for type-safe functional programming in the backend a
 ## Core Principles
 
 ### Effect.ts Role
+
 - **Business Logic**: Effect programs handle validation, API calls, database operations
 - **Error Handling**: Typed errors with `Effect.fail` (never `throw`)
 - **Dependency Injection**: Services provided via Effect Context/Layer
 - **Composability**: Effect.gen for sequential operations, Effect.all for parallel
 
 ### React Role
+
 - **UI Rendering**: Components render based on state
 - **User Interactions**: Event handlers trigger Effect programs
 - **State Management**: TanStack Query for server state, React state for UI state
@@ -32,12 +34,12 @@ export const createApiRoutes = (app: App, honoApp: Hono) => {
       const response = {
         status: 'ok',
         timestamp: new Date().toISOString(),
-        app: { name: app.name }
+        app: { name: app.name },
       }
       // Validate response against schema
       const validated = yield* Effect.try({
         try: () => healthResponseSchema.parse(response),
-        catch: (error) => new Error(`Validation failed: ${error}`)
+        catch: (error) => new Error(`Validation failed: ${error}`),
       })
       return validated
     })
@@ -54,9 +56,10 @@ export const createApiRoutes = (app: App, honoApp: Hono) => {
 ```
 
 **Key Points**:
+
 - Use `Effect.runPromise` for async execution
 - Wrap in try/catch for error handling at boundary
-- Use `Effect.gen` for sequential operations with yield*
+- Use `Effect.gen` for sequential operations with yield\*
 
 ## Pattern 2: Effect Programs with Services
 
@@ -83,14 +86,13 @@ const getUser = (id: number) =>
   })
 
 // Execute with provided service
-const program = getUser(1).pipe(
-  Effect.provide(UserRepositoryLive)
-)
+const program = getUser(1).pipe(Effect.provide(UserRepositoryLive))
 
 await Effect.runPromise(program)
 ```
 
 **Key Points**:
+
 - Define services with `Context.Tag`
 - Access services with `yield* ServiceTag`
 - Provide implementations with `Effect.provide`
@@ -128,6 +130,7 @@ async function runEffect<T>(
 ```
 
 **Key Points**:
+
 - Effect errors become exceptions when using `runPromise`
 - Catch at the boundary and map to appropriate response
 - Use typed error schemas for consistent error format
@@ -142,7 +145,7 @@ const fetchDashboardData = Effect.gen(function* () {
   const [user, settings, notifications] = yield* Effect.all([
     userService.getCurrentUser(),
     settingsService.getSettings(),
-    notificationService.getUnread()
+    notificationService.getUnread(),
   ])
 
   return { user, settings, notifications }
@@ -150,6 +153,7 @@ const fetchDashboardData = Effect.gen(function* () {
 ```
 
 **Key Points**:
+
 - Use `Effect.all` for parallel operations
 - Destructure results in order
 - All operations run concurrently
@@ -167,19 +171,19 @@ const getBadPattern = () =>
   })
 
 // ✅ Use Effect.succeed instead
-const getGoodPattern = () =>
-  Effect.succeed({ status: 'ok' })
+const getGoodPattern = () => Effect.succeed({ status: 'ok' })
 
 // ✅ Use for computed values
 const computeResponse = (data: Input) =>
   Effect.succeed({
     id: crypto.randomUUID(),
     data,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   })
 ```
 
 **Key Points**:
+
 - `Effect.succeed` for simple value returns
 - `Effect.gen` only when you need `yield*` for sequential operations
 - Avoids ESLint "generator function does not have yield" warning
@@ -245,11 +249,11 @@ await Effect.runPromise(pure)
 
 ### ESLint Rules (Active)
 
-| Rule | Purpose |
-|------|---------|
-| `no-throw-statements` | Prevents `throw`, enforces `Effect.fail` |
-| `require-yield` | Warns when Effect.gen doesn't use yield* |
-| `functional/no-throw-statements` | FP enforcement |
+| Rule                             | Purpose                                   |
+| -------------------------------- | ----------------------------------------- |
+| `no-throw-statements`            | Prevents `throw`, enforces `Effect.fail`  |
+| `require-yield`                  | Warns when Effect.gen doesn't use yield\* |
+| `functional/no-throw-statements` | FP enforcement                            |
 
 ### Manual Review Checklist
 
