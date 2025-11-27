@@ -405,6 +405,8 @@ export const test = base.extend<ServerFixtures>({
         const templateManager = await getTemplateManager()
         testDbName = generateTestDatabaseName(testInfo)
         databaseUrl = await templateManager.duplicateTemplate(testDbName)
+        // Store database name for executeQuery fixture to use
+        ;(testInfo as any)._testDatabaseName = testDbName
       }
 
       const server = await startCliServer(appSchema, databaseUrl)
@@ -478,7 +480,7 @@ export const test = base.extend<ServerFixtures>({
 
   // Execute SQL query fixture: Run raw SQL queries against the test database
   executeQuery: async ({}, use, testInfo) => {
-    let client: any = null
+    const clients: any[] = []
 
     await use(async (query: string | string[], params?: unknown[]) => {
       const connectionUrl = process.env.TEST_DATABASE_CONTAINER_URL
@@ -489,8 +491,13 @@ export const test = base.extend<ServerFixtures>({
       // Import pg module
       const { Client } = await import('pg')
 
-      // Generate test database name to connect to the specific test database
-      const testDbName = generateTestDatabaseName(testInfo)
+      // Get test database name from startServerWithSchema fixture
+      const testDbName = (testInfo as any)._testDatabaseName
+      if (!testDbName) {
+        throw new Error(
+          'Test database not initialized. Call startServerWithSchema before executeQuery.'
+        )
+      }
 
       // Parse the connection URL and replace the database name
       const url = new URL(connectionUrl)
@@ -499,33 +506,43 @@ export const test = base.extend<ServerFixtures>({
       url.pathname = pathParts.join('/')
 
       // Create pg client for the test database
-      client = new Client({ connectionString: url.toString() })
+      const client = new Client({ connectionString: url.toString() })
+      clients.push(client)
       await client.connect()
 
-      // Handle both single query and array of queries
-      if (Array.isArray(query)) {
-        // Execute queries sequentially
-        let lastResult: any = { rows: [], rowCount: 0 }
-        for (const sql of query) {
-          const result = await client.query(sql)
+      try {
+        // Handle both single query and array of queries
+        if (Array.isArray(query)) {
+          // Execute queries sequentially
+          let lastResult: any = { rows: [], rowCount: 0 }
+          for (const sql of query) {
+            const result = await client.query(sql)
+            const rows = result.rows
+            const rowCount = result.rowCount || 0
+            // Spread first row properties if there's exactly one row (for convenient property access)
+            lastResult = rows.length === 1 ? { rows, rowCount, ...rows[0] } : { rows, rowCount }
+          }
+          return lastResult
+        } else {
+          const result = params ? await client.query(query, params) : await client.query(query)
           const rows = result.rows
           const rowCount = result.rowCount || 0
           // Spread first row properties if there's exactly one row (for convenient property access)
-          lastResult = rows.length === 1 ? { rows, rowCount, ...rows[0] } : { rows, rowCount }
+          return rows.length === 1 ? { rows, rowCount, ...rows[0] } : { rows, rowCount }
         }
-        return lastResult
-      } else {
-        const result = params ? await client.query(query, params) : await client.query(query)
-        const rows = result.rows
-        const rowCount = result.rowCount || 0
-        // Spread first row properties if there's exactly one row (for convenient property access)
-        return rows.length === 1 ? { rows, rowCount, ...rows[0] } : { rows, rowCount }
+      } finally {
+        // Close connection after each query execution
+        await client.end()
       }
     })
 
-    // Cleanup: Close connection
-    if (client) {
-      await client.end()
+    // Cleanup: Close any remaining connections (shouldn't be any, but just in case)
+    for (const client of clients) {
+      try {
+        await client.end()
+      } catch {
+        // Ignore errors during cleanup - connection may already be closed
+      }
     }
   },
 

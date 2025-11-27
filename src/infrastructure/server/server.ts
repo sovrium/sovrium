@@ -8,6 +8,7 @@
 import { Console, Effect } from 'effect'
 import { Hono } from 'hono'
 import { compileCSS } from '@/infrastructure/css/compiler'
+import { initializeSchema } from '@/infrastructure/database/schema-initializer'
 import { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
 import {
   setupAuthMiddleware,
@@ -130,6 +131,9 @@ export const createServer = (
       renderNotFoundPage,
       renderErrorPage,
     } = config
+
+    // Initialize database schema from app configuration
+    yield* initializeSchema(app)
 
     // Pre-compile CSS on startup
     yield* Console.log('Compiling CSS...')

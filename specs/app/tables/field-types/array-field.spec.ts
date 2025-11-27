@@ -20,7 +20,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Array Field', () => {
-  test.fixme(
+  test(
     'APP-ARRAY-FIELD-001: should create PostgreSQL TEXT array column',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
