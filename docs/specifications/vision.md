@@ -283,7 +283,7 @@ When businesses need internal tools, customer portals, or business applications,
 
 ### Configuration Schema
 
-All features are defined in `docs/specifications/specs.schema.json`:
+All features are defined in `src/domain/models/app/` using Effect Schema:
 
 - **Tables**: Database schemas (fields, relationships, validations)
 - **Pages**: Web interfaces (routes, components, layouts)

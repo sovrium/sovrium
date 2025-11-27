@@ -414,7 +414,7 @@ test('skips migrations when config unchanged', async ({ page }) => {
 })
 ```
 
-**Coverage Goal**: All 27 x-spec scenarios (see `specs/app/tables/migrations/migrations.schema.json`).
+**Coverage Goal**: See `specs/migrations/` for migration E2E test scenarios.
 
 ---
 

@@ -218,8 +218,7 @@ sovrium/
 │   ├── presentation/            # Presentation Layer - UI components, API routes
 │   ├── index.ts                 # Entry point
 │   └── **/*.test.ts             # Unit tests (co-located, Bun Test)
-├── specs/**/*.spec.ts           # E2E tests (Playwright) + co-located schemas
-├── specs/**/*.schema.json       # Specification schemas (co-located with tests)
+├── specs/**/*.spec.ts           # E2E tests (Playwright)
 ├── package.json
 ├── tsconfig.json
 ├── playwright.config.ts

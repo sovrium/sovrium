@@ -255,8 +255,8 @@ When a translation key is missing in a language, it falls back to the default la
 ### Export Translations
 
 ```bash
-# Extract translations for translators
-cat specs/app/languages/languages.schema.json | jq '.examples[2].translations["en-US"]' > en-US.json
+# Extract translations for translators from your app configuration
+# (translations are defined in the app's languages configuration)
 ```
 
 ### Translate
@@ -340,8 +340,8 @@ Keys must match: `^[a-zA-Z0-9._-]+$`
 
 ## Related Documentation
 
-- **Language Configuration**: `specs/app/languages/languages.schema.json`
-- **Test Examples**: `specs/app/languages/languages.spec.ts`, `specs/app/pages/common/i18n.spec.ts`
+- **Language Schema**: `src/domain/models/app/languages.ts`
+- **Test Examples**: `specs/app/languages/languages.spec.ts`
 
 ## Summary
 
