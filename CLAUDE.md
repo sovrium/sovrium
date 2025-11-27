@@ -20,7 +20,7 @@
 - **Enterprise**: Enterprise License (files with `.ee.` in filename/dirname) - Paid features
 - **Change Date**: 2029-01-01 (automatically becomes Apache 2.0)
 - **Current status**: No `.ee.` files exist yet (Phase 0 - all code is BSL-licensed)
-**Runtime**: Bun 1.3.0 (NOT Node.js)
+**Runtime**: Bun 1.3.3 (NOT Node.js)
 **Entry Points**:
 - Library: `src/index.ts` (module import)
 - CLI: `src/cli.ts` (binary executable via `bun run start` or `sovrium` command)
@@ -29,7 +29,7 @@
 
 | Technology | Version | Purpose |
 |-----------|---------|---------|
-| **Bun** | 1.3.0 | Runtime & package manager |
+| **Bun** | 1.3.3 | Runtime & package manager |
 | **TypeScript** | ^5.9.3 | Type-safe language |
 | **Effect** | ^3.19.6 | Functional programming, DI, error handling |
 | **Effect Schema** | ^3.19.6 | Server validation (domain/application/infrastructure) |
