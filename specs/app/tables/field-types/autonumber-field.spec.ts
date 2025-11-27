@@ -21,7 +21,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Autonumber Field', () => {
-  test.fixme(
+  test(
     'APP-AUTONUMBER-FIELD-001: should create PostgreSQL SERIAL column for auto-incrementing numbers',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {

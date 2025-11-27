@@ -67,6 +67,11 @@ const mapFieldTypeToPostgres = (field: Fields[number]): string => {
  * Generate column definition with constraints
  */
 const generateColumnDefinition = (field: Fields[number]): string => {
+  // Autonumber fields use SERIAL (auto-incrementing integer with sequence)
+  if (field.type === 'autonumber') {
+    return `${field.name} SERIAL NOT NULL`
+  }
+
   const columnType = mapFieldTypeToPostgres(field)
   const notNull = 'required' in field && field.required ? ' NOT NULL' : ''
   return `${field.name} ${columnType}${notNull}`
@@ -118,10 +123,10 @@ const generateCreateTableSQL = (table: Table): string => {
 }
 
 /**
- * Generate CREATE INDEX statements for indexed fields
+ * Generate CREATE INDEX statements for indexed fields and autonumber fields
  */
-const generateIndexStatements = (table: Table): readonly string[] =>
-  table.fields
+const generateIndexStatements = (table: Table): readonly string[] => {
+  const indexedFields = table.fields
     .filter(
       (field): field is Fields[number] & { indexed: true } => 'indexed' in field && !!field.indexed
     )
@@ -130,6 +135,17 @@ const generateIndexStatements = (table: Table): readonly string[] =>
       const indexType = field.type === 'array' ? 'USING gin ' : ''
       return `CREATE INDEX IF NOT EXISTS ${indexName} ON ${table.name} ${indexType}(${field.name})`
     })
+
+  // Create unique indexes for autonumber fields
+  const autonumberIndexes = table.fields
+    .filter((field) => field.type === 'autonumber')
+    .map((field) => {
+      const indexName = `idx_${table.name}_${field.name}_unique`
+      return `CREATE UNIQUE INDEX IF NOT EXISTS ${indexName} ON ${table.name} (${field.name})`
+    })
+
+  return [...indexedFields, ...autonumberIndexes]
+}
 
 /**
  * Execute schema initialization using bun:sql with transaction support
