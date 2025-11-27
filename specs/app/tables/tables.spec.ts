@@ -397,7 +397,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-008: should create PostgreSQL INTEGER column with CHECK constraint for range',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
