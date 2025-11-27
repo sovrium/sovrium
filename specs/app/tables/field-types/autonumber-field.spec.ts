@@ -52,7 +52,7 @@ test.describe('Autonumber Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-AUTONUMBER-FIELD-002: should automatically increment value for each new record',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, executeQuery }) => {
