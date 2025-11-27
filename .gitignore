@@ -65,3 +65,6 @@ test-output.log
 .github/tdd-queue-populate.lock
 .github/tdd-queue-scan.json
 .github/tdd-queue-dependencies.json
+
+# Development schemas (not released)
+schemas/development/
