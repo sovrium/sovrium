@@ -8,42 +8,24 @@
 import { Schema } from 'effect'
 
 /**
- * Email and password authentication provider configuration
+ * Authentication method types
  *
- * Enables traditional email/password authentication with:
- * - User registration with email and password
- * - Password-based sign-in
- * - Password reset and change functionality
- * - Email verification
+ * Defines the available authentication methods:
+ * - 'email-and-password': Traditional email/password authentication
  *
  * @example
  * ```typescript
- * const emailPasswordConfig = {
- *   enabled: true,
- * }
+ * const methods: AuthenticationMethod[] = ['email-and-password']
  * ```
  */
-export const EmailAndPasswordProviderSchema = Schema.Struct({
-  /**
-   * Whether email and password authentication is enabled
-   */
-  enabled: Schema.Boolean,
-}).pipe(
+export const AuthenticationMethodSchema = Schema.Literal('email-and-password').pipe(
   Schema.annotations({
-    title: 'Email and Password Provider',
-    description: 'Configuration for email and password authentication',
-    examples: [{ enabled: true }, { enabled: false }],
+    title: 'Authentication Method',
+    description: 'Available authentication methods',
   })
 )
 
 /**
- * TypeScript type inferred from EmailAndPasswordProviderSchema
+ * TypeScript type for authentication methods
  */
-export type EmailAndPasswordProvider = Schema.Schema.Type<typeof EmailAndPasswordProviderSchema>
-
-/**
- * Encoded type of EmailAndPasswordProviderSchema (what goes in)
- */
-export type EmailAndPasswordProviderEncoded = Schema.Schema.Encoded<
-  typeof EmailAndPasswordProviderSchema
->
+export type AuthenticationMethod = Schema.Schema.Type<typeof AuthenticationMethodSchema>

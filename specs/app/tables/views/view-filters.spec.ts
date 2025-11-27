@@ -46,8 +46,7 @@ test.describe('View Filters', () => {
                 id: 'active_adults',
                 name: 'Active Adults',
                 filters: {
-                  conjunction: 'and',
-                  conditions: [
+                  and: [
                     { field: 'status', operator: 'equals', value: 'active' },
                     { field: 'age', operator: 'greaterThan', value: 18 },
                   ],
@@ -94,8 +93,7 @@ test.describe('View Filters', () => {
                 id: 'important_tasks',
                 name: 'Important Tasks',
                 filters: {
-                  conjunction: 'or',
-                  conditions: [
+                  or: [
                     { field: 'priority', operator: 'equals', value: 'high' },
                     { field: 'urgent', operator: 'isTrue', value: true },
                   ],
@@ -141,7 +139,7 @@ test.describe('View Filters', () => {
                 id: 'test_view',
                 name: 'Test View',
                 filters: {
-                  conditions: [{ field: 'name', operator: 'contains', value: 'test' }],
+                  and: [{ field: 'name', operator: 'contains', value: 'test' }],
                 },
               },
             ],
@@ -189,8 +187,7 @@ test.describe('View Filters', () => {
                 id: 'filtered_view',
                 name: 'Filtered View',
                 filters: {
-                  conjunction: 'and',
-                  conditions: [
+                  and: [
                     { field: 'category', operator: 'equals', value: 'A' },
                     { field: 'status', operator: 'equals', value: 'active' },
                   ],

@@ -46,8 +46,7 @@ test.describe('Filter Condition', () => {
                 id: 'active_users',
                 name: 'Active Users',
                 filters: {
-                  conjunction: 'and',
-                  conditions: [{ field: 'status', operator: 'equals', value: 'active' }],
+                  and: [{ field: 'status', operator: 'equals', value: 'active' }],
                 },
               },
             ],
@@ -90,8 +89,7 @@ test.describe('Filter Condition', () => {
                 id: 'test_products',
                 name: 'Test Products',
                 filters: {
-                  conjunction: 'and',
-                  conditions: [{ field: 'name', operator: 'contains', value: 'test' }],
+                  and: [{ field: 'name', operator: 'contains', value: 'test' }],
                 },
               },
             ],
@@ -135,8 +133,7 @@ test.describe('Filter Condition', () => {
                 id: 'adults',
                 name: 'Adults',
                 filters: {
-                  conjunction: 'and',
-                  conditions: [{ field: 'age', operator: 'greaterThan', value: 18 }],
+                  and: [{ field: 'age', operator: 'greaterThan', value: 18 }],
                 },
               },
             ],
@@ -177,8 +174,7 @@ test.describe('Filter Condition', () => {
                 id: 'no_email',
                 name: 'No Email',
                 filters: {
-                  conjunction: 'and',
-                  conditions: [{ field: 'email', operator: 'isEmpty', value: null }],
+                  and: [{ field: 'email', operator: 'isEmpty', value: null }],
                 },
               },
             ],
@@ -222,8 +218,7 @@ test.describe('Filter Condition', () => {
                 id: 'tech_items',
                 name: 'Tech Items',
                 filters: {
-                  conjunction: 'and',
-                  conditions: [
+                  and: [
                     {
                       field: 'category',
                       operator: 'in',
@@ -278,8 +273,7 @@ test.describe('Filter Condition', () => {
                 id: 'filtered_view',
                 name: 'Filtered View',
                 filters: {
-                  conjunction: 'and',
-                  conditions: [
+                  and: [
                     { field: 'status', operator: 'equals', value: 'active' },
                     { field: 'value', operator: 'greaterThan', value: 10 },
                     { field: 'category', operator: 'in', value: ['A', 'B'] },

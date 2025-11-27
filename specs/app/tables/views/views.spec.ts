@@ -47,8 +47,7 @@ test.describe('Table Views', () => {
                 id: 'active_tasks',
                 name: 'Active Tasks',
                 filters: {
-                  conjunction: 'and',
-                  conditions: [
+                  and: [
                     {
                       field: 'status',
                       operator: 'equals',
@@ -115,8 +114,7 @@ test.describe('Table Views', () => {
                 id: 'high_priority_active',
                 name: 'High Priority Active',
                 filters: {
-                  conjunction: 'and',
-                  conditions: [
+                  and: [
                     {
                       field: 'status',
                       operator: 'equals',
@@ -385,8 +383,7 @@ test.describe('Table Views', () => {
                 name: 'Published Posts',
                 isDefault: true,
                 filters: {
-                  conjunction: 'and',
-                  conditions: [
+                  and: [
                     {
                       field: 'status',
                       operator: 'equals',
@@ -465,8 +462,7 @@ test.describe('Table Views', () => {
                 name: 'Active Items',
                 isDefault: true,
                 filters: {
-                  conjunction: 'and',
-                  conditions: [
+                  and: [
                     {
                       field: 'status',
                       operator: 'equals',

@@ -117,8 +117,7 @@ test.describe('List records in table', () => {
       const response = await request.get('/api/tables/1/records', {
         params: {
           filter: JSON.stringify({
-            operator: 'AND',
-            conditions: [{ field: 'status', operator: 'equals', value: 'active' }],
+            and: [{ field: 'status', operator: 'equals', value: 'active' }],
           }),
         },
       })
@@ -512,8 +511,7 @@ test.describe('List records in table', () => {
         params: {
           view: 'active_only',
           filter: JSON.stringify({
-            operator: 'AND',
-            conditions: [{ field: 'priority', operator: 'greaterThanOrEqual', value: 3 }],
+            and: [{ field: 'priority', operator: 'greaterThanOrEqual', value: 3 }],
           }),
         },
       })
@@ -928,8 +926,7 @@ test.describe('List records in table', () => {
       const response = await request.get('/api/tables/1/records', {
         params: {
           filter: JSON.stringify({
-            operator: 'AND',
-            conditions: [{ field: 'salary', operator: 'greaterThan', value: 60_000 }],
+            and: [{ field: 'salary', operator: 'greaterThan', value: 60_000 }],
           }),
         },
       })
@@ -1066,8 +1063,7 @@ test.describe('List records in table', () => {
       const response = await request.get('/api/tables/1/records', {
         params: {
           filter: JSON.stringify({
-            operator: 'AND',
-            conditions: [{ field: 'status', operator: 'equals', value: 'active' }],
+            and: [{ field: 'status', operator: 'equals', value: 'active' }],
           }),
           sort: 'priority:desc',
         },

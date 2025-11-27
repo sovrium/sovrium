@@ -107,8 +107,7 @@ describe('ViewSchema', () => {
         id: 3,
         name: 'Active Items',
         filters: {
-          conjunction: 'and' as const,
-          conditions: [{ field: 'status', operator: 'equals', value: 'active' }],
+          and: [{ field: 'status', operator: 'equals', value: 'active' }],
         },
       }
 
@@ -174,8 +173,7 @@ describe('ViewSchema', () => {
         name: 'Complete View',
         isDefault: true,
         filters: {
-          conjunction: 'and' as const,
-          conditions: [{ field: 'archived', operator: 'equals', value: false }],
+          and: [{ field: 'archived', operator: 'equals', value: false }],
         },
         sorts: [{ field: 'createdAt', direction: 'desc' as const }],
         fields: ['name', 'email', 'status'],
@@ -338,8 +336,7 @@ describe('ViewsSchema', () => {
           name: 'Config View',
           isDefault: true,
           filters: {
-            conjunction: 'and' as const,
-            conditions: [{ field: 'active', operator: 'equals', value: true }],
+            and: [{ field: 'active', operator: 'equals', value: true }],
           },
         },
         {

@@ -11,143 +11,118 @@ import { AuthSchema } from '.'
 
 describe('AuthSchema', () => {
   describe('valid configurations', () => {
-    test('should accept full auth configuration', () => {
+    test('should accept full auth configuration with all features', () => {
       const input = {
-        enabled: true,
-        emailAndPassword: { enabled: true },
-        plugins: {
-          admin: { enabled: true },
-          organization: { enabled: true },
-        },
+        authentication: ['email-and-password'],
+        features: ['admin', 'organization'],
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
       expect(result).toEqual({
-        enabled: true,
-        emailAndPassword: { enabled: true },
-        plugins: {
-          admin: { enabled: true },
-          organization: { enabled: true },
-        },
+        authentication: ['email-and-password'],
+        features: ['admin', 'organization'],
       })
     })
 
-    test('should accept auth with only emailAndPassword', () => {
+    test('should accept auth with only authentication method', () => {
       const input = {
-        enabled: true,
-        emailAndPassword: { enabled: true },
+        authentication: ['email-and-password'],
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
       expect(result).toEqual({
-        enabled: true,
-        emailAndPassword: { enabled: true },
+        authentication: ['email-and-password'],
       })
     })
 
-    test('should accept auth with only plugins', () => {
+    test('should accept auth with admin feature only', () => {
       const input = {
-        enabled: true,
-        plugins: {
-          admin: { enabled: true },
-        },
+        authentication: ['email-and-password'],
+        features: ['admin'],
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
       expect(result).toEqual({
-        enabled: true,
-        plugins: {
-          admin: { enabled: true },
-        },
+        authentication: ['email-and-password'],
+        features: ['admin'],
       })
     })
 
-    test('should accept minimal auth configuration (enabled only)', () => {
+    test('should accept auth with organization feature only', () => {
       const input = {
-        enabled: true,
+        authentication: ['email-and-password'],
+        features: ['organization'],
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
       expect(result).toEqual({
-        enabled: true,
+        authentication: ['email-and-password'],
+        features: ['organization'],
       })
     })
 
-    test('should accept disabled auth', () => {
+    test('should accept auth with empty features array', () => {
       const input = {
-        enabled: false,
+        authentication: ['email-and-password'],
+        features: [],
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
       expect(result).toEqual({
-        enabled: false,
-      })
-    })
-
-    test('should accept auth with all plugins disabled', () => {
-      const input = {
-        enabled: true,
-        emailAndPassword: { enabled: false },
-        plugins: {
-          admin: { enabled: false },
-          organization: { enabled: false },
-        },
-      }
-      const result = Schema.decodeUnknownSync(AuthSchema)(input)
-      expect(result).toEqual({
-        enabled: true,
-        emailAndPassword: { enabled: false },
-        plugins: {
-          admin: { enabled: false },
-          organization: { enabled: false },
-        },
+        authentication: ['email-and-password'],
+        features: [],
       })
     })
   })
 
   describe('invalid configurations', () => {
-    test('should reject missing enabled field', () => {
+    test('should reject missing authentication field', () => {
       const input = {
-        emailAndPassword: { enabled: true },
+        features: ['admin'],
       }
       expect(() => Schema.decodeUnknownSync(AuthSchema)(input)).toThrow()
     })
 
-    test('should reject enabled as string', () => {
+    test('should reject empty authentication array', () => {
       const input = {
-        enabled: 'true',
+        authentication: [],
       }
       expect(() => Schema.decodeUnknownSync(AuthSchema)(input)).toThrow()
     })
 
-    test('should reject enabled as number', () => {
+    test('should reject invalid authentication method', () => {
       const input = {
-        enabled: 1,
+        authentication: ['unknown-method'],
       }
       expect(() => Schema.decodeUnknownSync(AuthSchema)(input)).toThrow()
     })
 
-    test('should reject invalid emailAndPassword', () => {
+    test('should reject invalid feature', () => {
       const input = {
-        enabled: true,
-        emailAndPassword: { enabled: 'true' },
+        authentication: ['email-and-password'],
+        features: ['unknown-feature'],
       }
       expect(() => Schema.decodeUnknownSync(AuthSchema)(input)).toThrow()
     })
 
-    test('should reject invalid plugins', () => {
+    test('should reject authentication as string', () => {
       const input = {
-        enabled: true,
-        plugins: {
-          admin: { enabled: 'true' },
-        },
+        authentication: 'email-and-password',
+      }
+      expect(() => Schema.decodeUnknownSync(AuthSchema)(input)).toThrow()
+    })
+
+    test('should reject features as string', () => {
+      const input = {
+        authentication: ['email-and-password'],
+        features: 'admin',
       }
       expect(() => Schema.decodeUnknownSync(AuthSchema)(input)).toThrow()
     })
 
     test('should strip unknown top-level fields (Effect Schema default behavior)', () => {
       const input = {
-        enabled: true,
+        authentication: ['email-and-password'],
         unknownField: 'value',
       }
       // Effect Schema strips unknown fields by default (lenient mode)
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
-      expect(result).toEqual({ enabled: true })
+      expect(result).toEqual({ authentication: ['email-and-password'] })
       expect(result).not.toHaveProperty('unknownField')
     })
   })
@@ -166,7 +141,7 @@ describe('AuthSchema', () => {
       expect(description._tag).toBe('Some')
       if (description._tag === 'Some') {
         expect(description.value).toBe(
-          'Complete authentication configuration including providers and optional plugins'
+          'Authentication configuration. If present, auth is enabled with specified methods and features.'
         )
       }
     })
@@ -177,19 +152,15 @@ describe('AuthSchema', () => {
       if (examples._tag === 'Some') {
         expect(examples.value).toEqual([
           {
-            enabled: true,
-            emailAndPassword: { enabled: true },
-            plugins: {
-              admin: { enabled: true },
-              organization: { enabled: true },
-            },
+            authentication: ['email-and-password'],
+            features: ['admin', 'organization'],
           },
           {
-            enabled: true,
-            emailAndPassword: { enabled: true },
+            authentication: ['email-and-password'],
+            features: ['admin'],
           },
           {
-            enabled: false,
+            authentication: ['email-and-password'],
           },
         ])
       }

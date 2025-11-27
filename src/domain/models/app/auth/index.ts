@@ -6,72 +6,66 @@
  */
 
 import { Schema } from 'effect'
-import { EmailAndPasswordProviderSchema } from './email-and-password'
-import { AuthPluginsSchema } from './plugins'
+import { AuthenticationMethodSchema } from './email-and-password'
+import { AuthFeatureSchema } from './features'
 
 /**
  * Authentication configuration
  *
- * Defines authentication settings for the application including:
- * - Enable/disable authentication globally
- * - Email and password authentication provider
- * - Optional plugins (admin, organization)
+ * Defines authentication settings for the application.
+ * If this config exists, authentication is enabled.
+ * If omitted from the app config, no auth endpoints are available.
+ *
+ * - authentication: Array of enabled authentication methods
+ * - features: Array of enabled features (optional)
  *
  * @example
  * ```typescript
+ * // Full configuration with all features
  * const authConfig = {
- *   enabled: true,
- *   emailAndPassword: { enabled: true },
- *   plugins: {
- *     admin: { enabled: true },
- *     organization: { enabled: true },
- *   },
+ *   authentication: ['email-and-password'],
+ *   features: ['admin', 'organization'],
+ * }
+ *
+ * // Minimal configuration (email-and-password only)
+ * const minimalAuth = {
+ *   authentication: ['email-and-password'],
  * }
  * ```
  */
 export const AuthSchema = Schema.Struct({
   /**
-   * Whether authentication is enabled globally
+   * Authentication methods to enable
    *
-   * When disabled, all authentication features are turned off.
+   * At least one authentication method must be specified.
+   * Currently supported: 'email-and-password'
    */
-  enabled: Schema.Boolean,
+  authentication: Schema.NonEmptyArray(AuthenticationMethodSchema),
 
   /**
-   * Email and password authentication provider (optional)
+   * Authentication features to enable (optional)
    *
-   * Traditional authentication using email address and password.
-   * Includes registration, sign-in, password reset, and email verification.
+   * Available features:
+   * - 'admin': User management, banning, administrative features
+   * - 'organization': Multi-tenancy, organization management
    */
-  emailAndPassword: Schema.optional(EmailAndPasswordProviderSchema),
-
-  /**
-   * Authentication plugins (optional)
-   *
-   * Optional features that extend authentication functionality:
-   * - admin: User management, banning, administrative features
-   * - organization: Multi-tenancy, organization management
-   */
-  plugins: Schema.optional(AuthPluginsSchema),
+  features: Schema.optional(Schema.Array(AuthFeatureSchema)),
 }).pipe(
   Schema.annotations({
     title: 'Authentication Configuration',
-    description: 'Complete authentication configuration including providers and optional plugins',
+    description:
+      'Authentication configuration. If present, auth is enabled with specified methods and features.',
     examples: [
       {
-        enabled: true,
-        emailAndPassword: { enabled: true },
-        plugins: {
-          admin: { enabled: true },
-          organization: { enabled: true },
-        },
+        authentication: ['email-and-password'],
+        features: ['admin', 'organization'],
       },
       {
-        enabled: true,
-        emailAndPassword: { enabled: true },
+        authentication: ['email-and-password'],
+        features: ['admin'],
       },
       {
-        enabled: false,
+        authentication: ['email-and-password'],
       },
     ],
   })
@@ -85,8 +79,8 @@ export const AuthSchema = Schema.Struct({
  * @example
  * ```typescript
  * const auth: Auth = {
- *   enabled: true,
- *   emailAndPassword: { enabled: true },
+ *   authentication: ['email-and-password'],
+ *   features: ['admin', 'organization'],
  * }
  * ```
  */
@@ -101,4 +95,4 @@ export type AuthEncoded = Schema.Schema.Encoded<typeof AuthSchema>
 
 // Re-export all auth-related schemas and types for convenient imports
 export * from './email-and-password'
-export * from './plugins'
+export * from './features'

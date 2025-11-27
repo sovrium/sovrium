@@ -101,24 +101,25 @@ describe('ViewFilterConditionSchema', () => {
   })
 })
 
-describe('ViewFiltersSchema', () => {
-  describe('Valid Filters', () => {
-    test('should accept empty filters object', () => {
-      // GIVEN: An empty filters object
-      const filters = {}
+describe('ViewFiltersSchema (simplified and/or format)', () => {
+  describe('Single Condition', () => {
+    test('should accept a single condition as root filter', () => {
+      // GIVEN: A single condition
+      const filters = { field: 'status', operator: 'equals', value: 'active' }
 
       // WHEN: The filters are validated against the schema
       const result = Schema.decodeUnknownSync(ViewFiltersSchema)(filters)
 
-      // THEN: The filters should be accepted
-      expect(result).toEqual({})
+      // THEN: The condition should be accepted
+      expect(result).toEqual(filters)
     })
+  })
 
-    test('should accept filters with AND conjunction', () => {
-      // GIVEN: Filters with AND conjunction
+  describe('AND Groups', () => {
+    test('should accept AND group with single condition', () => {
+      // GIVEN: AND group with one condition
       const filters = {
-        conjunction: 'and' as const,
-        conditions: [{ field: 'status', operator: 'equals', value: 'active' }],
+        and: [{ field: 'status', operator: 'equals', value: 'active' }],
       }
 
       // WHEN: The filters are validated against the schema
@@ -128,11 +129,39 @@ describe('ViewFiltersSchema', () => {
       expect(result).toEqual(filters)
     })
 
-    test('should accept filters with OR conjunction', () => {
-      // GIVEN: Filters with OR conjunction
+    test('should accept AND group with multiple conditions', () => {
+      // GIVEN: AND group with multiple conditions
       const filters = {
-        conjunction: 'or' as const,
-        conditions: [
+        and: [
+          { field: 'status', operator: 'equals', value: 'active' },
+          { field: 'archived', operator: 'equals', value: false },
+        ],
+      }
+
+      // WHEN: The filters are validated against the schema
+      const result = Schema.decodeUnknownSync(ViewFiltersSchema)(filters)
+
+      // THEN: The filters should be accepted
+      expect(result).toEqual(filters)
+    })
+
+    test('should accept empty AND group', () => {
+      // GIVEN: Empty AND group
+      const filters = { and: [] }
+
+      // WHEN: The filters are validated against the schema
+      const result = Schema.decodeUnknownSync(ViewFiltersSchema)(filters)
+
+      // THEN: The filters should be accepted
+      expect(result).toEqual(filters)
+    })
+  })
+
+  describe('OR Groups', () => {
+    test('should accept OR group with multiple conditions', () => {
+      // GIVEN: OR group with multiple conditions
+      const filters = {
+        or: [
           { field: 'status', operator: 'equals', value: 'pending' },
           { field: 'status', operator: 'equals', value: 'in-progress' },
         ],
@@ -145,51 +174,9 @@ describe('ViewFiltersSchema', () => {
       expect(result).toEqual(filters)
     })
 
-    test('should accept filters with only conjunction', () => {
-      // GIVEN: Filters with only conjunction
-      const filters = { conjunction: 'and' as const }
-
-      // WHEN: The filters are validated against the schema
-      const result = Schema.decodeUnknownSync(ViewFiltersSchema)(filters)
-
-      // THEN: The filters should be accepted
-      expect(result).toEqual(filters)
-    })
-
-    test('should accept filters with only conditions', () => {
-      // GIVEN: Filters with only conditions
-      const filters = {
-        conditions: [{ field: 'active', operator: 'equals', value: true }],
-      }
-
-      // WHEN: The filters are validated against the schema
-      const result = Schema.decodeUnknownSync(ViewFiltersSchema)(filters)
-
-      // THEN: The filters should be accepted
-      expect(result).toEqual(filters)
-    })
-
-    test('should accept filters with empty conditions array', () => {
-      // GIVEN: Filters with empty conditions array
-      const filters = { conjunction: 'and' as const, conditions: [] }
-
-      // WHEN: The filters are validated against the schema
-      const result = Schema.decodeUnknownSync(ViewFiltersSchema)(filters)
-
-      // THEN: The filters should be accepted
-      expect(result).toEqual(filters)
-    })
-
-    test('should accept filters with multiple conditions', () => {
-      // GIVEN: Filters with multiple conditions
-      const filters = {
-        conjunction: 'and' as const,
-        conditions: [
-          { field: 'status', operator: 'equals', value: 'active' },
-          { field: 'archived', operator: 'equals', value: false },
-          { field: 'priority', operator: 'greaterThan', value: 3 },
-        ],
-      }
+    test('should accept empty OR group', () => {
+      // GIVEN: Empty OR group
+      const filters = { or: [] }
 
       // WHEN: The filters are validated against the schema
       const result = Schema.decodeUnknownSync(ViewFiltersSchema)(filters)
@@ -199,17 +186,103 @@ describe('ViewFiltersSchema', () => {
     })
   })
 
-  describe('Invalid Filters', () => {
-    test('should reject invalid conjunction', () => {
-      // GIVEN: Filters with invalid conjunction
-      const filters = { conjunction: 'xor' }
+  describe('Nested Groups (Prisma/MongoDB style)', () => {
+    test('should accept nested OR inside AND', () => {
+      // GIVEN: (status = 'active') AND ((priority = 'high') OR (priority = 'urgent'))
+      const filters = {
+        and: [
+          { field: 'status', operator: 'equals', value: 'active' },
+          {
+            or: [
+              { field: 'priority', operator: 'equals', value: 'high' },
+              { field: 'priority', operator: 'equals', value: 'urgent' },
+            ],
+          },
+        ],
+      }
 
-      // WHEN/THEN: The filters validation should fail
-      expect(() => {
-        Schema.decodeUnknownSync(ViewFiltersSchema)(filters)
-      }).toThrow()
+      // WHEN: The filters are validated against the schema
+      const result = Schema.decodeUnknownSync(ViewFiltersSchema)(filters)
+
+      // THEN: The nested filters should be accepted
+      expect(result).toEqual(filters)
     })
 
+    test('should accept nested AND inside OR', () => {
+      // GIVEN: ((type = 'task') AND (status = 'completed')) OR ((type = 'bug') AND (severity = 'critical'))
+      const filters = {
+        or: [
+          {
+            and: [
+              { field: 'type', operator: 'equals', value: 'task' },
+              { field: 'status', operator: 'equals', value: 'completed' },
+            ],
+          },
+          {
+            and: [
+              { field: 'type', operator: 'equals', value: 'bug' },
+              { field: 'severity', operator: 'equals', value: 'critical' },
+            ],
+          },
+        ],
+      }
+
+      // WHEN: The filters are validated against the schema
+      const result = Schema.decodeUnknownSync(ViewFiltersSchema)(filters)
+
+      // THEN: The nested filters should be accepted
+      expect(result).toEqual(filters)
+    })
+
+    test('should accept mixed conditions and nested groups', () => {
+      // GIVEN: Mixed flat conditions and nested groups
+      const filters = {
+        and: [
+          { field: 'archived', operator: 'equals', value: false },
+          { field: 'status', operator: 'notEquals', value: 'deleted' },
+          {
+            or: [
+              { field: 'assignee', operator: 'equals', value: 'user123' },
+              { field: 'created_by', operator: 'equals', value: 'user123' },
+            ],
+          },
+        ],
+      }
+
+      // WHEN: The filters are validated against the schema
+      const result = Schema.decodeUnknownSync(ViewFiltersSchema)(filters)
+
+      // THEN: The mixed filters should be accepted
+      expect(result).toEqual(filters)
+    })
+
+    test('should accept three levels of nesting', () => {
+      // GIVEN: Three levels of nested filter groups
+      const filters = {
+        and: [
+          {
+            or: [
+              {
+                and: [
+                  { field: 'a', operator: 'equals', value: 1 },
+                  { field: 'b', operator: 'equals', value: 2 },
+                ],
+              },
+              { field: 'c', operator: 'equals', value: 3 },
+            ],
+          },
+        ],
+      }
+
+      // WHEN: The filters are validated against the schema
+      const result = Schema.decodeUnknownSync(ViewFiltersSchema)(filters)
+
+      // THEN: The three-level nested filters should be accepted
+      expect(result).toEqual(filters)
+    })
+  })
+
+  describe('Invalid Filters', () => {
     test('should reject null', () => {
       // GIVEN: A null value
       const filters = null
@@ -230,14 +303,30 @@ describe('ViewFiltersSchema', () => {
       }).toThrow()
     })
 
-    test('should reject array', () => {
-      // GIVEN: An array
+    test('should reject plain array', () => {
+      // GIVEN: An array (should use { and: [...] } or { or: [...] })
       const filters = [{ field: 'status', operator: 'equals', value: 'active' }]
 
       // WHEN/THEN: The filters validation should fail
       expect(() => {
         Schema.decodeUnknownSync(ViewFiltersSchema)(filters)
       }).toThrow()
+    })
+
+    test('should pick first matching key when both and/or are present', () => {
+      // GIVEN: Object with both and and or keys (ambiguous input)
+      const filters = {
+        and: [{ field: 'a', operator: 'equals', value: 1 }],
+        or: [{ field: 'b', operator: 'equals', value: 2 }],
+      }
+
+      // WHEN: The filters are validated against the schema
+      const result = Schema.decodeUnknownSync(ViewFiltersSchema)(filters)
+
+      // THEN: Schema picks `and` (first union variant) and drops `or`
+      expect(result).toEqual({
+        and: [{ field: 'a', operator: 'equals', value: 1 }],
+      })
     })
   })
 })

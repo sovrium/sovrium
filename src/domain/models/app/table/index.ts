@@ -10,6 +10,7 @@ import { FieldsSchema } from './fields'
 import { IdSchema } from './id'
 import { IndexesSchema } from './indexes'
 import { NameSchema } from './name'
+import { TablePermissionsSchema } from './permissions'
 import { PrimaryKeySchema } from './primary-key'
 import { UniqueConstraintsSchema } from './unique-constraints'
 import { ViewSchema } from './views'
@@ -47,6 +48,35 @@ export const TableSchema = Schema.Struct({
   uniqueConstraints: Schema.optional(UniqueConstraintsSchema),
   indexes: Schema.optional(IndexesSchema),
   views: Schema.optional(Schema.Array(ViewSchema)),
+
+  /**
+   * Table-level permissions (high-level RBAC abstraction).
+   *
+   * Automatically generates RLS policies based on permission configuration.
+   * Supports public, authenticated, role-based, and owner-based access control.
+   *
+   * @example Role-based permissions
+   * ```typescript
+   * permissions: {
+   *   read: { type: 'roles', roles: ['member'] },
+   *   create: { type: 'roles', roles: ['admin'] },
+   *   update: { type: 'authenticated' },
+   *   delete: { type: 'roles', roles: ['admin'] },
+   * }
+   * ```
+   *
+   * @example Owner-based access
+   * ```typescript
+   * permissions: {
+   *   read: { type: 'owner', field: 'user_id' },
+   *   update: { type: 'owner', field: 'user_id' },
+   *   delete: { type: 'owner', field: 'user_id' },
+   * }
+   * ```
+   *
+   * @see TablePermissionsSchema for full configuration options
+   */
+  permissions: Schema.optional(TablePermissionsSchema),
 }).pipe(
   Schema.annotations({
     title: 'Table',
@@ -87,3 +117,4 @@ export * from './unique-constraints'
 export * from './indexes'
 export * from './field-types'
 export * from './views'
+export * from './permissions'

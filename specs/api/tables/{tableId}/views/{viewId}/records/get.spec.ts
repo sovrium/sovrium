@@ -32,8 +32,7 @@ test.fixme(
               id: 'view_active',
               name: 'active_tasks',
               filters: {
-                conjunction: 'and',
-                conditions: [{ field: 'fld_status', operator: 'is', value: 'active' }],
+                and: [{ field: 'fld_status', operator: 'is', value: 'active' }],
               },
             },
           ],
@@ -226,8 +225,7 @@ test.fixme(
               id: 'view_active',
               name: 'active_items',
               filters: {
-                conjunction: 'and',
-                conditions: [{ field: 'fld_active', operator: 'is', value: true }],
+                and: [{ field: 'fld_active', operator: 'is', value: true }],
               },
             },
           ],

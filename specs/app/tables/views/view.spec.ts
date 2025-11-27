@@ -118,8 +118,7 @@ test.describe('Table View', () => {
                 name: 'Active Tasks',
                 isDefault: true,
                 filters: {
-                  conjunction: 'and',
-                  conditions: [
+                  and: [
                     {
                       field: 'status',
                       operator: 'equals',
@@ -177,8 +176,7 @@ test.describe('Table View', () => {
                 name: 'Default View',
                 isDefault: true,
                 filters: {
-                  conjunction: 'and',
-                  conditions: [
+                  and: [
                     {
                       field: 'status',
                       operator: 'equals',

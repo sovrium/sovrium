@@ -5,6 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+// Re-export base field and permissions schemas
+export * from './base-field'
+
 // Re-export all field type schemas and types for convenient imports
 export * from './single-line-text-field'
 export * from './long-text-field'
