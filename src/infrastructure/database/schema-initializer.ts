@@ -157,7 +157,9 @@ const generateNumericConstraints = (fields: readonly Fields[number][]): readonly
  */
 const generateUniqueConstraints = (fields: readonly Fields[number][]): readonly string[] =>
   fields
-    .filter((field): field is Fields[number] & { unique: true } => 'unique' in field && !!field.unique)
+    .filter(
+      (field): field is Fields[number] & { unique: true } => 'unique' in field && !!field.unique
+    )
     .map((field) => `UNIQUE (${field.name})`)
 
 /**

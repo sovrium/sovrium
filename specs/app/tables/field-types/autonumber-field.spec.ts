@@ -77,11 +77,11 @@ test.describe('Autonumber Field', () => {
       // WHEN: querying the database
       const results = await executeQuery('SELECT order_number FROM orders ORDER BY id')
       // THEN: assertion
-      expect(results[0].order_number).toBeLessThan(results[1].order_number)
+      expect(results.rows[0].order_number).toBeLessThan(results.rows[1].order_number)
       // THEN: assertion
-      expect(results[1].order_number).toBeLessThan(results[2].order_number)
+      expect(results.rows[1].order_number).toBeLessThan(results.rows[2].order_number)
       // THEN: assertion
-      expect(results[2].order_number - results[0].order_number).toBe(2)
+      expect(results.rows[2].order_number - results.rows[0].order_number).toBe(2)
     }
   )
 

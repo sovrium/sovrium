@@ -594,8 +594,7 @@ export const test = base.extend<ServerFixtures>({
             const result = await client.query(sql)
             const rows = result.rows
             const rowCount = result.rowCount || 0
-            // Always return { rows, rowCount } for consistent API
-            // Spread first row properties for ergonomic single-row access
+            // Always include rows/rowCount, spread first row for single-row queries
             lastResult = rows.length === 1 ? { rows, rowCount, ...rows[0] } : { rows, rowCount }
           }
           return lastResult
@@ -603,8 +602,7 @@ export const test = base.extend<ServerFixtures>({
           const result = params ? await client.query(query, params) : await client.query(query)
           const rows = result.rows
           const rowCount = result.rowCount || 0
-          // Always return { rows, rowCount } for consistent API
-          // Spread first row properties for ergonomic single-row access
+          // Always include rows/rowCount, spread first row for single-row queries
           return rows.length === 1 ? { rows, rowCount, ...rows[0] } : { rows, rowCount }
         }
       } finally {
