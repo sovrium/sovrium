@@ -34,7 +34,13 @@
       "@/*": ["src/*"],
       "@/specs/*": ["specs/*"],
       "@/happydom": ["happydom.ts"]
-    }
+    },
+
+    "plugins": [
+      {
+        "name": "@effect/language-service"
+      }
+    ]
   },
   "exclude": ["node_modules", "dist", "tmp"]
 }
