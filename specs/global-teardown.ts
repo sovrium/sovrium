@@ -39,11 +39,17 @@ export default async function globalTeardown() {
       console.log(`🧹 Killing ${count} remaining server processes...`)
 
       // Kill all Bun processes running src/cli.ts
-      if (process.platform === 'darwin' || process.platform === 'linux') {
-        execSync('pkill -9 -f "bun.*src/cli.ts" || true', { stdio: 'ignore' })
-      } else {
-        // Windows
-        execSync('taskkill /F /IM bun.exe /T', { stdio: 'ignore' })
+      // Wrapped in try/catch because pkill can throw even with || true
+      // (execSync throws on abnormal process termination)
+      try {
+        if (process.platform === 'darwin' || process.platform === 'linux') {
+          execSync('pkill -9 -f "bun.*src/cli.ts"', { stdio: 'ignore' })
+        } else {
+          // Windows
+          execSync('taskkill /F /IM bun.exe /T', { stdio: 'ignore' })
+        }
+      } catch {
+        // Ignore - pkill returns non-zero if no processes found or on SIGKILL
       }
 
       console.log('✅ Server processes cleaned up')
