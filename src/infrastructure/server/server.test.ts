@@ -255,8 +255,8 @@ describe('Server - Integration Tests', () => {
       const program = Effect.gen(function* () {
         const serverInstance = yield* createServer(config)
 
-        const res = yield* Effect.promise(
-          () => fetch(`${serverInstance.url}/assets/language-switcher.js`)
+        const res = yield* Effect.promise(() =>
+          fetch(`${serverInstance.url}/assets/language-switcher.js`)
         )
 
         expect(res.status).toBe(200)
