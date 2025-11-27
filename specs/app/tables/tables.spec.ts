@@ -652,7 +652,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-014: should create index and allow querying via pg_indexes',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
