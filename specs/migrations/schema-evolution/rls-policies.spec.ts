@@ -48,6 +48,7 @@ test.describe('Row-Level Security Policies Migration', () => {
               { id: 3, name: 'user_id', type: 'integer', required: true },
               { id: 4, name: 'content', type: 'long-text' },
             ],
+            // @ts-expect-error - rlsEnabled and rlsPolicies are future features
             rlsEnabled: true,
             rlsPolicies: [
               {
@@ -105,6 +106,7 @@ test.describe('Row-Level Security Policies Migration', () => {
               { id: 2, name: 'title', type: 'single-line-text', required: true },
               { id: 3, name: 'user_id', type: 'integer', required: true },
             ],
+            // @ts-expect-error - rlsEnabled and rlsPolicies are future features
             rlsEnabled: true,
             rlsPolicies: [
               {
@@ -169,6 +171,7 @@ test.describe('Row-Level Security Policies Migration', () => {
               { id: 2, name: 'content', type: 'long-text', required: true },
               { id: 3, name: 'user_id', type: 'integer', required: true },
             ],
+            // @ts-expect-error - rlsEnabled and rlsPolicies are future features
             rlsEnabled: true,
             rlsPolicies: [
               {
@@ -237,6 +240,7 @@ test.describe('Row-Level Security Policies Migration', () => {
               { id: 2, name: 'title', type: 'single-line-text', required: true },
               { id: 3, name: 'user_id', type: 'integer', required: true },
             ],
+            // @ts-expect-error - rlsEnabled and rlsPolicies are future features
             rlsEnabled: true,
             rlsPolicies: [
               // SELECT policy removed, only INSERT remains
@@ -297,6 +301,7 @@ test.describe('Row-Level Security Policies Migration', () => {
               { id: 3, name: 'owner_id', type: 'integer', required: true },
               { id: 4, name: 'team_id', type: 'integer' },
             ],
+            // @ts-expect-error - rlsEnabled and rlsPolicies are future features
             rlsEnabled: true,
             rlsPolicies: [
               {
@@ -349,6 +354,7 @@ test.describe('Row-Level Security Policies Migration', () => {
               { id: 2, name: 'message', type: 'long-text', required: true },
               { id: 3, name: 'user_id', type: 'integer' },
             ],
+            // @ts-expect-error - rlsEnabled is a future feature
             rlsEnabled: false, // RLS disabled
             // No policies
           },
@@ -402,6 +408,7 @@ test.describe('Row-Level Security Policies Migration', () => {
               { id: 3, name: 'content', type: 'long-text' },
               { id: 4, name: 'user_id', type: 'integer', required: true },
             ],
+            // @ts-expect-error - rlsEnabled and rlsPolicies are future features
             rlsEnabled: true,
             rlsPolicies: [
               {

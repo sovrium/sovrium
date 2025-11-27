@@ -15,9 +15,9 @@
  * Usage: bun run export:schema
  */
 
-import { JSONSchema } from 'effect'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
+import { JSONSchema } from 'effect'
 import { AppSchema } from '../src/domain/models/app'
 
 // Get version from package.json

@@ -89,7 +89,7 @@ test.describe('Modify Indexes Migration', () => {
               { id: 3, name: 'last_name', type: 'single-line-text' },
               { id: 4, name: 'email', type: 'email' },
             ],
-            indexes: [{ fields: ['last_name', 'first_name'] }],
+            indexes: [{ name: 'idx_contacts_last_first', fields: ['last_name', 'first_name'] }],
           },
         ],
       })
@@ -164,7 +164,7 @@ test.describe('Modify Indexes Migration', () => {
               { id: 2, name: 'customer_id', type: 'integer' },
               { id: 3, name: 'created_at', type: 'datetime' },
             ],
-            indexes: [{ fields: ['customer_id', 'created_at'] }],
+            indexes: [{ name: 'idx_orders_customer_created', fields: ['customer_id', 'created_at'] }],
           },
         ],
       })

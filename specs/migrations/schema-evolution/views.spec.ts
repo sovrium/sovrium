@@ -50,6 +50,7 @@ test.describe('Database Views Migration', () => {
             ],
           },
         ],
+        // @ts-expect-error - views is a future feature
         views: [
           {
             name: 'active_users',
@@ -150,6 +151,7 @@ test.describe('Database Views Migration', () => {
             ],
           },
         ],
+        // @ts-expect-error - views is a future feature
         views: [
           {
             name: 'user_summary',
@@ -203,6 +205,7 @@ test.describe('Database Views Migration', () => {
             ],
           },
         ],
+        // @ts-expect-error - materializedViews is a future feature
         materializedViews: [
           {
             name: 'order_stats',
@@ -261,6 +264,7 @@ test.describe('Database Views Migration', () => {
             ],
           },
         ],
+        // @ts-expect-error - materializedViews is a future feature
         materializedViews: [
           {
             name: 'order_stats',
@@ -369,6 +373,7 @@ test.describe('Database Views Migration', () => {
             ],
           },
         ],
+        // @ts-expect-error - views is a future feature
         views: [
           {
             name: 'available_products',

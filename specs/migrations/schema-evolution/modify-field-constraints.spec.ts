@@ -45,7 +45,7 @@ test.describe('Modify Field Constraints Migration', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text', required: true },
-              { id: 3, name: 'price', type: 'decimal', required: true, min: 0, max: 10000 },
+              { id: 3, name: 'price', type: 'decimal', required: true, min: 0, max: 10_000 },
             ],
           },
         ],
