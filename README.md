@@ -1,5 +1,8 @@
 # Sovrium™
 
+[![Spec Progress](https://img.shields.io/badge/specs-45%25%20(833%2F1835)-blue)](SPEC-STATE.md)
+[![Quality Score](https://img.shields.io/badge/quality-94%25-brightgreen)](SPEC-STATE.md)
+
 > **⚠️ Early Development**: Sovrium is in Phase 0 (Foundation). See [ROADMAP.md](ROADMAP.md) for implementation progress and [docs/specifications/vision.md](docs/specifications/vision.md) for the full product vision.
 
 A configuration-driven web application platform built with Bun, Effect, React, and Tailwind CSS.
