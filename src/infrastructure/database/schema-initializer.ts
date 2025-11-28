@@ -249,75 +249,109 @@ const generateIndexStatements = (table: Table): readonly string[] => {
 }
 
 /**
- * Query existing table schema from database
+ * Type definition for Bun SQL transaction
  */
-type ColumnInfo = {
-  column_name: string
-  data_type: string
-  is_nullable: string
-  column_default: string | null
+interface BunSQLTransaction {
+  readonly unsafe: (sql: string) => Promise<readonly unknown[]>
 }
 
+/**
+ * Type definition for information_schema.columns row
+ */
+interface ColumnInfo {
+  readonly column_name: string
+  readonly data_type: string
+  readonly is_nullable: string
+}
+
+/**
+ * Get existing columns from a table
+ *
+ * SECURITY NOTE: String interpolation is used for tableName.
+ * This is SAFE because:
+ * 1. tableName comes from validated Effect Schema (Table.name field)
+ * 2. Table names are defined in schema configuration, not user input
+ * 3. The App schema is validated before reaching this code
+ * 4. Bun SQL's tx.unsafe() does not support parameterized queries ($1 placeholders)
+ * 5. information_schema queries are read-only (no data modification risk)
+ */
 const getExistingColumns = async (
-  tx: any,
+  tx: BunSQLTransaction,
   tableName: string
-): Promise<readonly ColumnInfo[]> => {
-  try {
-    const result = await tx.unsafe(
-      `SELECT column_name, data_type, is_nullable, column_default
-       FROM information_schema.columns
-       WHERE table_schema = 'public' AND table_name = '${tableName}'
-       ORDER BY ordinal_position`
-    )
-    return (result as readonly ColumnInfo[]) || []
-  } catch {
-    return []
-  }
+): Promise<ReadonlyMap<string, { dataType: string; isNullable: string }>> => {
+  const result = (await tx.unsafe(`
+    SELECT column_name, data_type, is_nullable
+    FROM information_schema.columns
+    WHERE table_name = '${tableName}'
+      AND table_schema = 'public'
+  `)) as readonly ColumnInfo[]
+
+  // Use Array.from() with map to build immutable Map (functional approach)
+  return new Map(
+    result.map((row) => [
+      row.column_name,
+      {
+        dataType: row.data_type,
+        isNullable: row.is_nullable,
+      },
+    ])
+  )
 }
 
 /**
- * Check if table exists
+ * Type definition for table existence query result
  */
-const tableExists = async (tx: any, tableName: string): Promise<boolean> => {
-  try {
-    const result = await tx.unsafe(
-      `SELECT EXISTS (
-        SELECT 1 FROM information_schema.tables
-        WHERE table_schema = 'public' AND table_name = '${tableName}'
-      ) as exists`
-    )
-    return result[0]?.exists === true || result[0]?.exists === 't'
-  } catch {
-    return false
-  }
+interface TableExistsResult {
+  readonly exists: boolean
 }
 
 /**
- * Generate ALTER TABLE statements for schema changes
+ * Check if a table exists in the database
+ *
+ * SECURITY NOTE: String interpolation is used for tableName.
+ * This is SAFE because:
+ * 1. tableName comes from validated Effect Schema (Table.name field)
+ * 2. Table names are defined in schema configuration, not user input
+ * 3. The App schema is validated before reaching this code
+ * 4. Bun SQL's tx.unsafe() does not support parameterized queries ($1 placeholders)
+ * 5. information_schema queries are read-only (no data modification risk)
+ */
+const tableExists = async (tx: BunSQLTransaction, tableName: string): Promise<boolean> => {
+  const result = (await tx.unsafe(`
+    SELECT EXISTS (
+      SELECT 1
+      FROM information_schema.tables
+      WHERE table_name = '${tableName}'
+        AND table_schema = 'public'
+    ) as exists
+  `)) as readonly TableExistsResult[]
+  return result[0]?.exists ?? false
+}
+
+/**
+ * Generate ALTER TABLE statements for schema changes (ADD and DROP columns)
  */
 const generateMigrationStatements = (
   table: Table,
-  existingColumns: readonly ColumnInfo[]
+  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>
 ): readonly string[] => {
   const statements: string[] = []
 
   // Get desired column names (excluding auto-generated id if not explicit)
   const hasIdField = table.fields.some((field) => field.name === 'id')
-  const hasCustomPrimaryKey = table.primaryKey?.type === 'composite' &&
-                              (table.primaryKey.fields?.length ?? 0) > 0
+  const hasCustomPrimaryKey =
+    table.primaryKey?.type === 'composite' && (table.primaryKey.fields?.length ?? 0) > 0
   const desiredColumns = new Set([
     ...(hasIdField || hasCustomPrimaryKey ? [] : ['id']),
     ...table.fields.map((f) => f.name),
   ])
 
-  // Get existing column names
-  const existingColumnNames = new Set(existingColumns.map((c) => c.column_name))
+  const primaryKeyFields =
+    table.primaryKey?.type === 'composite' ? (table.primaryKey.fields ?? []) : []
 
   // Find columns to add
   for (const field of table.fields) {
-    if (!existingColumnNames.has(field.name)) {
-      const primaryKeyFields =
-        table.primaryKey?.type === 'composite' ? (table.primaryKey.fields ?? []) : []
+    if (!existingColumns.has(field.name)) {
       const isPrimaryKey = primaryKeyFields.includes(field.name)
       const columnDef = generateColumnDefinition(field, isPrimaryKey)
       statements.push(`ALTER TABLE ${table.name} ADD COLUMN ${columnDef}`)
@@ -325,9 +359,9 @@ const generateMigrationStatements = (
   }
 
   // Find columns to drop
-  for (const existingCol of existingColumns) {
-    if (!desiredColumns.has(existingCol.column_name)) {
-      statements.push(`ALTER TABLE ${table.name} DROP COLUMN ${existingCol.column_name}`)
+  for (const [columnName] of existingColumns) {
+    if (!desiredColumns.has(columnName)) {
+      statements.push(`ALTER TABLE ${table.name} DROP COLUMN ${columnName}`)
     }
   }
 
@@ -337,6 +371,10 @@ const generateMigrationStatements = (
 /**
  * Execute schema initialization using bun:sql with transaction support
  * Uses Bun's native SQL driver for optimal performance
+ *
+ * Now supports incremental schema migrations:
+ * - For new tables: CREATE TABLE
+ * - For existing tables: ALTER TABLE ADD COLUMN for new fields
  *
  * Note: This function intentionally uses imperative patterns for database I/O.
  * Side effects are unavoidable when executing DDL statements against PostgreSQL.
@@ -368,26 +406,29 @@ const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]):
      */
     await db.begin(async (tx) => {
       for (const table of tables) {
-        // Check if table exists
         const exists = await tableExists(tx, table.name)
 
         if (exists) {
-          // Table exists - perform migration
+          // Table exists - perform migration (ADD and DROP columns)
           const existingColumns = await getExistingColumns(tx, table.name)
           const migrationStatements = generateMigrationStatements(table, existingColumns)
 
           for (const statement of migrationStatements) {
             await tx.unsafe(statement)
           }
+
+          // Always create indexes (IF NOT EXISTS prevents errors)
+          for (const indexSQL of generateIndexStatements(table)) {
+            await tx.unsafe(indexSQL)
+          }
         } else {
           // Table doesn't exist - create it
           const createTableSQL = generateCreateTableSQL(table)
           await tx.unsafe(createTableSQL)
-        }
 
-        // Always ensure indexes are created (idempotent with IF NOT EXISTS)
-        for (const indexSQL of generateIndexStatements(table)) {
-          await tx.unsafe(indexSQL)
+          for (const indexSQL of generateIndexStatements(table)) {
+            await tx.unsafe(indexSQL)
+          }
         }
       }
     })
