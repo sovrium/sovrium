@@ -63,7 +63,7 @@ test.describe('Email Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-EMAIL-002: should store email as lowercase when inserting email with mixed case',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
