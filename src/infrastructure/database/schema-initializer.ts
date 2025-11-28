@@ -75,8 +75,8 @@ const generateIndexStatements = (table: Table): readonly string[] => {
     )
     .map((field) => {
       const indexName = `idx_${table.name}_${field.name}`
-      const indexType = field.type === 'array' ? 'USING gin ' : ''
-      return `CREATE INDEX IF NOT EXISTS ${indexName} ON ${table.name} ${indexType}(${field.name})`
+      const indexType = field.type === 'array' ? 'USING gin' : 'USING btree'
+      return `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${table.name} ${indexType} (${field.name})`
     })
 
   // Create unique indexes for autonumber fields
@@ -84,7 +84,7 @@ const generateIndexStatements = (table: Table): readonly string[] => {
     .filter((field) => field.type === 'autonumber')
     .map((field) => {
       const indexName = `idx_${table.name}_${field.name}_unique`
-      return `CREATE UNIQUE INDEX IF NOT EXISTS ${indexName} ON ${table.name} (${field.name})`
+      return `CREATE UNIQUE INDEX IF NOT EXISTS ${indexName} ON public.${table.name} (${field.name})`
     })
 
   // Create custom indexes from table.indexes configuration
@@ -92,7 +92,7 @@ const generateIndexStatements = (table: Table): readonly string[] => {
     table.indexes?.map((index) => {
       const uniqueClause = index.unique ? 'UNIQUE ' : ''
       const fields = index.fields.join(', ')
-      return `CREATE ${uniqueClause}INDEX IF NOT EXISTS ${index.name} ON ${table.name} (${fields})`
+      return `CREATE ${uniqueClause}INDEX IF NOT EXISTS ${index.name} ON public.${table.name} (${fields})`
     }) ?? []
 
   return [...indexedFields, ...autonumberIndexes, ...customIndexes]
