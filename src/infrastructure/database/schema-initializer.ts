@@ -7,6 +7,7 @@
 
 import { SQL } from 'bun'
 import { Config, Effect, Console, Data, type ConfigError } from 'effect'
+import { mapFieldTypeToPostgres, generateColumnDefinition, generateTableConstraints } from './sql-generators'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/table'
 import type { Fields } from '@/domain/models/app/table/fields'
@@ -23,225 +24,6 @@ export class NoDatabaseUrlError extends Data.TaggedError('NoDatabaseUrlError')<{
   readonly message: string
 }> {}
 
-/**
- * Field type to PostgreSQL type mapping
- */
-const fieldTypeToPostgresMap: Record<string, string> = {
-  integer: 'INTEGER',
-  autonumber: 'INTEGER',
-  decimal: 'DECIMAL',
-  'single-line-text': 'VARCHAR(255)',
-  'long-text': 'TEXT',
-  email: 'VARCHAR(255)',
-  url: 'VARCHAR(255)',
-  'phone-number': 'VARCHAR(255)',
-  'rich-text': 'TEXT',
-  checkbox: 'BOOLEAN',
-  date: 'TIMESTAMP',
-  'single-select': 'VARCHAR(255)',
-  status: 'VARCHAR(255)',
-  'multi-select': 'TEXT[]',
-  currency: 'DECIMAL',
-  percentage: 'DECIMAL',
-  rating: 'INTEGER',
-  duration: 'INTEGER',
-  color: 'VARCHAR(7)',
-  progress: 'DECIMAL',
-  json: 'JSONB',
-  geolocation: 'POINT',
-  barcode: 'VARCHAR(255)',
-  'single-attachment': 'TEXT',
-  'multiple-attachments': 'TEXT',
-  relationship: 'TEXT',
-  lookup: 'TEXT',
-  rollup: 'TEXT',
-  formula: 'TEXT',
-  user: 'TEXT',
-  'created-by': 'TEXT',
-  'updated-by': 'TEXT',
-  'created-at': 'TIMESTAMP',
-  'updated-at': 'TIMESTAMP',
-  button: 'TEXT',
-}
-
-/**
- * Map field type to PostgreSQL column type
- */
-const mapFieldTypeToPostgres = (field: Fields[number]): string => {
-  if (field.type === 'array') {
-    const itemType = 'itemType' in field && field.itemType ? field.itemType : 'text'
-    return `${itemType.toUpperCase()}[]`
-  }
-
-  // Handle decimal with precision
-  if (field.type === 'decimal' && 'precision' in field && field.precision) {
-    return `NUMERIC(${field.precision},2)`
-  }
-
-  return fieldTypeToPostgresMap[field.type] ?? 'TEXT'
-}
-
-/**
- * Format default value for SQL
- */
-const formatDefaultValue = (defaultValue: unknown): string =>
-  typeof defaultValue === 'boolean' ? String(defaultValue) : `'${defaultValue}'`
-
-/**
- * Generate SERIAL column definition for auto-increment fields
- */
-const generateSerialColumn = (fieldName: string): string => `${fieldName} SERIAL NOT NULL`
-
-/**
- * Check if field should use SERIAL type
- */
-const shouldUseSerial = (field: Fields[number], isPrimaryKey: boolean): boolean =>
-  field.type === 'autonumber' || (field.type === 'integer' && isPrimaryKey)
-
-/**
- * Generate NOT NULL constraint
- */
-const generateNotNullConstraint = (field: Fields[number], isPrimaryKey: boolean): string =>
-  isPrimaryKey || ('required' in field && field.required) ? ' NOT NULL' : ''
-
-/**
- * Generate UNIQUE constraint (inline - deprecated in favor of named constraints)
- *
- * NOTE: Inline UNIQUE constraints are no longer used. Named UNIQUE constraints
- * are now generated at the table level via generateUniqueConstraints() to ensure
- * they appear in information_schema.table_constraints with queryable constraint names.
- */
-const generateUniqueConstraint = (_field: Fields[number]): string => ''
-
-/**
- * Generate DEFAULT clause
- */
-const generateDefaultClause = (field: Fields[number]): string => {
-  // Auto-timestamp fields get CURRENT_TIMESTAMP default
-  if (field.type === 'created-at' || field.type === 'updated-at') {
-    return ' DEFAULT CURRENT_TIMESTAMP'
-  }
-
-  // Explicit default values
-  return 'default' in field && field.default !== undefined
-    ? ` DEFAULT ${formatDefaultValue(field.default)}`
-    : ''
-}
-
-/**
- * Generate column definition with constraints
- */
-const generateColumnDefinition = (field: Fields[number], isPrimaryKey: boolean): string => {
-  // SERIAL columns for auto-increment fields
-  if (shouldUseSerial(field, isPrimaryKey)) {
-    return generateSerialColumn(field.name)
-  }
-
-  const columnType = mapFieldTypeToPostgres(field)
-  const notNull = generateNotNullConstraint(field, isPrimaryKey)
-  const unique = generateUniqueConstraint(field)
-  const defaultValue = generateDefaultClause(field)
-  return `${field.name} ${columnType}${notNull}${unique}${defaultValue}`
-}
-
-/**
- * Generate CHECK constraints for array fields with maxItems
- */
-const generateArrayConstraints = (fields: readonly Fields[number][]): readonly string[] =>
-  fields
-    .filter(
-      (field): field is Fields[number] & { type: 'array'; maxItems: number } =>
-        field.type === 'array' && 'maxItems' in field && typeof field.maxItems === 'number'
-    )
-    .map(
-      (field) =>
-        `CONSTRAINT check_${field.name}_max_items CHECK (array_length(${field.name}, 1) IS NULL OR array_length(${field.name}, 1) <= ${field.maxItems})`
-    )
-
-/**
- * Generate CHECK constraints for numeric fields with min/max values
- */
-const generateNumericConstraints = (fields: readonly Fields[number][]): readonly string[] =>
-  fields
-    .filter(
-      (field): field is Fields[number] & { type: 'integer' | 'decimal' } =>
-        (field.type === 'integer' || field.type === 'decimal') &&
-        (('min' in field && typeof field.min === 'number') ||
-          ('max' in field && typeof field.max === 'number'))
-    )
-    .map((field) => {
-      const hasMin = 'min' in field && typeof field.min === 'number'
-      const hasMax = 'max' in field && typeof field.max === 'number'
-
-      const conditions = [
-        ...(hasMin ? [`${field.name} >= ${field.min}`] : []),
-        ...(hasMax ? [`${field.name} <= ${field.max}`] : []),
-      ]
-
-      const constraintName = `check_${field.name}_range`
-      const constraintCondition = conditions.join(' AND ')
-      return `CONSTRAINT ${constraintName} CHECK (${constraintCondition})`
-    })
-
-/**
- * Escape single quotes in SQL string literals to prevent SQL injection
- * PostgreSQL escapes single quotes by doubling them: ' becomes ''
- */
-const escapeSQLString = (value: string): string => value.replace(/'/g, "''")
-
-/**
- * Generate CHECK constraints for single-select fields with enum options
- *
- * SECURITY NOTE: Enum options come from validated Effect Schema (SingleSelectFieldSchema).
- * While options are constrained to be strings, we still escape single quotes
- * to prevent SQL injection in case malicious data bypasses schema validation.
- * This follows defense-in-depth security principles.
- */
-const generateEnumConstraints = (fields: readonly Fields[number][]): readonly string[] =>
-  fields
-    .filter(
-      (field): field is Fields[number] & { type: 'single-select'; options: readonly string[] } =>
-        field.type === 'single-select' && 'options' in field && Array.isArray(field.options)
-    )
-    .map((field) => {
-      const values = field.options.map((opt) => `'${escapeSQLString(opt)}'`).join(', ')
-      const constraintName = `check_${field.name}_enum`
-      return `CONSTRAINT ${constraintName} CHECK (${field.name} IN (${values}))`
-    })
-
-/**
- * Generate UNIQUE constraints for fields with unique property
- */
-const generateUniqueConstraints = (
-  tableName: string,
-  fields: readonly Fields[number][]
-): readonly string[] =>
-  fields
-    .filter(
-      (field): field is Fields[number] & { unique: true } => 'unique' in field && !!field.unique
-    )
-    .map((field) => `CONSTRAINT ${tableName}_${field.name}_unique UNIQUE (${field.name})`)
-
-/**
- * Generate primary key constraint if defined
- */
-const generatePrimaryKeyConstraint = (table: Table): readonly string[] => {
-  if (table.primaryKey?.type === 'composite' && table.primaryKey.fields) {
-    return [`PRIMARY KEY (${table.primaryKey.fields.join(', ')})`]
-  }
-  return []
-}
-
-/**
- * Generate table constraints (CHECK constraints, UNIQUE constraints, primary key, etc.)
- */
-const generateTableConstraints = (table: Table): readonly string[] => [
-  ...generateArrayConstraints(table.fields),
-  ...generateNumericConstraints(table.fields),
-  ...generateEnumConstraints(table.fields),
-  ...generateUniqueConstraints(table.name, table.fields),
-  ...generatePrimaryKeyConstraint(table),
-]
 
 /**
  * Generate CREATE TABLE statement
@@ -557,6 +339,90 @@ const generateAlterTableStatements = (
 }
 
 /**
+ * Sync unique constraints for existing table
+ * Adds named UNIQUE constraints for fields with unique property
+ */
+/* eslint-disable functional/no-expression-statements, functional/no-loop-statements */
+const syncUniqueConstraints = async (
+  tx: { unsafe: (sql: string) => Promise<unknown> },
+  table: Table
+): Promise<void> => {
+  const uniqueFields = new Set(
+    table.fields.filter((f) => 'unique' in f && f.unique).map((f) => f.name)
+  )
+
+  for (const fieldName of uniqueFields) {
+    const constraintName = `${table.name}_${fieldName}_unique`
+    // Add constraint if it doesn't exist (using IF NOT EXISTS equivalent)
+    await tx.unsafe(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.table_constraints
+          WHERE table_name = '${table.name}'
+            AND constraint_type = 'UNIQUE'
+            AND constraint_name = '${constraintName}'
+        ) THEN
+          ALTER TABLE ${table.name} ADD CONSTRAINT ${constraintName} UNIQUE (${fieldName});
+        END IF;
+      END$$;
+    `)
+  }
+}
+/* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
+
+/**
+ * Migrate existing table (ALTER statements + constraints + indexes)
+ */
+/* eslint-disable functional/no-expression-statements, functional/no-loop-statements */
+const migrateExistingTable = async (
+  tx: { unsafe: (sql: string) => Promise<unknown> },
+  table: Table,
+  existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>
+): Promise<void> => {
+  const alterStatements = generateAlterTableStatements(table, existingColumns)
+
+  // If alterStatements is empty, table has incompatible schema changes
+  // (e.g., primary key type change) - drop and recreate
+  if (alterStatements.length === 0) {
+    await tx.unsafe(`DROP TABLE ${table.name} CASCADE`)
+    const createTableSQL = generateCreateTableSQL(table)
+    await tx.unsafe(createTableSQL)
+  } else {
+    // Apply incremental migrations
+    for (const alterSQL of alterStatements) {
+      await tx.unsafe(alterSQL)
+    }
+  }
+
+  // Always add/update unique constraints for existing tables
+  await syncUniqueConstraints(tx, table)
+
+  // Always create indexes (IF NOT EXISTS prevents errors)
+  for (const indexSQL of generateIndexStatements(table)) {
+    await tx.unsafe(indexSQL)
+  }
+}
+/* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
+
+/**
+ * Create new table (CREATE statement + indexes)
+ */
+/* eslint-disable functional/no-expression-statements, functional/no-loop-statements */
+const createNewTable = async (
+  tx: { unsafe: (sql: string) => Promise<unknown> },
+  table: Table
+): Promise<void> => {
+  const createTableSQL = generateCreateTableSQL(table)
+  await tx.unsafe(createTableSQL)
+
+  for (const indexSQL of generateIndexStatements(table)) {
+    await tx.unsafe(indexSQL)
+  }
+}
+/* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
+
+/**
  * Execute schema initialization using bun:sql with transaction support
  * Uses Bun's native SQL driver for optimal performance
  *
@@ -566,32 +432,31 @@ const generateAlterTableStatements = (
  *
  * Note: This function intentionally uses imperative patterns for database I/O.
  * Side effects are unavoidable when executing DDL statements against PostgreSQL.
+ *
+ * SECURITY NOTE: tx.unsafe() is intentionally used here for DDL execution.
+ *
+ * This is SAFE because:
+ * 1. SQL is generated from validated Effect Schema objects, not user input
+ *    - Table names come from schema definitions validated at startup
+ *    - Field names/types are constrained by the domain model (Fields type)
+ * 2. DDL statements (CREATE TABLE, CREATE INDEX) cannot use parameterized queries
+ *    - PostgreSQL does not support $1 placeholders in DDL statements
+ *    - Table and column names must be interpolated directly
+ * 3. All identifiers come from validated schema definitions
+ *    - The App schema is validated via Effect Schema before reaching this code
+ *    - Invalid identifiers would fail schema validation, not reach SQL execution
+ * 4. Transaction boundary provides atomicity
+ *    - If any statement fails, the entire transaction rolls back
+ *    - No partial schema state is possible
+ *
+ * This pattern is standard for schema migration tools (Drizzle, Prisma, etc.)
+ * which all generate and execute DDL strings directly.
  */
 /* eslint-disable functional/no-expression-statements, functional/no-loop-statements */
 const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]): Promise<void> => {
   const db = new SQL(databaseUrl)
 
   try {
-    /**
-     * SECURITY NOTE: tx.unsafe() is intentionally used here for DDL execution.
-     *
-     * This is SAFE because:
-     * 1. SQL is generated from validated Effect Schema objects, not user input
-     *    - Table names come from schema definitions validated at startup
-     *    - Field names/types are constrained by the domain model (Fields type)
-     * 2. DDL statements (CREATE TABLE, CREATE INDEX) cannot use parameterized queries
-     *    - PostgreSQL does not support $1 placeholders in DDL statements
-     *    - Table and column names must be interpolated directly
-     * 3. All identifiers come from validated schema definitions
-     *    - The App schema is validated via Effect Schema before reaching this code
-     *    - Invalid identifiers would fail schema validation, not reach SQL execution
-     * 4. Transaction boundary provides atomicity
-     *    - If any statement fails, the entire transaction rolls back
-     *    - No partial schema state is possible
-     *
-     * This pattern is standard for schema migration tools (Drizzle, Prisma, etc.)
-     * which all generate and execute DDL strings directly.
-     */
     await db.begin(async (tx) => {
       // Step 1: Drop tables that exist in database but not in schema
       await dropObsoleteTables(tx, tables)
@@ -601,59 +466,10 @@ const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]):
         const exists = await tableExists(tx, table.name)
 
         if (exists) {
-          // Table exists - perform incremental migration
           const existingColumns = await getExistingColumns(tx, table.name)
-          const alterStatements = generateAlterTableStatements(table, existingColumns)
-
-          // If alterStatements is empty, table has incompatible schema changes
-          // (e.g., primary key type change) - drop and recreate
-          if (alterStatements.length === 0) {
-            await tx.unsafe(`DROP TABLE ${table.name} CASCADE`)
-            const createTableSQL = generateCreateTableSQL(table)
-            await tx.unsafe(createTableSQL)
-          } else {
-            // Apply incremental migrations
-            for (const alterSQL of alterStatements) {
-              await tx.unsafe(alterSQL)
-            }
-          }
-
-          // Always add/update unique constraints for existing tables
-          // First, drop existing unique constraints for fields that no longer need them
-          const uniqueFields = new Set(
-            table.fields.filter((f) => 'unique' in f && f.unique).map((f) => f.name)
-          )
-
-          for (const fieldName of uniqueFields) {
-            const constraintName = `${table.name}_${fieldName}_unique`
-            // Add constraint if it doesn't exist (using IF NOT EXISTS equivalent)
-            await tx.unsafe(`
-              DO $$
-              BEGIN
-                IF NOT EXISTS (
-                  SELECT 1 FROM information_schema.table_constraints
-                  WHERE table_name = '${table.name}'
-                    AND constraint_type = 'UNIQUE'
-                    AND constraint_name = '${constraintName}'
-                ) THEN
-                  ALTER TABLE ${table.name} ADD CONSTRAINT ${constraintName} UNIQUE (${fieldName});
-                END IF;
-              END$$;
-            `)
-          }
-
-          // Always create indexes (IF NOT EXISTS prevents errors)
-          for (const indexSQL of generateIndexStatements(table)) {
-            await tx.unsafe(indexSQL)
-          }
+          await migrateExistingTable(tx, table, existingColumns)
         } else {
-          // Table doesn't exist - create it
-          const createTableSQL = generateCreateTableSQL(table)
-          await tx.unsafe(createTableSQL)
-
-          for (const indexSQL of generateIndexStatements(table)) {
-            await tx.unsafe(indexSQL)
-          }
+          await createNewTable(tx, table)
         }
       }
     })
