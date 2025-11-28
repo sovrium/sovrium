@@ -955,7 +955,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-020: should create PostgreSQL TIMESTAMP column with DEFAULT NOW()',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
