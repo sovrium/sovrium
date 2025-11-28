@@ -71,7 +71,7 @@ test.describe('Indexed Field Property', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-INDEXED-002: should not create index for field when field has indexed: false (default)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
