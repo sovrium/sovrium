@@ -1038,7 +1038,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-022: should remove table completely via DROP TABLE',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

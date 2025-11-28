@@ -391,6 +391,55 @@ const tableExists = async (tx: BunSQLTransaction, tableName: string): Promise<bo
 }
 
 /**
+ * Type definition for table name query result
+ */
+interface TableNameResult {
+  readonly tablename: string
+}
+
+/**
+ * Get all existing table names in the public schema
+ *
+ * SECURITY NOTE: This query is read-only and uses information_schema.
+ * This is SAFE because:
+ * 1. No user input is involved (queries all tables in public schema)
+ * 2. information_schema queries are read-only (no data modification risk)
+ * 3. Only returns table names (no sensitive data)
+ */
+const getExistingTableNames = async (tx: BunSQLTransaction): Promise<readonly string[]> => {
+  const result = (await tx.unsafe(`
+    SELECT tablename
+    FROM pg_tables
+    WHERE schemaname = 'public'
+  `)) as readonly TableNameResult[]
+  return result.map((row) => row.tablename)
+}
+
+/**
+ * Drop tables that exist in database but are not defined in schema
+ *
+ * SECURITY NOTE: Table names are validated before reaching this function.
+ * This is SAFE because:
+ * 1. existingTableNames comes from pg_tables system catalog (trusted source)
+ * 2. schemaTableNames comes from validated Effect Schema objects
+ * 3. Only tables not in schema are dropped (explicit comparison)
+ */
+/* eslint-disable functional/no-expression-statements, functional/no-loop-statements */
+const dropObsoleteTables = async (
+  tx: BunSQLTransaction,
+  tables: readonly Table[]
+): Promise<void> => {
+  const existingTableNames = await getExistingTableNames(tx)
+  const schemaTableNames = new Set(tables.map((table) => table.name))
+  const tablesToDrop = existingTableNames.filter((tableName) => !schemaTableNames.has(tableName))
+
+  for (const tableName of tablesToDrop) {
+    await tx.unsafe(`DROP TABLE ${tableName} CASCADE`)
+  }
+}
+/* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
+
+/**
  * Normalize PostgreSQL data type for comparison
  * Maps similar types to a canonical form (e.g., 'varchar' and 'character varying' both map to 'varchar')
  */
@@ -541,6 +590,10 @@ const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]):
      * which all generate and execute DDL strings directly.
      */
     await db.begin(async (tx) => {
+      // Step 1: Drop tables that exist in database but not in schema
+      await dropObsoleteTables(tx, tables)
+
+      // Step 2: Create or migrate tables defined in schema
       for (const table of tables) {
         const exists = await tableExists(tx, table.name)
 
