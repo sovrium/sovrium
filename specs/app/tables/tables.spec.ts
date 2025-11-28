@@ -760,7 +760,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-016: should drop column and reduce table to remaining columns',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
