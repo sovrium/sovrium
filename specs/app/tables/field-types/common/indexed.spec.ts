@@ -165,7 +165,7 @@ test.describe('Indexed Field Property', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-INDEXED-004: should use index for WHERE, JOIN, and ORDER BY operations when frequently queried field has indexed: true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -209,7 +209,7 @@ test.describe('Indexed Field Property', () => {
         'SELECT customer_id, COUNT(*) as order_count FROM orders GROUP BY customer_id ORDER BY customer_id'
       )
       // THEN: assertion
-      expect(groupedQuery).toEqual([
+      expect(groupedQuery.rows).toEqual([
         { customer_id: 1, order_count: 2 },
         { customer_id: 2, order_count: 1 },
       ])
