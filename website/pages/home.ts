@@ -49,10 +49,10 @@ export const home: Page = {
           children: [
             {
               type: 'h1',
-              content: 'Sovrium',
+              content: 'Sovrium, the sovereignty element',
               props: {
                 className:
-                  'text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-6 bg-gradient-to-r from-sovereignty-accent to-sovereignty-teal bg-clip-text text-transparent',
+                  'text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight bg-gradient-to-r from-sovereignty-accent to-sovereignty-teal bg-clip-text text-transparent overflow-visible',
               },
             },
             {

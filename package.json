@@ -83,7 +83,7 @@
     "db:drop": "drizzle-kit drop",
     "db:check": "drizzle-kit check",
     "website:build": "bun run website/build.ts",
-    "website:serve": "bun run website/serve.ts",
+    "website:serve": "bun --watch run website/serve.ts",
     "release": "semantic-release"
   },
   "devDependencies": {
