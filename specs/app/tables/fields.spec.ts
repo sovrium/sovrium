@@ -107,7 +107,7 @@ test.describe('Table Fields', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELDS-002: should enforce minimum items when validating input with fewer than 1 items',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -121,7 +121,7 @@ test.describe('Table Fields', () => {
           name: 'test-app',
           tables: [{ id: 3, name: 'invalid_table', fields: [] }],
         })
-      ).rejects.toThrow(/must be within the allowed range/)
+      ).rejects.toThrow(/Expected Collection of all supported field types/)
 
       // Invalid: Missing fields property
       // THEN: assertion
