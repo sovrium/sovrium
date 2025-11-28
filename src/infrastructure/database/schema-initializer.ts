@@ -113,10 +113,17 @@ const generateUniqueConstraint = (field: Fields[number]): string =>
 /**
  * Generate DEFAULT clause
  */
-const generateDefaultClause = (field: Fields[number]): string =>
-  'default' in field && field.default !== undefined
+const generateDefaultClause = (field: Fields[number]): string => {
+  // Auto-timestamp fields get CURRENT_TIMESTAMP default
+  if (field.type === 'created-at' || field.type === 'updated-at') {
+    return ' DEFAULT CURRENT_TIMESTAMP'
+  }
+
+  // Explicit default values
+  return 'default' in field && field.default !== undefined
     ? ` DEFAULT ${formatDefaultValue(field.default)}`
     : ''
+}
 
 /**
  * Generate column definition with constraints
