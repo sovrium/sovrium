@@ -24,7 +24,7 @@ test.describe('Email Field', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-EMAIL-001: should create PostgreSQL VARCHAR(255) column for email storage when table configuration has email field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -50,12 +50,10 @@ test.describe('Email Field', () => {
         "SELECT column_name, data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='users' AND column_name='email'"
       )
       // THEN: assertion
-      expect(columnInfo).toEqual({
-        column_name: 'email',
-        data_type: 'character varying',
-        character_maximum_length: 255,
-        is_nullable: 'YES',
-      })
+      expect(columnInfo.column_name).toBe('email')
+      expect(columnInfo.data_type).toBe('character varying')
+      expect(columnInfo.character_maximum_length).toBe(255)
+      expect(columnInfo.is_nullable).toBe('YES')
 
       const validInsert = await executeQuery(
         "INSERT INTO users (email) VALUES ('john.doe@example.com') RETURNING email"

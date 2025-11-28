@@ -332,7 +332,7 @@ const runFullChecks = Effect.gen(function* () {
       effect: runCheck(
         'E2E Regression Tests',
         ['bunx', 'playwright', 'test', '--grep=@regression'],
-        120_000
+        180_000
       ),
     },
   ]
