@@ -105,10 +105,13 @@ const generateNotNullConstraint = (field: Fields[number], isPrimaryKey: boolean)
   isPrimaryKey || ('required' in field && field.required) ? ' NOT NULL' : ''
 
 /**
- * Generate UNIQUE constraint
+ * Generate UNIQUE constraint (inline - deprecated in favor of named constraints)
+ *
+ * NOTE: Inline UNIQUE constraints are no longer used. Named UNIQUE constraints
+ * are now generated at the table level via generateUniqueConstraints() to ensure
+ * they appear in information_schema.table_constraints with queryable constraint names.
  */
-const generateUniqueConstraint = (field: Fields[number]): string =>
-  'unique' in field && field.unique ? ' UNIQUE' : ''
+const generateUniqueConstraint = (_field: Fields[number]): string => ''
 
 /**
  * Generate DEFAULT clause
@@ -209,12 +212,15 @@ const generateEnumConstraints = (fields: readonly Fields[number][]): readonly st
 /**
  * Generate UNIQUE constraints for fields with unique property
  */
-const generateUniqueConstraints = (fields: readonly Fields[number][]): readonly string[] =>
+const generateUniqueConstraints = (
+  tableName: string,
+  fields: readonly Fields[number][]
+): readonly string[] =>
   fields
     .filter(
       (field): field is Fields[number] & { unique: true } => 'unique' in field && !!field.unique
     )
-    .map((field) => `UNIQUE (${field.name})`)
+    .map((field) => `CONSTRAINT ${tableName}_${field.name}_unique UNIQUE (${field.name})`)
 
 /**
  * Generate primary key constraint if defined
@@ -233,7 +239,7 @@ const generateTableConstraints = (table: Table): readonly string[] => [
   ...generateArrayConstraints(table.fields),
   ...generateNumericConstraints(table.fields),
   ...generateEnumConstraints(table.fields),
-  ...generateUniqueConstraints(table.fields),
+  ...generateUniqueConstraints(table.name, table.fields),
   ...generatePrimaryKeyConstraint(table),
 ]
 
@@ -610,6 +616,30 @@ const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]):
             for (const alterSQL of alterStatements) {
               await tx.unsafe(alterSQL)
             }
+          }
+
+          // Always add/update unique constraints for existing tables
+          // First, drop existing unique constraints for fields that no longer need them
+          const uniqueFields = new Set(
+            table.fields.filter((f) => 'unique' in f && f.unique).map((f) => f.name)
+          )
+
+          for (const fieldName of uniqueFields) {
+            const constraintName = `${table.name}_${fieldName}_unique`
+            // Add constraint if it doesn't exist (using IF NOT EXISTS equivalent)
+            await tx.unsafe(`
+              DO $$
+              BEGIN
+                IF NOT EXISTS (
+                  SELECT 1 FROM information_schema.table_constraints
+                  WHERE table_name = '${table.name}'
+                    AND constraint_type = 'UNIQUE'
+                    AND constraint_name = '${constraintName}'
+                ) THEN
+                  ALTER TABLE ${table.name} ADD CONSTRAINT ${constraintName} UNIQUE (${fieldName});
+                END IF;
+              END$$;
+            `)
           }
 
           // Always create indexes (IF NOT EXISTS prevents errors)

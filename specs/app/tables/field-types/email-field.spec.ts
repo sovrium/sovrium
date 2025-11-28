@@ -97,7 +97,7 @@ test.describe('Email Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-EMAIL-003: should reject duplicate email when table has email field with unique constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
