@@ -268,7 +268,7 @@ test.describe('Indexed Field Property', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-INDEXED-006: user can complete full indexed-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
