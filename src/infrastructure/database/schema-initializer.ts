@@ -98,12 +98,14 @@ const generateColumnDefinition = (field: Fields[number], isPrimaryKey: boolean):
   const columnType = mapFieldTypeToPostgres(field)
   // Primary key fields must always be NOT NULL, otherwise use the required flag
   const notNull = isPrimaryKey || ('required' in field && field.required) ? ' NOT NULL' : ''
+  // Add UNIQUE constraint if specified
+  const unique = 'unique' in field && field.unique ? ' UNIQUE' : ''
   // Add DEFAULT clause if default value is specified
   const defaultValue =
     'default' in field && field.default !== undefined
       ? ` DEFAULT ${typeof field.default === 'boolean' ? field.default : `'${field.default}'`}`
       : ''
-  return `${field.name} ${columnType}${notNull}${defaultValue}`
+  return `${field.name} ${columnType}${notNull}${unique}${defaultValue}`
 }
 
 /**
@@ -329,22 +331,117 @@ const tableExists = async (tx: BunSQLTransaction, tableName: string): Promise<bo
 }
 
 /**
- * Generate ALTER TABLE ADD COLUMN statements for new fields
+ * Normalize PostgreSQL data type for comparison
+ * Maps similar types to a canonical form (e.g., 'varchar' and 'character varying' both map to 'varchar')
  */
-const generateAlterTableAddColumns = (
+const normalizeDataType = (dataType: string): string => {
+  const normalized = dataType.toLowerCase().trim()
+  // Map 'character varying' to 'varchar' for easier comparison
+  if (normalized.startsWith('character varying')) return 'varchar'
+  if (normalized.startsWith('timestamp')) return 'timestamp'
+  if (normalized.startsWith('numeric') || normalized.startsWith('decimal')) return 'numeric'
+  return normalized
+}
+
+/**
+ * Check if column data type matches the expected type from schema
+ */
+const doesColumnTypeMatch = (
+  field: Fields[number],
+  existingDataType: string
+): boolean => {
+  const expectedType = mapFieldTypeToPostgres(field)
+  const normalizedExpected = normalizeDataType(expectedType)
+  const normalizedExisting = normalizeDataType(existingDataType)
+
+  // For varchar/text types, check if both are string types
+  if (
+    (normalizedExpected === 'varchar' || normalizedExpected === 'text') &&
+    (normalizedExisting === 'varchar' || normalizedExisting === 'text')
+  ) {
+    // Match if both are string types (varchar/text are interchangeable for our purposes)
+    return normalizedExpected === normalizedExisting
+  }
+
+  // For other types, exact match required
+  return normalizedExpected === normalizedExisting
+}
+
+/**
+ * Generate ALTER TABLE statements for schema changes (ADD/DROP columns)
+ */
+const generateAlterTableStatements = (
   table: Table,
   existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>
 ): readonly string[] => {
   const primaryKeyFields =
     table.primaryKey?.type === 'composite' ? (table.primaryKey.fields ?? []) : []
 
-  return table.fields
-    .filter((field) => !existingColumns.has(field.name))
-    .map((field) => {
-      const isPrimaryKey = primaryKeyFields.includes(field.name)
-      const columnDef = generateColumnDefinition(field, isPrimaryKey)
-      return `ALTER TABLE ${table.name} ADD COLUMN ${columnDef}`
-    })
+  // Check if an 'id' field already exists in the fields array
+  const hasIdField = table.fields.some((field) => field.name === 'id')
+
+  // Check if a custom primary key is defined
+  const hasCustomPrimaryKey = table.primaryKey && primaryKeyFields.length > 0
+
+  // Protect 'id' column if it's auto-generated (no custom PK and no explicit id field)
+  const shouldProtectIdColumn = !hasIdField && !hasCustomPrimaryKey
+
+  // Build sets for efficient lookups
+  const schemaFieldsByName = new Map(table.fields.map((field) => [field.name, field]))
+
+  // Check if auto-generated id column should exist and if it has wrong type
+  const needsAutoId = shouldProtectIdColumn
+  const hasIdColumn = existingColumns.has('id')
+  const idColumnHasWrongType =
+    hasIdColumn &&
+    needsAutoId &&
+    !(
+      normalizeDataType(existingColumns.get('id')!.dataType) === 'integer' ||
+      normalizeDataType(existingColumns.get('id')!.dataType) === 'serial'
+    )
+
+  // If id column has wrong type (e.g., TEXT from Better Auth), we need to recreate the table
+  // because you can't change a column from TEXT PRIMARY KEY to SERIAL PRIMARY KEY with ALTER
+  if (idColumnHasWrongType) {
+    // Return empty array - table will be dropped and recreated
+    return []
+  }
+
+  // Columns to add: not in database OR exist but have wrong type
+  const columnsToAdd = table.fields.filter((field) => {
+    if (!existingColumns.has(field.name)) return true // New column
+    const existing = existingColumns.get(field.name)!
+    return !doesColumnTypeMatch(field, existing.dataType) // Type mismatch
+  })
+
+  // Columns to drop: exist in database but not in schema OR have wrong type
+  const columnsToDrop = Array.from(existingColumns.keys()).filter((columnName) => {
+    // Never drop protected id column (it's already the correct type at this point)
+    if (shouldProtectIdColumn && columnName === 'id') return false
+
+    // Drop if not in schema
+    if (!schemaFieldsByName.has(columnName)) return true
+
+    // Drop if type doesn't match (will be recreated with correct type)
+    const field = schemaFieldsByName.get(columnName)!
+    const existing = existingColumns.get(columnName)!
+    return !doesColumnTypeMatch(field, existing.dataType)
+  })
+
+  // Generate statements
+  const dropStatements = columnsToDrop.map(
+    (columnName) => `ALTER TABLE ${table.name} DROP COLUMN ${columnName}`
+  )
+
+  const addStatements = columnsToAdd.map((field) => {
+    const isPrimaryKey = primaryKeyFields.includes(field.name)
+    const columnDef = generateColumnDefinition(field, isPrimaryKey)
+    return `ALTER TABLE ${table.name} ADD COLUMN ${columnDef}`
+  })
+
+  // Return DROP statements first, then ADD statements
+  // This ensures columns are dropped before adding new ones with correct types
+  return [...dropStatements, ...addStatements]
 }
 
 /**
@@ -390,10 +487,19 @@ const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]):
         if (exists) {
           // Table exists - perform incremental migration
           const existingColumns = await getExistingColumns(tx, table.name)
-          const alterStatements = generateAlterTableAddColumns(table, existingColumns)
+          const alterStatements = generateAlterTableStatements(table, existingColumns)
 
-          for (const alterSQL of alterStatements) {
-            await tx.unsafe(alterSQL)
+          // If alterStatements is empty, table has incompatible schema changes
+          // (e.g., primary key type change) - drop and recreate
+          if (alterStatements.length === 0) {
+            await tx.unsafe(`DROP TABLE ${table.name} CASCADE`)
+            const createTableSQL = generateCreateTableSQL(table)
+            await tx.unsafe(createTableSQL)
+          } else {
+            // Apply incremental migrations
+            for (const alterSQL of alterStatements) {
+              await tx.unsafe(alterSQL)
+            }
           }
 
           // Always create indexes (IF NOT EXISTS prevents errors)
