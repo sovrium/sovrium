@@ -239,7 +239,7 @@ This agent uses a two-phase strategy to prioritize recent changes over full code
 
 The agent automatically detects pipeline mode when:
 - **Branch pattern**: Current branch matches `claude/issue-*` (TDD spec queue pattern - created automatically by Claude Code)
-- **Handoff marker**: Initial prompt contains "Triggering Refactoring Phase" from e2e-test-fixer OR "Implementation Instructions for @claude" from issue auto-comment
+- **Handoff marker**: Initial prompt contains exact text "## 🔄 Triggering Refactoring Phase" from e2e-test-fixer OR "Implementation Instructions for @claude" from issue auto-comment
 - **Environment variable**: `CLAUDECODE=1` is set (pipeline execution marker)
 - **Issue context**: GitHub issue template markers present (e.g., "Instructions for @claude" or "Implementation Instructions for @claude") indicating automated handoff
 
@@ -570,9 +570,14 @@ Use this template to document test baseline state:
 3. Compare results against Phase 0 baseline
 4. **All baseline passing tests MUST still pass**
 
-**Rollback Protocol**:
+**Rollback Protocol (Max 2 Fix Attempts)**:
 - If ANY test fails → immediately report failure
 - Propose fix OR rollback refactoring
+- **Maximum 2 fix attempts** - If refactoring still breaks tests after 2 fixes:
+  1. Rollback ALL refactoring changes
+  2. Document: "Refactoring of [file] caused test failures. Rolled back."
+  3. Mark as "Manual review required" in audit report
+  4. Continue with next refactoring item (don't block entire audit)
 - Never leave code in broken state
 - Re-run tests after fix/rollback to confirm
 

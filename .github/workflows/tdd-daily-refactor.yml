@@ -158,37 +158,51 @@ jobs:
           additional_permissions: |
             actions: read
 
-          # Automated refactoring prompt
-          prompt: >-
-            Automated refactoring workflow - ${{ needs.wait-for-clean.outputs.scope }}:
+          # Automated refactoring prompt - using | for proper multiline formatting
+          prompt: |
+            # Automated Refactoring Workflow - ${{ needs.wait-for-clean.outputs.scope }}
 
+            ## 📋 Context
+            - **Scope**: ${{ needs.wait-for-clean.outputs.scope_description }}
+            - **Branch**: ${{ needs.wait-for-clean.outputs.branch_name }}
+            - **Mode**: FULLY AUTOMATED (pipeline mode)
 
-            **Scope**: ${{ needs.wait-for-clean.outputs.scope_description }}
+            ## 🤖 Automation Mode
+            **You are in pipeline/automation mode**:
+            - ✅ Make autonomous decisions - no human approval needed
+            - ✅ Apply safe refactors that maintain test coverage
+            - ❌ DO NOT ask questions - proceed with best judgment
+            - ❌ DO NOT apply Phase 1.2 recommendations (require manual approval)
 
+            ## ✅ Critical Steps (ALL REQUIRED)
 
-            **Instructions**:
+            1. **Run codebase-refactor-auditor agent** - Use `Task` tool with `subagent_type='codebase-refactor-auditor'` in automated/pipeline mode
+            2. **Apply Phase 1.1 refactors only** - Safe, automated changes that maintain test coverage
+            3. **Verify layer architecture** - Ensure NO cross-layer import violations (domain must be pure)
+            4. **Run quality checks** - Execute `bun run quality` and confirm ALL checks pass (ESLint, TypeScript, unit tests, E2E regression)
+            5. **Commit changes** - Run `bun run license`, then commit with message: "refactor: automated ${{ needs.wait-for-clean.outputs.scope }} maintenance"
+            6. **Create PR** - `gh pr create --base main --label "automated-refactor" --title "refactor: automated ${{ needs.wait-for-clean.outputs.scope }} maintenance"`
+            7. **Enable auto-merge** - `gh pr merge $PR_NUMBER --auto --squash`
+            8. **Verify auto-merge** - Run `gh pr view $PR_NUMBER --json autoMergeRequest` and confirm autoMergeRequest is NOT null
 
-            1. Run @agent-codebase-refactor-auditor in automated mode
+            ## ⚠️ Error Handling
 
-            2. Apply Phase 1.1 refactors immediately (safe, automated changes only)
+            - **If `bun run quality` fails**: Do NOT create PR - fix the issues first or skip the refactoring
+            - **If layer architecture violations found**: Fix them before proceeding - this is critical
+            - **If no changes needed**: Report "No refactoring needed - codebase is clean" and exit successfully (no PR)
+            - **If PR creation fails**: Retry once, then exit with error
 
-            3. Skip Phase 1.2 recommendations (require manual approval)
+            ## 🚫 DO NOT
 
-            4. Run quality checks: bun run quality
+            - Do NOT apply Phase 1.2 recommendations (they require manual approval)
+            - Do NOT create PR with failing tests
+            - Do NOT skip the quality verification step
+            - Do NOT modify files outside src/ directory
 
-            5. Commit changes with message: "refactor: automated ${{ needs.wait-for-clean.outputs.scope }} maintenance"
+            **Reference**: @docs/development/tdd-automation-pipeline.md
 
-            6. Create PR to main with label "automated-refactor"
-
-            7. Enable auto-merge: gh pr merge --auto --squash
-
-
-            **Important**: This is FULLY AUTOMATED - no human approval needed if tests pass.
-
-            Only apply safe refactors that maintain test coverage and pass all quality gates.
-
-          # Agent configuration
-          claude_args: '--agents codebase-refactor-auditor --dangerously-skip-permissions'
+          # Agent auto-discovery from .claude/agents/ directory
+          claude_args: '--dangerously-skip-permissions'
 
       - name: Verify refactor completed
         id: verify

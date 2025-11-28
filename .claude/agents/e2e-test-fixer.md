@@ -175,7 +175,12 @@ In pipeline mode, automatic handoff occurs when:
 - All tests for a feature are GREEN
 - Pipeline workflow triggers refactoring phase
 
-Handoff notification:
+**Handoff Mechanism**:
+- GitHub Actions workflow posts issue comment with handoff template
+- Comment contains "Triggering Refactoring Phase" marker
+- codebase-refactor-auditor detects this marker in initial prompt
+
+Handoff notification (posted as issue comment):
 ```markdown
 ## 🔄 Triggering Refactoring Phase
 
@@ -647,6 +652,16 @@ As a CREATIVE agent, **proactive communication is a core responsibility**, not a
 
 ## Quality Assurance
 
+**Quality Check Components** (`bun run quality`):
+- Runs ESLint, TypeScript, unit tests, and @regression E2E tests **in parallel**
+- Typically completes in <30s for full codebase
+- **Does NOT include @spec tests** - must run separately: `bun test:e2e --grep @spec`
+
+**Complete Validation Sequence**:
+1. `bun run quality` - Must pass 100%
+2. `bun test:e2e -- <test-file>` - ALL tests in file must pass 100%
+3. `bun test:e2e:regression` - No regressions globally (run after Step 4 passes)
+
 **Your Responsibility (Manual Verification)**:
 1. ✅ **Domain Schemas Exist**: Check before implementation, create via skill if missing
 2. ✅ **Quality Checks Pass**: Run `bun run quality` BEFORE testing (MANDATORY)
@@ -659,10 +674,14 @@ As a CREATIVE agent, **proactive communication is a core responsibility**, not a
 9. ✅ **No Premature Refactoring**: Document duplication but don't refactor after GREEN
 10. ✅ **No Demonstration Code**: Zero showcase modes, debug visualizations, or test-only code paths in src/
 
-**CRITICAL - Iteration Loop**:
+**CRITICAL - Iteration Loop (Max 3 Attempts)**:
 - If `bun run quality` fails → Fix quality issues → Re-run quality
 - If any test in the file fails → Fix implementation → Re-run ALL tests in file
 - **Continue iterating until BOTH quality AND all tests pass**
+- **Maximum 3 iterations** - If still failing after 3 attempts:
+  1. Document the specific failure (quality error or test failure)
+  2. Escalate to user: "After 3 attempts, [quality/tests] still failing. Need guidance."
+  3. Do NOT proceed to regression tests or commit
 - **NEVER proceed to regression tests or commit with failing quality or tests**
 
 **Automated via Hooks (Runs Automatically)**:

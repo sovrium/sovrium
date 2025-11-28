@@ -272,12 +272,41 @@ jobs:
                   --remove-label "$RETRY_LABEL" \
                   --add-label "infrastructure-retry:$NEXT_RETRY"
 
+                # Get spec details from issue for context
+                SPEC_ID=\$(gh issue view "\$ISSUE_NUMBER" --repo \${{ github.repository }} --json title --jq '.title' | grep -oP '[A-Z]+-[A-Z]+-[0-9]+' || echo "unknown")
+                TEST_FILE=\$(gh issue view "\$ISSUE_NUMBER" --repo \${{ github.repository }} --json body --jq '.body' | grep -oP 'Test File.*\`\K[^\`]+' || echo "unknown")
+
                 gh issue comment "$ISSUE_NUMBER" --repo ${{ github.repository }} \
-                  --body "🔄 **Stuck Retry Recovery**
+                  --body "🔄 **Stuck Retry Recovery** (Attempt $NEXT_RETRY of 3)
 
-                Retry #$RETRY_NUM stuck for $AGE_MIN min. Triggering retry #$NEXT_RETRY.
+                Previous attempt stuck for $AGE_MIN minutes. Restarting implementation.
 
-                @claude retry implementation
+                @claude retry implementation for this spec
+
+                ## 📋 Context
+                - **Spec ID**: \`$SPEC_ID\`
+                - **Test File**: \`$TEST_FILE\`
+                - **Issue**: #$ISSUE_NUMBER
+                - **Retry Attempt**: $NEXT_RETRY of 3
+                - **Previous Failure**: Infrastructure timeout (not code issue)
+
+                ## 🤖 Automation Mode
+                - ✅ Make autonomous decisions - proceed with best judgment
+                - ❌ DO NOT ask questions
+
+                ## ✅ Instructions
+
+                1. **Check current state**: Run \`git status\` to see if previous work exists
+                2. **If branch has changes**: Continue from where it left off
+                3. **If no changes**: Start fresh using e2e-test-fixer agent (\`Task\` tool with \`subagent_type='e2e-test-fixer'\`)
+                4. **Run codebase-refactor-auditor**: Use \`Task\` tool with \`subagent_type='codebase-refactor-auditor'\` (MANDATORY)
+                5. **Verify quality**: Run \`bun run quality\` - all checks must pass
+                6. **Commit**: \`fix: implement $SPEC_ID\`
+                7. **Create PR**: \`gh pr create --title \"fix: implement $SPEC_ID\" --body \"Closes #$ISSUE_NUMBER\" --label \"tdd-automation\"\`
+                8. **Enable auto-merge**: \`gh pr merge \$PR_NUMBER --auto --squash\`
+                9. **Verify auto-merge**: \`gh pr view \$PR_NUMBER --json autoMergeRequest\`
+
+                **Reference**: \`@docs/development/tdd-automation-pipeline.md\`
 
                 ---
                 *🤖 TDD Monitor (Unified)*"
@@ -427,18 +456,51 @@ jobs:
 
               # Post @claude comment to update branch
               gh pr comment "$PR_NUMBER" --repo ${{ github.repository }} \
-                --body "@claude update branch
+                --body "@claude update this PR branch to include latest main changes
 
-              This PR branch is behind main. Please update it:
+              ## 📋 Context
+              - **PR**: #$PR_NUMBER
+              - **Branch**: \`$HEAD_REF\`
+              - **Status**: Branch is behind main and needs to be updated
 
-              \`\`\`bash
-              git fetch origin main:main
-              git checkout $HEAD_REF
-              git merge origin/main
-              git push
-              \`\`\`
+              ## 🤖 Automation Mode
+              - ✅ Make autonomous decisions - proceed with best judgment
+              - ❌ DO NOT ask questions
 
-              Auto-merge will proceed once branch is updated.
+              ## ✅ Instructions
+
+              1. **Fetch latest main**:
+                 \`\`\`bash
+                 git fetch origin main:main
+                 \`\`\`
+
+              2. **Checkout PR branch and merge main**:
+                 \`\`\`bash
+                 git checkout $HEAD_REF
+                 git merge origin/main
+                 \`\`\`
+
+              3. **If merge conflicts occur**:
+                 - Resolve conflicts (prioritize incoming changes from main for config files)
+                 - For code conflicts, keep both implementations if safe, otherwise prefer main
+                 - Run \`bun run quality\` to verify resolution is correct
+
+              4. **Push updated branch**:
+                 \`\`\`bash
+                 git push
+                 \`\`\`
+
+              5. **Verify auto-merge still enabled**:
+                 \`\`\`bash
+                 gh pr view $PR_NUMBER --json autoMergeRequest
+                 \`\`\`
+                 If autoMergeRequest is null, re-enable: \`gh pr merge $PR_NUMBER --auto --squash\`
+
+              ## ⚠️ Error Handling
+              - **If conflicts cannot be resolved automatically**: Add comment explaining the conflict and add label \`needs-manual-resolution\`
+              - **If quality checks fail after merge**: Fix the issues before pushing
+
+              Auto-merge will proceed once branch is updated and CI passes.
 
               ---
               *🤖 TDD Monitor (Unified)*"
@@ -587,16 +649,66 @@ jobs:
               HEAD_REF=$(gh pr view "$PR_NUMBER" --repo ${{ github.repository }} --json headRefName --jq '.headRefName')
 
               gh pr comment "$PR_NUMBER" --repo ${{ github.repository }} \
-                --body "@claude resolve conflicts
+                --body "@claude resolve merge conflicts in this PR
 
-              This PR has merge conflicts. Please resolve automatically:
+              ## 📋 Context
+              - **PR**: #$PR_NUMBER
+              - **Branch**: \`$HEAD_REF\`
+              - **Status**: Has merge conflicts that need resolution
 
-              1. \`git fetch origin main:main\`
-              2. \`git checkout $HEAD_REF && git rebase origin/main\`
-              3. Resolve conflicts (prioritize main, keep both in tests)
-              4. \`bun run lint && typecheck && test:unit\`
-              5. \`git push --force-with-lease\`
-              6. Re-enable auto-merge: \`gh pr merge $PR_NUMBER --auto --squash\`
+              ## 🤖 Automation Mode
+              - ✅ Make autonomous decisions - proceed with best judgment
+              - ❌ DO NOT ask questions
+              - ⚠️ This is the FIRST automatic resolution attempt
+
+              ## ✅ Instructions
+
+              1. **Fetch latest main**:
+                 \`\`\`bash
+                 git fetch origin main:main
+                 \`\`\`
+
+              2. **Checkout branch and rebase on main**:
+                 \`\`\`bash
+                 git checkout $HEAD_REF
+                 git rebase origin/main
+                 \`\`\`
+
+              3. **Resolve conflicts with these priorities**:
+                 - **Config files** (package.json, tsconfig.json, etc.): Accept incoming (main) version
+                 - **Source code** (src/): Keep both implementations if compatible, otherwise prefer main
+                 - **Test files** (specs/): Keep both test cases, merge test logic carefully
+                 - **Generated files** (SPEC-STATE.md, etc.): Accept incoming (main) version
+
+              4. **Verify resolution is correct**:
+                 \`\`\`bash
+                 bun run quality
+                 \`\`\`
+                 ALL checks must pass (ESLint, TypeScript, unit tests, E2E regression)
+
+              5. **Push resolved changes**:
+                 \`\`\`bash
+                 git push --force-with-lease
+                 \`\`\`
+
+              6. **Re-enable auto-merge**:
+                 \`\`\`bash
+                 gh pr merge $PR_NUMBER --auto --squash
+                 \`\`\`
+
+              7. **Verify auto-merge enabled**:
+                 \`\`\`bash
+                 gh pr view $PR_NUMBER --json autoMergeRequest
+                 \`\`\`
+
+              ## ⚠️ Error Handling
+
+              - **If rebase fails with complex conflicts**: Try merge instead: \`git merge origin/main\`
+              - **If quality checks fail after resolution**: Fix the failing checks before pushing
+              - **If automatic resolution is not possible**:
+                1. Add comment explaining which files have irresolvable conflicts
+                2. Add label \`needs-manual-resolution\`
+                3. Do NOT push broken code
 
               ---
               *🤖 TDD Monitor (Unified)*"
