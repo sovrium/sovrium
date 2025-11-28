@@ -223,7 +223,7 @@ test.describe('Email Field', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-EMAIL-006: user can complete full email-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
