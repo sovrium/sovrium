@@ -181,6 +181,21 @@ const generateNumericConstraints = (fields: readonly Fields[number][]): readonly
     })
 
 /**
+ * Generate CHECK constraints for single-select fields with enum options
+ */
+const generateEnumConstraints = (fields: readonly Fields[number][]): readonly string[] =>
+  fields
+    .filter(
+      (field): field is Fields[number] & { type: 'single-select'; options: readonly string[] } =>
+        field.type === 'single-select' && 'options' in field && Array.isArray(field.options)
+    )
+    .map((field) => {
+      const values = field.options.map((opt) => `'${opt}'`).join(', ')
+      const constraintName = `check_${field.name}_enum`
+      return `CONSTRAINT ${constraintName} CHECK (${field.name} IN (${values}))`
+    })
+
+/**
  * Generate UNIQUE constraints for fields with unique property
  */
 const generateUniqueConstraints = (fields: readonly Fields[number][]): readonly string[] =>
@@ -206,6 +221,7 @@ const generatePrimaryKeyConstraint = (table: Table): readonly string[] => {
 const generateTableConstraints = (table: Table): readonly string[] => [
   ...generateArrayConstraints(table.fields),
   ...generateNumericConstraints(table.fields),
+  ...generateEnumConstraints(table.fields),
   ...generateUniqueConstraints(table.fields),
   ...generatePrimaryKeyConstraint(table),
 ]
