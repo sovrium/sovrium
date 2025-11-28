@@ -24,7 +24,7 @@ test.describe('Long Text Field', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-LONG-TEXT-001: should create PostgreSQL TEXT column with unlimited length when table configuration has long-text field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -50,12 +50,10 @@ test.describe('Long Text Field', () => {
         "SELECT column_name, data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='articles' AND column_name='description'"
       )
       // THEN: assertion
-      expect(columnInfo).toEqual({
-        column_name: 'description',
-        data_type: 'single-line-text',
-        character_maximum_length: null,
-        is_nullable: 'YES',
-      })
+      expect(columnInfo.column_name).toBe('description')
+      expect(columnInfo.data_type).toBe('text')
+      expect(columnInfo.character_maximum_length).toBeNull()
+      expect(columnInfo.is_nullable).toBe('YES')
 
       const multiLineInsert = await executeQuery(
         "INSERT INTO articles (description) VALUES ('Line 1\nLine 2\nLine 3') RETURNING description"
