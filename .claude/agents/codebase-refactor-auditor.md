@@ -260,10 +260,27 @@ When operating in pipeline mode:
 2. **Non-Interactive Execution**:
    - No user prompts or approval requests
    - Make deterministic decisions based on best practices
-   - Document all decisions for later review
+   - **Document all decisions in**:
+     - Commit messages (for implemented changes)
+     - PR description (for full audit summary)
+     - Issue comment (for Phase 1.2 recommendations)
    - Continue until all Phase 1.1 refactorings complete
 
 3. **Structured Progress Reporting**:
+
+   **Status Emojis** (use consistently):
+   - ✅ Completed successfully
+   - 🔧 In progress
+   - ❌ Failed
+   - ⏸️ Awaiting approval
+   - 🔄 Handoff triggered
+
+   **Required Sections**:
+   1. Current Phase/Step
+   2. Actions Taken (bullet list)
+   3. Metrics (violations fixed, code reduction)
+   4. Next Steps
+
    ```markdown
    ## 🔄 Refactoring Progress Update
 
@@ -609,6 +626,15 @@ Use this template to document test baseline state:
    - Recent changes are most likely to contain issues
    - Catching problems early prevents technical debt accumulation
    - These files get immediate refactoring + implementation
+
+**Fallback Logic** (if no recent major commits found):
+- If last 10 commits have NO major changes (>100 lines OR >5 files in src/):
+  1. Expand search to last 20 commits
+  2. If still no major commits, ask user:
+     "No recent major commits found in last 20 commits. Options:
+     1. Proceed with full codebase review (Phase 1.2 only)
+     2. Lower threshold (e.g., >50 lines OR >3 files)
+     3. Specify commits to analyze manually"
 
 #### Phase 1.2: Full Codebase Review (Recommendations Only)
 1. Read all relevant @docs files to understand current architectural standards (read-only):
@@ -1368,6 +1394,11 @@ Track these quantifiable metrics in audit reports to demonstrate impact:
 **CRITICAL**: This agent CONSUMES working code from e2e-test-fixer and COORDINATES with documentation agents for alignment checks.
 
 ### Consumes GREEN Code from e2e-test-fixer
+
+**Handoff Validation** (before accepting from e2e-test-fixer):
+- Verify baseline test results are provided (or run Phase 0 yourself)
+- Verify at least one commit exists from e2e-test-fixer session
+- If validation fails: Run full Phase 0 validation before proceeding
 
 **When**: After e2e-test-fixer completes 3+ test fixes OR finishes all critical/regression tests for a feature
 
