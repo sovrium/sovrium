@@ -566,6 +566,11 @@ export const test = base.extend<ServerFixtures>({
       // This prevents "2" (string) vs 2 (number) type mismatches in tests
       types.setTypeParser(types.builtins.INT8, (val: string) => parseInt(val, 10))
 
+      // Parse NUMERIC/DECIMAL as number (price, currency, percentage fields return numeric)
+      // PostgreSQL NUMERIC type (OID 1700) returns strings by default to preserve precision
+      // Convert to number for test assertions while accepting precision loss for test simplicity
+      types.setTypeParser(types.builtins.NUMERIC, (val: string) => parseFloat(val))
+
       // Get test database name from startServerWithSchema fixture
       const testDbName = (testInfo as any)._testDatabaseName
       if (!testDbName) {
