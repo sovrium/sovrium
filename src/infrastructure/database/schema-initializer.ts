@@ -181,7 +181,18 @@ const generateNumericConstraints = (fields: readonly Fields[number][]): readonly
     })
 
 /**
+ * Escape single quotes in SQL string literals to prevent SQL injection
+ * PostgreSQL escapes single quotes by doubling them: ' becomes ''
+ */
+const escapeSQLString = (value: string): string => value.replace(/'/g, "''")
+
+/**
  * Generate CHECK constraints for single-select fields with enum options
+ *
+ * SECURITY NOTE: Enum options come from validated Effect Schema (SingleSelectFieldSchema).
+ * While options are constrained to be strings, we still escape single quotes
+ * to prevent SQL injection in case malicious data bypasses schema validation.
+ * This follows defense-in-depth security principles.
  */
 const generateEnumConstraints = (fields: readonly Fields[number][]): readonly string[] =>
   fields
@@ -190,7 +201,7 @@ const generateEnumConstraints = (fields: readonly Fields[number][]): readonly st
         field.type === 'single-select' && 'options' in field && Array.isArray(field.options)
     )
     .map((field) => {
-      const values = field.options.map((opt) => `'${opt}'`).join(', ')
+      const values = field.options.map((opt) => `'${escapeSQLString(opt)}'`).join(', ')
       const constraintName = `check_${field.name}_enum`
       return `CONSTRAINT ${constraintName} CHECK (${field.name} IN (${values}))`
     })
