@@ -514,64 +514,64 @@ jobs:
             if [ "$ERROR_TYPE" = "lint_error" ]; then
               RETRY_COMMENT="🔧 **Automatic Code Fix Retry**
 
-**Error Type**: \`$ERROR_TYPE\` (ESLint violation)
-**Retry Attempt**: $NEXT_RETRY of $MAX_RETRIES
+          **Error Type**: \`$ERROR_TYPE\` (ESLint violation)
+          **Retry Attempt**: $NEXT_RETRY of $MAX_RETRIES
 
-**⚠️ CRITICAL FIX INSTRUCTIONS FOR CLAUDE:**
-1. Run \`bun run lint\` to see the exact ESLint errors
-2. **Common FP violations to fix:**
-   - ❌ \`array.push()\` → ✅ Use \`[...array, item]\`
-   - ❌ \`for/while\` loops → ✅ Use \`map/filter/reduce\`
-   - ❌ Mutable \`const arr = []\` → ✅ Use immutable patterns
-3. Fix ALL lint errors before committing
-4. Run \`bun run quality\` to verify
+          **⚠️ CRITICAL FIX INSTRUCTIONS FOR CLAUDE:**
+          1. Run \`bun run lint\` to see the exact ESLint errors
+          2. **Common FP violations to fix:**
+             - ❌ \`array.push()\` → ✅ Use \`[...array, item]\`
+             - ❌ \`for/while\` loops → ✅ Use \`map/filter/reduce\`
+             - ❌ Mutable \`const arr = []\` → ✅ Use immutable patterns
+          3. Fix ALL lint errors before committing
+          4. Run \`bun run quality\` to verify
 
-Retrying with fix instructions...
+          Retrying with fix instructions...
 
----
-*🤖 TDD Error Handler*"
+          ---
+          *🤖 TDD Error Handler*"
             elif [ "$ERROR_TYPE" = "test_failure" ]; then
               RETRY_COMMENT="🔧 **Automatic Test Fix Retry**
 
-**Error Type**: \`$ERROR_TYPE\`
-**Retry Attempt**: $NEXT_RETRY of $MAX_RETRIES
+          **Error Type**: \`$ERROR_TYPE\`
+          **Retry Attempt**: $NEXT_RETRY of $MAX_RETRIES
 
-**⚠️ FIX INSTRUCTIONS FOR CLAUDE:**
-1. Run \`bun test:e2e -- <test-file>\` to see failing tests
-2. Analyze the error output and fix the implementation
-3. Ensure ALL tests in the file pass before committing
-4. Run \`bun run quality\` to verify
+          **⚠️ FIX INSTRUCTIONS FOR CLAUDE:**
+          1. Run \`bun test:e2e -- <test-file>\` to see failing tests
+          2. Analyze the error output and fix the implementation
+          3. Ensure ALL tests in the file pass before committing
+          4. Run \`bun run quality\` to verify
 
-Retrying with fix instructions...
+          Retrying with fix instructions...
 
----
-*🤖 TDD Error Handler*"
+          ---
+          *🤖 TDD Error Handler*"
             elif [ "$ERROR_TYPE" = "code_error" ]; then
               RETRY_COMMENT="🔧 **Automatic Code Fix Retry**
 
-**Error Type**: \`$ERROR_TYPE\` (Syntax/Type error)
-**Retry Attempt**: $NEXT_RETRY of $MAX_RETRIES
+          **Error Type**: \`$ERROR_TYPE\` (Syntax/Type error)
+          **Retry Attempt**: $NEXT_RETRY of $MAX_RETRIES
 
-**⚠️ FIX INSTRUCTIONS FOR CLAUDE:**
-1. Run \`bun run typecheck\` to see TypeScript errors
-2. Fix all type errors before committing
-3. Run \`bun run quality\` to verify
+          **⚠️ FIX INSTRUCTIONS FOR CLAUDE:**
+          1. Run \`bun run typecheck\` to see TypeScript errors
+          2. Fix all type errors before committing
+          3. Run \`bun run quality\` to verify
 
-Retrying with fix instructions...
+          Retrying with fix instructions...
 
----
-*🤖 TDD Error Handler*"
+          ---
+          *🤖 TDD Error Handler*"
             else
               RETRY_COMMENT="🔄 **Automatic Infrastructure Retry**
 
-**Error Type**: \`$ERROR_TYPE\`
-**Retry Attempt**: $NEXT_RETRY of $MAX_RETRIES
-**Reason**: Infrastructure/environment error (not code-related)
+          **Error Type**: \`$ERROR_TYPE\`
+          **Retry Attempt**: $NEXT_RETRY of $MAX_RETRIES
+          **Reason**: Infrastructure/environment error (not code-related)
 
-Retrying workflow automatically with exponential backoff...
+          Retrying workflow automatically with exponential backoff...
 
----
-*🤖 Infrastructure Error Handler*"
+          ---
+          *🤖 Infrastructure Error Handler*"
             fi
 
             gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "$RETRY_COMMENT"
@@ -613,41 +613,41 @@ Retrying workflow automatically with exponential backoff...
             if [ "$ERROR_TYPE" = "lint_error" ] || [ "$ERROR_TYPE" = "test_failure" ] || [ "$ERROR_TYPE" = "code_error" ]; then
               FAILURE_COMMENT="❌ **Code Error - Max Retries Exhausted**
 
-**Error Type**: \`$ERROR_TYPE\`
-**Total Attempts**: $MAX_RETRIES
-**Status**: Marked as \`tdd-spec:failed\`
+          **Error Type**: \`$ERROR_TYPE\`
+          **Total Attempts**: $MAX_RETRIES
+          **Status**: Marked as \`tdd-spec:failed\`
 
-Claude was unable to fix the code errors after $MAX_RETRIES attempts. Manual intervention required.
+          Claude was unable to fix the code errors after $MAX_RETRIES attempts. Manual intervention required.
 
-**Possible Solutions**:
-1. Check the PR for specific error details
-2. Manually fix the code and push
-3. Review the agent instructions for missing patterns
-4. Skip automation and implement manually
+          **Possible Solutions**:
+          1. Check the PR for specific error details
+          2. Manually fix the code and push
+          3. Review the agent instructions for missing patterns
+          4. Skip automation and implement manually
 
-The queue processor will continue with the next spec.
+          The queue processor will continue with the next spec.
 
----
-*🤖 TDD Error Handler*"
+          ---
+          *🤖 TDD Error Handler*"
             else
               FAILURE_COMMENT="❌ **Infrastructure Error - Max Retries Exhausted**
 
-**Error Type**: \`$ERROR_TYPE\`
-**Total Attempts**: $MAX_RETRIES
-**Status**: Marked as \`tdd-spec:failed\`
+          **Error Type**: \`$ERROR_TYPE\`
+          **Total Attempts**: $MAX_RETRIES
+          **Status**: Marked as \`tdd-spec:failed\`
 
-This spec failed due to infrastructure/environment errors, not code issues. Manual intervention required.
+          This spec failed due to infrastructure/environment errors, not code issues. Manual intervention required.
 
-**Possible Solutions**:
-1. Check GitHub Actions runner status
-2. Check if Claude Code API is experiencing issues
-3. Manually retry via workflow_dispatch
-4. Skip automation and implement manually
+          **Possible Solutions**:
+          1. Check GitHub Actions runner status
+          2. Check if Claude Code API is experiencing issues
+          3. Manually retry via workflow_dispatch
+          4. Skip automation and implement manually
 
-The queue processor will continue with the next spec.
+          The queue processor will continue with the next spec.
 
----
-*🤖 Infrastructure Error Handler*"
+          ---
+          *🤖 Infrastructure Error Handler*"
             fi
 
             gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "$FAILURE_COMMENT"
