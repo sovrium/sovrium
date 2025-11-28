@@ -996,7 +996,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-021: should create VARCHAR column with CHECK constraint for enum values',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
