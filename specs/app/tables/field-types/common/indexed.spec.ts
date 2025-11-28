@@ -216,7 +216,7 @@ test.describe('Indexed Field Property', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-INDEXED-005: should improve prefix searches when text field has indexed: true for LIKE queries',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
