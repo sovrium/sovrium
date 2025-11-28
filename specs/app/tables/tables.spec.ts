@@ -913,7 +913,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-019: should delete row and decrease row count',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
