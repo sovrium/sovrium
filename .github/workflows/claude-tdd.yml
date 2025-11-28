@@ -280,25 +280,28 @@ jobs:
             IS_INFRA_ERROR=true
             ERROR_TYPE="workflow_cancelled"
             echo "🚫 Detected: Workflow cancellation"
-          # Code/test errors (NOT retriable at infrastructure level)
-          elif echo "$LOGS" | grep -q "Test.*failed\|FAIL\|AssertionError"; then
-            ERROR_TYPE="test_failure"
-            echo "❌ Detected: Test failure (code error)"
-          elif echo "$LOGS" | grep -q "SyntaxError\|TypeError\|ReferenceError"; then
-            ERROR_TYPE="code_error"
-            echo "❌ Detected: Code error"
-          elif echo "$LOGS" | grep -q "lint.*error\|ESLint.*error"; then
+          # Code/test errors - NOW RETRIABLE with error context for Claude to self-correct
+          elif echo "$LOGS" | grep -q "lint.*error\|ESLint.*error\|functional/immutable-data\|no-restricted-syntax"; then
+            IS_INFRA_ERROR=true  # Treat as retriable
             ERROR_TYPE="lint_error"
-            echo "❌ Detected: Lint error"
+            echo "🔧 Detected: Lint error - WILL RETRY with fix instructions"
+          elif echo "$LOGS" | grep -q "Test.*failed\|FAIL\|AssertionError"; then
+            IS_INFRA_ERROR=true  # Treat as retriable
+            ERROR_TYPE="test_failure"
+            echo "🔧 Detected: Test failure - WILL RETRY with fix instructions"
+          elif echo "$LOGS" | grep -q "SyntaxError\|TypeError\|ReferenceError"; then
+            IS_INFRA_ERROR=true  # Treat as retriable
+            ERROR_TYPE="code_error"
+            echo "🔧 Detected: Code error - WILL RETRY with fix instructions"
           fi
 
           # Determine if should retry
           SHOULD_RETRY=false
           if [ "$IS_INFRA_ERROR" = true ]; then
             SHOULD_RETRY=true
-            echo "✅ Infrastructure error detected - WILL RETRY"
+            echo "✅ Error detected - WILL RETRY (Claude can self-correct)"
           else
-            echo "⚠️  Code/test error detected - will NOT retry at infrastructure level"
+            echo "⚠️  Unknown error - will NOT retry"
           fi
 
           # Output results
@@ -490,7 +493,7 @@ jobs:
           MAX_RETRIES: ${{ env.MAX_INFRASTRUCTURE_RETRIES }}
           ERROR_TYPE: ${{ needs.execute-claude.outputs.error_type }}
         run: |
-          echo "🔄 Infrastructure error detected: $ERROR_TYPE"
+          echo "🔄 Error detected: $ERROR_TYPE"
           echo "📊 Current retry attempt: $CURRENT_RETRY of $MAX_RETRIES"
 
           NEXT_RETRY=$((CURRENT_RETRY + 1))
@@ -500,20 +503,78 @@ jobs:
             echo "should_retry=true" >> $GITHUB_OUTPUT
             echo "next_retry=$NEXT_RETRY" >> $GITHUB_OUTPUT
 
-            # Add retry label
-            gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "infrastructure-retry:$CURRENT_RETRY"
+            # Add retry label based on error type
+            if [ "$ERROR_TYPE" = "lint_error" ] || [ "$ERROR_TYPE" = "test_failure" ] || [ "$ERROR_TYPE" = "code_error" ]; then
+              gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "code-retry:$CURRENT_RETRY" 2>/dev/null || true
+            else
+              gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "infrastructure-retry:$CURRENT_RETRY" 2>/dev/null || true
+            fi
 
-            # Add comment
-            gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "🔄 **Automatic Infrastructure Retry**
+            # Build retry comment with error-specific instructions
+            if [ "$ERROR_TYPE" = "lint_error" ]; then
+              RETRY_COMMENT="🔧 **Automatic Code Fix Retry**
 
-            **Error Type**: \`$ERROR_TYPE\`
-            **Retry Attempt**: $NEXT_RETRY of $MAX_RETRIES
-            **Reason**: Infrastructure/environment error (not code-related)
+**Error Type**: \`$ERROR_TYPE\` (ESLint violation)
+**Retry Attempt**: $NEXT_RETRY of $MAX_RETRIES
 
-            Retrying workflow automatically with exponential backoff...
+**⚠️ CRITICAL FIX INSTRUCTIONS FOR CLAUDE:**
+1. Run \`bun run lint\` to see the exact ESLint errors
+2. **Common FP violations to fix:**
+   - ❌ \`array.push()\` → ✅ Use \`[...array, item]\`
+   - ❌ \`for/while\` loops → ✅ Use \`map/filter/reduce\`
+   - ❌ Mutable \`const arr = []\` → ✅ Use immutable patterns
+3. Fix ALL lint errors before committing
+4. Run \`bun run quality\` to verify
 
-            ---
-            *🤖 Infrastructure Error Handler*"
+Retrying with fix instructions...
+
+---
+*🤖 TDD Error Handler*"
+            elif [ "$ERROR_TYPE" = "test_failure" ]; then
+              RETRY_COMMENT="🔧 **Automatic Test Fix Retry**
+
+**Error Type**: \`$ERROR_TYPE\`
+**Retry Attempt**: $NEXT_RETRY of $MAX_RETRIES
+
+**⚠️ FIX INSTRUCTIONS FOR CLAUDE:**
+1. Run \`bun test:e2e -- <test-file>\` to see failing tests
+2. Analyze the error output and fix the implementation
+3. Ensure ALL tests in the file pass before committing
+4. Run \`bun run quality\` to verify
+
+Retrying with fix instructions...
+
+---
+*🤖 TDD Error Handler*"
+            elif [ "$ERROR_TYPE" = "code_error" ]; then
+              RETRY_COMMENT="🔧 **Automatic Code Fix Retry**
+
+**Error Type**: \`$ERROR_TYPE\` (Syntax/Type error)
+**Retry Attempt**: $NEXT_RETRY of $MAX_RETRIES
+
+**⚠️ FIX INSTRUCTIONS FOR CLAUDE:**
+1. Run \`bun run typecheck\` to see TypeScript errors
+2. Fix all type errors before committing
+3. Run \`bun run quality\` to verify
+
+Retrying with fix instructions...
+
+---
+*🤖 TDD Error Handler*"
+            else
+              RETRY_COMMENT="🔄 **Automatic Infrastructure Retry**
+
+**Error Type**: \`$ERROR_TYPE\`
+**Retry Attempt**: $NEXT_RETRY of $MAX_RETRIES
+**Reason**: Infrastructure/environment error (not code-related)
+
+Retrying workflow automatically with exponential backoff...
+
+---
+*🤖 Infrastructure Error Handler*"
+            fi
+
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "$RETRY_COMMENT"
 
             # Exponential backoff with jitter to avoid thundering herd
             # Delays: 60s (retry 1→2), 120s (retry 2→3), 240s (retry 3→4)
@@ -535,30 +596,61 @@ jobs:
             echo "❌ Max retries exhausted ($MAX_RETRIES)"
             echo "should_retry=false" >> $GITHUB_OUTPUT
 
-            # Mark as failed
-            gh issue edit "$ISSUE_NUMBER" --repo "$REPO" \
-              --remove-label "tdd-spec:in-progress" \
-              --add-label "tdd-spec:failed" \
-              --add-label "infrastructure-error"
+            # Mark as failed with appropriate label
+            if [ "$ERROR_TYPE" = "lint_error" ] || [ "$ERROR_TYPE" = "test_failure" ] || [ "$ERROR_TYPE" = "code_error" ]; then
+              gh issue edit "$ISSUE_NUMBER" --repo "$REPO" \
+                --remove-label "tdd-spec:in-progress" \
+                --add-label "tdd-spec:failed" \
+                --add-label "code-error" 2>/dev/null || true
+            else
+              gh issue edit "$ISSUE_NUMBER" --repo "$REPO" \
+                --remove-label "tdd-spec:in-progress" \
+                --add-label "tdd-spec:failed" \
+                --add-label "infrastructure-error" 2>/dev/null || true
+            fi
 
-            gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "❌ **Infrastructure Error - Max Retries Exhausted**
+            # Build failure message based on error type
+            if [ "$ERROR_TYPE" = "lint_error" ] || [ "$ERROR_TYPE" = "test_failure" ] || [ "$ERROR_TYPE" = "code_error" ]; then
+              FAILURE_COMMENT="❌ **Code Error - Max Retries Exhausted**
 
-            **Error Type**: \`$ERROR_TYPE\`
-            **Total Attempts**: $MAX_RETRIES
-            **Status**: Marked as \`tdd-spec:failed\`
+**Error Type**: \`$ERROR_TYPE\`
+**Total Attempts**: $MAX_RETRIES
+**Status**: Marked as \`tdd-spec:failed\`
 
-            This spec failed due to infrastructure/environment errors, not code issues. Manual intervention required.
+Claude was unable to fix the code errors after $MAX_RETRIES attempts. Manual intervention required.
 
-            **Possible Solutions**:
-            1. Check GitHub Actions runner status
-            2. Check if Claude Code API is experiencing issues
-            3. Manually retry via workflow_dispatch
-            4. Skip automation and implement manually
+**Possible Solutions**:
+1. Check the PR for specific error details
+2. Manually fix the code and push
+3. Review the agent instructions for missing patterns
+4. Skip automation and implement manually
 
-            The queue processor will continue with the next spec.
+The queue processor will continue with the next spec.
 
-            ---
-            *🤖 Infrastructure Error Handler*"
+---
+*🤖 TDD Error Handler*"
+            else
+              FAILURE_COMMENT="❌ **Infrastructure Error - Max Retries Exhausted**
+
+**Error Type**: \`$ERROR_TYPE\`
+**Total Attempts**: $MAX_RETRIES
+**Status**: Marked as \`tdd-spec:failed\`
+
+This spec failed due to infrastructure/environment errors, not code issues. Manual intervention required.
+
+**Possible Solutions**:
+1. Check GitHub Actions runner status
+2. Check if Claude Code API is experiencing issues
+3. Manually retry via workflow_dispatch
+4. Skip automation and implement manually
+
+The queue processor will continue with the next spec.
+
+---
+*🤖 Infrastructure Error Handler*"
+            fi
+
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "$FAILURE_COMMENT"
           fi
 
       - name: Alert on high failure rate
@@ -673,10 +765,49 @@ jobs:
           if [ "$RETRY_STARTED" != "true" ]; then
             echo "⚠️ Workflow dispatch may have failed, triggering via issue comment as fallback..."
 
-            gh issue comment "$ISSUE_NUMBER" --repo "$REPO" \
-              --body "@claude retry implementation (automated retry $NEXT_RETRY of 3 - workflow dispatch fallback)"
+            # Get spec details from issue for context
+            SPEC_ID=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json title --jq '.title' | grep -oP '[A-Z]+-[A-Z]+-[0-9]+' || echo "unknown")
+            TEST_FILE=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json body --jq '.body' | grep -oP 'Test File.*`\K[^`]+' || echo "unknown")
 
-            echo "✅ Fallback retry triggered via issue comment"
+            gh issue comment "$ISSUE_NUMBER" --repo "$REPO" \
+              --body "@claude retry implementation (automated retry $NEXT_RETRY of 3 - workflow dispatch fallback)
+
+            ## 📋 Context
+            - **Spec ID**: \`$SPEC_ID\`
+            - **Test File**: \`$TEST_FILE\`
+            - **Issue**: #$ISSUE_NUMBER
+            - **Retry Attempt**: $NEXT_RETRY of 3
+            - **Trigger**: Workflow dispatch failed, using comment fallback
+            - **Previous Failure**: Infrastructure error (not code issue)
+
+            ## 🤖 Automation Mode
+            - ✅ Make autonomous decisions - proceed with best judgment
+            - ❌ DO NOT ask questions
+
+            ## ✅ Instructions
+
+            1. **Check current state**: Run \`git status\` to see if previous work exists on branch
+            2. **If branch has uncommitted changes**: Continue from where it left off
+            3. **If clean state**: Start fresh using e2e-test-fixer agent (\`Task\` tool with \`subagent_type='e2e-test-fixer'\`)
+            4. **Run codebase-refactor-auditor**: Use \`Task\` tool with \`subagent_type='codebase-refactor-auditor'\` (MANDATORY - never skip)
+            5. **Verify quality**: Run \`bun run quality\` - ALL checks must pass
+            6. **Commit changes**: Run \`bun run license\`, then \`git commit -m \"fix: implement $SPEC_ID\"\`
+            7. **Push to branch**: \`git push\`
+            8. **Create PR**: \`gh pr create --title \"fix: implement $SPEC_ID\" --body \"Closes #$ISSUE_NUMBER\" --label \"tdd-automation\"\`
+            9. **Enable auto-merge**: \`gh pr merge \$PR_NUMBER --auto --squash\`
+            10. **Verify auto-merge**: \`gh pr view \$PR_NUMBER --json autoMergeRequest\` - must NOT be null
+
+            ## ⚠️ Error Handling
+            - **If tests fail**: Fix the code until \`bun run quality\` passes
+            - **If PR already exists**: Update existing PR instead of creating new one
+            - **If auto-merge fails**: Comment the failure reason on the PR
+
+            **Reference**: \`@docs/development/tdd-automation-pipeline.md\`
+
+            ---
+            *🤖 Infrastructure Retry Handler (Fallback)*"
+
+            echo "✅ Fallback retry triggered via issue comment with full context"
           fi
 
   # Success path: Verify PR was created (same as original workflow)
