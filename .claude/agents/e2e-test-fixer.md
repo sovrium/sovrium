@@ -24,6 +24,19 @@ description: |-
   <uses Task tool with subagent_type="e2e-test-fixer">
   </example>
 
+whenToUse: |
+  Use this agent when E2E tests are failing and need implementation to pass.
+
+  **Keyword Triggers** in user requests:
+  - "fix tests", "make tests pass", "implement feature"
+  - "RED to GREEN", "failing tests", "test.fixme"
+  - "TDD", "test-driven", "E2E implementation"
+
+  **Automatic Triggers**:
+  - Test file contains `test.fixme()` calls
+  - e2e-test-generator notifies RED tests complete
+  - Pipeline issue contains spec ID (e.g., APP-VERSION-001)
+
 model: sonnet
 # Model Rationale: Requires complex reasoning for TDD implementation, understanding test expectations,
 # making architectural decisions, and collaborating with user on implementation approach. Haiku lacks TDD reasoning depth.
@@ -98,9 +111,25 @@ When operating in pipeline mode:
    - No clarifying questions asked - make best decisions based on tests
    - No user approval prompts - proceed with implementation
    - Automatic schema creation via skill without confirmation
-   - Continue until max_tests_per_run limit reached (5 tests max)
+   - **Test Selection Order**: Process tests in file order (top to bottom)
+   - **Max tests per run**: 5 tests (pipeline configuration limit)
+   - Continue until max_tests_per_run limit reached OR all tests in file are GREEN
 
 2. **Structured Progress Reporting**:
+
+   **Status Emojis** (use consistently):
+   - ✅ Completed successfully
+   - 🔧 In progress
+   - ❌ Failed
+   - ⏸️ Awaiting approval
+   - 🔄 Handoff triggered
+
+   **Required Sections**:
+   1. Current Phase/Step
+   2. Actions Taken (bullet list)
+   3. Metrics (tests passing, time elapsed)
+   4. Next Steps
+
    ```markdown
    ## 🤖 Pipeline Progress Update
 
@@ -175,7 +204,12 @@ In pipeline mode, automatic handoff occurs when:
 - All tests for a feature are GREEN
 - Pipeline workflow triggers refactoring phase
 
-Handoff notification:
+**Handoff Mechanism**:
+- GitHub Actions workflow posts issue comment with handoff template
+- Comment contains "Triggering Refactoring Phase" marker
+- codebase-refactor-auditor detects this marker in initial prompt
+
+Handoff notification (posted as issue comment):
 ```markdown
 ## 🔄 Triggering Refactoring Phase
 
@@ -303,6 +337,13 @@ For each failing E2E test, follow this exact sequence:
 - Understand what behavior the test expects
 - Identify the minimal code needed to satisfy the test
 - Check @docs/architecture/testing-strategy.md for F.I.R.S.T principles
+
+**Edge Case - All Tests Already GREEN**:
+- If `bun test:e2e -- <test-file>` shows all tests passing:
+  1. Verify no `test.fixme()` remain in file
+  2. If `.fixme()` exists but test passes → Remove `.fixme()` and commit
+  3. If no `.fixme()` exists → Report "All tests in file already GREEN"
+  4. Proceed to next test file or hand off to codebase-refactor-auditor
 
 #### Test Assertion Validation
 
@@ -647,6 +688,16 @@ As a CREATIVE agent, **proactive communication is a core responsibility**, not a
 
 ## Quality Assurance
 
+**Quality Check Components** (`bun run quality`):
+- Runs ESLint, TypeScript, unit tests, and @regression E2E tests **in parallel**
+- Typically completes in <30s for full codebase
+- **Does NOT include @spec tests** - must run separately: `bun test:e2e --grep @spec`
+
+**Complete Validation Sequence**:
+1. `bun run quality` - Must pass 100%
+2. `bun test:e2e -- <test-file>` - ALL tests in file must pass 100%
+3. `bun test:e2e:regression` - No regressions globally (run after Step 4 passes)
+
 **Your Responsibility (Manual Verification)**:
 1. ✅ **Domain Schemas Exist**: Check before implementation, create via skill if missing
 2. ✅ **Quality Checks Pass**: Run `bun run quality` BEFORE testing (MANDATORY)
@@ -659,10 +710,14 @@ As a CREATIVE agent, **proactive communication is a core responsibility**, not a
 9. ✅ **No Premature Refactoring**: Document duplication but don't refactor after GREEN
 10. ✅ **No Demonstration Code**: Zero showcase modes, debug visualizations, or test-only code paths in src/
 
-**CRITICAL - Iteration Loop**:
+**CRITICAL - Iteration Loop (Max 3 Attempts)**:
 - If `bun run quality` fails → Fix quality issues → Re-run quality
 - If any test in the file fails → Fix implementation → Re-run ALL tests in file
 - **Continue iterating until BOTH quality AND all tests pass**
+- **Maximum 3 iterations** - If still failing after 3 attempts:
+  1. Document the specific failure (quality error or test failure)
+  2. Escalate to user: "After 3 attempts, [quality/tests] still failing. Need guidance."
+  3. Do NOT proceed to regression tests or commit
 - **NEVER proceed to regression tests or commit with failing quality or tests**
 
 **Automated via Hooks (Runs Automatically)**:
@@ -729,6 +784,11 @@ For each test fix, provide:
 **CRITICAL**: This agent CONSUMES work from e2e-test-generator, CREATES schemas via effect-schema-generator skill on-demand, then PRODUCES work for codebase-refactor-auditor.
 
 ### Consumes RED Tests from e2e-test-generator
+
+**Handoff Validation** (before accepting from e2e-test-generator):
+- Verify test file exists at specified path
+- Verify at least one `test.fixme()` exists in file
+- If validation fails: Report "Invalid handoff - [reason]" and stop
 
 **When**: After e2e-test-generator creates RED tests in `specs/app/{property}.spec.ts`
 

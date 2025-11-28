@@ -165,13 +165,11 @@ jobs:
           gh issue edit "$ISSUE_NUMBER" --remove-label "tdd-spec:queued"
           gh issue edit "$ISSUE_NUMBER" --add-label "tdd-spec:in-progress"
 
-          # Trigger Claude Code workflow with retry support
-          echo "🤖 Triggering Claude Code workflow with infrastructure retry support..."
-          gh workflow run claude-tdd.yml \
-            --field issue_number="$ISSUE_NUMBER" \
-            --field retry_attempt=1
+          # NOTE: We only post @claude comment (not workflow_dispatch) to avoid double trigger
+          # The @claude comment triggers claude-tdd.yml via issue_comment event
+          echo "🤖 Posting @claude comment to trigger Claude Code workflow..."
 
-          # Add initial comment with workflow instructions
+          # Add comment with workflow instructions (triggers claude-tdd.yml)
           gh issue comment "$ISSUE_NUMBER" --body "@claude implement this spec using the TDD automation workflow.
 
           ## 📋 Spec Details
@@ -186,19 +184,31 @@ jobs:
           - ✅ Make autonomous decisions following Sovrium patterns
           - ✅ Implement minimal code to pass the test
           - ❌ DO NOT ask questions - proceed with best judgment
+          - ❌ DO NOT skip any steps - all are MANDATORY
 
           ## ✅ Critical Steps (ALL REQUIRED)
 
-          1. **Invoke e2e-test-fixer agent** - Remove \`.fixme()\` from \`$SPEC_ID\`, implement code
-          2. **Invoke codebase-refactor-auditor agent** - Review and optimize (MANDATORY)
-          3. **Commit changes** - Run \`bun run license\`, commit as \`fix: implement $SPEC_ID\`, push
-          4. **⚠️ CREATE PR** - \`gh pr create --title \"fix: implement $SPEC_ID\" --body \"Closes #$ISSUE_NUMBER\" --label \"tdd-automation\"\`
-          5. **⚠️ ENABLE AUTO-MERGE** - \`gh pr merge \$PR_NUMBER --auto --squash\` + VERIFY with \`gh pr view\`
+          1. **Run e2e-test-fixer agent** - Use \`Task\` tool with \`subagent_type='e2e-test-fixer'\` to remove \`.fixme()\` from \`$SPEC_ID\` and implement minimal code to pass the test
+          2. **Run codebase-refactor-auditor agent** - Use \`Task\` tool with \`subagent_type='codebase-refactor-auditor'\` to review implementation, verify layer architecture compliance, and ensure \`bun run quality\` passes (MANDATORY - never skip)
+          3. **Verify quality** - Run \`bun run quality\` and confirm ALL checks pass (ESLint, TypeScript, unit tests, E2E regression)
+          4. **Commit changes** - Run \`bun run license\`, then commit as \`fix: implement $SPEC_ID\`, push to branch
+          5. **⚠️ CREATE PR** - \`gh pr create --title \"fix: implement $SPEC_ID\" --body \"Closes #$ISSUE_NUMBER\" --label \"tdd-automation\"\`
+          6. **⚠️ ENABLE AUTO-MERGE** - \`gh pr merge \$PR_NUMBER --auto --squash\`
+          7. **⚠️ VERIFY AUTO-MERGE** - Run \`gh pr view \$PR_NUMBER --json autoMergeRequest\` and confirm autoMergeRequest is NOT null
 
-          **MOST COMMON FAILURES**:
-          - Missing PR creation (issue #1319) → spec marked failed
+          ## ⚠️ Error Handling
+
+          - **If tests fail**: Fix the code until \`bun run quality\` passes - do NOT create PR with failing tests
+          - **If layer architecture violations**: Fix cross-layer imports before proceeding - domain must be pure
+          - **If PR creation fails**: Retry once, then report error in issue comment
+          - **If auto-merge fails**: Comment the failure reason on the PR and retry
+
+          ## 🚨 MOST COMMON FAILURES (Learn from history)
+
+          - Missing PR creation (issue #1319) → spec marked failed after 2 minutes
           - Missing auto-merge (PRs #1541, #1546) → pipeline blocked for hours
-          - Auto-merge not verified → may silently fail
+          - Auto-merge not verified → may silently fail, always check with \`gh pr view\`
+          - Skipping codebase-refactor-auditor → technical debt accumulates
 
           **Complete workflow documentation**: \`@docs/development/tdd-automation-pipeline.md\`
 

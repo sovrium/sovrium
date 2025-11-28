@@ -1,13 +1,13 @@
 name: TDD Queue - Populate (Scan for RED tests with .fixme)
 
 on:
-  # Scheduled runs - Daily at 2:10 AM UTC (staggered to avoid collision with daily-refactor)
-  # Rationale: Daily scan is sufficient for detecting new RED tests
-  # + Processor runs every 15 min to pick up queued specs
+  # Scheduled runs - Daily at 1:00 AM UTC (runs BEFORE daily-refactor)
+  # Rationale: Populate queue first, then daily-refactor waits for clean queue
+  # + Processor runs hourly to pick up queued specs
   # + Idempotency lock prevents duplicate creation
   # + Push trigger REMOVED to prevent duplicate issue creation (caused timing/API consistency issues)
   schedule:
-    - cron: '10 2 * * *'
+    - cron: '0 1 * * *'
 
   # Manual trigger
   workflow_dispatch:
