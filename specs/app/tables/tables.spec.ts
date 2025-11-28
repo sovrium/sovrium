@@ -695,7 +695,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-015: should alter table and add new column with correct type',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
