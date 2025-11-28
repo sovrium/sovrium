@@ -335,8 +335,6 @@ const generateMigrationStatements = (
   table: Table,
   existingColumns: ReadonlyMap<string, { dataType: string; isNullable: string }>
 ): readonly string[] => {
-  const statements: string[] = []
-
   // Get desired column names (excluding auto-generated id if not explicit)
   const hasIdField = table.fields.some((field) => field.name === 'id')
   const hasCustomPrimaryKey =
@@ -349,23 +347,21 @@ const generateMigrationStatements = (
   const primaryKeyFields =
     table.primaryKey?.type === 'composite' ? (table.primaryKey.fields ?? []) : []
 
-  // Find columns to add
-  for (const field of table.fields) {
-    if (!existingColumns.has(field.name)) {
+  // Find columns to add (immutable approach)
+  const addColumnStatements = table.fields
+    .filter((field) => !existingColumns.has(field.name))
+    .map((field) => {
       const isPrimaryKey = primaryKeyFields.includes(field.name)
       const columnDef = generateColumnDefinition(field, isPrimaryKey)
-      statements.push(`ALTER TABLE ${table.name} ADD COLUMN ${columnDef}`)
-    }
-  }
+      return `ALTER TABLE ${table.name} ADD COLUMN ${columnDef}`
+    })
 
-  // Find columns to drop
-  for (const [columnName] of existingColumns) {
-    if (!desiredColumns.has(columnName)) {
-      statements.push(`ALTER TABLE ${table.name} DROP COLUMN ${columnName}`)
-    }
-  }
+  // Find columns to drop (immutable approach)
+  const dropColumnStatements = Array.from(existingColumns.keys())
+    .filter((columnName) => !desiredColumns.has(columnName))
+    .map((columnName) => `ALTER TABLE ${table.name} DROP COLUMN ${columnName}`)
 
-  return statements
+  return [...addColumnStatements, ...dropColumnStatements]
 }
 
 /**
