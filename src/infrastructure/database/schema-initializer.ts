@@ -455,10 +455,7 @@ const normalizeDataType = (dataType: string): string => {
 /**
  * Check if column data type matches the expected type from schema
  */
-const doesColumnTypeMatch = (
-  field: Fields[number],
-  existingDataType: string
-): boolean => {
+const doesColumnTypeMatch = (field: Fields[number], existingDataType: string): boolean => {
   const expectedType = mapFieldTypeToPostgres(field)
   const normalizedExpected = normalizeDataType(expectedType)
   const normalizedExisting = normalizeDataType(existingDataType)
