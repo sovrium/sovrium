@@ -82,29 +82,55 @@ const mapFieldTypeToPostgres = (field: Fields[number]): string => {
 }
 
 /**
+ * Format default value for SQL
+ */
+const formatDefaultValue = (defaultValue: unknown): string =>
+  typeof defaultValue === 'boolean' ? String(defaultValue) : `'${defaultValue}'`
+
+/**
+ * Generate SERIAL column definition for auto-increment fields
+ */
+const generateSerialColumn = (fieldName: string): string => `${fieldName} SERIAL NOT NULL`
+
+/**
+ * Check if field should use SERIAL type
+ */
+const shouldUseSerial = (field: Fields[number], isPrimaryKey: boolean): boolean =>
+  field.type === 'autonumber' || (field.type === 'integer' && isPrimaryKey)
+
+/**
+ * Generate NOT NULL constraint
+ */
+const generateNotNullConstraint = (field: Fields[number], isPrimaryKey: boolean): string =>
+  isPrimaryKey || ('required' in field && field.required) ? ' NOT NULL' : ''
+
+/**
+ * Generate UNIQUE constraint
+ */
+const generateUniqueConstraint = (field: Fields[number]): string =>
+  'unique' in field && field.unique ? ' UNIQUE' : ''
+
+/**
+ * Generate DEFAULT clause
+ */
+const generateDefaultClause = (field: Fields[number]): string =>
+  'default' in field && field.default !== undefined
+    ? ` DEFAULT ${formatDefaultValue(field.default)}`
+    : ''
+
+/**
  * Generate column definition with constraints
  */
 const generateColumnDefinition = (field: Fields[number], isPrimaryKey: boolean): string => {
-  // Autonumber fields use SERIAL (auto-incrementing integer with sequence)
-  if (field.type === 'autonumber') {
-    return `${field.name} SERIAL NOT NULL`
-  }
-
-  // Integer primary key fields also use SERIAL for auto-increment
-  if (field.type === 'integer' && isPrimaryKey) {
-    return `${field.name} SERIAL NOT NULL`
+  // SERIAL columns for auto-increment fields
+  if (shouldUseSerial(field, isPrimaryKey)) {
+    return generateSerialColumn(field.name)
   }
 
   const columnType = mapFieldTypeToPostgres(field)
-  // Primary key fields must always be NOT NULL, otherwise use the required flag
-  const notNull = isPrimaryKey || ('required' in field && field.required) ? ' NOT NULL' : ''
-  // Add UNIQUE constraint if specified
-  const unique = 'unique' in field && field.unique ? ' UNIQUE' : ''
-  // Add DEFAULT clause if default value is specified
-  const defaultValue =
-    'default' in field && field.default !== undefined
-      ? ` DEFAULT ${typeof field.default === 'boolean' ? field.default : `'${field.default}'`}`
-      : ''
+  const notNull = generateNotNullConstraint(field, isPrimaryKey)
+  const unique = generateUniqueConstraint(field)
+  const defaultValue = generateDefaultClause(field)
   return `${field.name} ${columnType}${notNull}${unique}${defaultValue}`
 }
 
