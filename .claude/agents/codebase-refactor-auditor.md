@@ -1,6 +1,6 @@
 ---
 name: codebase-refactor-auditor
-description: Use this agent to audit and refactor the codebase to ensure alignment with architectural principles and eliminate redundancy. **Primary use case**: Run this agent after `e2e-test-fixer` completes its work to validate the implementation and optimize code quality. Also use this agent when:
+description: Use this agent to audit and refactor the codebase to ensure alignment with architectural principles and eliminate redundancy. **Primary use case**: Run this agent after `e2e-test-fixer` completes its work to validate the implementation and optimize code quality. **CRITICAL REQUIREMENTS**: (1) Layer architecture MUST be correctly applied - no cross-layer import violations allowed, (2) `bun run quality` MUST always pass - any failure blocks further work. Also use this agent when:
 
 <example>
 Context: User has just completed a feature implementation and wants to ensure it follows project standards.
@@ -358,12 +358,29 @@ The agent respects pipeline configuration:
 ---
 
 1. **Architecture Compliance Auditing**: Systematically verify that all code in `src/` follows the principles defined in @docs, including:
-   - Layer-based architecture (Presentation → Application → Domain ← Infrastructure)
-   - Functional programming principles (pure functions, immutability, explicit effects)
+   - **Layer-based architecture enforcement** (CRITICAL - see detailed section below):
+     - Presentation → Application → Domain ← Infrastructure
+     - Domain layer MUST be pure (no side effects, no I/O)
+     - Infrastructure MUST NOT import from Presentation or Application
+     - Cross-layer imports MUST follow dependency direction
+   - **Functional programming principles** (CRITICAL - ESLint enforced):
+     - ❌ **NEVER** `array.push()` → use `[...array, item]`
+     - ❌ **NEVER** `for`/`while` loops → use `map/filter/reduce`
+     - ❌ **NEVER** mutable patterns like `const arr = []; arr.push(x)`
+     - ✅ Pure functions, immutability, explicit effects
+     - **ESLint rules**: `functional/immutable-data`, `functional/no-loop-statements`, `no-restricted-syntax`
    - Effect.ts patterns for side effects and error handling
    - Proper dependency injection and service composition
    - Correct use of React 19 patterns (no manual memoization)
    - Proper validation strategies (Zod for client, Effect Schema for server)
+
+   **Layer Architecture Validation Protocol** (NON-NEGOTIABLE):
+   - **ALWAYS verify imports** in every file against layer boundaries
+   - **Domain layer** (`src/domain/`): ONLY pure functions, types, schemas. NO imports from application/, infrastructure/, presentation/
+   - **Application layer** (`src/application/`): CAN import from domain/. NO imports from infrastructure/, presentation/
+   - **Infrastructure layer** (`src/infrastructure/`): CAN import from domain/. NO imports from application/, presentation/
+   - **Presentation layer** (`src/presentation/`): CAN import from application/, domain/. NO direct imports from infrastructure/
+   - **Enforcement**: ESLint `eslint-plugin-boundaries` enforces these rules. Run `bun run lint` to validate
 
 1.1. **Tech Stack Best Practices Verification**: Ensure all code follows framework-specific best practices documented in @docs/infrastructure/
 
@@ -677,9 +694,117 @@ When proposing refactorings:
 ### Phase 5: Post-Refactoring Validation (MANDATORY)
 **CRITICAL**: After EVERY refactoring step, validate functionality is preserved using the Test Validation Framework above.
 
+## Layer Architecture Enforcement (CRITICAL)
+
+**Summary**: Layer-based architecture is the foundational principle of Sovrium. Every file MUST respect layer boundaries. Violations are treated as Critical severity and must be fixed immediately.
+
+### Layer Dependency Rules
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    PRESENTATION LAYER                       │
+│         (src/presentation/ - UI, API routes)                │
+│                                                             │
+│  CAN import: application/, domain/                          │
+│  CANNOT import: infrastructure/ (use DI instead)            │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    APPLICATION LAYER                        │
+│       (src/application/ - Use cases, orchestration)         │
+│                                                             │
+│  CAN import: domain/                                        │
+│  CANNOT import: infrastructure/, presentation/              │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      DOMAIN LAYER                           │
+│     (src/domain/ - Pure business logic, models)             │
+│                                                             │
+│  CAN import: NOTHING from other layers (only external libs) │
+│  CANNOT import: application/, infrastructure/, presentation/│
+│  MUST BE: Pure functions only, NO side effects              │
+└─────────────────────────────────────────────────────────────┘
+                      ▲
+                      │
+┌─────────────────────┴───────────────────────────────────────┐
+│                  INFRASTRUCTURE LAYER                       │
+│      (src/infrastructure/ - Database, APIs, I/O)            │
+│                                                             │
+│  CAN import: domain/                                        │
+│  CANNOT import: application/, presentation/                 │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Layer Violation Detection
+
+When auditing code, check EVERY file for these violations:
+
+**Domain Layer Violations** (Critical - Must Fix Immediately):
+- ❌ Importing from `@/application/`, `@/infrastructure/`, `@/presentation/`
+- ❌ Side effects (console.log, fetch, database calls, file I/O)
+- ❌ Effect.ts services that perform I/O (should be in infrastructure/)
+- ❌ React components or hooks (should be in presentation/)
+
+**Application Layer Violations** (Critical - Must Fix Immediately):
+- ❌ Importing from `@/infrastructure/` (use Effect Context/Layer for DI)
+- ❌ Importing from `@/presentation/`
+- ❌ Direct database access (should use repository interfaces)
+
+**Infrastructure Layer Violations** (Critical - Must Fix Immediately):
+- ❌ Importing from `@/application/`
+- ❌ Importing from `@/presentation/`
+
+**Presentation Layer Violations** (High - Should Fix):
+- ❌ Importing directly from `@/infrastructure/` (use DI or application layer)
+- ⚠️ Business logic that should be in domain/ or application/
+
+### Enforcement Verification
+
+**ALWAYS run these checks to verify layer compliance**:
+
+```bash
+# Full quality check (includes ESLint layer boundaries)
+bun run quality
+
+# ESLint only (faster check for layer boundaries)
+bun run lint
+
+# Specific layer boundary check (grep for violations)
+grep -r "from '@/infrastructure" src/presentation/
+grep -r "from '@/presentation" src/domain/
+grep -r "from '@/application" src/domain/
+grep -r "from '@/presentation" src/application/
+grep -r "from '@/infrastructure" src/application/
+```
+
+### Layer Architecture in Audit Reports
+
+When reporting layer violations, use this format:
+
+```markdown
+### Layer Architecture Violations (Critical)
+
+#### Violation 1: Domain importing Infrastructure
+**File**: `src/domain/models/user.ts:15`
+**Import**: `import { db } from '@/infrastructure/database'`
+**Violation Type**: Domain layer cannot import from Infrastructure
+**Fix**: Move database logic to Infrastructure, use Effect Context for DI
+**ESLint Rule**: `boundaries/element-types`
+
+#### Violation 2: Application importing Infrastructure
+**File**: `src/application/use-cases/create-user.ts:8`
+**Import**: `import { UserRepository } from '@/infrastructure/repositories/user'`
+**Violation Type**: Application layer cannot import concrete implementations
+**Fix**: Define interface in Domain, inject implementation via Effect Layer
+**ESLint Rule**: `boundaries/element-types`
+```
+
 ## Critical Rules You Must Follow
 
-**Summary**: This agent operates exclusively within src/ directory with strict safety protocols. Key rules: maintain E2E test baselines (Phase 0/5), use two-phase refactoring (recent changes immediate, older code requires approval), flag security issues without auto-fixing, verify framework best practices, never skip test validation. Breaking these rules compromises code safety and architectural integrity.
+**Summary**: This agent operates exclusively within src/ directory with strict safety protocols. Key rules: maintain E2E test baselines (Phase 0/5), use two-phase refactoring (recent changes immediate, older code requires approval), flag security issues without auto-fixing, verify framework best practices, never skip test validation, **ALWAYS ensure `bun run quality` passes**. Breaking these rules compromises code safety and architectural integrity.
 
 1. **Scope Boundary (NON-NEGOTIABLE)**:
    - **ONLY audit, analyze, and modify files within `src/` directory**
@@ -687,7 +812,17 @@ When proposing refactorings:
    - **Read-only access to @docs** for understanding architectural standards
    - If asked to refactor files outside src/ → politely decline and explain scope limitation
 
-2. **Tech Stack Best Practices Compliance (NON-NEGOTIABLE)**:
+2. **Layer Architecture Compliance (NON-NEGOTIABLE)**:
+   - **EVERY file MUST respect layer boundaries** - see "Layer Architecture Enforcement" section above
+   - **Domain layer** (`src/domain/`): MUST be pure, NO imports from other layers
+   - **Application layer** (`src/application/`): CAN import domain/, CANNOT import infrastructure/ or presentation/
+   - **Infrastructure layer** (`src/infrastructure/`): CAN import domain/, CANNOT import application/ or presentation/
+   - **Presentation layer** (`src/presentation/`): CAN import application/ and domain/, CANNOT import infrastructure/
+   - **Cross-layer violations are CRITICAL severity** - must be fixed immediately
+   - **Enforcement**: Run `bun run lint` to verify layer boundaries via ESLint `eslint-plugin-boundaries`
+   - **If layer violations exist**: STOP and fix them BEFORE any other work
+
+3. **Tech Stack Best Practices Compliance (NON-NEGOTIABLE)**:
    - **ALWAYS verify code against framework-specific best practices** from @docs/infrastructure/
    - **MUST check**: Effect.ts patterns, Hono middleware, Better Auth security, Drizzle transactions
    - **MUST verify**: React 19 (no manual memoization), TanStack Query cache config, shadcn/ui patterns
@@ -696,43 +831,55 @@ When proposing refactorings:
    - **Flag violations** in dedicated "Best Practices Violations" section of audit report
    - **Prioritize framework-critical violations** (e.g., manual memoization in React 19, React components >300 lines) as Critical severity
 
-3. **Security Issue Reporting (NON-NEGOTIABLE)**:
+4. **Security Issue Reporting (NON-NEGOTIABLE)**:
    - **ALWAYS flag security vulnerabilities** found during audit (Critical priority)
    - **Recommend E2E test coverage** for security-critical paths (suggest @spec tests)
    - **DO NOT fix security issues** without explicit user approval
    - **Document in audit report**: Security Issues section with severity, location, risk, and recommended test coverage
    - Examples: Missing input validation, unprotected routes, sensitive data exposure
 
-4. **Quality Validation (NON-NEGOTIABLE)**:
+5. **Quality Validation (NON-NEGOTIABLE)**:
+   - **`bun run quality` MUST ALWAYS PASS** - This is the absolute baseline for code quality
    - ALWAYS run `bun run quality` before proposing refactorings (Phase 0)
-     - Validates: ESLint, TypeScript, unit tests, @regression E2E tests
+     - Validates: ESLint (including layer boundaries), TypeScript, unit tests, @regression E2E tests
    - ALWAYS run `bun test:e2e --grep @spec` before proposing refactorings (Phase 0)
    - ALWAYS run both commands after implementing each refactoring step (Phase 5)
+   - **If `bun run quality` fails at ANY point**:
+     - ❌ STOP immediately - do not proceed with any other work
+     - 🔍 Identify the exact failure (ESLint error, TypeScript error, test failure)
+     - 🔧 Fix the issue BEFORE continuing
+     - ✅ Re-run `bun run quality` to confirm all checks pass
    - If baseline tests fail before refactoring → STOP and report
    - If tests fail after refactoring → immediately rollback or fix
    - Document test results in every audit report
 
-5. **Preserve Functionality**: Never suggest refactorings that change behavior without explicit user approval
+   **Quality Check Components** (all must pass):
+   - **ESLint** (`bun run lint`): Code style, functional programming rules, layer boundaries
+   - **TypeScript** (`bun run typecheck`): Type safety, no implicit any, strict mode
+   - **Unit Tests** (`bun test:unit`): All `*.test.ts` files must pass
+   - **E2E Regression** (`bun test:e2e --grep @regression`): No regressions allowed
 
-6. **Respect Current Phase**: The project is in Phase 1 (minimal web server). Don't enforce aspirational architecture that isn't yet implemented
+6. **Preserve Functionality**: Never suggest refactorings that change behavior without explicit user approval
 
-7. **No Over-Engineering**: Prefer simple, clear code over clever abstractions
+7. **Respect Current Phase**: The project is in Phase 1 (minimal web server). Don't enforce aspirational architecture that isn't yet implemented
 
-8. **Test Safety**: When removing unit tests in src/, verify coverage isn't lost (suggest alternative coverage if needed)
+8. **No Over-Engineering**: Prefer simple, clear code over clever abstractions
 
-9. **Documentation Alignment**: If code correctly implements a pattern not yet documented, suggest documentation updates rather than code changes
+9. **Test Safety**: When removing unit tests in src/, verify coverage isn't lost (suggest alternative coverage if needed)
 
-10. **Incremental Changes**: Break large refactorings into safe, reviewable steps with validation between each
+10. **Documentation Alignment**: If code correctly implements a pattern not yet documented, suggest documentation updates rather than code changes
 
-11. **Effect.ts Idiomatic**: Use Effect.gen, pipe, and proper error handling patterns
+11. **Incremental Changes**: Break large refactorings into safe, reviewable steps with validation between each
 
-12. **Type Safety**: Maintain or improve type safety; never use 'any' without justification
+12. **Effect.ts Idiomatic**: Use Effect.gen, pipe, and proper error handling patterns
 
-13. **Stop on Failure**: If any critical/regression test fails at any point, immediately halt refactoring and report
+13. **Type Safety**: Maintain or improve type safety; never use 'any' without justification
 
-14. **Best Practices Documentation**: Reference specific @docs sections when flagging violations (e.g., "@docs/infrastructure/ui/react.md - React 19 Compiler")
+14. **Stop on Failure**: If any critical/regression test fails at any point, immediately halt refactoring and report
 
-15. **Two-Phase Refactoring Approach (NON-NEGOTIABLE)**:
+15. **Best Practices Documentation**: Reference specific @docs sections when flagging violations (e.g., "@docs/infrastructure/ui/react.md - React 19 Compiler")
+
+16. **Two-Phase Refactoring Approach (NON-NEGOTIABLE)**:
    - **ALWAYS analyze git history first** to identify recent major commits (last 5-10 commits with >100 lines OR >5 files changed in src/)
    - **Phase 1.1 (Recent Changes)**: Immediately refactor files from recent major commits after Phase 0 validation
    - **Phase 1.2 (Older Code)**: Present recommendations only, DO NOT refactor without explicit user approval
@@ -742,30 +889,45 @@ When proposing refactorings:
 
 ## Quality Assurance Mechanisms
 
-**Summary**: Before presenting audit results, verify: scope compliance (src/ only), security review complete, framework best practices checked against @docs/infrastructure/, E2E baseline validated, cross-reference consistency, impact analysis, test preservation, code standards, completeness, and post-refactoring validation. This 10-point checklist ensures audit quality and safety.
+**Summary**: Before presenting audit results, verify: scope compliance (src/ only), **layer architecture compliance**, **`bun run quality` passes**, security review complete, framework best practices checked against @docs/infrastructure/, E2E baseline validated, cross-reference consistency, impact analysis, test preservation, code standards, completeness, and post-refactoring validation. This checklist ensures audit quality and safety.
 
 Before finalizing recommendations:
 1. **Scope Compliance**: Verify all proposed changes are within src/ directory only
-2. **Two-Phase Verification**:
+2. **Layer Architecture Compliance** (CRITICAL):
+   - Run `bun run lint` to verify no layer boundary violations
+   - Manually verify NO cross-layer imports:
+     - Domain imports nothing from other layers
+     - Application imports only from Domain
+     - Infrastructure imports only from Domain
+     - Presentation imports from Application and Domain (NOT Infrastructure)
+   - **If violations found**: STOP - fix layer violations BEFORE any other work
+3. **`bun run quality` Passes** (CRITICAL):
+   - Run `bun run quality` and verify ALL checks pass
+   - ESLint: 0 errors, 0 warnings (including layer boundaries)
+   - TypeScript: No type errors
+   - Unit tests: All passing
+   - E2E regression: All passing
+   - **If quality fails**: STOP - fix issues BEFORE any other work
+4. **Two-Phase Verification**:
    - Confirm Phase 1.1 files correctly identified from git history (recent major commits)
    - Verify Phase 1.2 files exclude Phase 1.1 files (no overlap)
    - Ensure Phase 1.1 refactorings are implemented with Phase 0/Phase 5 validation
    - Confirm all Phase 1.2 recommendations are marked "⏸️ AWAITING HUMAN APPROVAL"
-3. **Security Review**: Confirm all security vulnerabilities flagged with recommended E2E test coverage
-4. **Best Practices Verification**: Cross-check code against ALL relevant infrastructure docs:
+5. **Security Review**: Confirm all security vulnerabilities flagged with recommended E2E test coverage
+6. **Best Practices Verification**: Cross-check code against ALL relevant infrastructure docs:
    - **Framework-specific** (@docs/infrastructure/framework/): Effect.ts, Hono, Better Auth patterns
    - **Database** (@docs/infrastructure/database/): Drizzle ORM best practices
    - **UI Libraries** (@docs/infrastructure/ui/): React 19, TanStack Query/Table, shadcn/ui, Tailwind
    - **Language/Runtime** (@docs/infrastructure/language/, runtime/): TypeScript strict mode, Bun APIs
    - **Code Quality** (@docs/infrastructure/quality/): ESLint, Prettier compliance
    - **Testing** (@docs/infrastructure/testing/): Bun Test, Playwright patterns
-5. **E2E Baseline Validation**: Run and pass all @spec and @regression tests
-6. **Cross-Reference**: Verify each suggestion against multiple @docs files for consistency
-7. **Impact Analysis**: Consider ripple effects across layers and modules (within src/)
-8. **Test Verification**: Ensure proposed changes won't break existing unit tests unnecessarily
-9. **Standards Check**: Confirm all code examples follow Prettier/ESLint rules
-10. **Completeness**: Verify you've covered all files in src/, not just obvious candidates
-11. **Post-Refactoring Validation**: Re-run E2E tests and confirm baseline maintained
+7. **E2E Baseline Validation**: Run and pass all @spec and @regression tests
+8. **Cross-Reference**: Verify each suggestion against multiple @docs files for consistency
+9. **Impact Analysis**: Consider ripple effects across layers and modules (within src/)
+10. **Test Verification**: Ensure proposed changes won't break existing unit tests unnecessarily
+11. **Standards Check**: Confirm all code examples follow Prettier/ESLint rules
+12. **Completeness**: Verify you've covered all files in src/, not just obvious candidates
+13. **Post-Refactoring Validation**: Re-run `bun run quality` and E2E tests, confirm baseline maintained
 
 ## Output Format
 
@@ -1122,10 +1284,13 @@ A successful refactoring audit must meet different criteria for immediate refact
 The following criteria must ALL be met for Phase 1.1 completion:
 - [ ] Analyze git history to identify recent major commits
 - [ ] Establish clean E2E test baseline (Phase 0)
+- [ ] **`bun run quality` passes** (ESLint, TypeScript, unit tests, E2E regression)
+- [ ] **Verify layer architecture compliance** (no cross-layer import violations)
 - [ ] Identify architectural issues in recent changes with file/line references
 - [ ] Propose concrete, code-complete refactorings for recent changes
 - [ ] Execute refactorings incrementally for recent changes
 - [ ] Maintain 100% E2E test baseline pass rate (Phase 5)
+- [ ] **`bun run quality` still passes** after all refactorings
 - [ ] Document test results before and after
 - [ ] Leave recent changes in working state (all tests passing)
 
@@ -1142,6 +1307,8 @@ The following criteria must ALL be met for Phase 1.2 completion:
 ### Overall Success
 - **Immediate refactorings complete**: All Phase 1.1 changes implemented and validated
 - **Recommendations documented**: All Phase 1.2 issues identified and prioritized
+- **`bun run quality` passes**: ALL quality checks pass (ESLint, TypeScript, unit tests, E2E regression)
+- **Layer architecture compliant**: No cross-layer import violations in src/
 - **Tests passing**: E2E baseline maintained for implemented changes
 - **Human in control**: Phase 1.2 changes await explicit approval
 
@@ -1159,8 +1326,10 @@ Track these quantifiable metrics in audit reports to demonstrate impact:
 
 **Best Practices Compliance**:
 - **Violations fixed**: X violations fixed (Y critical, Z high priority)
+- **Layer architecture compliance**: 0 cross-layer import violations (MUST be zero)
 - **Framework patterns corrected**: X manual memoizations removed, Y Effect.ts patterns improved, Z other corrections
 - **Type safety improvements**: X 'any' types replaced with proper types
+- **`bun run quality` status**: ✅ All checks passing (ESLint, TypeScript, unit tests, E2E regression)
 
 **Test Coverage & Safety**:
 - **Test baseline maintained**: 100% of @spec/@regression tests passing (no regressions)
@@ -1178,6 +1347,12 @@ Track these quantifiable metrics in audit reports to demonstrate impact:
 - **Code reduction**: 12% fewer lines (450 lines reduced from 3,750 to 3,300)
 - **Duplication eliminated**: 8 instances consolidated into 3 shared utilities
 - **Violations fixed**: 15 total (5 critical, 7 high, 3 medium)
+- **Layer architecture**: ✅ 0 cross-layer violations (compliant)
+- **`bun run quality`**: ✅ All checks passing
+  - ESLint: ✅ 0 errors, 0 warnings
+  - TypeScript: ✅ No type errors
+  - Unit tests: ✅ 42/42 passing
+  - E2E regression: ✅ 8/8 passing
 - **Test baseline**: 100% maintained (8/8 @spec, 5/5 @regression passing)
 - **Framework improvements**: 3 manual memoizations removed, 4 Effect.gen patterns corrected
 - **Time invested**: 2.5 hours actual vs 3 hours estimated (17% under budget)
