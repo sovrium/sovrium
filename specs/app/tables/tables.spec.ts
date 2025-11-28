@@ -820,7 +820,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-017: should insert data and return row with generated ID',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
