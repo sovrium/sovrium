@@ -165,13 +165,11 @@ jobs:
           gh issue edit "$ISSUE_NUMBER" --remove-label "tdd-spec:queued"
           gh issue edit "$ISSUE_NUMBER" --add-label "tdd-spec:in-progress"
 
-          # Trigger Claude Code workflow with retry support
-          echo "🤖 Triggering Claude Code workflow with infrastructure retry support..."
-          gh workflow run claude-tdd.yml \
-            --field issue_number="$ISSUE_NUMBER" \
-            --field retry_attempt=1
+          # NOTE: We only post @claude comment (not workflow_dispatch) to avoid double trigger
+          # The @claude comment triggers claude-tdd.yml via issue_comment event
+          echo "🤖 Posting @claude comment to trigger Claude Code workflow..."
 
-          # Add initial comment with workflow instructions
+          # Add comment with workflow instructions (triggers claude-tdd.yml)
           gh issue comment "$ISSUE_NUMBER" --body "@claude implement this spec using the TDD automation workflow.
 
           ## 📋 Spec Details

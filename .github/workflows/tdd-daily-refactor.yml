@@ -8,9 +8,10 @@ name: TDD Queue - Daily Refactor
 # - Sunday: Full codebase audit
 
 on:
-  # Scheduled runs - Daily at 2:00 AM UTC (runs before populate to refactor on clean queue)
+  # Scheduled runs - Daily at 1:30 AM UTC (runs AFTER populate at 1:00 AM)
+  # Rationale: Populate adds specs first, then refactor waits for clean queue
   schedule:
-    - cron: '0 2 * * *'
+    - cron: '30 1 * * *'
 
   # Manual trigger for testing
   workflow_dispatch:

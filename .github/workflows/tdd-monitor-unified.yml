@@ -75,11 +75,16 @@ jobs:
           TOTAL=$(echo "$RECENT_RUNS" | jq 'length')
           FAILURES=$(echo "$RECENT_RUNS" | jq '[.[] | select(.conclusion == "failure" or .conclusion == "cancelled")] | length')
 
-          # Count specs in retry state
-          RETRY_1=$(gh issue list --repo ${{ github.repository }} --label "infrastructure-retry:1" --json number --jq 'length')
-          RETRY_2=$(gh issue list --repo ${{ github.repository }} --label "infrastructure-retry:2" --json number --jq 'length')
-          RETRY_3=$(gh issue list --repo ${{ github.repository }} --label "infrastructure-retry:3" --json number --jq 'length')
-          RETRY_ISSUES=$((RETRY_1 + RETRY_2 + RETRY_3))
+          # Count specs in retry state (both infrastructure and code retries)
+          INFRA_RETRY_1=$(gh issue list --repo ${{ github.repository }} --label "infrastructure-retry:1" --json number --jq 'length')
+          INFRA_RETRY_2=$(gh issue list --repo ${{ github.repository }} --label "infrastructure-retry:2" --json number --jq 'length')
+          INFRA_RETRY_3=$(gh issue list --repo ${{ github.repository }} --label "infrastructure-retry:3" --json number --jq 'length')
+          CODE_RETRY_1=$(gh issue list --repo ${{ github.repository }} --label "code-retry:1" --json number --jq 'length')
+          CODE_RETRY_2=$(gh issue list --repo ${{ github.repository }} --label "code-retry:2" --json number --jq 'length')
+          CODE_RETRY_3=$(gh issue list --repo ${{ github.repository }} --label "code-retry:3" --json number --jq 'length')
+          INFRA_RETRY_ISSUES=$((INFRA_RETRY_1 + INFRA_RETRY_2 + INFRA_RETRY_3))
+          CODE_RETRY_ISSUES=$((CODE_RETRY_1 + CODE_RETRY_2 + CODE_RETRY_3))
+          RETRY_ISSUES=$((INFRA_RETRY_ISSUES + CODE_RETRY_ISSUES))
 
           # Calculate failure rate
           if [ "$TOTAL" -eq 0 ]; then
@@ -92,7 +97,7 @@ jobs:
           echo "   Recent runs: $TOTAL"
           echo "   Failures: $FAILURES"
           echo "   Failure rate: ${FAILURE_RATE}%"
-          echo "   Issues in retry: $RETRY_ISSUES"
+          echo "   Issues in retry: $RETRY_ISSUES (infra: $INFRA_RETRY_ISSUES, code: $CODE_RETRY_ISSUES)"
 
           # Output results
           echo "failure_rate=$FAILURE_RATE" >> $GITHUB_OUTPUT
@@ -243,12 +248,12 @@ jobs:
             echo "⏱️  STUCK: Issue #$ISSUE_NUMBER (${AGE_MIN} min old)"
             STUCK_COUNT=$((STUCK_COUNT + 1))
 
-            # Check for retry label
-            RETRY_LABEL=$(echo "$LABELS" | grep -o 'infrastructure-retry:[0-9]' || echo "")
+            # Check for retry label (both infrastructure and code retries)
+            RETRY_LABEL=$(echo "$LABELS" | grep -oE '(infrastructure|code)-retry:[0-9]' || echo "")
 
             if [ -n "$RETRY_LABEL" ]; then
-              RETRY_NUM=$(echo "$RETRY_LABEL" | sed 's/infrastructure-retry://')
-              echo "   Stuck retry attempt #$RETRY_NUM"
+              RETRY_NUM=$(echo "$RETRY_LABEL" | sed -E 's/(infrastructure|code)-retry://')
+              echo "   Stuck retry attempt #$RETRY_NUM (label: $RETRY_LABEL)"
 
               if [ "$RETRY_NUM" -ge 3 ]; then
                 echo "   ❌ Max retries reached - marking as failed"
@@ -273,8 +278,8 @@ jobs:
                   --add-label "infrastructure-retry:$NEXT_RETRY"
 
                 # Get spec details from issue for context
-                SPEC_ID=\$(gh issue view "\$ISSUE_NUMBER" --repo \${{ github.repository }} --json title --jq '.title' | grep -oP '[A-Z]+-[A-Z]+-[0-9]+' || echo "unknown")
-                TEST_FILE=\$(gh issue view "\$ISSUE_NUMBER" --repo \${{ github.repository }} --json body --jq '.body' | grep -oP 'Test File.*\`\K[^\`]+' || echo "unknown")
+                SPEC_ID=$(gh issue view "$ISSUE_NUMBER" --repo ${{ github.repository }} --json title --jq '.title' | grep -oE '[A-Z]+-[A-Z]+-[0-9]+' || echo "unknown")
+                TEST_FILE=$(gh issue view "$ISSUE_NUMBER" --repo ${{ github.repository }} --json body --jq '.body' | grep -oE 'Test File[^`]*`[^`]+' | sed 's/.*`//' || echo "unknown")
 
                 gh issue comment "$ISSUE_NUMBER" --repo ${{ github.repository }} \
                   --body "🔄 **Stuck Retry Recovery** (Attempt $NEXT_RETRY of 3)
