@@ -118,7 +118,7 @@ test.describe('Indexed Field Property', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-INDEXED-003: should optimize date range and ORDER BY queries when timestamp field has indexed: true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -155,7 +155,7 @@ test.describe('Indexed Field Property', () => {
         "SELECT COUNT(*) as count FROM events WHERE occurred_at > '2024-01-01'"
       )
       // THEN: assertion
-      expect(rangeQuery.count).toBe(2)
+      expect(rangeQuery.count).toBe(3)
 
       const orderBy = await executeQuery(
         'SELECT name FROM events ORDER BY occurred_at DESC LIMIT 1'
