@@ -867,7 +867,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-018: should update row and return new value via SELECT',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
