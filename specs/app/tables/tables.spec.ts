@@ -1080,7 +1080,7 @@ test.describe('Data Tables', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-023: should create PRIMARY KEY constraint spanning multiple columns',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
