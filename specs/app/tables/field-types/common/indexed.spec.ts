@@ -24,7 +24,7 @@ test.describe('Indexed Field Property', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-INDEXED-001: should create btree index optimizing queries when field has indexed: true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -54,7 +54,8 @@ test.describe('Indexed Field Property', () => {
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_users_email'"
       )
       // THEN: assertion
-      expect(indexCheck).toEqual({ indexname: 'idx_users_email', tablename: 'users' })
+      expect(indexCheck.indexname).toBe('idx_users_email')
+      expect(indexCheck.tablename).toBe('users')
 
       const indexDef = await executeQuery(
         "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_users_email'"
