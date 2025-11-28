@@ -139,7 +139,7 @@ test.describe('Email Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-EMAIL-004: should reject NULL value when table has required email field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
