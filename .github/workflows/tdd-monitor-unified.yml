@@ -446,10 +446,11 @@ jobs:
               echo ""
               echo "⚠️  PR #$PR_NUMBER branch is behind main"
 
-              # Check for recent "@claude update branch" comment to prevent spam
+              # Check for recent "@claude update" comment to prevent spam
+              # Use broader substring match to catch any update-related @claude mentions
               RECENT_UPDATE_COMMENT=$(gh api \
                 "/repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
-                --jq "[.[] | select(.body | contains(\"@claude update branch\")) | select(.created_at > \"$(date -u -d '2 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-2H +%Y-%m-%dT%H:%M:%SZ)\")] | length" 2>/dev/null || echo "0")
+                --jq "[.[] | select(.body | contains(\"@claude update\")) | select(.created_at > \"$(date -u -d '2 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-2H +%Y-%m-%dT%H:%M:%SZ)\")] | length" 2>/dev/null || echo "0")
 
               if [ "$RECENT_UPDATE_COMMENT" -gt 0 ]; then
                 echo "   ⏭️  Skipping - update already requested within last 2 hours"
