@@ -23,6 +23,8 @@ const fieldTypeToPostgresMap: Record<string, string> = {
   'rich-text': 'TEXT',
   checkbox: 'BOOLEAN',
   date: 'TIMESTAMP',
+  datetime: 'TIMESTAMP',
+  time: 'TIME',
   'single-select': 'VARCHAR(255)',
   status: 'VARCHAR(255)',
   'multi-select': 'TEXT[]',
