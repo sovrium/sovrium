@@ -180,7 +180,7 @@ test.describe('Email Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-EMAIL-005: should create btree index for fast email lookups when email field has indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -206,10 +206,8 @@ test.describe('Email Field', () => {
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_customers_email'"
       )
       // THEN: assertion
-      expect(indexExists).toEqual({
-        indexname: 'idx_customers_email',
-        tablename: 'customers',
-      })
+      expect(indexExists.indexname).toBe('idx_customers_email')
+      expect(indexExists.tablename).toBe('customers')
 
       const indexDef = await executeQuery(
         "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_customers_email'"
