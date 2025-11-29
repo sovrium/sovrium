@@ -483,7 +483,7 @@ test.describe('Single Line Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-013: should apply row-level locking and ensure data consistency',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
