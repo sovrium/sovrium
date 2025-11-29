@@ -70,7 +70,7 @@ test.describe('Required Field Property', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-REQUIRED-002: should allow NULL values when field has required: false (default)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
