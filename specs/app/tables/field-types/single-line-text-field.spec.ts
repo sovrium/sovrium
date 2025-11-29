@@ -440,7 +440,7 @@ test.describe('Single Line Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-012: should prevent duplicate insertion with UNIQUE constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
