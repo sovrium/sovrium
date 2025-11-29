@@ -139,7 +139,7 @@ test.describe('Single Line Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-004: should create btree index for fast text lookups',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -168,7 +168,7 @@ test.describe('Single Line Text Field', () => {
       const indexExists = await executeQuery(
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_products_sku'"
       )
-      expect(indexExists).toEqual({
+      expect(indexExists).toMatchObject({
         indexname: 'idx_products_sku',
         tablename: 'products',
       })
