@@ -105,7 +105,7 @@ test.describe('Single Line Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-003: should reject NULL values with NOT NULL constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
