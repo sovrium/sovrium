@@ -183,7 +183,7 @@ test.describe('Single Line Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-005: should apply DEFAULT value when row inserted without value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
