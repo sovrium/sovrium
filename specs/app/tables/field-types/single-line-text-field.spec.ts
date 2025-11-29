@@ -558,9 +558,9 @@ test.describe('Single Line Text Field', () => {
 
       // THEN: PostgreSQL handles concurrent writes without data loss or corruption
       const bulkInsert = await executeQuery(
-        "INSERT INTO events (event_code) SELECT 'EVENT-' || generate_series(1, 1000) RETURNING COUNT(*) OVER() as total"
+        "INSERT INTO events (event_code) SELECT 'EVENT-' || generate_series(1, 1000)"
       )
-      expect(bulkInsert.total).toBe(1000)
+      expect(bulkInsert.rowCount).toBe(1000)
 
       // WHEN: querying the database
       const uniqueCount = await executeQuery(
