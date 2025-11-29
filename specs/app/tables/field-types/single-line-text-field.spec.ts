@@ -532,7 +532,7 @@ test.describe('Single Line Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-014: should handle concurrent writes without data loss or corruption',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
