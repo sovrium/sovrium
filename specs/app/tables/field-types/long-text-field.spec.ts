@@ -63,7 +63,7 @@ test.describe('Long Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-LONG-TEXT-002: should accept unlimited length without truncation when inserting text exceeding VARCHAR(255) limit',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -89,10 +89,8 @@ test.describe('Long Text Field', () => {
         "SELECT data_type, character_maximum_length FROM information_schema.columns WHERE table_name='posts' AND column_name='content'"
       )
       // THEN: assertion
-      expect(dataTypeCheck).toEqual({
-        data_type: 'single-line-text',
-        character_maximum_length: null,
-      })
+      expect(dataTypeCheck.data_type).toBe('text')
+      expect(dataTypeCheck.character_maximum_length).toBeNull()
 
       const largeTextInsert = await executeQuery(
         "INSERT INTO posts (content) VALUES ('Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.') RETURNING LENGTH(content) as length"
