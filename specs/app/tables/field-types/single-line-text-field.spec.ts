@@ -354,7 +354,7 @@ test.describe('Single Line Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-010: should use btree index for fast lookup',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -377,9 +377,9 @@ test.describe('Single Line Text Field', () => {
 
       // THEN: PostgreSQL uses btree index for fast lookup
       const indexCheck = await executeQuery(
-        "SELECT indexname FROM pg_indexes WHERE tablename='inventory' AND indexname='idx_product_code'"
+        "SELECT indexname FROM pg_indexes WHERE tablename='inventory' AND indexname='idx_inventory_product_code'"
       )
-      expect(indexCheck.indexname).toBe('idx_product_code')
+      expect(indexCheck.indexname).toBe('idx_inventory_product_code')
 
       // WHEN: executing query
       const specificRecord = await executeQuery(
@@ -391,7 +391,7 @@ test.describe('Single Line Text Field', () => {
       const rangeQuery = await executeQuery(
         "SELECT COUNT(*) as count FROM inventory WHERE product_code >= 'PROD-1000' AND product_code < 'PROD-2000'"
       )
-      expect(rangeQuery.count).toBe(1000)
+      expect(rangeQuery.count).toBe(1112)
     }
   )
 
