@@ -29,6 +29,12 @@ export class NoDatabaseUrlError extends Data.TaggedError('NoDatabaseUrlError')<{
 }> {}
 
 /**
+ * Check if field should create a database column
+ * Some field types are UI-only and don't need database columns
+ */
+const shouldCreateDatabaseColumn = (field: Fields[number]): boolean => field.type !== 'button'
+
+/**
  * Generate CREATE TABLE statement
  */
 const generateCreateTableSQL = (table: Table): string => {
@@ -45,10 +51,13 @@ const generateCreateTableSQL = (table: Table): string => {
   // Add automatic id column only if not explicitly defined AND no custom primary key
   const idColumnDefinition = hasIdField || hasCustomPrimaryKey ? [] : ['id SERIAL NOT NULL']
 
-  const columnDefinitions = table.fields.map((field) => {
-    const isPrimaryKey = primaryKeyFields.includes(field.name)
-    return generateColumnDefinition(field, isPrimaryKey)
-  })
+  // Filter out UI-only fields (like button) that don't need database columns
+  const columnDefinitions = table.fields
+    .filter(shouldCreateDatabaseColumn)
+    .map((field) => {
+      const isPrimaryKey = primaryKeyFields.includes(field.name)
+      return generateColumnDefinition(field, isPrimaryKey)
+    })
 
   // Add PRIMARY KEY constraint on id if no custom primary key is defined
   const tableConstraints = generateTableConstraints(table)
@@ -305,7 +314,9 @@ const generateAlterTableStatements = (
   }
 
   // Columns to add: not in database OR exist but have wrong type
+  // Filter out UI-only fields (like button) that don't need database columns
   const columnsToAdd = table.fields.filter((field) => {
+    if (!shouldCreateDatabaseColumn(field)) return false // Skip UI-only fields
     if (!existingColumns.has(field.name)) return true // New column
     const existing = existingColumns.get(field.name)!
     return !doesColumnTypeMatch(field, existing.dataType) // Type mismatch
@@ -316,11 +327,15 @@ const generateAlterTableStatements = (
     // Never drop protected id column (it's already the correct type at this point)
     if (shouldProtectIdColumn && columnName === 'id') return false
 
-    // Drop if not in schema
+    // Drop if not in schema (but only if it's not a UI-only field)
     if (!schemaFieldsByName.has(columnName)) return true
 
-    // Drop if type doesn't match (will be recreated with correct type)
     const field = schemaFieldsByName.get(columnName)!
+
+    // If this is a UI-only field that shouldn't have a column, drop it
+    if (!shouldCreateDatabaseColumn(field)) return true
+
+    // Drop if type doesn't match (will be recreated with correct type)
     const existing = existingColumns.get(columnName)!
     return !doesColumnTypeMatch(field, existing.dataType)
   })

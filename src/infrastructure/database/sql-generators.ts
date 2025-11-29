@@ -10,6 +10,7 @@ import type { Fields } from '@/domain/models/app/table/fields'
 
 /**
  * Field type to PostgreSQL type mapping
+ * Note: button field type is included for type safety but should not create database columns
  */
 const fieldTypeToPostgresMap: Record<string, string> = {
   integer: 'INTEGER',
