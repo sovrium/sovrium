@@ -8,7 +8,7 @@
 import { test, expect } from '@/specs/fixtures'
 
 test.describe('Button Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-BUTTON-001: should not create database column (UI-only field)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
