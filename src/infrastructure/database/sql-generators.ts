@@ -47,8 +47,8 @@ const fieldTypeToPostgresMap: Record<string, string> = {
   user: 'TEXT',
   'created-by': 'TEXT',
   'updated-by': 'TEXT',
-  'created-at': 'TIMESTAMP',
-  'updated-at': 'TIMESTAMP',
+  'created-at': 'TIMESTAMPTZ',
+  'updated-at': 'TIMESTAMPTZ',
   button: 'TEXT',
 }
 
@@ -89,16 +89,21 @@ const shouldUseSerial = (field: Fields[number], isPrimaryKey: boolean): boolean 
 /**
  * Generate NOT NULL constraint
  */
-const generateNotNullConstraint = (field: Fields[number], isPrimaryKey: boolean): string =>
-  isPrimaryKey || ('required' in field && field.required) ? ' NOT NULL' : ''
+const generateNotNullConstraint = (field: Fields[number], isPrimaryKey: boolean): string => {
+  // created-at and updated-at fields are always required
+  if (field.type === 'created-at' || field.type === 'updated-at') {
+    return ' NOT NULL'
+  }
+  return isPrimaryKey || ('required' in field && field.required) ? ' NOT NULL' : ''
+}
 
 /**
  * Generate DEFAULT clause
  */
 const generateDefaultClause = (field: Fields[number]): string => {
-  // Auto-timestamp fields get CURRENT_TIMESTAMP default
+  // Auto-timestamp fields get NOW() default
   if (field.type === 'created-at' || field.type === 'updated-at') {
-    return ' DEFAULT CURRENT_TIMESTAMP'
+    return ' DEFAULT NOW()'
   }
 
   // Explicit default values
