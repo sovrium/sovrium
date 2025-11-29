@@ -24,7 +24,7 @@ test.describe('Required Field Property', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-REQUIRED-001: should reject NULL values when field has required: true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -59,7 +59,7 @@ test.describe('Required Field Property', () => {
       // THEN: assertion
       await expect(
         executeQuery("INSERT INTO users (name, email) VALUES (NULL, 'null@example.com')")
-      ).rejects.toThrow(/null value in column "name" violates not-null constraint/)
+      ).rejects.toThrow(/null value in column "name".*violates not-null constraint/)
 
       // Valid value should succeed
       const validInsert = await executeQuery(
