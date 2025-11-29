@@ -735,7 +735,7 @@ test.describe('Single Line Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-019: should store control characters without interpretation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -772,7 +772,7 @@ test.describe('Single Line Text Field', () => {
         "INSERT INTO special_chars (content) VALUES ('tab\tthen\nnewline') RETURNING content, LENGTH(content) as len"
       )
       expect(mixedControl.content).toBe('tab\tthen\nnewline')
-      expect(mixedControl.len).toBe(15)
+      expect(mixedControl.len).toBe(16)
     }
   )
 
