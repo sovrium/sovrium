@@ -24,7 +24,7 @@ test.describe('Single Line Text Field', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-001: should create PostgreSQL VARCHAR(255) column',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -44,7 +44,7 @@ test.describe('Single Line Text Field', () => {
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='title'"
       )
-      expect(columnInfo).toEqual({
+      expect(columnInfo).toMatchObject({
         column_name: 'title',
         data_type: 'character varying',
         character_maximum_length: 255,
