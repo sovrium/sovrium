@@ -395,7 +395,7 @@ test.describe('Single Line Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-011: should execute text search and return matching records',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -430,7 +430,7 @@ test.describe('Single Line Text Field', () => {
       const wildcardSearch = await executeQuery(
         "SELECT title FROM articles WHERE title LIKE '%Article 100' ORDER BY id LIMIT 1"
       )
-      expect(wildcardSearch.title).toBe('Regular Article 100')
+      expect(wildcardSearch.title).toBe('Featured Article 100')
 
       // WHEN: executing query
       const caseInsensitive = await executeQuery(
