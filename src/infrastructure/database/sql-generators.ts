@@ -92,15 +92,6 @@ const generateNotNullConstraint = (field: Fields[number], isPrimaryKey: boolean)
   isPrimaryKey || ('required' in field && field.required) ? ' NOT NULL' : ''
 
 /**
- * Generate UNIQUE constraint (inline - deprecated in favor of named constraints)
- *
- * NOTE: Inline UNIQUE constraints are no longer used. Named UNIQUE constraints
- * are now generated at the table level via generateUniqueConstraints() to ensure
- * they appear in information_schema.table_constraints with queryable constraint names.
- */
-const generateUniqueConstraint = (_field: Fields[number]): string => ''
-
-/**
  * Generate DEFAULT clause
  */
 const generateDefaultClause = (field: Fields[number]): string => {
@@ -117,6 +108,10 @@ const generateDefaultClause = (field: Fields[number]): string => {
 
 /**
  * Generate column definition with constraints
+ *
+ * NOTE: UNIQUE constraints are NOT generated inline. Named UNIQUE constraints
+ * are generated at the table level via generateUniqueConstraints() to ensure
+ * they appear in information_schema.table_constraints with queryable constraint names.
  */
 export const generateColumnDefinition = (field: Fields[number], isPrimaryKey: boolean): string => {
   // SERIAL columns for auto-increment fields
@@ -126,9 +121,8 @@ export const generateColumnDefinition = (field: Fields[number], isPrimaryKey: bo
 
   const columnType = mapFieldTypeToPostgres(field)
   const notNull = generateNotNullConstraint(field, isPrimaryKey)
-  const unique = generateUniqueConstraint(field)
   const defaultValue = generateDefaultClause(field)
-  return `${field.name} ${columnType}${notNull}${unique}${defaultValue}`
+  return `${field.name} ${columnType}${notNull}${defaultValue}`
 }
 
 /**
