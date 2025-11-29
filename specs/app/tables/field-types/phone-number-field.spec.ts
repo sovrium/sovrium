@@ -50,12 +50,10 @@ test.describe('Phone Number Field', () => {
         "SELECT column_name, data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='contacts' AND column_name='phone'"
       )
       // THEN: assertion
-      expect(columnInfo).toEqual({
-        column_name: 'phone',
-        data_type: 'character varying',
-        character_maximum_length: 255,
-        is_nullable: 'YES',
-      })
+      expect(columnInfo.column_name).toBe('phone')
+      expect(columnInfo.data_type).toBe('character varying')
+      expect(columnInfo.character_maximum_length).toBe(255)
+      expect(columnInfo.is_nullable).toBe('YES')
 
       const validInsert = await executeQuery(
         "INSERT INTO contacts (phone) VALUES ('+1-555-123-4567') RETURNING phone"
@@ -202,7 +200,7 @@ test.describe('Phone Number Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-PHONE-NUMBER-005: should create btree index for fast phone number lookups when phone-number field has indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -234,10 +232,8 @@ test.describe('Phone Number Field', () => {
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_employees_phone'"
       )
       // THEN: assertion
-      expect(indexExists).toEqual({
-        indexname: 'idx_employees_phone',
-        tablename: 'employees',
-      })
+      expect(indexExists.indexname).toBe('idx_employees_phone')
+      expect(indexExists.tablename).toBe('employees')
 
       const indexDef = await executeQuery(
         "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_employees_phone'"
