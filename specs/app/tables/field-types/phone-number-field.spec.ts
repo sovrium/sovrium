@@ -24,7 +24,7 @@ test.describe('Phone Number Field', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-PHONE-NUMBER-001: should create PostgreSQL VARCHAR(255) column for phone number storage when table configuration has phone-number field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
