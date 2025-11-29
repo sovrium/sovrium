@@ -24,7 +24,7 @@ test.describe('Checkbox Field', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CHECKBOX-001: should create PostgreSQL BOOLEAN column when table configuration has checkbox field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -50,11 +50,9 @@ test.describe('Checkbox Field', () => {
         "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='users' AND column_name='is_active'"
       )
       // THEN: assertion
-      expect(columnInfo).toEqual({
-        column_name: 'is_active',
-        data_type: 'boolean',
-        is_nullable: 'YES',
-      })
+      expect(columnInfo.column_name).toBe('is_active')
+      expect(columnInfo.data_type).toBe('boolean')
+      expect(columnInfo.is_nullable).toBe('YES')
 
       const trueInsert = await executeQuery(
         'INSERT INTO users (is_active) VALUES (TRUE) RETURNING is_active'
