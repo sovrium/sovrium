@@ -701,7 +701,7 @@ test.describe('Single Line Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-018: should accept empty string as valid non-NULL value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
