@@ -7,7 +7,11 @@
 
 import { SQL } from 'bun'
 import { Config, Effect, Console, Data, type ConfigError } from 'effect'
-import { mapFieldTypeToPostgres, generateColumnDefinition, generateTableConstraints } from './sql-generators'
+import {
+  mapFieldTypeToPostgres,
+  generateColumnDefinition,
+  generateTableConstraints,
+} from './sql-generators'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/table'
 import type { Fields } from '@/domain/models/app/table/fields'
@@ -23,7 +27,6 @@ export class SchemaInitializationError extends Data.TaggedError('SchemaInitializ
 export class NoDatabaseUrlError extends Data.TaggedError('NoDatabaseUrlError')<{
   readonly message: string
 }> {}
-
 
 /**
  * Generate CREATE TABLE statement
