@@ -8,7 +8,7 @@
 import { test, expect } from '@/specs/fixtures'
 
 test.describe('Color Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-COLOR-001: should create VARCHAR(7) column for hex color storage',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
