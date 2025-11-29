@@ -218,7 +218,7 @@ test.describe('Required Field Property', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-REQUIRED-005: user can complete full required-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
