@@ -65,7 +65,7 @@ test.describe('Phone Number Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-PHONE-NUMBER-002: should store all formats as-is without validation when inserting international phone numbers with different formats',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
