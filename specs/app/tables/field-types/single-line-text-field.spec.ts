@@ -780,7 +780,7 @@ test.describe('Single Line Text Field', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-020: user can complete full single-line-text-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
