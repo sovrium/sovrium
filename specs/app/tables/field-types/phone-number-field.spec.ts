@@ -249,7 +249,7 @@ test.describe('Phone Number Field', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-PHONE-NUMBER-006: user can complete full phone-number-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
