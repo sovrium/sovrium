@@ -578,7 +578,7 @@ test.describe('Single Line Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-015: should store empty string as distinct from NULL',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
