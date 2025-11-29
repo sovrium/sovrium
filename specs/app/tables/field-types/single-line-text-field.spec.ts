@@ -218,7 +218,7 @@ test.describe('Single Line Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-006: should store and retrieve unicode text correctly',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
