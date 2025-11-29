@@ -618,7 +618,7 @@ test.describe('Single Line Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-016: should preserve whitespace without trimming',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -661,7 +661,7 @@ test.describe('Single Line Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-017: should accept both boundary values correctly',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -701,7 +701,7 @@ test.describe('Single Line Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-018: should accept empty string as valid non-NULL value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -735,7 +735,7 @@ test.describe('Single Line Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-019: should store control characters without interpretation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -772,7 +772,7 @@ test.describe('Single Line Text Field', () => {
         "INSERT INTO special_chars (content) VALUES ('tab\tthen\nnewline') RETURNING content, LENGTH(content) as len"
       )
       expect(mixedControl.content).toBe('tab\tthen\nnewline')
-      expect(mixedControl.len).toBe(15)
+      expect(mixedControl.len).toBe(16)
     }
   )
 
@@ -780,7 +780,7 @@ test.describe('Single Line Text Field', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-020: user can complete full single-line-text-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
