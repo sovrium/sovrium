@@ -141,7 +141,7 @@ test.describe('Long Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-LONG-TEXT-004: should create btree index for text search performance when long-text field has indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -173,10 +173,8 @@ test.describe('Long Text Field', () => {
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_pages_content'"
       )
       // THEN: assertion
-      expect(indexExists).toEqual({
-        indexname: 'idx_pages_content',
-        tablename: 'pages',
-      })
+      expect(indexExists.indexname).toBe('idx_pages_content')
+      expect(indexExists.tablename).toBe('pages')
 
       const indexDef = await executeQuery(
         "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_pages_content'"
