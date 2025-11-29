@@ -119,10 +119,16 @@ test.describe('Required Field Property', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-REQUIRED-003: should fail migration when attempting to add NOT NULL constraint with existing NULL values',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
+      // Initialize test database with minimal schema
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [],
+      })
+
       // GIVEN: required field with existing NULL values
       await executeQuery([
         'CREATE TABLE items (id SERIAL PRIMARY KEY, title VARCHAR(255))',
@@ -145,11 +151,11 @@ test.describe('Required Field Property', () => {
       // THEN: PostgreSQL migration fails if existing NULLs present
       await expect(
         executeQuery('ALTER TABLE items ALTER COLUMN title SET NOT NULL')
-      ).rejects.toThrow(/column "title" contains null values/)
+      ).rejects.toThrow(/column "title" of relation "items" contains null values/)
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-REQUIRED-004: should reject INSERT/UPDATE missing any required field when multiple required fields in same table',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -182,7 +188,7 @@ test.describe('Required Field Property', () => {
         "SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name='employees' AND column_name IN ('first_name', 'last_name') ORDER BY column_name"
       )
       // THEN: assertion
-      expect(bothNotNull).toEqual([
+      expect(bothNotNull.rows).toEqual([
         { column_name: 'first_name', is_nullable: 'NO' },
         { column_name: 'last_name', is_nullable: 'NO' },
       ])
@@ -191,20 +197,20 @@ test.describe('Required Field Property', () => {
       // THEN: assertion
       await expect(
         executeQuery("INSERT INTO employees (last_name) VALUES ('Jones')")
-      ).rejects.toThrow(/null value in column "first_name" violates not-null constraint/)
+      ).rejects.toThrow(/null value in column "first_name".*violates not-null constraint/)
 
       // Missing last_name should be rejected
       // THEN: assertion
       await expect(
         executeQuery("INSERT INTO employees (first_name) VALUES ('Bob')")
-      ).rejects.toThrow(/null value in column "last_name" violates not-null constraint/)
+      ).rejects.toThrow(/null value in column "last_name".*violates not-null constraint/)
 
       // All required fields provided should succeed
       const validInsert = await executeQuery(
         "INSERT INTO employees (first_name, last_name) VALUES ('Bob', 'Jones') RETURNING first_name, last_name"
       )
       // THEN: assertion
-      expect(validInsert).toEqual({ first_name: 'Bob', last_name: 'Jones' })
+      expect(validInsert).toMatchObject({ first_name: 'Bob', last_name: 'Jones' })
     }
   )
 
