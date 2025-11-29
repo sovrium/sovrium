@@ -119,10 +119,16 @@ test.describe('Required Field Property', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-REQUIRED-003: should fail migration when attempting to add NOT NULL constraint with existing NULL values',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
+      // Initialize test database with minimal schema
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [],
+      })
+
       // GIVEN: required field with existing NULL values
       await executeQuery([
         'CREATE TABLE items (id SERIAL PRIMARY KEY, title VARCHAR(255))',
@@ -145,7 +151,7 @@ test.describe('Required Field Property', () => {
       // THEN: PostgreSQL migration fails if existing NULLs present
       await expect(
         executeQuery('ALTER TABLE items ALTER COLUMN title SET NOT NULL')
-      ).rejects.toThrow(/column "title" contains null values/)
+      ).rejects.toThrow(/column "title" of relation "items" contains null values/)
     }
   )
 
