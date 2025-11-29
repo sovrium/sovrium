@@ -161,7 +161,7 @@ test.describe('Phone Number Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-PHONE-NUMBER-004: should reject NULL value when table has required phone-number field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
