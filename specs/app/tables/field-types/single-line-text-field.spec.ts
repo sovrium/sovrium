@@ -661,7 +661,7 @@ test.describe('Single Line Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-017: should accept both boundary values correctly',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
