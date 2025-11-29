@@ -344,6 +344,33 @@ type ServerFixtures = {
     appSchema: App,
     options?: { useDatabase?: boolean; database?: { url: string } }
   ) => Promise<void>
+  /**
+   * Execute raw SQL queries against the test database.
+   *
+   * **IMPORTANT: Return Value Behavior**
+   *
+   * The return object always has `rows` and `rowCount` properties.
+   * - For SINGLE ROW results: first row properties are spread onto the object
+   *   → Use `result.columnName` directly
+   * - For MULTIPLE ROWS: only `rows` and `rowCount` are available
+   *   → Use `result.rows` to access the array
+   *
+   * @example Single row query
+   * ```ts
+   * const user = await executeQuery("SELECT name FROM users WHERE id = 1")
+   * expect(user.name).toBe('Alice')  // Direct access works
+   * expect(user.rows[0].name).toBe('Alice')  // Also works
+   * ```
+   *
+   * @example Multiple rows query
+   * ```ts
+   * const users = await executeQuery("SELECT name FROM users")
+   * expect(users.rows).toHaveLength(3)  // Use .rows for array
+   * expect(users.rows[0].name).toBe('Alice')
+   * // ❌ WRONG: expect(users).toEqual([...])  // users is NOT an array!
+   * // ✅ RIGHT: expect(users.rows).toEqual([...])
+   * ```
+   */
   executeQuery: (
     sql: string | string[],
     params?: unknown[]
