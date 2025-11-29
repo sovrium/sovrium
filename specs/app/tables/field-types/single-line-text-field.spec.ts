@@ -283,7 +283,7 @@ test.describe('Single Line Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-008: should safely escape special characters without SQL injection',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -312,7 +312,7 @@ test.describe('Single Line Text Field', () => {
       expect(backslashInsert.message).toBe('Path: C:\\Users\\Documents\\file.txt')
 
       const injectionInsert = await executeQuery(
-        "INSERT INTO messages (message) VALUES (''; DROP TABLE messages; --') RETURNING message"
+        "INSERT INTO messages (message) VALUES ('''; DROP TABLE messages; --') RETURNING message"
       )
       expect(injectionInsert.message).toBe("'; DROP TABLE messages; --")
 
