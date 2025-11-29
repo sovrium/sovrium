@@ -8,7 +8,7 @@
 import { test, expect } from '@/specs/fixtures'
 
 test.describe('Barcode Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-BARCODE-001: should create VARCHAR column for barcode storage',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
