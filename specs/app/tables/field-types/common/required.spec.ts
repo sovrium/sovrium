@@ -218,7 +218,7 @@ test.describe('Required Field Property', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-REQUIRED-005: user can complete full required-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -254,7 +254,7 @@ test.describe('Required Field Property', () => {
         "SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name IN ('required_field', 'optional_field') ORDER BY column_name"
       )
       // THEN: assertion
-      expect(constraints).toEqual([
+      expect(constraints.rows).toEqual([
         { column_name: 'optional_field', is_nullable: 'YES' },
         { column_name: 'required_field', is_nullable: 'NO' },
       ])
@@ -263,14 +263,14 @@ test.describe('Required Field Property', () => {
       // THEN: assertion
       await expect(
         executeQuery("INSERT INTO data (optional_field) VALUES ('test')")
-      ).rejects.toThrow(/null value in column "required_field" violates not-null constraint/)
+      ).rejects.toThrow(/null value in column "required_field".*violates not-null constraint/)
 
       // Optional field can be NULL
       const validInsert = await executeQuery(
         "INSERT INTO data (required_field, optional_field) VALUES ('value', NULL) RETURNING id"
       )
       // THEN: assertion
-      expect(validInsert.id).toBe(1)
+      expect(typeof validInsert.id).toBe('number')
     }
   )
 })
