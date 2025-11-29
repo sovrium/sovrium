@@ -321,7 +321,7 @@ test.describe('Single Line Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-009: should handle bulk insert efficiently without errors',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -338,10 +338,9 @@ test.describe('Single Line Text Field', () => {
       })
 
       // THEN: PostgreSQL handles bulk insert efficiently without errors
-      const bulkInsert = await executeQuery(
-        "INSERT INTO products (sku) SELECT 'SKU-' || generate_series(1, 1000) RETURNING COUNT(*) OVER() as total"
+      await executeQuery(
+        "INSERT INTO products (sku) SELECT 'SKU-' || generate_series(1, 1000)"
       )
-      expect(bulkInsert.total).toBe(1000)
 
       // WHEN: querying the database
       const totalCount = await executeQuery('SELECT COUNT(*) as count FROM products')
@@ -351,7 +350,7 @@ test.describe('Single Line Text Field', () => {
       const sampleRecords = await executeQuery(
         'SELECT sku FROM products WHERE id IN (1, 500, 1000) ORDER BY id'
       )
-      expect(sampleRecords).toEqual([{ sku: 'SKU-1' }, { sku: 'SKU-500' }, { sku: 'SKU-1000' }])
+      expect(sampleRecords.rows).toEqual([{ sku: 'SKU-1' }, { sku: 'SKU-500' }, { sku: 'SKU-1000' }])
     }
   )
 
