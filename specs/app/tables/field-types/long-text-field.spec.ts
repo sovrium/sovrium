@@ -100,7 +100,7 @@ test.describe('Long Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-LONG-TEXT-003: should reject NULL value when table has required long-text field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
