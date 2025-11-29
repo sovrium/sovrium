@@ -186,7 +186,7 @@ test.describe('Long Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-LONG-TEXT-005: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
