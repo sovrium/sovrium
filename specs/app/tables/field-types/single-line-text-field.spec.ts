@@ -254,7 +254,7 @@ test.describe('Single Line Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-007: should reject text exceeding VARCHAR(255) limit',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
