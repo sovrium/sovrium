@@ -113,7 +113,7 @@ test.describe('Phone Number Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-PHONE-NUMBER-003: should reject duplicate phone number when table has phone-number field with unique constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
