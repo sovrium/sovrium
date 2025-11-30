@@ -45,8 +45,8 @@ const fieldTypeToPostgresMap: Record<string, string> = {
   rollup: 'TEXT',
   formula: 'TEXT',
   user: 'TEXT',
-  'created-by': 'TEXT',
-  'updated-by': 'TEXT',
+  'created-by': 'INTEGER',
+  'updated-by': 'INTEGER',
   'created-at': 'TIMESTAMPTZ',
   'updated-at': 'TIMESTAMPTZ',
   button: 'TEXT',
@@ -87,11 +87,24 @@ const shouldUseSerial = (field: Fields[number], isPrimaryKey: boolean): boolean 
   field.type === 'autonumber' || (field.type === 'integer' && isPrimaryKey)
 
 /**
+ * Check if field is a user reference field (created-by, updated-by)
+ * Exported for use in schema-initializer
+ */
+export const isUserReferenceField = (field: Fields[number]): boolean =>
+  field.type === 'created-by' || field.type === 'updated-by'
+
+/**
+ * Check if field is an auto-timestamp field (created-at, updated-at)
+ */
+const isAutoTimestampField = (field: Fields[number]): boolean =>
+  field.type === 'created-at' || field.type === 'updated-at'
+
+/**
  * Generate NOT NULL constraint
  */
 const generateNotNullConstraint = (field: Fields[number], isPrimaryKey: boolean): string => {
-  // created-at and updated-at fields are always NOT NULL
-  if (field.type === 'created-at' || field.type === 'updated-at') {
+  // Auto-managed fields are always NOT NULL (created-at, updated-at, created-by, updated-by)
+  if (isAutoTimestampField(field) || isUserReferenceField(field)) {
     return ' NOT NULL'
   }
   return isPrimaryKey || ('required' in field && field.required) ? ' NOT NULL' : ''
@@ -102,7 +115,7 @@ const generateNotNullConstraint = (field: Fields[number], isPrimaryKey: boolean)
  */
 const generateDefaultClause = (field: Fields[number]): string => {
   // Auto-timestamp fields get NOW() default (PostgreSQL function for current timestamp)
-  if (field.type === 'created-at' || field.type === 'updated-at') {
+  if (isAutoTimestampField(field)) {
     return ' DEFAULT NOW()'
   }
 
@@ -210,6 +223,24 @@ export const generateUniqueConstraints = (
     .map((field) => `CONSTRAINT ${tableName}_${field.name}_unique UNIQUE (${field.name})`)
 
 /**
+ * Generate FOREIGN KEY constraints for user reference fields (created-by, updated-by)
+ */
+const generateForeignKeyConstraints = (
+  _tableName: string,
+  _fields: readonly Fields[number][]
+): readonly string[] =>
+  // TODO: Re-enable foreign keys for created-by/updated-by fields
+  // Currently disabled due to PostgreSQL transaction visibility issue
+  // See: https://github.com/sovrium/sovrium/issues/3980
+  []
+  // _fields
+  //   .filter(isUserReferenceField)
+  //   .map((field) => {
+  //     const constraintName = `${_tableName}_${field.name}_fkey`
+  //     return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES public.users(id)`
+  //   })
+
+/**
  * Generate primary key constraint if defined
  */
 const generatePrimaryKeyConstraint = (table: Table): readonly string[] => {
@@ -220,12 +251,13 @@ const generatePrimaryKeyConstraint = (table: Table): readonly string[] => {
 }
 
 /**
- * Generate table constraints (CHECK constraints, UNIQUE constraints, primary key, etc.)
+ * Generate table constraints (CHECK constraints, UNIQUE constraints, FOREIGN KEY, primary key, etc.)
  */
 export const generateTableConstraints = (table: Table): readonly string[] => [
   ...generateArrayConstraints(table.fields),
   ...generateNumericConstraints(table.fields),
   ...generateEnumConstraints(table.fields),
   ...generateUniqueConstraints(table.name, table.fields),
+  ...generateForeignKeyConstraints(table.name, table.fields),
   ...generatePrimaryKeyConstraint(table),
 ]

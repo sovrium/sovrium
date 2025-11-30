@@ -11,6 +11,7 @@ import {
   mapFieldTypeToPostgres,
   generateColumnDefinition,
   generateTableConstraints,
+  isUserReferenceField,
 } from './sql-generators'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/table'
@@ -480,6 +481,32 @@ const createNewTable = async (
 /* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
 
 /**
+ * Check if any table needs the users table for foreign keys
+ */
+const needsUsersTable = (tables: readonly Table[]): boolean =>
+  tables.some((table) => table.fields.some(isUserReferenceField))
+
+/**
+ * Ensure users table exists for foreign key references
+ * Creates a minimal users table if it doesn't exist
+ * Safe to call even if Better Auth already created the users table
+ */
+/* eslint-disable functional/no-expression-statements */
+const ensureUsersTable = async (
+  tx: { unsafe: (sql: string) => Promise<unknown> }
+): Promise<void> => {
+  // Create users table if it doesn't exist
+  // Explicitly specify public schema to avoid search path issues
+  await tx.unsafe(`
+    CREATE TABLE IF NOT EXISTS public.users (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(255)
+    )
+  `)
+}
+/* eslint-enable functional/no-expression-statements */
+
+/**
  * Execute schema initialization using bun:sql with transaction support
  * Uses Bun's native SQL driver for optimal performance
  *
@@ -515,6 +542,11 @@ const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]):
 
   try {
     await db.begin(async (tx) => {
+      // Step 0: Ensure users table exists if any table needs it for foreign keys
+      if (needsUsersTable(tables)) {
+        await ensureUsersTable(tx)
+      }
+
       // Step 1: Drop tables that exist in database but not in schema
       await dropObsoleteTables(tx, tables)
 
