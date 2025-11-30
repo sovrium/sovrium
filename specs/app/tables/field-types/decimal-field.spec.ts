@@ -24,7 +24,7 @@ test.describe('Decimal Field', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DECIMAL-001: should create PostgreSQL DECIMAL column when table configuration has decimal field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -58,7 +58,7 @@ test.describe('Decimal Field', () => {
         'INSERT INTO products (price) VALUES (99.99) RETURNING price'
       )
       // THEN: assertion
-      expect(validInsert.price).toBe('99.99')
+      expect(validInsert.price).toBe(99.99)
     }
   )
 

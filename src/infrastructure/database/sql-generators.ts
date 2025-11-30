@@ -175,7 +175,9 @@ const generateArrayConstraints = (fields: readonly Fields[number][]): readonly s
 const generateNumericConstraints = (fields: readonly Fields[number][]): readonly string[] =>
   fields
     .filter(
-      (field): field is Fields[number] & { type: 'integer' | 'decimal' | 'currency' | 'percentage' } =>
+      (
+        field
+      ): field is Fields[number] & { type: 'integer' | 'decimal' | 'currency' | 'percentage' } =>
         (field.type === 'integer' ||
           field.type === 'decimal' ||
           field.type === 'currency' ||
@@ -247,12 +249,12 @@ const generateForeignKeyConstraints = (
   // Currently disabled due to PostgreSQL transaction visibility issue
   // See: https://github.com/sovrium/sovrium/issues/3980
   []
-  // _fields
-  //   .filter(isUserReferenceField)
-  //   .map((field) => {
-  //     const constraintName = `${_tableName}_${field.name}_fkey`
-  //     return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES public.users(id)`
-  //   })
+// _fields
+//   .filter(isUserReferenceField)
+//   .map((field) => {
+//     const constraintName = `${_tableName}_${field.name}_fkey`
+//     return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES public.users(id)`
+//   })
 
 /**
  * Generate primary key constraint if defined
