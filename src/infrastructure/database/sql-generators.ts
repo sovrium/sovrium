@@ -226,16 +226,19 @@ export const generateUniqueConstraints = (
  * Generate FOREIGN KEY constraints for user reference fields (created-by, updated-by)
  */
 const generateForeignKeyConstraints = (
-  tableName: string,
-  fields: readonly Fields[number][]
+  _tableName: string,
+  _fields: readonly Fields[number][]
 ): readonly string[] =>
-  fields
-    .filter(isUserReferenceField)
-    .map((field) => {
-      const constraintName = `${tableName}_${field.name}_fkey`
-      // Explicitly reference public.users to avoid schema search path issues
-      return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES public.users(id)`
-    })
+  // TODO: Re-enable foreign keys for created-by/updated-by fields
+  // Currently disabled due to PostgreSQL transaction visibility issue
+  // See: https://github.com/sovrium/sovrium/issues/3980
+  []
+  // _fields
+  //   .filter(isUserReferenceField)
+  //   .map((field) => {
+  //     const constraintName = `${_tableName}_${field.name}_fkey`
+  //     return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES public.users(id)`
+  //   })
 
 /**
  * Generate primary key constraint if defined

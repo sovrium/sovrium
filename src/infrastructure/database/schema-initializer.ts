@@ -484,7 +484,7 @@ const createNewTable = async (
  * Check if any table needs the users table for foreign keys
  */
 const needsUsersTable = (tables: readonly Table[]): boolean =>
-  tables.some((table) => table.fields.some((field) => field.type === 'created-by' || field.type === 'updated-by'))
+  tables.some((table) => table.fields.some(isUserReferenceField))
 
 /**
  * Ensure users table exists for foreign key references
