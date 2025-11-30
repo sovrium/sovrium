@@ -61,8 +61,9 @@ export const mapFieldTypeToPostgres = (field: Fields[number]): string => {
     return `${itemType.toUpperCase()}[]`
   }
 
-  // Handle decimal with precision
-  if (field.type === 'decimal' && 'precision' in field && field.precision) {
+  // Handle decimal/currency/percentage with precision
+  const numericTypesWithPrecision = ['decimal', 'currency', 'percentage']
+  if (numericTypesWithPrecision.includes(field.type) && 'precision' in field && field.precision) {
     return `NUMERIC(${field.precision},2)`
   }
 
@@ -164,8 +165,11 @@ const generateArrayConstraints = (fields: readonly Fields[number][]): readonly s
 const generateNumericConstraints = (fields: readonly Fields[number][]): readonly string[] =>
   fields
     .filter(
-      (field): field is Fields[number] & { type: 'integer' | 'decimal' } =>
-        (field.type === 'integer' || field.type === 'decimal') &&
+      (field): field is Fields[number] & { type: 'integer' | 'decimal' | 'currency' | 'percentage' } =>
+        (field.type === 'integer' ||
+          field.type === 'decimal' ||
+          field.type === 'currency' ||
+          field.type === 'percentage') &&
         (('min' in field && typeof field.min === 'number') ||
           ('max' in field && typeof field.max === 'number'))
     )
