@@ -135,6 +135,36 @@ const generateNotNullConstraint = (field: Fields[number], isPrimaryKey: boolean)
 }
 
 /**
+ * Format array default value as PostgreSQL ARRAY literal
+ */
+const formatArrayDefault = (defaultValue: readonly unknown[]): string => {
+  const arrayValues = defaultValue.map((val) => `'${escapeSQLString(String(val))}'`).join(', ')
+  return ` DEFAULT ARRAY[${arrayValues}]`
+}
+
+/**
+ * Format special default values (PostgreSQL functions, INTERVAL, etc.)
+ */
+const formatSpecialDefault = (field: Fields[number], defaultValue: unknown): string | undefined => {
+  // PostgreSQL functions like CURRENT_DATE, NOW() should not be quoted
+  if (typeof defaultValue === 'string' && defaultValue.toUpperCase() === 'CURRENT_DATE') {
+    return ' DEFAULT CURRENT_DATE'
+  }
+  if (typeof defaultValue === 'string' && defaultValue.toUpperCase() === 'NOW()') {
+    return ' DEFAULT NOW()'
+  }
+  // Duration fields: convert seconds to INTERVAL
+  if (field.type === 'duration' && typeof defaultValue === 'number') {
+    return ` DEFAULT INTERVAL '${defaultValue} seconds'`
+  }
+  // Array fields (multi-select): convert to PostgreSQL array literal
+  if (Array.isArray(defaultValue)) {
+    return formatArrayDefault(defaultValue)
+  }
+  return undefined
+}
+
+/**
  * Generate DEFAULT clause
  */
 const generateDefaultClause = (field: Fields[number]): string => {
@@ -145,22 +175,10 @@ const generateDefaultClause = (field: Fields[number]): string => {
 
   // Explicit default values
   if ('default' in field && field.default !== undefined) {
-    // PostgreSQL functions like CURRENT_DATE, NOW() should not be quoted
     const defaultValue = field.default
-    if (typeof defaultValue === 'string' && defaultValue.toUpperCase() === 'CURRENT_DATE') {
-      return ' DEFAULT CURRENT_DATE'
-    }
-    if (typeof defaultValue === 'string' && defaultValue.toUpperCase() === 'NOW()') {
-      return ' DEFAULT NOW()'
-    }
-    // Duration fields: convert seconds to INTERVAL
-    if (field.type === 'duration' && typeof defaultValue === 'number') {
-      return ` DEFAULT INTERVAL '${defaultValue} seconds'`
-    }
-    // Array fields (multi-select): convert to PostgreSQL array literal
-    if (Array.isArray(defaultValue)) {
-      const arrayValues = defaultValue.map((val) => `'${escapeSQLString(String(val))}'`).join(', ')
-      return ` DEFAULT ARRAY[${arrayValues}]`
+    const specialDefault = formatSpecialDefault(field, defaultValue)
+    if (specialDefault) {
+      return specialDefault
     }
     return ` DEFAULT ${formatDefaultValue(defaultValue)}`
   }
