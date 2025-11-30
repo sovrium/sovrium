@@ -230,17 +230,21 @@ const generateArrayConstraints = (fields: readonly Fields[number][]): readonly s
 
 /**
  * Generate CHECK constraints for numeric fields with min/max values
+ * Supports: integer, decimal, currency, percentage, rating
  */
 const generateNumericConstraints = (fields: readonly Fields[number][]): readonly string[] =>
   fields
     .filter(
       (
         field
-      ): field is Fields[number] & { type: 'integer' | 'decimal' | 'currency' | 'percentage' } =>
+      ): field is Fields[number] & {
+        type: 'integer' | 'decimal' | 'currency' | 'percentage' | 'rating'
+      } =>
         (field.type === 'integer' ||
           field.type === 'decimal' ||
           field.type === 'currency' ||
-          field.type === 'percentage') &&
+          field.type === 'percentage' ||
+          field.type === 'rating') &&
         (('min' in field && typeof field.min === 'number') ||
           ('max' in field && typeof field.max === 'number'))
     )

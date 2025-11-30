@@ -20,7 +20,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Rating Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RATING-001: should create PostgreSQL INTEGER column for rating storage when table configuration has rating field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
