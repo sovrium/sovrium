@@ -24,7 +24,7 @@ test.describe('Percentage Field', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-PERCENTAGE-001: should create PostgreSQL DECIMAL column for percentage storage when table configuration has percentage field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
