@@ -24,7 +24,7 @@ test.describe('DateTime Field', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DATETIME-001: should create PostgreSQL TIMESTAMPTZ column when table configuration has datetime field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
