@@ -20,7 +20,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('JSON Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-JSON-001: should create PostgreSQL JSONB column for structured JSON data',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
