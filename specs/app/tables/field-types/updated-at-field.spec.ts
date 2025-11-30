@@ -20,7 +20,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Updated At Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-UPDATED-AT-001: should create PostgreSQL TIMESTAMPTZ column with DEFAULT NOW()',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
