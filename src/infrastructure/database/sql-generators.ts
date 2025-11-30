@@ -280,12 +280,43 @@ const generateProgressConstraints = (fields: readonly Fields[number][]): readonl
 const escapeSQLString = (value: string): string => value.replace(/'/g, "''")
 
 /**
- * Generate CHECK constraints for single-select fields with enum options
+ * Extract string values from field options
+ * Handles both simple string arrays (single-select) and object arrays with value property (status)
+ */
+const extractOptionValues = (
+  field: Fields[number]
+): readonly string[] | readonly { value: string }[] => {
+  if ('options' in field && Array.isArray(field.options)) {
+    return field.options as readonly string[] | readonly { value: string }[]
+  }
+  return []
+}
+
+/**
+ * Generate CHECK constraint for enum-based fields (single-select, status)
  *
- * SECURITY NOTE: Enum options come from validated Effect Schema (SingleSelectFieldSchema).
- * While options are constrained to be strings, we still escape single quotes
- * to prevent SQL injection in case malicious data bypasses schema validation.
- * This follows defense-in-depth security principles.
+ * SECURITY NOTE: Options come from validated Effect Schema (SingleSelectFieldSchema, StatusFieldSchema).
+ * We escape single quotes to prevent SQL injection following defense-in-depth security principles.
+ *
+ * DRY PRINCIPLE: This function consolidates enum constraint generation for both single-select
+ * (simple string options) and status (object options with value property) field types.
+ */
+const generateEnumCheckConstraint = (
+  field: Fields[number] & { readonly options: readonly unknown[] }
+): string => {
+  const options = extractOptionValues(field)
+  const values = options
+    .map((opt) => {
+      const value = typeof opt === 'string' ? opt : (opt as { value: string }).value
+      return `'${escapeSQLString(value)}'`
+    })
+    .join(', ')
+  const constraintName = `check_${field.name}_enum`
+  return `CONSTRAINT ${constraintName} CHECK (${field.name} IN (${values}))`
+}
+
+/**
+ * Generate CHECK constraints for single-select fields with enum options
  */
 const generateEnumConstraints = (fields: readonly Fields[number][]): readonly string[] =>
   fields
@@ -293,18 +324,10 @@ const generateEnumConstraints = (fields: readonly Fields[number][]): readonly st
       (field): field is Fields[number] & { type: 'single-select'; options: readonly string[] } =>
         field.type === 'single-select' && 'options' in field && Array.isArray(field.options)
     )
-    .map((field) => {
-      const values = field.options.map((opt) => `'${escapeSQLString(opt)}'`).join(', ')
-      const constraintName = `check_${field.name}_enum`
-      return `CONSTRAINT ${constraintName} CHECK (${field.name} IN (${values}))`
-    })
+    .map(generateEnumCheckConstraint)
 
 /**
  * Generate CHECK constraints for status fields with status options
- *
- * SECURITY NOTE: Status options come from validated Effect Schema (StatusFieldSchema).
- * Options are objects with value and optional color. We escape single quotes
- * to prevent SQL injection following defense-in-depth security principles.
  */
 const generateStatusConstraints = (fields: readonly Fields[number][]): readonly string[] =>
   fields
@@ -316,11 +339,8 @@ const generateStatusConstraints = (fields: readonly Fields[number][]): readonly 
         options: readonly { value: string; color?: string }[]
       } => field.type === 'status' && 'options' in field && Array.isArray(field.options)
     )
-    .map((field) => {
-      const values = field.options.map((opt) => `'${escapeSQLString(opt.value)}'`).join(', ')
-      const constraintName = `check_${field.name}_enum`
-      return `CONSTRAINT ${constraintName} CHECK (${field.name} IN (${values}))`
-    })
+    .map(generateEnumCheckConstraint)
+
 
 /**
  * Generate CHECK constraints for rich-text fields with maxLength
