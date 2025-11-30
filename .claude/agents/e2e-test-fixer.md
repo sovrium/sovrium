@@ -495,11 +495,18 @@ Skill({ command: "effect-schema-generator" })
   1. `bun run quality` passes with zero errors
   2. ALL tests in the test file are GREEN (not just the one you fixed)
 
-### Step 5: Run Regression Tests (Tagged Tests Only)
+### Step 5: Run Regression Tests (CRITICAL GATE - Tagged Tests Only)
 - Run ONLY regression-tagged E2E tests: `bun test:e2e:regression`
 - This runs critical path tests to catch breaking changes
-- If regressions occur, fix them before proceeding
+- **⚠️ CRITICAL**: Your changes may break tests in OTHER files (e.g., changing `created_at` type affects `fields.spec.ts`)
+- If ANY regression test fails → **STOP** → Fix the failing test → Re-run until ALL pass
+- **🚫 DO NOT proceed to commit or PR creation if ANY regression test fails**
 - **NEVER run all E2E tests** - Full suite is reserved for CI/CD only
+
+**Common Regression Failures** (learn from history):
+- Changing field types (e.g., TIMESTAMP → TIMESTAMPTZ) may break other tests that assert on column types
+- Adding new columns may break tests that count exact column numbers
+- Schema changes cascade through multiple test files
 
 ### Step 6: Write Unit Tests (If Needed)
 - Create co-located unit tests (src/**/*.test.ts) for the code you wrote
