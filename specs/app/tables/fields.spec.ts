@@ -216,7 +216,7 @@ test.describe('Table Fields', () => {
           expect.objectContaining({ column_name: 'is_active', data_type: 'boolean' }),
           expect.objectContaining({
             column_name: 'created_at',
-            data_type: 'timestamp without time zone',
+            data_type: 'timestamp with time zone',
           }),
         ])
       )
