@@ -603,6 +603,11 @@ export const test = base.extend<ServerFixtures>({
       // Convert to string for test assertions to match expected format
       types.setTypeParser(types.builtins.DATE, (val: string) => val)
 
+      // Parse POINT as string (keep (x,y) format)
+      // PostgreSQL POINT type (OID 600) returns string in format "(x,y)"
+      // Keep as string for test assertions to match expected format
+      types.setTypeParser(600 as any, (val: string) => val)
+
       // Get test database name from startServerWithSchema fixture
       const testDbName = (testInfo as any)._testDatabaseName
       if (!testDbName) {

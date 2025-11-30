@@ -20,7 +20,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Geolocation Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-GEOLOCATION-001: should create PostgreSQL POINT type for latitude/longitude storage',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
