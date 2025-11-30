@@ -23,7 +23,7 @@ const fieldTypeToPostgresMap: Record<string, string> = {
   'phone-number': 'VARCHAR(255)',
   'rich-text': 'TEXT',
   checkbox: 'BOOLEAN',
-  date: 'TIMESTAMP',
+  date: 'DATE',
   datetime: 'TIMESTAMP',
   time: 'TIME',
   'single-select': 'VARCHAR(255)',
@@ -121,9 +121,16 @@ const generateDefaultClause = (field: Fields[number]): string => {
   }
 
   // Explicit default values
-  return 'default' in field && field.default !== undefined
-    ? ` DEFAULT ${formatDefaultValue(field.default)}`
-    : ''
+  if ('default' in field && field.default !== undefined) {
+    // PostgreSQL functions like CURRENT_DATE should not be quoted
+    const defaultValue = field.default
+    if (typeof defaultValue === 'string' && defaultValue.toUpperCase() === 'CURRENT_DATE') {
+      return ' DEFAULT CURRENT_DATE'
+    }
+    return ` DEFAULT ${formatDefaultValue(defaultValue)}`
+  }
+
+  return ''
 }
 
 /**

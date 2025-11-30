@@ -598,6 +598,11 @@ export const test = base.extend<ServerFixtures>({
       // Convert to number for test assertions while accepting precision loss for test simplicity
       types.setTypeParser(types.builtins.NUMERIC, (val: string) => parseFloat(val))
 
+      // Parse DATE as string (keep ISO format YYYY-MM-DD)
+      // PostgreSQL DATE type (OID 1082) returns Date objects by default
+      // Convert to string for test assertions to match expected format
+      types.setTypeParser(types.builtins.DATE, (val: string) => val)
+
       // Get test database name from startServerWithSchema fixture
       const testDbName = (testInfo as any)._testDatabaseName
       if (!testDbName) {
