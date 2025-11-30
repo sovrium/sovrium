@@ -20,7 +20,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Formula Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-001: should create GENERATED ALWAYS AS column for arithmetic formula',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -67,9 +67,9 @@ test.describe('Formula Field', () => {
       // THEN: assertion
       expect(firstRecord.quantity).toBe(5)
       // THEN: assertion
-      expect(firstRecord.unit_price).toBe('19.99')
+      expect(firstRecord.unit_price).toBe(19.99)
       // THEN: assertion
-      expect(firstRecord.total).toBe('99.95')
+      expect(firstRecord.total).toBe(99.95)
 
       // WHEN: executing query
       const secondRecord = await executeQuery(
@@ -78,9 +78,9 @@ test.describe('Formula Field', () => {
       // THEN: assertion
       expect(secondRecord.quantity).toBe(10)
       // THEN: assertion
-      expect(secondRecord.unit_price).toBe('9.50')
+      expect(secondRecord.unit_price).toBe(9.5)
       // THEN: assertion
-      expect(secondRecord.total).toBe('95.00')
+      expect(secondRecord.total).toBe(95.0)
     }
   )
 

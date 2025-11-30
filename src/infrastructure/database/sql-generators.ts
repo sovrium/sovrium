@@ -53,6 +53,29 @@ const fieldTypeToPostgresMap: Record<string, string> = {
 }
 
 /**
+ * Map formula resultType to PostgreSQL type
+ */
+const formulaResultTypeMap: Record<string, string> = {
+  decimal: 'DECIMAL',
+  number: 'DECIMAL',
+  numeric: 'DECIMAL',
+  integer: 'INTEGER',
+  int: 'INTEGER',
+  boolean: 'BOOLEAN',
+  bool: 'BOOLEAN',
+  text: 'TEXT',
+  string: 'TEXT',
+  date: 'DATE',
+  datetime: 'TIMESTAMPTZ',
+  timestamp: 'TIMESTAMPTZ',
+}
+
+const mapFormulaResultTypeToPostgres = (resultType: string | undefined): string => {
+  if (!resultType) return 'TEXT'
+  return formulaResultTypeMap[resultType.toLowerCase()] ?? 'TEXT'
+}
+
+/**
  * Map field type to PostgreSQL column type
  */
 export const mapFieldTypeToPostgres = (field: Fields[number]): string => {
@@ -151,6 +174,15 @@ export const generateColumnDefinition = (field: Fields[number], isPrimaryKey: bo
   // SERIAL columns for auto-increment fields
   if (shouldUseSerial(field, isPrimaryKey)) {
     return generateSerialColumn(field.name)
+  }
+
+  // Formula fields: create GENERATED ALWAYS AS column
+  if (field.type === 'formula' && 'formula' in field && field.formula) {
+    const resultType =
+      'resultType' in field && field.resultType
+        ? mapFormulaResultTypeToPostgres(field.resultType)
+        : 'TEXT'
+    return `${field.name} ${resultType} GENERATED ALWAYS AS (${field.formula}) STORED`
   }
 
   const columnType = mapFieldTypeToPostgres(field)
