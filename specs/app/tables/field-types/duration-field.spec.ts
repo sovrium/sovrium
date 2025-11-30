@@ -20,7 +20,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Duration Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DURATION-001: should create PostgreSQL INTERVAL column when table configuration has duration field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

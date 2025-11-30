@@ -32,7 +32,7 @@ const fieldTypeToPostgresMap: Record<string, string> = {
   currency: 'DECIMAL',
   percentage: 'DECIMAL',
   rating: 'INTEGER',
-  duration: 'INTEGER',
+  duration: 'INTERVAL',
   color: 'VARCHAR(7)',
   progress: 'DECIMAL',
   json: 'JSONB',
@@ -129,6 +129,10 @@ const generateDefaultClause = (field: Fields[number]): string => {
     }
     if (typeof defaultValue === 'string' && defaultValue.toUpperCase() === 'NOW()') {
       return ' DEFAULT NOW()'
+    }
+    // Duration fields: convert seconds to INTERVAL
+    if (field.type === 'duration' && typeof defaultValue === 'number') {
+      return ` DEFAULT INTERVAL '${defaultValue} seconds'`
     }
     return ` DEFAULT ${formatDefaultValue(defaultValue)}`
   }
