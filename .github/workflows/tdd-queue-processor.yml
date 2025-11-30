@@ -140,8 +140,22 @@ jobs:
             echo "⚠️  Found existing open PR(s) for issue #$ISSUE_NUMBER: $EXISTING_PRS"
             echo "   Skipping processing to avoid duplicate PRs"
 
-            # Add a comment to the issue explaining the skip
-            gh issue comment "$ISSUE_NUMBER" --body "🤖 Duplicate PR Prevention - Skipping processing because an open PR already exists for this issue (#$EXISTING_PRS). The existing PR will be processed to completion. If the PR is stuck or invalid, please close it manually and the queue will retry this spec."
+            # CRITICAL: Change label to in-progress to prevent loop
+            # Without this, the issue stays queued and gets picked up again every trigger
+            echo "   Updating label to in-progress to prevent reprocessing..."
+            gh issue edit "$ISSUE_NUMBER" --remove-label "tdd-spec:queued" || true
+            gh issue edit "$ISSUE_NUMBER" --add-label "tdd-spec:in-progress" || true
+
+            # Check if we already posted a duplicate PR comment recently (within 1 hour)
+            RECENT_COMMENT=$(gh api \
+              "/repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments" \
+              --jq "[.[] | select(.body | contains(\"Duplicate PR Prevention\")) | select(.created_at > \"$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-1H +%Y-%m-%dT%H:%M:%SZ)\")] | length" 2>/dev/null || echo "0")
+
+            if [ "$RECENT_COMMENT" -eq 0 ]; then
+              gh issue comment "$ISSUE_NUMBER" --body "🤖 Duplicate PR Prevention - Skipping processing because an open PR already exists for this issue (#$EXISTING_PRS). The existing PR will be processed to completion. If the PR is stuck or invalid, please close it manually and the queue will retry this spec."
+            else
+              echo "   Skipping comment - already posted within last hour"
+            fi
 
             echo "should_process=false" >> $GITHUB_OUTPUT
             exit 0
