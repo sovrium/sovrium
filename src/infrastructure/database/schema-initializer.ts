@@ -99,6 +99,17 @@ const generateIndexStatements = (table: Table): readonly string[] => {
       return `CREATE UNIQUE INDEX IF NOT EXISTS ${indexName} ON public.${table.name} (${field.name})`
     })
 
+  // Create full-text search GIN indexes for rich-text fields with fullTextSearch enabled
+  const fullTextSearchIndexes = table.fields
+    .filter(
+      (field): field is Fields[number] & { type: 'rich-text'; fullTextSearch: true } =>
+        field.type === 'rich-text' && 'fullTextSearch' in field && !!field.fullTextSearch
+    )
+    .map((field) => {
+      const indexName = `idx_${table.name}_${field.name}_fulltext`
+      return `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${table.name} USING gin (to_tsvector('english'::regconfig, ${field.name}))`
+    })
+
   // Create custom indexes from table.indexes configuration
   const customIndexes =
     table.indexes?.map((index) => {
@@ -107,7 +118,7 @@ const generateIndexStatements = (table: Table): readonly string[] => {
       return `CREATE ${uniqueClause}INDEX IF NOT EXISTS ${index.name} ON public.${table.name} (${fields})`
     }) ?? []
 
-  return [...indexedFields, ...autonumberIndexes, ...customIndexes]
+  return [...indexedFields, ...autonumberIndexes, ...fullTextSearchIndexes, ...customIndexes]
 }
 
 /**
