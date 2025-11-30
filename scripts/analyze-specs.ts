@@ -103,6 +103,7 @@ interface SpecState {
   files: SpecFile[]
   coverageGaps: CoverageGap[]
   duplicateSpecIds: DuplicateSpecId[]
+  tddAutomation: TDDAutomationStats
 }
 
 interface CoverageGap {
@@ -117,6 +118,21 @@ interface DuplicateSpecId {
     file: string
     line: number
     testName: string
+  }>
+}
+
+interface TDDAutomationStats {
+  totalFixed: number
+  fixedLast24h: number
+  fixedLast7d: number
+  fixedLast30d: number
+  avgFixesPerDay: number
+  estimatedDaysRemaining: number | null
+  estimatedCompletionDate: string | null
+  recentFixes: Array<{
+    specId: string
+    date: string
+    commitHash: string
   }>
 }
 
@@ -614,6 +630,100 @@ function detectDuplicateSpecIds(files: SpecFile[]): DuplicateSpecId[] {
   return duplicates.sort((a, b) => a.specId.localeCompare(b.specId))
 }
 
+/**
+ * Calculate TDD automation statistics from git history.
+ * Looks for commits with "fix: implement" pattern (TDD workflow commits).
+ */
+async function calculateTDDAutomationStats(totalFixme: number): Promise<TDDAutomationStats> {
+  const { exec } = await import('node:child_process')
+  const { promisify } = await import('node:util')
+  const execAsync = promisify(exec)
+
+  // Pattern to match TDD automation commits: "fix: implement APP-XXX-001"
+  const specIdPattern = /fix:\s*implement\s+([A-Z]+-[A-Z0-9-]+-\d{3})/i
+
+  try {
+    // Get all commits matching TDD pattern in the last 90 days
+    const { stdout } = await execAsync(
+      'git log --oneline --since="90 days ago" --grep="fix: implement" --format="%H|%aI|%s"',
+      { cwd: process.cwd(), maxBuffer: 10 * 1024 * 1024 }
+    )
+
+    const commits = stdout
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => {
+        const [hash, date, ...messageParts] = line.split('|')
+        const message = messageParts.join('|')
+        const match = message?.match(specIdPattern)
+        return {
+          hash: hash || '',
+          date: date || '',
+          specId: match?.[1] || null,
+        }
+      })
+      .filter((c) => c.specId !== null) as Array<{
+      hash: string
+      date: string
+      specId: string
+    }>
+
+    // Calculate time-based metrics
+    const now = new Date()
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+    const fixedLast24h = commits.filter((c) => new Date(c.date) >= oneDayAgo).length
+    const fixedLast7d = commits.filter((c) => new Date(c.date) >= sevenDaysAgo).length
+    const fixedLast30d = commits.filter((c) => new Date(c.date) >= thirtyDaysAgo).length
+
+    // Calculate average fixes per day (based on 30-day window for stability)
+    const avgFixesPerDay = fixedLast30d / 30
+
+    // Estimate remaining time
+    let estimatedDaysRemaining: number | null = null
+    let estimatedCompletionDate: string | null = null
+
+    if (avgFixesPerDay > 0 && totalFixme > 0) {
+      estimatedDaysRemaining = Math.ceil(totalFixme / avgFixesPerDay)
+      const completionDate = new Date(now.getTime() + estimatedDaysRemaining * 24 * 60 * 60 * 1000)
+      estimatedCompletionDate = completionDate.toISOString().split('T')[0] || null
+    }
+
+    // Get recent fixes (last 10)
+    const recentFixes = commits.slice(0, 10).map((c) => ({
+      specId: c.specId,
+      date: c.date.split('T')[0] || c.date,
+      commitHash: c.hash.substring(0, 7),
+    }))
+
+    return {
+      totalFixed: commits.length,
+      fixedLast24h,
+      fixedLast7d,
+      fixedLast30d,
+      avgFixesPerDay: Math.round(avgFixesPerDay * 100) / 100,
+      estimatedDaysRemaining,
+      estimatedCompletionDate,
+      recentFixes,
+    }
+  } catch {
+    // If git command fails, return empty stats
+    return {
+      totalFixed: 0,
+      fixedLast24h: 0,
+      fixedLast7d: 0,
+      fixedLast30d: 0,
+      avgFixesPerDay: 0,
+      estimatedDaysRemaining: null,
+      estimatedCompletionDate: null,
+      recentFixes: [],
+    }
+  }
+}
+
 // =============================================================================
 // Output Generation
 // =============================================================================
@@ -658,6 +768,58 @@ function generateMarkdown(state: SpecState): string {
     `**Progress:** [${'█'.repeat(progressFilled)}${'░'.repeat(progressEmpty)}] ${progressPercent}% (${state.summary.totalPassing}/${state.summary.totalTests})`
   )
   lines.push('')
+
+  // TDD Automation Stats
+  if (state.tddAutomation.totalFixed > 0 || state.summary.totalFixme > 0) {
+    lines.push('## 🤖 TDD Automation')
+    lines.push('')
+
+    // ETA calculation
+    if (state.tddAutomation.estimatedDaysRemaining !== null) {
+      const days = state.tddAutomation.estimatedDaysRemaining
+      const etaText =
+        days === 0
+          ? 'Less than 1 day'
+          : days === 1
+            ? '~1 day'
+            : days < 7
+              ? `~${days} days`
+              : days < 30
+                ? `~${Math.ceil(days / 7)} weeks`
+                : `~${Math.ceil(days / 30)} months`
+
+      lines.push(`**⏱️ Estimated Time Remaining:** ${etaText}`)
+      if (state.tddAutomation.estimatedCompletionDate) {
+        lines.push(`**📅 Estimated Completion:** ${state.tddAutomation.estimatedCompletionDate}`)
+      }
+      lines.push('')
+    }
+
+    lines.push('| Metric | Value |')
+    lines.push('|--------|-------|')
+    lines.push(`| Tests Fixed (90 days) | ${state.tddAutomation.totalFixed} |`)
+    lines.push(`| Fixed Last 24h | ${state.tddAutomation.fixedLast24h} |`)
+    lines.push(`| Fixed Last 7d | ${state.tddAutomation.fixedLast7d} |`)
+    lines.push(`| Fixed Last 30d | ${state.tddAutomation.fixedLast30d} |`)
+    lines.push(`| Avg Fixes/Day | ${state.tddAutomation.avgFixesPerDay} |`)
+    lines.push(`| Remaining | ${state.summary.totalFixme} |`)
+    lines.push('')
+
+    // Recent fixes
+    if (state.tddAutomation.recentFixes.length > 0) {
+      lines.push('<details>')
+      lines.push('<summary>Recent Fixes (last 10)</summary>')
+      lines.push('')
+      lines.push('| Spec ID | Date | Commit |')
+      lines.push('|---------|------|--------|')
+      for (const fix of state.tddAutomation.recentFixes) {
+        lines.push(`| \`${fix.specId}\` | ${fix.date} | \`${fix.commitHash}\` |`)
+      }
+      lines.push('')
+      lines.push('</details>')
+      lines.push('')
+    }
+  }
 
   // Coverage Gaps
   if (state.coverageGaps.length > 0) {
@@ -908,6 +1070,7 @@ async function main() {
   const qualityScore = calculateQualityScore(analyzedFiles)
   const coverageGaps = detectCoverageGaps(analyzedFiles)
   const duplicateSpecIds = detectDuplicateSpecIds(analyzedFiles)
+  const tddAutomation = await calculateTDDAutomationStats(totalFixme)
 
   // Add duplicate spec ID errors to the respective files
   for (const dup of duplicateSpecIds) {
@@ -958,6 +1121,7 @@ async function main() {
     files: analyzedFiles,
     coverageGaps,
     duplicateSpecIds,
+    tddAutomation,
   }
 
   // Generate markdown
@@ -1028,6 +1192,32 @@ async function main() {
   console.log(`  ├─ Warnings:    ${warningsWithDuplicates}`)
   console.log(`  └─ Suggestions: ${suggestionsWithDuplicates}`)
   console.log('')
+
+  // TDD Automation stats
+  if (tddAutomation.totalFixed > 0 || totalFixme > 0) {
+    console.log('🤖 TDD Automation:')
+    console.log(`  ├─ Fixed (90d):  ${tddAutomation.totalFixed}`)
+    console.log(`  ├─ Last 24h:     ${tddAutomation.fixedLast24h}`)
+    console.log(`  ├─ Last 7d:      ${tddAutomation.fixedLast7d}`)
+    console.log(`  ├─ Avg/Day:      ${tddAutomation.avgFixesPerDay}`)
+    console.log(`  └─ Remaining:    ${totalFixme}`)
+    if (tddAutomation.estimatedDaysRemaining !== null) {
+      const days = tddAutomation.estimatedDaysRemaining
+      const etaText =
+        days === 0
+          ? 'Less than 1 day'
+          : days === 1
+            ? '~1 day'
+            : days < 7
+              ? `~${days} days`
+              : days < 30
+                ? `~${Math.ceil(days / 7)} weeks`
+                : `~${Math.ceil(days / 30)} months`
+      console.log('')
+      console.log(`⏱️  ETA: ${etaText} (${tddAutomation.estimatedCompletionDate})`)
+    }
+    console.log('')
+  }
 
   if (duplicateSpecIds.length > 0) {
     console.log('❌ DUPLICATE SPEC IDs:')
