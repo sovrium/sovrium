@@ -20,10 +20,13 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Rollup Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-ROLLUP-001: should calculate SUM aggregation from related records',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: server with test schema
+      await startServerWithSchema({ name: 'test-app', tables: [] })
+
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255))',
@@ -37,21 +40,33 @@ test.describe('Rollup Field', () => {
         'SELECT c.id, c.name, COALESCE(SUM(o.amount), 0) as total_order_amount FROM customers c LEFT JOIN orders o ON c.id = o.customer_id WHERE c.id = 1 GROUP BY c.id, c.name'
       )
       // THEN: assertion
-      expect(aliceTotal).toEqual({ id: 1, name: 'Alice', total_order_amount: '325.50' })
+      expect(aliceTotal).toEqual({
+        id: 1,
+        name: 'Alice',
+        total_order_amount: 325.5,
+        rowCount: 1,
+        rows: [{ id: 1, name: 'Alice', total_order_amount: 325.5 }],
+      })
 
       // WHEN: executing query
       const bobTotal = await executeQuery(
         'SELECT c.id, c.name, COALESCE(SUM(o.amount), 0) as total_order_amount FROM customers c LEFT JOIN orders o ON c.id = o.customer_id WHERE c.id = 2 GROUP BY c.id, c.name'
       )
       // THEN: assertion
-      expect(bobTotal).toEqual({ id: 2, name: 'Bob', total_order_amount: '200.00' })
+      expect(bobTotal).toEqual({
+        id: 2,
+        name: 'Bob',
+        total_order_amount: 200.0,
+        rowCount: 1,
+        rows: [{ id: 2, name: 'Bob', total_order_amount: 200.0 }],
+      })
 
       // WHEN: executing query
       const noOrders = await executeQuery(
         "INSERT INTO customers (name) VALUES ('Charlie') RETURNING (SELECT COALESCE(SUM(o.amount), 0) FROM orders o WHERE o.customer_id = 3) as total_order_amount"
       )
       // THEN: assertion
-      expect(noOrders.total_order_amount).toBe('0')
+      expect(noOrders.total_order_amount).toBe(0)
     }
   )
 
