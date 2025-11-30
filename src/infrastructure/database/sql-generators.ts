@@ -34,7 +34,7 @@ const fieldTypeToPostgresMap: Record<string, string> = {
   rating: 'INTEGER',
   duration: 'INTERVAL',
   color: 'VARCHAR(7)',
-  progress: 'DECIMAL',
+  progress: 'INTEGER',
   json: 'JSONB',
   geolocation: 'POINT',
   barcode: 'VARCHAR(255)',
@@ -259,6 +259,17 @@ const generateNumericConstraints = (fields: readonly Fields[number][]): readonly
     })
 
 /**
+ * Generate CHECK constraints for progress fields (automatic 0-100 range)
+ */
+const generateProgressConstraints = (fields: readonly Fields[number][]): readonly string[] =>
+  fields
+    .filter((field): field is Fields[number] & { type: 'progress' } => field.type === 'progress')
+    .map((field) => {
+      const constraintName = `check_${field.name}_range`
+      return `CONSTRAINT ${constraintName} CHECK (${field.name} >= 0 AND ${field.name} <= 100)`
+    })
+
+/**
  * Escape single quotes in SQL string literals to prevent SQL injection
  * PostgreSQL escapes single quotes by doubling them: ' becomes ''
  */
@@ -331,6 +342,7 @@ const generatePrimaryKeyConstraint = (table: Table): readonly string[] => {
 export const generateTableConstraints = (table: Table): readonly string[] => [
   ...generateArrayConstraints(table.fields),
   ...generateNumericConstraints(table.fields),
+  ...generateProgressConstraints(table.fields),
   ...generateEnumConstraints(table.fields),
   ...generateUniqueConstraints(table.name, table.fields),
   ...generateForeignKeyConstraints(table.name, table.fields),
