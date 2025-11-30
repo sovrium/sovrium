@@ -122,8 +122,6 @@ const generateCreatedAtTriggers = (table: Table): readonly string[] => {
   const triggerFunctionName = `prevent_${table.name}_created_at_update`
   const triggerName = `trigger_${table.name}_created_at_immutable`
 
-  const conditions = fieldNames.map((name) => `NEW.${name} = OLD.${name}`).join(' AND ')
-
   return [
     // Create trigger function
     `CREATE OR REPLACE FUNCTION ${triggerFunctionName}()
