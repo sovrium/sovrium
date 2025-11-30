@@ -157,6 +157,11 @@ const generateDefaultClause = (field: Fields[number]): string => {
     if (field.type === 'duration' && typeof defaultValue === 'number') {
       return ` DEFAULT INTERVAL '${defaultValue} seconds'`
     }
+    // Array fields (multi-select): convert to PostgreSQL array literal
+    if (Array.isArray(defaultValue)) {
+      const arrayValues = defaultValue.map((val) => `'${escapeSQLString(String(val))}'`).join(', ')
+      return ` DEFAULT ARRAY[${arrayValues}]`
+    }
     return ` DEFAULT ${formatDefaultValue(defaultValue)}`
   }
 

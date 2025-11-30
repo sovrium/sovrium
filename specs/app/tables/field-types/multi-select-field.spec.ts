@@ -20,7 +20,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Multi Select Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-MULTI-SELECT-001: should create PostgreSQL TEXT ARRAY column for multi select storage',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
