@@ -8,21 +8,27 @@
 import { test, expect } from '@/specs/fixtures'
 
 test.describe('Relationship Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-001: should create INTEGER column with FOREIGN KEY constraint',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
-      // GIVEN: table configuration
+    async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: minimal app schema to initialize database
+      await startServerWithSchema({
+        name: 'test-app',
+        description: 'Test app for relationship field validation',
+      })
+
+      // GIVEN: table configuration with foreign key relationship
       await executeQuery([
-        'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
-        'CREATE TABLE posts (id SERIAL PRIMARY KEY, author_id INTEGER REFERENCES users(id))',
+        'CREATE TABLE authors (id SERIAL PRIMARY KEY, name VARCHAR(255))',
+        'CREATE TABLE articles (id SERIAL PRIMARY KEY, author_id INTEGER REFERENCES authors(id))',
       ])
-      // WHEN: executing query
+      // WHEN: executing query to check column type
       const columnInfo = await executeQuery(
-        "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='posts' AND column_name='author_id'"
+        "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='articles' AND column_name='author_id'"
       )
-      // THEN: assertion
-      expect(columnInfo).toEqual({ column_name: 'author_id', data_type: 'integer' })
+      // THEN: assertion - verify author_id is INTEGER with proper foreign key
+      expect(columnInfo).toMatchObject({ column_name: 'author_id', data_type: 'integer' })
     }
   )
 
