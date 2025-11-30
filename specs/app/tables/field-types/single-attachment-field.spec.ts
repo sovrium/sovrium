@@ -8,7 +8,7 @@
 import { test, expect } from '@/specs/fixtures'
 
 test.describe('Single Attachment Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-001: should create VARCHAR column for single file URL storage',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
