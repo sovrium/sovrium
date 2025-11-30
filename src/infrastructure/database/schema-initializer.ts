@@ -111,6 +111,38 @@ const generateIndexStatements = (table: Table): readonly string[] => {
 }
 
 /**
+ * Generate trigger to prevent updates to created-at fields (immutability)
+ */
+const generateCreatedAtTriggers = (table: Table): readonly string[] => {
+  const createdAtFields = table.fields.filter((field) => field.type === 'created-at')
+
+  if (createdAtFields.length === 0) return []
+
+  const fieldNames = createdAtFields.map((f) => f.name)
+  const triggerFunctionName = `prevent_${table.name}_created_at_update`
+  const triggerName = `trigger_${table.name}_created_at_immutable`
+
+  const conditions = fieldNames.map((name) => `NEW.${name} = OLD.${name}`).join(' AND ')
+
+  return [
+    // Create trigger function
+    `CREATE OR REPLACE FUNCTION ${triggerFunctionName}()
+RETURNS TRIGGER AS $$
+BEGIN
+  ${fieldNames.map((name) => `NEW.${name} = OLD.${name};`).join('\n  ')}
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql`,
+    // Create trigger
+    `DROP TRIGGER IF EXISTS ${triggerName} ON ${table.name}`,
+    `CREATE TRIGGER ${triggerName}
+BEFORE UPDATE ON ${table.name}
+FOR EACH ROW
+EXECUTE FUNCTION ${triggerFunctionName}()`,
+  ]
+}
+
+/**
  * Type definition for Bun SQL transaction
  */
 interface BunSQLTransaction {
@@ -420,11 +452,16 @@ const migrateExistingTable = async (
   for (const indexSQL of generateIndexStatements(table)) {
     await tx.unsafe(indexSQL)
   }
+
+  // Always create/update triggers for created-at fields
+  for (const triggerSQL of generateCreatedAtTriggers(table)) {
+    await tx.unsafe(triggerSQL)
+  }
 }
 /* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
 
 /**
- * Create new table (CREATE statement + indexes)
+ * Create new table (CREATE statement + indexes + triggers)
  */
 /* eslint-disable functional/no-expression-statements, functional/no-loop-statements */
 const createNewTable = async (
@@ -436,6 +473,10 @@ const createNewTable = async (
 
   for (const indexSQL of generateIndexStatements(table)) {
     await tx.unsafe(indexSQL)
+  }
+
+  for (const triggerSQL of generateCreatedAtTriggers(table)) {
+    await tx.unsafe(triggerSQL)
   }
 }
 /* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
