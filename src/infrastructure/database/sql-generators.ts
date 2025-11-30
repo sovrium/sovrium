@@ -342,6 +342,29 @@ const generateStatusConstraints = (fields: readonly Fields[number][]): readonly 
     .map(generateEnumCheckConstraint)
 
 /**
+ * Generate CHECK constraints for status fields with status options
+ *
+ * SECURITY NOTE: Status options come from validated Effect Schema (StatusFieldSchema).
+ * Options are objects with value and optional color. We escape single quotes
+ * to prevent SQL injection following defense-in-depth security principles.
+ */
+const generateStatusConstraints = (fields: readonly Fields[number][]): readonly string[] =>
+  fields
+    .filter(
+      (
+        field
+      ): field is Fields[number] & {
+        type: 'status'
+        options: readonly { value: string; color?: string }[]
+      } => field.type === 'status' && 'options' in field && Array.isArray(field.options)
+    )
+    .map((field) => {
+      const values = field.options.map((opt) => `'${escapeSQLString(opt.value)}'`).join(', ')
+      const constraintName = `check_${field.name}_enum`
+      return `CONSTRAINT ${constraintName} CHECK (${field.name} IN (${values}))`
+    })
+
+/**
  * Generate CHECK constraints for rich-text fields with maxLength
  */
 const generateRichTextConstraints = (fields: readonly Fields[number][]): readonly string[] =>
