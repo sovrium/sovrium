@@ -204,7 +204,12 @@ jobs:
 
           1. **Run e2e-test-fixer agent** - Use \`Task\` tool with \`subagent_type='e2e-test-fixer'\` to remove \`.fixme()\` from \`$SPEC_ID\` and implement minimal code to pass the test
           2. **Run codebase-refactor-auditor agent** - Use \`Task\` tool with \`subagent_type='codebase-refactor-auditor'\` to review implementation, verify layer architecture compliance, and ensure \`bun run quality\` passes (MANDATORY - never skip)
-          3. **Verify quality** - Run \`bun run quality\` and confirm ALL checks pass (ESLint, TypeScript, unit tests, E2E regression)
+          3. **⚠️ GATE: Verify quality BEFORE PR** - Run \`bun run quality\` and confirm ALL checks pass:
+             - ✅ ESLint: 0 errors
+             - ✅ TypeScript: No type errors
+             - ✅ Unit tests: All passing
+             - ✅ **E2E regression tests: ALL passing** (not just the spec you modified - your changes may break other tests!)
+             - **🚫 DO NOT proceed to step 4 if ANY check fails** - fix ALL issues first
           4. **Commit changes** - Run \`bun run license\`, then commit as \`fix: implement $SPEC_ID\`, push to branch
           5. **⚠️ CREATE PR** - \`gh pr create --title \"fix: implement $SPEC_ID\" --body \"Closes #$ISSUE_NUMBER\" --label \"tdd-automation\"\`
           6. **⚠️ ENABLE AUTO-MERGE** - \`gh pr merge \$PR_NUMBER --auto --squash\`
@@ -212,7 +217,11 @@ jobs:
 
           ## ⚠️ Error Handling
 
-          - **If tests fail**: Fix the code until \`bun run quality\` passes - do NOT create PR with failing tests
+          - **If \`bun run quality\` fails**:
+            1. Read the FULL error output carefully
+            2. Fix ALL failing tests (not just the one you're implementing - your changes may break OTHER regression tests!)
+            3. Re-run \`bun run quality\` until it passes completely
+            4. Only THEN proceed to commit and PR creation
           - **If layer architecture violations**: Fix cross-layer imports before proceeding - domain must be pure
           - **If PR creation fails**: Retry once, then report error in issue comment
           - **If auto-merge fails**: Comment the failure reason on the PR and retry
@@ -223,6 +232,7 @@ jobs:
           - Missing auto-merge (PRs #1541, #1546) → pipeline blocked for hours
           - Auto-merge not verified → may silently fail, always check with \`gh pr view\`
           - Skipping codebase-refactor-auditor → technical debt accumulates
+          - **Creating PR with failing regression tests** (PR #4846) → CI fails, PR blocked - ALWAYS run \`bun run quality\` and fix ALL failures before PR
 
           **Complete workflow documentation**: \`@docs/development/tdd-automation-pipeline.md\`
 
