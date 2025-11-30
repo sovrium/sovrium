@@ -24,7 +24,7 @@ test.describe('Currency Field', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CURRENCY-001: should create PostgreSQL DECIMAL column for currency storage when table configuration has currency field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
