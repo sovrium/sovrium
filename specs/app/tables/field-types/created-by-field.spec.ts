@@ -20,13 +20,10 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Created By Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CREATED-BY-001: should create PostgreSQL INTEGER NOT NULL column with FOREIGN KEY to users',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // Create external users table for foreign key reference
-      await executeQuery('CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))')
-
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
