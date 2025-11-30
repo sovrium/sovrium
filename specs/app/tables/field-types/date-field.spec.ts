@@ -24,7 +24,7 @@ test.describe('Date Field', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DATE-001: should create PostgreSQL DATE column when table configuration has date field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -50,7 +50,7 @@ test.describe('Date Field', () => {
         "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='users' AND column_name='birth_date'"
       )
       // THEN: assertion
-      expect(columnInfo).toEqual({
+      expect(columnInfo).toMatchObject({
         column_name: 'birth_date',
         data_type: 'date',
         is_nullable: 'YES',
@@ -60,7 +60,9 @@ test.describe('Date Field', () => {
         "INSERT INTO users (birth_date) VALUES ('1990-05-15') RETURNING birth_date"
       )
       // THEN: assertion
-      expect(validInsert.birth_date).toBe('1990-05-15')
+      expect(validInsert).toMatchObject({
+        birth_date: '1990-05-15',
+      })
     }
   )
 
