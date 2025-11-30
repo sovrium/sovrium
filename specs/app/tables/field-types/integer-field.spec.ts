@@ -24,7 +24,7 @@ test.describe('Integer Field', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-INTEGER-001: should create PostgreSQL INTEGER column when table configuration has integer field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -50,11 +50,9 @@ test.describe('Integer Field', () => {
         "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='quantity'"
       )
       // THEN: assertion
-      expect(columnInfo).toEqual({
-        column_name: 'quantity',
-        data_type: 'integer',
-        is_nullable: 'YES',
-      })
+      expect(columnInfo.column_name).toBe('quantity')
+      expect(columnInfo.data_type).toBe('integer')
+      expect(columnInfo.is_nullable).toBe('YES')
 
       const positiveInsert = await executeQuery(
         'INSERT INTO products (quantity) VALUES (42) RETURNING quantity'
