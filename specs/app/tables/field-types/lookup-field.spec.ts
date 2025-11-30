@@ -20,10 +20,16 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Lookup Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-LOOKUP-001: should retrieve related field via JOIN',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
+      // Initialize server with minimal schema to enable database access
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [],
+      })
+
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE customers (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255))',
@@ -37,7 +43,8 @@ test.describe('Lookup Field', () => {
         'SELECT o.id, c.name as customer_name FROM orders o JOIN customers c ON o.customer_id = c.id WHERE o.id = 1'
       )
       // THEN: assertion
-      expect(lookup).toEqual({ id: 1, customer_name: 'Alice Johnson' })
+      expect(lookup.id).toBe(1)
+      expect(lookup.customer_name).toBe('Alice Johnson')
 
       // WHEN: executing query
       const multipleOrders = await executeQuery(
@@ -51,7 +58,7 @@ test.describe('Lookup Field', () => {
         'SELECT o.id, c.name as customer_name FROM orders o JOIN customers c ON o.customer_id = c.id ORDER BY o.id'
       )
       // THEN: assertion
-      expect(allLookups).toEqual([
+      expect(allLookups.rows).toEqual([
         { id: 1, customer_name: 'Alice Johnson' },
         { id: 2, customer_name: 'Bob Smith' },
         { id: 3, customer_name: 'Alice Johnson' },
