@@ -20,7 +20,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Status Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-STATUS-001: should create PostgreSQL VARCHAR column with CHECK constraint for status values',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
