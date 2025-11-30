@@ -20,7 +20,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Single Select Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-SINGLE-SELECT-001: should create PostgreSQL VARCHAR column for single select storage',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
