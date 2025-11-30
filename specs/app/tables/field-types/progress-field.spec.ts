@@ -20,7 +20,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Progress Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-PROGRESS-001: should create PostgreSQL INTEGER column for progress percentage storage',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
