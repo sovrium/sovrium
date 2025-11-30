@@ -338,9 +338,7 @@ test.describe('Single Line Text Field', () => {
       })
 
       // THEN: PostgreSQL handles bulk insert efficiently without errors
-      await executeQuery(
-        "INSERT INTO products (sku) SELECT 'SKU-' || generate_series(1, 1000)"
-      )
+      await executeQuery("INSERT INTO products (sku) SELECT 'SKU-' || generate_series(1, 1000)")
 
       // WHEN: querying the database
       const totalCount = await executeQuery('SELECT COUNT(*) as count FROM products')
@@ -350,7 +348,11 @@ test.describe('Single Line Text Field', () => {
       const sampleRecords = await executeQuery(
         'SELECT sku FROM products WHERE id IN (1, 500, 1000) ORDER BY id'
       )
-      expect(sampleRecords.rows).toEqual([{ sku: 'SKU-1' }, { sku: 'SKU-500' }, { sku: 'SKU-1000' }])
+      expect(sampleRecords.rows).toEqual([
+        { sku: 'SKU-1' },
+        { sku: 'SKU-500' },
+        { sku: 'SKU-1000' },
+      ])
     }
   )
 

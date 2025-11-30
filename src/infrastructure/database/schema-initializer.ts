@@ -53,12 +53,10 @@ const generateCreateTableSQL = (table: Table): string => {
   const idColumnDefinition = hasIdField || hasCustomPrimaryKey ? [] : ['id SERIAL NOT NULL']
 
   // Filter out UI-only fields (like button) that don't need database columns
-  const columnDefinitions = table.fields
-    .filter(shouldCreateDatabaseColumn)
-    .map((field) => {
-      const isPrimaryKey = primaryKeyFields.includes(field.name)
-      return generateColumnDefinition(field, isPrimaryKey)
-    })
+  const columnDefinitions = table.fields.filter(shouldCreateDatabaseColumn).map((field) => {
+    const isPrimaryKey = primaryKeyFields.includes(field.name)
+    return generateColumnDefinition(field, isPrimaryKey)
+  })
 
   // Add PRIMARY KEY constraint on id if no custom primary key is defined
   const tableConstraints = generateTableConstraints(table)
@@ -492,9 +490,9 @@ const needsUsersTable = (tables: readonly Table[]): boolean =>
  * Safe to call even if Better Auth already created the users table
  */
 /* eslint-disable functional/no-expression-statements */
-const ensureUsersTable = async (
-  tx: { unsafe: (sql: string) => Promise<unknown> }
-): Promise<void> => {
+const ensureUsersTable = async (tx: {
+  unsafe: (sql: string) => Promise<unknown>
+}): Promise<void> => {
   // Create users table if it doesn't exist
   // Explicitly specify public schema to avoid search path issues
   await tx.unsafe(`
