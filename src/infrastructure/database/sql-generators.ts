@@ -24,7 +24,7 @@ const fieldTypeToPostgresMap: Record<string, string> = {
   'rich-text': 'TEXT',
   checkbox: 'BOOLEAN',
   date: 'DATE',
-  datetime: 'TIMESTAMP',
+  datetime: 'TIMESTAMPTZ',
   time: 'TIME',
   'single-select': 'VARCHAR(255)',
   status: 'VARCHAR(255)',
@@ -122,10 +122,13 @@ const generateDefaultClause = (field: Fields[number]): string => {
 
   // Explicit default values
   if ('default' in field && field.default !== undefined) {
-    // PostgreSQL functions like CURRENT_DATE should not be quoted
+    // PostgreSQL functions like CURRENT_DATE, NOW() should not be quoted
     const defaultValue = field.default
     if (typeof defaultValue === 'string' && defaultValue.toUpperCase() === 'CURRENT_DATE') {
       return ' DEFAULT CURRENT_DATE'
+    }
+    if (typeof defaultValue === 'string' && defaultValue.toUpperCase() === 'NOW()') {
+      return ' DEFAULT NOW()'
     }
     return ` DEFAULT ${formatDefaultValue(defaultValue)}`
   }
