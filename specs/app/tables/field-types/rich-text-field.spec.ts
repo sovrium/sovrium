@@ -20,7 +20,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Rich Text Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RICH-TEXT-001: should create PostgreSQL TEXT column for markdown/rich text storage',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

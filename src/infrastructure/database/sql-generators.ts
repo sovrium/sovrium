@@ -300,6 +300,20 @@ const generateEnumConstraints = (fields: readonly Fields[number][]): readonly st
     })
 
 /**
+ * Generate CHECK constraints for rich-text fields with maxLength
+ */
+const generateRichTextConstraints = (fields: readonly Fields[number][]): readonly string[] =>
+  fields
+    .filter(
+      (field): field is Fields[number] & { type: 'rich-text'; maxLength: number } =>
+        field.type === 'rich-text' && 'maxLength' in field && typeof field.maxLength === 'number'
+    )
+    .map((field) => {
+      const constraintName = `check_${field.name}_max_length`
+      return `CONSTRAINT ${constraintName} CHECK (LENGTH(${field.name}) <= ${field.maxLength})`
+    })
+
+/**
  * Generate UNIQUE constraints for fields with unique property
  */
 export const generateUniqueConstraints = (
@@ -348,6 +362,7 @@ export const generateTableConstraints = (table: Table): readonly string[] => [
   ...generateNumericConstraints(table.fields),
   ...generateProgressConstraints(table.fields),
   ...generateEnumConstraints(table.fields),
+  ...generateRichTextConstraints(table.fields),
   ...generateUniqueConstraints(table.name, table.fields),
   ...generateForeignKeyConstraints(table.name, table.fields),
   ...generatePrimaryKeyConstraint(table),
