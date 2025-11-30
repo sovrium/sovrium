@@ -85,7 +85,9 @@ const generateIndexStatements = (table: Table): readonly string[] => {
       (field): field is Fields[number] & { indexed: true } => 'indexed' in field && !!field.indexed
     )
     .map((field) => {
-      const indexName = `idx_${table.name}_${field.name}`
+      // Status fields use special naming: idx_{table}_status instead of idx_{table}_{field_name}
+      const indexSuffix = field.type === 'status' ? 'status' : field.name
+      const indexName = `idx_${table.name}_${indexSuffix}`
       const indexType =
         field.type === 'array' || field.type === 'json' ? 'USING gin' : 'USING btree'
       return `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${table.name} ${indexType} (${field.name})`
