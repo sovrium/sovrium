@@ -20,7 +20,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('Time Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-TIME-001: should create PostgreSQL TIME column when table configuration has time field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
