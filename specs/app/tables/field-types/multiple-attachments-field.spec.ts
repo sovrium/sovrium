@@ -8,7 +8,7 @@
 import { test, expect } from '@/specs/fixtures'
 
 test.describe('Multiple Attachments Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-001: should create JSONB ARRAY column for multiple file storage',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

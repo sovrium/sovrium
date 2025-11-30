@@ -14,14 +14,14 @@
 | Total Tests        | 1835  |
 | @spec Tests        | 1628  |
 | @regression Tests  | 207   |
-| Passing            | 921   |
-| Fixme              | 914   |
+| Passing            | 922   |
+| Fixme              | 913   |
 | Errors             | 0     |
 | Warnings           | 1     |
 | Suggestions        | 0     |
 | Duplicate Spec IDs | 0     |
 
-**Progress:** [██████████░░░░░░░░░░] 50% (921/1835)
+**Progress:** [██████████░░░░░░░░░░] 50% (922/1835)
 
 ## 🤖 TDD Automation
 
@@ -7487,12 +7487,12 @@ APP-TABLES-FIELD-TYPES-MULTI-SELECT-006: user can complete full multi-select-fie
 
 | Tests | Passing | Fixme | @spec | @regression |
 | ----- | ------- | ----- | ----- | ----------- |
-| 6     | 0       | 6     | 5     | 1           |
+| 6     | 1       | 5     | 5     | 1           |
 
 <details>
 <summary>Tests</summary>
 
-⏸️ **APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-001** `@spec`
+✅ **APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-001** `@spec`
 APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-001: should create JSONB ARRAY column for multiple file storage
 `G/W/T` Line 11
 

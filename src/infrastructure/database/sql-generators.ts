@@ -39,7 +39,7 @@ const fieldTypeToPostgresMap: Record<string, string> = {
   geolocation: 'POINT',
   barcode: 'VARCHAR(255)',
   'single-attachment': 'TEXT',
-  'multiple-attachments': 'TEXT',
+  'multiple-attachments': 'JSONB',
   relationship: 'TEXT',
   lookup: 'TEXT',
   rollup: 'TEXT',
