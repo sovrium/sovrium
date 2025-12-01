@@ -65,7 +65,7 @@ test.describe('Multi Select Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-MULTI-SELECT-002: should allow storing multiple values from predefined options',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -98,11 +98,11 @@ test.describe('Multi Select Field', () => {
       // WHEN: executing query
       const results = await executeQuery('SELECT categories FROM articles ORDER BY id')
       // THEN: assertion
-      expect(results.length).toBe(3)
+      expect(results.rows.length).toBe(3)
       // THEN: assertion
-      expect(results[0].categories.length).toBe(2)
+      expect(results.rows[0].categories.length).toBe(2)
       // THEN: assertion
-      expect(results[2].categories.length).toBe(3)
+      expect(results.rows[2].categories.length).toBe(3)
     }
   )
 
