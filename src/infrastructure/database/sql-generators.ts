@@ -259,8 +259,11 @@ const generateNumericConstraints = (fields: readonly Fields[number][]): readonly
       const hasMin = 'min' in field && typeof field.min === 'number'
       const hasMax = 'max' in field && typeof field.max === 'number'
 
+      // Rating fields always have a minimum of 1 (ratings start from 1, not 0)
+      const effectiveMin = field.type === 'rating' && !hasMin ? 1 : hasMin ? field.min : undefined
+
       const conditions = [
-        ...(hasMin ? [`${field.name} >= ${field.min}`] : []),
+        ...(effectiveMin !== undefined ? [`${field.name} >= ${effectiveMin}`] : []),
         ...(hasMax ? [`${field.name} <= ${field.max}`] : []),
       ]
 
