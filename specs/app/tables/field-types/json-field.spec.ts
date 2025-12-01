@@ -61,7 +61,7 @@ test.describe('JSON Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-JSON-002: should support -> and ->> operators for field extraction',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
