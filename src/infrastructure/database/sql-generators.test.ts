@@ -645,7 +645,7 @@ describe('sql-generators', () => {
       const result = generateUniqueConstraints(tableName, fields)
 
       // Then
-      expect(result).toEqual(['CONSTRAINT users_email_unique UNIQUE (email)'])
+      expect(result).toEqual(['CONSTRAINT users_email_key UNIQUE (email)'])
     })
 
     test('generates multiple UNIQUE constraints', () => {
@@ -670,8 +670,8 @@ describe('sql-generators', () => {
 
       // Then
       expect(result).toEqual([
-        'CONSTRAINT products_sku_unique UNIQUE (sku)',
-        'CONSTRAINT products_barcode_unique UNIQUE (barcode)',
+        'CONSTRAINT products_sku_key UNIQUE (sku)',
+        'CONSTRAINT products_barcode_key UNIQUE (barcode)',
       ])
     })
 
@@ -719,7 +719,7 @@ describe('sql-generators', () => {
       const result = generateUniqueConstraints(tableName, fields)
 
       // Then
-      expect(result).toEqual(['CONSTRAINT tasks_code_unique UNIQUE (code)'])
+      expect(result).toEqual(['CONSTRAINT tasks_code_key UNIQUE (code)'])
     })
   })
 
@@ -836,7 +836,7 @@ describe('sql-generators', () => {
       const result = generateTableConstraints(table as any)
 
       // Then
-      expect(result).toContain('CONSTRAINT users_email_unique UNIQUE (email)')
+      expect(result).toContain('CONSTRAINT users_email_key UNIQUE (email)')
     })
 
     test('generates FOREIGN KEY constraint for user field', () => {
@@ -1013,7 +1013,7 @@ describe('sql-generators', () => {
 
       // Then
       expect(result.length).toBeGreaterThan(0)
-      expect(result).toContain('CONSTRAINT products_sku_unique UNIQUE (sku)')
+      expect(result).toContain('CONSTRAINT products_sku_key UNIQUE (sku)')
       expect(result).toContain('CONSTRAINT check_rating_range CHECK (rating >= 1 AND rating <= 5)')
       expect(result).toContain(
         "CONSTRAINT check_status_enum CHECK (status IN ('active', 'inactive'))"
