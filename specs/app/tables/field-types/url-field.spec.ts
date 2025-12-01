@@ -188,7 +188,7 @@ test.describe('URL Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-URL-005: should create btree index for fast URL lookups when url field has indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -214,10 +214,8 @@ test.describe('URL Field', () => {
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_bookmarks_url'"
       )
       // THEN: assertion
-      expect(indexExists).toEqual({
-        indexname: 'idx_bookmarks_url',
-        tablename: 'bookmarks',
-      })
+      expect(indexExists.indexname).toBe('idx_bookmarks_url')
+      expect(indexExists.tablename).toBe('bookmarks')
 
       const indexDef = await executeQuery(
         "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_bookmarks_url'"
