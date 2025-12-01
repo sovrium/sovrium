@@ -84,7 +84,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-002: should perform text concatenation with GENERATED column',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
