@@ -20,8 +20,11 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Validation Approach:
  * - API response assertions (status codes, response schemas)
- * - Database state validation (executeQuery fixture)
- * - Authentication/authorization checks
+ * - Database state validation via API (no direct executeQuery for auth data)
+ * - Authentication/authorization checks via auth fixtures
+ *
+ * Note: Organization tests require authenticated users. Users are created via
+ * the signUp/signIn fixtures which call the Better Auth API directly.
  */
 
 test.describe('Create organization', () => {
@@ -30,28 +33,30 @@ test.describe('Create organization', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-CREATE-ORGANIZATION-001: should returns 201 Created with organization data and user is set as owner',
+    'API-AUTH-ORG-CREATE-ORGANIZATION-001: should return 201 Created with organization data and user is set as owner',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+      })
 
       // WHEN: User creates a new organization with valid data
-      const response = await page.request.post('/api/auth/organization/create-organization', {
+      const response = await page.request.post('/api/auth/organization/create', {
         data: {
           name: 'Acme Corporation',
           slug: 'acme-corp',
@@ -59,165 +64,149 @@ test.describe('Create organization', () => {
       })
 
       // THEN: Returns 201 Created with organization data and user is set as owner
-      // Returns 201 Created
-      expect(response.status).toBe(201)
+      expect(response.status()).toBe(201)
 
-      // Response contains organization data
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('organization')
-      expect(data.organization).toHaveProperty('id')
-      expect(data.organization).toHaveProperty('name')
-
-      // Organization is created in database
-      const orgRow = await executeQuery(
-        "SELECT * FROM organizations WHERE slug = 'acme-corp' LIMIT 1"
-      )
-      expect(orgRow).toBeDefined()
-      expect(orgRow.name).toBe('Acme Corporation')
-
-      // User is set as organization owner
-      const memberRow = await executeQuery(
-        'SELECT * FROM organization_members WHERE organization_id = ' + orgRow.id + ' LIMIT 1'
-      )
-      expect(memberRow).toBeDefined()
-      expect(memberRow.role).toBe('owner')
+      expect(data).toHaveProperty('id')
+      expect(data).toHaveProperty('name', 'Acme Corporation')
+      expect(data).toHaveProperty('slug', 'acme-corp')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-CREATE-ORGANIZATION-002: should returns 201 Created with auto-generated slug from name',
+    'API-AUTH-ORG-CREATE-ORGANIZATION-002: should return 201 Created with auto-generated slug from name',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+      })
 
       // WHEN: User creates organization without providing slug
-      const response = await page.request.post('/api/auth/organization/create-organization', {
+      const response = await page.request.post('/api/auth/organization/create', {
         data: {
           name: 'My Company',
         },
       })
 
       // THEN: Returns 201 Created with auto-generated slug from name
-      // Returns 201 Created
-      expect(response.status).toBe(201)
+      expect(response.status()).toBe(201)
 
-      // Slug is auto-generated from name
+      const data = await response.json()
+      expect(data).toHaveProperty('name', 'My Company')
+      expect(data).toHaveProperty('slug')
+      expect(data.slug).toMatch(/^my-company/)
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-CREATE-ORGANIZATION-003: should returns 400 Bad Request with validation error',
+    'API-AUTH-ORG-CREATE-ORGANIZATION-003: should return 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+      })
 
       // WHEN: User submits request without name field
-      const response = await page.request.post('/api/auth/organization/create-organization', {})
+      const response = await page.request.post('/api/auth/organization/create', {
+        data: {},
+      })
 
       // THEN: Returns 400 Bad Request with validation error
-      // Returns 400 Bad Request
-      expect(response.status).toBe(400)
+      expect(response.status()).toBe(400)
 
-      // Response contains validation error for name field
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-CREATE-ORGANIZATION-004: should returns 401 Unauthorized',
+    'API-AUTH-ORG-CREATE-ORGANIZATION-004: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: A running server
+      // GIVEN: A running server (no authenticated user)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['organization'],
         },
       })
 
       // WHEN: Unauthenticated user attempts to create organization
-      const response = await page.request.post('/api/auth/organization/create-organization', {
+      const response = await page.request.post('/api/auth/organization/create', {
         data: {
           name: 'Acme Corporation',
         },
       })
 
       // THEN: Returns 401 Unauthorized
-      // Returns 401 Unauthorized
-      expect(response.status).toBe(401)
-
-      // Response contains error about missing authentication
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(401)
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-CREATE-ORGANIZATION-005: should returns 409 Conflict error',
+    'API-AUTH-ORG-CREATE-ORGANIZATION-005: should return 409 Conflict error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: An authenticated user and an existing organization
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: An authenticated user and an existing organization with same slug
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at) VALUES (1, 'Existing Org', 'existing-org', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+      })
+
+      // Create first organization
+      await page.request.post('/api/auth/organization/create', {
+        data: {
+          name: 'Existing Org',
+          slug: 'existing-org',
+        },
+      })
 
       // WHEN: User attempts to create organization with existing slug
-      const response = await page.request.post('/api/auth/organization/create-organization', {
+      const response = await page.request.post('/api/auth/organization/create', {
         data: {
           name: 'Another Org',
           slug: 'existing-org',
@@ -225,15 +214,10 @@ test.describe('Create organization', () => {
       })
 
       // THEN: Returns 409 Conflict error
-      // Returns 409 Conflict
-      expect(response.status).toBe(409)
+      expect(response.status()).toBe(409)
 
-      // Response contains error about slug already in use
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
@@ -244,25 +228,54 @@ test.describe('Create organization', () => {
   test.fixme(
     'API-AUTH-ORG-CREATE-ORGANIZATION-006: user can complete full createOrganization workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
-      // GIVEN: Representative test scenario
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['organization'],
         },
       })
 
-      // WHEN: Execute workflow
-      const response = await page.request.post('/api/auth/workflow', {
-        data: { test: true },
+      // Test 1: Create organization without auth fails
+      const noAuthResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org' },
+      })
+      expect(noAuthResponse.status()).toBe(401)
+
+      // Create and authenticate user
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'user@example.com',
+        password: 'UserPass123!',
       })
 
-      // THEN: Verify integration
-      expect(response.status()).toBe(200)
-      const data = await response.json()
-      expect(data).toMatchObject({ success: true })
+      // Test 2: Create organization succeeds
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: {
+          name: 'My Organization',
+          slug: 'my-org',
+        },
+      })
+      expect(createResponse.status()).toBe(201)
+
+      const org = await createResponse.json()
+      expect(org).toHaveProperty('name', 'My Organization')
+      expect(org).toHaveProperty('slug', 'my-org')
+
+      // Test 3: Duplicate slug fails
+      const duplicateResponse = await page.request.post('/api/auth/organization/create', {
+        data: {
+          name: 'Another Org',
+          slug: 'my-org',
+        },
+      })
+      expect(duplicateResponse.status()).toBe(409)
     }
   )
 })

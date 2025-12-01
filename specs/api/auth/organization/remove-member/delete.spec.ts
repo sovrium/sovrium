@@ -5,9 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable drizzle/enforce-delete-with-where */
+
 import { test, expect } from '@/specs/fixtures'
 
-/* eslint-disable drizzle/enforce-delete-with-where */
 /**
  * E2E Tests for Remove member from organization
  *
@@ -21,8 +22,8 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Validation Approach:
  * - API response assertions (status codes, response schemas)
- * - Database state validation (executeQuery fixture)
- * - Authentication/authorization checks
+ * - Database state validation via API (no direct executeQuery for auth data)
+ * - Authentication/authorization checks via auth fixtures
  */
 
 test.describe('Remove member from organization', () => {
@@ -31,115 +32,127 @@ test.describe('Remove member from organization', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-REMOVE-MEMBER-001: should returns 200 OK and member is removed from database',
+    'API-AUTH-ORG-REMOVE-MEMBER-001: should return 200 OK and member is removed',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated organization owner and an existing member
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'member@example.com', '$2a$10$YourHashedPasswordHere', 'Member User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 1, 2, 'member', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Create owner and sign in
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      // Create organization
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+
+      // Create member user
+      await signUp({
+        email: 'member@example.com',
+        password: 'MemberPass123!',
+        name: 'Member User',
+      })
+
+      // Sign back in as owner and add member
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      await page.request.post('/api/auth/organization/add-member', {
+        data: {
+          organizationId: org.id,
+          userId: '2',
+          role: 'member',
+        },
+      })
 
       // WHEN: Owner removes member from organization
       const response = await page.request.delete('/api/auth/organization/remove-member', {
         data: {
-          organizationId: '1',
+          organizationId: org.id,
           userId: '2',
         },
       })
 
-      // THEN: Returns 200 OK and member is removed from database
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      // THEN: Returns 200 OK and member is removed
+      expect(response.status()).toBe(200)
 
-      // Response contains success flag
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toMatchObject({ success: true })
-
-      // Member is removed from database
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      // Verify member is no longer in organization
+      const membersResponse = await page.request.get(
+        `/api/auth/organization/list-members?organizationId=${org.id}`
+      )
+      const members = await membersResponse.json()
+      const removedMember = members.members?.find((m: { userId: string }) => m.userId === '2')
+      expect(removedMember).toBeUndefined()
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-REMOVE-MEMBER-002: should returns 400 Bad Request with validation errors',
+    'API-AUTH-ORG-REMOVE-MEMBER-002: should return 400 Bad Request with validation errors',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
 
       // WHEN: Owner submits request without required fields
-      const response = await page.request.delete('/api/auth/organization/remove-member', {})
+      const response = await page.request.delete('/api/auth/organization/remove-member', {
+        data: {},
+      })
 
       // THEN: Returns 400 Bad Request with validation errors
-      // Returns 400 Bad Request
-      expect(response.status).toBe(400)
+      expect(response.status()).toBe(400)
 
-      // Response contains validation error for required fields
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-REMOVE-MEMBER-003: should returns 401 Unauthorized',
+    'API-AUTH-ORG-REMOVE-MEMBER-003: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: A running server
+      // GIVEN: A running server (no authenticated user)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['organization'],
         },
       })
 
@@ -152,287 +165,303 @@ test.describe('Remove member from organization', () => {
       })
 
       // THEN: Returns 401 Unauthorized
-      // Returns 401 Unauthorized
-      expect(response.status).toBe(401)
-
-      // Response contains error about missing authentication
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(401)
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-REMOVE-MEMBER-004: should returns 403 Forbidden',
+    'API-AUTH-ORG-REMOVE-MEMBER-004: should return 403 Forbidden',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated regular member (not owner/admin)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'member1@example.com', '$2a$10$YourHashedPasswordHere', 'Member 1', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'member2@example.com', '$2a$10$YourHashedPasswordHere', 'Member 2', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'member', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 1, 2, 'member', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'member_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Create owner and organization
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+
+      // Create two members
+      await signUp({
+        email: 'member1@example.com',
+        password: 'Member1Pass123!',
+        name: 'Member 1',
+      })
+      await signUp({
+        email: 'member2@example.com',
+        password: 'Member2Pass123!',
+        name: 'Member 2',
+      })
+
+      // Owner adds both members
+      await page.request.post('/api/auth/organization/add-member', {
+        data: { organizationId: org.id, userId: '2', role: 'member' },
+      })
+      await page.request.post('/api/auth/organization/add-member', {
+        data: { organizationId: org.id, userId: '3', role: 'member' },
+      })
+
+      // Sign in as member1
+      await signIn({
+        email: 'member1@example.com',
+        password: 'Member1Pass123!',
+      })
 
       // WHEN: Member attempts to remove another member
       const response = await page.request.delete('/api/auth/organization/remove-member', {
         data: {
-          organizationId: '1',
-          userId: '2',
+          organizationId: org.id,
+          userId: '3',
         },
       })
 
       // THEN: Returns 403 Forbidden
-      // Returns 403 Forbidden
-      expect(response.status).toBe(403)
+      expect(response.status()).toBe(403)
 
-      // Response contains error about insufficient permissions
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-REMOVE-MEMBER-005: should returns 404 Not Found',
+    'API-AUTH-ORG-REMOVE-MEMBER-005: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
 
       // WHEN: Owner attempts to remove non-existent member
       const response = await page.request.delete('/api/auth/organization/remove-member', {
         data: {
-          organizationId: '1',
-          userId: '999',
+          organizationId: org.id,
+          userId: 'nonexistent-user-id',
         },
       })
 
       // THEN: Returns 404 Not Found
-      // Returns 404 Not Found
-      expect(response.status).toBe(404)
+      expect(response.status()).toBe(404)
 
-      // Response contains error about member not found
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-REMOVE-MEMBER-006: should returns 403 Forbidden to prevent ownerless organization',
+    'API-AUTH-ORG-REMOVE-MEMBER-006: should return 403 Forbidden to prevent ownerless organization',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated organization owner who is the only owner
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
 
       // WHEN: Owner attempts to remove themselves (last owner)
       const response = await page.request.delete('/api/auth/organization/remove-member', {
         data: {
-          organizationId: '1',
+          organizationId: org.id,
           userId: '1',
         },
       })
 
       // THEN: Returns 403 Forbidden to prevent ownerless organization
-      // Returns 403 Forbidden
-      expect(response.status).toBe(403)
+      expect(response.status()).toBe(403)
 
-      // Response contains error about cannot remove last owner
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
-
-      // Owner remains in organization
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-REMOVE-MEMBER-007: should returns 200 OK and member is removed',
+    'API-AUTH-ORG-REMOVE-MEMBER-007: should return 200 OK when member removes themselves',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: An authenticated organization member and multiple owners exist
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: An authenticated organization member (non-owner)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'member@example.com', '$2a$10$YourHashedPasswordHere', 'Member User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 1, 2, 'member', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 2, 'member_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Create owner and organization
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+
+      // Create member
+      await signUp({
+        email: 'member@example.com',
+        password: 'MemberPass123!',
+        name: 'Member User',
+      })
+
+      // Owner adds member
+      await page.request.post('/api/auth/organization/add-member', {
+        data: { organizationId: org.id, userId: '2', role: 'member' },
+      })
+
+      // Sign in as member
+      await signIn({
+        email: 'member@example.com',
+        password: 'MemberPass123!',
+      })
 
       // WHEN: Non-owner member removes themselves from organization
       const response = await page.request.delete('/api/auth/organization/remove-member', {
         data: {
-          organizationId: '1',
+          organizationId: org.id,
           userId: '2',
         },
       })
 
       // THEN: Returns 200 OK and member is removed
-      // Returns 200 OK
-      expect(response.status).toBe(200)
-
-      // Member is removed from database
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      expect(response.status()).toBe(200)
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-REMOVE-MEMBER-008: should returns 404 Not Found (prevent organization enumeration)',
+    'API-AUTH-ORG-REMOVE-MEMBER-008: should return 404 Not Found (prevent organization enumeration)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated organization owner and a member from different organization
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner1@example.com', '$2a$10$YourHashedPasswordHere', 'Owner 1', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'owner2@example.com', '$2a$10$YourHashedPasswordHere', 'Owner 2', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (3, 'member@example.com', '$2a$10$YourHashedPasswordHere', 'Member User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Org One', 'org-one', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (2, 'Org Two', 'org-two', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 2, 2, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (3, 2, 3, 'member', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner1_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Owner 1 creates organization 1
+      await signUp({
+        email: 'owner1@example.com',
+        password: 'Owner1Pass123!',
+        name: 'Owner 1',
+      })
+      await signIn({
+        email: 'owner1@example.com',
+        password: 'Owner1Pass123!',
+      })
 
-      // WHEN: Owner attempts to remove member from another organization
+      await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Org One', slug: 'org-one' },
+      })
+
+      // Owner 2 creates organization 2 with a member
+      await signUp({
+        email: 'owner2@example.com',
+        password: 'Owner2Pass123!',
+        name: 'Owner 2',
+      })
+      await signIn({
+        email: 'owner2@example.com',
+        password: 'Owner2Pass123!',
+      })
+
+      const createResponse2 = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Org Two', slug: 'org-two' },
+      })
+      const org2 = await createResponse2.json()
+
+      // Create member for org 2
+      await signUp({
+        email: 'member@example.com',
+        password: 'MemberPass123!',
+        name: 'Member User',
+      })
+
+      await page.request.post('/api/auth/organization/add-member', {
+        data: { organizationId: org2.id, userId: '3', role: 'member' },
+      })
+
+      // Sign back in as Owner 1
+      await signIn({
+        email: 'owner1@example.com',
+        password: 'Owner1Pass123!',
+      })
+
+      // WHEN: Owner 1 attempts to remove member from Organization 2
       const response = await page.request.delete('/api/auth/organization/remove-member', {
         data: {
-          organizationId: '2',
+          organizationId: org2.id,
           userId: '3',
         },
       })
 
       // THEN: Returns 404 Not Found (prevent organization enumeration)
-      // Returns 404 Not Found (prevent organization enumeration)
-      expect(response.status).toBe(404)
+      expect(response.status()).toBe(404)
 
-      // Response contains error about organization not found
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
-
-      // Member remains in their organization
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      expect(data).toHaveProperty('message')
     }
   )
 
@@ -443,25 +472,65 @@ test.describe('Remove member from organization', () => {
   test.fixme(
     'API-AUTH-ORG-REMOVE-MEMBER-009: user can complete full removeMember workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
-      // GIVEN: Representative test scenario
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['organization'],
         },
       })
 
-      // WHEN: Execute workflow
-      const response = await page.request.post('/api/auth/workflow', {
-        data: { test: true },
+      // Test 1: Remove member without auth fails
+      const noAuthResponse = await page.request.delete('/api/auth/organization/remove-member', {
+        data: { organizationId: '1', userId: '2' },
+      })
+      expect(noAuthResponse.status()).toBe(401)
+
+      // Create owner and organization
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
       })
 
-      // THEN: Verify integration
-      expect(response.status()).toBe(200)
-      const data = await response.json()
-      expect(data).toMatchObject({ success: true })
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+
+      // Create and add member
+      await signUp({
+        email: 'member@example.com',
+        password: 'MemberPass123!',
+        name: 'Member User',
+      })
+
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      await page.request.post('/api/auth/organization/add-member', {
+        data: { organizationId: org.id, userId: '2', role: 'member' },
+      })
+
+      // Test 2: Remove member succeeds for owner
+      const removeResponse = await page.request.delete('/api/auth/organization/remove-member', {
+        data: { organizationId: org.id, userId: '2' },
+      })
+      expect(removeResponse.status()).toBe(200)
+
+      // Test 3: Removing non-existent member fails
+      const notFoundResponse = await page.request.delete('/api/auth/organization/remove-member', {
+        data: { organizationId: org.id, userId: '999' },
+      })
+      expect(notFoundResponse.status()).toBe(404)
     }
   )
 })

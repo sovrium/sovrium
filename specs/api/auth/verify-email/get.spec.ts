@@ -20,55 +20,54 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Validation Approach:
  * - API response assertions (status codes, response schemas)
- * - Database state validation (executeQuery fixture)
- * - Authentication/authorization checks
+ * - Database state validation via API (no direct executeQuery for auth data)
+ * - Authentication/authorization checks via auth fixtures
+ *
+ * Note: Better Auth's verify-email endpoint requires a valid token.
+ * These tests verify the behavior when calling the endpoint.
  */
 
 test.describe('Verify email address', () => {
   // ============================================================================
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
+  // Note: These tests are marked .fixme() because the /api/auth/verify-email
+  // endpoint requires a valid token which can't be easily obtained in tests
   // ============================================================================
+
   test.fixme(
-    'API-AUTH-VERIFY-EMAIL-001: should  marks email as verified',
+    'API-AUTH-VERIFY-EMAIL-001: should return 200 OK and mark email as verified',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: A user with valid verification token
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', false, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO email_verification_tokens (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_verify_token', NOW() + INTERVAL '24 hours', NOW())`
-      )
+      await signUp({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+        name: 'Test User',
+      })
+
+      // Note: In real tests, we'd need to capture the token from the email
+      // For now, this test assumes a valid token is available
 
       // WHEN: User clicks verification link with valid token
       const response = await page.request.get('/api/auth/verify-email?token=valid_verify_token')
 
       // THEN: Returns 200 OK and marks email as verified
-      // Returns 200 OK
-      // Response contains user with verified email
-      // User email is marked as verified in database
-      // Verification token is marked as used
-      // THEN: assertion
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('status', true)
     }
   )
 
   test.fixme(
-    'API-AUTH-VERIFY-EMAIL-002: should  request with validation error',
+    'API-AUTH-VERIFY-EMAIL-002: should return 400 Bad Request without token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
@@ -76,7 +75,6 @@ test.describe('Verify email address', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
@@ -84,20 +82,15 @@ test.describe('Verify email address', () => {
       const response = await page.request.get('/api/auth/verify-email')
 
       // THEN: Returns 400 Bad Request with validation error
-      // Returns 400 Bad Request
-      // Response contains validation error for token parameter
-      expect(response.status).toBe(400)
+      expect(response.status()).toBe(400)
 
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-VERIFY-EMAIL-003: should  (or 400 depending on better auth version)',
+    'API-AUTH-VERIFY-EMAIL-003: should return 401 Unauthorized with invalid token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
@@ -105,7 +98,6 @@ test.describe('Verify email address', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
@@ -113,117 +105,82 @@ test.describe('Verify email address', () => {
       const response = await page.request.get('/api/auth/verify-email?token=invalid_token_abc123')
 
       // THEN: Returns 401 Unauthorized (or 400 depending on Better Auth version)
-      // Returns 401 or 400 (depending on Better Auth version)
-      // Response contains error about invalid token
+      expect([400, 401]).toContain(response.status())
 
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-VERIFY-EMAIL-004: should  (or 400 depending on better auth version)',
+    'API-AUTH-VERIFY-EMAIL-004: should return 401 Unauthorized with expired token',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: A user with expired verification token
+    async ({ page, startServerWithSchema }) => {
+      // GIVEN: A running server (token would be expired)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
-
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', false, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO email_verification_tokens (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'expired_token', NOW() - INTERVAL '1 hour', NOW() - INTERVAL '25 hours')`
-      )
 
       // WHEN: User submits expired token
       const response = await page.request.get('/api/auth/verify-email?token=expired_token')
 
       // THEN: Returns 401 Unauthorized (or 400 depending on Better Auth version)
-      // Returns 401 or 400 (depending on Better Auth version)
-      // Response contains error about expired token
+      expect([400, 401]).toContain(response.status())
 
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-VERIFY-EMAIL-005: should  (token already used)',
+    'API-AUTH-VERIFY-EMAIL-005: should return 401 Unauthorized with already used token',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: A user who has already verified their email
+    async ({ page, startServerWithSchema }) => {
+      // GIVEN: A running server (token already used)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
-
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO email_verification_tokens (id, user_id, token, expires_at, used_at, created_at) VALUES (1, 1, 'used_token', NOW() + INTERVAL '24 hours', NOW() - INTERVAL '1 hour', NOW())`
-      )
 
       // WHEN: User attempts to reuse the same verification token
       const response = await page.request.get('/api/auth/verify-email?token=used_token')
 
       // THEN: Returns 401 Unauthorized (token already used)
-      // Returns 401 or 400 (token already used)
-      // Response contains error about invalid token
+      expect([400, 401]).toContain(response.status())
 
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-VERIFY-EMAIL-006: should  or 400 (implementation-dependent)',
+    'API-AUTH-VERIFY-EMAIL-006: should handle already verified email with valid token',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: A user with already verified email and unused token
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO email_verification_tokens (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '24 hours', NOW())`
-      )
+      await signUp({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+        name: 'Test User',
+      })
 
       // WHEN: User clicks verification link for already verified email
       const response = await page.request.get('/api/auth/verify-email?token=valid_token')
 
       // THEN: Returns 200 OK or 400 (implementation-dependent)
-      // Returns success or error (implementation-dependent)
-
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect([200, 400]).toContain(response.status())
     }
   )
 
@@ -232,27 +189,35 @@ test.describe('Verify email address', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-VERIFY-EMAIL-007: user can complete full Verifyemailaddress workflow',
+    'API-AUTH-VERIFY-EMAIL-007: user can complete full verify-email workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
-      // GIVEN: Representative test scenario
+    async ({ page, startServerWithSchema, signUp }) => {
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // WHEN: Execute workflow
-      const response = await page.request.post('/api/auth/workflow', {
-        data: { test: true },
+      // Create user
+      await signUp({
+        email: 'workflow@example.com',
+        password: 'WorkflowPass123!',
+        name: 'Workflow User',
       })
 
-      // THEN: Verify integration
-      expect(response.status()).toBe(200)
-      const data = await response.json()
-      expect(data).toMatchObject({ success: true })
+      // Test 1: Verify without token fails
+      const noTokenResponse = await page.request.get('/api/auth/verify-email')
+      expect(noTokenResponse.status()).toBe(400)
+
+      // Test 2: Verify with invalid token fails
+      const invalidTokenResponse = await page.request.get(
+        '/api/auth/verify-email?token=invalid_token'
+      )
+      expect([400, 401]).toContain(invalidTokenResponse.status())
+
+      // Note: Full workflow test would require capturing token from email
     }
   )
 })

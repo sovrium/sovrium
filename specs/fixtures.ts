@@ -336,6 +336,45 @@ type AuthResult = {
   session?: AuthSession
 }
 
+type Organization = {
+  id: string
+  name: string
+  slug: string
+  logo?: string
+  metadata?: Record<string, unknown>
+  createdAt: string
+}
+
+type OrganizationResult = {
+  organization: Organization
+}
+
+type Invitation = {
+  id: string
+  organizationId: string
+  email: string
+  role: string
+  status: string
+  expiresAt: string
+  inviterId: string
+}
+
+type InvitationResult = {
+  invitation: Invitation
+}
+
+type Membership = {
+  id: string
+  organizationId: string
+  userId: string
+  role: string
+  createdAt: string
+}
+
+type MembershipResult = {
+  member: Membership
+}
+
 /**
  * Custom fixtures for CLI server with AppSchema configuration and database isolation
  */
@@ -438,6 +477,42 @@ type ServerFixtures = {
    * @returns The authenticated admin user and session data
    */
   createAuthenticatedAdmin: (data?: Partial<SignUpData>) => Promise<AuthResult>
+
+  /**
+   * Create a new organization via API
+   * Requires an authenticated user (call createAuthenticatedUser first)
+   * @returns The created organization data
+   */
+  createOrganization: (data: { name: string; slug?: string }) => Promise<OrganizationResult>
+
+  /**
+   * Invite a member to an organization via API
+   * Requires an authenticated user who is owner/admin of the organization
+   * @returns The invitation data
+   */
+  inviteMember: (data: {
+    organizationId: string
+    email: string
+    role?: 'admin' | 'member'
+  }) => Promise<InvitationResult>
+
+  /**
+   * Accept an organization invitation via API
+   * Requires an authenticated user who received the invitation
+   * @returns The membership data
+   */
+  acceptInvitation: (invitationId: string) => Promise<MembershipResult>
+
+  /**
+   * Add a member directly to an organization via API
+   * Requires an authenticated user who is owner/admin of the organization
+   * @returns The membership data
+   */
+  addMember: (data: {
+    organizationId: string
+    userId: string
+    role?: 'admin' | 'member'
+  }) => Promise<MembershipResult>
 }
 
 /**
@@ -969,6 +1044,103 @@ export const test = base.extend<ServerFixtures>({
         session: result.session,
       }
     })
+  },
+
+  // Organization fixture: Create a new organization via API
+  createOrganization: async ({ page }, use) => {
+    await use(async (data: { name: string; slug?: string }): Promise<OrganizationResult> => {
+      const response = await page.request.post('/api/auth/organization/create-organization', {
+        data: {
+          name: data.name,
+          ...(data.slug && { slug: data.slug }),
+        },
+      })
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Create organization failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      return response.json()
+    })
+  },
+
+  // Organization fixture: Invite a member to an organization via API
+  inviteMember: async ({ page }, use) => {
+    await use(
+      async (data: {
+        organizationId: string
+        email: string
+        role?: 'admin' | 'member'
+      }): Promise<InvitationResult> => {
+        const response = await page.request.post('/api/auth/organization/invite-member', {
+          data: {
+            organizationId: data.organizationId,
+            email: data.email,
+            role: data.role ?? 'member',
+          },
+        })
+
+        if (!response.ok()) {
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(
+            `Invite member failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+          )
+        }
+
+        return response.json()
+      }
+    )
+  },
+
+  // Organization fixture: Accept an invitation via API
+  acceptInvitation: async ({ page }, use) => {
+    await use(async (invitationId: string): Promise<MembershipResult> => {
+      const response = await page.request.post('/api/auth/organization/accept-invitation', {
+        data: {
+          invitationId,
+        },
+      })
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Accept invitation failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      return response.json()
+    })
+  },
+
+  // Organization fixture: Add a member directly to an organization via API
+  addMember: async ({ page }, use) => {
+    await use(
+      async (data: {
+        organizationId: string
+        userId: string
+        role?: 'admin' | 'member'
+      }): Promise<MembershipResult> => {
+        const response = await page.request.post('/api/auth/organization/add-member', {
+          data: {
+            organizationId: data.organizationId,
+            userId: data.userId,
+            role: data.role ?? 'member',
+          },
+        })
+
+        if (!response.ok()) {
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(
+            `Add member failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+          )
+        }
+
+        return response.json()
+      }
+    )
   },
 })
 

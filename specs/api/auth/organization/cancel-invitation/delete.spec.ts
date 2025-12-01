@@ -5,9 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable drizzle/enforce-delete-with-where */
+
 import { test, expect } from '@/specs/fixtures'
 
-/* eslint-disable drizzle/enforce-delete-with-where */
 /**
  * E2E Tests for Cancel organization invitation
  *
@@ -21,8 +22,8 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Validation Approach:
  * - API response assertions (status codes, response schemas)
- * - Database state validation (executeQuery fixture)
- * - Authentication/authorization checks
+ * - Database state validation via API (no direct executeQuery for auth data)
+ * - Authentication/authorization checks via auth fixtures
  */
 
 test.describe('Cancel organization invitation', () => {
@@ -31,111 +32,108 @@ test.describe('Cancel organization invitation', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-CANCEL-INVITATION-001: should returns 200 OK and invitation status updated to cancelled',
+    'API-AUTH-ORG-CANCEL-INVITATION-001: should return 200 OK and mark invitation as cancelled',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated organization owner and a pending invitation
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_invitations (id, organization_id, email, role, token, status, expires_at, created_at) VALUES (1, 1, 'invitee@example.com', 'member', 'invite_token_123', 'pending', NOW() + INTERVAL '7 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+
+      // Create invitation
+      const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
+        data: {
+          organizationId: org.id,
+          email: 'invitee@example.com',
+          role: 'member',
+        },
+      })
+      const invitation = await inviteResponse.json()
 
       // WHEN: Owner cancels the invitation
       const response = await page.request.delete('/api/auth/organization/cancel-invitation', {
         data: {
-          invitationId: '1',
+          invitationId: invitation.invitation?.id || invitation.id,
         },
       })
 
-      // THEN: Returns 200 OK and invitation status updated to cancelled
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      // THEN: Returns 200 OK and marks invitation as cancelled
+      expect(response.status()).toBe(200)
 
-      // Response contains success flag
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
       expect(data).toMatchObject({ success: true })
-
-      // Invitation status updated to cancelled
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-CANCEL-INVITATION-002: should returns 400 Bad Request with validation error',
+    'API-AUTH-ORG-CANCEL-INVITATION-002: should return 400 Bad Request without invitationId',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
 
       // WHEN: Owner submits request without invitationId
-      const response = await page.request.delete('/api/auth/organization/cancel-invitation', {})
+      const response = await page.request.delete('/api/auth/organization/cancel-invitation', {
+        data: {},
+      })
 
       // THEN: Returns 400 Bad Request with validation error
-      // Returns 400 Bad Request
-      expect(response.status).toBe(400)
+      expect(response.status()).toBe(400)
 
-      // Response contains validation error for invitationId field
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-CANCEL-INVITATION-003: should returns 401 Unauthorized',
+    'API-AUTH-ORG-CANCEL-INVITATION-003: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: A running server
+      // GIVEN: A running server (no authenticated user)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['organization'],
         },
       })
 
@@ -147,281 +145,334 @@ test.describe('Cancel organization invitation', () => {
       })
 
       // THEN: Returns 401 Unauthorized
-      // Returns 401 Unauthorized
-      expect(response.status).toBe(401)
-
-      // Response contains error about missing authentication
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(401)
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-CANCEL-INVITATION-004: should returns 403 Forbidden',
+    'API-AUTH-ORG-CANCEL-INVITATION-004: should return 403 Forbidden for regular member',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated regular member (not owner/admin)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'member@example.com', '$2a$10$YourHashedPasswordHere', 'Member User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'member', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_invitations (id, organization_id, email, role, token, status, expires_at, created_at) VALUES (1, 1, 'invitee@example.com', 'member', 'invite_token_123', 'pending', NOW() + INTERVAL '7 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'member_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Owner creates organization
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+
+      // Create and add member
+      await signUp({
+        email: 'member@example.com',
+        password: 'MemberPass123!',
+        name: 'Member User',
+      })
+
+      await page.request.post('/api/auth/organization/add-member', {
+        data: {
+          organizationId: org.id,
+          userId: '2',
+          role: 'member',
+        },
+      })
+
+      // Create invitation as owner
+      const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
+        data: {
+          organizationId: org.id,
+          email: 'invitee@example.com',
+          role: 'member',
+        },
+      })
+      const invitation = await inviteResponse.json()
+
+      // Sign in as member
+      await signIn({
+        email: 'member@example.com',
+        password: 'MemberPass123!',
+      })
 
       // WHEN: Member attempts to cancel invitation
       const response = await page.request.delete('/api/auth/organization/cancel-invitation', {
         data: {
-          invitationId: '1',
+          invitationId: invitation.invitation?.id || invitation.id,
         },
       })
 
       // THEN: Returns 403 Forbidden
-      // Returns 403 Forbidden
-      expect(response.status).toBe(403)
+      expect(response.status()).toBe(403)
 
-      // Response contains error about insufficient permissions
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-CANCEL-INVITATION-005: should returns 404 Not Found',
+    'API-AUTH-ORG-CANCEL-INVITATION-005: should return 404 Not Found for non-existent invitation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
 
       // WHEN: Owner attempts to cancel non-existent invitation
       const response = await page.request.delete('/api/auth/organization/cancel-invitation', {
         data: {
-          invitationId: '999',
+          invitationId: 'nonexistent-id',
         },
       })
 
       // THEN: Returns 404 Not Found
-      // Returns 404 Not Found
-      expect(response.status).toBe(404)
+      expect(response.status()).toBe(404)
 
-      // Response contains error about invitation not found
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-CANCEL-INVITATION-006: should returns 409 Conflict',
+    'API-AUTH-ORG-CANCEL-INVITATION-006: should return 409 Conflict for already accepted invitation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated organization owner and an accepted invitation
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'member@example.com', '$2a$10$YourHashedPasswordHere', 'Member User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 1, 2, 'member', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_invitations (id, organization_id, email, role, token, status, expires_at, created_at) VALUES (1, 1, 'member@example.com', 'member', 'invite_token_123', 'accepted', NOW() + INTERVAL '7 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+
+      // Create invitee
+      await signUp({
+        email: 'invitee@example.com',
+        password: 'InviteePass123!',
+        name: 'Invitee User',
+      })
+
+      // Sign back in as owner
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
+        data: {
+          organizationId: org.id,
+          email: 'invitee@example.com',
+          role: 'member',
+        },
+      })
+      const invitation = await inviteResponse.json()
+      const invitationId = invitation.invitation?.id || invitation.id
+
+      // Accept invitation
+      await signIn({
+        email: 'invitee@example.com',
+        password: 'InviteePass123!',
+      })
+
+      await page.request.post('/api/auth/organization/accept-invitation', {
+        data: { invitationId },
+      })
+
+      // Sign back in as owner
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
 
       // WHEN: Owner attempts to cancel already accepted invitation
       const response = await page.request.delete('/api/auth/organization/cancel-invitation', {
-        data: {
-          invitationId: '1',
-        },
+        data: { invitationId },
       })
 
       // THEN: Returns 409 Conflict
-      // Returns 409 Conflict
-      expect(response.status).toBe(409)
+      expect(response.status()).toBe(409)
 
-      // Response contains error about invitation already accepted
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-CANCEL-INVITATION-007: should returns 409 Conflict',
+    'API-AUTH-ORG-CANCEL-INVITATION-007: should return 409 Conflict for already cancelled invitation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated organization owner and an already cancelled invitation
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_invitations (id, organization_id, email, role, token, status, expires_at, created_at) VALUES (1, 1, 'invitee@example.com', 'member', 'invite_token_123', 'cancelled', NOW() + INTERVAL '7 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+
+      const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
+        data: {
+          organizationId: org.id,
+          email: 'invitee@example.com',
+          role: 'member',
+        },
+      })
+      const invitation = await inviteResponse.json()
+      const invitationId = invitation.invitation?.id || invitation.id
+
+      // Cancel invitation first time
+      await page.request.delete('/api/auth/organization/cancel-invitation', {
+        data: { invitationId },
+      })
 
       // WHEN: Owner attempts to cancel the same invitation again
       const response = await page.request.delete('/api/auth/organization/cancel-invitation', {
-        data: {
-          invitationId: '1',
-        },
+        data: { invitationId },
       })
 
       // THEN: Returns 409 Conflict
-      // Returns 409 Conflict
-      expect(response.status).toBe(409)
+      expect(response.status()).toBe(409)
 
-      // Response contains error about invitation already cancelled
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-CANCEL-INVITATION-008: should returns 404 Not Found (prevent organization enumeration)',
+    'API-AUTH-ORG-CANCEL-INVITATION-008: should return 404 Not Found for different organization (prevent enumeration)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated owner of one organization and an invitation from different organization
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner1@example.com', '$2a$10$YourHashedPasswordHere', 'Owner 1', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'owner2@example.com', '$2a$10$YourHashedPasswordHere', 'Owner 2', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Org One', 'org-one', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (2, 'Org Two', 'org-two', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 2, 2, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_invitations (id, organization_id, email, role, token, status, expires_at, created_at) VALUES (1, 2, 'invitee@example.com', 'member', 'invite_token_123', 'pending', NOW() + INTERVAL '7 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner1_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Owner 1 creates organization 1
+      await signUp({
+        email: 'owner1@example.com',
+        password: 'Owner1Pass123!',
+        name: 'Owner 1',
+      })
+      await signIn({
+        email: 'owner1@example.com',
+        password: 'Owner1Pass123!',
+      })
 
-      // WHEN: Owner attempts to cancel invitation from another organization
+      await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Org One', slug: 'org-one' },
+      })
+
+      // Owner 2 creates organization 2 with invitation
+      await signUp({
+        email: 'owner2@example.com',
+        password: 'Owner2Pass123!',
+        name: 'Owner 2',
+      })
+      await signIn({
+        email: 'owner2@example.com',
+        password: 'Owner2Pass123!',
+      })
+
+      const createResponse2 = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Org Two', slug: 'org-two' },
+      })
+      const org2 = await createResponse2.json()
+
+      const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
+        data: {
+          organizationId: org2.id,
+          email: 'invitee@example.com',
+          role: 'member',
+        },
+      })
+      const invitation = await inviteResponse.json()
+
+      // Sign back in as Owner 1
+      await signIn({
+        email: 'owner1@example.com',
+        password: 'Owner1Pass123!',
+      })
+
+      // WHEN: Owner 1 attempts to cancel invitation from Organization 2
       const response = await page.request.delete('/api/auth/organization/cancel-invitation', {
         data: {
-          invitationId: '1',
+          invitationId: invitation.invitation?.id || invitation.id,
         },
       })
 
-      // THEN: Returns 404 Not Found (prevent organization enumeration)
-      // Returns 404 Not Found (prevent organization enumeration)
-      expect(response.status).toBe(404)
+      // THEN: Returns 404 Not Found (prevent enumeration)
+      expect(response.status()).toBe(404)
 
-      // Response contains error about invitation not found
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
-
-      // Invitation remains pending in its organization
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      expect(data).toHaveProperty('message')
     }
   )
 
@@ -432,25 +483,62 @@ test.describe('Cancel organization invitation', () => {
   test.fixme(
     'API-AUTH-ORG-CANCEL-INVITATION-009: user can complete full cancelInvitation workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
-      // GIVEN: Representative test scenario
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['organization'],
         },
       })
 
-      // WHEN: Execute workflow
-      const response = await page.request.post('/api/auth/workflow', {
-        data: { test: true },
+      // Test 1: Cancel without auth fails
+      const noAuthResponse = await page.request.delete('/api/auth/organization/cancel-invitation', {
+        data: { invitationId: '1' },
+      })
+      expect(noAuthResponse.status()).toBe(401)
+
+      // Create owner and organization
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
       })
 
-      // THEN: Verify integration
-      expect(response.status()).toBe(200)
-      const data = await response.json()
-      expect(data).toMatchObject({ success: true })
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+
+      const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
+        data: {
+          organizationId: org.id,
+          email: 'invitee@example.com',
+          role: 'member',
+        },
+      })
+      const invitation = await inviteResponse.json()
+      const invitationId = invitation.invitation?.id || invitation.id
+
+      // Test 2: Cancel invitation succeeds for owner
+      const cancelResponse = await page.request.delete('/api/auth/organization/cancel-invitation', {
+        data: { invitationId },
+      })
+      expect(cancelResponse.status()).toBe(200)
+
+      // Test 3: Cancel again fails
+      const duplicateResponse = await page.request.delete(
+        '/api/auth/organization/cancel-invitation',
+        {
+          data: { invitationId },
+        }
+      )
+      expect(duplicateResponse.status()).toBe(409)
     }
   )
 })

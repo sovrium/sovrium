@@ -20,35 +20,42 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Validation Approach:
  * - API response assertions (status codes, response schemas)
- * - Database state validation (executeQuery fixture)
- * - Authentication/authorization checks
+ * - Database state validation via API (no direct executeQuery for auth data)
+ * - Authentication/authorization checks via auth fixtures
+ *
+ * Note: Better Auth's update-user endpoint may not be publicly exposed.
+ * These tests verify the behavior when calling the endpoint.
  */
 
 test.describe('Update user profile', () => {
   // ============================================================================
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
+  // Note: These tests are marked .fixme() because the /api/auth/update-user
+  // endpoint is not yet implemented (returns 404)
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-UPDATE-USER-001: should returns 200 OK with updated user data',
+    'API-AUTH-UPDATE-USER-001: should return 200 OK with updated user data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user with valid profile data
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, image, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Old Name', 'https://old-avatar.com/old.jpg', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Create user and sign in via API
+      await signUp({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+        name: 'Old Name',
+      })
+      await signIn({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+      })
 
       // WHEN: User updates their profile information
       const response = await page.request.patch('/api/auth/update-user', {
@@ -59,41 +66,40 @@ test.describe('Update user profile', () => {
       })
 
       // THEN: Returns 200 OK with updated user data
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // Response contains updated user data
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('user')
+      expect(data.user.name).toBe('New Name')
 
-      // User data is updated in database
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      // Verify via get-session
+      const sessionResponse = await page.request.get('/api/auth/get-session')
+      const sessionData = await sessionResponse.json()
+      expect(sessionData.user.name).toBe('New Name')
     }
   )
 
   test.fixme(
-    'API-AUTH-UPDATE-USER-002: should returns 200 OK with updated name, image unchanged',
+    'API-AUTH-UPDATE-USER-002: should return 200 OK with updated name only',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, image, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Old Name', 'https://old-avatar.com/old.jpg', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+        name: 'Old Name',
+      })
+      await signIn({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+      })
 
       // WHEN: User updates only name field
       const response = await page.request.patch('/api/auth/update-user', {
@@ -102,26 +108,24 @@ test.describe('Update user profile', () => {
         },
       })
 
-      // THEN: Returns 200 OK with updated name, image unchanged
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      // THEN: Returns 200 OK with updated name
+      expect(response.status()).toBe(200)
 
-      // Name is updated, image remains unchanged
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const data = await response.json()
+      expect(data).toHaveProperty('user')
+      expect(data.user.name).toBe('Updated Name Only')
     }
   )
 
   test.fixme(
-    'API-AUTH-UPDATE-USER-003: should returns 401 Unauthorized',
+    'API-AUTH-UPDATE-USER-003: should return 401 Unauthorized without authentication',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: A running server
+      // GIVEN: A running server (no authenticated user)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
@@ -133,38 +137,31 @@ test.describe('Update user profile', () => {
       })
 
       // THEN: Returns 401 Unauthorized
-      // Returns 401 Unauthorized
-      expect(response.status).toBe(401)
-
-      // Response contains error about missing authentication
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(401)
     }
   )
 
   test.fixme(
-    'API-AUTH-UPDATE-USER-004: should returns 200 OK with sanitized name (XSS payload neutralized)',
+    'API-AUTH-UPDATE-USER-004: should sanitize XSS payload in name',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Old Name', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+        name: 'Old Name',
+      })
+      await signIn({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+      })
 
       // WHEN: User submits name with XSS payload
       const response = await page.request.patch('/api/auth/update-user', {
@@ -174,33 +171,36 @@ test.describe('Update user profile', () => {
       })
 
       // THEN: Returns 200 OK with sanitized name (XSS payload neutralized)
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // Name is sanitized (no script tags)
+      // Name should be sanitized (no script tags executed)
+      const sessionResponse = await page.request.get('/api/auth/get-session')
+      const sessionData = await sessionResponse.json()
+      expect(sessionData.user.name).not.toContain('<script>')
     }
   )
 
   test.fixme(
-    'API-AUTH-UPDATE-USER-005: should returns 200 OK with Unicode name preserved',
+    'API-AUTH-UPDATE-USER-005: should preserve Unicode characters in name',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Old Name', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+        name: 'Old Name',
+      })
+      await signIn({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+      })
 
       // WHEN: User updates name with Unicode characters
       const response = await page.request.patch('/api/auth/update-user', {
@@ -210,33 +210,36 @@ test.describe('Update user profile', () => {
       })
 
       // THEN: Returns 200 OK with Unicode name preserved
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // Unicode characters in name are preserved
+      // Verify Unicode characters are preserved
+      const sessionResponse = await page.request.get('/api/auth/get-session')
+      const sessionData = await sessionResponse.json()
+      expect(sessionData.user.name).toBe('José García 日本語')
     }
   )
 
   test.fixme(
-    'API-AUTH-UPDATE-USER-006: should returns 200 OK with image removed',
+    'API-AUTH-UPDATE-USER-006: should allow removing profile image',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user with profile image
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, image, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', 'https://avatar.com/old.jpg', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+      })
 
       // WHEN: User sets image to null (removes profile image)
       const response = await page.request.patch('/api/auth/update-user', {
@@ -246,12 +249,12 @@ test.describe('Update user profile', () => {
       })
 
       // THEN: Returns 200 OK with image removed
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // Image is removed from database
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      // Verify image is removed
+      const sessionResponse = await page.request.get('/api/auth/get-session')
+      const sessionData = await sessionResponse.json()
+      expect(sessionData.user.image).toBeNull()
     }
   )
 
@@ -260,27 +263,44 @@ test.describe('Update user profile', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-UPDATE-USER-007: user can complete full updateUser workflow',
+    'API-AUTH-UPDATE-USER-007: user can complete full update-user workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
-      // GIVEN: Representative test scenario
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // WHEN: Execute workflow
-      const response = await page.request.post('/api/auth/workflow', {
-        data: { test: true },
+      // Test 1: Update fails without auth
+      const noAuthResponse = await page.request.patch('/api/auth/update-user', {
+        data: { name: 'New Name' },
+      })
+      expect(noAuthResponse.status()).toBe(401)
+
+      // Create user and sign in
+      await signUp({
+        email: 'workflow@example.com',
+        password: 'WorkflowPass123!',
+        name: 'Original Name',
+      })
+      await signIn({
+        email: 'workflow@example.com',
+        password: 'WorkflowPass123!',
       })
 
-      // THEN: Verify integration
-      expect(response.status()).toBe(200)
-      const data = await response.json()
-      expect(data).toMatchObject({ success: true })
+      // Test 2: Update name succeeds
+      const updateResponse = await page.request.patch('/api/auth/update-user', {
+        data: { name: 'Updated Name' },
+      })
+      expect(updateResponse.status()).toBe(200)
+
+      // Test 3: Verify update persisted
+      const sessionResponse = await page.request.get('/api/auth/get-session')
+      const sessionData = await sessionResponse.json()
+      expect(sessionData.user.name).toBe('Updated Name')
     }
   )
 })

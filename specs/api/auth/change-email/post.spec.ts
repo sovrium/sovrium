@@ -20,308 +20,275 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Validation Approach:
  * - API response assertions (status codes, response schemas)
- * - Database state validation (executeQuery fixture)
- * - Authentication/authorization checks
+ * - Database state validation via API (no direct executeQuery for auth data)
+ * - Authentication/authorization checks via auth fixtures
+ *
+ * Note: Better Auth's change-email endpoint may not be publicly exposed.
+ * These tests verify the behavior when calling the endpoint.
  */
 
 test.describe('Change email address', () => {
   // ============================================================================
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
+  // Note: These tests are marked .fixme() because the /api/auth/change-email
+  // endpoint is not yet implemented (returns 404)
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-CHANGE-EMAIL-001: should returns 200 OK and updates email (or sends verification)',
+    'API-AUTH-CHANGE-EMAIL-001: should return 200 OK and update email',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user with valid new email
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'old@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Create user and sign in via API
+      await signUp({
+        email: 'old@example.com',
+        password: 'TestPassword123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'old@example.com',
+        password: 'TestPassword123!',
+      })
 
       // WHEN: User requests to change email to unused address
       const response = await page.request.post('/api/auth/change-email', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
         data: {
           newEmail: 'new@example.com',
         },
       })
 
       // THEN: Returns 200 OK and updates email (or sends verification)
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // Response indicates success
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('success', true)
     }
   )
 
   test.fixme(
-    'API-AUTH-CHANGE-EMAIL-002: should returns 400 Bad Request with validation error',
+    'API-AUTH-CHANGE-EMAIL-002: should return 400 Bad Request without newEmail',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+      })
 
       // WHEN: User submits request without newEmail field
       const response = await page.request.post('/api/auth/change-email', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
         data: {},
       })
 
       // THEN: Returns 400 Bad Request with validation error
-      // Returns 400 Bad Request
-      expect(response.status).toBe(400)
+      expect(response.status()).toBe(400)
 
-      // Response contains validation error for newEmail field
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-CHANGE-EMAIL-003: should returns 400 Bad Request with validation error',
+    'API-AUTH-CHANGE-EMAIL-003: should return 400 Bad Request with invalid email format',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+      })
 
       // WHEN: User submits request with invalid email format
       const response = await page.request.post('/api/auth/change-email', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
         data: {
           newEmail: 'not-an-email',
         },
       })
 
       // THEN: Returns 400 Bad Request with validation error
-      // Returns 400 Bad Request
-      expect(response.status).toBe(400)
+      expect(response.status()).toBe(400)
 
-      // Response contains validation error for email format
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-CHANGE-EMAIL-004: should returns 401 Unauthorized',
+    'API-AUTH-CHANGE-EMAIL-004: should return 401 Unauthorized without authentication',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: A running server
+      // GIVEN: A running server (no authenticated user)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Unauthenticated user attempts to change email
       const response = await page.request.post('/api/auth/change-email', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
         data: {
           newEmail: 'new@example.com',
         },
       })
 
       // THEN: Returns 401 Unauthorized
-      // Returns 401 Unauthorized
-      expect(response.status).toBe(401)
-
-      // Response contains error about missing authentication
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(401)
     }
   )
 
   test.fixme(
-    'API-AUTH-CHANGE-EMAIL-005: should returns 409 Conflict error',
+    'API-AUTH-CHANGE-EMAIL-005: should return 409 Conflict for existing email',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user and another user with target email
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user1@example.com', '$2a$10$YourHashedPasswordHere', 'User 1', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'existing@example.com', '$2a$10$YourHashedPasswordHere', 'User 2', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Create two users via API
+      await signUp({
+        email: 'user1@example.com',
+        password: 'Password123!',
+        name: 'User 1',
+      })
+      await signUp({
+        email: 'existing@example.com',
+        password: 'Password123!',
+        name: 'User 2',
+      })
+
+      // Sign in as User 1
+      await signIn({
+        email: 'user1@example.com',
+        password: 'Password123!',
+      })
 
       // WHEN: User attempts to change to an already registered email
       const response = await page.request.post('/api/auth/change-email', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
         data: {
           newEmail: 'existing@example.com',
         },
       })
 
       // THEN: Returns 409 Conflict error
-      // Returns 409 Conflict
-      expect(response.status).toBe(409)
+      expect(response.status()).toBe(409)
 
-      // Response contains error about email already in use
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-CHANGE-EMAIL-006: should returns 200 OK or 400 (implementation-dependent)',
+    'API-AUTH-CHANGE-EMAIL-006: should handle same email attempt',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+      })
 
       // WHEN: User attempts to change to their current email
       const response = await page.request.post('/api/auth/change-email', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
         data: {
           newEmail: 'test@example.com',
         },
       })
 
       // THEN: Returns 200 OK or 400 (implementation-dependent)
-      // Returns success or error (implementation-dependent)
-      expect([200, 400]).toContain(response.status)
+      expect([200, 400]).toContain(response.status())
     }
   )
 
   test.fixme(
-    'API-AUTH-CHANGE-EMAIL-007: should returns 409 Conflict (case-insensitive email matching)',
+    'API-AUTH-CHANGE-EMAIL-007: should return 409 Conflict with case-insensitive matching',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user with lowercase email
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user1@example.com', '$2a$10$YourHashedPasswordHere', 'User 1', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'existing@example.com', '$2a$10$YourHashedPasswordHere', 'User 2', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Create two users via API
+      await signUp({
+        email: 'user1@example.com',
+        password: 'Password123!',
+        name: 'User 1',
+      })
+      await signUp({
+        email: 'existing@example.com',
+        password: 'Password123!',
+        name: 'User 2',
+      })
+
+      // Sign in as User 1
+      await signIn({
+        email: 'user1@example.com',
+        password: 'Password123!',
+      })
 
       // WHEN: User changes to uppercase variation of existing email
       const response = await page.request.post('/api/auth/change-email', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
         data: {
           newEmail: 'EXISTING@EXAMPLE.COM',
         },
       })
 
       // THEN: Returns 409 Conflict (case-insensitive email matching)
-      // Returns 409 Conflict despite case difference
-      expect(response.status).toBe(409)
+      expect(response.status()).toBe(409)
 
-      // Response contains error about email already in use
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
@@ -330,27 +297,52 @@ test.describe('Change email address', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-CHANGE-EMAIL-008: user can complete full changeEmail workflow',
+    'API-AUTH-CHANGE-EMAIL-008: user can complete full change-email workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
-      // GIVEN: Representative test scenario
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // WHEN: Execute workflow
-      const response = await page.request.post('/api/auth/workflow', {
-        data: { test: true },
+      // Test 1: Change email fails without auth
+      const noAuthResponse = await page.request.post('/api/auth/change-email', {
+        data: { newEmail: 'new@example.com' },
+      })
+      expect(noAuthResponse.status()).toBe(401)
+
+      // Create users
+      await signUp({
+        email: 'workflow@example.com',
+        password: 'WorkflowPass123!',
+        name: 'Workflow User',
+      })
+      await signUp({
+        email: 'existing@example.com',
+        password: 'ExistingPass123!',
+        name: 'Existing User',
       })
 
-      // THEN: Verify integration
-      expect(response.status()).toBe(200)
-      const data = await response.json()
-      expect(data).toMatchObject({ success: true })
+      // Sign in
+      await signIn({
+        email: 'workflow@example.com',
+        password: 'WorkflowPass123!',
+      })
+
+      // Test 2: Change email fails for existing email
+      const conflictResponse = await page.request.post('/api/auth/change-email', {
+        data: { newEmail: 'existing@example.com' },
+      })
+      expect(conflictResponse.status()).toBe(409)
+
+      // Test 3: Change email succeeds for new email
+      const successResponse = await page.request.post('/api/auth/change-email', {
+        data: { newEmail: 'newworkflow@example.com' },
+      })
+      expect(successResponse.status()).toBe(200)
     }
   )
 })

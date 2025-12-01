@@ -20,7 +20,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Validation Approach:
  * - API response assertions (status codes, response schemas)
- * - Database state validation (executeQuery fixture)
+ * - Database state validation via API (no direct executeQuery for auth data)
  * - Authentication/authorization checks
  */
 
@@ -29,23 +29,24 @@ test.describe('Sign in with email and password', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-SIGN-IN-EMAIL-001: should returns 200 OK with session token and user data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: A registered user with valid credentials
+    async ({ page, startServerWithSchema, signUp }) => {
+      // GIVEN: A registered user with valid credentials (created via API)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
+      // Create user via sign-up API (not executeQuery)
+      await signUp({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: 'ValidPassword123!',
+      })
 
       // WHEN: User submits correct email and password
       const response = await page.request.post('/api/auth/sign-in/email', {
@@ -56,28 +57,23 @@ test.describe('Sign in with email and password', () => {
       })
 
       // THEN: Returns 200 OK with session token and user data
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // Response contains session token and user data
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
       expect(data).toHaveProperty('user')
-      expect(data).toHaveProperty('session')
+      expect(data).toHaveProperty('token') // Better Auth returns token, not session
     }
   )
 
-  test.fixme(
-    'API-AUTH-SIGN-IN-EMAIL-002: should returns 400 Bad Request with validation error',
+  test(
+    'API-AUTH-SIGN-IN-EMAIL-002: should returns 400 Bad Request when email is missing',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: A running server
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
@@ -89,28 +85,22 @@ test.describe('Sign in with email and password', () => {
       })
 
       // THEN: Returns 400 Bad Request with validation error
-      // Returns 400 Bad Request
-      expect(response.status).toBe(400)
+      expect(response.status()).toBe(400)
 
-      // Response contains validation error for email field
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
-  test.fixme(
-    'API-AUTH-SIGN-IN-EMAIL-003: should returns 400 Bad Request with validation error',
+  test(
+    'API-AUTH-SIGN-IN-EMAIL-003: should returns 400 Bad Request when password is missing',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: A running server
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
@@ -122,28 +112,22 @@ test.describe('Sign in with email and password', () => {
       })
 
       // THEN: Returns 400 Bad Request with validation error
-      // Returns 400 Bad Request
-      expect(response.status).toBe(400)
+      expect(response.status()).toBe(400)
 
-      // Response contains validation error for password field
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
-  test.fixme(
-    'API-AUTH-SIGN-IN-EMAIL-004: should returns 400 Bad Request with validation error',
+  test(
+    'API-AUTH-SIGN-IN-EMAIL-004: should returns 400 Bad Request with invalid email format',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: A running server
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
@@ -156,35 +140,31 @@ test.describe('Sign in with email and password', () => {
       })
 
       // THEN: Returns 400 Bad Request with validation error
-      // Returns 400 Bad Request
-      expect(response.status).toBe(400)
+      expect(response.status()).toBe(400)
 
-      // Response contains validation error for email format
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
-  test.fixme(
-    'API-AUTH-SIGN-IN-EMAIL-005: should returns 401 Unauthorized with generic error to prevent enumeration',
+  test(
+    'API-AUTH-SIGN-IN-EMAIL-005: should returns 401 Unauthorized with wrong password',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: A registered user
+    async ({ page, startServerWithSchema, signUp }) => {
+      // GIVEN: A registered user (created via API)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
+      // Create user via sign-up API
+      await signUp({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: 'ValidPassword123!',
+      })
 
       // WHEN: User submits correct email but wrong password
       const response = await page.request.post('/api/auth/sign-in/email', {
@@ -195,20 +175,15 @@ test.describe('Sign in with email and password', () => {
       })
 
       // THEN: Returns 401 Unauthorized with generic error to prevent enumeration
-      // Returns 401 Unauthorized
-      expect(response.status).toBe(401)
+      expect(response.status()).toBe(401)
 
-      // Response contains generic error message
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
-  test.fixme(
-    'API-AUTH-SIGN-IN-EMAIL-006: should returns 401 Unauthorized with same generic error to prevent enumeration',
+  test(
+    'API-AUTH-SIGN-IN-EMAIL-006: should returns 401 Unauthorized for non-existent user',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server with no registered user
@@ -216,7 +191,6 @@ test.describe('Sign in with email and password', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
@@ -229,35 +203,31 @@ test.describe('Sign in with email and password', () => {
       })
 
       // THEN: Returns 401 Unauthorized with same generic error to prevent enumeration
-      // Returns 401 Unauthorized (same as wrong password)
-      expect(response.status).toBe(401)
+      expect(response.status()).toBe(401)
 
-      // Response contains generic error message to prevent enumeration
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
-  test.fixme(
-    'API-AUTH-SIGN-IN-EMAIL-007: should returns 200 OK with session token (case-insensitive matching)',
+  test(
+    'API-AUTH-SIGN-IN-EMAIL-007: should returns 200 OK with case-insensitive email matching',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: A registered user with lowercase email
+    async ({ page, startServerWithSchema, signUp }) => {
+      // GIVEN: A registered user with lowercase email (created via API)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
+      // Create user via sign-up API
+      await signUp({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: 'ValidPassword123!',
+      })
 
       // WHEN: User signs in with uppercase email variation
       const response = await page.request.post('/api/auth/sign-in/email', {
@@ -268,35 +238,32 @@ test.describe('Sign in with email and password', () => {
       })
 
       // THEN: Returns 200 OK with session token (case-insensitive matching)
-      // Returns 200 OK despite case difference
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // Response contains session token and user data
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
       expect(data).toHaveProperty('user')
-      expect(data).toHaveProperty('session')
+      expect(data).toHaveProperty('token') // Better Auth returns token, not session
     }
   )
 
-  test.fixme(
-    'API-AUTH-SIGN-IN-EMAIL-008: should returns 200 OK with extended session token',
+  test(
+    'API-AUTH-SIGN-IN-EMAIL-008: should returns 200 OK with rememberMe option',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: A registered user
+    async ({ page, startServerWithSchema, signUp }) => {
+      // GIVEN: A registered user (created via API)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
+      // Create user via sign-up API
+      await signUp({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: 'ValidPassword123!',
+      })
 
       // WHEN: User signs in with rememberMe set to true
       const response = await page.request.post('/api/auth/sign-in/email', {
@@ -308,15 +275,11 @@ test.describe('Sign in with email and password', () => {
       })
 
       // THEN: Returns 200 OK with extended session token
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // Response contains session token with extended expiration
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
       expect(data).toHaveProperty('user')
-      expect(data).toHaveProperty('session')
+      expect(data).toHaveProperty('token') // Better Auth returns token, not session
     }
   )
 
@@ -324,28 +287,50 @@ test.describe('Sign in with email and password', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
-    'API-AUTH-SIGN-IN-EMAIL-009: user can complete full signInEmail workflow',
+  test(
+    'API-AUTH-SIGN-IN-EMAIL-009: user can complete full sign-in workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
-      // GIVEN: Representative test scenario
+    async ({ page, startServerWithSchema, signUp }) => {
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // WHEN: Execute workflow
-      const response = await page.request.post('/api/auth/workflow', {
-        data: { test: true },
+      // Create a user first via sign-up
+      await signUp({
+        name: 'Regression User',
+        email: 'regression@example.com',
+        password: 'SecurePass123!',
       })
 
-      // THEN: Verify integration
-      expect(response.status()).toBe(200)
-      const data = await response.json()
-      expect(data).toMatchObject({ success: true })
+      // WHEN: User signs in with valid credentials
+      const signInResponse = await page.request.post('/api/auth/sign-in/email', {
+        data: {
+          email: 'regression@example.com',
+          password: 'SecurePass123!',
+        },
+      })
+
+      // THEN: Sign-in succeeds
+      expect(signInResponse.status()).toBe(200)
+      const signInData = await signInResponse.json()
+      expect(signInData).toHaveProperty('user')
+      expect(signInData.user.email).toBe('regression@example.com')
+      expect(signInData).toHaveProperty('token')
+
+      // WHEN: User tries to sign in again with wrong password
+      const failedResponse = await page.request.post('/api/auth/sign-in/email', {
+        data: {
+          email: 'regression@example.com',
+          password: 'WrongPassword!',
+        },
+      })
+
+      // THEN: Sign-in fails with 401
+      expect(failedResponse.status()).toBe(401)
     }
   )
 })

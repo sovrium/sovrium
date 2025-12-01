@@ -20,38 +20,53 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Validation Approach:
  * - API response assertions (status codes, response schemas)
- * - Database state validation (executeQuery fixture)
- * - Authentication/authorization checks
+ * - Database state validation via API (no direct executeQuery for auth data)
+ * - Authentication/authorization checks via auth fixtures
+ *
+ * Note: Admin tests require an admin user. Since there's no public API to create
+ * the first admin, these tests assume admin features are properly configured.
  */
 
 test.describe('Admin: Unban user', () => {
   // ============================================================================
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
+  // Note: These tests are marked .fixme() because the admin endpoints
+  // require proper admin user setup which isn't available via public API
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ADMIN-UNBAN-USER-001: should returns 200 OK and removes ban, allowing user to sign in',
+    'API-AUTH-ADMIN-UNBAN-USER-001: should return 200 OK and remove ban',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user and a banned user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['admin'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, banned, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', false, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, banned, ban_reason, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, true, 'Previously banned', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+        name: 'Admin User',
+      })
+      await signUp({
+        email: 'target@example.com',
+        password: 'TargetPass123!',
+        name: 'Target User',
+      })
+
+      await signIn({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+      })
+
+      // Ban the user first
+      await page.request.post('/api/auth/admin/ban-user', {
+        data: { userId: '2', banReason: 'Previously banned' },
+      })
 
       // WHEN: Admin unbans the user
       const response = await page.request.post('/api/auth/admin/unban-user', {
@@ -60,74 +75,54 @@ test.describe('Admin: Unban user', () => {
         },
       })
 
-      // THEN: Returns 200 OK and removes ban, allowing user to sign in
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      // THEN: Returns 200 OK and removes ban
+      expect(response.status()).toBe(200)
 
-      // Response indicates success
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
       expect(data).toHaveProperty('user')
-      expect(data.user.banned).toBe(false)
-
-      // User ban is removed in database
-      const dbRow = await executeQuery('SELECT * FROM users WHERE id = 2 LIMIT 1')
-      expect(dbRow).toBeDefined()
-      expect(dbRow.banned).toBe(false)
-
-      // Ban reason is cleared
-      expect(dbRow.ban_reason).toBeNull()
+      expect(data.user).toHaveProperty('banned', false)
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-UNBAN-USER-002: should returns 400 Bad Request with validation error',
+    'API-AUTH-ADMIN-UNBAN-USER-002: should return 400 Bad Request without userId',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['admin'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits request without userId
-      const response = await page.request.post('/api/auth/admin/unban-user', {})
+      const response = await page.request.post('/api/auth/admin/unban-user', {
+        data: {},
+      })
 
       // THEN: Returns 400 Bad Request with validation error
-      // Returns 400 Bad Request
-      expect(response.status).toBe(400)
+      expect(response.status()).toBe(400)
 
-      // Response contains validation error for userId field
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-UNBAN-USER-003: should returns 401 Unauthorized',
+    'API-AUTH-ADMIN-UNBAN-USER-003: should return 401 Unauthorized without authentication',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: A running server
+      // GIVEN: A running server (no authenticated user)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['admin'],
         },
       })
 
@@ -139,41 +134,37 @@ test.describe('Admin: Unban user', () => {
       })
 
       // THEN: Returns 401 Unauthorized
-      // Returns 401 Unauthorized
-      expect(response.status).toBe(401)
-
-      // Response contains error about missing authentication
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(401)
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-UNBAN-USER-004: should returns 403 Forbidden',
+    'API-AUTH-ADMIN-UNBAN-USER-004: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['admin'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Regular User', true, 'member', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, banned, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Regular User',
+      })
+      await signUp({
+        email: 'target@example.com',
+        password: 'TargetPass123!',
+        name: 'Target User',
+      })
+      await signIn({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+      })
 
       // WHEN: Regular user attempts to unban another user
       const response = await page.request.post('/api/auth/admin/unban-user', {
@@ -183,38 +174,25 @@ test.describe('Admin: Unban user', () => {
       })
 
       // THEN: Returns 403 Forbidden
-      // Returns 403 Forbidden
-      expect(response.status).toBe(403)
-
-      // Response contains error about insufficient permissions
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(403)
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-UNBAN-USER-005: should returns 404 Not Found',
+    'API-AUTH-ADMIN-UNBAN-USER-005: should return 404 Not Found for non-existent user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['admin'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin attempts to unban non-existent user
       const response = await page.request.post('/api/auth/admin/unban-user', {
@@ -224,41 +202,27 @@ test.describe('Admin: Unban user', () => {
       })
 
       // THEN: Returns 404 Not Found
-      // Returns 404 Not Found
-      expect(response.status).toBe(404)
-
-      // Response contains error about user not found
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(404)
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-UNBAN-USER-006: should returns 200 OK (idempotent operation)',
+    'API-AUTH-ADMIN-UNBAN-USER-006: should return 200 OK for already unbanned user (idempotent)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user and an already active user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['admin'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, banned, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', false, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, banned, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, false, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signUp({ email: 'target@example.com', password: 'TargetPass123!', name: 'Target User' })
+
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin unbans already unbanned user
       const response = await page.request.post('/api/auth/admin/unban-user', {
@@ -268,12 +232,11 @@ test.describe('Admin: Unban user', () => {
       })
 
       // THEN: Returns 200 OK (idempotent operation)
-      // Returns 200 OK (idempotent)
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // User remains unbanned
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const data = await response.json()
+      expect(data).toHaveProperty('user')
+      expect(data.user).toHaveProperty('banned', false)
     }
   )
 
@@ -282,27 +245,52 @@ test.describe('Admin: Unban user', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ADMIN-UNBAN-USER-007: user can complete full adminUnbanUser workflow',
+    'API-AUTH-ADMIN-UNBAN-USER-007: admin can complete full unban-user workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
-      // GIVEN: Representative test scenario
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['admin'],
         },
       })
 
-      // WHEN: Execute workflow
-      const response = await page.request.post('/api/auth/workflow', {
-        data: { test: true },
+      // Test 1: Unban without auth fails
+      const noAuthResponse = await page.request.post('/api/auth/admin/unban-user', {
+        data: { userId: '2' },
+      })
+      expect(noAuthResponse.status()).toBe(401)
+
+      // Create admin and regular user
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
+
+      // Test 2: Unban fails for non-admin
+      await signIn({ email: 'user@example.com', password: 'UserPass123!' })
+      const nonAdminResponse = await page.request.post('/api/auth/admin/unban-user', {
+        data: { userId: '1' },
+      })
+      expect(nonAdminResponse.status()).toBe(403)
+
+      // Test 3: Ban and then unban succeeds for admin
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
+
+      // First ban the user
+      await page.request.post('/api/auth/admin/ban-user', {
+        data: { userId: '2' },
       })
 
-      // THEN: Verify integration
-      expect(response.status()).toBe(200)
-      const data = await response.json()
-      expect(data).toMatchObject({ success: true })
+      // Then unban
+      const adminResponse = await page.request.post('/api/auth/admin/unban-user', {
+        data: { userId: '2' },
+      })
+      expect(adminResponse.status()).toBe(200)
+
+      const data = await adminResponse.json()
+      expect(data).toHaveProperty('user')
+      expect(data.user).toHaveProperty('banned', false)
     }
   )
 })

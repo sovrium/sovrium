@@ -20,35 +20,42 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Validation Approach:
  * - API response assertions (status codes, response schemas)
- * - Database state validation (executeQuery fixture)
- * - Authentication/authorization checks
+ * - Database state validation via API (no direct executeQuery for auth data)
+ * - Authentication/authorization checks via auth fixtures
+ *
+ * Note: Admin tests require an admin user. Since there's no public API to create
+ * the first admin, these tests assume admin features are properly configured.
  */
 
 test.describe('Admin: Create user', () => {
   // ============================================================================
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
+  // Note: These tests are marked .fixme() because the admin endpoints
+  // require proper admin user setup which isn't available via public API
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ADMIN-CREATE-USER-001: should returns 201 Created with user data',
+    'API-AUTH-ADMIN-CREATE-USER-001: should return 201 Created with user data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['admin'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+        name: 'Admin User',
+      })
+      await signIn({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+      })
 
       // WHEN: Admin creates a new user with valid data
       const response = await page.request.post('/api/auth/admin/create-user', {
@@ -60,45 +67,32 @@ test.describe('Admin: Create user', () => {
       })
 
       // THEN: Returns 201 Created with user data
-      // Returns 201 Created
-      expect(response.status).toBe(201)
+      expect(response.status()).toBe(201)
 
-      // Response contains created user data
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
       expect(data).toHaveProperty('user')
-
-      // User is created in database with hashed password
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
-
-      // Password is securely hashed (not plain text)
-      expect(dbRow.password_hash).toBeDefined()
-      expect(dbRow.password_hash).not.toBe('SecurePass123!')
+      expect(data.user).toHaveProperty('email', 'newuser@example.com')
+      expect(data.user).toHaveProperty('name', 'New User')
+      // Password should not be exposed
+      expect(data.user).not.toHaveProperty('password')
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-CREATE-USER-002: should returns 201 Created with email pre-verified',
+    'API-AUTH-ADMIN-CREATE-USER-002: should return 201 Created with email pre-verified',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['admin'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin creates user with emailVerified: true
       const response = await page.request.post('/api/auth/admin/create-user', {
@@ -111,72 +105,58 @@ test.describe('Admin: Create user', () => {
       })
 
       // THEN: Returns 201 Created with email pre-verified
-      // Returns 201 Created
-      expect(response.status).toBe(201)
+      expect(response.status()).toBe(201)
 
-      // User email is marked as verified
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const data = await response.json()
+      expect(data).toHaveProperty('user')
+      expect(data.user).toHaveProperty('emailVerified', true)
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-CREATE-USER-003: should returns 400 Bad Request with validation errors',
+    'API-AUTH-ADMIN-CREATE-USER-003: should return 400 Bad Request without required fields',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['admin'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits request without required fields
-      const response = await page.request.post('/api/auth/admin/create-user', {})
+      const response = await page.request.post('/api/auth/admin/create-user', {
+        data: {},
+      })
 
       // THEN: Returns 400 Bad Request with validation errors
-      // Returns 400 Bad Request
-      expect(response.status).toBe(400)
+      expect(response.status()).toBe(400)
 
-      // Response contains validation error for required fields
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-CREATE-USER-004: should returns 400 Bad Request with validation error',
+    'API-AUTH-ADMIN-CREATE-USER-004: should return 400 Bad Request with invalid email format',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['admin'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits request with invalid email format
       const response = await page.request.post('/api/auth/admin/create-user', {
@@ -188,38 +168,28 @@ test.describe('Admin: Create user', () => {
       })
 
       // THEN: Returns 400 Bad Request with validation error
-      // Returns 400 Bad Request
-      expect(response.status).toBe(400)
+      expect(response.status()).toBe(400)
 
-      // Response contains validation error for email format
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-CREATE-USER-005: should returns 400 Bad Request with validation error',
+    'API-AUTH-ADMIN-CREATE-USER-005: should return 400 Bad Request with short password',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['admin'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits request with password shorter than 8 characters
       const response = await page.request.post('/api/auth/admin/create-user', {
@@ -231,28 +201,23 @@ test.describe('Admin: Create user', () => {
       })
 
       // THEN: Returns 400 Bad Request with validation error
-      // Returns 400 Bad Request
-      expect(response.status).toBe(400)
+      expect(response.status()).toBe(400)
 
-      // Response contains validation error for password length
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-CREATE-USER-006: should returns 401 Unauthorized',
+    'API-AUTH-ADMIN-CREATE-USER-006: should return 401 Unauthorized without authentication',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: A running server
+      // GIVEN: A running server (no authenticated user)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['admin'],
         },
       })
 
@@ -266,38 +231,32 @@ test.describe('Admin: Create user', () => {
       })
 
       // THEN: Returns 401 Unauthorized
-      // Returns 401 Unauthorized
-      expect(response.status).toBe(401)
-
-      // Response contains error about missing authentication
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(401)
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-CREATE-USER-007: should returns 403 Forbidden',
+    'API-AUTH-ADMIN-CREATE-USER-007: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['admin'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Regular User', true, 'member', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Regular User',
+      })
+      await signIn({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+      })
 
       // WHEN: Regular user attempts to create user
       const response = await page.request.post('/api/auth/admin/create-user', {
@@ -309,41 +268,31 @@ test.describe('Admin: Create user', () => {
       })
 
       // THEN: Returns 403 Forbidden
-      // Returns 403 Forbidden
-      expect(response.status).toBe(403)
-
-      // Response contains error about insufficient permissions
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(403)
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-CREATE-USER-008: should returns 409 Conflict error',
+    'API-AUTH-ADMIN-CREATE-USER-008: should return 409 Conflict for duplicate email',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['admin'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'existing@example.com', '$2a$10$YourHashedPasswordHere', 'Existing User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signUp({
+        email: 'existing@example.com',
+        password: 'ExistingPass123!',
+        name: 'Existing User',
+      })
+
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin attempts to create user with existing email
       const response = await page.request.post('/api/auth/admin/create-user', {
@@ -354,39 +303,26 @@ test.describe('Admin: Create user', () => {
         },
       })
 
-      // THEN: Returns 409 Conflict error
-      // Returns 409 Conflict
-      expect(response.status).toBe(409)
-
-      // Response contains error about email already in use
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      // THEN: Returns 409 Conflict
+      expect(response.status()).toBe(409)
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-CREATE-USER-009: should returns 201 Created with sanitized name (XSS payload neutralized)',
+    'API-AUTH-ADMIN-CREATE-USER-009: should return 201 Created with XSS payload sanitized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['admin'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits name with XSS payload
       const response = await page.request.post('/api/auth/admin/create-user', {
@@ -397,34 +333,31 @@ test.describe('Admin: Create user', () => {
         },
       })
 
-      // THEN: Returns 201 Created with sanitized name (XSS payload neutralized)
-      // Returns 201 Created
-      expect(response.status).toBe(201)
+      // THEN: Returns 201 Created with sanitized name
+      expect(response.status()).toBe(201)
 
-      // Name is sanitized (no script tags)
+      const data = await response.json()
+      expect(data).toHaveProperty('user')
+      // Name should be sanitized (no script tags)
+      expect(data.user.name).not.toContain('<script>')
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-CREATE-USER-010: should returns 201 Created with Unicode name preserved',
+    'API-AUTH-ADMIN-CREATE-USER-010: should return 201 Created with Unicode name preserved',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['admin'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin creates user with Unicode characters in name
       const response = await page.request.post('/api/auth/admin/create-user', {
@@ -436,10 +369,11 @@ test.describe('Admin: Create user', () => {
       })
 
       // THEN: Returns 201 Created with Unicode name preserved
-      // Returns 201 Created
-      expect(response.status).toBe(201)
+      expect(response.status()).toBe(201)
 
-      // Unicode characters in name are preserved
+      const data = await response.json()
+      expect(data).toHaveProperty('user')
+      expect(data.user.name).toBe('José García 日本語')
     }
   )
 
@@ -448,27 +382,58 @@ test.describe('Admin: Create user', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ADMIN-CREATE-USER-011: user can complete full adminCreateUser workflow',
+    'API-AUTH-ADMIN-CREATE-USER-011: admin can complete full create-user workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
-      // GIVEN: Representative test scenario
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          features: ['admin'],
         },
       })
 
-      // WHEN: Execute workflow
-      const response = await page.request.post('/api/auth/workflow', {
-        data: { test: true },
+      // Test 1: Create user without auth fails
+      const noAuthResponse = await page.request.post('/api/auth/admin/create-user', {
+        data: {
+          email: 'test@example.com',
+          name: 'Test User',
+          password: 'SecurePass123!',
+        },
       })
+      expect(noAuthResponse.status()).toBe(401)
 
-      // THEN: Verify integration
-      expect(response.status()).toBe(200)
-      const data = await response.json()
-      expect(data).toMatchObject({ success: true })
+      // Create admin and regular user
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
+
+      // Test 2: Create user fails for non-admin
+      await signIn({ email: 'user@example.com', password: 'UserPass123!' })
+      const nonAdminResponse = await page.request.post('/api/auth/admin/create-user', {
+        data: {
+          email: 'test@example.com',
+          name: 'Test User',
+          password: 'SecurePass123!',
+        },
+      })
+      expect(nonAdminResponse.status()).toBe(403)
+
+      // Test 3: Create user succeeds for admin
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
+      const adminResponse = await page.request.post('/api/auth/admin/create-user', {
+        data: {
+          email: 'newuser@example.com',
+          name: 'New User',
+          password: 'SecurePass123!',
+          emailVerified: true,
+        },
+      })
+      expect(adminResponse.status()).toBe(201)
+
+      const data = await adminResponse.json()
+      expect(data).toHaveProperty('user')
+      expect(data.user).toHaveProperty('email', 'newuser@example.com')
     }
   )
 })

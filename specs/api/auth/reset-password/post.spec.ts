@@ -20,40 +20,43 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Validation Approach:
  * - API response assertions (status codes, response schemas)
- * - Database state validation (executeQuery fixture)
- * - Authentication/authorization checks
+ * - Database state validation via API (no direct executeQuery for auth data)
+ * - Authentication/authorization checks via auth fixtures
+ *
+ * Note: Better Auth's reset-password endpoint requires a valid token from forget-password.
+ * These tests verify the behavior when calling the endpoint.
  */
 
 test.describe('Reset password', () => {
   // ============================================================================
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
+  // Note: These tests are marked .fixme() because the /api/auth/reset-password
+  // endpoint requires a valid token which can't be easily obtained in tests
   // ============================================================================
+
   test.fixme(
-    'API-AUTH-RESET-PASSWORD-001: should  password is updated',
+    'API-AUTH-RESET-PASSWORD-001: should return 200 OK and update password',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: A user with valid reset token
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$OldPasswordHash', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO password_reset_tokens (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_reset_token', NOW() + INTERVAL '1 hour', NOW())`
-      )
+      await signUp({
+        email: 'test@example.com',
+        password: 'OldPassword123!',
+        name: 'Test User',
+      })
+
+      // Note: In real tests, we'd need to capture the token from the email
+      // For now, this test assumes a valid token is available
 
       // WHEN: User submits valid token and new password
       const response = await page.request.post('/api/auth/reset-password', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
         data: {
           token: 'valid_reset_token',
           newPassword: 'NewSecurePass123!',
@@ -61,90 +64,54 @@ test.describe('Reset password', () => {
       })
 
       // THEN: Returns 200 OK and password is updated
-      // Returns 200 OK
-      // Response indicates success
-      // Password hash is updated in database
-      // Reset token is marked as used
-      // THEN: assertion
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('status', true)
     }
   )
 
   test.fixme(
-    'API-AUTH-RESET-PASSWORD-002: should  request with validation error',
+    'API-AUTH-RESET-PASSWORD-002: should return 400 Bad Request without newPassword',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: A user with valid reset token
+    async ({ page, startServerWithSchema }) => {
+      // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$OldPasswordHash', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO password_reset_tokens (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_reset_token', NOW() + INTERVAL '1 hour', NOW())`
-      )
-
       // WHEN: User submits request without newPassword field
       const response = await page.request.post('/api/auth/reset-password', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
         data: {
           token: 'valid_reset_token',
         },
       })
 
       // THEN: Returns 400 Bad Request with validation error
-      // Returns 400 Bad Request
-      // Response contains validation error for newPassword field
-      expect(response.status).toBe(400)
+      expect(response.status()).toBe(400)
 
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-RESET-PASSWORD-003: should  request with validation error',
+    'API-AUTH-RESET-PASSWORD-003: should return 400 Bad Request with short password',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: A user with valid reset token
+    async ({ page, startServerWithSchema }) => {
+      // GIVEN: A running server
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$OldPasswordHash', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO password_reset_tokens (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_reset_token', NOW() + INTERVAL '1 hour', NOW())`
-      )
-
-      // WHEN: User submits new password shorter than minimum length (8 characters)
+      // WHEN: User submits new password shorter than minimum length
       const response = await page.request.post('/api/auth/reset-password', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
         data: {
           token: 'valid_reset_token',
           newPassword: 'Short1!',
@@ -152,20 +119,15 @@ test.describe('Reset password', () => {
       })
 
       // THEN: Returns 400 Bad Request with validation error
-      // Returns 400 Bad Request
-      // Response contains validation error for password length
-      expect(response.status).toBe(400)
+      expect(response.status()).toBe(400)
 
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-RESET-PASSWORD-004: should  (or 400 depending on better auth version)',
+    'API-AUTH-RESET-PASSWORD-004: should return 401 Unauthorized with invalid token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
@@ -173,15 +135,11 @@ test.describe('Reset password', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: User submits request with invalid token
       const response = await page.request.post('/api/auth/reset-password', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
         data: {
           token: 'invalid_token_abc123',
           newPassword: 'NewSecurePass123!',
@@ -189,42 +147,27 @@ test.describe('Reset password', () => {
       })
 
       // THEN: Returns 401 Unauthorized (or 400 depending on Better Auth version)
-      // Returns 401 or 400 (depending on Better Auth version)
-      // Response contains error about invalid token
+      expect([400, 401]).toContain(response.status())
 
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-RESET-PASSWORD-005: should  (or 400 depending on better auth version)',
+    'API-AUTH-RESET-PASSWORD-005: should return 401 Unauthorized with expired token',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: A user with expired reset token
+    async ({ page, startServerWithSchema }) => {
+      // GIVEN: A running server (token would be expired)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$OldPasswordHash', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO password_reset_tokens (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'expired_token', NOW() - INTERVAL '1 hour', NOW() - INTERVAL '2 hours')`
-      )
-
       // WHEN: User submits request with expired token
       const response = await page.request.post('/api/auth/reset-password', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
         data: {
           token: 'expired_token',
           newPassword: 'NewSecurePass123!',
@@ -232,42 +175,27 @@ test.describe('Reset password', () => {
       })
 
       // THEN: Returns 401 Unauthorized (or 400 depending on Better Auth version)
-      // Returns 401 or 400 (depending on Better Auth version)
-      // Response contains error about expired token
+      expect([400, 401]).toContain(response.status())
 
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-RESET-PASSWORD-006: should  (token already used)',
+    'API-AUTH-RESET-PASSWORD-006: should return 401 Unauthorized with already used token',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: A user who has already used their reset token
+    async ({ page, startServerWithSchema }) => {
+      // GIVEN: A running server (token already used)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$OldPasswordHash', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO password_reset_tokens (id, user_id, token, expires_at, used_at, created_at) VALUES (1, 1, 'used_token', NOW() + INTERVAL '1 hour', NOW() - INTERVAL '5 minutes', NOW())`
-      )
-
       // WHEN: User attempts to reuse the same token
       const response = await page.request.post('/api/auth/reset-password', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
         data: {
           token: 'used_token',
           newPassword: 'NewSecurePass123!',
@@ -275,18 +203,15 @@ test.describe('Reset password', () => {
       })
 
       // THEN: Returns 401 Unauthorized (token already used)
-      // Returns 401 or 400 (token already used)
-      // Response contains error about invalid token
+      expect([400, 401]).toContain(response.status())
 
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-RESET-PASSWORD-007: should  request with validation error',
+    'API-AUTH-RESET-PASSWORD-007: should return 400 Bad Request without token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: A running server
@@ -294,65 +219,44 @@ test.describe('Reset password', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: User submits request without token field
       const response = await page.request.post('/api/auth/reset-password', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
         data: {
           newPassword: 'NewSecurePass123!',
         },
       })
 
       // THEN: Returns 400 Bad Request with validation error
-      // Returns 400 Bad Request
-      // Response contains error about missing token
-      expect(response.status).toBe(400)
+      expect(response.status()).toBe(400)
 
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-RESET-PASSWORD-008: should  all active sessions are revoked',
+    'API-AUTH-RESET-PASSWORD-008: should revoke all sessions after password reset',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: A user with active sessions and valid reset token
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$OldPasswordHash', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO password_reset_tokens (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_reset_token', NOW() + INTERVAL '1 hour', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'session_1', NOW() + INTERVAL '7 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (2, 1, 'session_2', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'test@example.com',
+        password: 'OldPassword123!',
+        name: 'Test User',
+      })
 
       // WHEN: User resets password
       const response = await page.request.post('/api/auth/reset-password', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
         data: {
           token: 'valid_reset_token',
           newPassword: 'NewSecurePass123!',
@@ -360,14 +264,10 @@ test.describe('Reset password', () => {
       })
 
       // THEN: Returns 200 OK and all active sessions are revoked
-      // Returns 200 OK
-      // All user sessions are revoked for security
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('status', true)
     }
   )
 
@@ -376,27 +276,40 @@ test.describe('Reset password', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-RESET-PASSWORD-009: user can complete full Resetpassword workflow',
+    'API-AUTH-RESET-PASSWORD-009: user can complete full reset-password workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
-      // GIVEN: Representative test scenario
+    async ({ page, startServerWithSchema, signUp }) => {
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // WHEN: Execute workflow
-      const response = await page.request.post('/api/auth/workflow', {
-        data: { test: true },
+      // Create user
+      await signUp({
+        email: 'workflow@example.com',
+        password: 'WorkflowPass123!',
+        name: 'Workflow User',
       })
 
-      // THEN: Verify integration
-      expect(response.status()).toBe(200)
-      const data = await response.json()
-      expect(data).toMatchObject({ success: true })
+      // Test 1: Reset without token fails
+      const noTokenResponse = await page.request.post('/api/auth/reset-password', {
+        data: { newPassword: 'NewPass123!' },
+      })
+      expect(noTokenResponse.status()).toBe(400)
+
+      // Test 2: Reset with invalid token fails
+      const invalidTokenResponse = await page.request.post('/api/auth/reset-password', {
+        data: {
+          token: 'invalid_token',
+          newPassword: 'NewPass123!',
+        },
+      })
+      expect([400, 401]).toContain(invalidTokenResponse.status())
+
+      // Note: Full workflow test would require capturing token from email
     }
   )
 })
