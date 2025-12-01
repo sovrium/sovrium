@@ -68,7 +68,7 @@ test.describe('Checkbox Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CHECKBOX-002: should store true/false values correctly when checkbox is checked or unchecked',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -94,7 +94,7 @@ test.describe('Checkbox Field', () => {
 
       const results = await executeQuery('SELECT id, completed FROM tasks ORDER BY id')
       // THEN: assertion
-      expect(results).toEqual([
+      expect(results.rows).toEqual([
         { id: 1, completed: true },
         { id: 2, completed: false },
         { id: 3, completed: null },
