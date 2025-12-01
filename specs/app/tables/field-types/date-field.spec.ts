@@ -66,7 +66,7 @@ test.describe('Date Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DATE-002: should store date values without time component',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -92,7 +92,7 @@ test.describe('Date Field', () => {
 
       const results = await executeQuery('SELECT event_date FROM events ORDER BY event_date')
       // THEN: assertion
-      expect(results).toEqual([{ event_date: '2024-01-01' }, { event_date: '2024-12-31' }])
+      expect(results.rows).toEqual([{ event_date: '2024-01-01' }, { event_date: '2024-12-31' }])
     }
   )
 
