@@ -33,7 +33,7 @@ test.describe('Multiple Attachments Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-002: should store array of file metadata objects',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

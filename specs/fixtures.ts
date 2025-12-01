@@ -608,6 +608,24 @@ export const test = base.extend<ServerFixtures>({
       // Keep as string for test assertions to match expected format
       types.setTypeParser(600 as any, (val: string) => val)
 
+      // Parse JSONB conditionally based on query context
+      // PostgreSQL JSONB type (OID 3802) behavior:
+      // - Full JSONB columns: parse to JavaScript objects/arrays (test JSON-001)
+      // - -> operator results: keep as JSON string with quotes (test JSON-002)
+      // - ->> operator results: returns TEXT type, not JSONB (no parser needed)
+      const queryStr = typeof query === 'string' ? query : query.join(' ')
+      const hasArrowOperator = /->(?!>)/.test(queryStr) // Matches -> but not ->>
+
+      if (hasArrowOperator) {
+        // Query uses -> operator - preserve JSON string representation
+        // Example: SELECT config -> 'theme' returns JSONB '"dark"' (keep as string)
+        types.setTypeParser(types.builtins.JSONB, (val: string) => val)
+      } else {
+        // Query accesses full JSONB columns - parse to JavaScript values
+        // Example: SELECT metadata returns JSONB '{"color": "red"}' (parse to {color: 'red'})
+        types.setTypeParser(types.builtins.JSONB, (val: string) => JSON.parse(val))
+      }
+
       // Get test database name from startServerWithSchema fixture
       const testDbName = (testInfo as any)._testDatabaseName
       if (!testDbName) {

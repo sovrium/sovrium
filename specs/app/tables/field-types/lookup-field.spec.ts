@@ -66,29 +66,33 @@ test.describe('Lookup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-LOOKUP-002: should support multiple lookup fields through same relationship',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
+      // Initialize server with minimal schema to enable database access
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [],
+      })
+
       // GIVEN: table configuration
       await executeQuery([
-        'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), department VARCHAR(100))',
-        "INSERT INTO users (name, email, department) VALUES ('John Doe', 'john@company.com', 'Engineering')",
-        'CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), assigned_to INTEGER REFERENCES users(id))',
+        'CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255), department VARCHAR(100))',
+        "INSERT INTO employees (name, email, department) VALUES ('John Doe', 'john@company.com', 'Engineering')",
+        'CREATE TABLE tasks (id SERIAL PRIMARY KEY, title VARCHAR(255), assigned_to INTEGER REFERENCES employees(id))',
         "INSERT INTO tasks (title, assigned_to) VALUES ('Fix bug', 1), ('Write docs', 1)",
       ])
 
       // WHEN: executing query
       const multipleLookups = await executeQuery(
-        'SELECT t.id, u.name as assignee_name, u.email as assignee_email, u.department as assignee_department FROM tasks t JOIN users u ON t.assigned_to = u.id WHERE t.id = 1'
+        'SELECT t.id, e.name as assignee_name, e.email as assignee_email, e.department as assignee_department FROM tasks t JOIN employees e ON t.assigned_to = e.id WHERE t.id = 1'
       )
       // THEN: assertion
-      expect(multipleLookups).toEqual({
-        id: 1,
-        assignee_name: 'John Doe',
-        assignee_email: 'john@company.com',
-        assignee_department: 'Engineering',
-      })
+      expect(multipleLookups.id).toBe(1)
+      expect(multipleLookups.assignee_name).toBe('John Doe')
+      expect(multipleLookups.assignee_email).toBe('john@company.com')
+      expect(multipleLookups.assignee_department).toBe('Engineering')
     }
   )
 
