@@ -547,9 +547,10 @@ test.describe('Database Indexes', () => {
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with text search index using GIN (for full-text search)
       // WHEN: index is created with to_tsvector
+      // Initialize database for raw SQL testing
       await startServerWithSchema({
         name: 'test-app',
-        tables: [],
+        tables: [], // No app tables needed - testing raw PostgreSQL GIN functionality
       })
 
       await executeQuery(
