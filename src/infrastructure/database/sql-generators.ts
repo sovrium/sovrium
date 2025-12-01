@@ -396,6 +396,17 @@ const generateBarcodeConstraints = (fields: readonly Fields[number][]): readonly
     .filter((constraint) => constraint !== '')
 
 /**
+ * Generate CHECK constraints for color fields with hex color format validation
+ */
+const generateColorConstraints = (fields: readonly Fields[number][]): readonly string[] =>
+  fields
+    .filter((field): field is Fields[number] & { type: 'color' } => field.type === 'color')
+    .map((field) => {
+      const constraintName = `check_${field.name}_format`
+      return `CONSTRAINT ${constraintName} CHECK (${field.name} ~ '^#[0-9a-fA-F]{6}$')`
+    })
+
+/**
  * Generate UNIQUE constraints for fields with unique property
  */
 export const generateUniqueConstraints = (
@@ -458,6 +469,7 @@ export const generateTableConstraints = (table: Table): readonly string[] => [
   ...generateStatusConstraints(table.fields),
   ...generateRichTextConstraints(table.fields),
   ...generateBarcodeConstraints(table.fields),
+  ...generateColorConstraints(table.fields),
   ...generateUniqueConstraints(table.name, table.fields),
   ...generateForeignKeyConstraints(table.name, table.fields),
   ...generatePrimaryKeyConstraint(table),
