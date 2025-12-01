@@ -121,7 +121,7 @@ test.describe('User Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-USER-003: should support multiple user assignments via junction table',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -225,7 +225,7 @@ test.describe('User Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-USER-005: should create btree index for fast user filtering when indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

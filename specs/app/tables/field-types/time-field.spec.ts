@@ -91,7 +91,7 @@ test.describe('Time Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-TIME-003: should reject NULL value when time field is required',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -125,7 +125,7 @@ test.describe('Time Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-TIME-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -154,7 +154,7 @@ test.describe('Time Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-TIME-005: should create btree index for fast queries when time field has indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -189,7 +189,7 @@ test.describe('Time Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-TIME-006: user can complete full time-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

@@ -91,7 +91,7 @@ test.describe('Rich Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RICH-TEXT-003: should support full-text search with GIN index',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -127,7 +127,7 @@ test.describe('Rich Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RICH-TEXT-004: should enable full-text search with to_tsvector and to_tsquery',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -164,7 +164,7 @@ test.describe('Rich Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RICH-TEXT-005: should enforce NOT NULL and UNIQUE constraints',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -204,7 +204,7 @@ test.describe('Rich Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RICH-TEXT-006: user can complete full rich-text-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

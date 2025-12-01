@@ -102,7 +102,7 @@ test.describe('Checkbox Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CHECKBOX-003: should reject NULL value when checkbox field is required',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -143,7 +143,7 @@ test.describe('Checkbox Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CHECKBOX-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -222,7 +222,7 @@ test.describe('Checkbox Field', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CHECKBOX-006: user can complete full checkbox-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

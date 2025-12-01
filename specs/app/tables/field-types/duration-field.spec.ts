@@ -89,7 +89,7 @@ test.describe('Duration Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DURATION-003: should reject NULL value when duration field is required',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -123,7 +123,7 @@ test.describe('Duration Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DURATION-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -152,7 +152,7 @@ test.describe('Duration Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DURATION-005: should create btree index for fast queries when duration field has indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -187,7 +187,7 @@ test.describe('Duration Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DURATION-006: user can complete full duration-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

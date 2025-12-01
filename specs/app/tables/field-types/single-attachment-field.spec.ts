@@ -60,7 +60,7 @@ test.describe('Single Attachment Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-003: should enforce file type validation via CHECK constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -90,7 +90,7 @@ test.describe('Single Attachment Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-004: should enforce file size limit via CHECK constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -113,7 +113,7 @@ test.describe('Single Attachment Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-005: should support NULL for optional attachments',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -138,7 +138,7 @@ test.describe('Single Attachment Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-006: user can complete full single-attachment-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

@@ -54,7 +54,7 @@ test.describe('Barcode Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-BARCODE-003: should store valid barcode values',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -78,7 +78,7 @@ test.describe('Barcode Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-BARCODE-004: should enforce UNIQUE constraint for barcode uniqueness',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -102,7 +102,7 @@ test.describe('Barcode Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-BARCODE-005: should create index on barcode for fast lookups',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -126,7 +126,7 @@ test.describe('Barcode Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-BARCODE-006: user can complete full barcode-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

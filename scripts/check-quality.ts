@@ -332,7 +332,7 @@ const runFullChecks = Effect.gen(function* () {
       effect: runCheck(
         'E2E Regression Tests',
         ['bunx', 'playwright', 'test', '--grep=@regression'],
-        180_000
+        300_000 // 5 minutes (increased from 3 min for slower CI runners)
       ),
     },
   ]

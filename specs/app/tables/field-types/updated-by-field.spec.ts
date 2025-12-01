@@ -253,7 +253,7 @@ test.describe('Updated By Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-UPDATED-BY-005: should create btree index for fast editor filtering when indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

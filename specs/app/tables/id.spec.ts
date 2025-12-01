@@ -29,7 +29,7 @@ test.describe('Table ID', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-ID-001: should validate as unique identifier',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -58,7 +58,7 @@ test.describe('Table ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-ID-002: should accept conventional table identifiers',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -116,7 +116,7 @@ test.describe('Table ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-ID-004: should accept UUID as identifier',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -145,7 +145,7 @@ test.describe('Table ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-ID-005: should accept simple string identifiers',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -174,7 +174,7 @@ test.describe('Table ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-ID-006: should ensure uniqueness across all tables in application',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {

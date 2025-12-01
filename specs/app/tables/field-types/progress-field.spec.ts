@@ -96,7 +96,7 @@ test.describe('Progress Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-PROGRESS-003: user can complete full progress-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

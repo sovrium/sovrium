@@ -90,7 +90,7 @@ test.describe('Multiple Attachments Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-004: should support querying by attachment properties',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -117,7 +117,7 @@ test.describe('Multiple Attachments Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-005: should create GIN index for efficient JSON queries',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -149,7 +149,7 @@ test.describe('Multiple Attachments Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-006: user can complete full multiple-attachments-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

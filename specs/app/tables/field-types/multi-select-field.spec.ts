@@ -106,7 +106,7 @@ test.describe('Multi Select Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-MULTI-SELECT-003: should reject NULL value when multi-select field is required',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -146,7 +146,7 @@ test.describe('Multi Select Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-MULTI-SELECT-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -181,7 +181,7 @@ test.describe('Multi Select Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-MULTI-SELECT-005: should create GIN index for fast array queries when multi-select field has indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -217,7 +217,7 @@ test.describe('Multi Select Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-MULTI-SELECT-006: user can complete full multi-select-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

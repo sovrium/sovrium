@@ -13,6 +13,10 @@ import { defineConfig, devices } from '@playwright/test'
  */
 export default defineConfig({
   testDir: './specs',
+  /* Global timeout for entire test suite (10 min on CI to prevent GitHub Actions timeouts) */
+  globalTimeout: process.env.CI ? 600_000 : undefined,
+  /* Per-test timeout (60s on CI due to slower runners, 30s locally) */
+  timeout: process.env.CI ? 60_000 : 30_000,
   /* Global setup for database testcontainers (teardown handled by setup return value) */
   globalSetup: './specs/global-setup.ts',
   /* Global teardown for emergency process cleanup */

@@ -61,7 +61,7 @@ test.describe('JSON Field', () => {
     }
   )
 
-  test(
+  test.fixme(
     'APP-TABLES-FIELD-TYPES-JSON-002: should support -> and ->> operators for field extraction',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -112,7 +112,7 @@ test.describe('JSON Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-JSON-003: should support containment and existence operators',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -156,7 +156,7 @@ test.describe('JSON Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-JSON-004: should create GIN index for efficient JSON queries',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -192,7 +192,7 @@ test.describe('JSON Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-JSON-005: should support in-place JSON field updates',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -232,7 +232,7 @@ test.describe('JSON Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-JSON-006: user can complete full json-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

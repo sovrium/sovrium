@@ -76,7 +76,7 @@ test.describe('Button Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-BUTTON-003: should trigger server-side action on button click',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -117,7 +117,7 @@ test.describe('Button Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-BUTTON-004: should support conditional button visibility based on record state',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -157,7 +157,7 @@ test.describe('Button Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-BUTTON-005: should log button action execution in audit trail',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -191,7 +191,7 @@ test.describe('Button Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-BUTTON-006: user can complete full button-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

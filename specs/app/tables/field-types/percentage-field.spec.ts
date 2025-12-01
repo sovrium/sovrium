@@ -102,7 +102,7 @@ test.describe('Percentage Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-PERCENTAGE-003: should enforce NOT NULL and UNIQUE constraints when percentage field is required and unique',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -151,7 +151,7 @@ test.describe('Percentage Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-PERCENTAGE-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -230,7 +230,7 @@ test.describe('Percentage Field', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-PERCENTAGE-006: user can complete full percentage-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

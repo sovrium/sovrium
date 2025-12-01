@@ -78,7 +78,7 @@ test.describe('Color Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-COLOR-004: should support NULL for optional colors',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -102,7 +102,7 @@ test.describe('Color Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-COLOR-005: should require NOT NULL when color is required',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -124,7 +124,7 @@ test.describe('Color Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-COLOR-006: user can complete full color-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
