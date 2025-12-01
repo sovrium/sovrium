@@ -179,7 +179,7 @@ test.describe('Checkbox Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CHECKBOX-005: should create btree index for fast queries when checkbox field has indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -211,10 +211,8 @@ test.describe('Checkbox Field', () => {
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_posts_published'"
       )
       // THEN: assertion
-      expect(indexExists).toEqual({
-        indexname: 'idx_posts_published',
-        tablename: 'posts',
-      })
+      expect(indexExists.indexname).toBe('idx_posts_published')
+      expect(indexExists.tablename).toBe('posts')
     }
   )
 
