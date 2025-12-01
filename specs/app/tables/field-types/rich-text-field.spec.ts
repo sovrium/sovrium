@@ -61,7 +61,7 @@ test.describe('Rich Text Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RICH-TEXT-002: should enforce maximum length via CHECK constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
