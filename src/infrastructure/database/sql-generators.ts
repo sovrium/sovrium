@@ -348,7 +348,6 @@ const generateStatusConstraints = (fields: readonly Fields[number][]): readonly 
     )
     .map(generateEnumCheckConstraint)
 
-
 /**
  * Generate CHECK constraints for rich-text fields with maxLength
  */
@@ -427,12 +426,10 @@ const generateForeignKeyConstraints = (
   fields: readonly Fields[number][]
 ): readonly string[] => {
   // Generate foreign keys for user fields (type: 'user')
-  const userFieldConstraints = fields
-    .filter(isUserField)
-    .map((field) => {
-      const constraintName = `${tableName}_${field.name}_fkey`
-      return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES public.users(id)`
-    })
+  const userFieldConstraints = fields.filter(isUserField).map((field) => {
+    const constraintName = `${tableName}_${field.name}_fkey`
+    return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES public.users(id)`
+  })
 
   // TODO: Re-enable foreign keys for created-by/updated-by fields
   // Currently disabled due to PostgreSQL transaction visibility issue
