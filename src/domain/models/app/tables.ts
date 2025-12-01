@@ -5,21 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { ParseResult, Schema } from 'effect'
+import { Schema } from 'effect'
 import { TableSchema } from '@/domain/models/app/table'
-import type { Table } from '@/domain/models/app/table'
-
-// Input schema for tables (id is optional)
-const TableInputSchema = Schema.Struct({
-  id: Schema.optional(Schema.Number),
-  name: Schema.String,
-  fields: Schema.Array(Schema.Any), // Simplified for input
-  primaryKey: Schema.optional(Schema.Any),
-  uniqueConstraints: Schema.optional(Schema.Any),
-  indexes: Schema.optional(Schema.Any),
-  views: Schema.optional(Schema.Any),
-  permissions: Schema.optional(Schema.Any),
-})
 
 /**
  * Auto-generate table IDs for tables that don't have one
