@@ -54,7 +54,7 @@ test.describe('Color Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-COLOR-003: should store valid hex color values',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -74,7 +74,7 @@ test.describe('Color Field', () => {
       // WHEN: querying the database
       const colors = await executeQuery('SELECT color FROM palettes ORDER BY id')
       // THEN: assertion
-      expect(colors).toEqual([{ color: '#FF5733' }, { color: '#3498DB' }])
+      expect(colors.rows).toEqual([{ color: '#FF5733' }, { color: '#3498DB' }])
     }
   )
 
