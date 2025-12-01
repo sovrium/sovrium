@@ -24,7 +24,7 @@ test.describe('Unique Field Property', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-UNIQUE-001: should prevent duplicate values when field has unique: true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -72,7 +72,7 @@ test.describe('Unique Field Property', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-UNIQUE-002: should allow duplicate values when field has unique: false (default)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -201,7 +201,7 @@ test.describe('Unique Field Property', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-UNIQUE-005: should allow multiple NULLs when unique field allows NULL values (SQL standard)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

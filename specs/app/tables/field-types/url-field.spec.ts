@@ -65,7 +65,7 @@ test.describe('URL Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-URL-002: should store both protocols correctly when inserting URLs with different protocols',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -107,7 +107,7 @@ test.describe('URL Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-URL-003: should reject duplicate URL when table has url field with unique constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -149,7 +149,7 @@ test.describe('URL Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-URL-004: should reject NULL value when table has required url field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -235,7 +235,7 @@ test.describe('URL Field', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-URL-006: user can complete full url-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

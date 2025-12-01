@@ -81,7 +81,7 @@ test.describe('Unique Constraints', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-UNIQUECONSTRAINTS-002: should allow duplicates without constraint when table has empty array',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

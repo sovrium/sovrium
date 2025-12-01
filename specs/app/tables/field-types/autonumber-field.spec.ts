@@ -85,7 +85,7 @@ test.describe('Autonumber Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-AUTONUMBER-003: should be immutable after creation (no manual updates)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -120,7 +120,7 @@ test.describe('Autonumber Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-AUTONUMBER-004: should always be NOT NULL (automatically generated)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -149,7 +149,7 @@ test.describe('Autonumber Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-AUTONUMBER-005: should create unique index automatically for autonumber field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

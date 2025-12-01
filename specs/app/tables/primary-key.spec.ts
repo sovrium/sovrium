@@ -30,7 +30,7 @@ test.describe('Primary Key', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-PRIMARYKEY-001: should generate sequential INTEGER values automatically with auto-increment primary key',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -151,7 +151,7 @@ test.describe('Primary Key', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-PRIMARYKEY-003: should create PRIMARY KEY constraint on both columns with composite primary key',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -277,7 +277,7 @@ test.describe('Primary Key', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-PRIMARYKEY-005: should automatically create index for primary key constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -333,7 +333,7 @@ test.describe('Primary Key', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-PRIMARYKEY-006: should allow UPDATE but new value must remain unique',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -458,7 +458,7 @@ test.describe('Primary Key', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-PRIMARYKEY-008: should create PRIMARY KEY constraint on all specified columns with 3-column composite key',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -544,7 +544,7 @@ test.describe('Primary Key', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-PRIMARYKEY-009: user can complete full Primary Key workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

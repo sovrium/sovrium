@@ -30,7 +30,7 @@ test.describe('Database Indexes', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-INDEXES-001: should create index for efficient lookups with single-column index on email field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -93,7 +93,7 @@ test.describe('Database Indexes', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-INDEXES-002: should create multi-column index for compound lookups with composite index on (last_name, first_name)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -171,7 +171,7 @@ test.describe('Database Indexes', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-INDEXES-003: should prevent duplicate values in indexed column with UNIQUE index on username field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -246,7 +246,7 @@ test.describe('Database Indexes', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-INDEXES-004: should only create default primary key index when table has no indexes configured',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -304,7 +304,7 @@ test.describe('Database Indexes', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-INDEXES-005: should create all specified indexes independently when table has multiple indexes configured',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -464,7 +464,7 @@ test.describe('Database Indexes', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-INDEXES-007: should enforce uniqueness within each tenant only with partial unique index',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

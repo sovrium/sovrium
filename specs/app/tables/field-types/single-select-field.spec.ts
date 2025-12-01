@@ -63,7 +63,7 @@ test.describe('Single Select Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-SINGLE-SELECT-002: should enforce CHECK constraint to allow only predefined options',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -102,7 +102,7 @@ test.describe('Single Select Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-SINGLE-SELECT-003: should reject NULL value when single-select field is required',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -142,7 +142,7 @@ test.describe('Single Select Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-SINGLE-SELECT-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -177,7 +177,7 @@ test.describe('Single Select Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-SINGLE-SELECT-005: should create btree index for fast queries when single-select field has indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

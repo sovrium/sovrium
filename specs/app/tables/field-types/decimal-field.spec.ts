@@ -102,7 +102,7 @@ test.describe('Decimal Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DECIMAL-003: should enforce NOT NULL and UNIQUE constraints when decimal field is required and unique',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -145,7 +145,7 @@ test.describe('Decimal Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DECIMAL-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -218,7 +218,7 @@ test.describe('Decimal Field', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DECIMAL-006: user can complete full decimal-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

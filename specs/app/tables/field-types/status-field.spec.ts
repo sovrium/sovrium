@@ -73,7 +73,7 @@ test.describe('Status Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-STATUS-002: should reject value not in status options via CHECK constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -123,7 +123,7 @@ test.describe('Status Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-STATUS-003: should enforce NOT NULL and UNIQUE constraints when required/unique',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -181,7 +181,7 @@ test.describe('Status Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-STATUS-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -234,7 +234,7 @@ test.describe('Status Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-STATUS-005: should create btree index for fast status filtering when indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

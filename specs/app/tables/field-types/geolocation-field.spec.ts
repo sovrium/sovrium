@@ -145,7 +145,7 @@ test.describe('Geolocation Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-GEOLOCATION-004: should support bounding box queries with box containment',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -231,7 +231,7 @@ test.describe('Geolocation Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-GEOLOCATION-006: user can complete full geolocation-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

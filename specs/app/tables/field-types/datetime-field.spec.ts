@@ -96,7 +96,7 @@ test.describe('DateTime Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DATETIME-003: should reject NULL value when datetime field is required',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -137,7 +137,7 @@ test.describe('DateTime Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DATETIME-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -216,7 +216,7 @@ test.describe('DateTime Field', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DATETIME-006: user can complete full datetime-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

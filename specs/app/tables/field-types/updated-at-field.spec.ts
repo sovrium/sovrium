@@ -90,7 +90,7 @@ test.describe('Updated At Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-UPDATED-AT-003: should set initial timestamp on creation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -123,7 +123,7 @@ test.describe('Updated At Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-UPDATED-AT-004: should reject NULL values (always required)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -152,7 +152,7 @@ test.describe('Updated At Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-UPDATED-AT-005: should create btree index for fast queries when indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

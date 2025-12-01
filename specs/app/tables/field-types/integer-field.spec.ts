@@ -114,7 +114,7 @@ test.describe('Integer Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-INTEGER-003: should enforce NOT NULL and UNIQUE constraints when integer field is required and unique',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -169,7 +169,7 @@ test.describe('Integer Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-INTEGER-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -256,7 +256,7 @@ test.describe('Integer Field', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-INTEGER-006: user can complete full integer-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

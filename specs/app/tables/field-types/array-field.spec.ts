@@ -106,7 +106,7 @@ test.describe('Array Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-ARRAY-003: should enforce maximum array size via CHECK constraint',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -150,7 +150,7 @@ test.describe('Array Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-ARRAY-004: should create GIN index for efficient array queries',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -194,7 +194,7 @@ test.describe('Array Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-ARRAY-005: should support dynamic array manipulation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -236,7 +236,7 @@ test.describe('Array Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-ARRAY-006: user can complete full array-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

@@ -95,7 +95,7 @@ test.describe('Rating Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RATING-003: should reject NULL value when rating field is required',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -129,7 +129,7 @@ test.describe('Rating Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RATING-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -158,7 +158,7 @@ test.describe('Rating Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RATING-005: should create btree index for fast queries when rating field has indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -187,7 +187,7 @@ test.describe('Rating Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RATING-006: user can complete full rating-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

@@ -126,7 +126,7 @@ test.describe('Created By Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CREATED-BY-003: should enforce immutability via application (no UPDATE trigger)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -246,7 +246,7 @@ test.describe('Created By Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CREATED-BY-005: should create btree index for fast creator filtering when indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {

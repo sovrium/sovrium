@@ -110,7 +110,7 @@ test.describe('Table Name', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-NAME-002: should be used correctly when processing configuration',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -157,7 +157,7 @@ test.describe('Table Name', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-NAME-003: user can complete full Table Name workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {

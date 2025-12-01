@@ -109,7 +109,7 @@ test.describe('Currency Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CURRENCY-003: should enforce NOT NULL and UNIQUE constraints when currency field is required and unique',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -159,7 +159,7 @@ test.describe('Currency Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CURRENCY-004: should apply DEFAULT value when row inserted without providing value',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -239,7 +239,7 @@ test.describe('Currency Field', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CURRENCY-006: user can complete full currency-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
