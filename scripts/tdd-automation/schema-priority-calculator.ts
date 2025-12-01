@@ -128,18 +128,23 @@ function getAlphabeticalIndex(name: string): number {
  * - Level 1 (first feature part): 0-25 * 30000 = 0-750,000
  * - Level 2 (second part): 0-25 * 1000 = 0-25,000
  * - Level 3 (third part): 0-25 * 30 = 0-750
+ * - Level 4 (fourth part - e.g., field type name): 0-25 * 1 = 0-25
  * - Test offset: 1-999
- * Max total: ~777,749 (well under 1,000,000)
+ * Max total: ~777,774 (well under 1,000,000)
+ *
+ * IMPORTANT: This handles deep paths like app/tables/field/types/checkbox
+ * where the actual distinguishing part (checkbox vs json) is at level 4.
  */
 function calculateFeaturePriority(featurePath: string): number {
   const pathParts = featurePath.split('/')
   let priority = 0
 
   // Multipliers for each level (ensure total < 1 million)
-  const multipliers = [30_000, 1000, 30]
+  // Level 4 uses multiplier of 26 to ensure proper separation before test offset
+  const multipliers = [30_000, 1000, 30, 1]
 
   // Skip domain prefix (first part)
-  for (let i = 1; i < pathParts.length && i <= 3; i++) {
+  for (let i = 1; i < pathParts.length && i <= 4; i++) {
     const part = pathParts[i] || ''
     const partValue = getAlphabeticalIndex(part)
     const multiplier = multipliers[i - 1] || 1
