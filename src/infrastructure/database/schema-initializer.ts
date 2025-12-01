@@ -470,6 +470,7 @@ const generateAlterTableStatements = (
 /**
  * Sync unique constraints for existing table
  * Adds named UNIQUE constraints for fields with unique property
+ * Uses PostgreSQL default naming convention: {table}_{column}_key
  */
 /* eslint-disable functional/no-expression-statements, functional/no-loop-statements */
 const syncUniqueConstraints = async (
@@ -481,7 +482,7 @@ const syncUniqueConstraints = async (
   )
 
   for (const fieldName of uniqueFields) {
-    const constraintName = `${table.name}_${fieldName}_unique`
+    const constraintName = `${table.name}_${fieldName}_key`
     // Add constraint if it doesn't exist (using IF NOT EXISTS equivalent)
     await tx.unsafe(`
       DO $$
