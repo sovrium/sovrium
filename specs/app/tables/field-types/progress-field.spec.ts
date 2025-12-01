@@ -57,7 +57,7 @@ test.describe('Progress Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-PROGRESS-002: should enforce 0-100 range constraint for progress values',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
