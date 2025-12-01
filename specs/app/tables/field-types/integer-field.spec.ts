@@ -68,7 +68,7 @@ test.describe('Integer Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-INTEGER-002: should reject values outside min/max range when CHECK constraint enforces range validation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
