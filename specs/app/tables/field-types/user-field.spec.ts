@@ -25,12 +25,6 @@ test.describe('User Field', () => {
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
-      await executeQuery([
-        'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255), email VARCHAR(255))',
-        "INSERT INTO users (name, email) VALUES ('Alice Johnson', 'alice@example.com'), ('Bob Smith', 'bob@example.com')",
-      ])
-
-      // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -46,6 +40,18 @@ test.describe('User Field', () => {
           },
         ],
       })
+
+      // GIVEN: users table exists (created automatically by ensureUsersTable)
+      // Verify table structure first
+      const usersColumns = await executeQuery(
+        "SELECT column_name, data_type, column_default FROM information_schema.columns WHERE table_name='users' ORDER BY ordinal_position"
+      )
+      console.log('Users table structure:', JSON.stringify(usersColumns.rows, null, 2))
+
+      // Insert test user data
+      await executeQuery(
+        "INSERT INTO users (name, email) VALUES ('Alice Johnson', 'alice@example.com'), ('Bob Smith', 'bob@example.com')"
+      )
 
       // WHEN: querying the database
       const columnInfo = await executeQuery(

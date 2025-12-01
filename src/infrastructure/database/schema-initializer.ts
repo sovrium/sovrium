@@ -30,6 +30,10 @@ export class NoDatabaseUrlError extends Data.TaggedError('NoDatabaseUrlError')<{
   readonly message: string
 }> {}
 
+export class BetterAuthUsersTableRequired extends Data.TaggedError('BetterAuthUsersTableRequired')<{
+  readonly message: string
+}> {}
+
 /**
  * Check if field should create a database column
  * Some field types are UI-only and don't need database columns
@@ -535,22 +539,55 @@ const needsUpdatedByTrigger = (tables: readonly Table[]): boolean =>
   tables.some((table) => table.fields.some((field) => field.type === 'updated-by'))
 
 /**
- * Ensure users table exists for foreign key references
- * Creates a minimal users table if it doesn't exist
- * Safe to call even if Better Auth already created the users table
+ * Verify Better Auth users table exists for foreign key references
+ *
+ * User fields (user, created-by, updated-by) require Better Auth's users table.
+ * Better Auth uses TEXT ids, so user fields store TEXT foreign keys.
+ *
+ * @throws BetterAuthUsersTableRequired if users table doesn't exist or lacks required columns
  */
 /* eslint-disable functional/no-expression-statements */
-const ensureUsersTable = async (tx: {
+const ensureBetterAuthUsersTable = async (tx: {
   unsafe: (sql: string) => Promise<unknown>
 }): Promise<void> => {
-  // Create users table if it doesn't exist
-  // Explicitly specify public schema to avoid search path issues
-  await tx.unsafe(`
-    CREATE TABLE IF NOT EXISTS public.users (
-      id SERIAL PRIMARY KEY,
-      name VARCHAR(255)
-    )
-  `)
+  console.log('[ensureBetterAuthUsersTable] Verifying Better Auth users table exists...')
+
+  // Check if users table exists
+  const tableExistsResult = (await tx.unsafe(`
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'users'
+    ) as exists
+  `)) as readonly { exists: boolean }[]
+
+  if (!tableExistsResult[0]?.exists) {
+    throw new BetterAuthUsersTableRequired({
+      message:
+        'User fields require Better Auth users table. Please configure Better Auth authentication before using user, created-by, or updated-by field types.',
+    })
+  }
+
+  // Verify Better Auth schema (TEXT id column)
+  const idColumnResult = (await tx.unsafe(`
+    SELECT data_type FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'id'
+  `)) as readonly { data_type: string }[]
+
+  if (!idColumnResult[0]) {
+    throw new BetterAuthUsersTableRequired({
+      message:
+        'Users table exists but lacks id column. Please ensure Better Auth is properly configured.',
+    })
+  }
+
+  const idType = idColumnResult[0].data_type.toLowerCase()
+  if (idType !== 'text' && idType !== 'character varying') {
+    throw new BetterAuthUsersTableRequired({
+      message: `Users table has incompatible id column type '${idType}'. Better Auth uses TEXT ids. Please configure Better Auth authentication.`,
+    })
+  }
+
+  console.log('[ensureBetterAuthUsersTable] Better Auth users table verified successfully')
 }
 /* eslint-enable functional/no-expression-statements */
 
@@ -609,9 +646,15 @@ const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]):
 
   try {
     await db.begin(async (tx) => {
-      // Step 0: Ensure users table exists if any table needs it for foreign keys
-      if (needsUsersTable(tables)) {
-        await ensureUsersTable(tx)
+      // Step 0: Verify Better Auth users table exists if any table needs it for foreign keys
+      console.log('[executeSchemaInit] Checking if Better Auth users table is needed...')
+      const needs = needsUsersTable(tables)
+      console.log('[executeSchemaInit] needsUsersTable:', needs)
+      if (needs) {
+        console.log('[executeSchemaInit] Better Auth users table is needed, verifying it exists...')
+        await ensureBetterAuthUsersTable(tx)
+      } else {
+        console.log('[executeSchemaInit] Better Auth users table not needed')
       }
 
       // Step 0.1: Ensure updated-by trigger function exists if any table needs it
@@ -644,7 +687,7 @@ const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]):
 /**
  * Error type union for schema initialization
  */
-export type SchemaError = SchemaInitializationError | NoDatabaseUrlError
+export type SchemaError = SchemaInitializationError | NoDatabaseUrlError | BetterAuthUsersTableRequired
 
 /**
  * Initialize database schema from app configuration (internal with error handling)
@@ -664,6 +707,9 @@ const initializeSchemaInternal = (
   app: App
 ): Effect.Effect<void, SchemaError | ConfigError.ConfigError> =>
   Effect.gen(function* () {
+    console.log('[initializeSchemaInternal] Starting schema initialization...')
+    console.log('[initializeSchemaInternal] App tables count:', app.tables?.length || 0)
+
     // Skip if no tables defined
     if (!app.tables || app.tables.length === 0) {
       yield* Console.log('No tables defined, skipping schema initialization')
@@ -672,6 +718,7 @@ const initializeSchemaInternal = (
 
     // Get database URL from Effect Config (reads from environment)
     const databaseUrlConfig = yield* Config.string('DATABASE_URL').pipe(Config.withDefault(''))
+    console.log('[initializeSchemaInternal] DATABASE_URL:', databaseUrlConfig ? 'present' : 'missing')
 
     // Skip if no DATABASE_URL configured
     if (!databaseUrlConfig) {

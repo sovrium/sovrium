@@ -44,11 +44,11 @@ const fieldTypeToPostgresMap: Record<string, string> = {
   lookup: 'TEXT',
   rollup: 'TEXT',
   formula: 'TEXT',
-  user: 'INTEGER',
-  'created-by': 'INTEGER',
-  'updated-by': 'INTEGER',
-  'created-at': 'TIMESTAMPTZ',
-  'updated-at': 'TIMESTAMPTZ',
+  user: 'TEXT',
+  'created-by': 'TEXT',
+  'updated-by': 'TEXT',
+  'created-at': 'TIMESTAMP',
+  'updated-at': 'TIMESTAMP',
   button: 'TEXT',
 }
 
@@ -175,9 +175,9 @@ const formatSpecialDefault = (field: Fields[number], defaultValue: unknown): str
  * Generate DEFAULT clause
  */
 const generateDefaultClause = (field: Fields[number]): string => {
-  // Auto-timestamp fields get NOW() default (PostgreSQL function for current timestamp)
+  // Auto-timestamp fields get CURRENT_TIMESTAMP default (PostgreSQL function for current timestamp)
   if (isAutoTimestampField(field)) {
-    return ' DEFAULT NOW()'
+    return ' DEFAULT CURRENT_TIMESTAMP'
   }
 
   // Explicit default values
