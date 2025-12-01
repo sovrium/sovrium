@@ -159,7 +159,7 @@ test.describe('Unique Field Property', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-UNIQUE-004: should automatically create index for efficient lookups when UNIQUE constraint is added',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
