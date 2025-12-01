@@ -62,7 +62,7 @@ test.describe('Currency Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CURRENCY-002: should reject values outside min/max range when CHECK constraint enforces range validation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
