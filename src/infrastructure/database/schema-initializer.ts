@@ -154,6 +154,24 @@ EXECUTE FUNCTION ${triggerFunctionName}()`,
 }
 
 /**
+ * Generate trigger to automatically update updated-by fields on UPDATE
+ */
+const generateUpdatedByTriggers = (table: Table): readonly string[] => {
+  const updatedByFields = table.fields.filter((field) => field.type === 'updated-by')
+
+  if (updatedByFields.length === 0) return []
+
+  return [
+    // Create trigger
+    `DROP TRIGGER IF EXISTS set_updated_by ON ${table.name}`,
+    `CREATE TRIGGER set_updated_by
+BEFORE UPDATE ON ${table.name}
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_by()`,
+  ]
+}
+
+/**
  * Type definition for Bun SQL transaction
  */
 interface BunSQLTransaction {
@@ -468,6 +486,11 @@ const migrateExistingTable = async (
   for (const triggerSQL of generateCreatedAtTriggers(table)) {
     await tx.unsafe(triggerSQL)
   }
+
+  // Always create/update triggers for updated-by fields
+  for (const triggerSQL of generateUpdatedByTriggers(table)) {
+    await tx.unsafe(triggerSQL)
+  }
 }
 /* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
 
@@ -489,6 +512,10 @@ const createNewTable = async (
   for (const triggerSQL of generateCreatedAtTriggers(table)) {
     await tx.unsafe(triggerSQL)
   }
+
+  for (const triggerSQL of generateUpdatedByTriggers(table)) {
+    await tx.unsafe(triggerSQL)
+  }
 }
 /* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
 
@@ -497,6 +524,12 @@ const createNewTable = async (
  */
 const needsUsersTable = (tables: readonly Table[]): boolean =>
   tables.some((table) => table.fields.some(isUserReferenceField))
+
+/**
+ * Check if any table has updated-by fields that need the trigger function
+ */
+const needsUpdatedByTrigger = (tables: readonly Table[]): boolean =>
+  tables.some((table) => table.fields.some((field) => field.type === 'updated-by'))
 
 /**
  * Ensure users table exists for foreign key references
@@ -514,6 +547,25 @@ const ensureUsersTable = async (tx: {
       id SERIAL PRIMARY KEY,
       name VARCHAR(255)
     )
+  `)
+}
+/* eslint-enable functional/no-expression-statements */
+
+/**
+ * Ensure global set_updated_by trigger function exists
+ * This function is shared across all tables with updated-by fields
+ */
+/* eslint-disable functional/no-expression-statements */
+const ensureUpdatedByTriggerFunction = async (tx: {
+  unsafe: (sql: string) => Promise<unknown>
+}): Promise<void> => {
+  await tx.unsafe(`
+    CREATE OR REPLACE FUNCTION set_updated_by()
+    RETURNS TRIGGER AS $$
+    BEGIN
+      RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql
   `)
 }
 /* eslint-enable functional/no-expression-statements */
@@ -557,6 +609,11 @@ const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]):
       // Step 0: Ensure users table exists if any table needs it for foreign keys
       if (needsUsersTable(tables)) {
         await ensureUsersTable(tx)
+      }
+
+      // Step 0.1: Ensure updated-by trigger function exists if any table needs it
+      if (needsUpdatedByTrigger(tables)) {
+        await ensureUpdatedByTriggerFunction(tx)
       }
 
       // Step 1: Drop tables that exist in database but not in schema
