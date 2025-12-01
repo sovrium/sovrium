@@ -57,7 +57,7 @@ test.describe('Duration Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DURATION-002: should store various duration formats (hours, days, etc)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -85,7 +85,7 @@ test.describe('Duration Field', () => {
       // WHEN: querying the database
       const results = await executeQuery('SELECT estimated_time FROM projects ORDER BY id')
       // THEN: assertion
-      expect(results.length).toBe(3)
+      expect(results.rows.length).toBe(3)
     }
   )
 
