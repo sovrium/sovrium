@@ -33,7 +33,7 @@ test.describe('Single Attachment Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-SINGLE-ATTACHMENT-002: should store file metadata as JSONB',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
