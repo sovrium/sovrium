@@ -63,7 +63,7 @@ test.describe('Single Select Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-SINGLE-SELECT-002: should enforce CHECK constraint to allow only predefined options',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
