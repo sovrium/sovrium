@@ -178,7 +178,7 @@ test.describe('Autonumber Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-AUTONUMBER-006: user can complete full autonumber-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -205,10 +205,10 @@ test.describe('Autonumber Field', () => {
 
       // Verify sequential numbering
       const results = await executeQuery('SELECT auto_field FROM data ORDER BY id')
-      expect(results.length).toBe(5)
+      expect(results.rows.length).toBe(5)
 
-      for (let i = 1; i < results.length; i++) {
-        expect(results[i].auto_field).toBeGreaterThan(results[i - 1].auto_field)
+      for (let i = 1; i < results.rows.length; i++) {
+        expect(results.rows[i].auto_field).toBeGreaterThan(results.rows[i - 1].auto_field)
       }
     }
   )
