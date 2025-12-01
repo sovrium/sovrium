@@ -87,7 +87,7 @@ test.describe('Table ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-ID-003: should allow auto-generated ID (ID is required but can be auto-generated)',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
