@@ -133,26 +133,26 @@ test.describe('JSON Field', () => {
         'INSERT INTO users (preferences) VALUES (\'{"language": "en", "timezone": "UTC"}\'), (\'{"language": "fr", "timezone": "Europe/Paris"}\')'
       )
 
-      // WHEN: querying the database
+      // WHEN: filtering by JSON field value using ->> operator
       const languageFilter = await executeQuery(
         "SELECT COUNT(*) as count FROM users WHERE preferences ->> 'language' = 'en'"
       )
-      // THEN: assertion
-      expect(languageFilter.count).toBe(1)
+      // THEN: one user matches (COUNT returns bigint, coerce to number)
+      expect(Number(languageFilter.count)).toBe(1)
 
-      // WHEN: querying the database
+      // WHEN: checking key existence using ? operator
       const keyExists = await executeQuery(
         "SELECT COUNT(*) as count FROM users WHERE preferences ? 'timezone'"
       )
-      // THEN: assertion
-      expect(keyExists.count).toBe(2)
+      // THEN: both users have timezone key
+      expect(Number(keyExists.count)).toBe(2)
 
-      // WHEN: querying the database
+      // WHEN: using @> containment operator
       const containsOperator = await executeQuery(
         'SELECT COUNT(*) as count FROM users WHERE preferences @> \'{"language": "fr"}\''
       )
-      // THEN: assertion
-      expect(containsOperator.count).toBe(1)
+      // THEN: one user matches containment
+      expect(Number(containsOperator.count)).toBe(1)
     }
   )
 
@@ -267,11 +267,12 @@ test.describe('JSON Field', () => {
       // THEN: assertion
       expect(extracted.key2).toBe('42')
 
+      // WHEN: filtering with @> containment operator
       const filtered = await executeQuery(
         'SELECT COUNT(*) as count FROM data WHERE properties @> \'{"key1": "value1"}\''
       )
-      // THEN: assertion
-      expect(filtered.count).toBe(1)
+      // THEN: one record matches (COUNT returns bigint, coerce to number)
+      expect(Number(filtered.count)).toBe(1)
     }
   )
 })
