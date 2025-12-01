@@ -12,7 +12,9 @@ import { ServerFactory } from '@/application/ports/server-factory'
 import { AppSchema } from '@/domain/models/app'
 import type { ServerInstance } from '@/application/models/server'
 import type { App } from '@/domain/models/app'
+import type { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
 import type { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
+import type { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
 import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
 
 /**
@@ -59,7 +61,11 @@ export const startServer = (
   options: StartOptions = {}
 ): Effect.Effect<
   ServerInstance,
-  AppValidationError | ServerCreationError | CSSCompilationError,
+  | AppValidationError
+  | ServerCreationError
+  | CSSCompilationError
+  | AuthConfigRequiredForUserFields
+  | SchemaInitializationError,
   ServerFactory | PageRenderer
 > =>
   Effect.gen(function* () {
