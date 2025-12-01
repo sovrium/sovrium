@@ -392,7 +392,7 @@ test.describe('Database Indexes', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-INDEXES-006: should optimize ORDER BY and range queries with index on timestamp field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -444,7 +444,7 @@ test.describe('Database Indexes', () => {
         `SELECT COUNT(*) as count FROM events WHERE created_at > '2024-01-01'`
       )
       // THEN: assertion
-      expect(rangeQuery.rows[0]).toMatchObject({ count: 2 })
+      expect(rangeQuery.rows[0]).toMatchObject({ count: 3 })
 
       // ORDER BY uses index for sorting
       const orderBy = await executeQuery(`SELECT name FROM events ORDER BY created_at DESC LIMIT 1`)
