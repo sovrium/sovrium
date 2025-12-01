@@ -40,7 +40,7 @@ test.describe('Button Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-BUTTON-002: should store button action configuration in table metadata',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
