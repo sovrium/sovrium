@@ -21,21 +21,33 @@ const BaseNumericIdSchema = Schema.Int.pipe(
 )
 
 /**
- * Table ID - Numeric identifier for tables
+ * Table ID - Identifier for tables (numeric or string)
  *
  * Unique identifier for tables within an application.
- * Simple positive integer - structural typing provides sufficient type safety.
+ * Accepts positive integers, UUID strings, or simple string identifiers.
+ * If omitted, an ID will be auto-generated during validation.
  *
  * @example
  * ```typescript
- * const table = { id: 1, name: 'users', fields: [] }
+ * // Numeric ID
+ * const table1 = { id: 1, name: 'users', fields: [] }
+ *
+ * // UUID string ID
+ * const table2 = { id: '550e8400-e29b-41d4-a716-446655440000', name: 'orders', fields: [] }
+ *
+ * // Simple string ID
+ * const table3 = { id: 'products', name: 'products', fields: [] }
  * ```
  */
-export const TableIdSchema = BaseNumericIdSchema.pipe(
+export const TableIdSchema = Schema.Union(
+  BaseNumericIdSchema,
+  Schema.String.pipe(Schema.minLength(1))
+).pipe(
   Schema.annotations({
     identifier: 'TableId',
     title: 'Table ID',
-    description: 'Unique identifier for a table. Examples: 1, 2, 100',
+    description:
+      'Unique identifier for a table. Accepts positive integers, UUID strings, or simple string identifiers. Examples: 1, 2, 100, "550e8400-e29b-41d4-a716-446655440000", "products"',
   })
 )
 

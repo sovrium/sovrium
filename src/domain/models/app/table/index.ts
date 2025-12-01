@@ -41,7 +41,7 @@ import { ViewSchema } from './views'
  */
 
 export const TableSchema = Schema.Struct({
-  id: TableIdSchema,
+  id: Schema.optional(TableIdSchema),
   name: NameSchema,
   fields: FieldsSchema,
   primaryKey: Schema.optional(PrimaryKeySchema),
