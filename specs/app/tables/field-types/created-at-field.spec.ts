@@ -21,7 +21,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Created At Field', () => {
   test(
-    'APP-TABLES-FIELD-TYPES-CREATED-AT-001: should create PostgreSQL TIMESTAMPTZ column with DEFAULT NOW()',
+    'APP-TABLES-FIELD-TYPES-CREATED-AT-001: should create PostgreSQL TIMESTAMP column with DEFAULT CURRENT_TIMESTAMP',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -46,8 +46,8 @@ test.describe('Created At Field', () => {
       )
       // THEN: assertion
       expect(columnInfo.data_type).toMatch(/timestamp/)
-      // THEN: assertion
-      expect(columnInfo.column_default).toMatch(/now/)
+      // THEN: assertion (CURRENT_TIMESTAMP is equivalent to now() in PostgreSQL)
+      expect(columnInfo.column_default).toMatch(/now|CURRENT_TIMESTAMP/i)
     }
   )
 

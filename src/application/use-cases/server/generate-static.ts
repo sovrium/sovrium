@@ -20,6 +20,8 @@ import {
 } from '@/application/ports/static-site-generator'
 import { AppSchema } from '@/domain/models/app'
 import type { App, Page } from '@/domain/models/app'
+import type { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
+import type { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
 import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
 import type { FileCopyError } from '@/infrastructure/filesystem/copy-directory'
 import type { Context } from 'effect'
@@ -73,6 +75,7 @@ const isGitHubPagesUrl = (url: string): boolean => {
 /**
  * Generate static files for multi-language configuration
  */
+// eslint-disable-next-line max-lines-per-function -- Complex Effect generator for multi-language static site generation
 const generateMultiLanguageFiles = (
   validatedApp: App,
   outputDir: string,
@@ -82,7 +85,12 @@ const generateMultiLanguageFiles = (
   staticSiteGenerator: StaticSiteGenerator
 ): Effect.Effect<
   readonly string[],
-  AppValidationError | CSSCompilationError | ServerCreationError | SSGGenerationError,
+  | AppValidationError
+  | CSSCompilationError
+  | ServerCreationError
+  | SSGGenerationError
+  | AuthConfigRequiredForUserFields
+  | SchemaInitializationError,
   never
 > =>
   Effect.gen(function* () {
@@ -182,7 +190,11 @@ const generateSingleLanguageFiles = (
   staticSiteGenerator: StaticSiteGenerator
 ): Effect.Effect<
   readonly string[],
-  CSSCompilationError | ServerCreationError | SSGGenerationError,
+  | CSSCompilationError
+  | ServerCreationError
+  | SSGGenerationError
+  | AuthConfigRequiredForUserFields
+  | SchemaInitializationError,
   never
 > =>
   Effect.gen(function* () {
@@ -378,7 +390,9 @@ export const generateStatic = (
   | CSSCompilationError
   | ServerCreationError
   | SSGGenerationError
-  | FileCopyError,
+  | FileCopyError
+  | AuthConfigRequiredForUserFields
+  | SchemaInitializationError,
   ServerFactoryService | PageRendererService | CSSCompilerService | StaticSiteGeneratorService
 > =>
   // eslint-disable-next-line max-lines-per-function, max-statements, complexity -- Complex Effect generator with multiple file generation steps and support file creation

@@ -8,7 +8,11 @@
 import { Console, Effect } from 'effect'
 import { Hono } from 'hono'
 import { compileCSS } from '@/infrastructure/css/compiler'
-import { initializeSchema } from '@/infrastructure/database/schema-initializer'
+import {
+  initializeSchema,
+  type AuthConfigRequiredForUserFields,
+  type SchemaInitializationError,
+} from '@/infrastructure/database/schema-initializer'
 import { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
 import {
   setupAuthMiddleware,
@@ -84,13 +88,25 @@ export function createHonoApp(config: HonoAppConfig): Readonly<Hono> {
 /**
  * Create server stop effect
  */
-function createStopEffect(server: ReturnType<typeof Bun.serve>): Effect.Effect<void, never> {
-  return Effect.gen(function* () {
+const createStopEffect = (server: ReturnType<typeof Bun.serve>): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
     yield* Console.log('Stopping server...')
     yield* Effect.sync(() => server.stop())
     yield* Console.log('Server stopped')
   })
-}
+
+/**
+ * Log server startup information
+ */
+const logServerStartup = (url: string): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    yield* Console.log('✓ Server started successfully!')
+    yield* Console.log(`✓ Homepage: ${url}`)
+    yield* Console.log(`✓ Health check: ${url}/api/health`)
+    yield* Console.log(`✓ API documentation: ${url}/api/scalar`)
+    yield* Console.log(`✓ OpenAPI schema: ${url}/api/openapi.json`)
+    yield* Console.log(`✓ Compiled CSS: ${url}/assets/output.css`)
+  })
 
 /**
  * Creates and starts a Bun server with Hono
@@ -120,7 +136,13 @@ function createStopEffect(server: ReturnType<typeof Bun.serve>): Effect.Effect<v
 // @knip-ignore - Used via dynamic import in StartServer.ts
 export const createServer = (
   config: ServerConfig
-): Effect.Effect<ServerInstance, ServerCreationError | CSSCompilationError> =>
+): Effect.Effect<
+  ServerInstance,
+  | ServerCreationError
+  | CSSCompilationError
+  | AuthConfigRequiredForUserFields
+  | SchemaInitializationError
+> =>
   Effect.gen(function* () {
     const {
       app,
@@ -165,12 +187,7 @@ export const createServer = (
     const url = `http://${hostname}:${actualPort}`
 
     // Log server startup information
-    yield* Console.log('✓ Server started successfully!')
-    yield* Console.log(`✓ Homepage: ${url}`)
-    yield* Console.log(`✓ Health check: ${url}/api/health`)
-    yield* Console.log(`✓ API documentation: ${url}/api/scalar`)
-    yield* Console.log(`✓ OpenAPI schema: ${url}/api/openapi.json`)
-    yield* Console.log(`✓ Compiled CSS: ${url}/assets/output.css`)
+    yield* logServerStartup(url)
 
     // Create stop effect
     const stop = createStopEffect(server)
