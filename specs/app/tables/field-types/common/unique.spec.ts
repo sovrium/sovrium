@@ -323,6 +323,7 @@ test.describe('Unique Field Property', () => {
         "INSERT INTO data (unique_field, non_unique_field) VALUES ('value2', 'duplicate') RETURNING id"
       )
       // THEN: assertion
+      // Note: ID is 3 because failed INSERT consumed sequence value 2 (PostgreSQL behavior)
       expect(validDuplicate.id).toBe(3)
     }
   )
