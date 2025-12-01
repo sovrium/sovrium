@@ -70,10 +70,13 @@ test.describe('Rollup Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-ROLLUP-002: should return COUNT aggregation of related records',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: server with test schema
+      await startServerWithSchema({ name: 'test-app', tables: [] })
+
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE projects (id SERIAL PRIMARY KEY, name VARCHAR(255))',
@@ -87,14 +90,26 @@ test.describe('Rollup Field', () => {
         'SELECT p.id, p.name, COUNT(t.id) as task_count FROM projects p LEFT JOIN tasks t ON p.id = t.project_id WHERE p.id = 1 GROUP BY p.id, p.name'
       )
       // THEN: assertion
-      expect(project1Count).toEqual({ id: 1, name: 'Website Redesign', task_count: 3 })
+      expect(project1Count).toEqual({
+        id: 1,
+        name: 'Website Redesign',
+        task_count: 3,
+        rowCount: 1,
+        rows: [{ id: 1, name: 'Website Redesign', task_count: 3 }],
+      })
 
       // WHEN: executing query
       const project2Count = await executeQuery(
         'SELECT p.id, p.name, COUNT(t.id) as task_count FROM projects p LEFT JOIN tasks t ON p.id = t.project_id WHERE p.id = 2 GROUP BY p.id, p.name'
       )
       // THEN: assertion
-      expect(project2Count).toEqual({ id: 2, name: 'Mobile App', task_count: 1 })
+      expect(project2Count).toEqual({
+        id: 2,
+        name: 'Mobile App',
+        task_count: 1,
+        rowCount: 1,
+        rows: [{ id: 2, name: 'Mobile App', task_count: 1 }],
+      })
 
       // WHEN: executing query
       const emptyProject = await executeQuery(
