@@ -8,7 +8,9 @@
 import { Context } from 'effect'
 import type { ServerInstance } from '@/application/models/server'
 import type { App } from '@/domain/models/app'
+import type { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
 import type { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
+import type { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
 import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
 import type { Effect } from 'effect'
 
@@ -61,10 +63,16 @@ export class ServerFactory extends Context.Tag('ServerFactory')<
      * Creates and starts a server instance
      *
      * @param config - Server configuration with app data and rendering functions
-     * @returns Effect that yields ServerInstance or creation/compilation errors
+     * @returns Effect that yields ServerInstance or creation/compilation/auth config errors
      */
     readonly create: (
       config: ServerFactoryConfig
-    ) => Effect.Effect<ServerInstance, ServerCreationError | CSSCompilationError>
+    ) => Effect.Effect<
+      ServerInstance,
+      | ServerCreationError
+      | CSSCompilationError
+      | AuthConfigRequiredForUserFields
+      | SchemaInitializationError
+    >
   }
 >() {}
