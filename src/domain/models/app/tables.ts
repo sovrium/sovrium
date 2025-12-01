@@ -7,6 +7,19 @@
 
 import { ParseResult, Schema } from 'effect'
 import { TableSchema } from '@/domain/models/app/table'
+import type { Table } from '@/domain/models/app/table'
+
+// Input schema for tables (id is optional)
+const TableInputSchema = Schema.Struct({
+  id: Schema.optional(Schema.Number),
+  name: Schema.String,
+  fields: Schema.Array(Schema.Any), // Simplified for input
+  primaryKey: Schema.optional(Schema.Any),
+  uniqueConstraints: Schema.optional(Schema.Any),
+  indexes: Schema.optional(Schema.Any),
+  views: Schema.optional(Schema.Any),
+  permissions: Schema.optional(Schema.Any),
+})
 
 /**
  * Data Tables
@@ -33,7 +46,7 @@ import { TableSchema } from '@/domain/models/app/table'
  *
  * @see docs/specifications/roadmap/tables.md for full specification
  */
-export const TablesSchema = Schema.Array(TableSchema).pipe(
+export const TablesSchema = Schema.Array(TableInputSchema).pipe(
   // Post-process transformation to ensure unique auto-generated IDs
   Schema.transformOrFail(
     Schema.Array(TableSchema),
@@ -52,7 +65,7 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
             if (table.id !== undefined) {
               return {
                 ...acc,
-                result: [...acc.result, table],
+                result: [...acc.result, table as Table],
               }
             }
 
@@ -64,11 +77,11 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
                 {
                   ...table,
                   id: acc.nextId,
-                },
+                } as Table,
               ],
             }
           },
-          { nextId: maxId + 1, result: [] as typeof tables }
+          { nextId: maxId + 1, result: [] as Table[] }
         )
 
         return ParseResult.succeed(result)
