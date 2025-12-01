@@ -225,8 +225,8 @@ describe('TablesSchema', () => {
   })
 
   describe('Invalid Tables Collections - Invalid Table Items', () => {
-    test('should reject array containing invalid table (missing id)', () => {
-      // GIVEN: An array with a table missing required id field
+    test('should auto-generate ID for table missing id field (APP-TABLES-ID-003)', () => {
+      // GIVEN: An array with a table missing id field
       const tables = [
         {
           name: 'users',
@@ -234,10 +234,14 @@ describe('TablesSchema', () => {
         },
       ]
 
-      // WHEN/THEN: The validation should fail
-      expect(() => {
-        Schema.decodeUnknownSync(TablesSchema)(tables)
-      }).toThrow()
+      // WHEN: The tables array is validated against the schema
+      const result = Schema.decodeUnknownSync(TablesSchema)(tables)
+
+      // THEN: The table should be accepted with auto-generated ID
+      expect(result.length).toBe(1)
+      expect(result[0]!.id).toBeDefined()
+      expect(result[0]!.id).toBe(1) // First auto-generated ID is 1
+      expect(result[0]!.name).toBe('users')
     })
 
     test('should reject array containing invalid table (missing name)', () => {
