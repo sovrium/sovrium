@@ -12,6 +12,7 @@ import { join } from 'node:path'
 import { test as base } from '@playwright/test'
 import { PostgreSqlContainer } from '@testcontainers/postgresql'
 import { DatabaseTemplateManager, generateTestDatabaseName } from './database-utils'
+import { MailpitHelper } from './email-utils'
 import type { App } from '@/domain/models/app'
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql'
 import type { ChildProcess } from 'node:child_process'
@@ -513,6 +514,29 @@ type ServerFixtures = {
     userId: string
     role?: 'admin' | 'member'
   }) => Promise<MembershipResult>
+
+  /**
+   * Mailpit helper for email testing
+   * Provides methods to interact with the Mailpit SMTP server and verify emails.
+   * Each test gets an isolated mailbox (emails cleared at start).
+   *
+   * @example
+   * ```typescript
+   * test('should send welcome email', async ({ mailpit }) => {
+   *   // ... trigger email sending in your app ...
+   *
+   *   // Wait for email to arrive
+   *   const email = await mailpit.waitForEmail(
+   *     (e) => e.To[0].Address === 'user@example.com'
+   *   )
+   *
+   *   // Verify email content
+   *   expect(email.Subject).toBe('Welcome!')
+   *   expect(email.From.Address).toBe('noreply@myapp.com')
+   * })
+   * ```
+   */
+  mailpit: MailpitHelper
 }
 
 /**
@@ -582,7 +606,22 @@ export const test = base.extend<ServerFixtures>({
         ;(testInfo as any)._testDatabaseName = testDbName
       }
 
-      const server = await startCliServer(appSchema, databaseUrl)
+      // Auto-inject default email config when auth is present but email is not
+      // This is required because email config is mandatory when auth is configured
+      const finalSchema =
+        appSchema.auth && !appSchema.email
+          ? {
+              ...appSchema,
+              email: {
+                from: 'test@example.com',
+                host: 'localhost',
+                port: 1025,
+                preview: true,
+              },
+            }
+          : appSchema
+
+      const server = await startCliServer(finalSchema, databaseUrl)
       serverProcess = server.process
       serverUrl = server.url
 
@@ -1142,7 +1181,22 @@ export const test = base.extend<ServerFixtures>({
       }
     )
   },
+
+  // Mailpit fixture: Email testing helper
+  // Provides isolated mailbox for each test (emails cleared at start)
+  mailpit: async ({}, use) => {
+    const mailpit = new MailpitHelper()
+
+    // Clear emails at the start of each test for isolation
+    await mailpit.clearEmails()
+
+    await use(mailpit)
+
+    // Optional: Clear emails after test (not strictly necessary since we clear at start)
+    // await mailpit.clearEmails()
+  },
 })
 
 export { expect } from '@playwright/test'
 export type { Locator } from '@playwright/test'
+export type { MailpitEmail } from './email-utils'

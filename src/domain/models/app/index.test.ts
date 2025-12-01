@@ -750,6 +750,104 @@ describe('AppSchema', () => {
     })
   })
 
+  describe('Auth and Email configuration validation', () => {
+    test('should accept app with auth and email configured', () => {
+      // GIVEN: An app with both auth and email configured
+      const app = {
+        name: 'my-app',
+        auth: {
+          authentication: ['email-and-password'],
+        },
+        email: {
+          from: 'noreply@myapp.com',
+          host: 'smtp.gmail.com',
+          port: 587,
+        },
+      }
+
+      // WHEN: The app is validated against the schema
+      const result = Schema.decodeUnknownSync(AppSchema)(app)
+
+      // THEN: The app should be accepted
+      expect(result.name).toBe('my-app')
+      expect(result.auth).toBeDefined()
+      expect(result.email).toBeDefined()
+    })
+
+    test('should accept app without auth (email not required)', () => {
+      // GIVEN: An app without auth configured
+      const app = {
+        name: 'my-app',
+        version: '1.0.0',
+      }
+
+      // WHEN: The app is validated against the schema
+      const result = Schema.decodeUnknownSync(AppSchema)(app)
+
+      // THEN: The app should be accepted
+      expect(result.name).toBe('my-app')
+      expect(result.auth).toBeUndefined()
+      expect(result.email).toBeUndefined()
+    })
+
+    test('should accept app with email but no auth', () => {
+      // GIVEN: An app with email but no auth configured
+      const app = {
+        name: 'my-app',
+        email: {
+          from: 'noreply@myapp.com',
+          host: 'smtp.gmail.com',
+          port: 587,
+        },
+      }
+
+      // WHEN: The app is validated against the schema
+      const result = Schema.decodeUnknownSync(AppSchema)(app)
+
+      // THEN: The app should be accepted
+      expect(result.name).toBe('my-app')
+      expect(result.auth).toBeUndefined()
+      expect(result.email).toBeDefined()
+    })
+
+    test('should reject app with auth but without email', () => {
+      // GIVEN: An app with auth but without email configured
+      const invalidApp = {
+        name: 'my-app',
+        auth: {
+          authentication: ['email-and-password'],
+        },
+      }
+
+      // WHEN: The app is validated against the schema
+      // THEN: Validation should throw an error
+      expect(() => {
+        Schema.decodeUnknownSync(AppSchema)(invalidApp)
+      }).toThrow()
+    })
+
+    test('should provide helpful error for missing email when auth is enabled', () => {
+      // GIVEN: An app with auth but without email configured
+      const invalidApp = {
+        name: 'my-app',
+        auth: {
+          authentication: ['magic-link'],
+        },
+      }
+
+      // WHEN: The app is validated against the schema
+      try {
+        Schema.decodeUnknownSync(AppSchema)(invalidApp)
+        expect(true).toBe(false) // Should not reach here
+      } catch (error) {
+        // THEN: Error should mention email is required
+        expect(error).toBeInstanceOf(ParseResult.ParseError)
+        const message = String(error)
+        expect(message).toContain('Email configuration is required')
+      }
+    })
+  })
+
   describe('Error messages', () => {
     test('should provide helpful error for missing name', () => {
       // GIVEN: An app without required name field
