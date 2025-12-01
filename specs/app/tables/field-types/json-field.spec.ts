@@ -61,7 +61,7 @@ test.describe('JSON Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-JSON-002: should support -> and ->> operators for field extraction',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -82,25 +82,32 @@ test.describe('JSON Field', () => {
         'INSERT INTO settings (config) VALUES (\'{"theme": "dark", "notifications": {"email": true, "sms": false}}\')'
       )
 
-      // WHEN: querying the database
+      // WHEN: using -> operator (returns JSONB, driver parses to JS value)
       const jsonExtract = await executeQuery(
         "SELECT config -> 'theme' as theme FROM settings WHERE id = 1"
       )
-      // THEN: assertion
-      expect(jsonExtract.theme).toBe('"dark"')
+      // THEN: JSON string scalar is parsed to JS string
+      expect(jsonExtract.theme).toBe('dark')
 
-      // WHEN: querying the database
+      // WHEN: using ->> operator (returns TEXT)
       const textExtract = await executeQuery(
         "SELECT config ->> 'theme' as theme FROM settings WHERE id = 1"
       )
-      // THEN: assertion
+      // THEN: text extraction returns plain string
       expect(textExtract.theme).toBe('dark')
 
-      // WHEN: querying the database
+      // WHEN: using -> to get JSONB object (demonstrates actual -> vs ->> difference)
+      const jsonObject = await executeQuery(
+        "SELECT config -> 'notifications' as notifications FROM settings WHERE id = 1"
+      )
+      // THEN: -> preserves JSONB type, parsed to JS object
+      expect(jsonObject.notifications).toEqual({ email: true, sms: false })
+
+      // WHEN: using chained operators (-> then ->>)
       const nestedExtract = await executeQuery(
         "SELECT config -> 'notifications' ->> 'email' as email_enabled FROM settings WHERE id = 1"
       )
-      // THEN: assertion
+      // THEN: final ->> extracts as text
       expect(nestedExtract.email_enabled).toBe('true')
     }
   )
