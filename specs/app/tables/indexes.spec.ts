@@ -595,7 +595,7 @@ test.describe('Database Indexes', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-INDEXES-009: user can complete full Database Indexes workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -653,7 +653,7 @@ test.describe('Database Indexes', () => {
 
       // 3. Timestamp index supports range queries
       const rangeQuery = await executeQuery(
-        `SELECT COUNT(*) as count FROM users WHERE created_at > '2024-01-01'`
+        `SELECT COUNT(*) as count FROM users WHERE created_at > '2024-01-01 10:00:00'`
       )
       // THEN: assertion
       expect(rangeQuery.rows[0]).toMatchObject({ count: 1 })
