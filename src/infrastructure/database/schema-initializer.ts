@@ -12,6 +12,7 @@ import {
   generateColumnDefinition,
   generateTableConstraints,
   isUserReferenceField,
+  isUserField,
 } from './sql-generators'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/table'
@@ -523,7 +524,9 @@ const createNewTable = async (
  * Check if any table needs the users table for foreign keys
  */
 const needsUsersTable = (tables: readonly Table[]): boolean =>
-  tables.some((table) => table.fields.some(isUserReferenceField))
+  tables.some((table) =>
+    table.fields.some((field) => isUserReferenceField(field) || isUserField(field))
+  )
 
 /**
  * Check if any table has updated-by fields that need the trigger function

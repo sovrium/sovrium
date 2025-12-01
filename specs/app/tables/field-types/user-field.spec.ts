@@ -20,7 +20,7 @@ import { test, expect } from '@/specs/fixtures'
  */
 
 test.describe('User Field', () => {
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-USER-001: should create PostgreSQL INTEGER column with FOREIGN KEY to users',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
