@@ -127,19 +127,31 @@ function getAlphabeticalIndex(name: string): number {
  * Priority values stay under 1 million to fit within domain ranges:
  * - Level 1 (first feature part): 0-25 * 30000 = 0-750,000
  * - Level 2 (second part): 0-25 * 1000 = 0-25,000
- * - Level 3 (third part): 0-25 * 30 = 0-750
+ * - Level 3 (third part): 0-25 * 100 = 0-2,500
+ * - Level 4 (fourth part): 0-25 * 1100 = 0-27,500
+ * - Level 5 (fifth part - for compound names like UPDATED-BY): 0-25 * 40 = 0-1,000
  * - Test offset: 1-999
- * Max total: ~777,749 (well under 1,000,000)
+ * Max total: ~806,999 (well under 1,000,000)
+ *
+ * IMPORTANT:
+ * - Level 4 multiplier (1100) > Level 5 max (1000) prevents priority collisions
+ *   between different L4/L5 combinations (e.g., UPDATED-BY vs LONG-TEXT)
+ * - Level 5 multiplier (40) > test offset max (999/26) ensures all tests within
+ *   a feature complete before the next feature starts
+ *
+ * Example: UPDATED-AT-006 runs before UPDATED-BY-001
  */
 function calculateFeaturePriority(featurePath: string): number {
   const pathParts = featurePath.split('/')
   let priority = 0
 
   // Multipliers for each level (ensure total < 1 million)
-  const multipliers = [30_000, 1000, 30]
+  // Level 4 (1100) > Level 5 max (25*40=1000) to prevent L4/L5 collisions
+  // Level 5 (40) ensures separation > max test offset per letter
+  const multipliers = [30_000, 1000, 100, 1100, 40]
 
   // Skip domain prefix (first part)
-  for (let i = 1; i < pathParts.length && i <= 3; i++) {
+  for (let i = 1; i < pathParts.length && i <= 5; i++) {
     const part = pathParts[i] || ''
     const partValue = getAlphabeticalIndex(part)
     const multiplier = multipliers[i - 1] || 1
