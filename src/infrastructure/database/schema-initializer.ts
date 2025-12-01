@@ -7,6 +7,8 @@
 
 import { SQL } from 'bun'
 import { Config, Effect, Console, Data, type ConfigError } from 'effect'
+import { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
+import { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
 import {
   mapFieldTypeToPostgres,
   generateColumnDefinition,
@@ -18,15 +20,15 @@ import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/table'
 import type { Fields } from '@/domain/models/app/table/fields'
 
-/**
- * Schema initialization error types
- */
-export class SchemaInitializationError extends Data.TaggedError('SchemaInitializationError')<{
-  readonly message: string
-  readonly cause?: unknown
-}> {}
+// Re-export error types for convenience
+export { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
+export { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
 
 export class NoDatabaseUrlError extends Data.TaggedError('NoDatabaseUrlError')<{
+  readonly message: string
+}> {}
+
+export class BetterAuthUsersTableRequired extends Data.TaggedError('BetterAuthUsersTableRequired')<{
   readonly message: string
 }> {}
 
@@ -278,6 +280,20 @@ const getExistingTableNames = async (tx: BunSQLTransaction): Promise<readonly st
 }
 
 /**
+ * Better Auth system tables that should never be dropped
+ * These tables are managed by Better Auth/Drizzle migrations, not by runtime schema
+ */
+const PROTECTED_SYSTEM_TABLES = new Set([
+  'users',
+  'sessions',
+  'accounts',
+  'verifications',
+  'organizations',
+  'members',
+  'invitations',
+])
+
+/**
  * Drop tables that exist in database but are not defined in schema
  *
  * SECURITY NOTE: Table names are validated before reaching this function.
@@ -285,6 +301,7 @@ const getExistingTableNames = async (tx: BunSQLTransaction): Promise<readonly st
  * 1. existingTableNames comes from pg_tables system catalog (trusted source)
  * 2. schemaTableNames comes from validated Effect Schema objects
  * 3. Only tables not in schema are dropped (explicit comparison)
+ * 4. Better Auth system tables are protected and never dropped
  */
 /* eslint-disable functional/no-expression-statements, functional/no-loop-statements */
 const dropObsoleteTables = async (
@@ -293,7 +310,9 @@ const dropObsoleteTables = async (
 ): Promise<void> => {
   const existingTableNames = await getExistingTableNames(tx)
   const schemaTableNames = new Set(tables.map((table) => table.name))
-  const tablesToDrop = existingTableNames.filter((tableName) => !schemaTableNames.has(tableName))
+  const tablesToDrop = existingTableNames.filter(
+    (tableName) => !schemaTableNames.has(tableName) && !PROTECTED_SYSTEM_TABLES.has(tableName)
+  )
 
   for (const tableName of tablesToDrop) {
     await tx.unsafe(`DROP TABLE ${tableName} CASCADE`)
@@ -404,7 +423,7 @@ const generateAlterTableStatements = (
 
   // Generate statements
   const dropStatements = columnsToDrop.map(
-    (columnName) => `ALTER TABLE ${table.name} DROP COLUMN ${columnName}`
+    (columnName) => `ALTER TABLE ${table.name} DROP COLUMN ${columnName} CASCADE`
   )
 
   const addStatements = columnsToAdd.map((field) => {
@@ -535,24 +554,57 @@ const needsUpdatedByTrigger = (tables: readonly Table[]): boolean =>
   tables.some((table) => table.fields.some((field) => field.type === 'updated-by'))
 
 /**
- * Ensure users table exists for foreign key references
- * Creates a minimal users table if it doesn't exist
- * Safe to call even if Better Auth already created the users table
+ * Verify Better Auth users table exists for foreign key references
+ *
+ * User fields (user, created-by, updated-by) require Better Auth's users table.
+ * Better Auth uses TEXT ids, so user fields store TEXT foreign keys.
+ *
+ * @throws BetterAuthUsersTableRequired if users table doesn't exist or lacks required columns
  */
-/* eslint-disable functional/no-expression-statements */
-const ensureUsersTable = async (tx: {
+/* eslint-disable functional/no-throw-statements */
+const ensureBetterAuthUsersTable = async (tx: {
   unsafe: (sql: string) => Promise<unknown>
 }): Promise<void> => {
-  // Create users table if it doesn't exist
-  // Explicitly specify public schema to avoid search path issues
-  await tx.unsafe(`
-    CREATE TABLE IF NOT EXISTS public.users (
-      id SERIAL PRIMARY KEY,
-      name VARCHAR(255)
-    )
-  `)
+  console.log('[ensureBetterAuthUsersTable] Verifying Better Auth users table exists...')
+
+  // Check if users table exists
+  const tableExistsResult = (await tx.unsafe(`
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'users'
+    ) as exists
+  `)) as readonly { exists: boolean }[]
+
+  if (!tableExistsResult[0]?.exists) {
+    throw new BetterAuthUsersTableRequired({
+      message:
+        'User fields require Better Auth users table. Please configure Better Auth authentication before using user, created-by, or updated-by field types.',
+    })
+  }
+
+  // Verify Better Auth schema (TEXT id column)
+  const idColumnResult = (await tx.unsafe(`
+    SELECT data_type FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'id'
+  `)) as readonly { data_type: string }[]
+
+  if (!idColumnResult[0]) {
+    throw new BetterAuthUsersTableRequired({
+      message:
+        'Users table exists but lacks id column. Please ensure Better Auth is properly configured.',
+    })
+  }
+
+  const idType = idColumnResult[0].data_type.toLowerCase()
+  if (idType !== 'text' && idType !== 'character varying') {
+    throw new BetterAuthUsersTableRequired({
+      message: `Users table has incompatible id column type '${idType}'. Better Auth uses TEXT ids. Please configure Better Auth authentication.`,
+    })
+  }
+
+  console.log('[ensureBetterAuthUsersTable] Better Auth users table verified successfully')
 }
-/* eslint-enable functional/no-expression-statements */
+/* eslint-enable functional/no-throw-statements */
 
 /**
  * Ensure global set_updated_by trigger function exists
@@ -609,9 +661,15 @@ const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]):
 
   try {
     await db.begin(async (tx) => {
-      // Step 0: Ensure users table exists if any table needs it for foreign keys
-      if (needsUsersTable(tables)) {
-        await ensureUsersTable(tx)
+      // Step 0: Verify Better Auth users table exists if any table needs it for foreign keys
+      console.log('[executeSchemaInit] Checking if Better Auth users table is needed...')
+      const needs = needsUsersTable(tables)
+      console.log('[executeSchemaInit] needsUsersTable:', needs)
+      if (needs) {
+        console.log('[executeSchemaInit] Better Auth users table is needed, verifying it exists...')
+        await ensureBetterAuthUsersTable(tx)
+      } else {
+        console.log('[executeSchemaInit] Better Auth users table not needed')
       }
 
       // Step 0.1: Ensure updated-by trigger function exists if any table needs it
@@ -644,7 +702,11 @@ const executeSchemaInit = async (databaseUrl: string, tables: readonly Table[]):
 /**
  * Error type union for schema initialization
  */
-export type SchemaError = SchemaInitializationError | NoDatabaseUrlError
+export type SchemaError =
+  | SchemaInitializationError
+  | NoDatabaseUrlError
+  | BetterAuthUsersTableRequired
+  | AuthConfigRequiredForUserFields
 
 /**
  * Initialize database schema from app configuration (internal with error handling)
@@ -664,14 +726,36 @@ const initializeSchemaInternal = (
   app: App
 ): Effect.Effect<void, SchemaError | ConfigError.ConfigError> =>
   Effect.gen(function* () {
+    console.log('[initializeSchemaInternal] Starting schema initialization...')
+    console.log('[initializeSchemaInternal] App tables count:', app.tables?.length || 0)
+
     // Skip if no tables defined
     if (!app.tables || app.tables.length === 0) {
       yield* Console.log('No tables defined, skipping schema initialization')
       return
     }
 
+    // Check if tables require user fields but auth is not configured
+    const tablesNeedUsersTable = needsUsersTable(app.tables)
+    const hasAuthConfig = !!app.auth
+    console.log('[initializeSchemaInternal] Tables need users table:', tablesNeedUsersTable)
+    console.log('[initializeSchemaInternal] Auth config present:', hasAuthConfig)
+
+    if (tablesNeedUsersTable && !hasAuthConfig) {
+      return yield* Effect.fail(
+        new AuthConfigRequiredForUserFields({
+          message:
+            'User fields (user, created-by, updated-by) require auth configuration. Please add auth: { authentication: ["email-and-password"] } to your app schema.',
+        })
+      )
+    }
+
     // Get database URL from Effect Config (reads from environment)
     const databaseUrlConfig = yield* Config.string('DATABASE_URL').pipe(Config.withDefault(''))
+    console.log(
+      '[initializeSchemaInternal] DATABASE_URL:',
+      databaseUrlConfig ? 'present' : 'missing'
+    )
 
     // Skip if no DATABASE_URL configured
     if (!databaseUrlConfig) {
@@ -698,17 +782,33 @@ const initializeSchemaInternal = (
  * Initialize database schema from app configuration
  *
  * Public API that handles errors internally to maintain backward compatibility.
- * Logs errors but doesn't propagate them - schema initialization failures
- * shouldn't prevent server startup (database may be optional).
+ * Configuration errors are propagated, other errors are logged.
+ *
+ * Propagated errors:
+ * - AuthConfigRequiredForUserFields: auth not configured but user fields used
+ * - SchemaInitializationError: schema creation failed (database likely required)
  *
  * @param app - Application configuration with tables
- * @returns Effect that always succeeds (errors logged internally)
+ * @returns Effect that propagates configuration errors but logs optional failures
  */
-export const initializeSchema = (app: App): Effect.Effect<void, never> =>
+export const initializeSchema = (
+  app: App
+): Effect.Effect<void, AuthConfigRequiredForUserFields | SchemaInitializationError> =>
   initializeSchemaInternal(app).pipe(
-    Effect.catchAll((error) =>
-      Console.error(`Error initializing database schema: ${error._tag}`).pipe(
-        Effect.flatMap(() => Effect.void)
-      )
+    Effect.catchAll(
+      (error): Effect.Effect<void, AuthConfigRequiredForUserFields | SchemaInitializationError> => {
+        // Re-throw auth config errors - these are fatal configuration issues
+        if (error instanceof AuthConfigRequiredForUserFields) {
+          return Effect.fail(error)
+        }
+        // Re-throw schema initialization errors - database is required when tables are defined
+        if (error instanceof SchemaInitializationError) {
+          return Effect.fail(error)
+        }
+        // Log other errors but don't fail
+        return Console.error(`Error initializing database schema: ${error._tag}`).pipe(
+          Effect.flatMap(() => Effect.void)
+        )
+      }
     )
   )
