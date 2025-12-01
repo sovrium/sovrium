@@ -423,7 +423,7 @@ const generateAlterTableStatements = (
 
   // Generate statements
   const dropStatements = columnsToDrop.map(
-    (columnName) => `ALTER TABLE ${table.name} DROP COLUMN ${columnName}`
+    (columnName) => `ALTER TABLE ${table.name} DROP COLUMN ${columnName} CASCADE`
   )
 
   const addStatements = columnsToAdd.map((field) => {

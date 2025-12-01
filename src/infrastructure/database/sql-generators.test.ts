@@ -20,7 +20,7 @@ describe('sql-generators', () => {
   describe('isUserReferenceField', () => {
     test('returns true for created-by field', () => {
       // Given
-      
+
       const field = {
         name: 'created_by',
         type: 'created-by',
@@ -35,7 +35,7 @@ describe('sql-generators', () => {
 
     test('returns true for updated-by field', () => {
       // Given
-      
+
       const field = {
         name: 'updated_by',
         type: 'updated-by',
@@ -50,7 +50,7 @@ describe('sql-generators', () => {
 
     test('returns false for user field', () => {
       // Given
-      
+
       const field = {
         name: 'author',
         type: 'user',
@@ -65,12 +65,12 @@ describe('sql-generators', () => {
 
     test('returns false for non-user reference fields', () => {
       // Given
-      
+
       const textField = {
         name: 'title',
         type: 'single-line-text',
       }
-      
+
       const integerField = {
         name: 'count',
         type: 'integer',
@@ -85,7 +85,7 @@ describe('sql-generators', () => {
   describe('isUserField', () => {
     test('returns true for user field', () => {
       // Given
-      
+
       const field = {
         name: 'author',
         type: 'user',
@@ -100,7 +100,7 @@ describe('sql-generators', () => {
 
     test('returns false for created-by field', () => {
       // Given
-      
+
       const field = {
         name: 'created_by',
         type: 'created-by',
@@ -115,7 +115,7 @@ describe('sql-generators', () => {
 
     test('returns false for updated-by field', () => {
       // Given
-      
+
       const field = {
         name: 'updated_by',
         type: 'updated-by',
@@ -130,12 +130,12 @@ describe('sql-generators', () => {
 
     test('returns false for non-user fields', () => {
       // Given
-      
+
       const emailField = {
         name: 'email',
         type: 'email',
       }
-      
+
       const checkboxField = {
         name: 'active',
         type: 'checkbox',
@@ -150,7 +150,7 @@ describe('sql-generators', () => {
   describe('mapFieldTypeToPostgres', () => {
     test('maps integer to INTEGER', () => {
       // Given
-      
+
       const field = {
         name: 'count',
         type: 'integer',
@@ -165,7 +165,7 @@ describe('sql-generators', () => {
 
     test('maps single-line-text to VARCHAR(255)', () => {
       // Given
-      
+
       const field = {
         name: 'title',
         type: 'single-line-text',
@@ -180,7 +180,7 @@ describe('sql-generators', () => {
 
     test('maps long-text to TEXT', () => {
       // Given
-      
+
       const field = {
         name: 'description',
         type: 'long-text',
@@ -195,7 +195,7 @@ describe('sql-generators', () => {
 
     test('maps email to VARCHAR(255)', () => {
       // Given
-      
+
       const field = {
         name: 'email',
         type: 'email',
@@ -210,7 +210,7 @@ describe('sql-generators', () => {
 
     test('maps checkbox to BOOLEAN', () => {
       // Given
-      
+
       const field = {
         name: 'active',
         type: 'checkbox',
@@ -225,7 +225,7 @@ describe('sql-generators', () => {
 
     test('maps date to DATE', () => {
       // Given
-      
+
       const field = {
         name: 'birth_date',
         type: 'date',
@@ -240,7 +240,7 @@ describe('sql-generators', () => {
 
     test('maps datetime to TIMESTAMPTZ', () => {
       // Given
-      
+
       const field = {
         name: 'event_time',
         type: 'datetime',
@@ -255,7 +255,7 @@ describe('sql-generators', () => {
 
     test('maps decimal to DECIMAL', () => {
       // Given
-      
+
       const field = {
         name: 'price',
         type: 'decimal',
@@ -270,7 +270,7 @@ describe('sql-generators', () => {
 
     test('maps decimal with precision to NUMERIC', () => {
       // Given
-      
+
       const field = {
         name: 'price',
         type: 'decimal',
@@ -286,7 +286,7 @@ describe('sql-generators', () => {
 
     test('maps currency with precision to NUMERIC', () => {
       // Given
-      
+
       const field = {
         name: 'amount',
         type: 'currency',
@@ -302,7 +302,7 @@ describe('sql-generators', () => {
 
     test('maps percentage with precision to NUMERIC', () => {
       // Given
-      
+
       const field = {
         name: 'discount',
         type: 'percentage',
@@ -318,7 +318,7 @@ describe('sql-generators', () => {
 
     test('maps user to TEXT', () => {
       // Given
-      
+
       const field = {
         name: 'author',
         type: 'user',
@@ -333,7 +333,7 @@ describe('sql-generators', () => {
 
     test('maps created-by to TEXT', () => {
       // Given
-      
+
       const field = {
         name: 'created_by',
         type: 'created-by',
@@ -348,7 +348,7 @@ describe('sql-generators', () => {
 
     test('maps updated-by to TEXT', () => {
       // Given
-      
+
       const field = {
         name: 'updated_by',
         type: 'updated-by',
@@ -363,7 +363,7 @@ describe('sql-generators', () => {
 
     test('maps json to JSONB', () => {
       // Given
-      
+
       const field = {
         name: 'metadata',
         type: 'json',
@@ -378,7 +378,7 @@ describe('sql-generators', () => {
 
     test('maps multi-select to TEXT[]', () => {
       // Given
-      
+
       const field = {
         name: 'tags',
         type: 'multi-select',
@@ -394,7 +394,7 @@ describe('sql-generators', () => {
 
     test('maps array with default itemType to TEXT[]', () => {
       // Given
-      
+
       const field = {
         name: 'items',
         type: 'array',
@@ -409,7 +409,7 @@ describe('sql-generators', () => {
 
     test('maps array with integer itemType to INTEGER[]', () => {
       // Given
-      
+
       const field = {
         name: 'numbers',
         type: 'array',
@@ -427,7 +427,7 @@ describe('sql-generators', () => {
   describe('generateColumnDefinition', () => {
     test('generates definition for simple text field', () => {
       // Given
-      
+
       const field = {
         name: 'title',
         type: 'single-line-text',
@@ -442,7 +442,7 @@ describe('sql-generators', () => {
 
     test('generates definition for required field with NOT NULL', () => {
       // Given
-      
+
       const field = {
         name: 'title',
         type: 'single-line-text',
@@ -458,7 +458,7 @@ describe('sql-generators', () => {
 
     test('generates definition for field with default value', () => {
       // Given
-      
+
       const field = {
         name: 'status',
         type: 'single-line-text',
@@ -474,7 +474,7 @@ describe('sql-generators', () => {
 
     test('generates definition for checkbox field with boolean default', () => {
       // Given
-      
+
       const field = {
         name: 'active',
         type: 'checkbox',
@@ -490,7 +490,7 @@ describe('sql-generators', () => {
 
     test('generates SERIAL for autonumber field', () => {
       // Given
-      
+
       const field = {
         name: 'order_number',
         type: 'autonumber',
@@ -505,7 +505,7 @@ describe('sql-generators', () => {
 
     test('generates SERIAL for integer primary key', () => {
       // Given
-      
+
       const field = {
         name: 'id',
         type: 'integer',
@@ -520,7 +520,7 @@ describe('sql-generators', () => {
 
     test('generates definition for created-at with CURRENT_TIMESTAMP', () => {
       // Given
-      
+
       const field = {
         name: 'created_at',
         type: 'created-at',
@@ -535,7 +535,7 @@ describe('sql-generators', () => {
 
     test('generates definition for updated-at with CURRENT_TIMESTAMP', () => {
       // Given
-      
+
       const field = {
         name: 'updated_at',
         type: 'updated-at',
@@ -550,7 +550,7 @@ describe('sql-generators', () => {
 
     test('generates definition for created-by with NOT NULL', () => {
       // Given
-      
+
       const field = {
         name: 'created_by',
         type: 'created-by',
@@ -565,7 +565,7 @@ describe('sql-generators', () => {
 
     test('generates definition for updated-by with NOT NULL', () => {
       // Given
-      
+
       const field = {
         name: 'updated_by',
         type: 'updated-by',
@@ -580,7 +580,7 @@ describe('sql-generators', () => {
 
     test('generates GENERATED column for formula field', () => {
       // Given
-      
+
       const field = {
         name: 'total',
         type: 'formula',
@@ -597,7 +597,7 @@ describe('sql-generators', () => {
 
     test('generates GENERATED column for formula with integer result', () => {
       // Given
-      
+
       const field = {
         name: 'count',
         type: 'formula',
@@ -614,7 +614,7 @@ describe('sql-generators', () => {
 
     test('generates GENERATED column with TEXT default for formula without resultType', () => {
       // Given
-      
+
       const field = {
         name: 'computed',
         type: 'formula',
@@ -726,7 +726,7 @@ describe('sql-generators', () => {
   describe('generateTableConstraints', () => {
     test('generates CHECK constraint for numeric field with min/max', () => {
       // Given
-      
+
       const table = {
         name: 'products',
         fields: [
@@ -748,7 +748,7 @@ describe('sql-generators', () => {
 
     test('generates CHECK constraint for progress field (0-100)', () => {
       // Given
-      
+
       const table = {
         name: 'tasks',
         fields: [
@@ -770,7 +770,7 @@ describe('sql-generators', () => {
 
     test('generates CHECK constraint for single-select enum', () => {
       // Given
-      
+
       const table = {
         name: 'posts',
         fields: [
@@ -891,7 +891,7 @@ describe('sql-generators', () => {
 
     test('generates CHECK constraint for array with maxItems', () => {
       // Given
-      
+
       const table = {
         name: 'posts',
         fields: [
@@ -915,7 +915,7 @@ describe('sql-generators', () => {
 
     test('generates CHECK constraint for rich-text with maxLength', () => {
       // Given
-      
+
       const table = {
         name: 'posts',
         fields: [
@@ -938,7 +938,7 @@ describe('sql-generators', () => {
 
     test('generates CHECK constraint for barcode format', () => {
       // Given
-      
+
       const table = {
         name: 'products',
         fields: [
@@ -959,7 +959,7 @@ describe('sql-generators', () => {
 
     test('generates CHECK constraint for color field (hex format)', () => {
       // Given
-      
+
       const table = {
         name: 'themes',
         fields: [
@@ -981,7 +981,7 @@ describe('sql-generators', () => {
 
     test('generates multiple constraints for complex table', () => {
       // Given
-      
+
       const table = {
         name: 'products',
         fields: [
@@ -1025,7 +1025,7 @@ describe('sql-generators', () => {
 
     test('returns empty array when no constraints needed', () => {
       // Given
-      
+
       const table = {
         name: 'simple',
         fields: [
