@@ -44,7 +44,7 @@ const fieldTypeToPostgresMap: Record<string, string> = {
   lookup: 'TEXT',
   rollup: 'TEXT',
   formula: 'TEXT',
-  user: 'TEXT',
+  user: 'INTEGER',
   'created-by': 'INTEGER',
   'updated-by': 'INTEGER',
   'created-at': 'TIMESTAMPTZ',
@@ -116,6 +116,13 @@ const shouldUseSerial = (field: Fields[number], isPrimaryKey: boolean): boolean 
  */
 export const isUserReferenceField = (field: Fields[number]): boolean =>
   field.type === 'created-by' || field.type === 'updated-by'
+
+/**
+ * Check if field is a user field (type: 'user')
+ * Used to generate FOREIGN KEY constraints to users table
+ * Exported for use in schema-initializer
+ */
+export const isUserField = (field: Fields[number]): boolean => field.type === 'user'
 
 /**
  * Check if field is an auto-timestamp field (created-at, updated-at)
@@ -370,22 +377,33 @@ export const generateUniqueConstraints = (
     .map((field) => `CONSTRAINT ${tableName}_${field.name}_unique UNIQUE (${field.name})`)
 
 /**
- * Generate FOREIGN KEY constraints for user reference fields (created-by, updated-by)
+ * Generate FOREIGN KEY constraints for user fields
  */
 const generateForeignKeyConstraints = (
-  _tableName: string,
-  _fields: readonly Fields[number][]
-): readonly string[] =>
+  tableName: string,
+  fields: readonly Fields[number][]
+): readonly string[] => {
+  // Generate foreign keys for user fields (type: 'user')
+  const userFieldConstraints = fields
+    .filter(isUserField)
+    .map((field) => {
+      const constraintName = `${tableName}_${field.name}_fkey`
+      return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES public.users(id)`
+    })
+
   // TODO: Re-enable foreign keys for created-by/updated-by fields
   // Currently disabled due to PostgreSQL transaction visibility issue
   // See: https://github.com/sovrium/sovrium/issues/3980
-  []
-// _fields
-//   .filter(isUserReferenceField)
-//   .map((field) => {
-//     const constraintName = `${_tableName}_${field.name}_fkey`
-//     return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES public.users(id)`
-//   })
+  const userReferenceConstraints: readonly string[] = []
+  // const userReferenceConstraints = fields
+  //   .filter(isUserReferenceField)
+  //   .map((field) => {
+  //     const constraintName = `${tableName}_${field.name}_fkey`
+  //     return `CONSTRAINT ${constraintName} FOREIGN KEY (${field.name}) REFERENCES public.users(id)`
+  //   })
+
+  return [...userFieldConstraints, ...userReferenceConstraints]
+}
 
 /**
  * Generate primary key constraint if defined
