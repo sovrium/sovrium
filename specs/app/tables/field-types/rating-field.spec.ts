@@ -56,7 +56,7 @@ test.describe('Rating Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RATING-002: should enforce range constraint for rating values (typically 1-5)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
