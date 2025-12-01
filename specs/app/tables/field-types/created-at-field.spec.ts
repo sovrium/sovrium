@@ -51,7 +51,7 @@ test.describe('Created At Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CREATED-AT-002: should automatically set timestamp when row is created',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
