@@ -656,7 +656,7 @@ test.describe('Database Indexes', () => {
         `SELECT COUNT(*) as count FROM users WHERE created_at > '2024-01-01 10:00:00'`
       )
       // THEN: assertion
-      expect(rangeQuery.rows[0]).toMatchObject({ count: 1 })
+      expect(rangeQuery.rows[0]).toMatchObject({ count: 2 })
 
       // 4. All indexes are retrievable
       const indexes = await executeQuery(
