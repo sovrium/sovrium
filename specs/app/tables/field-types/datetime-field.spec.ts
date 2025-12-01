@@ -62,7 +62,7 @@ test.describe('DateTime Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DATETIME-002: should store date and time with timezone information',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -90,9 +90,9 @@ test.describe('DateTime Field', () => {
 
       const results = await executeQuery('SELECT timestamp FROM events ORDER BY timestamp')
       // THEN: assertion
-      expect(results.length).toBe(2)
-      expect(results[0].timestamp).toBeTruthy()
-      expect(results[1].timestamp).toBeTruthy()
+      expect(results.rows).toHaveLength(2)
+      expect(results.rows[0].timestamp).toBeTruthy()
+      expect(results.rows[1].timestamp).toBeTruthy()
     }
   )
 
