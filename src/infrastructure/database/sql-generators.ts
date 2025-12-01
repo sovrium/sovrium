@@ -364,6 +364,38 @@ const generateRichTextConstraints = (fields: readonly Fields[number][]): readonl
     })
 
 /**
+ * Barcode format validation patterns
+ * Uses PostgreSQL regex patterns to validate barcode formats
+ */
+const barcodeFormatPatterns: Record<string, string> = {
+  'EAN-13': '^[0-9]{13}$',
+  'EAN-8': '^[0-9]{8}$',
+  'UPC-A': '^[0-9]{12}$',
+  'UPC-E': '^[0-9]{6,8}$',
+  'CODE-128': '^[\\x00-\\x7F]+$',
+  'CODE-39': '^[A-Z0-9\\-\\.\\$\\/\\+\\%\\ ]+$',
+}
+
+/**
+ * Generate CHECK constraints for barcode fields with format validation
+ */
+const generateBarcodeConstraints = (fields: readonly Fields[number][]): readonly string[] =>
+  fields
+    .filter(
+      (field): field is Fields[number] & { type: 'barcode'; format: string } =>
+        field.type === 'barcode' && 'format' in field && typeof field.format === 'string'
+    )
+    .map((field) => {
+      const pattern = barcodeFormatPatterns[field.format]
+      if (!pattern) {
+        return ''
+      }
+      const constraintName = `check_${field.name}_format`
+      return `CONSTRAINT ${constraintName} CHECK (${field.name} ~ '${pattern}')`
+    })
+    .filter((constraint) => constraint !== '')
+
+/**
  * Generate UNIQUE constraints for fields with unique property
  */
 export const generateUniqueConstraints = (
@@ -425,6 +457,7 @@ export const generateTableConstraints = (table: Table): readonly string[] => [
   ...generateEnumConstraints(table.fields),
   ...generateStatusConstraints(table.fields),
   ...generateRichTextConstraints(table.fields),
+  ...generateBarcodeConstraints(table.fields),
   ...generateUniqueConstraints(table.name, table.fields),
   ...generateForeignKeyConstraints(table.name, table.fields),
   ...generatePrimaryKeyConstraint(table),
