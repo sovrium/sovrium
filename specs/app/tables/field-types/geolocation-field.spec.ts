@@ -62,7 +62,7 @@ test.describe('Geolocation Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-GEOLOCATION-002: should support distance calculations with <-> operator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -105,7 +105,7 @@ test.describe('Geolocation Field', () => {
         'SELECT name FROM stores ORDER BY location <-> POINT(40.7128, -74.0060) LIMIT 2'
       )
       // THEN: assertion
-      expect(orderedByProximity).toEqual([{ name: 'Store A' }, { name: 'Store B' }])
+      expect(orderedByProximity.rows).toEqual([{ name: 'Store A' }, { name: 'Store B' }])
     }
   )
 
