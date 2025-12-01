@@ -121,12 +121,17 @@ test.describe('Unique Field Property', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-UNIQUE-003: should fail migration when attempting to add UNIQUE constraint with existing duplicates',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: unique field with existing duplicate values
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [],
+      })
       await executeQuery([
+        'DROP TABLE IF EXISTS accounts',
         'CREATE TABLE accounts (id SERIAL PRIMARY KEY, username VARCHAR(255))',
         "INSERT INTO accounts (username) VALUES ('alice'), ('bob'), ('alice')",
       ])
@@ -142,7 +147,8 @@ test.describe('Unique Field Property', () => {
         'SELECT username, COUNT(*) as count FROM accounts GROUP BY username HAVING COUNT(*) > 1'
       )
       // THEN: assertion
-      expect(duplicatesExist).toEqual({ username: 'alice', count: 2 })
+      expect(duplicatesExist.username).toBe('alice')
+      expect(duplicatesExist.count).toBe(2)
 
       // THEN: PostgreSQL migration fails if existing duplicates present
       await expect(
