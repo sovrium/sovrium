@@ -157,17 +157,19 @@ describe('TableSchema', () => {
   })
 
   describe('Invalid Tables - Missing Required Fields', () => {
-    test('should reject table without id', () => {
+    test('should accept table without id (id is optional and auto-generated)', () => {
       // GIVEN: A table missing the id field
       const table = {
         name: 'users',
         fields: [{ id: 1, name: 'email', type: 'email' as const }],
       }
 
-      // WHEN/THEN: The table validation should fail
-      expect(() => {
-        Schema.decodeUnknownSync(TableSchema)(table)
-      }).toThrow()
+      // WHEN: The table is validated against the schema
+      const result = Schema.decodeUnknownSync(TableSchema)(table)
+
+      // THEN: The table should be accepted (id is optional)
+      expect(result.name).toBe('users')
+      expect(result.id).toBeUndefined() // ID is optional at table level, auto-generated at tables array level
     })
 
     test('should reject table without name', () => {
@@ -212,18 +214,19 @@ describe('TableSchema', () => {
   })
 
   describe('Invalid Tables - Invalid Field Types', () => {
-    test('should reject table with invalid id type', () => {
-      // GIVEN: A table with a string id instead of number
+    test('should accept table with string id (UUID or simple string)', () => {
+      // GIVEN: A table with a string id (UUID format)
       const table = {
-        id: '1',
+        id: '550e8400-e29b-41d4-a716-446655440000',
         name: 'users',
         fields: [{ id: 1, name: 'email', type: 'email' as const }],
       }
 
-      // WHEN/THEN: The table validation should fail
-      expect(() => {
-        Schema.decodeUnknownSync(TableSchema)(table)
-      }).toThrow()
+      // WHEN: The table is validated against the schema
+      const result = Schema.decodeUnknownSync(TableSchema)(table)
+
+      // THEN: The table should be accepted (string IDs are valid for UUIDs)
+      expect(result.id).toBe('550e8400-e29b-41d4-a716-446655440000')
     })
 
     test('should reject table with invalid name type', () => {
