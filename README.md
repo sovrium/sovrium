@@ -1,7 +1,12 @@
 # Sovrium
 
+<<<<<<< HEAD
 [![Spec Progress](<https://img.shields.io/badge/specs-59%25%20(1091%2F1839)-blue>)](SPEC-STATE.md)
 [![Quality Score](https://img.shields.io/badge/quality-96%25-brightgreen)](SPEC-STATE.md)
+=======
+[![Spec Progress](<https://img.shields.io/badge/specs-53%25%20(974%2F1839)-blue>)](SPEC-STATE.md)
+[![Quality Score](https://img.shields.io/badge/quality-95%25-brightgreen)](SPEC-STATE.md)
+>>>>>>> a8599b251ec9cd489deabea1f2dc0bb881ad0066
 
 > **⚠️ Early Development**: Sovrium is in Phase 0 (Foundation). See [SPEC-STATE.md](SPEC-STATE.md) for implementation progress and [docs/specifications/vision.md](docs/specifications/vision.md) for the full product vision.
 
