@@ -67,16 +67,10 @@ test.describe('Created By Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CREATED-BY-002: should store the creator user reference permanently',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // Create external users table and seed data
-      await executeQuery([
-        'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
-        "INSERT INTO users (name) VALUES ('Alice'), ('Bob')",
-      ])
-
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
@@ -94,6 +88,12 @@ test.describe('Created By Field', () => {
         ],
       })
 
+      // Create external users table and seed data
+      await executeQuery([
+        'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
+        "INSERT INTO users (name) VALUES ('Alice'), ('Bob')",
+      ])
+
       // WHEN: querying the database
       const firstInsert = await executeQuery(
         "INSERT INTO documents (title, created_by) VALUES ('First Doc', 1) RETURNING created_by"
@@ -101,11 +101,15 @@ test.describe('Created By Field', () => {
       // THEN: assertion
       expect(firstInsert.created_by).toBe(1)
 
-      const multipleInserts = await executeQuery(
-        "INSERT INTO documents (title, created_by) VALUES ('Second Doc', 1), ('Third Doc', 1) RETURNING (SELECT COUNT(*) FROM documents WHERE created_by = 1) as count"
+      await executeQuery(
+        "INSERT INTO documents (title, created_by) VALUES ('Second Doc', 1), ('Third Doc', 1)"
+      )
+
+      const documentCount = await executeQuery(
+        'SELECT COUNT(*) as count FROM documents WHERE created_by = 1'
       )
       // THEN: assertion
-      expect(multipleInserts.count).toBe(3)
+      expect(documentCount.count).toBe(3)
 
       const creatorInfo = await executeQuery(
         'SELECT d.title, u.name as creator_name FROM documents d JOIN users u ON d.created_by = u.id WHERE d.id = 1'
