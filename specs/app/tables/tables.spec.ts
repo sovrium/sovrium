@@ -1126,6 +1126,143 @@ test.describe('Data Tables', () => {
     }
   )
 
+  test(
+    'APP-TABLES-025: should require auth config when using user reference fields',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: table configuration with user field but NO auth configuration
+      // WHEN: attempting to start server with this schema
+      // THEN: should fail with error requiring auth configuration
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          // No auth config
+          tables: [
+            {
+              id: 27,
+              name: 'tasks',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'assigned_to', type: 'user' }, // User field requires auth
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+      ).rejects.toThrow()
+    }
+  )
+
+  test(
+    'APP-TABLES-026: should require auth config when using created-by field',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: table configuration with created-by field but NO auth configuration
+      // WHEN: attempting to start server with this schema
+      // THEN: should fail with error requiring auth configuration
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          // No auth config
+          tables: [
+            {
+              id: 28,
+              name: 'documents',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'created_by', type: 'created-by' }, // Created-by field requires auth
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+      ).rejects.toThrow()
+    }
+  )
+
+  test(
+    'APP-TABLES-027: should require auth config when using updated-by field',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: table configuration with updated-by field but NO auth configuration
+      // WHEN: attempting to start server with this schema
+      // THEN: should fail with error requiring auth configuration
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          // No auth config
+          tables: [
+            {
+              id: 29,
+              name: 'records',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'data', type: 'single-line-text' },
+                { id: 3, name: 'updated_by', type: 'updated-by' }, // Updated-by field requires auth
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+      ).rejects.toThrow()
+    }
+  )
+
+  test(
+    'APP-TABLES-028: should accept user fields when auth config is present',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      // GIVEN: table configuration with user fields AND auth configuration
+      // WHEN: server starts with this schema
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { authentication: ['email-and-password'] }, // Auth config present
+        tables: [
+          {
+            id: 30,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'assigned_to', type: 'user' },
+              { id: 4, name: 'created_by', type: 'created-by' },
+              { id: 5, name: 'updated_by', type: 'updated-by' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      // THEN: table should be created with correct column types
+      const columnInfo = await executeQuery(
+        "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='tasks' ORDER BY ordinal_position"
+      )
+      expect(columnInfo.rows).toEqual([
+        { column_name: 'id', data_type: 'integer' },
+        { column_name: 'title', data_type: 'character varying' },
+        { column_name: 'assigned_to', data_type: 'text' },
+        { column_name: 'created_by', data_type: 'text' },
+        { column_name: 'updated_by', data_type: 'text' },
+      ])
+
+      // THEN: should be able to create users and use user fields
+      const user = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
+      await executeQuery(
+        `INSERT INTO tasks (title, assigned_to, created_by, updated_by) VALUES ('Test Task', '${user.user.id}', '${user.user.id}', '${user.user.id}')`
+      )
+
+      // WHEN: querying with JOIN
+      const result = await executeQuery(
+        'SELECT t.title, u.name as assigned_name FROM tasks t JOIN users u ON t.assigned_to = u.id WHERE t.id = 1'
+      )
+      // THEN: should return user info
+      expect(result.title).toBe('Test Task')
+      expect(result.assigned_name).toBe('Alice')
+    }
+  )
+
   // ============================================================================
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================

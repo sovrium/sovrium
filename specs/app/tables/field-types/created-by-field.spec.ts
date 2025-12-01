@@ -17,16 +17,20 @@ import { test, expect } from '@/specs/fixtures'
  * Test Organization:
  * 1. @spec tests - One per spec in schema (5 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
+ *
+ * NOTE: Created-by fields reference Better Auth's users table which has TEXT ids (UUIDs).
+ * Tests use createAuthenticatedUser fixture to create users with proper Better Auth structure.
  */
 
 test.describe('Created By Field', () => {
   test(
-    'APP-TABLES-FIELD-TYPES-CREATED-BY-001: should create PostgreSQL INTEGER NOT NULL column with FOREIGN KEY to users',
+    'APP-TABLES-FIELD-TYPES-CREATED-BY-001: should create PostgreSQL TEXT NOT NULL column with FOREIGN KEY to Better Auth users',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
+        auth: { authentication: ['email-and-password'] },
         tables: [
           {
             id: 1,
@@ -45,11 +49,10 @@ test.describe('Created By Field', () => {
       const columnInfo = await executeQuery(
         "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='posts' AND column_name='created_by'"
       )
-      // THEN: assertion
+      // THEN: column should be TEXT (compatible with Better Auth TEXT id)
       expect(columnInfo.column_name).toBe('created_by')
-      // THEN: assertion
-      expect(columnInfo.data_type).toBe('integer')
-      // THEN: assertion
+      expect(columnInfo.data_type).toBe('text')
+      // THEN: should be NOT NULL
       expect(columnInfo.is_nullable).toBe('NO')
 
       // TODO: Re-enable FK checks once transaction visibility issue is resolved
@@ -70,10 +73,11 @@ test.describe('Created By Field', () => {
   test(
     'APP-TABLES-FIELD-TYPES-CREATED-BY-002: should store the creator user reference permanently',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
+        auth: { authentication: ['email-and-password'] },
         tables: [
           {
             id: 2,
@@ -88,35 +92,36 @@ test.describe('Created By Field', () => {
         ],
       })
 
-      // Create external users table and seed data
-      await executeQuery([
-        'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
-        "INSERT INTO users (name) VALUES ('Alice'), ('Bob')",
-      ])
+      // GIVEN: users created via Better Auth (TEXT id)
+      const alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
+      // Create second user to verify multiple users work
+      await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
 
-      // WHEN: querying the database
+      // WHEN: inserting first document
       const firstInsert = await executeQuery(
-        "INSERT INTO documents (title, created_by) VALUES ('First Doc', 1) RETURNING created_by"
+        `INSERT INTO documents (title, created_by) VALUES ('First Doc', '${alice.user.id}') RETURNING created_by`
       )
-      // THEN: assertion
-      expect(firstInsert.created_by).toBe(1)
+      // THEN: should have Alice as creator
+      expect(firstInsert.created_by).toBe(alice.user.id)
 
+      // WHEN: inserting more documents
       await executeQuery(
-        "INSERT INTO documents (title, created_by) VALUES ('Second Doc', 1), ('Third Doc', 1)"
+        `INSERT INTO documents (title, created_by) VALUES ('Second Doc', '${alice.user.id}'), ('Third Doc', '${alice.user.id}')`
       )
 
+      // WHEN: counting documents by creator
       const documentCount = await executeQuery(
-        'SELECT COUNT(*) as count FROM documents WHERE created_by = 1'
+        `SELECT COUNT(*) as count FROM documents WHERE created_by = '${alice.user.id}'`
       )
-      // THEN: assertion
-      expect(documentCount.count).toBe(3)
+      // THEN: should have 3 documents
+      expect(Number(documentCount.count)).toBe(3)
 
+      // WHEN: querying with JOIN
       const creatorInfo = await executeQuery(
         'SELECT d.title, u.name as creator_name FROM documents d JOIN users u ON d.created_by = u.id WHERE d.id = 1'
       )
-      // THEN: assertion
+      // THEN: should return creator info
       expect(creatorInfo.title).toBe('First Doc')
-      // THEN: assertion
       expect(creatorInfo.creator_name).toBe('Alice')
     }
   )
@@ -124,16 +129,11 @@ test.describe('Created By Field', () => {
   test.fixme(
     'APP-TABLES-FIELD-TYPES-CREATED-BY-003: should enforce immutability via application (no UPDATE trigger)',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
-      // Create external users table and seed data
-      await executeQuery([
-        'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
-        "INSERT INTO users (name) VALUES ('John'), ('Jane')",
-      ])
-
+    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
+        auth: { authentication: ['email-and-password'] },
         tables: [
           {
             id: 3,
@@ -148,41 +148,44 @@ test.describe('Created By Field', () => {
         ],
       })
 
-      // WHEN: executing query
-      await executeQuery("INSERT INTO issues (title, created_by) VALUES ('Bug #1', 1)")
+      // GIVEN: users created via Better Auth
+      const john = await createAuthenticatedUser({ name: 'John', email: 'john@example.com' })
+      const jane = await createAuthenticatedUser({ name: 'Jane', email: 'jane@example.com' })
 
-      // WHEN: querying the database
-      const originalCreator = await executeQuery('SELECT created_by FROM issues WHERE id = 1')
-      // THEN: assertion
-      expect(originalCreator.created_by).toBe(1)
-
-      const updateResult = await executeQuery(
-        'UPDATE issues SET created_by = 2 WHERE id = 1 RETURNING created_by'
+      // WHEN: inserting issue
+      await executeQuery(
+        `INSERT INTO issues (title, created_by) VALUES ('Bug #1', '${john.user.id}')`
       )
-      // THEN: assertion
-      expect(updateResult.created_by).toBe(2)
 
+      // WHEN: querying original creator
+      const originalCreator = await executeQuery('SELECT created_by FROM issues WHERE id = 1')
+      // THEN: should be John
+      expect(originalCreator.created_by).toBe(john.user.id)
+
+      // Note: Database allows UPDATE but application should prevent it
+      // This test verifies there's no trigger blocking updates at DB level
+      const updateResult = await executeQuery(
+        `UPDATE issues SET created_by = '${jane.user.id}' WHERE id = 1 RETURNING created_by`
+      )
+      // THEN: update should succeed (no DB trigger blocking)
+      expect(updateResult.created_by).toBe(jane.user.id)
+
+      // THEN: should have no trigger for created_by
       const noTrigger = await executeQuery(
         "SELECT COUNT(*) as count FROM information_schema.triggers WHERE event_object_table='issues' AND trigger_name LIKE '%created_by%'"
       )
-      // THEN: assertion
-      expect(noTrigger.count).toBe(0)
+      expect(Number(noTrigger.count)).toBe(0)
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CREATED-BY-004: should support efficient filtering by creator',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
-      // Create external users table and seed data
-      await executeQuery([
-        'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
-        "INSERT INTO users (name) VALUES ('Alice'), ('Bob'), ('Charlie')",
-      ])
-
+    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
+        auth: { authentication: ['email-and-password'] },
         tables: [
           {
             id: 4,
@@ -197,28 +200,44 @@ test.describe('Created By Field', () => {
         ],
       })
 
-      // WHEN: querying the database
+      // GIVEN: users created via Better Auth
+      const alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
+      const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+      const charlie = await createAuthenticatedUser({
+        name: 'Charlie',
+        email: 'charlie@example.com',
+      })
+
+      // WHEN: inserting tasks
       await executeQuery(
-        "INSERT INTO tasks (title, created_by) VALUES ('Task 1', 1), ('Task 2', 2), ('Task 3', 1), ('Task 4', 3), ('Task 5', 1)"
+        `INSERT INTO tasks (title, created_by) VALUES
+          ('Task 1', '${alice.user.id}'),
+          ('Task 2', '${bob.user.id}'),
+          ('Task 3', '${alice.user.id}'),
+          ('Task 4', '${charlie.user.id}'),
+          ('Task 5', '${alice.user.id}')`
       )
 
+      // WHEN: counting Alice's tasks
       const aliceTasks = await executeQuery(
-        'SELECT COUNT(*) as count FROM tasks WHERE created_by = 1'
+        `SELECT COUNT(*) as count FROM tasks WHERE created_by = '${alice.user.id}'`
       )
-      // THEN: assertion
-      expect(aliceTasks.count).toBe(3)
+      // THEN: Alice should have 3 tasks
+      expect(Number(aliceTasks.count)).toBe(3)
 
+      // WHEN: counting Bob's tasks
       const bobTasks = await executeQuery(
-        'SELECT COUNT(*) as count FROM tasks WHERE created_by = 2'
+        `SELECT COUNT(*) as count FROM tasks WHERE created_by = '${bob.user.id}'`
       )
-      // THEN: assertion
-      expect(bobTasks.count).toBe(1)
+      // THEN: Bob should have 1 task
+      expect(Number(bobTasks.count)).toBe(1)
 
+      // WHEN: querying creators with JOIN
       const creatorNames = await executeQuery(
-        'SELECT t.title, u.name as creator FROM tasks t JOIN users u ON t.created_by = u.id WHERE t.created_by IN (1, 3) ORDER BY t.id'
+        `SELECT t.title, u.name as creator FROM tasks t JOIN users u ON t.created_by = u.id WHERE t.created_by IN ('${alice.user.id}', '${charlie.user.id}') ORDER BY t.id`
       )
-      // THEN: assertion
-      expect(creatorNames).toEqual([
+      // THEN: should return tasks with creator names
+      expect(creatorNames.rows).toEqual([
         { title: 'Task 1', creator: 'Alice' },
         { title: 'Task 3', creator: 'Alice' },
         { title: 'Task 4', creator: 'Charlie' },
@@ -231,12 +250,10 @@ test.describe('Created By Field', () => {
     'APP-TABLES-FIELD-TYPES-CREATED-BY-005: should create btree index for fast creator filtering when indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // Create external users table
-      await executeQuery('CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))')
-
-      // GIVEN: table configuration
+      // GIVEN: table configuration with indexed created_by field
       await startServerWithSchema({
         name: 'test-app',
+        auth: { authentication: ['email-and-password'] },
         tables: [
           {
             id: 5,
@@ -251,38 +268,33 @@ test.describe('Created By Field', () => {
         ],
       })
 
-      // WHEN: querying the database
+      // WHEN: querying index information
       const indexInfo = await executeQuery(
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_comments_created_by'"
       )
-      // THEN: assertion
+      // THEN: index should exist
       expect(indexInfo.indexname).toBe('idx_comments_created_by')
-      // THEN: assertion
       expect(indexInfo.tablename).toBe('comments')
 
+      // WHEN: querying index definition
       const indexDef = await executeQuery(
         "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_comments_created_by'"
       )
-      // THEN: assertion
+      // THEN: should be btree index
       expect(indexDef.indexdef).toBe(
         'CREATE INDEX idx_comments_created_by ON public.comments USING btree (created_by)'
       )
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CREATED-BY-006: user can complete full created-by-field workflow',
     { tag: '@regression' },
-    async ({ startServerWithSchema, executeQuery }) => {
-      // Create external users table and seed data
-      await executeQuery([
-        'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255))',
-        "INSERT INTO users (name) VALUES ('Alice', 'alice@example.com')",
-      ])
-
+    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
+        auth: { authentication: ['email-and-password'] },
         tables: [
           {
             id: 6,
@@ -297,17 +309,24 @@ test.describe('Created By Field', () => {
         ],
       })
 
-      // WHEN: executing query
-      await executeQuery("INSERT INTO data (content, created_by) VALUES ('Test content', 1)")
-      // WHEN: querying the database
-      const record = await executeQuery('SELECT created_by FROM data WHERE id = 1')
-      // THEN: assertion
-      expect(record.created_by).toBe(1)
+      // GIVEN: user created via Better Auth
+      const alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
 
+      // WHEN: inserting data
+      await executeQuery(
+        `INSERT INTO data (content, created_by) VALUES ('Test content', '${alice.user.id}')`
+      )
+
+      // WHEN: querying the record
+      const record = await executeQuery('SELECT created_by FROM data WHERE id = 1')
+      // THEN: should have correct creator
+      expect(record.created_by).toBe(alice.user.id)
+
+      // WHEN: querying with JOIN
       const creator = await executeQuery(
         'SELECT d.content, u.name FROM data d JOIN users u ON d.created_by = u.id WHERE d.id = 1'
       )
-      // THEN: assertion
+      // THEN: should return creator info
       expect(creator.name).toBe('Alice')
     }
   )

@@ -128,6 +128,17 @@ export default [
     },
   },
 
+  // Database schema initialization - Complex infrastructure with SQL generation
+  // Handles table creation, migration, FK constraints, triggers - inherently coupled
+  {
+    files: ['src/infrastructure/database/schema-initializer.ts'],
+    rules: {
+      'max-lines': ['warn', { max: 500, skipBlankLines: true, skipComments: true }], // Complex schema management
+      'max-lines-per-function': ['warn', { max: 80 }], // SQL generators can be longer
+      'max-statements': 'off', // Database operations require many sequential statements
+    },
+  },
+
   // TODO: Remove these overrides after refactoring (tracked in codebase-refactor-auditor findings)
   // Temporary overrides for files exceeding limits - should be refactored into smaller modules
   {

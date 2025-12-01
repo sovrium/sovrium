@@ -32,10 +32,16 @@ test.describe('Relationship Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-002: should reject invalid foreign key reference',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: minimal app schema to initialize database
+      await startServerWithSchema({
+        name: 'test-app',
+        description: 'Test app for relationship field validation',
+      })
+
       // GIVEN: table configuration
       await executeQuery([
         'CREATE TABLE customers (id SERIAL PRIMARY KEY)',
