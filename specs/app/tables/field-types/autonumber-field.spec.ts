@@ -85,7 +85,7 @@ test.describe('Autonumber Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-AUTONUMBER-003: should be immutable after creation (no manual updates)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
