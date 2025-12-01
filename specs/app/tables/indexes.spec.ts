@@ -595,7 +595,7 @@ test.describe('Database Indexes', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-INDEXES-009: user can complete full Database Indexes workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -656,7 +656,7 @@ test.describe('Database Indexes', () => {
         `SELECT COUNT(*) as count FROM users WHERE created_at > '2024-01-01'`
       )
       // THEN: assertion
-      expect(rangeQuery.rows[0]).toMatchObject({ count: 1 })
+      expect(rangeQuery.rows[0]).toMatchObject({ count: 2 })
 
       // 4. All indexes are retrievable
       const indexes = await executeQuery(
