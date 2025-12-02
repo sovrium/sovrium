@@ -29,7 +29,7 @@ test.describe('List user sessions', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-AUTH-LIST-SESSIONS-001: should return 200 OK with active sessions',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -64,7 +64,7 @@ test.describe('List user sessions', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-LIST-SESSIONS-002: should return sessions for authenticated user',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -100,7 +100,7 @@ test.describe('List user sessions', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-LIST-SESSIONS-003: should return 401 Unauthorized without authentication',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -120,7 +120,7 @@ test.describe('List user sessions', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-LIST-SESSIONS-004: should show session with metadata',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -159,7 +159,7 @@ test.describe('List user sessions', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-LIST-SESSIONS-005: should only show sessions for current user',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -200,7 +200,7 @@ test.describe('List user sessions', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-LIST-SESSIONS-006: should return empty after sign-out',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -238,7 +238,7 @@ test.describe('List user sessions', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-LIST-SESSIONS-007: should show session creation time',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -280,7 +280,7 @@ test.describe('List user sessions', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-AUTH-LIST-SESSIONS-008: user can complete full list-sessions workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {

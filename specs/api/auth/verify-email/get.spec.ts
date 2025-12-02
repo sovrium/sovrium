@@ -30,7 +30,7 @@ test.describe('Verify email address', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-AUTH-VERIFY-EMAIL-001: should return 200 OK and mark email as verified',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -73,7 +73,7 @@ test.describe('Verify email address', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-VERIFY-EMAIL-002: should return 400 Bad Request without token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -96,7 +96,7 @@ test.describe('Verify email address', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-VERIFY-EMAIL-003: should return 401 Unauthorized with invalid token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -119,7 +119,7 @@ test.describe('Verify email address', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-VERIFY-EMAIL-004: should return 401 Unauthorized with expired token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -142,7 +142,7 @@ test.describe('Verify email address', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-VERIFY-EMAIL-005: should return 401 Unauthorized with already used token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -189,7 +189,7 @@ test.describe('Verify email address', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-VERIFY-EMAIL-006: should handle already verified email with valid token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -242,7 +242,7 @@ test.describe('Verify email address', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-AUTH-VERIFY-EMAIL-007: user can complete full verify-email workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {

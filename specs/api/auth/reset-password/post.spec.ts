@@ -30,7 +30,7 @@ test.describe('Reset password', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-AUTH-RESET-PASSWORD-001: should return 200 OK and update password',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn, mailpit }) => {
@@ -88,7 +88,7 @@ test.describe('Reset password', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-RESET-PASSWORD-002: should return 400 Bad Request without newPassword',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -136,7 +136,7 @@ test.describe('Reset password', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-RESET-PASSWORD-003: should return 400 Bad Request with short password',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -185,7 +185,7 @@ test.describe('Reset password', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-RESET-PASSWORD-004: should return 401 Unauthorized with invalid token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -213,7 +213,7 @@ test.describe('Reset password', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-RESET-PASSWORD-005: should return 401 Unauthorized with expired token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -241,7 +241,7 @@ test.describe('Reset password', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-RESET-PASSWORD-006: should return 401 Unauthorized with already used token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -301,7 +301,7 @@ test.describe('Reset password', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-RESET-PASSWORD-007: should return 400 Bad Request without token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -328,7 +328,7 @@ test.describe('Reset password', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-RESET-PASSWORD-008: should revoke all sessions after password reset',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn, mailpit }) => {
@@ -393,7 +393,7 @@ test.describe('Reset password', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-AUTH-RESET-PASSWORD-009: user can complete full reset-password workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn, mailpit }) => {

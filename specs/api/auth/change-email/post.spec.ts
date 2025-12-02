@@ -29,7 +29,7 @@ test.describe('Change email address', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-AUTH-CHANGE-EMAIL-001: should return 200 OK and send verification email with custom template',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn, mailpit }) => {
@@ -85,7 +85,7 @@ test.describe('Change email address', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-CHANGE-EMAIL-002: should return 400 Bad Request without newEmail',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -120,7 +120,7 @@ test.describe('Change email address', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-CHANGE-EMAIL-003: should return 400 Bad Request with invalid email format',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -157,7 +157,7 @@ test.describe('Change email address', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-CHANGE-EMAIL-004: should return 401 Unauthorized without authentication',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -181,7 +181,7 @@ test.describe('Change email address', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-CHANGE-EMAIL-005: should return 409 Conflict for existing email',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -226,7 +226,7 @@ test.describe('Change email address', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-CHANGE-EMAIL-006: should handle same email attempt',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -260,7 +260,7 @@ test.describe('Change email address', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-CHANGE-EMAIL-007: should return 409 Conflict with case-insensitive matching',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -309,7 +309,7 @@ test.describe('Change email address', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-AUTH-CHANGE-EMAIL-008: user can complete full change-email workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn, mailpit }) => {

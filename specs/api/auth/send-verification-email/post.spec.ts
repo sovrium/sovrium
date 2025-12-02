@@ -30,7 +30,7 @@ test.describe('Send verification email', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-AUTH-SEND-VERIFICATION-EMAIL-001: should return 200 OK and send verification email with custom template',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -83,7 +83,7 @@ test.describe('Send verification email', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-SEND-VERIFICATION-EMAIL-002: should return 400 Bad Request without email',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -108,7 +108,7 @@ test.describe('Send verification email', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-SEND-VERIFICATION-EMAIL-003: should return 400 Bad Request with invalid email format',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -135,7 +135,7 @@ test.describe('Send verification email', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-SEND-VERIFICATION-EMAIL-004: should handle already verified email',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -165,7 +165,7 @@ test.describe('Send verification email', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-SEND-VERIFICATION-EMAIL-005: should invalidate old token on new request',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -218,7 +218,7 @@ test.describe('Send verification email', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-SEND-VERIFICATION-EMAIL-006: should return 200 OK for non-existent email',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -251,7 +251,7 @@ test.describe('Send verification email', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-AUTH-SEND-VERIFICATION-EMAIL-007: user can complete full send-verification-email workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {

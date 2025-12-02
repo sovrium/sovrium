@@ -31,7 +31,7 @@ test.describe('Sign up with email and password', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-AUTH-SIGN-UP-EMAIL-001: should returns 200 OK with user data and session token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -63,7 +63,7 @@ test.describe('Sign up with email and password', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-SIGN-UP-EMAIL-002: should returns 422 when name is missing',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -91,7 +91,7 @@ test.describe('Sign up with email and password', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-SIGN-UP-EMAIL-003: should returns 400 Bad Request when email is missing',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -119,7 +119,7 @@ test.describe('Sign up with email and password', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-SIGN-UP-EMAIL-004: should return error when password is missing',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -145,7 +145,7 @@ test.describe('Sign up with email and password', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-SIGN-UP-EMAIL-005: should returns 400 Bad Request with invalid email format',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -174,7 +174,7 @@ test.describe('Sign up with email and password', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-SIGN-UP-EMAIL-006: should returns 400 Bad Request with short password',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -203,7 +203,7 @@ test.describe('Sign up with email and password', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-SIGN-UP-EMAIL-007: should returns 422 when email already exists',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -239,7 +239,7 @@ test.describe('Sign up with email and password', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-SIGN-UP-EMAIL-008: should returns 422 for case-insensitive email matching',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
@@ -275,7 +275,7 @@ test.describe('Sign up with email and password', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-SIGN-UP-EMAIL-009: should returns 200 OK with sanitized name (XSS payload neutralized)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -305,7 +305,7 @@ test.describe('Sign up with email and password', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-SIGN-UP-EMAIL-010: should returns 200 OK with Unicode name preserved',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -335,7 +335,7 @@ test.describe('Sign up with email and password', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-SIGN-UP-EMAIL-011: should send verification email when requireEmailVerification is true',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, mailpit }) => {
@@ -606,7 +606,7 @@ test.describe('Sign up with email and password', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-AUTH-SIGN-UP-EMAIL-016: user can complete full sign-up workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {

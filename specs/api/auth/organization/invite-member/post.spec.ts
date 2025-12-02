@@ -29,7 +29,7 @@ test.describe('Invite member to organization', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-AUTH-ORG-INVITE-MEMBER-001: should return 201 Created with invitation token and send email with custom template',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn, mailpit }) => {

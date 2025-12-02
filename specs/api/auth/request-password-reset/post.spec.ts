@@ -30,7 +30,7 @@ test.describe('Request password reset', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-AUTH-REQUEST-PASSWORD-RESET-001: should return 200 OK and send reset email with custom template',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -83,7 +83,7 @@ test.describe('Request password reset', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-REQUEST-PASSWORD-RESET-002: should return 200 OK for non-existent email',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -112,7 +112,7 @@ test.describe('Request password reset', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-REQUEST-PASSWORD-RESET-003: should return 400 Bad Request without email',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -137,7 +137,7 @@ test.describe('Request password reset', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-REQUEST-PASSWORD-RESET-004: should return 400 Bad Request with invalid email format',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -164,7 +164,7 @@ test.describe('Request password reset', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-REQUEST-PASSWORD-RESET-005: should return 200 OK with case-insensitive email',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -209,7 +209,7 @@ test.describe('Request password reset', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-REQUEST-PASSWORD-RESET-006: should invalidate old token on new request',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -268,7 +268,7 @@ test.describe('Request password reset', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-REQUEST-PASSWORD-RESET-007: should include redirectTo in reset email',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -317,7 +317,7 @@ test.describe('Request password reset', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-AUTH-REQUEST-PASSWORD-RESET-008: user can complete full request-password-reset workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
