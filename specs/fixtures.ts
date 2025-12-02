@@ -6,6 +6,7 @@
  */
 
 import { spawn } from 'node:child_process'
+import { createHmac } from 'node:crypto'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -384,6 +385,62 @@ type MembershipResult = {
 }
 
 /**
+ * API Key types for test fixtures
+ */
+type ApiKey = {
+  id: string
+  name: string | null
+  key?: string // Only returned on creation
+  userId: string
+  expiresAt: string | null
+  createdAt: string
+  metadata?: Record<string, unknown>
+}
+
+type ApiKeyCreateData = {
+  name?: string
+  expiresIn?: number // Seconds until expiration
+  metadata?: Record<string, unknown>
+}
+
+type ApiKeyResult = {
+  id: string
+  key: string // The actual API key value (shown only once)
+  name: string | null
+  expiresAt: string | null
+  createdAt: string
+  metadata?: Record<string, unknown>
+}
+
+/**
+ * Two-Factor types for test fixtures
+ */
+type TwoFactorSetupResult = {
+  secret: string
+  qrCode: string
+  backupCodes?: string[]
+}
+
+type TwoFactorVerifyResult = {
+  success: boolean
+}
+
+/**
+ * Admin types for test fixtures
+ */
+type AdminCreateUserData = {
+  email: string
+  name: string
+  password: string
+  emailVerified?: boolean
+  role?: string
+}
+
+type AdminUserResult = {
+  user: AuthUser & { role?: string }
+}
+
+/**
  * Custom fixtures for CLI server with AppSchema configuration and database isolation
  */
 type ServerFixtures = {
@@ -551,6 +608,100 @@ type ServerFixtures = {
    * ```
    */
   mailpit: MailpitHelper
+
+  // =========================================================================
+  // API Key Fixtures
+  // =========================================================================
+
+  /**
+   * Create a new API key for the authenticated user
+   * Requires API keys plugin enabled and authenticated user
+   * @returns The created API key with the actual key value (shown only once)
+   */
+  createApiKey: (data?: ApiKeyCreateData) => Promise<ApiKeyResult>
+
+  /**
+   * List all API keys for the authenticated user
+   * @returns Array of API keys (without the actual key values)
+   */
+  listApiKeys: () => Promise<ApiKey[]>
+
+  /**
+   * Delete an API key by ID
+   * @returns void on success
+   */
+  deleteApiKey: (keyId: string) => Promise<void>
+
+  // =========================================================================
+  // Two-Factor Authentication Fixtures
+  // =========================================================================
+
+  /**
+   * Enable two-factor authentication for the authenticated user
+   * Returns TOTP secret and QR code for setup
+   * @returns Setup data including secret, QR code, and optional backup codes
+   */
+  enableTwoFactor: () => Promise<TwoFactorSetupResult>
+
+  /**
+   * Verify a TOTP code to complete 2FA setup or login
+   * @returns Verification result
+   */
+  verifyTwoFactor: (code: string) => Promise<TwoFactorVerifyResult>
+
+  /**
+   * Disable two-factor authentication for the authenticated user
+   * Requires a valid TOTP code for confirmation
+   * @returns void on success
+   */
+  disableTwoFactor: (code: string) => Promise<void>
+
+  /**
+   * Generate a valid TOTP code from a secret
+   * Uses RFC 6238 TOTP algorithm (30-second time steps, 6 digits)
+   * @param secret Base32-encoded TOTP secret
+   * @returns 6-digit TOTP code
+   */
+  generateTotpCode: (secret: string) => string
+
+  // =========================================================================
+  // Admin Fixtures
+  // =========================================================================
+
+  /**
+   * Create a new user as admin
+   * Requires authenticated admin user with admin plugin enabled
+   * @returns The created user data
+   */
+  adminCreateUser: (data: AdminCreateUserData) => Promise<AdminUserResult>
+
+  /**
+   * Ban a user by ID
+   * Requires authenticated admin user
+   * @returns void on success
+   */
+  adminBanUser: (userId: string) => Promise<void>
+
+  /**
+   * Unban a user by ID
+   * Requires authenticated admin user
+   * @returns void on success
+   */
+  adminUnbanUser: (userId: string) => Promise<void>
+
+  /**
+   * List all users
+   * Requires authenticated admin user
+   * @returns Array of user data
+   */
+  adminListUsers: () => Promise<AdminUserResult[]>
+
+  /**
+   * Set a user's role
+   * Requires authenticated admin user
+   * @returns void on success
+   */
+  adminSetRole: (userId: string, role: string) => Promise<void>
 }
 
 /**
@@ -1274,6 +1425,260 @@ export const test = base.extend<ServerFixtures>({
     const mailpit = new MailpitHelper({ testId })
 
     await use(mailpit)
+  },
+
+  // =========================================================================
+  // API Key Fixtures
+  // =========================================================================
+
+  // API Key fixture: Create a new API key
+  createApiKey: async ({ page }, use) => {
+    await use(async (data?: ApiKeyCreateData): Promise<ApiKeyResult> => {
+      const response = await page.request.post('/api/auth/api-key/create', {
+        data: {
+          ...(data?.name && { name: data.name }),
+          ...(data?.expiresIn && { expiresIn: data.expiresIn }),
+          ...(data?.metadata && { metadata: data.metadata }),
+        },
+      })
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Create API key failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      return response.json()
+    })
+  },
+
+  // API Key fixture: List all API keys
+  listApiKeys: async ({ page }, use) => {
+    await use(async (): Promise<ApiKey[]> => {
+      const response = await page.request.get('/api/auth/api-key/list')
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `List API keys failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      return response.json()
+    })
+  },
+
+  // API Key fixture: Delete an API key
+  deleteApiKey: async ({ page }, use) => {
+    await use(async (keyId: string): Promise<void> => {
+      // eslint-disable-next-line drizzle/enforce-delete-with-where
+      const response = await page.request.delete(`/api/auth/api-key/${keyId}`)
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Delete API key failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+    })
+  },
+
+  // =========================================================================
+  // Two-Factor Authentication Fixtures
+  // =========================================================================
+
+  // Two-Factor fixture: Enable 2FA
+  enableTwoFactor: async ({ page }, use) => {
+    await use(async (): Promise<TwoFactorSetupResult> => {
+      const response = await page.request.post('/api/auth/two-factor/enable')
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Enable 2FA failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      return response.json()
+    })
+  },
+
+  // Two-Factor fixture: Verify TOTP code
+  verifyTwoFactor: async ({ page }, use) => {
+    await use(async (code: string): Promise<TwoFactorVerifyResult> => {
+      const response = await page.request.post('/api/auth/two-factor/verify', {
+        data: { code },
+      })
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Verify 2FA failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      return response.json()
+    })
+  },
+
+  // Two-Factor fixture: Disable 2FA
+  disableTwoFactor: async ({ page }, use) => {
+    await use(async (code: string): Promise<void> => {
+      const response = await page.request.post('/api/auth/two-factor/disable', {
+        data: { code },
+      })
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Disable 2FA failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+    })
+  },
+
+  // Two-Factor fixture: Generate TOTP code from secret
+  // Uses RFC 6238 TOTP algorithm (30-second time steps, 6 digits, HMAC-SHA1)
+  generateTotpCode: async ({}, use) => {
+    await use((secret: string): string => {
+      // Base32 decode the secret
+      const base32Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+      const bits: number[] = []
+      for (const char of secret.toUpperCase().replace(/=+$/, '')) {
+        const val = base32Chars.indexOf(char)
+        if (val === -1) continue
+        for (let i = 4; i >= 0; i--) {
+          bits.push((val >> i) & 1)
+        }
+      }
+
+      const bytes: number[] = []
+      for (let i = 0; i + 8 <= bits.length; i += 8) {
+        let byte = 0
+        for (let j = 0; j < 8; j++) {
+          byte = (byte << 1) | (bits[i + j] ?? 0)
+        }
+        bytes.push(byte)
+      }
+      const keyBuffer = Buffer.from(bytes)
+
+      // Get current time step (30 seconds)
+      const timeStep = Math.floor(Date.now() / 30_000)
+
+      // Create 8-byte counter buffer
+      const counterBuffer = Buffer.alloc(8)
+      counterBuffer.writeBigUInt64BE(BigInt(timeStep))
+
+      // Generate HMAC-SHA1
+      const hmac = createHmac('sha1', keyBuffer)
+      hmac.update(counterBuffer)
+      const hash = hmac.digest()
+
+      // Dynamic truncation (RFC 4226)
+      const offset = hash[hash.length - 1]! & 0x0f
+      const binary =
+        ((hash[offset]! & 0x7f) << 24) |
+        ((hash[offset + 1]! & 0xff) << 16) |
+        ((hash[offset + 2]! & 0xff) << 8) |
+        (hash[offset + 3]! & 0xff)
+
+      // Generate 6-digit code
+      const otp = binary % 1_000_000
+      return otp.toString().padStart(6, '0')
+    })
+  },
+
+  // =========================================================================
+  // Admin Fixtures
+  // =========================================================================
+
+  // Admin fixture: Create a new user
+  adminCreateUser: async ({ page }, use) => {
+    await use(async (data: AdminCreateUserData): Promise<AdminUserResult> => {
+      const response = await page.request.post('/api/auth/admin/create-user', {
+        data: {
+          email: data.email,
+          name: data.name,
+          password: data.password,
+          ...(data.emailVerified !== undefined && { emailVerified: data.emailVerified }),
+          ...(data.role && { role: data.role }),
+        },
+      })
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Admin create user failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      return response.json()
+    })
+  },
+
+  // Admin fixture: Ban a user
+  adminBanUser: async ({ page }, use) => {
+    await use(async (userId: string): Promise<void> => {
+      const response = await page.request.post('/api/auth/admin/ban-user', {
+        data: { userId },
+      })
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Admin ban user failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+    })
+  },
+
+  // Admin fixture: Unban a user
+  adminUnbanUser: async ({ page }, use) => {
+    await use(async (userId: string): Promise<void> => {
+      const response = await page.request.post('/api/auth/admin/unban-user', {
+        data: { userId },
+      })
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Admin unban user failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+    })
+  },
+
+  // Admin fixture: List all users
+  adminListUsers: async ({ page }, use) => {
+    await use(async (): Promise<AdminUserResult[]> => {
+      const response = await page.request.get('/api/auth/admin/list-users')
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Admin list users failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      return response.json()
+    })
+  },
+
+  // Admin fixture: Set user role
+  adminSetRole: async ({ page }, use) => {
+    await use(async (userId: string, role: string): Promise<void> => {
+      const response = await page.request.post('/api/auth/admin/set-role', {
+        data: { userId, role },
+      })
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Admin set role failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+    })
   },
 })
 
