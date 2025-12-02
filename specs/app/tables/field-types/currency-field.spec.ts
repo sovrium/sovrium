@@ -243,45 +243,46 @@ test.describe('Currency Field', () => {
     'APP-TABLES-FIELD-TYPES-CURRENCY-006: user can complete full currency-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative currency field
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'currency_field',
-                type: 'currency',
-                currency: 'USD',
-                required: true,
-                indexed: true,
-                min: 0,
-                max: 1000,
-                default: 99.99,
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with currency field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'currency_field',
+                  type: 'currency',
+                  currency: 'USD',
+                  required: true,
+                  indexed: true,
+                  min: 0,
+                  max: 1000,
+                  default: 99.99,
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      const columnInfo = await executeQuery(
-        "SELECT data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='currency_field'"
-      )
-      // THEN: assertion
-      expect(columnInfo.data_type).toMatch(/numeric|decimal/)
-      expect(columnInfo.is_nullable).toBe('NO')
+      await test.step('Verify column setup and constraints', async () => {
+        const columnInfo = await executeQuery(
+          "SELECT data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='currency_field'"
+        )
+        expect(columnInfo.data_type).toMatch(/numeric|decimal/)
+        expect(columnInfo.is_nullable).toBe('NO')
+      })
 
-      // Test precision for currency (2 decimal places)
-      await executeQuery('INSERT INTO data (currency_field) VALUES (499.99)')
-      const stored = await executeQuery('SELECT currency_field FROM data WHERE id = 1')
-      // THEN: assertion
-      expect(parseFloat(stored.currency_field)).toBe(499.99)
+      await test.step('Test currency precision storage', async () => {
+        await executeQuery('INSERT INTO data (currency_field) VALUES (499.99)')
+        const stored = await executeQuery('SELECT currency_field FROM data WHERE id = 1')
+        expect(parseFloat(stored.currency_field)).toBe(499.99)
+      })
     }
   )
 })
