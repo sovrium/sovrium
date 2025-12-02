@@ -103,7 +103,7 @@ test.describe('Record-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-RECORD-PERMISSIONS-002: should deny UPDATE when user attempts to update record not assigned to them',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: record-level permission 'update: {userId} = assigned_to'
       await startServerWithSchema({
         name: 'test-app',
@@ -133,10 +133,14 @@ test.describe('Record-Level Permissions', () => {
         ],
       })
 
+      // Create test users
+      const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
+      const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
+
       await executeQuery([
         'ALTER TABLE tasks ENABLE ROW LEVEL SECURITY',
         "CREATE POLICY user_update_assigned ON tasks FOR UPDATE USING (assigned_to = current_setting('app.user_id')::INTEGER)",
-        "INSERT INTO tasks (title, status, assigned_to) VALUES ('Task 1', 'open', 1), ('Task 2', 'open', 2)",
+        `INSERT INTO tasks (title, status, assigned_to) VALUES ('Task 1', 'open', '${user1.user.id}'), ('Task 2', 'open', '${user2.user.id}')`,
       ])
 
       // WHEN: user attempts to update record not assigned to them
@@ -151,21 +155,21 @@ test.describe('Record-Level Permissions', () => {
 
       // User 1 can UPDATE tasks assigned to them
       const user1Update = await executeQuery(
-        "SET LOCAL app.user_id = 1; UPDATE tasks SET status = 'in_progress' WHERE id = 1 RETURNING status"
+        `SET LOCAL app.user_id = '${user1.user.id}'; UPDATE tasks SET status = 'in_progress' WHERE id = 1 RETURNING status`
       )
       // THEN: assertion
       expect(user1Update.status).toBe('in_progress')
 
       // User 1 cannot UPDATE tasks assigned to user 2
       const user1FailedUpdate = await executeQuery(
-        "SET LOCAL app.user_id = 1; UPDATE tasks SET status = 'hacked' WHERE id = 2 RETURNING id"
+        `SET LOCAL app.user_id = '${user1.user.id}'; UPDATE tasks SET status = 'hacked' WHERE id = 2 RETURNING id`
       )
       // THEN: assertion
       expect(user1FailedUpdate.id).toBeNull()
 
       // User 2 can only UPDATE their assigned tasks
       const user2Update = await executeQuery(
-        "SET LOCAL app.user_id = 2; UPDATE tasks SET status = 'done' WHERE id = 2 RETURNING status"
+        `SET LOCAL app.user_id = '${user2.user.id}'; UPDATE tasks SET status = 'done' WHERE id = 2 RETURNING status`
       )
       // THEN: assertion
       expect(user2Update.status).toBe('done')
