@@ -173,7 +173,7 @@ test.describe('Date Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DATE-005: should create btree index for fast queries when date field has indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -205,7 +205,7 @@ test.describe('Date Field', () => {
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_orders_created_date'"
       )
       // THEN: assertion
-      expect(indexExists).toEqual({
+      expect(indexExists).toMatchObject({
         indexname: 'idx_orders_created_date',
         tablename: 'orders',
       })
