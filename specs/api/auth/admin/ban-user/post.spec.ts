@@ -278,45 +278,53 @@ test.describe('Admin: Ban user', () => {
       createAuthenticatedViewer,
       signOut,
     }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { admin: true },
-        },
+      let targetUserId: string
+
+      await test.step('Setup: Start server with admin plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { admin: true },
+          },
+        })
       })
 
-      // Create target user and regular user
-      const targetUser = await createAuthenticatedUser({
-        email: 'target@example.com',
-        name: 'Target User',
+      await test.step('Setup: Create target user', async () => {
+        const targetUser = await createAuthenticatedUser({
+          email: 'target@example.com',
+          name: 'Target User',
+        })
+        targetUserId = targetUser.user.id
       })
 
-      // Test 1: Ban without auth fails
-      await signOut()
-      const noAuthResponse = await page.request.post('/api/auth/admin/ban-user', {
-        data: { userId: targetUser.user.id },
+      await test.step('Verify ban user fails without auth', async () => {
+        await signOut()
+        const noAuthResponse = await page.request.post('/api/auth/admin/ban-user', {
+          data: { userId: targetUserId },
+        })
+        expect([400, 401]).toContain(noAuthResponse.status())
       })
-      expect([400, 401]).toContain(noAuthResponse.status())
 
-      // Test 2: Ban fails for non-admin
-      await createAuthenticatedViewer()
-      const nonAdminResponse = await page.request.post('/api/auth/admin/ban-user', {
-        data: { userId: targetUser.user.id },
+      await test.step('Verify ban user fails for non-admin', async () => {
+        await createAuthenticatedViewer()
+        const nonAdminResponse = await page.request.post('/api/auth/admin/ban-user', {
+          data: { userId: targetUserId },
+        })
+        expect([400, 403]).toContain(nonAdminResponse.status())
       })
-      expect([400, 403]).toContain(nonAdminResponse.status())
 
-      // Test 3: Ban succeeds for admin
-      await createAuthenticatedAdmin()
-      const adminResponse = await page.request.post('/api/auth/admin/ban-user', {
-        data: { userId: targetUser.user.id, banReason: 'Policy violation' },
+      await test.step('Ban user as admin', async () => {
+        await createAuthenticatedAdmin()
+        const adminResponse = await page.request.post('/api/auth/admin/ban-user', {
+          data: { userId: targetUserId, banReason: 'Policy violation' },
+        })
+        expect(adminResponse.status()).toBe(200)
+
+        const data = await adminResponse.json()
+        expect(data).toHaveProperty('user')
+        expect(data.user).toHaveProperty('banned', true)
       })
-      expect(adminResponse.status()).toBe(200)
-
-      const data = await adminResponse.json()
-      expect(data).toHaveProperty('user')
-      expect(data.user).toHaveProperty('banned', true)
     }
   )
 })

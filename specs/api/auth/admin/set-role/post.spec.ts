@@ -309,42 +309,51 @@ test.describe('Admin: Set user role', () => {
     'API-AUTH-ADMIN-SET-ROLE-009: admin can complete full set-role workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { admin: true },
-        },
+      await test.step('Setup: Start server with admin plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { admin: true },
+          },
+        })
       })
 
-      // Test 1: Set role without auth fails
-      const noAuthResponse = await page.request.post('/api/auth/admin/set-role', {
-        data: { userId: '2', role: 'member' },
+      await test.step('Verify set role fails without auth', async () => {
+        const noAuthResponse = await page.request.post('/api/auth/admin/set-role', {
+          data: { userId: '2', role: 'member' },
+        })
+        expect(noAuthResponse.status()).toBe(401)
       })
-      expect(noAuthResponse.status()).toBe(401)
 
-      // Create admin and regular user
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
-
-      // Test 2: Set role fails for non-admin
-      await signIn({ email: 'user@example.com', password: 'UserPass123!' })
-      const nonAdminResponse = await page.request.post('/api/auth/admin/set-role', {
-        data: { userId: '1', role: 'member' },
+      await test.step('Setup: Create admin and regular user', async () => {
+        await signUp({
+          email: 'admin@example.com',
+          password: 'AdminPass123!',
+          name: 'Admin User',
+        })
+        await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
       })
-      expect(nonAdminResponse.status()).toBe(403)
 
-      // Test 3: Set role succeeds for admin
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
-      const adminResponse = await page.request.post('/api/auth/admin/set-role', {
-        data: { userId: '2', role: 'admin' },
+      await test.step('Verify set role fails for non-admin', async () => {
+        await signIn({ email: 'user@example.com', password: 'UserPass123!' })
+        const nonAdminResponse = await page.request.post('/api/auth/admin/set-role', {
+          data: { userId: '1', role: 'member' },
+        })
+        expect(nonAdminResponse.status()).toBe(403)
       })
-      expect(adminResponse.status()).toBe(200)
 
-      const data = await adminResponse.json()
-      expect(data).toHaveProperty('user')
-      expect(data.user).toHaveProperty('role', 'admin')
+      await test.step('Set user role as admin', async () => {
+        await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
+        const adminResponse = await page.request.post('/api/auth/admin/set-role', {
+          data: { userId: '2', role: 'admin' },
+        })
+        expect(adminResponse.status()).toBe(200)
+
+        const data = await adminResponse.json()
+        expect(data).toHaveProperty('user')
+        expect(data.user).toHaveProperty('role', 'admin')
+      })
     }
   )
 })
