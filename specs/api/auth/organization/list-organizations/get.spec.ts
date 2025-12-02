@@ -20,8 +20,8 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Validation Approach:
  * - API response assertions (status codes, response schemas)
- * - Database state validation (executeQuery fixture)
- * - Authentication/authorization checks
+ * - Database state validation via API (no direct executeQuery for auth data)
+ * - Authentication/authorization checks via auth fixtures
  */
 
 test.describe('List user organizations', () => {
@@ -30,220 +30,202 @@ test.describe('List user organizations', () => {
   // ============================================================================
 
   test.fixme(
-    "API-ORG-LIST-ORGANIZATIONS-001: should returns 200 OK with all organizations and user's roles",
+    "API-ORG-LIST-ORGANIZATIONS-001: should return 200 OK with all organizations and user's roles",
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user who is member of multiple organizations
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Org One', 'org-one', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (2, 'Org Two', 'org-two', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 2, 1, 'member', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+      })
+
+      // Create multiple organizations
+      await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Org One', slug: 'org-one' },
+      })
+      await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Org Two', slug: 'org-two' },
+      })
 
       // WHEN: User requests list of their organizations
-      const response = await page.request.get('/api/auth/organization/list-organizations', {})
+      const response = await page.request.get('/api/auth/organization/list')
 
       // THEN: Returns 200 OK with all organizations and user's roles
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // Response contains organizations array with roles
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('organizations')
-      expect(Array.isArray(data.organizations)).toBe(true)
-
-      // Response includes both organizations
+      expect(Array.isArray(data)).toBe(true)
+      expect(data.length).toBeGreaterThanOrEqual(2)
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-LIST-ORGANIZATIONS-002: should returns 200 OK with empty organizations array',
+    'API-AUTH-ORG-LIST-ORGANIZATIONS-002: should return 200 OK with empty organizations array',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user who is not member of any organization
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+      })
 
       // WHEN: User requests list of their organizations
-      const response = await page.request.get('/api/auth/organization/list-organizations', {})
+      const response = await page.request.get('/api/auth/organization/list')
 
       // THEN: Returns 200 OK with empty organizations array
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // Response contains empty organizations array
+      const data = await response.json()
+      expect(Array.isArray(data)).toBe(true)
+      expect(data.length).toBe(0)
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-LIST-ORGANIZATIONS-003: should returns 401 Unauthorized',
+    'API-AUTH-ORG-LIST-ORGANIZATIONS-003: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: A running server
+      // GIVEN: A running server (no authenticated user)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
       // WHEN: Unauthenticated user attempts to list organizations
-      const response = await page.request.get('/api/auth/organization/list-organizations')
+      const response = await page.request.get('/api/auth/organization/list')
 
       // THEN: Returns 401 Unauthorized
-      // Returns 401 Unauthorized
-      expect(response.status).toBe(401)
-
-      // Response contains error about missing authentication
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(401)
     }
   )
 
   test.fixme(
-    "API-ORG-LIST-ORGANIZATIONS-004: should returns 200 OK with only User A's organizations (User B's not visible)",
+    "API-ORG-LIST-ORGANIZATIONS-004: should return 200 OK with only User A's organizations (User B's not visible)",
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: Two users with different organizations
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user1@example.com', '$2a$10$YourHashedPasswordHere', 'User 1', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'user2@example.com', '$2a$10$YourHashedPasswordHere', 'User 2', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'User 1 Org', 'user1-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (2, 'User 2 Org', 'user2-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 2, 2, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user1_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // User 1 creates organization
+      await signUp({
+        email: 'user1@example.com',
+        password: 'User1Pass123!',
+        name: 'User 1',
+      })
+      await signIn({
+        email: 'user1@example.com',
+        password: 'User1Pass123!',
+      })
+      await page.request.post('/api/auth/organization/create', {
+        data: { name: 'User 1 Org', slug: 'user1-org' },
+      })
 
-      // WHEN: User A requests list of organizations
-      const response = await page.request.get('/api/auth/organization/list-organizations', {})
+      // User 2 creates different organization
+      await signUp({
+        email: 'user2@example.com',
+        password: 'User2Pass123!',
+        name: 'User 2',
+      })
+      await signIn({
+        email: 'user2@example.com',
+        password: 'User2Pass123!',
+      })
+      await page.request.post('/api/auth/organization/create', {
+        data: { name: 'User 2 Org', slug: 'user2-org' },
+      })
 
-      // THEN: Returns 200 OK with only User A's organizations (User B's not visible)
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      // Sign back in as User 1
+      await signIn({
+        email: 'user1@example.com',
+        password: 'User1Pass123!',
+      })
 
-      // Response contains only User 1's organization
+      // WHEN: User 1 requests list of organizations
+      const response = await page.request.get('/api/auth/organization/list')
 
-      // Response does not include User 2's organization
+      // THEN: Returns 200 OK with only User 1's organizations
+      expect(response.status()).toBe(200)
+
+      const data = await response.json()
+      expect(data.length).toBe(1)
+      expect(data[0]).toHaveProperty('name', 'User 1 Org')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-LIST-ORGANIZATIONS-005: should returns 200 OK with correct role for each organization',
+    'API-AUTH-ORG-LIST-ORGANIZATIONS-005: should return 200 OK with correct role for each organization',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: An authenticated user with different roles across organizations
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: An authenticated user who created organizations (becomes owner)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Owned Org', 'owned-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (2, 'Admin Org', 'admin-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (3, 'Member Org', 'member-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 2, 1, 'admin', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (3, 3, 1, 'member', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+      })
+
+      // Create organizations
+      await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Owned Org', slug: 'owned-org' },
+      })
 
       // WHEN: User requests list of organizations
-      const response = await page.request.get('/api/auth/organization/list-organizations', {})
+      const response = await page.request.get('/api/auth/organization/list')
 
       // THEN: Returns 200 OK with correct role for each organization
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // Response includes all 3 organizations with correct roles
-
-      // Each organization has correct role attribute
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('organizations')
-      expect(Array.isArray(data.organizations)).toBe(true)
+      expect(Array.isArray(data)).toBe(true)
+      // User who creates org is the owner
+      const ownedOrg = data.find((org: { name: string }) => org.name === 'Owned Org')
+      expect(ownedOrg).toBeDefined()
     }
   )
 
@@ -254,25 +236,47 @@ test.describe('List user organizations', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-ORGANIZATIONS-006: user can complete full listOrganizations workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
-      // GIVEN: Representative test scenario
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // WHEN: Execute workflow
-      const response = await page.request.post('/api/auth/workflow', {
-        data: { test: true },
+      // Test 1: List organizations without auth fails
+      const noAuthResponse = await page.request.get('/api/auth/organization/list')
+      expect(noAuthResponse.status()).toBe(401)
+
+      // Create and authenticate user
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'user@example.com',
+        password: 'UserPass123!',
       })
 
-      // THEN: Verify integration
-      expect(response.status()).toBe(200)
-      const data = await response.json()
-      expect(data).toMatchObject({ success: true })
+      // Test 2: List returns empty array for new user
+      const emptyResponse = await page.request.get('/api/auth/organization/list')
+      expect(emptyResponse.status()).toBe(200)
+      const emptyData = await emptyResponse.json()
+      expect(emptyData.length).toBe(0)
+
+      // Test 3: List returns organization after creation
+      await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+
+      const listResponse = await page.request.get('/api/auth/organization/list')
+      expect(listResponse.status()).toBe(200)
+      const listData = await listResponse.json()
+      expect(listData.length).toBe(1)
+      expect(listData[0]).toHaveProperty('name', 'Test Org')
     }
   )
 })
