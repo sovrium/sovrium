@@ -107,24 +107,20 @@ test.describe('Get table by ID', () => {
     'API-TABLES-GET-004: user can complete full table retrieval workflow',
     { tag: '@regression' },
     async ({ request }) => {
-      // GIVEN: Application with representative table
-      // Application configured with sample table for testing
+      await test.step('Get table by ID successfully', async () => {
+        const successResponse = await request.get('/api/tables/1', {})
+        expect(successResponse.status()).toBe(200)
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      // Test successful retrieval
-      const successResponse = await request.get('/api/tables/1', {})
-      // THEN: assertion
-      expect(successResponse.status()).toBe(200)
-      const table = await successResponse.json()
-      // THEN: assertion
-      expect(table).toHaveProperty('id')
-      expect(table).toHaveProperty('name')
-      expect(table).toHaveProperty('fields')
+        const table = await successResponse.json()
+        expect(table).toHaveProperty('id')
+        expect(table).toHaveProperty('name')
+        expect(table).toHaveProperty('fields')
+      })
 
-      // Test not found error
-      const notFoundResponse = await request.get('/api/tables/9999', {})
-      // THEN: assertion
-      expect(notFoundResponse.status()).toBe(404)
+      await test.step('Verify get non-existent table fails', async () => {
+        const notFoundResponse = await request.get('/api/tables/9999', {})
+        expect(notFoundResponse.status()).toBe(404)
+      })
     }
   )
 })

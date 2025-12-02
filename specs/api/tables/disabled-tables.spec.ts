@@ -112,46 +112,47 @@ test.describe('Disabled Tables Endpoints', () => {
     'API-TABLES-DISABLED-005: all tables endpoints should be disabled when no tables config',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Server with no tables configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        // No tables config - all tables endpoints should be disabled
+      await test.step('Setup: Start server with no tables config', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          // No tables config - all tables endpoints should be disabled
+        })
       })
 
-      // WHEN: User attempts to access various tables endpoints
-      const tablesEndpoints = [
-        { method: 'GET', path: '/api/tables' },
-        { method: 'GET', path: '/api/tables/1' },
-        { method: 'GET', path: '/api/tables/1/records' },
-        { method: 'POST', path: '/api/tables/1/records' },
-        { method: 'GET', path: '/api/tables/1/records/1' },
-        { method: 'PATCH', path: '/api/tables/1/records/1' },
-        { method: 'DELETE', path: '/api/tables/1/records/1' },
-        { method: 'POST', path: '/api/tables/1/records/batch' },
-        { method: 'PATCH', path: '/api/tables/1/records/batch' },
-        { method: 'DELETE', path: '/api/tables/1/records/batch' },
-      ]
+      await test.step('Verify all tables endpoints return 404', async () => {
+        const tablesEndpoints = [
+          { method: 'GET', path: '/api/tables' },
+          { method: 'GET', path: '/api/tables/1' },
+          { method: 'GET', path: '/api/tables/1/records' },
+          { method: 'POST', path: '/api/tables/1/records' },
+          { method: 'GET', path: '/api/tables/1/records/1' },
+          { method: 'PATCH', path: '/api/tables/1/records/1' },
+          { method: 'DELETE', path: '/api/tables/1/records/1' },
+          { method: 'POST', path: '/api/tables/1/records/batch' },
+          { method: 'PATCH', path: '/api/tables/1/records/batch' },
+          { method: 'DELETE', path: '/api/tables/1/records/batch' },
+        ]
 
-      // THEN: All endpoints return 404 Not Found
-      for (const endpoint of tablesEndpoints) {
-        let response
-        switch (endpoint.method) {
-          case 'GET':
-            response = await page.request.get(endpoint.path)
-            break
-          case 'POST':
-            response = await page.request.post(endpoint.path, { data: {} })
-            break
-          case 'PATCH':
-            response = await page.request.patch(endpoint.path, { data: {} })
-            break
-          case 'DELETE':
-            response = await page.request.delete(endpoint.path)
-            break
+        for (const endpoint of tablesEndpoints) {
+          let response
+          switch (endpoint.method) {
+            case 'GET':
+              response = await page.request.get(endpoint.path)
+              break
+            case 'POST':
+              response = await page.request.post(endpoint.path, { data: {} })
+              break
+            case 'PATCH':
+              response = await page.request.patch(endpoint.path, { data: {} })
+              break
+            case 'DELETE':
+              response = await page.request.delete(endpoint.path)
+              break
+          }
+
+          expect(response?.status()).toBe(404)
         }
-
-        expect(response?.status()).toBe(404)
-      }
+      })
     }
   )
 })
