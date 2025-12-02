@@ -95,6 +95,9 @@ export {
   type EmailService,
 } from './email-service'
 
+// Email configuration with Effect logging
+export { getEmailConfigFromEffect } from './email-config'
+
 // Email templates
 export {
   passwordResetEmail,

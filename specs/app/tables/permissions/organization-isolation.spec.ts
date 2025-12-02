@@ -37,13 +37,12 @@ test.describe('Organization Data Isolation', () => {
       executeQuery,
       createAuthenticatedUser,
       createOrganization,
-      addMember,
     }) => {
       // GIVEN: Multi-organization setup with separate data
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
         tables: [
@@ -53,7 +52,7 @@ test.describe('Organization Data Isolation', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'organization_id', type: 'integer' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
             permissions: {
               organizationScoped: true,
@@ -62,19 +61,15 @@ test.describe('Organization Data Isolation', () => {
         ],
       })
 
-      // Create users and organizations
-      const userA = await createAuthenticatedUser({ email: 'usera@example.com' })
+      // Create user A and their organization (userA becomes owner automatically)
+      await createAuthenticatedUser({ email: 'usera@example.com' })
       const orgA = await createOrganization({ name: 'Organization A' })
 
-      const userB = await createAuthenticatedUser({ email: 'userb@example.com' })
+      // Create user B and their organization (userB becomes owner automatically)
+      await createAuthenticatedUser({ email: 'userb@example.com' })
       const orgB = await createOrganization({ name: 'Organization B' })
 
-      // Add users to their respective organizations
-      await createAuthenticatedUser({ email: 'owner@example.com' })
-      await addMember({ organizationId: orgA.organization.id, userId: userA.user.id })
-      await addMember({ organizationId: orgB.organization.id, userId: userB.user.id })
-
-      // Insert projects for each organization
+      // Insert projects for each organization (Better Auth uses TEXT IDs)
       await executeQuery([
         `INSERT INTO projects (id, name, organization_id) VALUES
          (1, 'Org A Project 1', '${orgA.organization.id}'),
@@ -125,7 +120,7 @@ test.describe('Organization Data Isolation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
         tables: [
@@ -135,7 +130,7 @@ test.describe('Organization Data Isolation', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'organization_id', type: 'integer' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
             permissions: {
               organizationScoped: true,
@@ -144,13 +139,15 @@ test.describe('Organization Data Isolation', () => {
         ],
       })
 
-      // Create two organizations
+      // Create user A and their organization (userA becomes owner automatically)
       await createAuthenticatedUser({ email: 'user1@example.com' })
       const orgA = await createOrganization({ name: 'Organization A' })
 
+      // Create user B and their organization (userB becomes owner automatically)
       await createAuthenticatedUser({ email: 'user2@example.com' })
       const orgB = await createOrganization({ name: 'Organization B' })
 
+      // Insert documents for each organization (Better Auth uses TEXT IDs)
       await executeQuery([
         `INSERT INTO documents (id, title, organization_id) VALUES
          (1, 'Org A Doc', '${orgA.organization.id}'),
@@ -197,7 +194,7 @@ test.describe('Organization Data Isolation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
         tables: [
@@ -207,7 +204,7 @@ test.describe('Organization Data Isolation', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'organization_id', type: 'integer' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
             permissions: {
               organizationScoped: true,
@@ -253,7 +250,7 @@ test.describe('Organization Data Isolation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
         tables: [
@@ -263,7 +260,7 @@ test.describe('Organization Data Isolation', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'value', type: 'single-line-text' },
-              { id: 3, name: 'organization_id', type: 'integer' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
             permissions: {
               organizationScoped: true,
@@ -272,13 +269,15 @@ test.describe('Organization Data Isolation', () => {
         ],
       })
 
-      // Create two organizations
+      // Create user A and their organization (userA becomes owner automatically)
       await createAuthenticatedUser({ email: 'user1@example.com' })
       const orgA = await createOrganization({ name: 'Organization A' })
 
+      // Create user B and their organization (userB becomes owner automatically)
       await createAuthenticatedUser({ email: 'user2@example.com' })
       const orgB = await createOrganization({ name: 'Organization B' })
 
+      // Insert settings for each organization (Better Auth uses TEXT IDs)
       await executeQuery([
         `INSERT INTO settings (id, value, organization_id) VALUES
          (1, 'Org A Setting', '${orgA.organization.id}'),
@@ -328,7 +327,7 @@ test.describe('Organization Data Isolation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
         tables: [
@@ -338,7 +337,7 @@ test.describe('Organization Data Isolation', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'organization_id', type: 'integer' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
             permissions: {
               organizationScoped: true,
@@ -347,13 +346,15 @@ test.describe('Organization Data Isolation', () => {
         ],
       })
 
-      // Create two organizations
+      // Create user A and their organization (userA becomes owner automatically)
       await createAuthenticatedUser({ email: 'user1@example.com' })
       const orgA = await createOrganization({ name: 'Organization A' })
 
+      // Create user B and their organization (userB becomes owner automatically)
       await createAuthenticatedUser({ email: 'user2@example.com' })
       const orgB = await createOrganization({ name: 'Organization B' })
 
+      // Insert items for each organization (Better Auth uses TEXT IDs)
       await executeQuery([
         `INSERT INTO items (id, name, organization_id) VALUES
          (1, 'Org A Item', '${orgA.organization.id}'),
@@ -396,12 +397,13 @@ test.describe('Organization Data Isolation', () => {
       executeQuery,
       createAuthenticatedUser,
       createOrganization,
+      addMember,
     }) => {
       // GIVEN: Organization with admin and member roles
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
         tables: [
@@ -411,8 +413,8 @@ test.describe('Organization Data Isolation', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'content', type: 'long-text' },
-              { id: 3, name: 'organization_id', type: 'integer' },
-              { id: 4, name: 'created_by', type: 'integer' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
+              { id: 4, name: 'created_by', type: 'single-line-text' },
             ],
             permissions: {
               organizationScoped: true,
@@ -425,12 +427,19 @@ test.describe('Organization Data Isolation', () => {
         ],
       })
 
-      // Create organization and users
+      // Create admin user and their organization (admin becomes owner automatically)
       const admin = await createAuthenticatedUser({ email: 'admin@example.com' })
       const org = await createOrganization({ name: 'Test Org' })
 
+      // Create member user and add them to the organization
       const member = await createAuthenticatedUser({ email: 'member@example.com' })
+      await addMember({
+        organizationId: org.organization.id,
+        userId: member.user.id,
+        role: 'member',
+      })
 
+      // Insert docs for the organization (Better Auth uses TEXT IDs)
       await executeQuery([
         `INSERT INTO internal_docs (id, content, organization_id, created_by) VALUES
          (1, 'Admin created doc', '${org.organization.id}', '${admin.user.id}'),
@@ -482,12 +491,13 @@ test.describe('Organization Data Isolation', () => {
       executeQuery,
       createAuthenticatedUser,
       createOrganization,
+      addMember,
     }) => {
       // GIVEN: User belonging to multiple organizations
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
         tables: [
@@ -497,7 +507,7 @@ test.describe('Organization Data Isolation', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'note', type: 'long-text' },
-              { id: 3, name: 'organization_id', type: 'integer' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
             permissions: {
               organizationScoped: true,
@@ -506,16 +516,33 @@ test.describe('Organization Data Isolation', () => {
         ],
       })
 
-      // Create multiple organizations
-      await createAuthenticatedUser({ email: 'user1@example.com' })
+      // Create user who will belong to multiple organizations
+      const multiOrgUser = await createAuthenticatedUser({ email: 'multiorg@example.com' })
+
+      // Create first organization (multiOrgUser becomes owner)
       const orgA = await createOrganization({ name: 'Organization A' })
 
+      // Create another user who owns organization B
       await createAuthenticatedUser({ email: 'user2@example.com' })
       const orgB = await createOrganization({ name: 'Organization B' })
 
+      // Create another user who owns organization C
       await createAuthenticatedUser({ email: 'user3@example.com' })
       const orgC = await createOrganization({ name: 'Organization C' })
 
+      // Add multiOrgUser as member of organizations B and C
+      await addMember({
+        organizationId: orgB.organization.id,
+        userId: multiOrgUser.user.id,
+        role: 'member',
+      })
+      await addMember({
+        organizationId: orgC.organization.id,
+        userId: multiOrgUser.user.id,
+        role: 'member',
+      })
+
+      // Insert notes for each organization (Better Auth uses TEXT IDs)
       await executeQuery([
         `INSERT INTO team_notes (id, note, organization_id) VALUES
          (1, 'Org A Note', '${orgA.organization.id}'),
@@ -573,7 +600,7 @@ test.describe('Organization Data Isolation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
         tables: [
@@ -583,7 +610,7 @@ test.describe('Organization Data Isolation', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'organization_id', type: 'integer' },
+              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
             permissions: {
               organizationScoped: true,
@@ -592,13 +619,15 @@ test.describe('Organization Data Isolation', () => {
         ],
       })
 
-      // Create two organizations
+      // Create user A and their organization (userA becomes owner automatically)
       await createAuthenticatedUser({ email: 'user1@example.com' })
       const orgA = await createOrganization({ name: 'Organization A' })
 
+      // Create user B and their organization (userB becomes owner automatically)
       await createAuthenticatedUser({ email: 'user2@example.com' })
       const orgB = await createOrganization({ name: 'Organization B' })
 
+      // Insert resources for each organization (Better Auth uses TEXT IDs)
       await executeQuery([
         `INSERT INTO resources (id, name, organization_id) VALUES
          (1, 'My Resource', '${orgA.organization.id}'),

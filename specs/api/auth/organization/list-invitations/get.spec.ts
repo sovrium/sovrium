@@ -32,12 +32,12 @@ test.describe('List organization invitations', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-INVITATIONS-001: should return 200 OK with all invitations',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner and multiple invitations
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -46,10 +46,6 @@ test.describe('List organization invitations', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -82,12 +78,12 @@ test.describe('List organization invitations', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-INVITATIONS-002: should return 200 OK with filtered pending invitations',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner and multiple invitations
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -96,10 +92,6 @@ test.describe('List organization invitations', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -131,12 +123,12 @@ test.describe('List organization invitations', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-INVITATIONS-003: should return 400 Bad Request without organizationId',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -145,10 +137,6 @@ test.describe('List organization invitations', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // WHEN: User requests invitations without organizationId parameter
@@ -170,7 +158,7 @@ test.describe('List organization invitations', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -193,7 +181,7 @@ test.describe('List organization invitations', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -202,10 +190,6 @@ test.describe('List organization invitations', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -245,12 +229,12 @@ test.describe('List organization invitations', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-INVITATIONS-006: should return 404 Not Found for non-existent organization',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -259,10 +243,6 @@ test.describe('List organization invitations', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // WHEN: User requests invitations for non-existent organization
@@ -286,7 +266,7 @@ test.describe('List organization invitations', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -296,10 +276,6 @@ test.describe('List organization invitations', () => {
         email: 'owner1@example.com',
         password: 'Owner1Pass123!',
         name: 'Owner 1',
-      })
-      await signIn({
-        email: 'owner1@example.com',
-        password: 'Owner1Pass123!',
       })
 
       await page.request.post('/api/auth/organization/create', {
@@ -311,10 +287,6 @@ test.describe('List organization invitations', () => {
         email: 'owner2@example.com',
         password: 'Owner2Pass123!',
         name: 'Owner 2',
-      })
-      await signIn({
-        email: 'owner2@example.com',
-        password: 'Owner2Pass123!',
       })
 
       const createResponse2 = await page.request.post('/api/auth/organization/create', {
@@ -344,12 +316,12 @@ test.describe('List organization invitations', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-INVITATIONS-008: should return 200 OK with empty invitations array',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner with no invitations
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -358,10 +330,6 @@ test.describe('List organization invitations', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -390,57 +358,62 @@ test.describe('List organization invitations', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-INVITATIONS-009: user can complete full listInvitations workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          authentication: ['email-and-password'],
-          plugins: { organization: true },
-        },
+    async ({ page, startServerWithSchema, signUp }) => {
+      await test.step('Setup: Start server with organization plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true },
+          },
+        })
       })
 
-      // Test 1: List without auth fails
-      const noAuthResponse = await page.request.get(
-        '/api/auth/organization/list-invitations?organizationId=1'
-      )
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create owner and organization
-      await signUp({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-        name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
+      await test.step('Verify list invitations fails without auth', async () => {
+        const noAuthResponse = await page.request.get(
+          '/api/auth/organization/list-invitations?organizationId=1'
+        )
+        expect(noAuthResponse.status()).toBe(401)
       })
 
-      const createResponse = await page.request.post('/api/auth/organization/create', {
-        data: { name: 'Test Org', slug: 'test-org' },
+      let orgId: string
+
+      await test.step('Setup: Create owner and organization', async () => {
+        await signUp({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+          name: 'Owner User',
+        })
+
+        const createResponse = await page.request.post('/api/auth/organization/create', {
+          data: { name: 'Test Org', slug: 'test-org' },
+        })
+        const org = await createResponse.json()
+        orgId = org.id
       })
-      const org = await createResponse.json()
 
-      // Test 2: List empty invitations succeeds
-      const emptyResponse = await page.request.get(
-        `/api/auth/organization/list-invitations?organizationId=${org.id}`
-      )
-      expect(emptyResponse.status()).toBe(200)
-
-      // Add invitation
-      await page.request.post('/api/auth/organization/invite-member', {
-        data: { organizationId: org.id, email: 'invitee@example.com', role: 'member' },
+      await test.step('List invitations with empty list', async () => {
+        const emptyResponse = await page.request.get(
+          `/api/auth/organization/list-invitations?organizationId=${orgId}`
+        )
+        expect(emptyResponse.status()).toBe(200)
       })
 
-      // Test 3: List with invitations succeeds
-      const listResponse = await page.request.get(
-        `/api/auth/organization/list-invitations?organizationId=${org.id}`
-      )
-      expect(listResponse.status()).toBe(200)
+      await test.step('Create invitation', async () => {
+        await page.request.post('/api/auth/organization/invite-member', {
+          data: { organizationId: orgId, email: 'invitee@example.com', role: 'member' },
+        })
+      })
 
-      const data = await listResponse.json()
-      expect(data.invitations.length).toBeGreaterThan(0)
+      await test.step('List invitations with invitation present', async () => {
+        const listResponse = await page.request.get(
+          `/api/auth/organization/list-invitations?organizationId=${orgId}`
+        )
+        expect(listResponse.status()).toBe(200)
+
+        const data = await listResponse.json()
+        expect(data.invitations.length).toBeGreaterThan(0)
+      })
     }
   )
 })

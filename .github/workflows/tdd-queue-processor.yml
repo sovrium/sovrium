@@ -208,8 +208,10 @@ jobs:
              - ✅ ESLint: 0 errors
              - ✅ TypeScript: No type errors
              - ✅ Unit tests: All passing
-             - ✅ **E2E regression tests: ALL passing** (not just the spec you modified - your changes may break other tests!)
+             - ✅ Coverage check: Domain layer has tests
+             - ✅ **Smart E2E detection**: Runs affected @regression specs automatically
              - **🚫 DO NOT proceed to step 4 if ANY check fails** - fix ALL issues first
+             - **Note**: \`bun run quality\` uses smart detection to run only @regression specs related to your changes
           4. **Commit changes** - Run \`bun run license\`, then commit as \`fix: implement $SPEC_ID\`, push to branch
           5. **⚠️ CREATE PR** - \`gh pr create --title \"fix: implement $SPEC_ID\" --body \"Closes #$ISSUE_NUMBER\" --label \"tdd-automation\"\`
           6. **⚠️ ENABLE AUTO-MERGE** - \`gh pr merge \$PR_NUMBER --auto --squash\`
@@ -219,7 +221,7 @@ jobs:
 
           - **If \`bun run quality\` fails**:
             1. Read the FULL error output carefully
-            2. Fix ALL failing tests (not just the one you're implementing - your changes may break OTHER regression tests!)
+            2. Fix ALL failing checks (ESLint, TypeScript, unit tests, E2E)
             3. Re-run \`bun run quality\` until it passes completely
             4. Only THEN proceed to commit and PR creation
           - **If layer architecture violations**: Fix cross-layer imports before proceeding - domain must be pure

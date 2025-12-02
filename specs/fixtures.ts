@@ -6,6 +6,7 @@
  */
 
 import { spawn } from 'node:child_process'
+import { createHmac } from 'node:crypto'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -193,6 +194,7 @@ async function startCliServer(
       PORT: '0', // Let Bun select an available port
       ...(databaseUrl && { DATABASE_URL: databaseUrl }),
       ...smtpEnv, // Configure SMTP to use Mailpit
+      BETTER_AUTH_SECRET: 'test-secret-for-e2e-testing', // Required for Better Auth token signing
     },
     stdio: 'pipe',
   })
@@ -340,6 +342,7 @@ type SignInData = {
 type AuthResult = {
   user: AuthUser
   session?: AuthSession
+  token?: string // Convenience alias for session.token
 }
 
 type Organization = {
@@ -379,6 +382,62 @@ type Membership = {
 
 type MembershipResult = {
   member: Membership
+}
+
+/**
+ * API Key types for test fixtures
+ */
+type ApiKey = {
+  id: string
+  name: string | null
+  key?: string // Only returned on creation
+  userId: string
+  expiresAt: string | null
+  createdAt: string
+  metadata?: Record<string, unknown>
+}
+
+type ApiKeyCreateData = {
+  name?: string
+  expiresIn?: number // Seconds until expiration
+  metadata?: Record<string, unknown>
+}
+
+type ApiKeyResult = {
+  id: string
+  key: string // The actual API key value (shown only once)
+  name: string | null
+  expiresAt: string | null
+  createdAt: string
+  metadata?: Record<string, unknown>
+}
+
+/**
+ * Two-Factor types for test fixtures
+ */
+type TwoFactorSetupResult = {
+  secret: string
+  qrCode: string
+  backupCodes?: string[]
+}
+
+type TwoFactorVerifyResult = {
+  success: boolean
+}
+
+/**
+ * Admin types for test fixtures
+ */
+type AdminCreateUserData = {
+  email: string
+  name: string
+  password: string
+  emailVerified?: boolean
+  role?: string
+}
+
+type AdminUserResult = {
+  user: AuthUser & { role?: string }
 }
 
 /**
@@ -485,6 +544,13 @@ type ServerFixtures = {
   createAuthenticatedAdmin: (data?: Partial<SignUpData>) => Promise<AuthResult>
 
   /**
+   * Create and authenticate a viewer user
+   * Creates a user, sets role to viewer (read-only), then signs in
+   * @returns The authenticated viewer user and session data
+   */
+  createAuthenticatedViewer: (data?: Partial<SignUpData>) => Promise<AuthResult>
+
+  /**
    * Create a new organization via API
    * Requires an authenticated user (call createAuthenticatedUser first)
    * @returns The created organization data
@@ -542,6 +608,100 @@ type ServerFixtures = {
    * ```
    */
   mailpit: MailpitHelper
+
+  // =========================================================================
+  // API Key Fixtures
+  // =========================================================================
+
+  /**
+   * Create a new API key for the authenticated user
+   * Requires API keys plugin enabled and authenticated user
+   * @returns The created API key with the actual key value (shown only once)
+   */
+  createApiKey: (data?: ApiKeyCreateData) => Promise<ApiKeyResult>
+
+  /**
+   * List all API keys for the authenticated user
+   * @returns Array of API keys (without the actual key values)
+   */
+  listApiKeys: () => Promise<ApiKey[]>
+
+  /**
+   * Delete an API key by ID
+   * @returns void on success
+   */
+  deleteApiKey: (keyId: string) => Promise<void>
+
+  // =========================================================================
+  // Two-Factor Authentication Fixtures
+  // =========================================================================
+
+  /**
+   * Enable two-factor authentication for the authenticated user
+   * Returns TOTP secret and QR code for setup
+   * @returns Setup data including secret, QR code, and optional backup codes
+   */
+  enableTwoFactor: () => Promise<TwoFactorSetupResult>
+
+  /**
+   * Verify a TOTP code to complete 2FA setup or login
+   * @returns Verification result
+   */
+  verifyTwoFactor: (code: string) => Promise<TwoFactorVerifyResult>
+
+  /**
+   * Disable two-factor authentication for the authenticated user
+   * Requires a valid TOTP code for confirmation
+   * @returns void on success
+   */
+  disableTwoFactor: (code: string) => Promise<void>
+
+  /**
+   * Generate a valid TOTP code from a secret
+   * Uses RFC 6238 TOTP algorithm (30-second time steps, 6 digits)
+   * @param secret Base32-encoded TOTP secret
+   * @returns 6-digit TOTP code
+   */
+  generateTotpCode: (secret: string) => string
+
+  // =========================================================================
+  // Admin Fixtures
+  // =========================================================================
+
+  /**
+   * Create a new user as admin
+   * Requires authenticated admin user with admin plugin enabled
+   * @returns The created user data
+   */
+  adminCreateUser: (data: AdminCreateUserData) => Promise<AdminUserResult>
+
+  /**
+   * Ban a user by ID
+   * Requires authenticated admin user
+   * @returns void on success
+   */
+  adminBanUser: (userId: string) => Promise<void>
+
+  /**
+   * Unban a user by ID
+   * Requires authenticated admin user
+   * @returns void on success
+   */
+  adminUnbanUser: (userId: string) => Promise<void>
+
+  /**
+   * List all users
+   * Requires authenticated admin user
+   * @returns Array of user data
+   */
+  adminListUsers: () => Promise<AdminUserResult[]>
+
+  /**
+   * Set a user's role
+   * Requires authenticated admin user
+   * @returns void on success
+   */
+  adminSetRole: (userId: string, role: string) => Promise<void>
 }
 
 /**
@@ -931,6 +1091,7 @@ export const test = base.extend<ServerFixtures>({
       return {
         user: result.user,
         session: result.session,
+        token: result.session?.token, // Convenience alias
       }
     })
   },
@@ -994,6 +1155,7 @@ export const test = base.extend<ServerFixtures>({
       return {
         user: result.user,
         session: result.session,
+        token: result.session?.token, // Convenience alias
       }
     })
   },
@@ -1073,6 +1235,87 @@ export const test = base.extend<ServerFixtures>({
       return {
         user: { ...result.user, role: 'admin' },
         session: result.session,
+        token: result.session?.token, // Convenience alias
+      }
+    })
+  },
+
+  // Auth fixture: Create and authenticate a viewer user
+  // Creates user, updates role to viewer via executeQuery, then signs in
+  createAuthenticatedViewer: async ({ page }, use, testInfo) => {
+    let userCounter = 0
+
+    await use(async (data?: Partial<SignUpData>): Promise<AuthResult> => {
+      userCounter++
+      const timestamp = Date.now()
+      const defaultData: SignUpData = {
+        email: data?.email ?? `viewer-${timestamp}-${userCounter}@example.com`,
+        password: data?.password ?? 'ViewerPassword123!',
+        name: data?.name ?? `Viewer User ${userCounter}`,
+      }
+
+      // Sign up
+      const signUpResponse = await page.request.post('/api/auth/sign-up/email', {
+        data: defaultData,
+      })
+
+      if (!signUpResponse.ok()) {
+        const errorData = await signUpResponse.json().catch(() => ({}))
+        throw new Error(
+          `Viewer sign up failed with status ${signUpResponse.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      const signUpResult = await signUpResponse.json()
+      const userId = signUpResult.user?.id
+
+      if (!userId) {
+        throw new Error('Failed to get user ID from sign up response')
+      }
+
+      // Update user role to viewer via database
+      const connectionUrl = process.env.TEST_DATABASE_CONTAINER_URL
+      if (!connectionUrl) {
+        throw new Error('Database not initialized for viewer role update')
+      }
+
+      const testDbName = (testInfo as any)._testDatabaseName
+      if (testDbName) {
+        const { Client } = await import('pg')
+        const url = new URL(connectionUrl)
+        const pathParts = url.pathname.split('/')
+        pathParts[1] = testDbName
+        url.pathname = pathParts.join('/')
+
+        const client = new Client({ connectionString: url.toString() })
+        await client.connect()
+        try {
+          await client.query(`UPDATE "user" SET role = 'viewer' WHERE id = $1`, [userId])
+        } finally {
+          await client.end()
+        }
+      }
+
+      // Sign in (to set cookies with updated role)
+      const signInResponse = await page.request.post('/api/auth/sign-in/email', {
+        data: {
+          email: defaultData.email,
+          password: defaultData.password,
+        },
+      })
+
+      if (!signInResponse.ok()) {
+        const errorData = await signInResponse.json().catch(() => ({}))
+        throw new Error(
+          `Viewer sign in failed with status ${signInResponse.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      const result = await signInResponse.json()
+      return {
+        user: { ...result.user, role: 'viewer' },
+        session: result.session,
+        token: result.session?.token, // Convenience alias
       }
     })
   },
@@ -1183,8 +1426,427 @@ export const test = base.extend<ServerFixtures>({
 
     await use(mailpit)
   },
+
+  // =========================================================================
+  // API Key Fixtures
+  // =========================================================================
+
+  // API Key fixture: Create a new API key
+  createApiKey: async ({ page }, use) => {
+    await use(async (data?: ApiKeyCreateData): Promise<ApiKeyResult> => {
+      const response = await page.request.post('/api/auth/api-key/create', {
+        data: {
+          ...(data?.name && { name: data.name }),
+          ...(data?.expiresIn && { expiresIn: data.expiresIn }),
+          ...(data?.metadata && { metadata: data.metadata }),
+        },
+      })
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Create API key failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      return response.json()
+    })
+  },
+
+  // API Key fixture: List all API keys
+  listApiKeys: async ({ page }, use) => {
+    await use(async (): Promise<ApiKey[]> => {
+      const response = await page.request.get('/api/auth/api-key/list')
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `List API keys failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      return response.json()
+    })
+  },
+
+  // API Key fixture: Delete an API key
+  deleteApiKey: async ({ page }, use) => {
+    await use(async (keyId: string): Promise<void> => {
+      // eslint-disable-next-line drizzle/enforce-delete-with-where
+      const response = await page.request.delete(`/api/auth/api-key/${keyId}`)
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Delete API key failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+    })
+  },
+
+  // =========================================================================
+  // Two-Factor Authentication Fixtures
+  // =========================================================================
+
+  // Two-Factor fixture: Enable 2FA
+  enableTwoFactor: async ({ page }, use) => {
+    await use(async (): Promise<TwoFactorSetupResult> => {
+      const response = await page.request.post('/api/auth/two-factor/enable')
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Enable 2FA failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      return response.json()
+    })
+  },
+
+  // Two-Factor fixture: Verify TOTP code
+  verifyTwoFactor: async ({ page }, use) => {
+    await use(async (code: string): Promise<TwoFactorVerifyResult> => {
+      const response = await page.request.post('/api/auth/two-factor/verify', {
+        data: { code },
+      })
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Verify 2FA failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      return response.json()
+    })
+  },
+
+  // Two-Factor fixture: Disable 2FA
+  disableTwoFactor: async ({ page }, use) => {
+    await use(async (code: string): Promise<void> => {
+      const response = await page.request.post('/api/auth/two-factor/disable', {
+        data: { code },
+      })
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Disable 2FA failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+    })
+  },
+
+  // Two-Factor fixture: Generate TOTP code from secret
+  // Uses RFC 6238 TOTP algorithm (30-second time steps, 6 digits, HMAC-SHA1)
+  generateTotpCode: async ({}, use) => {
+    await use((secret: string): string => {
+      // Base32 decode the secret
+      const base32Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+      const bits: number[] = []
+      for (const char of secret.toUpperCase().replace(/=+$/, '')) {
+        const val = base32Chars.indexOf(char)
+        if (val === -1) continue
+        for (let i = 4; i >= 0; i--) {
+          bits.push((val >> i) & 1)
+        }
+      }
+
+      const bytes: number[] = []
+      for (let i = 0; i + 8 <= bits.length; i += 8) {
+        let byte = 0
+        for (let j = 0; j < 8; j++) {
+          byte = (byte << 1) | (bits[i + j] ?? 0)
+        }
+        bytes.push(byte)
+      }
+      const keyBuffer = Buffer.from(bytes)
+
+      // Get current time step (30 seconds)
+      const timeStep = Math.floor(Date.now() / 30_000)
+
+      // Create 8-byte counter buffer
+      const counterBuffer = Buffer.alloc(8)
+      counterBuffer.writeBigUInt64BE(BigInt(timeStep))
+
+      // Generate HMAC-SHA1
+      const hmac = createHmac('sha1', keyBuffer)
+      hmac.update(counterBuffer)
+      const hash = hmac.digest()
+
+      // Dynamic truncation (RFC 4226)
+      const offset = hash[hash.length - 1]! & 0x0f
+      const binary =
+        ((hash[offset]! & 0x7f) << 24) |
+        ((hash[offset + 1]! & 0xff) << 16) |
+        ((hash[offset + 2]! & 0xff) << 8) |
+        (hash[offset + 3]! & 0xff)
+
+      // Generate 6-digit code
+      const otp = binary % 1_000_000
+      return otp.toString().padStart(6, '0')
+    })
+  },
+
+  // =========================================================================
+  // Admin Fixtures
+  // =========================================================================
+
+  // Admin fixture: Create a new user
+  adminCreateUser: async ({ page }, use) => {
+    await use(async (data: AdminCreateUserData): Promise<AdminUserResult> => {
+      const response = await page.request.post('/api/auth/admin/create-user', {
+        data: {
+          email: data.email,
+          name: data.name,
+          password: data.password,
+          ...(data.emailVerified !== undefined && { emailVerified: data.emailVerified }),
+          ...(data.role && { role: data.role }),
+        },
+      })
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Admin create user failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      return response.json()
+    })
+  },
+
+  // Admin fixture: Ban a user
+  adminBanUser: async ({ page }, use) => {
+    await use(async (userId: string): Promise<void> => {
+      const response = await page.request.post('/api/auth/admin/ban-user', {
+        data: { userId },
+      })
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Admin ban user failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+    })
+  },
+
+  // Admin fixture: Unban a user
+  adminUnbanUser: async ({ page }, use) => {
+    await use(async (userId: string): Promise<void> => {
+      const response = await page.request.post('/api/auth/admin/unban-user', {
+        data: { userId },
+      })
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Admin unban user failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+    })
+  },
+
+  // Admin fixture: List all users
+  adminListUsers: async ({ page }, use) => {
+    await use(async (): Promise<AdminUserResult[]> => {
+      const response = await page.request.get('/api/auth/admin/list-users')
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Admin list users failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      return response.json()
+    })
+  },
+
+  // Admin fixture: Set user role
+  adminSetRole: async ({ page }, use) => {
+    await use(async (userId: string, role: string): Promise<void> => {
+      const response = await page.request.post('/api/auth/admin/set-role', {
+        data: { userId, role },
+      })
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Admin set role failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+    })
+  },
 })
 
 export { expect } from '@playwright/test'
 export type { Locator } from '@playwright/test'
 export type { MailpitEmail } from './email-utils'
+
+// =============================================================================
+// Multi-Org Test Utilities
+// =============================================================================
+
+/**
+ * Type for executeQuery function (used for helper function signatures)
+ */
+export type ExecuteQueryFn = (
+  sql: string | string[],
+  params?: unknown[]
+) => Promise<{
+  rows: any[]
+  rowCount: number
+  [key: string]: any
+}>
+
+/**
+ * Verify that a record exists in the database
+ *
+ * @example
+ * ```ts
+ * // Check if record exists
+ * const exists = await verifyRecordExists(
+ *   executeQuery,
+ *   'employees',
+ *   { id: 1, organization_id: 'org_123' }
+ * )
+ * expect(exists).toBe(true)
+ * ```
+ */
+export async function verifyRecordExists(
+  executeQuery: ExecuteQueryFn,
+  table: string,
+  conditions: Record<string, unknown>
+): Promise<boolean> {
+  const keys = Object.keys(conditions)
+  const whereClause = keys.map((key, i) => `"${key}" = $${i + 1}`).join(' AND ')
+  const values = keys.map((key) => conditions[key])
+
+  const result = await executeQuery(
+    `SELECT COUNT(*) as count FROM "${table}" WHERE ${whereClause}`,
+    values
+  )
+  return result.rows[0]?.count > 0
+}
+
+/**
+ * Verify that a record does NOT exist in the database
+ *
+ * @example
+ * ```ts
+ * // Check if record was deleted
+ * const notExists = await verifyRecordNotExists(
+ *   executeQuery,
+ *   'employees',
+ *   { id: 1 }
+ * )
+ * expect(notExists).toBe(true)
+ * ```
+ */
+export async function verifyRecordNotExists(
+  executeQuery: ExecuteQueryFn,
+  table: string,
+  conditions: Record<string, unknown>
+): Promise<boolean> {
+  const exists = await verifyRecordExists(executeQuery, table, conditions)
+  return !exists
+}
+
+/**
+ * Result from createMultiOrgScenario
+ */
+export interface MultiOrgScenarioResult {
+  userOrgRecordIds: number[]
+  otherOrgRecordIds: number[]
+}
+
+/**
+ * Create a test scenario with records in multiple organizations
+ * Useful for testing organization isolation and cross-org access prevention
+ *
+ * @example
+ * ```ts
+ * // Create records in two organizations
+ * const { userOrgRecordIds, otherOrgRecordIds } = await createMultiOrgScenario(
+ *   executeQuery,
+ *   {
+ *     table: 'employees',
+ *     organizationIdField: 'organization_id',
+ *     userOrgId: 'org_123',
+ *     otherOrgId: 'org_456',
+ *     userOrgRecords: [
+ *       { name: 'Alice', email: 'alice@example.com' },
+ *       { name: 'Bob', email: 'bob@example.com' },
+ *     ],
+ *     otherOrgRecords: [
+ *       { name: 'Charlie', email: 'charlie@example.com' },
+ *     ],
+ *   }
+ * )
+ *
+ * // userOrgRecordIds = [1, 2] (IDs of Alice and Bob)
+ * // otherOrgRecordIds = [3] (ID of Charlie)
+ * ```
+ */
+export async function createMultiOrgScenario(
+  executeQuery: ExecuteQueryFn,
+  options: {
+    table: string
+    organizationIdField?: string
+    userOrgId: string
+    otherOrgId: string
+    userOrgRecords: Record<string, unknown>[]
+    otherOrgRecords: Record<string, unknown>[]
+  }
+): Promise<MultiOrgScenarioResult> {
+  const {
+    table,
+    organizationIdField = 'organization_id',
+    userOrgId,
+    otherOrgId,
+    userOrgRecords,
+    otherOrgRecords,
+  } = options
+
+  const userOrgRecordIds: number[] = []
+  const otherOrgRecordIds: number[] = []
+
+  // Insert user org records
+  for (const record of userOrgRecords) {
+    const recordWithOrg = { ...record, [organizationIdField]: userOrgId }
+    const keys = Object.keys(recordWithOrg)
+    const columns = keys.map((k) => `"${k}"`).join(', ')
+    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ')
+    const values = keys.map((k) => recordWithOrg[k])
+
+    const result = await executeQuery(
+      `INSERT INTO "${table}" (${columns}) VALUES (${placeholders}) RETURNING id`,
+      values
+    )
+    if (result.rows[0]?.id) {
+      userOrgRecordIds.push(result.rows[0].id)
+    }
+  }
+
+  // Insert other org records
+  for (const record of otherOrgRecords) {
+    const recordWithOrg = { ...record, [organizationIdField]: otherOrgId }
+    const keys = Object.keys(recordWithOrg)
+    const columns = keys.map((k) => `"${k}"`).join(', ')
+    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ')
+    const values = keys.map((k) => recordWithOrg[k])
+
+    const result = await executeQuery(
+      `INSERT INTO "${table}" (${columns}) VALUES (${placeholders}) RETURNING id`,
+      values
+    )
+    if (result.rows[0]?.id) {
+      otherOrgRecordIds.push(result.rows[0].id)
+    }
+  }
+
+  return { userOrgRecordIds, otherOrgRecordIds }
+}

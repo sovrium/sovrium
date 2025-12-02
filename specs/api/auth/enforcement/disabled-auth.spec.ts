@@ -100,7 +100,7 @@ test.describe('Disabled Auth Endpoints', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           // No features - admin endpoints should be disabled
         },
       })
@@ -121,33 +121,34 @@ test.describe('Disabled Auth Endpoints', () => {
     'API-AUTH-DISABLED-005: all auth endpoints should be disabled when no auth config',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Server with no auth configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        // No auth config - all auth endpoints should be disabled
+      await test.step('Setup: Start server without auth config', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          // No auth config - all auth endpoints should be disabled
+        })
       })
 
-      // WHEN: User attempts to access various auth endpoints
-      const authEndpoints = [
-        { method: 'POST', path: '/api/auth/sign-up/email' },
-        { method: 'POST', path: '/api/auth/sign-in/email' },
-        { method: 'GET', path: '/api/auth/get-session' },
-        { method: 'POST', path: '/api/auth/sign-out' },
-        { method: 'POST', path: '/api/auth/change-password' },
-        { method: 'POST', path: '/api/auth/request-password-reset' },
-        { method: 'GET', path: '/api/auth/admin/list-users' },
-        { method: 'GET', path: '/api/auth/organization/list-organizations' },
-      ]
+      await test.step('Verify all auth endpoints return 404', async () => {
+        const authEndpoints = [
+          { method: 'POST', path: '/api/auth/sign-up/email' },
+          { method: 'POST', path: '/api/auth/sign-in/email' },
+          { method: 'GET', path: '/api/auth/get-session' },
+          { method: 'POST', path: '/api/auth/sign-out' },
+          { method: 'POST', path: '/api/auth/change-password' },
+          { method: 'POST', path: '/api/auth/request-password-reset' },
+          { method: 'GET', path: '/api/auth/admin/list-users' },
+          { method: 'GET', path: '/api/auth/organization/list-organizations' },
+        ]
 
-      // THEN: All endpoints return 404 Not Found
-      for (const endpoint of authEndpoints) {
-        const response =
-          endpoint.method === 'GET'
-            ? await page.request.get(endpoint.path)
-            : await page.request.post(endpoint.path, { data: {} })
+        for (const endpoint of authEndpoints) {
+          const response =
+            endpoint.method === 'GET'
+              ? await page.request.get(endpoint.path)
+              : await page.request.post(endpoint.path, { data: {} })
 
-        expect(response.status()).toBe(404)
-      }
+          expect(response.status()).toBe(404)
+        }
+      })
     }
   )
 })

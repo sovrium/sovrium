@@ -37,12 +37,12 @@ test.describe('Admin: Get user by ID', () => {
   test.fixme(
     'API-AUTH-ADMIN-GET-USER-001: should return 200 OK with user details',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -56,11 +56,6 @@ test.describe('Admin: Get user by ID', () => {
         email: 'target@example.com',
         password: 'TargetPass123!',
         name: 'Target User',
-      })
-
-      await signIn({
-        email: 'admin@example.com',
-        password: 'AdminPass123!',
       })
 
       // WHEN: Admin requests user details by ID
@@ -80,18 +75,17 @@ test.describe('Admin: Get user by ID', () => {
   test.fixme(
     'API-AUTH-ADMIN-GET-USER-002: should return 400 Bad Request without userId parameter',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin requests user without userId parameter
       const response = await page.request.get('/api/auth/admin/get-user')
@@ -112,7 +106,7 @@ test.describe('Admin: Get user by ID', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -128,12 +122,12 @@ test.describe('Admin: Get user by ID', () => {
   test.fixme(
     'API-AUTH-ADMIN-GET-USER-004: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -148,10 +142,6 @@ test.describe('Admin: Get user by ID', () => {
         password: 'TargetPass123!',
         name: 'Target User',
       })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-      })
 
       // WHEN: Regular user attempts to get another user's details
       const response = await page.request.get('/api/auth/admin/get-user?userId=2')
@@ -164,18 +154,17 @@ test.describe('Admin: Get user by ID', () => {
   test.fixme(
     'API-AUTH-ADMIN-GET-USER-005: should return 404 Not Found for non-existent user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin requests user with non-existent ID
       const response = await page.request.get('/api/auth/admin/get-user?userId=999')
@@ -188,20 +177,18 @@ test.describe('Admin: Get user by ID', () => {
   test.fixme(
     'API-AUTH-ADMIN-GET-USER-006: should return 200 OK with password field excluded',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
       await signUp({ email: 'target@example.com', password: 'TargetPass123!', name: 'Target User' })
-
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin requests user details
       const response = await page.request.get('/api/auth/admin/get-user?userId=2')
@@ -225,37 +212,42 @@ test.describe('Admin: Get user by ID', () => {
     'API-AUTH-ADMIN-GET-USER-007: admin can complete full get-user workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          authentication: ['email-and-password'],
-          plugins: { admin: true },
-        },
+      await test.step('Setup: Start server with admin plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { admin: true },
+          },
+        })
       })
 
-      // Test 1: Get user without auth fails
-      const noAuthResponse = await page.request.get('/api/auth/admin/get-user?userId=1')
-      expect(noAuthResponse.status()).toBe(401)
+      await test.step('Verify get user fails without auth', async () => {
+        const noAuthResponse = await page.request.get('/api/auth/admin/get-user?userId=1')
+        expect(noAuthResponse.status()).toBe(401)
+      })
 
-      // Create admin and regular user
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
+      await test.step('Setup: Create admin and regular user', async () => {
+        await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+        await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
+      })
 
-      // Test 2: Get user fails for non-admin
-      await signIn({ email: 'user@example.com', password: 'UserPass123!' })
-      const nonAdminResponse = await page.request.get('/api/auth/admin/get-user?userId=1')
-      expect(nonAdminResponse.status()).toBe(403)
+      await test.step('Verify get user fails for non-admin', async () => {
+        await signIn({ email: 'user@example.com', password: 'UserPass123!' })
+        const nonAdminResponse = await page.request.get('/api/auth/admin/get-user?userId=1')
+        expect(nonAdminResponse.status()).toBe(403)
+      })
 
-      // Test 3: Get user succeeds for admin
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
-      const adminResponse = await page.request.get('/api/auth/admin/get-user?userId=2')
-      expect(adminResponse.status()).toBe(200)
+      await test.step('Get user as admin', async () => {
+        await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
+        const adminResponse = await page.request.get('/api/auth/admin/get-user?userId=2')
+        expect(adminResponse.status()).toBe(200)
 
-      const data = await adminResponse.json()
-      expect(data).toHaveProperty('user')
-      expect(data.user).toHaveProperty('email', 'user@example.com')
-      expect(data.user).not.toHaveProperty('password')
+        const data = await adminResponse.json()
+        expect(data).toHaveProperty('user')
+        expect(data.user).toHaveProperty('email', 'user@example.com')
+        expect(data.user).not.toHaveProperty('password')
+      })
     }
   )
 })

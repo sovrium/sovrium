@@ -38,7 +38,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.3.0
+          bun-version: 1.3.3
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -65,7 +65,7 @@ jobs:
 ### What the Test Workflow Does
 
 1. **Checkout** - Fetches the repository code
-2. **Setup Bun** - Installs Bun v1.3.0 runtime
+2. **Setup Bun** - Installs Bun v1.3.3 runtime
 3. **Install Dependencies** - Runs `bun install --frozen-lockfile`
 4. **Lint** - Checks code quality with ESLint
 5. **Format Check** - Verifies code formatting with Prettier
@@ -124,7 +124,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.3.0
+          bun-version: 1.3.3
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -145,7 +145,7 @@ jobs:
 
 1. **Trigger Check** - Only runs if Test workflow succeeded and commit doesn't contain `[skip ci]`
 2. **Checkout** - Fetches full git history for version analysis
-3. **Setup Bun** - Installs Bun v1.3.0 runtime
+3. **Setup Bun** - Installs Bun v1.3.3 runtime
 4. **Setup Node.js** - Installs Node.js LTS (semantic-release requires Node.js)
 5. **Install Dependencies** - Runs `bun install --frozen-lockfile`
 6. **Release** - Runs `bunx semantic-release` to create automated release

@@ -716,99 +716,105 @@ test.describe('Update record', () => {
     'API-TABLES-RECORDS-UPDATE-015: user can complete full record update workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application with representative table and permission configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 15,
-            name: 'employees',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'email', type: 'email', required: true },
-              { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
-              { id: 4, name: 'organization_id', type: 'single-line-text' },
-            ],
+      await test.step('Setup: Start server with employees table', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 15,
+              name: 'employees',
+              fields: [
+                { id: 1, name: 'name', type: 'single-line-text' },
+                { id: 2, name: 'email', type: 'email', required: true },
+                { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
+                { id: 4, name: 'organization_id', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
+      })
+
+      await test.step('Setup: Insert test records', async () => {
+        await executeQuery(`
+          INSERT INTO employees (id, name, email, salary, organization_id) VALUES
+            (1, 'Admin User', 'admin@example.com', 90000, 'org_123'),
+            (2, 'Member User', 'member@example.com', 60000, 'org_123'),
+            (3, 'Member Update', 'update@example.com', 65000, 'org_123')
+        `)
+      })
+
+      await test.step('Update record successfully', async () => {
+        const successResponse = await request.patch('/api/tables/1/records/1', {
+          headers: {
+            'Content-Type': 'application/json',
           },
-        ],
+          data: {
+            name: 'Updated Name',
+            email: 'updated@example.com',
+          },
+        })
+
+        expect(successResponse.status()).toBe(200)
+        const record = await successResponse.json()
+        expect(record.name).toBe('Updated Name')
       })
-      await executeQuery(`
-        INSERT INTO employees (id, name, email, salary, organization_id) VALUES
-          (1, 'Admin User', 'admin@example.com', 90000, 'org_123'),
-          (2, 'Member User', 'member@example.com', 60000, 'org_123'),
-          (3, 'Member Update', 'update@example.com', 65000, 'org_123')
-      `)
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-
-      // Test successful update (admin with full access)
-      const successResponse = await request.patch('/api/tables/1/records/1', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          name: 'Updated Name',
-          email: 'updated@example.com',
-        },
+      await test.step('Verify update in database', async () => {
+        const verifyUpdate = await executeQuery(`SELECT name FROM employees WHERE id=1`)
+        expect(verifyUpdate.rows[0].name).toBe('Updated Name')
       })
-      // THEN: assertion
-      expect(successResponse.status()).toBe(200)
-      const record = await successResponse.json()
-      // THEN: assertion
-      expect(record.name).toBe('Updated Name')
 
-      // Verify update in database
-      const verifyUpdate = await executeQuery(`SELECT name FROM employees WHERE id=1`)
-      // THEN: assertion
-      expect(verifyUpdate.rows[0].name).toBe('Updated Name')
+      await test.step('Verify update non-existent record fails', async () => {
+        const notFoundResponse = await request.patch('/api/tables/1/records/9999', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            name: 'Test',
+          },
+        })
 
-      // Test record not found
-      const notFoundResponse = await request.patch('/api/tables/1/records/9999', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          name: 'Test',
-        },
+        expect(notFoundResponse.status()).toBe(404)
       })
-      // THEN: assertion
-      expect(notFoundResponse.status()).toBe(404)
 
-      // Test permission denied (member without update permission)
-      const forbiddenResponse = await request.patch('/api/tables/1/records/2', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          name: 'Unauthorized Update',
-        },
-      })
-      // THEN: assertion
-      expect(forbiddenResponse.status()).toBe(403)
+      await test.step('Verify unauthorized update fails', async () => {
+        const forbiddenResponse = await request.patch('/api/tables/1/records/2', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            name: 'Unauthorized Update',
+          },
+        })
 
-      // Test unauthorized
-      const unauthorizedResponse = await request.patch('/api/tables/1/records/1', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          name: 'Test',
-        },
+        expect(forbiddenResponse.status()).toBe(403)
       })
-      // THEN: assertion
-      expect(unauthorizedResponse.status()).toBe(401)
 
-      // Test field-level write restriction (member trying to update salary)
-      const fieldForbiddenResponse = await request.patch('/api/tables/1/records/3', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          salary: 99_999,
-        },
+      await test.step('Verify unauthenticated update fails', async () => {
+        const unauthorizedResponse = await request.patch('/api/tables/1/records/1', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            name: 'Test',
+          },
+        })
+
+        expect(unauthorizedResponse.status()).toBe(401)
       })
-      // THEN: assertion
-      expect(fieldForbiddenResponse.status()).toBe(403)
+
+      await test.step('Verify field-level permission enforced', async () => {
+        const fieldForbiddenResponse = await request.patch('/api/tables/1/records/3', {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          data: {
+            salary: 99_999,
+          },
+        })
+
+        expect(fieldForbiddenResponse.status()).toBe(403)
+      })
     }
   )
 })

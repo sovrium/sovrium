@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/migrations/schema-evolution/modify-field-default/modify-field-default.json
  * Domain: migrations
- * Spec Count: 3
+ * Spec Count: 1
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (3 tests) - Exhaustive acceptance criteria

@@ -34,12 +34,12 @@ test.describe('Cancel organization invitation', () => {
   test.fixme(
     'API-AUTH-ORG-CANCEL-INVITATION-001: should return 200 OK and mark invitation as cancelled',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner and a pending invitation
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -48,10 +48,6 @@ test.describe('Cancel organization invitation', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -87,12 +83,12 @@ test.describe('Cancel organization invitation', () => {
   test.fixme(
     'API-AUTH-ORG-CANCEL-INVITATION-002: should return 400 Bad Request without invitationId',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -101,10 +97,6 @@ test.describe('Cancel organization invitation', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       await page.request.post('/api/auth/organization/create', {
@@ -132,7 +124,7 @@ test.describe('Cancel organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -157,7 +149,7 @@ test.describe('Cancel organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -167,10 +159,6 @@ test.describe('Cancel organization invitation', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -227,12 +215,12 @@ test.describe('Cancel organization invitation', () => {
   test.fixme(
     'API-AUTH-ORG-CANCEL-INVITATION-005: should return 404 Not Found for non-existent invitation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -241,10 +229,6 @@ test.describe('Cancel organization invitation', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       await page.request.post('/api/auth/organization/create', {
@@ -274,7 +258,7 @@ test.describe('Cancel organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -283,10 +267,6 @@ test.describe('Cancel organization invitation', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -349,12 +329,12 @@ test.describe('Cancel organization invitation', () => {
   test.fixme(
     'API-AUTH-ORG-CANCEL-INVITATION-007: should return 409 Conflict for already cancelled invitation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner and an already cancelled invitation
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -363,10 +343,6 @@ test.describe('Cancel organization invitation', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -410,7 +386,7 @@ test.describe('Cancel organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -420,10 +396,6 @@ test.describe('Cancel organization invitation', () => {
         email: 'owner1@example.com',
         password: 'Owner1Pass123!',
         name: 'Owner 1',
-      })
-      await signIn({
-        email: 'owner1@example.com',
-        password: 'Owner1Pass123!',
       })
 
       await page.request.post('/api/auth/organization/create', {
@@ -435,10 +407,6 @@ test.describe('Cancel organization invitation', () => {
         email: 'owner2@example.com',
         password: 'Owner2Pass123!',
         name: 'Owner 2',
-      })
-      await signIn({
-        email: 'owner2@example.com',
-        password: 'Owner2Pass123!',
       })
 
       const createResponse2 = await page.request.post('/api/auth/organization/create', {
@@ -483,62 +451,71 @@ test.describe('Cancel organization invitation', () => {
   test.fixme(
     'API-AUTH-ORG-CANCEL-INVITATION-009: user can complete full cancelInvitation workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          authentication: ['email-and-password'],
-          plugins: { organization: true },
-        },
+    async ({ page, startServerWithSchema, signUp }) => {
+      await test.step('Setup: Start server with organization plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true },
+          },
+        })
       })
 
-      // Test 1: Cancel without auth fails
-      const noAuthResponse = await page.request.delete('/api/auth/organization/cancel-invitation', {
-        data: { invitationId: '1' },
-      })
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create owner and organization
-      await signUp({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-        name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
+      await test.step('Verify cancel invitation fails without auth', async () => {
+        const noAuthResponse = await page.request.delete(
+          '/api/auth/organization/cancel-invitation',
+          {
+            data: { invitationId: '1' },
+          }
+        )
+        expect(noAuthResponse.status()).toBe(401)
       })
 
-      const createResponse = await page.request.post('/api/auth/organization/create', {
-        data: { name: 'Test Org', slug: 'test-org' },
-      })
-      const org = await createResponse.json()
+      let invitationId: string
 
-      const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
-        data: {
-          organizationId: org.id,
-          email: 'invitee@example.com',
-          role: 'member',
-        },
-      })
-      const invitation = await inviteResponse.json()
-      const invitationId = invitation.invitation?.id || invitation.id
+      await test.step('Setup: Create owner and organization', async () => {
+        await signUp({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+          name: 'Owner User',
+        })
 
-      // Test 2: Cancel invitation succeeds for owner
-      const cancelResponse = await page.request.delete('/api/auth/organization/cancel-invitation', {
-        data: { invitationId },
-      })
-      expect(cancelResponse.status()).toBe(200)
+        const createResponse = await page.request.post('/api/auth/organization/create', {
+          data: { name: 'Test Org', slug: 'test-org' },
+        })
+        const org = await createResponse.json()
 
-      // Test 3: Cancel again fails
-      const duplicateResponse = await page.request.delete(
-        '/api/auth/organization/cancel-invitation',
-        {
-          data: { invitationId },
-        }
-      )
-      expect(duplicateResponse.status()).toBe(409)
+        const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
+          data: {
+            organizationId: org.id,
+            email: 'invitee@example.com',
+            role: 'member',
+          },
+        })
+        const invitation = await inviteResponse.json()
+        invitationId = invitation.invitation?.id || invitation.id
+      })
+
+      await test.step('Cancel invitation as owner', async () => {
+        const cancelResponse = await page.request.delete(
+          '/api/auth/organization/cancel-invitation',
+          {
+            data: { invitationId },
+          }
+        )
+        expect(cancelResponse.status()).toBe(200)
+      })
+
+      await test.step('Verify cancel invitation again fails', async () => {
+        const duplicateResponse = await page.request.delete(
+          '/api/auth/organization/cancel-invitation',
+          {
+            data: { invitationId },
+          }
+        )
+        expect(duplicateResponse.status()).toBe(409)
+      })
     }
   )
 })

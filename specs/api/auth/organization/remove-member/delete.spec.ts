@@ -39,7 +39,7 @@ test.describe('Remove member from organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -49,10 +49,6 @@ test.describe('Remove member from organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       // Create organization
@@ -106,12 +102,12 @@ test.describe('Remove member from organization', () => {
   test.fixme(
     'API-AUTH-ORG-REMOVE-MEMBER-002: should return 400 Bad Request with validation errors',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -120,10 +116,6 @@ test.describe('Remove member from organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       await page.request.post('/api/auth/organization/create', {
@@ -151,7 +143,7 @@ test.describe('Remove member from organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -177,7 +169,7 @@ test.describe('Remove member from organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -187,10 +179,6 @@ test.describe('Remove member from organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -243,12 +231,12 @@ test.describe('Remove member from organization', () => {
   test.fixme(
     'API-AUTH-ORG-REMOVE-MEMBER-005: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -257,10 +245,6 @@ test.describe('Remove member from organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -287,12 +271,12 @@ test.describe('Remove member from organization', () => {
   test.fixme(
     'API-AUTH-ORG-REMOVE-MEMBER-006: should return 403 Forbidden to prevent ownerless organization',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner who is the only owner
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -301,10 +285,6 @@ test.describe('Remove member from organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -336,7 +316,7 @@ test.describe('Remove member from organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -346,10 +326,6 @@ test.describe('Remove member from organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -396,7 +372,7 @@ test.describe('Remove member from organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -406,10 +382,6 @@ test.describe('Remove member from organization', () => {
         email: 'owner1@example.com',
         password: 'Owner1Pass123!',
         name: 'Owner 1',
-      })
-      await signIn({
-        email: 'owner1@example.com',
-        password: 'Owner1Pass123!',
       })
 
       await page.request.post('/api/auth/organization/create', {
@@ -421,10 +393,6 @@ test.describe('Remove member from organization', () => {
         email: 'owner2@example.com',
         password: 'Owner2Pass123!',
         name: 'Owner 2',
-      })
-      await signIn({
-        email: 'owner2@example.com',
-        password: 'Owner2Pass123!',
       })
 
       const createResponse2 = await page.request.post('/api/auth/organization/create', {
@@ -473,64 +441,69 @@ test.describe('Remove member from organization', () => {
     'API-AUTH-ORG-REMOVE-MEMBER-009: user can complete full removeMember workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          authentication: ['email-and-password'],
-          plugins: { organization: true },
-        },
+      await test.step('Setup: Start server with organization plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true },
+          },
+        })
       })
 
-      // Test 1: Remove member without auth fails
-      const noAuthResponse = await page.request.delete('/api/auth/organization/remove-member', {
-        data: { organizationId: '1', userId: '2' },
-      })
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create owner and organization
-      await signUp({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-        name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
+      await test.step('Verify remove member fails without auth', async () => {
+        const noAuthResponse = await page.request.delete('/api/auth/organization/remove-member', {
+          data: { organizationId: '1', userId: '2' },
+        })
+        expect(noAuthResponse.status()).toBe(401)
       })
 
-      const createResponse = await page.request.post('/api/auth/organization/create', {
-        data: { name: 'Test Org', slug: 'test-org' },
-      })
-      const org = await createResponse.json()
+      let orgId: string
 
-      // Create and add member
-      await signUp({
-        email: 'member@example.com',
-        password: 'MemberPass123!',
-        name: 'Member User',
-      })
+      await test.step('Setup: Create owner and organization', async () => {
+        await signUp({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+          name: 'Owner User',
+        })
 
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-      })
-
-      await page.request.post('/api/auth/organization/add-member', {
-        data: { organizationId: org.id, userId: '2', role: 'member' },
+        const createResponse = await page.request.post('/api/auth/organization/create', {
+          data: { name: 'Test Org', slug: 'test-org' },
+        })
+        const org = await createResponse.json()
+        orgId = org.id
       })
 
-      // Test 2: Remove member succeeds for owner
-      const removeResponse = await page.request.delete('/api/auth/organization/remove-member', {
-        data: { organizationId: org.id, userId: '2' },
-      })
-      expect(removeResponse.status()).toBe(200)
+      await test.step('Setup: Create and add member', async () => {
+        await signUp({
+          email: 'member@example.com',
+          password: 'MemberPass123!',
+          name: 'Member User',
+        })
 
-      // Test 3: Removing non-existent member fails
-      const notFoundResponse = await page.request.delete('/api/auth/organization/remove-member', {
-        data: { organizationId: org.id, userId: '999' },
+        await signIn({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+        })
+
+        await page.request.post('/api/auth/organization/add-member', {
+          data: { organizationId: orgId, userId: '2', role: 'member' },
+        })
       })
-      expect(notFoundResponse.status()).toBe(404)
+
+      await test.step('Remove member from organization', async () => {
+        const removeResponse = await page.request.delete('/api/auth/organization/remove-member', {
+          data: { organizationId: orgId, userId: '2' },
+        })
+        expect(removeResponse.status()).toBe(200)
+      })
+
+      await test.step('Verify removing non-existent member fails', async () => {
+        const notFoundResponse = await page.request.delete('/api/auth/organization/remove-member', {
+          data: { organizationId: orgId, userId: '999' },
+        })
+        expect(notFoundResponse.status()).toBe(404)
+      })
     }
   )
 })

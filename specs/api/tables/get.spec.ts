@@ -106,22 +106,18 @@ test.describe('List all tables', () => {
     'API-TABLES-LIST-004: user can complete full tables list workflow',
     { tag: '@regression' },
     async ({ request }) => {
-      // GIVEN: Application with representative tables configuration
-      // Application configured with sample table for testing
+      await test.step('List tables with authentication', async () => {
+        const authResponse = await request.get('/api/tables', {})
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      // Test authenticated access
-      const authResponse = await request.get('/api/tables', {})
-      // THEN: assertion
-      expect(authResponse.status()).toBe(200)
-      const tables = await authResponse.json()
-      // THEN: assertion
-      expect(Array.isArray(tables)).toBe(true)
+        expect(authResponse.status()).toBe(200)
+        const tables = await authResponse.json()
+        expect(Array.isArray(tables)).toBe(true)
+      })
 
-      // Test unauthenticated rejection
-      const unauthResponse = await request.get('/api/tables')
-      // THEN: assertion
-      expect(unauthResponse.status()).toBe(401)
+      await test.step('Verify unauthenticated access fails', async () => {
+        const unauthResponse = await request.get('/api/tables')
+        expect(unauthResponse.status()).toBe(401)
+      })
     }
   )
 })

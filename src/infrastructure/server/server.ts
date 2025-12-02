@@ -5,9 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Console, Effect } from 'effect'
+import { Console, Effect, Config } from 'effect'
 import { Hono } from 'hono'
 import { compileCSS } from '@/infrastructure/css/compiler'
+import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
 import {
   initializeSchema,
   type AuthConfigRequiredForUserFields,
@@ -67,7 +68,10 @@ export function createHonoApp(config: HonoAppConfig): Readonly<Hono> {
   // Setup all routes by chaining the setup functions
   const honoWithRoutes = setupPageRoutes(
     setupStaticAssets(
-      setupAuthRoutes(setupAuthMiddleware(setupOpenApiRoutes(createApiRoutes(app, new Hono())))),
+      setupAuthRoutes(
+        setupAuthMiddleware(setupOpenApiRoutes(createApiRoutes(app, new Hono()))),
+        app
+      ),
       app
     ),
     config
@@ -134,6 +138,7 @@ const logServerStartup = (url: string): Effect.Effect<void, never> =>
  * ```
  */
 // @knip-ignore - Used via dynamic import in StartServer.ts
+// eslint-disable-next-line max-lines-per-function -- Server factory requires comprehensive setup
 export const createServer = (
   config: ServerConfig
 ): Effect.Effect<
@@ -143,6 +148,7 @@ export const createServer = (
   | AuthConfigRequiredForUserFields
   | SchemaInitializationError
 > =>
+  // eslint-disable-next-line max-lines-per-function -- Server setup generator needs comprehensive initialization
   Effect.gen(function* () {
     const {
       app,
@@ -153,6 +159,25 @@ export const createServer = (
       renderNotFoundPage,
       renderErrorPage,
     } = config
+
+    // Get database URL from Effect Config (reads from environment)
+    // Catch ConfigError and convert to empty string (no DATABASE_URL = skip migrations)
+    const databaseUrl = yield* Config.string('DATABASE_URL')
+      .pipe(Config.withDefault(''))
+      .pipe(
+        Effect.catchAll(() => Effect.succeed('')) // If config fails, use empty string
+      )
+
+    // Run Better Auth table creation (if DATABASE_URL is configured and auth is enabled)
+    if (databaseUrl && app.auth) {
+      yield* runMigrations(databaseUrl).pipe(
+        Effect.catchAll((error) => {
+          // Log error but don't fail - allow server to start even if table creation fails
+          // This is useful for development where the database might not be ready yet
+          return Console.error(`Better Auth table creation warning: ${error.message}`)
+        })
+      )
+    }
 
     // Initialize database schema from app configuration
     yield* initializeSchema(app)

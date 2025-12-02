@@ -37,12 +37,12 @@ test.describe('Admin: Impersonate user', () => {
   test.fixme(
     'API-AUTH-ADMIN-IMPERSONATE-USER-001: should return 200 OK with impersonation session',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -56,11 +56,6 @@ test.describe('Admin: Impersonate user', () => {
         email: 'target@example.com',
         password: 'TargetPass123!',
         name: 'Target User',
-      })
-
-      await signIn({
-        email: 'admin@example.com',
-        password: 'AdminPass123!',
       })
 
       // WHEN: Admin impersonates the user
@@ -82,18 +77,17 @@ test.describe('Admin: Impersonate user', () => {
   test.fixme(
     'API-AUTH-ADMIN-IMPERSONATE-USER-002: should return 400 Bad Request without userId',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits request without userId
       const response = await page.request.post('/api/auth/admin/impersonate-user', {
@@ -116,7 +110,7 @@ test.describe('Admin: Impersonate user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -136,12 +130,12 @@ test.describe('Admin: Impersonate user', () => {
   test.fixme(
     'API-AUTH-ADMIN-IMPERSONATE-USER-004: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -155,10 +149,6 @@ test.describe('Admin: Impersonate user', () => {
         email: 'target@example.com',
         password: 'TargetPass123!',
         name: 'Target User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // WHEN: Regular user attempts to impersonate another user
@@ -176,20 +166,18 @@ test.describe('Admin: Impersonate user', () => {
   test.fixme(
     'API-AUTH-ADMIN-IMPERSONATE-USER-005: should return 403 Forbidden for banned user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user and a banned user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
       await signUp({ email: 'target@example.com', password: 'TargetPass123!', name: 'Target User' })
-
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // Ban the user first
       await page.request.post('/api/auth/admin/ban-user', {
@@ -211,18 +199,17 @@ test.describe('Admin: Impersonate user', () => {
   test.fixme(
     'API-AUTH-ADMIN-IMPERSONATE-USER-006: should return 404 Not Found for non-existent user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin attempts to impersonate non-existent user
       const response = await page.request.post('/api/auth/admin/impersonate-user', {
@@ -239,20 +226,18 @@ test.describe('Admin: Impersonate user', () => {
   test.fixme(
     'API-AUTH-ADMIN-IMPERSONATE-USER-007: should return 200 OK with audit trail',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
       await signUp({ email: 'target@example.com', password: 'TargetPass123!', name: 'Target User' })
-
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin impersonates user
       const response = await page.request.post('/api/auth/admin/impersonate-user', {
@@ -278,42 +263,51 @@ test.describe('Admin: Impersonate user', () => {
     'API-AUTH-ADMIN-IMPERSONATE-USER-008: admin can complete full impersonate-user workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          authentication: ['email-and-password'],
-          plugins: { admin: true },
-        },
+      await test.step('Setup: Start server with admin plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { admin: true },
+          },
+        })
       })
 
-      // Test 1: Impersonate without auth fails
-      const noAuthResponse = await page.request.post('/api/auth/admin/impersonate-user', {
-        data: { userId: '2' },
+      await test.step('Verify impersonate user fails without auth', async () => {
+        const noAuthResponse = await page.request.post('/api/auth/admin/impersonate-user', {
+          data: { userId: '2' },
+        })
+        expect(noAuthResponse.status()).toBe(401)
       })
-      expect(noAuthResponse.status()).toBe(401)
 
-      // Create admin and regular user
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
-
-      // Test 2: Impersonate fails for non-admin
-      await signIn({ email: 'user@example.com', password: 'UserPass123!' })
-      const nonAdminResponse = await page.request.post('/api/auth/admin/impersonate-user', {
-        data: { userId: '1' },
+      await test.step('Setup: Create admin and regular user', async () => {
+        await signUp({
+          email: 'admin@example.com',
+          password: 'AdminPass123!',
+          name: 'Admin User',
+        })
+        await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
       })
-      expect(nonAdminResponse.status()).toBe(403)
 
-      // Test 3: Impersonate succeeds for admin
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
-      const adminResponse = await page.request.post('/api/auth/admin/impersonate-user', {
-        data: { userId: '2' },
+      await test.step('Verify impersonate user fails for non-admin', async () => {
+        await signIn({ email: 'user@example.com', password: 'UserPass123!' })
+        const nonAdminResponse = await page.request.post('/api/auth/admin/impersonate-user', {
+          data: { userId: '1' },
+        })
+        expect(nonAdminResponse.status()).toBe(403)
       })
-      expect(adminResponse.status()).toBe(200)
 
-      const data = await adminResponse.json()
-      expect(data).toHaveProperty('session')
-      expect(data).toHaveProperty('user')
+      await test.step('Impersonate user as admin', async () => {
+        await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
+        const adminResponse = await page.request.post('/api/auth/admin/impersonate-user', {
+          data: { userId: '2' },
+        })
+        expect(adminResponse.status()).toBe(200)
+
+        const data = await adminResponse.json()
+        expect(data).toHaveProperty('session')
+        expect(data).toHaveProperty('user')
+      })
     }
   )
 })

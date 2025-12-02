@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/get.json
  * Domain: api
- * Spec Count: 28
+ * Spec Count: 26
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (28 tests) - Exhaustive acceptance criteria
@@ -1048,47 +1048,50 @@ test.describe('List records in table', () => {
     'API-TABLES-RECORDS-LIST-027: user can complete full list records workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Table with records and permissions
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 26,
-            name: 'projects',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'status', type: 'single-line-text' },
-              { id: 3, name: 'priority', type: 'integer' },
-            ],
+      await test.step('Setup: Start server with projects table', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 26,
+              name: 'projects',
+              fields: [
+                { id: 1, name: 'name', type: 'single-line-text' },
+                { id: 2, name: 'status', type: 'single-line-text' },
+                { id: 3, name: 'priority', type: 'integer' },
+              ],
+            },
+          ],
+        })
+      })
+
+      await test.step('Setup: Insert test records', async () => {
+        await executeQuery(`
+          INSERT INTO projects (name, status, priority)
+          VALUES
+            ('Project A', 'active', 5),
+            ('Project B', 'completed', 3),
+            ('Project C', 'active', 4)
+        `)
+      })
+
+      await test.step('List records with filter and sort', async () => {
+        const response = await request.get('/api/tables/1/records', {
+          params: {
+            filter: JSON.stringify({
+              and: [{ field: 'status', operator: 'equals', value: 'active' }],
+            }),
+            sort: 'priority:desc',
           },
-        ],
+        })
+
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data.records.length).toBeGreaterThan(0)
+        expect(data).toHaveProperty('pagination')
+        expect(data.records[0].priority).toBeGreaterThanOrEqual(data.records[1].priority)
       })
-      await executeQuery(`
-        INSERT INTO projects (name, status, priority)
-        VALUES
-          ('Project A', 'active', 5),
-          ('Project B', 'completed', 3),
-          ('Project C', 'active', 4)
-      `)
-
-      // WHEN/THEN: List records with filtering and sorting
-      const response = await request.get('/api/tables/1/records', {
-        params: {
-          filter: JSON.stringify({
-            and: [{ field: 'status', operator: 'equals', value: 'active' }],
-          }),
-          sort: 'priority:desc',
-        },
-      })
-
-      // THEN: assertion
-      expect(response.status()).toBe(200)
-
-      const data = await response.json()
-      // THEN: assertion
-      expect(data.records.length).toBeGreaterThan(0)
-      expect(data).toHaveProperty('pagination')
-      expect(data.records[0].priority).toBeGreaterThanOrEqual(data.records[1].priority)
     }
   )
 })

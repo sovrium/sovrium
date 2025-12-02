@@ -737,48 +737,48 @@ test.describe('Create new record', () => {
     'API-TABLES-RECORDS-CREATE-018: user can complete full record creation workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Table with permissions and validation
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 17,
-            name: 'users',
-            fields: [
-              { id: 1, name: 'email', type: 'email', required: true, unique: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
-            ],
+      await test.step('Setup: Start server with users table', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 17,
+              name: 'users',
+              fields: [
+                { id: 1, name: 'email', type: 'email', required: true, unique: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'organization_id', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
+      })
+
+      await test.step('Create record with valid data', async () => {
+        const response = await request.post('/api/tables/1/records', {
+          headers: {
+            'Content-Type': 'application/json',
           },
-        ],
+          data: {
+            email: 'user@example.com',
+            name: 'Test User',
+          },
+        })
+
+        expect(response.status()).toBe(201)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('id')
+        expect(data.email).toBe('user@example.com')
+        expect(data.name).toBe('Test User')
       })
 
-      // WHEN/THEN: Create valid record
-      const response = await request.post('/api/tables/1/records', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          email: 'user@example.com',
-          name: 'Test User',
-        },
+      await test.step('Verify record exists in database', async () => {
+        const result = await executeQuery(`
+          SELECT * FROM users WHERE email = 'user@example.com'
+        `)
+        expect(result.rows).toHaveLength(1)
       })
-
-      // THEN: assertion
-      expect(response.status()).toBe(201)
-
-      const data = await response.json()
-      // THEN: assertion
-      expect(data).toHaveProperty('id')
-      expect(data.email).toBe('user@example.com')
-      expect(data.name).toBe('Test User')
-
-      // Verify database state
-      const result = await executeQuery(`
-        SELECT * FROM users WHERE email = 'user@example.com'
-      `)
-      // THEN: assertion
-      expect(result.rows).toHaveLength(1)
     }
   )
 })

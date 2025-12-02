@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { pgTable, text, boolean, timestamp } from 'drizzle-orm/pg-core'
+import { pgTable, text, boolean, timestamp, integer } from 'drizzle-orm/pg-core'
 
 // Better Auth Tables (with usePlural: true)
 export const users = pgTable('users', {
@@ -21,6 +21,8 @@ export const users = pgTable('users', {
   banned: boolean('banned'),
   banReason: text('ban_reason'),
   banExpires: timestamp('ban_expires', { withTimezone: true }),
+  // Two-factor plugin fields
+  twoFactorEnabled: boolean('two_factor_enabled'),
 })
 
 export const sessions = pgTable('sessions', {
@@ -104,6 +106,43 @@ export const invitations = pgTable('invitations', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// API Key plugin table
+export const apiKeys = pgTable('api_keys', {
+  id: text('id').primaryKey(),
+  name: text('name'),
+  start: text('start'),
+  prefix: text('prefix'),
+  key: text('key').notNull(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  refillInterval: integer('refill_interval'),
+  refillAmount: integer('refill_amount'),
+  lastRefillAt: timestamp('last_refill_at', { withTimezone: true }),
+  enabled: boolean('enabled').notNull().default(true),
+  rateLimitEnabled: boolean('rate_limit_enabled').notNull().default(false),
+  rateLimitTimeWindow: integer('rate_limit_time_window'),
+  rateLimitMax: integer('rate_limit_max'),
+  requestCount: integer('request_count').notNull().default(0),
+  remaining: integer('remaining'),
+  lastRequest: timestamp('last_request', { withTimezone: true }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  permissions: text('permissions'),
+  metadata: text('metadata'),
+})
+
+// Two-factor plugin table
+export const twoFactors = pgTable('two_factors', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  secret: text('secret'),
+  backupCodes: text('backup_codes'),
+})
+
 // Type inference
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
@@ -116,3 +155,7 @@ export type Member = typeof members.$inferSelect
 export type NewMember = typeof members.$inferInsert
 export type Invitation = typeof invitations.$inferSelect
 export type NewInvitation = typeof invitations.$inferInsert
+export type ApiKey = typeof apiKeys.$inferSelect
+export type NewApiKey = typeof apiKeys.$inferInsert
+export type TwoFactor = typeof twoFactors.$inferSelect
+export type NewTwoFactor = typeof twoFactors.$inferInsert

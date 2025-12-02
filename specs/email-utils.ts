@@ -346,7 +346,8 @@ export class MailpitHelper {
       const emails = await this.getEmails() // Already filtered by testId
       const email = emails.find(predicate)
       if (email) {
-        return email
+        // Fetch full email details (list API doesn't include HTML/Text body)
+        return this.getEmailById(email.ID)
       }
       await new Promise((resolve) => setTimeout(resolve, interval))
     }
@@ -370,16 +371,290 @@ export class MailpitHelper {
   }
 
   /**
+   * Get the latest email sent to a specific address
+   * Waits for the email to arrive if not immediately available
+   *
+   * @param toAddress - The recipient email address to search for
+   * @param options - Timeout and polling options
+   * @returns The latest email with normalized property names (lowercase)
+   * @throws Error if no email to this address arrives within timeout
+   *
+   * @example
+   * ```typescript
+   * const email = await mailpit.getLatestEmail('user@example.com')
+   * const token = email.html.match(/token=([^"&\s]+)/)?.[1]
+   * ```
+   */
+  async getLatestEmail(
+    toAddress: string,
+    options?: { timeout?: number; interval?: number }
+  ): Promise<{
+    id: string
+    from: { name: string; address: string }
+    to: Array<{ name: string; address: string }>
+    subject: string
+    text: string
+    html: string
+    created: string
+  }> {
+    const timeout = options?.timeout ?? 10_000
+    const interval = options?.interval ?? 100
+    const startTime = Date.now()
+
+    while (Date.now() - startTime < timeout) {
+      const allEmails = await this.getAllEmails()
+      // Find emails sent to the specified address, sorted by creation time (newest first)
+      const matchingEmails = allEmails
+        .filter((email) => email.To.some((to) => to.Address === toAddress))
+        .sort((a, b) => new Date(b.Created).getTime() - new Date(a.Created).getTime())
+
+      const email = matchingEmails[0]
+      if (email) {
+        // Return normalized object with lowercase property names for convenience
+        return {
+          id: email.ID,
+          from: { name: email.From.Name, address: email.From.Address },
+          to: email.To.map((t) => ({ name: t.Name, address: t.Address })),
+          subject: email.Subject,
+          text: email.Text,
+          html: email.HTML,
+          created: email.Created,
+        }
+      }
+      await new Promise((resolve) => setTimeout(resolve, interval))
+    }
+
+    throw new Error(`No email to ${toAddress} found within ${timeout}ms`)
+  }
+
+  /**
    * Get SMTP configuration environment variables for Mailpit
    * These should be set in process.env when starting the server
    */
   getSmtpEnv(from?: string, options?: { fromName?: string }) {
     return {
-      SMTP_HOST: 'localhost',
+      // Use explicit IPv4 address to avoid IPv6 resolution issues
+      // Mailpit typically only binds to IPv4, so 'localhost' can fail on systems
+      // that prefer IPv6 (resolving to ::1 instead of 127.0.0.1)
+      SMTP_HOST: '127.0.0.1',
       SMTP_PORT: this.smtpPort.toString(),
       SMTP_SECURE: 'false',
       ...(from && { SMTP_FROM: from }),
       ...(options?.fromName && { SMTP_FROM_NAME: options.fromName }),
     }
   }
+}
+
+// =============================================================================
+// Email Content Extraction Helpers
+// =============================================================================
+
+/**
+ * Extract a token/parameter from a URL found in email HTML content.
+ *
+ * @param html - The HTML content of the email
+ * @param paramName - The URL parameter name to extract (e.g., 'token', 'code')
+ * @returns The extracted token value, or null if not found
+ *
+ * @example
+ * ```typescript
+ * const html = '<a href="http://localhost:3000/verify?token=abc123">Verify</a>'
+ * const token = extractTokenFromUrl(html, 'token')
+ * // Returns: 'abc123'
+ * ```
+ */
+export function extractTokenFromUrl(html: string, paramName: string): string | null {
+  // Match URLs with the specified parameter
+  const urlRegex = new RegExp(`href=["']([^"']*[?&]${paramName}=([^"'&]+)[^"']*)["']`, 'i')
+  const match = html.match(urlRegex)
+
+  if (match?.[2]) {
+    return decodeURIComponent(match[2])
+  }
+
+  // Also try to find plain URLs (not in href)
+  const plainUrlRegex = new RegExp(`[?&]${paramName}=([^\\s&"'<>]+)`, 'i')
+  const plainMatch = html.match(plainUrlRegex)
+
+  return plainMatch?.[1] ? decodeURIComponent(plainMatch[1]) : null
+}
+
+/**
+ * Extract a verification/reset URL from email HTML content.
+ *
+ * @param html - The HTML content of the email
+ * @param pathPattern - A regex pattern to match the URL path (e.g., /verify-email, /reset-password)
+ * @returns The full URL, or null if not found
+ *
+ * @example
+ * ```typescript
+ * const html = '<a href="http://localhost:3000/api/auth/verify-email?token=abc123">Verify</a>'
+ * const url = extractUrlFromEmail(html, /verify-email/)
+ * // Returns: 'http://localhost:3000/api/auth/verify-email?token=abc123'
+ * ```
+ */
+export function extractUrlFromEmail(html: string, pathPattern: RegExp): string | null {
+  // Match href URLs containing the path pattern
+  const urlRegex = /href=["']([^"']+)["']/gi
+  let match
+
+  while ((match = urlRegex.exec(html)) !== null) {
+    const url = match[1]
+    if (url && pathPattern.test(url)) {
+      return url
+    }
+  }
+
+  return null
+}
+
+/**
+ * Extract an OTP (One-Time Password) code from email text content.
+ * Looks for 6-digit numeric codes commonly used in 2FA.
+ *
+ * @param text - The text content of the email
+ * @returns The extracted OTP code, or null if not found
+ *
+ * @example
+ * ```typescript
+ * const text = 'Your verification code is: 123456'
+ * const otp = extractOtpCode(text)
+ * // Returns: '123456'
+ * ```
+ */
+export function extractOtpCode(text: string): string | null {
+  // Match standalone 6-digit codes (common OTP format)
+  const otpRegex = /\b(\d{6})\b/
+  const match = text.match(otpRegex)
+  return match?.[1] ?? null
+}
+
+/**
+ * Extract backup codes from email text content.
+ * Backup codes are typically alphanumeric codes used for account recovery.
+ *
+ * @param text - The text content of the email
+ * @returns Array of backup codes found
+ *
+ * @example
+ * ```typescript
+ * const text = 'Your backup codes: ABC123, DEF456, GHI789'
+ * const codes = extractBackupCodes(text)
+ * // Returns: ['ABC123', 'DEF456', 'GHI789']
+ * ```
+ */
+export function extractBackupCodes(text: string): string[] {
+  // Match alphanumeric codes (typically 6-10 characters)
+  const codeRegex = /\b([A-Z0-9]{6,10})\b/g
+  const codes: string[] = []
+  let match
+
+  while ((match = codeRegex.exec(text)) !== null) {
+    if (match[1]) {
+      codes.push(match[1])
+    }
+  }
+
+  return codes
+}
+
+/**
+ * Assert that an email was received with expected properties.
+ *
+ * @param email - The Mailpit email to validate
+ * @param expectations - Expected email properties
+ * @throws Error if any expectation is not met
+ *
+ * @example
+ * ```typescript
+ * assertEmailReceived(email, {
+ *   to: 'user@example.com',
+ *   from: 'noreply@myapp.com',
+ *   subjectContains: 'Verify your email'
+ * })
+ * ```
+ */
+export function assertEmailReceived(
+  email: MailpitEmail,
+  expectations: {
+    to?: string
+    from?: string
+    subjectContains?: string
+    subjectEquals?: string
+    bodyContains?: string
+  }
+): void {
+  if (expectations.to) {
+    const toAddresses = email.To.map((t) => t.Address)
+    if (!toAddresses.includes(expectations.to)) {
+      throw new Error(
+        `Expected email to be sent to "${expectations.to}", but was sent to: ${toAddresses.join(', ')}`
+      )
+    }
+  }
+
+  if (expectations.from) {
+    if (email.From.Address !== expectations.from) {
+      throw new Error(
+        `Expected email from "${expectations.from}", but was from: ${email.From.Address}`
+      )
+    }
+  }
+
+  if (expectations.subjectContains) {
+    if (!email.Subject.includes(expectations.subjectContains)) {
+      throw new Error(
+        `Expected email subject to contain "${expectations.subjectContains}", but subject was: ${email.Subject}`
+      )
+    }
+  }
+
+  if (expectations.subjectEquals) {
+    if (email.Subject !== expectations.subjectEquals) {
+      throw new Error(
+        `Expected email subject to equal "${expectations.subjectEquals}", but subject was: ${email.Subject}`
+      )
+    }
+  }
+
+  if (expectations.bodyContains) {
+    const body = email.HTML || email.Text
+    if (!body.includes(expectations.bodyContains)) {
+      throw new Error(
+        `Expected email body to contain "${expectations.bodyContains}", but it was not found`
+      )
+    }
+  }
+}
+
+/**
+ * Wait for an email matching recipient and subject pattern.
+ * Convenience wrapper around mailpit.waitForEmail.
+ *
+ * @param mailpit - The MailpitHelper instance
+ * @param options - Email matching options
+ * @returns The matching email
+ *
+ * @example
+ * ```typescript
+ * const email = await waitForEmailTo(mailpit, {
+ *   to: 'user@example.com',
+ *   subjectContains: 'Verify'
+ * })
+ * ```
+ */
+export async function waitForEmailTo(
+  mailpit: { waitForEmail: (predicate: (email: MailpitEmail) => boolean) => Promise<MailpitEmail> },
+  options: {
+    to: string
+    subjectContains?: string
+  }
+): Promise<MailpitEmail> {
+  return mailpit.waitForEmail((email) => {
+    const toMatch = email.To.some((t) => t.Address === options.to)
+    const subjectMatch = options.subjectContains
+      ? email.Subject.toLowerCase().includes(options.subjectContains.toLowerCase())
+      : true
+    return toMatch && subjectMatch
+  })
 }

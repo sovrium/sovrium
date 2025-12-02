@@ -37,7 +37,7 @@ test.describe('Reject organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -47,10 +47,6 @@ test.describe('Reject organization invitation', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -104,12 +100,12 @@ test.describe('Reject organization invitation', () => {
   test.fixme(
     'API-AUTH-ORG-REJECT-INVITATION-002: should return 400 Bad Request without invitationId',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -118,10 +114,6 @@ test.describe('Reject organization invitation', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // WHEN: User submits request without invitationId
@@ -145,7 +137,7 @@ test.describe('Reject organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -165,12 +157,12 @@ test.describe('Reject organization invitation', () => {
   test.fixme(
     'API-AUTH-ORG-REJECT-INVITATION-004: should return 404 Not Found for non-existent invitation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -179,10 +171,6 @@ test.describe('Reject organization invitation', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // WHEN: User attempts to reject non-existent invitation
@@ -203,12 +191,12 @@ test.describe('Reject organization invitation', () => {
   test.fixme(
     'API-AUTH-ORG-REJECT-INVITATION-005: should return 410 Gone for expired invitation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user and an expired invitation
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -217,10 +205,6 @@ test.describe('Reject organization invitation', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // WHEN: User attempts to reject expired invitation
@@ -241,12 +225,12 @@ test.describe('Reject organization invitation', () => {
   test.fixme(
     'API-AUTH-ORG-REJECT-INVITATION-006: should return 404 Not Found for different user (prevent enumeration)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user and an invitation for different email
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -256,10 +240,6 @@ test.describe('Reject organization invitation', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -282,10 +262,6 @@ test.describe('Reject organization invitation', () => {
         email: 'other@example.com',
         password: 'OtherPass123!',
         name: 'Other User',
-      })
-      await signIn({
-        email: 'other@example.com',
-        password: 'OtherPass123!',
       })
 
       // WHEN: User attempts to reject invitation not addressed to them
@@ -311,7 +287,7 @@ test.describe('Reject organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -321,10 +297,6 @@ test.describe('Reject organization invitation', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -385,72 +357,74 @@ test.describe('Reject organization invitation', () => {
     'API-AUTH-ORG-REJECT-INVITATION-008: user can complete full rejectInvitation workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          authentication: ['email-and-password'],
-          plugins: { organization: true },
-        },
+      await test.step('Setup: Start server with organization plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true },
+          },
+        })
       })
 
-      // Test 1: Reject without auth fails
-      const noAuthResponse = await page.request.post('/api/auth/organization/reject-invitation', {
-        data: { invitationId: '1' },
-      })
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create owner, organization, and invitation
-      await signUp({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-        name: 'Owner User',
-      })
-      await signUp({
-        email: 'invitee@example.com',
-        password: 'InviteePass123!',
-        name: 'Invitee User',
+      await test.step('Verify reject invitation fails without auth', async () => {
+        const noAuthResponse = await page.request.post('/api/auth/organization/reject-invitation', {
+          data: { invitationId: '1' },
+        })
+        expect(noAuthResponse.status()).toBe(401)
       })
 
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-      })
+      let invitationId: string
 
-      const createResponse = await page.request.post('/api/auth/organization/create', {
-        data: { name: 'Test Org', slug: 'test-org' },
-      })
-      const org = await createResponse.json()
-
-      const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
-        data: {
-          organizationId: org.id,
+      await test.step('Setup: Create owner, invitee, and organization', async () => {
+        await signUp({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+          name: 'Owner User',
+        })
+        await signUp({
           email: 'invitee@example.com',
-          role: 'member',
-        },
-      })
-      const invitation = await inviteResponse.json()
-      const invitationId = invitation.invitation?.id || invitation.id
+          password: 'InviteePass123!',
+          name: 'Invitee User',
+        })
 
-      // Test 2: Reject invitation succeeds
-      await signIn({
-        email: 'invitee@example.com',
-        password: 'InviteePass123!',
+        const createResponse = await page.request.post('/api/auth/organization/create', {
+          data: { name: 'Test Org', slug: 'test-org' },
+        })
+        const org = await createResponse.json()
+
+        const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
+          data: {
+            organizationId: org.id,
+            email: 'invitee@example.com',
+            role: 'member',
+          },
+        })
+        const invitation = await inviteResponse.json()
+        invitationId = invitation.invitation?.id || invitation.id
       })
 
-      const rejectResponse = await page.request.post('/api/auth/organization/reject-invitation', {
-        data: { invitationId },
-      })
-      expect(rejectResponse.status()).toBe(200)
+      await test.step('Reject invitation as invitee', async () => {
+        await signIn({
+          email: 'invitee@example.com',
+          password: 'InviteePass123!',
+        })
 
-      // Test 3: Reject again fails
-      const duplicateResponse = await page.request.post(
-        '/api/auth/organization/reject-invitation',
-        {
+        const rejectResponse = await page.request.post('/api/auth/organization/reject-invitation', {
           data: { invitationId },
-        }
-      )
-      expect(duplicateResponse.status()).toBe(409)
+        })
+        expect(rejectResponse.status()).toBe(200)
+      })
+
+      await test.step('Verify reject invitation again fails', async () => {
+        const duplicateResponse = await page.request.post(
+          '/api/auth/organization/reject-invitation',
+          {
+            data: { invitationId },
+          }
+        )
+        expect(duplicateResponse.status()).toBe(409)
+      })
     }
   )
 })

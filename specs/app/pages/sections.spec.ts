@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Page Sections
  *
  * Source: src/domain/models/app/page/sections.ts
- * Spec Count: 14
+ * Spec Count: 13
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (14 tests) - Exhaustive acceptance criteria

@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/index.ts
  * Domain: app
- * Spec Count: 24
+ * Spec Count: 27
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (24 tests) - Exhaustive acceptance criteria
@@ -1218,7 +1218,7 @@ test.describe('Data Tables', () => {
       // WHEN: server starts with this schema
       await startServerWithSchema({
         name: 'test-app',
-        auth: { authentication: ['email-and-password'] }, // Auth config present
+        auth: { emailAndPassword: true }, // Auth config present
         tables: [
           {
             id: 30,
