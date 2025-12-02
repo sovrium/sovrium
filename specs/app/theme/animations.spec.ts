@@ -1089,81 +1089,78 @@ test.describe('Animation Configuration', () => {
     'APP-THEME-ANIMATIONS-024: user can complete full animations workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with comprehensive animation system
-      await startServerWithSchema({
-        name: 'test-app',
-        theme: {
-          animations: {
-            fadeIn: true,
-            pulse: {
-              duration: '2s',
-              easing: 'ease-in-out',
-            },
-            transition: {
-              duration: '200ms',
-              easing: 'ease-in-out',
+      await test.step('Setup: Start server with animation system', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          theme: {
+            animations: {
+              fadeIn: true,
+              pulse: {
+                duration: '2s',
+                easing: 'ease-in-out',
+              },
+              transition: {
+                duration: '200ms',
+                easing: 'ease-in-out',
+              },
             },
           },
-        },
-        pages: [
-          {
-            name: 'home',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-            sections: [
-              {
-                type: 'modal',
-                props: {
-                  'data-testid': 'modal',
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [
+                {
+                  type: 'modal',
+                  props: {
+                    'data-testid': 'modal',
+                  },
+                  children: ['Modal'],
                 },
-                children: ['Modal'],
-              },
-              {
-                type: 'badge',
-                props: {
-                  'data-testid': 'badge',
+                {
+                  type: 'badge',
+                  props: {
+                    'data-testid': 'badge',
+                  },
+                  children: ['5'],
                 },
-                children: ['5'],
-              },
-              {
-                type: 'button',
-                props: {
-                  'data-testid': 'button',
+                {
+                  type: 'button',
+                  props: {
+                    'data-testid': 'button',
+                  },
+                  children: ['Click'],
                 },
-                children: ['Click'],
-              },
-            ],
-          },
-        ],
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
+      await test.step('Navigate to page and verify CSS compilation', async () => {
+        await page.goto('/')
 
-      // 1. Verify CSS compilation contains animation definitions
-      const cssResponse = await page.request.get('/assets/output.css')
-      // THEN: assertion
-      expect(cssResponse.ok()).toBeTruthy()
-      const css = await cssResponse.text()
-      // Animations may generate @keyframes or CSS custom properties
-      // THEN: assertion
-      expect(css.length).toBeGreaterThan(1000) // Tailwind CSS with animations is substantial
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css.length).toBeGreaterThan(1000)
+      })
 
-      // 2. Structure validation (ARIA)
-      // THEN: assertion
-      await expect(page.locator('[data-testid="modal"]')).toBeVisible()
-      await expect(page.locator('[data-testid="badge"]')).toBeVisible()
-      await expect(page.locator('[data-testid="button"]')).toBeVisible()
+      await test.step('Verify animated elements render', async () => {
+        await expect(page.locator('[data-testid="modal"]')).toBeVisible()
+        await expect(page.locator('[data-testid="badge"]')).toBeVisible()
+        await expect(page.locator('[data-testid="button"]')).toBeVisible()
+      })
 
-      // 3. Visual validation - captures animation rendering state
-      await expect(page.locator('body')).toHaveScreenshot(
-        'animations-regression-001-complete-system.png',
-        {
-          animations: 'disabled',
-        }
-      )
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify visual rendering (screenshot)', async () => {
+        await expect(page.locator('body')).toHaveScreenshot(
+          'animations-regression-001-complete-system.png',
+          {
+            animations: 'disabled',
+          }
+        )
+      })
     }
   )
 })

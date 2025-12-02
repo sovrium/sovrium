@@ -838,96 +838,94 @@ test.describe('Border Radius', () => {
     'APP-THEME-RADIUS-015: user can complete full border-radius workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with comprehensive border-radius system
-      await startServerWithSchema({
-        name: 'test-app',
-        theme: {
-          borderRadius: {
-            none: '0',
-            md: '0.375rem',
-            lg: '0.5rem',
-            full: '9999px',
+      await test.step('Setup: Start server with border-radius system', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          theme: {
+            borderRadius: {
+              none: '0',
+              md: '0.375rem',
+              lg: '0.5rem',
+              full: '9999px',
+            },
           },
-        },
-        pages: [
-          {
-            name: 'home',
-            path: '/',
-            sections: [
-              {
-                type: 'div',
-                props: {
-                  'data-testid': 'radius-system',
-                  className: 'flex flex-col gap-6 p-5',
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                {
+                  type: 'div',
+                  props: {
+                    'data-testid': 'radius-system',
+                    className: 'flex flex-col gap-6 p-5',
+                  },
+                  children: [
+                    {
+                      type: 'button',
+                      props: {
+                        className: 'rounded-md py-3 px-6 bg-blue-500 text-white border-none',
+                      },
+                      children: ['Button with md radius'],
+                    },
+                    {
+                      type: 'div',
+                      props: {
+                        className: 'rounded-lg p-6 bg-gray-100 border border-gray-300',
+                      },
+                      children: ['Card with lg radius'],
+                    },
+                    {
+                      type: 'div',
+                      props: {
+                        className:
+                          'w-16 h-16 rounded-full bg-green-500 flex items-center justify-center text-white',
+                      },
+                      children: ['Avatar'],
+                    },
+                    {
+                      type: 'div',
+                      props: {
+                        className: 'w-[100px] h-[100px] rounded-none bg-red-500',
+                      },
+                    },
+                  ],
                 },
-                children: [
-                  {
-                    type: 'button',
-                    props: {
-                      className: 'rounded-md py-3 px-6 bg-blue-500 text-white border-none',
-                    },
-                    children: ['Button with md radius'],
-                  },
-                  {
-                    type: 'div',
-                    props: {
-                      className: 'rounded-lg p-6 bg-gray-100 border border-gray-300',
-                    },
-                    children: ['Card with lg radius'],
-                  },
-                  {
-                    type: 'div',
-                    props: {
-                      className:
-                        'w-16 h-16 rounded-full bg-green-500 flex items-center justify-center text-white',
-                    },
-                    children: ['Avatar'],
-                  },
-                  {
-                    type: 'div',
-                    props: {
-                      className: 'w-[100px] h-[100px] rounded-none bg-red-500',
-                    },
-                  },
-                ],
-              },
-            ],
-          },
-        ],
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
+      await test.step('Navigate to page and verify CSS compilation', async () => {
+        await page.goto('/')
 
-      // 1. Verify CSS compilation contains all radius definitions
-      const cssResponse = await page.request.get('/assets/output.css')
-      // THEN: assertion
-      expect(cssResponse.ok()).toBeTruthy()
-      const css = await cssResponse.text()
-      // THEN: assertion
-      expect(css).toContain('--radius-none: 0')
-      expect(css).toContain('--radius-md: 0.375rem')
-      expect(css).toContain('--radius-lg: 0.5rem')
-      expect(css).toContain('--radius-full: 9999px')
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--radius-none: 0')
+        expect(css).toContain('--radius-md: 0.375rem')
+        expect(css).toContain('--radius-lg: 0.5rem')
+        expect(css).toContain('--radius-full: 9999px')
+      })
 
-      // 2. Structure validation (ARIA)
-      // THEN: assertion
-      await expect(page.locator('[data-testid="radius-system"]')).toMatchAriaSnapshot(`
-        - group:
-          - button "Button with md radius"
-          - group: Card with lg radius
-          - group: Avatar
-      `)
+      await test.step('Verify radius structure (ARIA snapshot)', async () => {
+        await expect(page.locator('[data-testid="radius-system"]')).toMatchAriaSnapshot(`
+          - group:
+            - button "Button with md radius"
+            - group: Card with lg radius
+            - group: Avatar
+        `)
+      })
 
-      // 3. Visual validation (Screenshot) - captures all border-radius rendering
-      await expect(page.locator('[data-testid="radius-system"]')).toHaveScreenshot(
-        'radius-regression-001-complete-system.png',
-        {
-          animations: 'disabled',
-        }
-      )
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify visual rendering (screenshot)', async () => {
+        await expect(page.locator('[data-testid="radius-system"]')).toHaveScreenshot(
+          'radius-regression-001-complete-system.png',
+          {
+            animations: 'disabled',
+          }
+        )
+      })
     }
   )
 })
