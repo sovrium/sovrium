@@ -32,12 +32,7 @@ test.describe('Admin: Ban user', () => {
   test.fixme(
     'API-AUTH-ADMIN-BAN-USER-001: should return 200 OK and ban user with all sessions revoked',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      createAuthenticatedAdmin,
-      createAuthenticatedUser,
-    }) => {
+    async ({ page, startServerWithSchema, createAuthenticatedAdmin, createAuthenticatedUser }) => {
       // GIVEN: An authenticated admin user and an active user
       await startServerWithSchema({
         name: 'test-app',
@@ -72,12 +67,7 @@ test.describe('Admin: Ban user', () => {
   test.fixme(
     'API-AUTH-ADMIN-BAN-USER-002: should return 200 OK and store ban reason',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      createAuthenticatedAdmin,
-      createAuthenticatedUser,
-    }) => {
+    async ({ page, startServerWithSchema, createAuthenticatedAdmin, createAuthenticatedUser }) => {
       // GIVEN: An authenticated admin user and an active user
       await startServerWithSchema({
         name: 'test-app',
@@ -174,12 +164,7 @@ test.describe('Admin: Ban user', () => {
   test.fixme(
     'API-AUTH-ADMIN-BAN-USER-005: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
-    async ({
-      page,
-      startServerWithSchema,
-      createAuthenticatedUser,
-      createAuthenticatedViewer,
-    }) => {
+    async ({ page, startServerWithSchema, createAuthenticatedUser, createAuthenticatedViewer }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
