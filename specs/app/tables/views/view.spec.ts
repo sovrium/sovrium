@@ -164,68 +164,67 @@ test.describe('Table View', () => {
     'APP-TABLES-VIEW-004: user can complete full view workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative view
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 4,
-            name: 'items',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'status', type: 'single-line-text' },
-              { id: 4, name: 'priority', type: 'integer' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-            views: [
-              {
-                id: 'default_view',
-                name: 'Default View',
-                isDefault: true,
-                filters: {
-                  and: [
+      await test.step('Setup: Start server with default view configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'status', type: 'single-line-text' },
+                { id: 4, name: 'priority', type: 'integer' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              views: [
+                {
+                  id: 'default_view',
+                  name: 'Default View',
+                  isDefault: true,
+                  filters: {
+                    and: [
+                      {
+                        field: 'status',
+                        operator: 'equals',
+                        value: 'active',
+                      },
+                    ],
+                  },
+                  sorts: [
                     {
-                      field: 'status',
-                      operator: 'equals',
-                      value: 'active',
+                      field: 'priority',
+                      direction: 'desc',
                     },
                   ],
                 },
-                sorts: [
-                  {
-                    field: 'priority',
-                    direction: 'desc',
-                  },
-                ],
-              },
-            ],
-          },
-        ],
+              ],
+            },
+          ],
+        })
       })
 
-      await executeQuery([
-        "INSERT INTO items (title, status, priority) VALUES ('Item 1', 'active', 1), ('Item 2', 'inactive', 2), ('Item 3', 'active', 3)",
-      ])
+      await test.step('Insert test data', async () => {
+        await executeQuery([
+          "INSERT INTO items (title, status, priority) VALUES ('Item 1', 'active', 1), ('Item 2', 'inactive', 2), ('Item 3', 'active', 3)",
+        ])
+      })
 
-      // WHEN/THEN: Querying the PostgreSQL VIEW validates configuration
+      await test.step('Verify view filters and sorts records correctly', async () => {
+        const viewRecords = await executeQuery('SELECT title, status, priority FROM default_view')
+        expect(viewRecords).toEqual([
+          { title: 'Item 3', status: 'active', priority: 3 },
+          { title: 'Item 1', status: 'active', priority: 1 },
+        ])
+      })
 
-      // View filters and sorts records correctly
-      const viewRecords = await executeQuery('SELECT title, status, priority FROM default_view')
-      // THEN: assertion
-      expect(viewRecords).toEqual([
-        { title: 'Item 3', status: 'active', priority: 3 },
-        { title: 'Item 1', status: 'active', priority: 1 },
-      ])
-
-      // Inactive items excluded from view
-      const inactiveInView = await executeQuery(
-        "SELECT * FROM default_view WHERE status = 'inactive'"
-      )
-      // THEN: assertion
-      expect(inactiveInView).toHaveLength(0)
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify inactive items excluded from view', async () => {
+        const inactiveInView = await executeQuery(
+          "SELECT * FROM default_view WHERE status = 'inactive'"
+        )
+        expect(inactiveInView).toHaveLength(0)
+      })
     }
   )
 })

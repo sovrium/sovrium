@@ -417,76 +417,75 @@ test.describe('Table Views', () => {
     'APP-TABLES-VIEWS-007: user can complete full views workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative view
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 7,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'category', type: 'single-line-text' },
-              { id: 4, name: 'status', type: 'single-line-text' },
-              { id: 5, name: 'created_at', type: 'datetime' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-            views: [
-              {
-                id: 'active_view',
-                name: 'Active Items',
-                isDefault: true,
-                filters: {
-                  and: [
+      await test.step('Setup: Start server with active items view', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 7,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'category', type: 'single-line-text' },
+                { id: 4, name: 'status', type: 'single-line-text' },
+                { id: 5, name: 'created_at', type: 'datetime' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              views: [
+                {
+                  id: 'active_view',
+                  name: 'Active Items',
+                  isDefault: true,
+                  filters: {
+                    and: [
+                      {
+                        field: 'status',
+                        operator: 'equals',
+                        value: 'active',
+                      },
+                    ],
+                  },
+                  sorts: [
                     {
-                      field: 'status',
-                      operator: 'equals',
-                      value: 'active',
+                      field: 'created_at',
+                      direction: 'desc',
                     },
                   ],
                 },
-                sorts: [
-                  {
-                    field: 'created_at',
-                    direction: 'desc',
-                  },
-                ],
-              },
-            ],
-          },
-        ],
+              ],
+            },
+          ],
+        })
       })
 
-      await executeQuery([
-        "INSERT INTO data (title, category, status, created_at) VALUES ('Item 1', 'A', 'active', '2024-01-01'), ('Item 2', 'B', 'inactive', '2024-01-02'), ('Item 3', 'A', 'active', '2024-01-03')",
-      ])
+      await test.step('Insert test data', async () => {
+        await executeQuery([
+          "INSERT INTO data (title, category, status, created_at) VALUES ('Item 1', 'A', 'active', '2024-01-01'), ('Item 2', 'B', 'inactive', '2024-01-02'), ('Item 3', 'A', 'active', '2024-01-03')",
+        ])
+      })
 
-      // WHEN/THEN: Querying the PostgreSQL VIEW validates filter and sort
+      await test.step('Verify view filters and sorts records correctly', async () => {
+        const viewRecords = await executeQuery('SELECT title, status FROM active_view')
+        expect(viewRecords).toEqual([
+          { title: 'Item 3', status: 'active' },
+          { title: 'Item 1', status: 'active' },
+        ])
+      })
 
-      // View filters and sorts records correctly
-      const viewRecords = await executeQuery('SELECT title, status FROM active_view')
-      // THEN: assertion
-      expect(viewRecords).toEqual([
-        { title: 'Item 3', status: 'active' },
-        { title: 'Item 1', status: 'active' },
-      ])
+      await test.step('Verify view excludes inactive records', async () => {
+        const inactiveInView = await executeQuery(
+          "SELECT * FROM active_view WHERE status = 'inactive'"
+        )
+        expect(inactiveInView).toHaveLength(0)
+      })
 
-      // View excludes inactive records
-      const inactiveInView = await executeQuery(
-        "SELECT * FROM active_view WHERE status = 'inactive'"
-      )
-      // THEN: assertion
-      expect(inactiveInView).toHaveLength(0)
-
-      // View exists in database
-      const viewExists = await executeQuery(
-        "SELECT COUNT(*) as count FROM information_schema.views WHERE table_name = 'active_view'"
-      )
-      // THEN: assertion
-      expect(viewExists.count).toBe(1)
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify view exists in database', async () => {
+        const viewExists = await executeQuery(
+          "SELECT COUNT(*) as count FROM information_schema.views WHERE table_name = 'active_view'"
+        )
+        expect(viewExists.count).toBe(1)
+      })
     }
   )
 })

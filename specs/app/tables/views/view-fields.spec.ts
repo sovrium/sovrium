@@ -188,53 +188,56 @@ test.describe('View Fields', () => {
     'APP-TABLES-VIEW-FIELDS-004: user can complete full view-fields workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative field configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 4,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'status', type: 'single-line-text' },
-              { id: 4, name: 'secret', type: 'single-line-text' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-            views: [
-              {
-                id: 'custom_view',
-                name: 'Custom View',
-                fields: ['status', 'name', 'id'],
-              },
-            ],
-          },
-        ],
+      await test.step('Setup: Start server with custom field configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'status', type: 'single-line-text' },
+                { id: 4, name: 'secret', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              views: [
+                {
+                  id: 'custom_view',
+                  name: 'Custom View',
+                  fields: ['status', 'name', 'id'],
+                },
+              ],
+            },
+          ],
+        })
       })
 
-      await executeQuery([
-        "INSERT INTO data (name, status, secret) VALUES ('Item 1', 'active', 'top_secret')",
-      ])
+      await test.step('Insert test data', async () => {
+        await executeQuery([
+          "INSERT INTO data (name, status, secret) VALUES ('Item 1', 'active', 'top_secret')",
+        ])
+      })
 
-      // WHEN/THEN: Querying the PostgreSQL VIEW validates field configuration
+      await test.step('Verify view columns in specified order with secret excluded', async () => {
+        const viewColumns = await executeQuery(
+          "SELECT column_name FROM information_schema.columns WHERE table_name = 'custom_view' ORDER BY ordinal_position"
+        )
+        expect(viewColumns).toEqual([
+          { column_name: 'status' },
+          { column_name: 'name' },
+          { column_name: 'id' },
+        ])
+      })
 
-      // View has columns in specified order, secret excluded
-      const viewColumns = await executeQuery(
-        "SELECT column_name FROM information_schema.columns WHERE table_name = 'custom_view' ORDER BY ordinal_position"
-      )
-      expect(viewColumns).toEqual([
-        { column_name: 'status' },
-        { column_name: 'name' },
-        { column_name: 'id' },
-      ])
-
-      // View record contains only visible fields
-      const viewRecords = await executeQuery('SELECT * FROM custom_view')
-      expect(viewRecords[0]).toHaveProperty('status')
-      expect(viewRecords[0]).toHaveProperty('name')
-      expect(viewRecords[0]).toHaveProperty('id')
-      expect(viewRecords[0]).not.toHaveProperty('secret')
+      await test.step('Verify view record contains only visible fields', async () => {
+        const viewRecords = await executeQuery('SELECT * FROM custom_view')
+        expect(viewRecords[0]).toHaveProperty('status')
+        expect(viewRecords[0]).toHaveProperty('name')
+        expect(viewRecords[0]).toHaveProperty('id')
+        expect(viewRecords[0]).not.toHaveProperty('secret')
+      })
     }
   )
 })
