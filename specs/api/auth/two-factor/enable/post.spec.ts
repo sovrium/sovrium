@@ -266,7 +266,7 @@ test.describe('Enable Two-Factor Authentication', () => {
         })
       })
 
-      let session: { token: string }
+      let session: { token?: string }
 
       await test.step('Sign in user', async () => {
         session = await signIn({

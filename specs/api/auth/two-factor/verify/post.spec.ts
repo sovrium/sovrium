@@ -296,7 +296,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
         })
       })
 
-      let session: { token: string }
+      let session: { token?: string }
       let backupCodes: string[]
 
       await test.step('Sign in user', async () => {
