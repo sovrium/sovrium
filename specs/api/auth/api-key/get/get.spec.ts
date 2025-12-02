@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/auth/plugins/api-keys.ts
  * Domain: api
- * Spec Count: 6
+ * Spec Count: 5
  *
  * Test Organization:
  * 1. @spec tests - One per acceptance criterion (5 tests) - Exhaustive coverage
