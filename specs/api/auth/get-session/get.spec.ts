@@ -29,7 +29,7 @@ test.describe('Get current session', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-GET-SESSION-001: should return 200 OK with session and user data',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -69,7 +69,7 @@ test.describe('Get current session', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-GET-SESSION-002: should return null session without authentication',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -94,7 +94,7 @@ test.describe('Get current session', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-GET-SESSION-003: should return null session with invalid token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -122,7 +122,7 @@ test.describe('Get current session', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-GET-SESSION-004: should return null session after sign-out',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -158,7 +158,7 @@ test.describe('Get current session', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-GET-SESSION-005: should return session with metadata',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -199,7 +199,7 @@ test.describe('Get current session', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-GET-SESSION-006: user can complete full get-session workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {

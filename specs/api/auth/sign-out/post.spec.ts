@@ -29,7 +29,7 @@ test.describe('Sign out user', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-SIGN-OUT-001: should invalidate session token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -63,7 +63,7 @@ test.describe('Sign out user', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-SIGN-OUT-002: should return 200 OK even without authentication',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -84,7 +84,7 @@ test.describe('Sign out user', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-SIGN-OUT-003: should invalidate session and prevent further authenticated requests',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -125,7 +125,7 @@ test.describe('Sign out user', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-SIGN-OUT-004: should allow re-login after sign-out',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -165,7 +165,7 @@ test.describe('Sign out user', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-SIGN-OUT-005: should handle multiple sign-out calls gracefully',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -202,7 +202,7 @@ test.describe('Sign out user', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-SIGN-OUT-006: user can complete full sign-out workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
