@@ -329,46 +329,45 @@ test.describe('Client Scripts Configuration', () => {
     'APP-PAGES-SCRIPTS-011: user can complete full Client Scripts workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Test', description: 'Test' },
-            scripts: {
-              features: { darkMode: true, animations: true },
-              externalScripts: [
-                {
-                  src: 'https://cdn.example.com/lib.js',
-                  async: true,
-                  defer: true,
-                },
-              ],
-              inlineScripts: [{ code: 'console.log("ready")' }],
+      await test.step('Setup: Start server with scripts configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: {
+                features: { darkMode: true, animations: true },
+                externalScripts: [
+                  {
+                    src: 'https://cdn.example.com/lib.js',
+                    async: true,
+                    defer: true,
+                  },
+                ],
+                inlineScripts: [{ code: 'console.log("ready")' }],
+              },
+              sections: [{ type: 'heading', content: 'Scripts Test' }],
             },
-            sections: [{ type: 'heading', content: 'Scripts Test' }],
-          },
-        ],
+          ],
+        })
       })
-      // WHEN: user navigates to the page
-      await page.goto('/')
 
-      // Verify page renders with scripts configuration
-      // THEN: assertion
-      await expect(page.locator('h1')).toHaveText('Scripts Test')
+      await test.step('Navigate and verify scripts', async () => {
+        await page.goto('/')
 
-      // Verify external script is attached
-      await expect(page.locator('script[src="https://cdn.example.com/lib.js"]')).toBeAttached()
+        await expect(page.locator('h1')).toHaveText('Scripts Test')
 
-      // Verify inline script is present
-      const scriptContent = await page.evaluate(() => {
-        const scripts = Array.from(document.querySelectorAll('script'))
-        const inlineScript = scripts.find((s) => !s.src && s.innerHTML.includes('console.log'))
-        return inlineScript?.innerHTML
+        await expect(page.locator('script[src="https://cdn.example.com/lib.js"]')).toBeAttached()
+
+        const scriptContent = await page.evaluate(() => {
+          const scripts = Array.from(document.querySelectorAll('script'))
+          const inlineScript = scripts.find((s) => !s.src && s.innerHTML.includes('console.log'))
+          return inlineScript?.innerHTML
+        })
+        expect(scriptContent).toContain('console.log')
       })
-      expect(scriptContent).toContain('console.log')
     }
   )
 })

@@ -353,39 +353,41 @@ test.describe('Inline Scripts', () => {
     'APP-PAGES-INLINE-011: user can complete full Inline Scripts workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Test', description: 'Test' },
-            scripts: {
-              inlineScripts: [
-                {
-                  code: "window.APP_CONFIG = { apiUrl: 'https://api.example.com', debug: false };",
-                  position: 'head',
-                },
-                {
-                  code: "document.addEventListener('DOMContentLoaded', () => { console.log('App ready'); });",
-                },
-                {
-                  code: "if (localStorage.getItem('theme') === 'dark') { document.documentElement.classList.add('dark'); }",
-                  position: 'head',
-                },
-              ],
+      await test.step('Setup: Start server with inline scripts', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: {
+                inlineScripts: [
+                  {
+                    code: "window.APP_CONFIG = { apiUrl: 'https://api.example.com', debug: false };",
+                    position: 'head',
+                  },
+                  {
+                    code: "document.addEventListener('DOMContentLoaded', () => { console.log('App ready'); });",
+                  },
+                  {
+                    code: "if (localStorage.getItem('theme') === 'dark') { document.documentElement.classList.add('dark'); }",
+                    position: 'head',
+                  },
+                ],
+              },
+              sections: [],
             },
-            sections: [],
-          },
-        ],
+          ],
+        })
       })
-      // WHEN: user navigates to the page
-      await page.goto('/')
-      const config = await page.evaluate(() => (window as any).APP_CONFIG)
-      // THEN: assertion
-      expect(config?.apiUrl).toBe('https://api.example.com')
-      expect(config?.debug).toBe(false)
+
+      await test.step('Navigate and verify inline scripts execution', async () => {
+        await page.goto('/')
+        const config = await page.evaluate(() => (window as any).APP_CONFIG)
+        expect(config?.apiUrl).toBe('https://api.example.com')
+        expect(config?.debug).toBe(false)
+      })
     }
   )
 })

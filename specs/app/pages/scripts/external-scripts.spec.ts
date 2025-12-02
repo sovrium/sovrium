@@ -385,36 +385,38 @@ test.describe('External Scripts', () => {
     'APP-PAGES-EXTERNAL-013: user can complete full External Scripts workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Test', description: 'Test' },
-            scripts: {
-              externalScripts: [
-                {
-                  src: 'https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js',
-                  defer: true,
-                  position: 'head',
-                },
-                { src: 'https://cdn.jsdelivr.net/npm/chart.js', async: true },
-                { src: './js/app.js', module: true, position: 'body-end' },
-              ],
+      await test.step('Setup: Start server with external scripts', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: {
+                externalScripts: [
+                  {
+                    src: 'https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js',
+                    defer: true,
+                    position: 'head',
+                  },
+                  { src: 'https://cdn.jsdelivr.net/npm/chart.js', async: true },
+                  { src: './js/app.js', module: true, position: 'body-end' },
+                ],
+              },
+              sections: [],
             },
-            sections: [],
-          },
-        ],
+          ],
+        })
       })
 
-      // WHEN: only src is provided (all other properties optional)
-      await page.goto('/')
+      await test.step('Navigate and verify external scripts loaded', async () => {
+        await page.goto('/')
 
-      // THEN: it should load script with default settings (sync, body-end)
-      await expect(page.locator('head script[src*="alpinejs"]')).toBeAttached()
-      await expect(page.locator('script[src*="chart.js"]')).toBeAttached()
-      await expect(page.locator('script[src="./js/app.js"][type="module"]')).toBeAttached()
+        await expect(page.locator('head script[src*="alpinejs"]')).toBeAttached()
+        await expect(page.locator('script[src*="chart.js"]')).toBeAttached()
+        await expect(page.locator('script[src="./js/app.js"][type="module"]')).toBeAttached()
+      })
     }
   )
 })

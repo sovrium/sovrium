@@ -326,37 +326,37 @@ test.describe('Feature Flags', () => {
     'APP-PAGES-FEATURES-011: user can complete full Feature Flags workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Test', description: 'Test' },
-            scripts: {
-              features: {
-                darkMode: true,
-                animations: { enabled: true },
-                cookieConsent: false,
-                liveChat: { enabled: true },
-                analytics: { enabled: true },
+      await test.step('Setup: Start server with feature flags', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              scripts: {
+                features: {
+                  darkMode: true,
+                  animations: { enabled: true },
+                  cookieConsent: false,
+                  liveChat: { enabled: true },
+                  analytics: { enabled: true },
+                },
               },
+              sections: [{ type: 'heading', content: 'Feature Flags Test' }],
             },
-            sections: [{ type: 'heading', content: 'Feature Flags Test' }],
-          },
-        ],
+          ],
+        })
       })
-      // WHEN: user navigates to the page
-      await page.goto('/')
 
-      // Verify page renders with feature flags configuration
-      // THEN: assertion
-      await expect(page.locator('h1')).toHaveText('Feature Flags Test')
+      await test.step('Navigate and verify feature flags', async () => {
+        await page.goto('/')
 
-      // Verify data-features attribute is set on html element
-      const html = page.locator('html')
-      await expect(html).toHaveAttribute('data-features')
+        await expect(page.locator('h1')).toHaveText('Feature Flags Test')
+
+        const html = page.locator('html')
+        await expect(html).toHaveAttribute('data-features')
+      })
     }
   )
 })
