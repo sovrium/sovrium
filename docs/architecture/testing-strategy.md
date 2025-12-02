@@ -1,6 +1,6 @@
 # Testing Strategy - E2E-First TDD with Test-After Unit Tests
 
-**Testing Tools**: Playwright ^1.56.0 (E2E) | Bun 1.3.0 (Unit) | TypeScript ^5.9.3
+**Testing Tools**: Playwright ^1.57.0 (E2E) | Bun 1.3.3 (Unit) | TypeScript ^5.9.3
 
 ## Overview
 

@@ -24,7 +24,7 @@ By participating in this project, you agree to maintain a respectful, inclusive,
 
 ### Prerequisites
 
-- [Bun](https://bun.sh) v1.3.0 or higher
+- [Bun](https://bun.sh) v1.3.3 or higher
 - Git
 - A GitHub account
 

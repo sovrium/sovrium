@@ -31,14 +31,14 @@
 |-----------|---------|---------|
 | **Bun** | 1.3.3 | Runtime & package manager |
 | **TypeScript** | ^5.9.3 | Type-safe language |
-| **Effect** | ^3.19.6 | Functional programming, DI, error handling |
-| **Effect Schema** | ^3.19.6 | Server validation (domain/application/infrastructure) |
+| **Effect** | ^3.19.8 | Functional programming, DI, error handling |
+| **Effect Schema** | ^3.19.8 | Server validation (domain/application/infrastructure) |
 | **Hono** | ^4.10.7 | Web framework (API routes, RPC client, OpenAPI) |
 | **Zod** | ^4.1.13 | OpenAPI integration ONLY (src/presentation/api/schemas/) + client forms |
-| **Better Auth** | 1.3.34 | Authentication |
+| **Better Auth** | ^1.4.4 | Authentication |
 | **Drizzle ORM** | ^0.44.7 | Database (PostgreSQL via bun:sql) |
 | **React** | 19.2.0 | UI library |
-| **Tailwind CSS** | 4.1.17 | Styling (programmatic CSS compiler) |
+| **Tailwind CSS** | ^4.1.17 | Styling (programmatic CSS compiler) |
 | **TanStack Query** | ^5.90.11 | Server state management |
 | **TanStack Table** | ^8.21.3 | Data tables |
 
@@ -75,16 +75,12 @@ bun test:e2e:spec                  # Run @spec tests only (exhaustive)
 bun test:e2e:regression            # Run @regression tests only (optimized)
 bun test:e2e:update-snapshots      # Update ALL snapshots (ARIA + visual)
 bun test:e2e:update-snapshots:spec # Update @spec test snapshots only
-bun test:snapshots:guide           # Show snapshot testing guide & best practices
 
 # Utility Scripts (Additional)
 bun run quality                    # Check code quality with smart E2E detection
 bun run quality --skip-e2e         # Skip E2E tests entirely
 bun run quality --skip-coverage    # Skip coverage check (gradual adoption)
 bun run generate:roadmap           # Generate roadmap from specifications
-bun run validate:admin-specs       # Validate admin panel specifications
-bun run validate:api-specs         # Validate API specifications
-bun run validate:app-specs         # Validate application specifications
 bun run validate:docs              # Validate documentation versions match package.json
 bun run release                    # Manually trigger release (semantic-release)
 
