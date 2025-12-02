@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for URL Path
  *
  * Source: src/domain/models/app/page/path.ts
- * Spec Count: 19
+ * Spec Count: 16
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (19 tests) - Exhaustive acceptance criteria

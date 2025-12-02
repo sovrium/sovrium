@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/auth/organization/list-organizations/get.json
  * Domain: api
- * Spec Count: 5
+ * Spec Count: 3
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (5 tests) - Exhaustive acceptance criteria

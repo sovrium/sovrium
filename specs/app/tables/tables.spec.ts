@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/index.ts
  * Domain: app
- * Spec Count: 24
+ * Spec Count: 27
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (24 tests) - Exhaustive acceptance criteria

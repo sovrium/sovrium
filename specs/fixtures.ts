@@ -1280,3 +1280,168 @@ export const test = base.extend<ServerFixtures>({
 export { expect } from '@playwright/test'
 export type { Locator } from '@playwright/test'
 export type { MailpitEmail } from './email-utils'
+
+// =============================================================================
+// Multi-Org Test Utilities
+// =============================================================================
+
+/**
+ * Type for executeQuery function (used for helper function signatures)
+ */
+export type ExecuteQueryFn = (
+  sql: string | string[],
+  params?: unknown[]
+) => Promise<{
+  rows: any[]
+  rowCount: number
+  [key: string]: any
+}>
+
+/**
+ * Verify that a record exists in the database
+ *
+ * @example
+ * ```ts
+ * // Check if record exists
+ * const exists = await verifyRecordExists(
+ *   executeQuery,
+ *   'employees',
+ *   { id: 1, organization_id: 'org_123' }
+ * )
+ * expect(exists).toBe(true)
+ * ```
+ */
+export async function verifyRecordExists(
+  executeQuery: ExecuteQueryFn,
+  table: string,
+  conditions: Record<string, unknown>
+): Promise<boolean> {
+  const keys = Object.keys(conditions)
+  const whereClause = keys.map((key, i) => `"${key}" = $${i + 1}`).join(' AND ')
+  const values = keys.map((key) => conditions[key])
+
+  const result = await executeQuery(
+    `SELECT COUNT(*) as count FROM "${table}" WHERE ${whereClause}`,
+    values
+  )
+  return result.rows[0]?.count > 0
+}
+
+/**
+ * Verify that a record does NOT exist in the database
+ *
+ * @example
+ * ```ts
+ * // Check if record was deleted
+ * const notExists = await verifyRecordNotExists(
+ *   executeQuery,
+ *   'employees',
+ *   { id: 1 }
+ * )
+ * expect(notExists).toBe(true)
+ * ```
+ */
+export async function verifyRecordNotExists(
+  executeQuery: ExecuteQueryFn,
+  table: string,
+  conditions: Record<string, unknown>
+): Promise<boolean> {
+  const exists = await verifyRecordExists(executeQuery, table, conditions)
+  return !exists
+}
+
+/**
+ * Result from createMultiOrgScenario
+ */
+export interface MultiOrgScenarioResult {
+  userOrgRecordIds: number[]
+  otherOrgRecordIds: number[]
+}
+
+/**
+ * Create a test scenario with records in multiple organizations
+ * Useful for testing organization isolation and cross-org access prevention
+ *
+ * @example
+ * ```ts
+ * // Create records in two organizations
+ * const { userOrgRecordIds, otherOrgRecordIds } = await createMultiOrgScenario(
+ *   executeQuery,
+ *   {
+ *     table: 'employees',
+ *     organizationIdField: 'organization_id',
+ *     userOrgId: 'org_123',
+ *     otherOrgId: 'org_456',
+ *     userOrgRecords: [
+ *       { name: 'Alice', email: 'alice@example.com' },
+ *       { name: 'Bob', email: 'bob@example.com' },
+ *     ],
+ *     otherOrgRecords: [
+ *       { name: 'Charlie', email: 'charlie@example.com' },
+ *     ],
+ *   }
+ * )
+ *
+ * // userOrgRecordIds = [1, 2] (IDs of Alice and Bob)
+ * // otherOrgRecordIds = [3] (ID of Charlie)
+ * ```
+ */
+export async function createMultiOrgScenario(
+  executeQuery: ExecuteQueryFn,
+  options: {
+    table: string
+    organizationIdField?: string
+    userOrgId: string
+    otherOrgId: string
+    userOrgRecords: Record<string, unknown>[]
+    otherOrgRecords: Record<string, unknown>[]
+  }
+): Promise<MultiOrgScenarioResult> {
+  const {
+    table,
+    organizationIdField = 'organization_id',
+    userOrgId,
+    otherOrgId,
+    userOrgRecords,
+    otherOrgRecords,
+  } = options
+
+  const userOrgRecordIds: number[] = []
+  const otherOrgRecordIds: number[] = []
+
+  // Insert user org records
+  for (const record of userOrgRecords) {
+    const recordWithOrg = { ...record, [organizationIdField]: userOrgId }
+    const keys = Object.keys(recordWithOrg)
+    const columns = keys.map((k) => `"${k}"`).join(', ')
+    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ')
+    const values = keys.map((k) => recordWithOrg[k])
+
+    const result = await executeQuery(
+      `INSERT INTO "${table}" (${columns}) VALUES (${placeholders}) RETURNING id`,
+      values
+    )
+    if (result.rows[0]?.id) {
+      userOrgRecordIds.push(result.rows[0].id)
+    }
+  }
+
+  // Insert other org records
+  for (const record of otherOrgRecords) {
+    const recordWithOrg = { ...record, [organizationIdField]: otherOrgId }
+    const keys = Object.keys(recordWithOrg)
+    const columns = keys.map((k) => `"${k}"`).join(', ')
+    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ')
+    const values = keys.map((k) => recordWithOrg[k])
+
+    const result = await executeQuery(
+      `INSERT INTO "${table}" (${columns}) VALUES (${placeholders}) RETURNING id`,
+      values
+    )
+    if (result.rows[0]?.id) {
+      otherOrgRecordIds.push(result.rows[0].id)
+    }
+  }
+
+  return { userOrgRecordIds, otherOrgRecordIds }
+}

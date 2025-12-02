@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Postal Address
  *
  * Source: src/domain/models/app/page/meta.ts
- * Spec Count: 10
+ * Spec Count: 9
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (10 tests) - Exhaustive acceptance criteria

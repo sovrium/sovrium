@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for External Scripts
  *
  * Source: src/domain/models/app/page/scripts.ts
- * Spec Count: 12
+ * Spec Count: 11
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (12 tests) - Exhaustive acceptance criteria
