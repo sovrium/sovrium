@@ -38,7 +38,7 @@ test.describe('Request password reset', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           emailTemplates: {
             resetPassword: {
               subject: 'Reset your TestApp password',
@@ -91,7 +91,7 @@ test.describe('Request password reset', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
       })
 
@@ -120,7 +120,7 @@ test.describe('Request password reset', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
       })
 
@@ -145,7 +145,7 @@ test.describe('Request password reset', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
       })
 
@@ -172,7 +172,7 @@ test.describe('Request password reset', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
       })
 
@@ -217,7 +217,7 @@ test.describe('Request password reset', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
       })
 
@@ -276,7 +276,7 @@ test.describe('Request password reset', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
       })
 
@@ -325,7 +325,7 @@ test.describe('Request password reset', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
       })
 

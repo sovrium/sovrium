@@ -31,7 +31,7 @@ test.describe('JWT Token Authentication', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { jwt: true },
         },
       })
@@ -67,7 +67,7 @@ test.describe('JWT Token Authentication', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { jwt: true },
         },
       })
@@ -108,7 +108,7 @@ test.describe('JWT Token Authentication', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { jwt: true },
         },
       })
@@ -134,7 +134,7 @@ test.describe('JWT Token Authentication', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { jwt: true },
         },
       })
@@ -159,7 +159,7 @@ test.describe('JWT Token Authentication', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { jwt: true },
         },
       })
@@ -197,7 +197,7 @@ test.describe('JWT Token Authentication', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { jwt: true },
         },
       })

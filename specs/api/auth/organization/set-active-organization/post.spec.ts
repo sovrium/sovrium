@@ -37,7 +37,7 @@ test.describe('Set active organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -87,7 +87,7 @@ test.describe('Set active organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -123,7 +123,7 @@ test.describe('Set active organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -148,7 +148,7 @@ test.describe('Set active organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -186,7 +186,7 @@ test.describe('Set active organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -247,7 +247,7 @@ test.describe('Set active organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })

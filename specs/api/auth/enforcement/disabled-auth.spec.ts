@@ -100,7 +100,7 @@ test.describe('Disabled Auth Endpoints', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           // No features - admin endpoints should be disabled
         },
       })

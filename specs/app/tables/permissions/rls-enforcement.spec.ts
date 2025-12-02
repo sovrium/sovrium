@@ -37,7 +37,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
         tables: [
           {
@@ -98,7 +98,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
         tables: [
           {
@@ -153,7 +153,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
         tables: [
           {
@@ -208,7 +208,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
         tables: [
           {
@@ -272,7 +272,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
         tables: [
           {
@@ -326,7 +326,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
         tables: [
           {
@@ -387,7 +387,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
         tables: [
           {
@@ -448,7 +448,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
         tables: [
           {
@@ -520,7 +520,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
         tables: [
           {

@@ -37,7 +37,7 @@ test.describe('Sign out user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
       })
 
@@ -71,7 +71,7 @@ test.describe('Sign out user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
       })
 
@@ -92,7 +92,7 @@ test.describe('Sign out user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
       })
 
@@ -133,7 +133,7 @@ test.describe('Sign out user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
       })
 
@@ -173,7 +173,7 @@ test.describe('Sign out user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
       })
 
@@ -210,7 +210,7 @@ test.describe('Sign out user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
       })
 

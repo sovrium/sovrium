@@ -42,7 +42,7 @@ test.describe('Admin: Get user by ID', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -85,7 +85,7 @@ test.describe('Admin: Get user by ID', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -112,7 +112,7 @@ test.describe('Admin: Get user by ID', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -133,7 +133,7 @@ test.describe('Admin: Get user by ID', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -169,7 +169,7 @@ test.describe('Admin: Get user by ID', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -193,7 +193,7 @@ test.describe('Admin: Get user by ID', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -229,7 +229,7 @@ test.describe('Admin: Get user by ID', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })

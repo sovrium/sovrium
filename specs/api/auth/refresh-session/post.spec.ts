@@ -42,7 +42,7 @@ test.describe('Refresh session token', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
       })
 
@@ -83,7 +83,7 @@ test.describe('Refresh session token', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
       })
 
@@ -106,7 +106,7 @@ test.describe('Refresh session token', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
       })
 
@@ -133,7 +133,7 @@ test.describe('Refresh session token', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
       })
 
@@ -165,7 +165,7 @@ test.describe('Refresh session token', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
       })
 
@@ -204,7 +204,7 @@ test.describe('Refresh session token', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
         },
       })
 

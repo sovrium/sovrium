@@ -1218,7 +1218,7 @@ test.describe('Data Tables', () => {
       // WHEN: server starts with this schema
       await startServerWithSchema({
         name: 'test-app',
-        auth: { methods: { emailAndPassword: true } }, // Auth config present
+        auth: { emailAndPassword: true }, // Auth config present
         tables: [
           {
             id: 30,

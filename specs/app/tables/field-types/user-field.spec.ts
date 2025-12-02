@@ -30,7 +30,7 @@ test.describe('User Field', () => {
       // GIVEN: table configuration with user field
       await startServerWithSchema({
         name: 'test-app',
-        auth: { methods: { emailAndPassword: true } },
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -81,7 +81,7 @@ test.describe('User Field', () => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
-        auth: { methods: { emailAndPassword: true } },
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 2,
@@ -128,7 +128,7 @@ test.describe('User Field', () => {
       // GIVEN: users created via Better Auth
       await startServerWithSchema({
         name: 'test-app',
-        auth: { methods: { emailAndPassword: true } },
+        auth: { emailAndPassword: true },
         tables: [],
       })
 
@@ -181,7 +181,7 @@ test.describe('User Field', () => {
       // GIVEN: user created via Better Auth
       await startServerWithSchema({
         name: 'test-app',
-        auth: { methods: { emailAndPassword: true } },
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 3,
@@ -232,7 +232,7 @@ test.describe('User Field', () => {
       // GIVEN: table configuration with indexed user field
       await startServerWithSchema({
         name: 'test-app',
-        auth: { methods: { emailAndPassword: true } },
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 4,
@@ -273,7 +273,7 @@ test.describe('User Field', () => {
       // GIVEN: users created via Better Auth
       await startServerWithSchema({
         name: 'test-app',
-        auth: { methods: { emailAndPassword: true } },
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 4,

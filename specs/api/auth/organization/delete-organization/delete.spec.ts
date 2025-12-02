@@ -39,7 +39,7 @@ test.describe('Delete organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -86,7 +86,7 @@ test.describe('Delete organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -122,7 +122,7 @@ test.describe('Delete organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -147,7 +147,7 @@ test.describe('Delete organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -212,7 +212,7 @@ test.describe('Delete organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -250,7 +250,7 @@ test.describe('Delete organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -319,7 +319,7 @@ test.describe('Delete organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })

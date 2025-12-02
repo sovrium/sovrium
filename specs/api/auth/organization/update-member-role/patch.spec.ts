@@ -37,7 +37,7 @@ test.describe('Update member role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -104,7 +104,7 @@ test.describe('Update member role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -144,7 +144,7 @@ test.describe('Update member role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -171,7 +171,7 @@ test.describe('Update member role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -243,7 +243,7 @@ test.describe('Update member role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -288,7 +288,7 @@ test.describe('Update member role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -354,7 +354,7 @@ test.describe('Update member role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })

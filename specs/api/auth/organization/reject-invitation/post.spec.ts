@@ -37,7 +37,7 @@ test.describe('Reject organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -109,7 +109,7 @@ test.describe('Reject organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -145,7 +145,7 @@ test.describe('Reject organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -170,7 +170,7 @@ test.describe('Reject organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -208,7 +208,7 @@ test.describe('Reject organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -246,7 +246,7 @@ test.describe('Reject organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -311,7 +311,7 @@ test.describe('Reject organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -389,7 +389,7 @@ test.describe('Reject organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })

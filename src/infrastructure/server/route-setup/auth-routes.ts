@@ -7,7 +7,8 @@
 
 import { type Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { auth } from '@/infrastructure/auth/better-auth/auth'
+import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
+import type { App } from '@/domain/models/app'
 
 /**
  * Setup CORS middleware for Better Auth endpoints
@@ -42,20 +43,33 @@ export function setupAuthMiddleware(honoApp: Readonly<Hono>): Readonly<Hono> {
 }
 
 /**
- * Setup Better Auth routes
+ * Setup Better Auth routes with dynamic configuration
  *
  * Mounts Better Auth handler at /api/auth/* which provides all authentication endpoints
  * including send-verification-email, verify-email, sign-in, sign-up, etc.
  *
+ * Creates a Better Auth instance dynamically based on the app's auth configuration,
+ * allowing features like requireEmailVerification to be controlled per app.
+ *
+ * IMPORTANT: Better Auth instance is created once per app configuration and reused
+ * across all requests to maintain internal state consistency.
+ *
  * @param honoApp - Hono application instance
- * @param _app - Application configuration (reserved for future use)
+ * @param app - Application configuration with auth settings
  * @returns Hono app with auth routes configured
  */
-export function setupAuthRoutes(
-  honoApp: Readonly<Hono>,
-  _app?: { readonly auth?: { readonly emailTemplates?: unknown } }
-): Readonly<Hono> {
+export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Hono> {
+  // Debug: Log the app config being passed
+  console.error(
+    '[AUTH-ROUTES] setupAuthRoutes called with app?.auth:',
+    JSON.stringify(app?.auth, null, 2)
+  )
+
+  // Create Better Auth instance with app-specific configuration (once per app startup)
+  // This instance is reused across all requests to maintain internal state
+  const authInstance = createAuthInstance(app?.auth)
+
   // Mount Better Auth handler for all /api/auth/* routes
   // Better Auth natively provides: send-verification-email, verify-email, sign-in, sign-up, etc.
-  return honoApp.on(['POST', 'GET'], '/api/auth/*', (c) => auth.handler(c.req.raw))
+  return honoApp.on(['POST', 'GET'], '/api/auth/*', (c) => authInstance.handler(c.req.raw))
 }

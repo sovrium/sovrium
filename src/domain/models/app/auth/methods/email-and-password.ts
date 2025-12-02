@@ -25,15 +25,13 @@ import { Schema } from 'effect'
  * @example
  * ```typescript
  * // Simple enable
- * { methods: { emailAndPassword: true } }
+ * { emailAndPassword: true }
  *
  * // With configuration
  * {
- *   methods: {
- *     emailAndPassword: {
- *       requireEmailVerification: true,
- *       minPasswordLength: 12
- *     }
+ *   emailAndPassword: {
+ *     requireEmailVerification: true,
+ *     minPasswordLength: 12
  *   }
  * }
  * ```

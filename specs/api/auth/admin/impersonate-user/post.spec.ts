@@ -42,7 +42,7 @@ test.describe('Admin: Impersonate user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -87,7 +87,7 @@ test.describe('Admin: Impersonate user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -116,7 +116,7 @@ test.describe('Admin: Impersonate user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -141,7 +141,7 @@ test.describe('Admin: Impersonate user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -181,7 +181,7 @@ test.describe('Admin: Impersonate user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -216,7 +216,7 @@ test.describe('Admin: Impersonate user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -244,7 +244,7 @@ test.describe('Admin: Impersonate user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -282,7 +282,7 @@ test.describe('Admin: Impersonate user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })

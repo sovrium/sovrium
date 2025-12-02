@@ -32,7 +32,7 @@ test.describe('Create API Key', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: {
             apiKeys: true,
           },
@@ -81,7 +81,7 @@ test.describe('Create API Key', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: {
             apiKeys: {
               expirationDays: 90,
@@ -132,7 +132,7 @@ test.describe('Create API Key', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: {
             apiKeys: true,
           },
@@ -162,7 +162,7 @@ test.describe('Create API Key', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: {
             apiKeys: true,
           },
@@ -206,7 +206,7 @@ test.describe('Create API Key', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: {
             apiKeys: {
               maxKeysPerUser: 2,
@@ -273,7 +273,7 @@ test.describe('Create API Key', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           // No apiKeys plugin
         },
       })
@@ -316,7 +316,7 @@ test.describe('Create API Key', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: {
             apiKeys: {
               expirationDays: 90,

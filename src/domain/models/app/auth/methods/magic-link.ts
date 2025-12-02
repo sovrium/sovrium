@@ -23,14 +23,12 @@ import { Schema } from 'effect'
  * @example
  * ```typescript
  * // Simple enable
- * { methods: { magicLink: true } }
+ * { magicLink: true }
  *
  * // With configuration
  * {
- *   methods: {
- *     magicLink: {
- *       expirationMinutes: 30
- *     }
+ *   magicLink: {
+ *     expirationMinutes: 30
  *   }
  * }
  * ```

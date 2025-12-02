@@ -42,7 +42,7 @@ test.describe('Admin: List users', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -91,7 +91,7 @@ test.describe('Admin: List users', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -124,7 +124,7 @@ test.describe('Admin: List users', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -157,7 +157,7 @@ test.describe('Admin: List users', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -178,7 +178,7 @@ test.describe('Admin: List users', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -209,7 +209,7 @@ test.describe('Admin: List users', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -243,7 +243,7 @@ test.describe('Admin: List users', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -275,7 +275,7 @@ test.describe('Admin: List users', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: { emailAndPassword: true },
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
