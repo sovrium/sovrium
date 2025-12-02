@@ -413,73 +413,73 @@ test.describe('Structured Data', () => {
     'APP-PAGES-STRUCTUREDDATA-011: user can complete full structured data workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: {
-              lang: 'en-US',
-              title: 'Test',
-              description: 'Test',
-              schema: {
-                organization: {
-                  '@context': 'https://schema.org',
-                  '@type': 'Organization',
-                  name: 'Complete Test Org',
-                  url: 'https://example.com',
-                },
-                breadcrumb: {
-                  '@context': 'https://schema.org',
-                  '@type': 'BreadcrumbList',
-                  itemListElement: [
-                    {
-                      '@type': 'ListItem',
-                      position: 1,
-                      name: 'Home',
-                    },
-                  ],
+      await test.step('Setup: Start server with multiple structured data schemas', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  organization: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Organization',
+                    name: 'Complete Test Org',
+                    url: 'https://example.com',
+                  },
+                  breadcrumb: {
+                    '@context': 'https://schema.org',
+                    '@type': 'BreadcrumbList',
+                    itemListElement: [
+                      {
+                        '@type': 'ListItem',
+                        position: 1,
+                        name: 'Home',
+                      },
+                    ],
+                  },
                 },
               },
+              sections: [],
             },
-            sections: [],
-          },
-        ],
+          ],
+        })
       })
 
-      // WHEN: user navigates to the page
-      await page.goto('/')
+      let jsonLdSchemas: any[]
 
-      // Enhanced JSON-LD validation for multiple schemas
-      const scripts = await page.locator('script[type="application/ld+json"]').all()
-      // THEN: assertion
-      expect(scripts.length).toBeGreaterThanOrEqual(2) // At least organization + breadcrumb
+      await test.step('Navigate to page and parse JSON-LD scripts', async () => {
+        await page.goto('/')
+        const scripts = await page.locator('script[type="application/ld+json"]').all()
+        expect(scripts.length).toBeGreaterThanOrEqual(2)
 
-      // Parse all JSON-LD scripts and validate each
-      const allContent = await Promise.all(scripts.map((script) => script.textContent()))
-      const jsonLdSchemas = allContent
-        .filter((content) => content !== null)
-        .map((content) => JSON.parse(content!))
+        const allContent = await Promise.all(scripts.map((script) => script.textContent()))
+        jsonLdSchemas = allContent
+          .filter((content) => content !== null)
+          .map((content) => JSON.parse(content!))
 
-      // Validate we have at least 2 valid JSON-LD schemas
-      expect(jsonLdSchemas.length).toBeGreaterThanOrEqual(2)
-
-      // Find Organization schema
-      const orgSchema = jsonLdSchemas.find((schema) => schema['@type'] === 'Organization')
-      expect(orgSchema).toBeDefined()
-      expect(orgSchema).toMatchObject({
-        '@context': 'https://schema.org',
-        '@type': 'Organization',
-        name: 'Complete Test Org',
-        url: 'https://example.com',
+        expect(jsonLdSchemas.length).toBeGreaterThanOrEqual(2)
       })
 
-      // Find BreadcrumbList schema
-      const breadcrumbSchema = jsonLdSchemas.find((schema) => schema['@type'] === 'BreadcrumbList')
-      expect(breadcrumbSchema).toBeDefined()
-      expect(breadcrumbSchema).toMatchObject({
+      await test.step('Verify Organization schema', async () => {
+        const orgSchema = jsonLdSchemas.find((schema) => schema['@type'] === 'Organization')
+        expect(orgSchema).toBeDefined()
+        expect(orgSchema).toMatchObject({
+          '@context': 'https://schema.org',
+          '@type': 'Organization',
+          name: 'Complete Test Org',
+          url: 'https://example.com',
+        })
+      })
+
+      await test.step('Verify BreadcrumbList schema', async () => {
+        const breadcrumbSchema = jsonLdSchemas.find((schema) => schema['@type'] === 'BreadcrumbList')
+        expect(breadcrumbSchema).toBeDefined()
+        expect(breadcrumbSchema).toMatchObject({
         '@context': 'https://schema.org',
         '@type': 'BreadcrumbList',
       })
