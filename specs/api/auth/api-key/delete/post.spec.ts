@@ -259,68 +259,75 @@ test.describe('Revoke/Delete API Key', () => {
     'API-AUTH-API-KEYS-DELETE-006: user can complete full API key revocation workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      // GIVEN: Application with API keys enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: {
-            apiKeys: true,
+      let key1Id: string
+
+      await test.step('Setup: Start server with API keys plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: {
+              apiKeys: true,
+            },
           },
-        },
+        })
       })
 
-      await signUp({
-        name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
+      await test.step('Setup: Sign up user', async () => {
+        await signUp({
+          name: 'Test User',
+          email: 'test@example.com',
+          password: 'ValidPassword123!',
+        })
       })
 
-      // WHEN: User creates multiple API keys
-      const create1Response = await page.request.post('/api/auth/api-key/create', {
-        data: { name: 'Key 1' },
+      await test.step('Create two API keys', async () => {
+        const create1Response = await page.request.post('/api/auth/api-key/create', {
+          data: { name: 'Key 1' },
+        })
+
+        const result = await create1Response.json()
+        key1Id = result.id
+
+        await page.request.post('/api/auth/api-key/create', {
+          data: { name: 'Key 2' },
+        })
       })
 
-      const { id: key1Id } = await create1Response.json()
-
-      await page.request.post('/api/auth/api-key/create', {
-        data: { name: 'Key 2' },
+      await test.step('Verify two keys exist', async () => {
+        const listResponse = await page.request.get('/api/auth/api-key/list')
+        const listData = await listResponse.json()
+        expect(listData).toHaveLength(2)
       })
 
-      // Verify two keys exist
-      const listResponse = await page.request.get('/api/auth/api-key/list')
+      await test.step('Revoke one API key', async () => {
+        const deleteResponse = await page.request.post('/api/auth/api-key/delete', {
+          data: {
+            keyId: key1Id,
+          },
+        })
 
-      const listData = await listResponse.json()
-      expect(listData).toHaveLength(2)
-
-      // WHEN: User revokes one key
-      const deleteResponse = await page.request.post('/api/auth/api-key/delete', {
-        data: {
-          keyId: key1Id,
-        },
+        expect(deleteResponse.status()).toBe(200)
+        const deleteData = await deleteResponse.json()
+        expect(deleteData.success).toBe(true)
       })
 
-      // THEN: Key is revoked successfully
-      expect(deleteResponse.status()).toBe(200)
-      const deleteData = await deleteResponse.json()
-      expect(deleteData.success).toBe(true)
-
-      // THEN: Only one key remains
-      const afterResponse = await page.request.get('/api/auth/api-key/list')
-
-      const afterData = await afterResponse.json()
-      expect(afterData).toHaveLength(1)
-      expect(afterData[0].name).toBe('Key 2')
-
-      // WHEN: Unauthenticated user attempts to revoke key
-      const unauthResponse = await page.request.post('/api/auth/api-key/delete', {
-        data: {
-          keyId: key1Id,
-        },
+      await test.step('Verify only one key remains', async () => {
+        const afterResponse = await page.request.get('/api/auth/api-key/list')
+        const afterData = await afterResponse.json()
+        expect(afterData).toHaveLength(1)
+        expect(afterData[0].name).toBe('Key 2')
       })
 
-      // THEN: Request fails with 401
-      expect(unauthResponse.status()).toBe(401)
+      await test.step('Verify delete API key fails without auth', async () => {
+        const unauthResponse = await page.request.post('/api/auth/api-key/delete', {
+          data: {
+            keyId: key1Id,
+          },
+        })
+
+        expect(unauthResponse.status()).toBe(401)
+      })
     }
   )
 })

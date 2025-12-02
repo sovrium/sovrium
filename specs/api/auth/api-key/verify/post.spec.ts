@@ -319,69 +319,82 @@ test.describe('Verify API Key', () => {
     'API-AUTH-API-KEYS-VERIFY-007: system can complete full API key verification workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      // GIVEN: Application with API keys enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: {
-            apiKeys: true,
+      let key: string
+      let keyId: string
+
+      await test.step('Setup: Start server with API keys plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: {
+              apiKeys: true,
+            },
           },
-        },
+        })
       })
 
-      await signUp({
-        name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
+      await test.step('Setup: Sign up user', async () => {
+        await signUp({
+          name: 'Test User',
+          email: 'test@example.com',
+          password: 'ValidPassword123!',
+        })
       })
 
-      // WHEN: User creates valid API key
-      const createResponse = await page.request.post('/api/auth/api-key/create', {
-        data: {
-          name: 'Test Key',
-          metadata: {
-            permissions: ['read', 'write'],
+      await test.step('Create API key with metadata', async () => {
+        const createResponse = await page.request.post('/api/auth/api-key/create', {
+          data: {
+            name: 'Test Key',
+            metadata: {
+              permissions: ['read', 'write'],
+            },
           },
-        },
+        })
+
+        const result = await createResponse.json()
+        key = result.key
+        keyId = result.id
       })
 
-      const { key, id: keyId } = await createResponse.json()
+      await test.step('Verify valid API key passes verification', async () => {
+        const validResponse = await page.request.post('/api/auth/api-key/verify', {
+          data: { key },
+        })
 
-      // THEN: Valid key passes verification
-      const validResponse = await page.request.post('/api/auth/api-key/verify', {
-        data: { key },
+        expect(validResponse.status()).toBe(200)
+        const validData = await validResponse.json()
+        expect(validData.valid).toBe(true)
       })
 
-      expect(validResponse.status()).toBe(200)
-      const validData = await validResponse.json()
-      expect(validData.valid).toBe(true)
+      await test.step('Verify invalid API key fails verification', async () => {
+        const invalidResponse = await page.request.post('/api/auth/api-key/verify', {
+          data: { key: 'invalid-key' },
+        })
 
-      // THEN: Invalid key fails verification
-      const invalidResponse = await page.request.post('/api/auth/api-key/verify', {
-        data: { key: 'invalid-key' },
+        expect(invalidResponse.status()).toBe(200)
+        const invalidData = await invalidResponse.json()
+        expect(invalidData.valid).toBe(false)
       })
 
-      expect(invalidResponse.status()).toBe(200)
-      const invalidData = await invalidResponse.json()
-      expect(invalidData.valid).toBe(false)
-
-      // WHEN: Key is disabled
-      await page.request.patch('/api/auth/api-key', {
-        data: {
-          keyId,
-          enabled: false,
-        },
+      await test.step('Disable API key', async () => {
+        await page.request.patch('/api/auth/api-key', {
+          data: {
+            keyId,
+            enabled: false,
+          },
+        })
       })
 
-      // THEN: Disabled key fails verification
-      const disabledResponse = await page.request.post('/api/auth/api-key/verify', {
-        data: { key },
-      })
+      await test.step('Verify disabled API key fails verification', async () => {
+        const disabledResponse = await page.request.post('/api/auth/api-key/verify', {
+          data: { key },
+        })
 
-      expect(disabledResponse.status()).toBe(200)
-      const disabledData = await disabledResponse.json()
-      expect(disabledData.valid).toBe(false)
+        expect(disabledResponse.status()).toBe(200)
+        const disabledData = await disabledResponse.json()
+        expect(disabledData.valid).toBe(false)
+      })
     }
   )
 })

@@ -221,67 +221,71 @@ test.describe('Delete Expired API Keys', () => {
     'API-AUTH-API-KEYS-DELETE-EXPIRED-005: system can complete full expired keys cleanup workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      // GIVEN: Application with mix of expired and valid API keys
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: {
-            apiKeys: true,
+      await test.step('Setup: Start server with API keys plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: {
+              apiKeys: true,
+            },
           },
-        },
+        })
       })
 
-      await signUp({
-        name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
+      await test.step('Setup: Sign up user', async () => {
+        await signUp({
+          name: 'Test User',
+          email: 'test@example.com',
+          password: 'ValidPassword123!',
+        })
       })
 
-      // WHEN: User creates multiple keys with different expiration settings
-      await page.request.post('/api/auth/api-key/create', {
-        data: { name: 'Expired 1', expiresIn: 1 },
+      await test.step('Create keys with different expiration settings', async () => {
+        await page.request.post('/api/auth/api-key/create', {
+          data: { name: 'Expired 1', expiresIn: 1 },
+        })
+
+        await page.request.post('/api/auth/api-key/create', {
+          data: { name: 'Expired 2', expiresIn: 1 },
+        })
+
+        await page.request.post('/api/auth/api-key/create', {
+          data: { name: 'Valid Key', expiresIn: 86_400 },
+        })
+
+        await page.request.post('/api/auth/api-key/create', {
+          data: { name: 'Permanent Key' }, // No expiration
+        })
+
+        // Wait for expired keys to expire
+        await page.waitForTimeout(2000)
       })
 
-      await page.request.post('/api/auth/api-key/create', {
-        data: { name: 'Expired 2', expiresIn: 1 },
+      await test.step('Verify all 4 keys exist before cleanup', async () => {
+        const beforeResponse = await page.request.get('/api/auth/api-key/list')
+        const beforeData = await beforeResponse.json()
+        expect(beforeData).toHaveLength(4)
       })
 
-      await page.request.post('/api/auth/api-key/create', {
-        data: { name: 'Valid Key', expiresIn: 86_400 },
+      await test.step('Delete expired API keys', async () => {
+        const deleteResponse = await page.request.delete('/api/auth/api-key/delete-expired')
+        expect(deleteResponse.status()).toBe(200)
       })
 
-      await page.request.post('/api/auth/api-key/create', {
-        data: { name: 'Permanent Key' }, // No expiration
+      await test.step('Verify only valid keys remain', async () => {
+        const afterResponse = await page.request.get('/api/auth/api-key/list')
+        const afterData = await afterResponse.json()
+        expect(afterData).toHaveLength(2)
+
+        const remainingNames = afterData.map((key: { name: string }) => key.name).sort()
+        expect(remainingNames).toEqual(['Permanent Key', 'Valid Key'])
       })
 
-      // Wait for expired keys to expire
-      await page.waitForTimeout(2000)
-
-      // Verify all 4 keys exist
-      const beforeResponse = await page.request.get('/api/auth/api-key/list')
-      const beforeData = await beforeResponse.json()
-      expect(beforeData).toHaveLength(4)
-
-      // WHEN: System cleans up expired keys
-      const deleteResponse = await page.request.delete('/api/auth/api-key/delete-expired')
-
-      // THEN: Cleanup succeeds
-      expect(deleteResponse.status()).toBe(200)
-
-      // THEN: Only 2 valid keys remain
-      const afterResponse = await page.request.get('/api/auth/api-key/list')
-      const afterData = await afterResponse.json()
-      expect(afterData).toHaveLength(2)
-
-      const remainingNames = afterData.map((key: { name: string }) => key.name).sort()
-      expect(remainingNames).toEqual(['Permanent Key', 'Valid Key'])
-
-      // WHEN: Unauthenticated user attempts cleanup
-      const unauthResponse = await page.request.delete('/api/auth/api-key/delete-expired')
-
-      // THEN: Request fails with 401
-      expect(unauthResponse.status()).toBe(401)
+      await test.step('Verify delete expired fails without auth', async () => {
+        const unauthResponse = await page.request.delete('/api/auth/api-key/delete-expired')
+        expect(unauthResponse.status()).toBe(401)
+      })
     }
   )
 })

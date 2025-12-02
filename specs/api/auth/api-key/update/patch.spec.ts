@@ -429,83 +429,92 @@ test.describe('Update API Key', () => {
     'API-AUTH-API-KEYS-UPDATE-010: user can complete full API key update workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      // GIVEN: Application with API keys enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: {
-            apiKeys: true,
+      let keyId: string
+
+      await test.step('Setup: Start server with API keys plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: {
+              apiKeys: true,
+            },
           },
-        },
+        })
       })
 
-      await signUp({
-        name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
+      await test.step('Setup: Sign up user', async () => {
+        await signUp({
+          name: 'Test User',
+          email: 'test@example.com',
+          password: 'ValidPassword123!',
+        })
       })
 
-      // WHEN: User creates API key
-      const createResponse = await page.request.post('/api/auth/api-key/create', {
-        data: {
-          name: 'Initial Name',
-          metadata: {
-            version: '1.0',
+      await test.step('Create API key', async () => {
+        const createResponse = await page.request.post('/api/auth/api-key/create', {
+          data: {
+            name: 'Initial Name',
+            metadata: {
+              version: '1.0',
+            },
           },
-        },
+        })
+
+        const result = await createResponse.json()
+        keyId = result.id
       })
 
-      const { id: keyId } = await createResponse.json()
-
-      // THEN: User can update multiple fields
-      const updateResponse = await page.request.patch('/api/auth/api-key', {
-        data: {
-          keyId,
-          name: 'Updated Name',
-          enabled: false,
-          remaining: 500,
-          refillAmount: 1000,
-          refillInterval: 3600, // 1 hour
-          metadata: {
-            version: '2.0',
-            environment: 'production',
+      await test.step('Update API key multiple fields', async () => {
+        const updateResponse = await page.request.patch('/api/auth/api-key', {
+          data: {
+            keyId,
+            name: 'Updated Name',
+            enabled: false,
+            remaining: 500,
+            refillAmount: 1000,
+            refillInterval: 3600, // 1 hour
+            metadata: {
+              version: '2.0',
+              environment: 'production',
+            },
           },
-        },
+        })
+
+        expect(updateResponse.status()).toBe(200)
+        const updateData = await updateResponse.json()
+        expect(updateData.name).toBe('Updated Name')
+        expect(updateData.enabled).toBe(false)
+        expect(updateData.remaining).toBe(500)
+        expect(updateData.refillAmount).toBe(1000)
+        expect(updateData.refillInterval).toBe(3600)
+        expect(updateData.metadata).toEqual({
+          version: '2.0',
+          environment: 'production',
+        })
       })
 
-      expect(updateResponse.status()).toBe(200)
-      const updateData = await updateResponse.json()
-      expect(updateData.name).toBe('Updated Name')
-      expect(updateData.enabled).toBe(false)
-      expect(updateData.remaining).toBe(500)
-      expect(updateData.refillAmount).toBe(1000)
-      expect(updateData.refillInterval).toBe(3600)
-      expect(updateData.metadata).toEqual({
-        version: '2.0',
-        environment: 'production',
+      await test.step('Verify update non-existent key fails', async () => {
+        const notFoundResponse = await page.request.patch('/api/auth/api-key', {
+          data: {
+            keyId: 'invalid-id',
+            name: 'Test',
+          },
+        })
+
+        expect([400, 404]).toContain(notFoundResponse.status())
       })
 
-      // THEN: Updating non-existent key fails
-      const notFoundResponse = await page.request.patch('/api/auth/api-key', {
-        data: {
-          keyId: 'invalid-id',
-          name: 'Test',
-        },
+      await test.step('Verify update API key fails without auth', async () => {
+        const unauthResponse = await page.request.patch('/api/auth/api-key', {
+          data: {
+            keyId,
+            name: 'Hacked',
+          },
+        })
+
+        expect(unauthResponse.status()).toBe(401)
       })
-
-      expect([400, 404]).toContain(notFoundResponse.status())
-
-      // WHEN: Unauthenticated user attempts to update key
-      const unauthResponse = await page.request.patch('/api/auth/api-key', {
-        data: {
-          keyId,
-          name: 'Hacked',
-        },
-      })
-
-      // THEN: Request fails with 401
-      expect(unauthResponse.status()).toBe(401)
     }
   )
 })
