@@ -538,28 +538,28 @@ test.describe('Person Schema', () => {
 
       await test.step('Verify Person schema structure', async () => {
         expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
-      expect(jsonLd).toHaveProperty('@type', 'Person')
-      expect(jsonLd).toHaveProperty('name', 'Complete Person Profile')
-      expect(jsonLd).toHaveProperty('givenName', 'John')
-      expect(jsonLd).toHaveProperty('familyName', 'Smith')
-      expect(jsonLd).toHaveProperty('email', 'john.smith@example.com')
-      expect(jsonLd).toHaveProperty('telephone', '+1-555-987-6543')
-      expect(jsonLd).toHaveProperty('url', 'https://johnsmith.com')
-      expect(jsonLd).toHaveProperty('image', 'https://example.com/john.jpg')
-      expect(jsonLd).toHaveProperty('jobTitle', 'Senior Software Engineer')
+        expect(jsonLd).toHaveProperty('@type', 'Person')
+        expect(jsonLd).toHaveProperty('name', 'Complete Person Profile')
+        expect(jsonLd).toHaveProperty('givenName', 'John')
+        expect(jsonLd).toHaveProperty('familyName', 'Smith')
+        expect(jsonLd).toHaveProperty('email', 'john.smith@example.com')
+        expect(jsonLd).toHaveProperty('telephone', '+1-555-987-6543')
+        expect(jsonLd).toHaveProperty('url', 'https://johnsmith.com')
+        expect(jsonLd).toHaveProperty('image', 'https://example.com/john.jpg')
+        expect(jsonLd).toHaveProperty('jobTitle', 'Senior Software Engineer')
 
-      // Validate worksFor structure
-      expect(jsonLd.worksFor).toMatchObject({
-        '@type': 'Organization',
-        name: 'Tech Innovations Inc',
-      })
+        // Validate worksFor structure
+        expect(jsonLd.worksFor).toMatchObject({
+          '@type': 'Organization',
+          name: 'Tech Innovations Inc',
+        })
 
-      // Validate social media links
-      expect(Array.isArray(jsonLd.sameAs)).toBe(true)
-      expect(jsonLd.sameAs).toHaveLength(3)
-      expect(jsonLd.sameAs).toContain('https://twitter.com/johnsmith')
-      expect(jsonLd.sameAs).toContain('https://linkedin.com/in/johnsmith')
-      expect(jsonLd.sameAs).toContain('https://github.com/johnsmith')
+        // Validate social media links
+        expect(Array.isArray(jsonLd.sameAs)).toBe(true)
+        expect(jsonLd.sameAs).toHaveLength(3)
+        expect(jsonLd.sameAs).toContain('https://twitter.com/johnsmith')
+        expect(jsonLd.sameAs).toContain('https://linkedin.com/in/johnsmith')
+        expect(jsonLd.sameAs).toContain('https://github.com/johnsmith')
 
         // Backwards compatibility: string containment checks
         const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()

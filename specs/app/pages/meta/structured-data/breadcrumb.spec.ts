@@ -472,7 +472,12 @@ test.describe('Breadcrumb Schema', () => {
                     '@context': 'https://schema.org',
                     '@type': 'BreadcrumbList',
                     itemListElement: [
-                      { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://example.com' },
+                      {
+                        '@type': 'ListItem',
+                        position: 1,
+                        name: 'Home',
+                        item: 'https://example.com',
+                      },
                       {
                         '@type': 'ListItem',
                         position: 2,
@@ -510,25 +515,25 @@ test.describe('Breadcrumb Schema', () => {
         expect(Array.isArray(jsonLd.itemListElement)).toBe(true)
         expect(jsonLd.itemListElement).toHaveLength(3)
 
-      // Validate breadcrumb items structure
-      expect(jsonLd.itemListElement[0]).toMatchObject({
-        '@type': 'ListItem',
-        position: 1,
-        name: 'Home',
-        item: 'https://example.com',
-      })
-      expect(jsonLd.itemListElement[1]).toMatchObject({
-        '@type': 'ListItem',
-        position: 2,
-        name: 'Products',
-        item: 'https://example.com/products',
-      })
-      expect(jsonLd.itemListElement[2]).toMatchObject({
-        '@type': 'ListItem',
-        position: 3,
-        name: 'Widget',
-        item: 'https://example.com/products/widget',
-      })
+        // Validate breadcrumb items structure
+        expect(jsonLd.itemListElement[0]).toMatchObject({
+          '@type': 'ListItem',
+          position: 1,
+          name: 'Home',
+          item: 'https://example.com',
+        })
+        expect(jsonLd.itemListElement[1]).toMatchObject({
+          '@type': 'ListItem',
+          position: 2,
+          name: 'Products',
+          item: 'https://example.com/products',
+        })
+        expect(jsonLd.itemListElement[2]).toMatchObject({
+          '@type': 'ListItem',
+          position: 3,
+          name: 'Widget',
+          item: 'https://example.com/products/widget',
+        })
 
         // Backwards compatibility: string containment checks
         const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()

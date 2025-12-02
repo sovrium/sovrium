@@ -478,12 +478,14 @@ test.describe('Structured Data', () => {
       })
 
       await test.step('Verify BreadcrumbList schema', async () => {
-        const breadcrumbSchema = jsonLdSchemas.find((schema) => schema['@type'] === 'BreadcrumbList')
+        const breadcrumbSchema = jsonLdSchemas.find(
+          (schema) => schema['@type'] === 'BreadcrumbList'
+        )
         expect(breadcrumbSchema).toBeDefined()
         expect(breadcrumbSchema).toMatchObject({
-        '@context': 'https://schema.org',
-        '@type': 'BreadcrumbList',
-      })
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+        })
         expect(Array.isArray(breadcrumbSchema!.itemListElement)).toBe(true)
         expect(breadcrumbSchema!.itemListElement[0]).toMatchObject({
           '@type': 'ListItem',

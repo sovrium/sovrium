@@ -490,8 +490,8 @@ test.describe('Postal Address', () => {
           addressLocality: 'Strasbourg',
           addressRegion: 'Grand Est',
           postalCode: '67000',
-        addressCountry: 'FR',
-      })
+          addressCountry: 'FR',
+        })
 
         // Backwards compatibility: string containment checks
         const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
