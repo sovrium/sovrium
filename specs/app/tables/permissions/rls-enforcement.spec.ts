@@ -267,7 +267,7 @@ test.describe('Row-Level Security Enforcement', () => {
   test.fixme(
     'APP-TABLES-RLS-ENFORCEMENT-005: should apply owner permission on INSERT operations',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with owner-based create permission
       await startServerWithSchema({
         name: 'test-app',
@@ -289,9 +289,6 @@ test.describe('Row-Level Security Enforcement', () => {
           },
         ],
       })
-
-      // Create test user
-      const _user = await createAuthenticatedUser({ email: 'user@example.com' })
 
       // WHEN: Checking RLS policy for INSERT operations
       // THEN: RLS policy for owner-based create should be created

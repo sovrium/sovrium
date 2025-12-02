@@ -38,6 +38,25 @@ export interface EmailConfig {
 }
 
 /**
+ * Get development fallback email configuration
+ */
+function getDevEmailConfig(): EmailConfig {
+  return {
+    host: 'localhost',
+    port: 1025,
+    secure: false,
+    auth: {
+      user: '',
+      pass: '',
+    },
+    from: {
+      email: process.env.SMTP_FROM ?? 'noreply@sovrium.local',
+      name: process.env.SMTP_FROM_NAME ?? 'Sovrium (Dev)',
+    },
+  }
+}
+
+/**
  * Get email configuration from environment variables
  *
  * In production, SMTP_HOST is required. In development, falls back to
@@ -84,19 +103,7 @@ export function getEmailConfig(): EmailConfig {
     console.warn('[EMAIL] SMTP_HOST not configured, using localhost:1025 (Mailpit)')
   }
 
-  return {
-    host: 'localhost',
-    port: 1025,
-    secure: false,
-    auth: {
-      user: '',
-      pass: '',
-    },
-    from: {
-      email: process.env.SMTP_FROM ?? 'noreply@sovrium.local',
-      name: process.env.SMTP_FROM_NAME ?? 'Sovrium (Dev)',
-    },
-  }
+  return getDevEmailConfig()
 }
 
 /**
@@ -104,7 +111,7 @@ export function getEmailConfig(): EmailConfig {
  */
 export function createTransporter(
   config: Readonly<EmailConfig>
-): nodemailer.Transporter<SMTPTransport.SentMessageInfo> {
+): Readonly<nodemailer.Transporter<SMTPTransport.SentMessageInfo>> {
   return nodemailer.createTransport({
     host: config.host,
     port: config.port,

@@ -59,25 +59,24 @@ export const auth = betterAuth({
       console.log(`[EMAIL] Password reset for ${user.email}: ${resetUrl}`)
 
       // Send email (uses Ethereal in development, real SMTP in production)
-      try {
-        const template = passwordResetEmail({
-          userName: user.name,
-          resetUrl,
-          expiresIn: '1 hour',
-        })
+      const template = passwordResetEmail({
+        userName: user.name,
+        resetUrl,
+        expiresIn: '1 hour',
+      })
 
-        await sendEmail({
-          to: user.email,
-          subject: template.subject,
-          html: template.html,
-          text: template.text,
-        })
-
-        console.log(`[EMAIL] Password reset email sent to ${user.email}`)
-      } catch (error) {
-        console.error(`[EMAIL] Failed to send password reset email to ${user.email}:`, error)
-        // Don't throw - let the user know the email was "sent" to prevent user enumeration
-      }
+      return sendEmail({
+        to: user.email,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+      }).then(
+        () => console.log(`[EMAIL] Password reset email sent to ${user.email}`),
+        (error) => {
+          console.error(`[EMAIL] Failed to send password reset email to ${user.email}:`, error)
+          // Don't throw - let the user know the email was "sent" to prevent user enumeration
+        }
+      )
     },
     // Email verification configuration
     sendVerificationEmail: async ({
@@ -95,25 +94,24 @@ export const auth = betterAuth({
       console.log(`[EMAIL] Email verification for ${user.email}: ${verifyUrl}`)
 
       // Send email (uses Ethereal in development, real SMTP in production)
-      try {
-        const template = emailVerificationEmail({
-          userName: user.name,
-          verifyUrl,
-          expiresIn: '24 hours',
-        })
+      const template = emailVerificationEmail({
+        userName: user.name,
+        verifyUrl,
+        expiresIn: '24 hours',
+      })
 
-        await sendEmail({
-          to: user.email,
-          subject: template.subject,
-          html: template.html,
-          text: template.text,
-        })
-
-        console.log(`[EMAIL] Verification email sent to ${user.email}`)
-      } catch (error) {
-        console.error(`[EMAIL] Failed to send verification email to ${user.email}:`, error)
-        // Don't throw - let the user know the email was "sent" to prevent user enumeration
-      }
+      return sendEmail({
+        to: user.email,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+      }).then(
+        () => console.log(`[EMAIL] Verification email sent to ${user.email}`),
+        (error) => {
+          console.error(`[EMAIL] Failed to send verification email to ${user.email}:`, error)
+          // Don't throw - let the user know the email was "sent" to prevent user enumeration
+        }
+      )
     },
   },
   plugins: [
