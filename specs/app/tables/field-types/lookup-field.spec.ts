@@ -202,42 +202,44 @@ test.describe('Lookup Field', () => {
     'APP-TABLES-FIELD-TYPES-LOOKUP-006: user can complete full lookup-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration
-      await executeQuery([
-        'CREATE TABLE categories (id SERIAL PRIMARY KEY, name VARCHAR(255))',
-        "INSERT INTO categories (name) VALUES ('Books')",
-        'CREATE TABLE items (id SERIAL PRIMARY KEY, category_id INTEGER REFERENCES categories(id), title VARCHAR(255))',
-        "INSERT INTO items (category_id, title) VALUES (1, 'The Great Book')",
-      ])
-
-      // GIVEN: table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 1,
-            name: 'items',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'category_name',
-                type: 'lookup',
-                relationshipField: 'category_id',
-                relatedField: 'name',
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Create tables and data', async () => {
+        await executeQuery([
+          'CREATE TABLE categories (id SERIAL PRIMARY KEY, name VARCHAR(255))',
+          "INSERT INTO categories (name) VALUES ('Books')",
+          'CREATE TABLE items (id SERIAL PRIMARY KEY, category_id INTEGER REFERENCES categories(id), title VARCHAR(255))',
+          "INSERT INTO items (category_id, title) VALUES (1, 'The Great Book')",
+        ])
       })
 
-      // WHEN: executing query
-      const lookup = await executeQuery(
-        'SELECT i.id, c.name as category_name FROM items i JOIN categories c ON i.category_id = c.id WHERE i.id = 1'
-      )
-      // THEN: assertion
-      expect(lookup.category_name).toBe('Books')
+      await test.step('Setup: Start server with lookup field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'category_name',
+                  type: 'lookup',
+                  relationshipField: 'category_id',
+                  relatedField: 'name',
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+      })
+
+      await test.step('Verify lookup field retrieves related value', async () => {
+        const lookup = await executeQuery(
+          'SELECT i.id, c.name as category_name FROM items i JOIN categories c ON i.category_id = c.id WHERE i.id = 1'
+        )
+        expect(lookup.category_name).toBe('Books')
+      })
     }
   )
 })

@@ -212,19 +212,21 @@ test.describe('Relationship Field', () => {
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-011: user can complete full relationship-field workflow',
     { tag: '@regression' },
     async ({ executeQuery }) => {
-      // GIVEN: table configuration
-      await executeQuery([
-        'CREATE TABLE categories (id SERIAL PRIMARY KEY)',
-        'INSERT INTO categories VALUES (1)',
-        'CREATE TABLE items (id SERIAL PRIMARY KEY, category_id INTEGER REFERENCES categories(id))',
-        'INSERT INTO items (category_id) VALUES (1)',
-      ])
-      // WHEN: executing query
-      const join = await executeQuery(
-        'SELECT i.id, c.id as category_id FROM items i JOIN categories c ON i.category_id = c.id'
-      )
-      // THEN: assertion
-      expect(join.category_id).toBe(1)
+      await test.step('Setup: Create tables with relationship', async () => {
+        await executeQuery([
+          'CREATE TABLE categories (id SERIAL PRIMARY KEY)',
+          'INSERT INTO categories VALUES (1)',
+          'CREATE TABLE items (id SERIAL PRIMARY KEY, category_id INTEGER REFERENCES categories(id))',
+          'INSERT INTO items (category_id) VALUES (1)',
+        ])
+      })
+
+      await test.step('Verify relationship via JOIN', async () => {
+        const join = await executeQuery(
+          'SELECT i.id, c.id as category_id FROM items i JOIN categories c ON i.category_id = c.id'
+        )
+        expect(join.category_id).toBe(1)
+      })
     }
   )
 })

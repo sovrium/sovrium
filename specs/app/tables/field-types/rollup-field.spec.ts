@@ -227,43 +227,45 @@ test.describe('Rollup Field', () => {
     'APP-TABLES-FIELD-TYPES-ROLLUP-006: user can complete full rollup-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration
-      await executeQuery([
-        'CREATE TABLE categories (id SERIAL PRIMARY KEY, name VARCHAR(255))',
-        "INSERT INTO categories (name) VALUES ('Electronics')",
-        'CREATE TABLE products (id SERIAL PRIMARY KEY, category_id INTEGER REFERENCES categories(id), price DECIMAL(10,2))',
-        'INSERT INTO products (category_id, price) VALUES (1, 100.00), (1, 200.00), (1, 150.00)',
-      ])
-
-      // GIVEN: table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 1,
-            name: 'categories',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'total_value',
-                type: 'rollup',
-                relationshipField: 'category_id',
-                relatedField: 'price',
-                aggregation: 'sum',
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Create tables and data', async () => {
+        await executeQuery([
+          'CREATE TABLE categories (id SERIAL PRIMARY KEY, name VARCHAR(255))',
+          "INSERT INTO categories (name) VALUES ('Electronics')",
+          'CREATE TABLE products (id SERIAL PRIMARY KEY, category_id INTEGER REFERENCES categories(id), price DECIMAL(10,2))',
+          'INSERT INTO products (category_id, price) VALUES (1, 100.00), (1, 200.00), (1, 150.00)',
+        ])
       })
 
-      // WHEN: executing query
-      const rollup = await executeQuery(
-        'SELECT c.id, COALESCE(SUM(p.price), 0) as total_value FROM categories c LEFT JOIN products p ON c.id = p.category_id WHERE c.id = 1 GROUP BY c.id'
-      )
-      // THEN: assertion
-      expect(rollup.total_value).toBe('450.00')
+      await test.step('Setup: Start server with rollup field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'categories',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'total_value',
+                  type: 'rollup',
+                  relationshipField: 'category_id',
+                  relatedField: 'price',
+                  aggregation: 'sum',
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+      })
+
+      await test.step('Verify rollup aggregation calculation', async () => {
+        const rollup = await executeQuery(
+          'SELECT c.id, COALESCE(SUM(p.price), 0) as total_value FROM categories c LEFT JOIN products p ON c.id = p.category_id WHERE c.id = 1 GROUP BY c.id'
+        )
+        expect(rollup.total_value).toBe('450.00')
+      })
     }
   )
 })
