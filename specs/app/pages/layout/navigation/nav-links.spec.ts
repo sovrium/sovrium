@@ -408,68 +408,70 @@ test.describe('Navigation Links', () => {
     'APP-PAGES-NAVLINKS-011: user can complete full nav links workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Test' },
-            layout: {
-              navigation: {
-                logo: './logo.svg',
-                links: {
-                  desktop: [
-                    { label: 'Home', href: '/' },
-                    {
-                      label: 'Products',
-                      href: '/products',
-                      icon: 'package',
-                      children: [
-                        { label: 'Product A', href: '/products/a' },
-                        { label: 'Product B', href: '/products/b' },
-                      ],
-                    },
-                    { label: 'Beta', href: '/beta', badge: 'New' },
-                    { label: 'External', href: 'https://example.com', target: '_blank' },
-                    { label: 'Contact', href: '#contact' },
-                  ],
+      await test.step('Setup: Start server with navigation links', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              layout: {
+                navigation: {
+                  logo: './logo.svg',
+                  links: {
+                    desktop: [
+                      { label: 'Home', href: '/' },
+                      {
+                        label: 'Products',
+                        href: '/products',
+                        icon: 'package',
+                        children: [
+                          { label: 'Product A', href: '/products/a' },
+                          { label: 'Product B', href: '/products/b' },
+                        ],
+                      },
+                      { label: 'Beta', href: '/beta', badge: 'New' },
+                      { label: 'External', href: 'https://example.com', target: '_blank' },
+                      { label: 'Contact', href: '#contact' },
+                    ],
+                  },
                 },
               },
+              sections: [
+                { type: 'div', props: { style: 'height: 2000px' }, children: ['Content'] },
+                { type: 'div', props: { id: 'contact' }, children: ['Contact Section'] },
+              ],
             },
-            sections: [
-              { type: 'div', props: { style: 'height: 2000px' }, children: ['Content'] },
-              { type: 'div', props: { id: 'contact' }, children: ['Contact Section'] },
-            ],
-          },
-        ],
+          ],
+        })
       })
 
-      // WHEN: user navigates to the page
-      await page.goto('/')
+      await test.step('Navigate to page and verify link count', async () => {
+        await page.goto('/')
+        const links = page.locator('[data-testid="nav-link"]')
+        await expect(links).toHaveCount(5)
+      })
 
-      // Verify links rendered
-      const links = page.locator('[data-testid="nav-link"]')
-      // THEN: assertion
-      await expect(links).toHaveCount(5)
+      await test.step('Verify dropdown menu on hover', async () => {
+        const links = page.locator('[data-testid="nav-link"]')
+        const productsLink = links.filter({ hasText: 'Products' })
+        await productsLink.hover()
+        await expect(page.locator('[data-testid="nav-dropdown"]')).toBeVisible()
+      })
 
-      // Verify dropdown menu
-      const productsLink = links.filter({ hasText: 'Products' })
-      await productsLink.hover()
-      await expect(page.locator('[data-testid="nav-dropdown"]')).toBeVisible()
+      await test.step('Verify badge and external link attributes', async () => {
+        const links = page.locator('[data-testid="nav-link"]')
+        await expect(
+          links.filter({ hasText: 'Beta' }).locator('[data-testid="badge"]')
+        ).toContainText('New')
+        await expect(links.filter({ hasText: 'External' })).toHaveAttribute('target', '_blank')
+      })
 
-      // Verify badge
-      await expect(
-        links.filter({ hasText: 'Beta' }).locator('[data-testid="badge"]')
-      ).toContainText('New')
-
-      // Verify external link
-      await expect(links.filter({ hasText: 'External' })).toHaveAttribute('target', '_blank')
-
-      // Verify anchor scroll
-      await page.click('text=Contact')
-      await expect(page.locator('#contact')).toBeInViewport()
+      await test.step('Verify anchor scroll behavior', async () => {
+        await page.click('text=Contact')
+        await expect(page.locator('#contact')).toBeInViewport()
+      })
     }
   )
 })

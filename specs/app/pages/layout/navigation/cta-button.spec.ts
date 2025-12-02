@@ -394,55 +394,54 @@ test.describe('CTA Button', () => {
     'APP-PAGES-CTA-011: user can complete full CTA button workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Test' },
-            layout: {
-              navigation: {
-                logo: './logo.svg',
-                links: { desktop: [{ label: 'Features', href: '/features' }] },
-                cta: {
-                  text: 'Get Started',
-                  href: '/signup',
-                  variant: 'primary',
-                  size: 'lg',
-                  icon: 'arrow-right',
-                  iconPosition: 'right',
+      await test.step('Setup: Start server with CTA button', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              layout: {
+                navigation: {
+                  logo: './logo.svg',
+                  links: { desktop: [{ label: 'Features', href: '/features' }] },
+                  cta: {
+                    text: 'Get Started',
+                    href: '/signup',
+                    variant: 'primary',
+                    size: 'lg',
+                    icon: 'arrow-right',
+                    iconPosition: 'right',
+                  },
                 },
               },
+              sections: [],
             },
-            sections: [],
-          },
-        ],
+          ],
+        })
       })
 
-      // WHEN: user navigates to the page
-      await page.goto('/')
+      await test.step('Navigate to page and verify CTA visibility', async () => {
+        await page.goto('/')
+        const cta = page.locator('[data-testid="nav-cta"]')
+        await expect(cta).toBeVisible()
+      })
 
-      // Verify CTA button visible
-      const cta = page.locator('[data-testid="nav-cta"]')
-      // THEN: assertion
-      await expect(cta).toBeVisible()
+      await test.step('Verify CTA text, link, and styling', async () => {
+        const cta = page.locator('[data-testid="nav-cta"]')
+        await expect(cta).toContainText('Get Started')
+        await expect(cta).toHaveAttribute('href', '/signup')
+        await expect(cta).toHaveClass(/btn-primary/)
+        await expect(cta).toHaveClass(/btn-lg/)
+      })
 
-      // Verify text and link
-      await expect(cta).toContainText('Get Started')
-      await expect(cta).toHaveAttribute('href', '/signup')
-
-      // Verify styling
-      await expect(cta).toHaveClass(/btn-primary/)
-      await expect(cta).toHaveClass(/btn-lg/)
-
-      // Verify icon
-      await expect(cta.locator('[data-testid="icon"]')).toBeVisible()
-
-      // Verify clickable
-      await cta.click()
-      await expect(page).toHaveURL('/signup')
+      await test.step('Verify CTA icon and navigation', async () => {
+        const cta = page.locator('[data-testid="nav-cta"]')
+        await expect(cta.locator('[data-testid="icon"]')).toBeVisible()
+        await cta.click()
+        await expect(page).toHaveURL('/signup')
+      })
     }
   )
 })

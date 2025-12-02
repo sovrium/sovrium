@@ -469,71 +469,75 @@ test.describe('Navigation Configuration', () => {
     'APP-PAGES-NAV-013: user can complete full navigation workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Home',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Home' },
-            layout: {
-              navigation: {
-                logo: './public/logo.svg',
-                logoAlt: 'Acme Inc',
-                sticky: true,
-                transparent: true,
-                links: {
-                  desktop: [
-                    { label: 'Features', href: '/features' },
-                    { label: 'Pricing', href: '/pricing' },
-                  ],
+      await test.step('Setup: Start server with navigation', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Home' },
+              layout: {
+                navigation: {
+                  logo: './public/logo.svg',
+                  logoAlt: 'Acme Inc',
+                  sticky: true,
+                  transparent: true,
+                  links: {
+                    desktop: [
+                      { label: 'Features', href: '/features' },
+                      { label: 'Pricing', href: '/pricing' },
+                    ],
+                  },
+                  cta: { text: 'Get Started', href: '/signup', variant: 'primary' },
+                  search: { enabled: true, placeholder: 'Search...' },
+                  user: { enabled: true, loginUrl: '/login', signupUrl: '/signup' },
                 },
-                cta: { text: 'Get Started', href: '/signup', variant: 'primary' },
-                search: { enabled: true, placeholder: 'Search...' },
-                user: { enabled: true, loginUrl: '/login', signupUrl: '/signup' },
               },
+              sections: [
+                { type: 'div', props: { style: { height: '2000px' } }, children: ['Content'] },
+              ],
             },
-            sections: [
-              { type: 'div', props: { style: { height: '2000px' } }, children: ['Content'] },
-            ],
-          },
-        ],
+          ],
+        })
       })
 
-      // WHEN: user navigates to the page
-      await page.goto('/')
+      await test.step('Navigate to page', async () => {
+        await page.goto('/')
+      })
 
-      // 1. Structure and accessibility validation (ARIA)
-      // THEN: assertion
-      await expect(page.locator('[data-testid="navigation"]')).toMatchAriaSnapshot(`
-        - navigation "Main navigation":
-          - link:
-            - img "Acme Inc"
-          - link "Features"
-          - link "Pricing"
-          - button "Get Started"
-          - searchbox "Search..."
-          - link "Login"
-          - link "Sign Up"
-      `)
+      await test.step('Verify navigation structure (ARIA snapshot)', async () => {
+        await expect(page.locator('[data-testid="navigation"]')).toMatchAriaSnapshot(`
+          - navigation "Main navigation":
+            - link:
+              - img "Acme Inc"
+            - link "Features"
+            - link "Pricing"
+            - button "Get Started"
+            - searchbox "Search..."
+            - link "Login"
+            - link "Sign Up"
+        `)
+      })
 
-      // 2. Visual validation - sticky transparent state (before scroll)
-      await expect(page.locator('[data-testid="navigation"]')).toHaveScreenshot(
-        'navigation-regression-001-transparent.png',
-        {
-          animations: 'disabled',
-        }
-      )
+      await test.step('Verify transparent state (before scroll)', async () => {
+        await expect(page.locator('[data-testid="navigation"]')).toHaveScreenshot(
+          'navigation-regression-001-transparent.png',
+          {
+            animations: 'disabled',
+          }
+        )
+      })
 
-      // 3. Visual validation - sticky opaque state (after scroll)
-      await page.evaluate(() => window.scrollTo(0, 150))
-      await expect(page.locator('[data-testid="navigation"]')).toHaveScreenshot(
-        'navigation-regression-001-scrolled.png',
-        {
-          animations: 'disabled',
-        }
-      )
+      await test.step('Verify sticky opaque state (after scroll)', async () => {
+        await page.evaluate(() => window.scrollTo(0, 150))
+        await expect(page.locator('[data-testid="navigation"]')).toHaveScreenshot(
+          'navigation-regression-001-scrolled.png',
+          {
+            animations: 'disabled',
+          }
+        )
+      })
     }
   )
 })
