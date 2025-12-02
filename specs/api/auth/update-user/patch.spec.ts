@@ -251,37 +251,42 @@ test.describe('Update user profile', () => {
     'API-AUTH-UPDATE-USER-007: user can complete full update-user workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
+      await test.step('Setup: Start server with auth enabled', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+          },
+        })
       })
 
-      // Test 1: Update fails without auth (Better Auth uses POST)
-      const noAuthResponse = await page.request.post('/api/auth/update-user', {
-        data: { name: 'New Name' },
-      })
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create user and sign in
-      await signUp({
-        email: 'workflow@example.com',
-        password: 'WorkflowPass123!',
-        name: 'Original Name',
+      await test.step('Verify update fails without auth', async () => {
+        const noAuthResponse = await page.request.post('/api/auth/update-user', {
+          data: { name: 'New Name' },
+        })
+        expect(noAuthResponse.status()).toBe(401)
       })
 
-      // Test 2: Update name succeeds (Better Auth uses POST)
-      const updateResponse = await page.request.post('/api/auth/update-user', {
-        data: { name: 'Updated Name' },
+      await test.step('Setup: Create and authenticate user', async () => {
+        await signUp({
+          email: 'workflow@example.com',
+          password: 'WorkflowPass123!',
+          name: 'Original Name',
+        })
       })
-      expect(updateResponse.status()).toBe(200)
 
-      // Test 3: Verify update persisted
-      const sessionResponse = await page.request.get('/api/auth/get-session')
-      const sessionData = await sessionResponse.json()
-      expect(sessionData.user.name).toBe('Updated Name')
+      await test.step('Update user name', async () => {
+        const updateResponse = await page.request.post('/api/auth/update-user', {
+          data: { name: 'Updated Name' },
+        })
+        expect(updateResponse.status()).toBe(200)
+      })
+
+      await test.step('Verify update persisted in session', async () => {
+        const sessionResponse = await page.request.get('/api/auth/get-session')
+        const sessionData = await sessionResponse.json()
+        expect(sessionData.user.name).toBe('Updated Name')
+      })
     }
   )
 })

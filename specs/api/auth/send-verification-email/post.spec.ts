@@ -255,52 +255,53 @@ test.describe('Send verification email', () => {
     'API-AUTH-SEND-VERIFICATION-EMAIL-007: user can complete full send-verification-email workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
-      })
-
-      const userEmail = mailpit.email('workflow')
-      // Use standard domain for non-existent email (same format as test 006 which passes)
+      let userEmail: string
       const nonExistentEmail = 'nonexistent@example.com'
 
-      // Create user
-      await signUp({
-        email: userEmail,
-        password: 'WorkflowPass123!',
-        name: 'Workflow User',
+      await test.step('Setup: Create server and test user', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+          },
+        })
+
+        userEmail = mailpit.email('workflow')
+
+        await signUp({
+          email: userEmail,
+          password: 'WorkflowPass123!',
+          name: 'Workflow User',
+        })
       })
 
-      // Test 1: Request with invalid email format fails
-      const invalidResponse = await page.request.post('/api/auth/send-verification-email', {
-        data: { email: 'not-an-email' },
+      await test.step('Verify request fails with invalid email format', async () => {
+        const invalidResponse = await page.request.post('/api/auth/send-verification-email', {
+          data: { email: 'not-an-email' },
+        })
+        expect(invalidResponse.status()).toBe(400)
       })
-      expect(invalidResponse.status()).toBe(400)
 
-      // Test 2: Request for registered email succeeds and sends email
-      // (signUp auto-signs-in the user, so we can request verification for our own email)
-      const successResponse = await page.request.post('/api/auth/send-verification-email', {
-        data: { email: userEmail },
+      await test.step('Send verification email for registered user', async () => {
+        const successResponse = await page.request.post('/api/auth/send-verification-email', {
+          data: { email: userEmail },
+        })
+        expect(successResponse.status()).toBe(200)
+
+        const email = await mailpit.waitForEmail(
+          (e) => e.To[0]?.Address === userEmail && e.Subject.toLowerCase().includes('verify')
+        )
+        expect(email).toBeDefined()
       })
-      expect(successResponse.status()).toBe(200)
 
-      // Verify email was sent (filtered by testId namespace)
-      const email = await mailpit.waitForEmail(
-        (e) => e.To[0]?.Address === userEmail && e.Subject.toLowerCase().includes('verify')
-      )
-      expect(email).toBeDefined()
+      await test.step('Verify non-existent email succeeds (prevent enumeration)', async () => {
+        await page.request.post('/api/auth/sign-out')
 
-      // Sign out to test unauthenticated behavior for non-existent email
-      await page.request.post('/api/auth/sign-out')
-
-      // Test 3: Request for non-existent email succeeds when unauthenticated (prevent enumeration)
-      const nonExistentResponse = await page.request.post('/api/auth/send-verification-email', {
-        data: { email: nonExistentEmail },
+        const nonExistentResponse = await page.request.post('/api/auth/send-verification-email', {
+          data: { email: nonExistentEmail },
+        })
+        expect(nonExistentResponse.status()).toBe(200)
       })
-      expect(nonExistentResponse.status()).toBe(200)
     }
   )
 })

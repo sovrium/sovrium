@@ -327,57 +327,63 @@ test.describe('Change password', () => {
     'API-AUTH-CHANGE-PASSWORD-009: user can complete full change-password workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
+      await test.step('Setup: Start server with auth enabled', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+          },
+        })
       })
 
-      // Test 1: Change password fails without auth
-      const noAuthResponse = await page.request.post('/api/auth/change-password', {
-        data: {
-          currentPassword: 'Current123!',
-          newPassword: 'NewPass123!',
-        },
-      })
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create user and sign in
-      await signUp({
-        email: 'workflow@example.com',
-        password: 'WorkflowPass123!',
-        name: 'Workflow User',
+      await test.step('Verify change password fails without auth', async () => {
+        const noAuthResponse = await page.request.post('/api/auth/change-password', {
+          data: {
+            currentPassword: 'Current123!',
+            newPassword: 'NewPass123!',
+          },
+        })
+        expect(noAuthResponse.status()).toBe(401)
       })
 
-      // Test 2: Change password fails with wrong current password
-      const wrongPassResponse = await page.request.post('/api/auth/change-password', {
-        data: {
-          currentPassword: 'WrongPassword!',
-          newPassword: 'NewWorkflow123!',
-        },
-      })
-      expect(wrongPassResponse.status()).toBe(400)
-
-      // Test 3: Change password succeeds with correct current password
-      const successResponse = await page.request.post('/api/auth/change-password', {
-        data: {
-          currentPassword: 'WorkflowPass123!',
-          newPassword: 'NewWorkflow123!',
-        },
-      })
-      expect(successResponse.status()).toBe(200)
-
-      // Test 4: Verify new password works
-      await page.request.post('/api/auth/sign-out')
-      const newSignIn = await page.request.post('/api/auth/sign-in/email', {
-        data: {
+      await test.step('Setup: Create and authenticate user', async () => {
+        await signUp({
           email: 'workflow@example.com',
-          password: 'NewWorkflow123!',
-        },
+          password: 'WorkflowPass123!',
+          name: 'Workflow User',
+        })
       })
-      expect(newSignIn.status()).toBe(200)
+
+      await test.step('Verify change fails with wrong current password', async () => {
+        const wrongPassResponse = await page.request.post('/api/auth/change-password', {
+          data: {
+            currentPassword: 'WrongPassword!',
+            newPassword: 'NewWorkflow123!',
+          },
+        })
+        expect(wrongPassResponse.status()).toBe(400)
+      })
+
+      await test.step('Change password with correct credentials', async () => {
+        const successResponse = await page.request.post('/api/auth/change-password', {
+          data: {
+            currentPassword: 'WorkflowPass123!',
+            newPassword: 'NewWorkflow123!',
+          },
+        })
+        expect(successResponse.status()).toBe(200)
+      })
+
+      await test.step('Verify new password works after sign-in', async () => {
+        await page.request.post('/api/auth/sign-out')
+        const newSignIn = await page.request.post('/api/auth/sign-in/email', {
+          data: {
+            email: 'workflow@example.com',
+            password: 'NewWorkflow123!',
+          },
+        })
+        expect(newSignIn.status()).toBe(200)
+      })
     }
   )
 })
