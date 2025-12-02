@@ -291,43 +291,48 @@ test.describe('Created By Field', () => {
     'APP-TABLES-FIELD-TYPES-CREATED-BY-006: user can complete full created-by-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: { emailAndPassword: true },
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'content', type: 'single-line-text' },
-              { id: 3, name: 'created_by', type: 'created-by', indexed: true },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      let alice: any
+
+      await test.step('Setup: Start server with created-by field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true },
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'content', type: 'single-line-text' },
+                { id: 3, name: 'created_by', type: 'created-by', indexed: true },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // GIVEN: user created via Better Auth
-      const alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
+      await test.step('Create authenticated user', async () => {
+        alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
+      })
 
-      // WHEN: inserting data
-      await executeQuery(
-        `INSERT INTO data (content, created_by) VALUES ('Test content', '${alice.user.id}')`
-      )
+      await test.step('Insert data with creator', async () => {
+        await executeQuery(
+          `INSERT INTO data (content, created_by) VALUES ('Test content', '${alice.user.id}')`
+        )
+      })
 
-      // WHEN: querying the record
-      const record = await executeQuery('SELECT created_by FROM data WHERE id = 1')
-      // THEN: should have correct creator
-      expect(record.created_by).toBe(alice.user.id)
+      await test.step('Verify created_by field', async () => {
+        const record = await executeQuery('SELECT created_by FROM data WHERE id = 1')
+        expect(record.created_by).toBe(alice.user.id)
+      })
 
-      // WHEN: querying with JOIN
-      const creator = await executeQuery(
-        'SELECT d.content, u.name FROM data d JOIN users u ON d.created_by = u.id WHERE d.id = 1'
-      )
-      // THEN: should return creator info
-      expect(creator.name).toBe('Alice')
+      await test.step('Verify creator info via JOIN', async () => {
+        const creator = await executeQuery(
+          'SELECT d.content, u.name FROM data d JOIN users u ON d.created_by = u.id WHERE d.id = 1'
+        )
+        expect(creator.name).toBe('Alice')
+      })
     }
   )
 })

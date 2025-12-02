@@ -185,35 +185,42 @@ test.describe('Updated At Field', () => {
     'APP-TABLES-FIELD-TYPES-UPDATED-AT-006: user can complete full updated-at-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'value', type: 'single-line-text' },
-              { id: 3, name: 'updated_at', type: 'updated-at', indexed: true },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      let insertId: number
+      let initial: string
+
+      await test.step('Setup: Start server with updated-at field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'value', type: 'single-line-text' },
+                { id: 3, name: 'updated_at', type: 'updated-at', indexed: true },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN: querying the database
-      const insert = await executeQuery(
-        "INSERT INTO data (value) VALUES ('v1') RETURNING id, updated_at"
-      )
-      const initial = insert.updated_at
+      await test.step('Insert initial record', async () => {
+        const insert = await executeQuery(
+          "INSERT INTO data (value) VALUES ('v1') RETURNING id, updated_at"
+        )
+        insertId = insert.id
+        initial = insert.updated_at
+      })
 
-      await new Promise((resolve) => setTimeout(resolve, 100))
-      await executeQuery(`UPDATE data SET value = 'v2' WHERE id = ${insert.id}`)
+      await test.step('Update record and verify timestamp changes', async () => {
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        await executeQuery(`UPDATE data SET value = 'v2' WHERE id = ${insertId}`)
 
-      const final = await executeQuery(`SELECT updated_at FROM data WHERE id = ${insert.id}`)
-      // THEN: assertion
-      expect(new Date(final.updated_at).getTime()).toBeGreaterThan(new Date(initial).getTime())
+        const final = await executeQuery(`SELECT updated_at FROM data WHERE id = ${insertId}`)
+        expect(new Date(final.updated_at).getTime()).toBeGreaterThan(new Date(initial).getTime())
+      })
     }
   )
 })

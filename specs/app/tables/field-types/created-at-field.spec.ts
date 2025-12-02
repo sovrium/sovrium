@@ -177,31 +177,32 @@ test.describe('Created At Field', () => {
     'APP-TABLES-FIELD-TYPES-CREATED-AT-006: user can complete full created-at-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'created_at', type: 'created-at', indexed: true },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with created-at field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'created_at', type: 'created-at', indexed: true },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN: executing query
-      await executeQuery('INSERT INTO data (id) VALUES (1), (2), (3)')
+      await test.step('Insert test data', async () => {
+        await executeQuery('INSERT INTO data (id) VALUES (1), (2), (3)')
+      })
 
-      // WHEN: querying the database
-      const results = await executeQuery('SELECT created_at FROM data ORDER BY created_at')
-      // THEN: assertion
-      expect(results.rows.length).toBe(3)
-      // THEN: assertion
-      expect(results.rows[0].created_at).toBeTruthy()
+      await test.step('Verify automatic timestamp population', async () => {
+        const results = await executeQuery('SELECT created_at FROM data ORDER BY created_at')
+        expect(results.rows.length).toBe(3)
+        expect(results.rows[0].created_at).toBeTruthy()
+      })
     }
   )
 })

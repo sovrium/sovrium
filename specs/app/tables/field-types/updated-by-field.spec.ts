@@ -298,45 +298,52 @@ test.describe('Updated By Field', () => {
     'APP-TABLES-FIELD-TYPES-UPDATED-BY-006: user can complete full updated-by-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: { emailAndPassword: true },
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'value', type: 'single-line-text' },
-              { id: 3, name: 'updated_by', type: 'updated-by', indexed: true },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      let alice: any
+      let bob: any
+
+      await test.step('Setup: Start server with updated-by field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: { emailAndPassword: true },
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'value', type: 'single-line-text' },
+                { id: 3, name: 'updated_by', type: 'updated-by', indexed: true },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // GIVEN: users created via Better Auth
-      const alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
-      const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+      await test.step('Create authenticated users', async () => {
+        alice = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
+        bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+      })
 
-      // WHEN: inserting data
-      await executeQuery(`INSERT INTO data (value, updated_by) VALUES ('v1', '${alice.user.id}')`)
+      await test.step('Insert data with initial updater', async () => {
+        await executeQuery(`INSERT INTO data (value, updated_by) VALUES ('v1', '${alice.user.id}')`)
+      })
 
-      // WHEN: Bob updates the data
-      await executeQuery(`UPDATE data SET value = 'v2', updated_by = '${bob.user.id}' WHERE id = 1`)
+      await test.step('Update data with different user', async () => {
+        await executeQuery(`UPDATE data SET value = 'v2', updated_by = '${bob.user.id}' WHERE id = 1`)
+      })
 
-      // WHEN: querying the final state
-      const final = await executeQuery('SELECT updated_by FROM data WHERE id = 1')
-      // THEN: should be Bob
-      expect(final.updated_by).toBe(bob.user.id)
+      await test.step('Verify updated_by field changed', async () => {
+        const final = await executeQuery('SELECT updated_by FROM data WHERE id = 1')
+        expect(final.updated_by).toBe(bob.user.id)
+      })
 
-      // WHEN: querying with JOIN
-      const editor = await executeQuery(
-        'SELECT d.value, u.name FROM data d JOIN users u ON d.updated_by = u.id WHERE d.id = 1'
-      )
-      // THEN: should return Bob's info
-      expect(editor.name).toBe('Bob')
+      await test.step('Verify updater info via JOIN', async () => {
+        const editor = await executeQuery(
+          'SELECT d.value, u.name FROM data d JOIN users u ON d.updated_by = u.id WHERE d.id = 1'
+        )
+        expect(editor.name).toBe('Bob')
+      })
     }
   )
 })
