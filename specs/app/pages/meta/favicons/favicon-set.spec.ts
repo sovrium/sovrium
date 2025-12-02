@@ -247,37 +247,36 @@ test.describe('Favicon Set', () => {
     'APP-PAGES-FAVICONSET-008: user can complete full favicon set workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: {
-              lang: 'en-US',
-              title: 'Test',
-              description: 'Test',
-              favicons: [
-                { rel: 'icon', type: 'image/png', sizes: '16x16', href: './favicon-16x16.png' },
-                { rel: 'icon', type: 'image/png', sizes: '32x32', href: './favicon-32x32.png' },
-                { rel: 'apple-touch-icon', sizes: '180x180', href: './apple-touch-icon.png' },
-                { rel: 'mask-icon', href: './safari-tab.svg', color: '#4285F4' },
-              ],
+      await test.step('Setup: Start server with favicon set', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                favicons: [
+                  { rel: 'icon', type: 'image/png', sizes: '16x16', href: './favicon-16x16.png' },
+                  { rel: 'icon', type: 'image/png', sizes: '32x32', href: './favicon-32x32.png' },
+                  { rel: 'apple-touch-icon', sizes: '180x180', href: './apple-touch-icon.png' },
+                  { rel: 'mask-icon', href: './safari-tab.svg', color: '#4285F4' },
+                ],
+              },
+              sections: [],
             },
-            sections: [],
-          },
-        ],
+          ],
+        })
       })
 
-      // WHEN: user navigates to the page
-      await page.goto('/')
-
-      // Verify all icon types
-      // THEN: assertion
-      await expect(page.locator('link[rel="icon"]')).toHaveCount(2)
-      await expect(page.locator('link[rel="apple-touch-icon"]')).toBeAttached()
-      await expect(page.locator('link[rel="mask-icon"]')).toBeAttached()
+      await test.step('Navigate to page and verify all favicon types', async () => {
+        await page.goto('/')
+        await expect(page.locator('link[rel="icon"]')).toHaveCount(2)
+        await expect(page.locator('link[rel="apple-touch-icon"]')).toBeAttached()
+        await expect(page.locator('link[rel="mask-icon"]')).toBeAttached()
+      })
     }
   )
 })

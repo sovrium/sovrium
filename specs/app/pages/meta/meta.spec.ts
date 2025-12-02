@@ -499,46 +499,45 @@ test.describe('Page Metadata', () => {
     'APP-PAGES-META-013: user can complete full metadata workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: {
-              lang: 'en-US',
-              title: 'Complete Test Page',
-              description: 'Complete metadata test with all features',
-              keywords: 'test, metadata, seo',
-              canonical: 'https://example.com/test',
-              favicons: { icon: '/icon.svg' },
-              openGraph: { title: 'Complete Test Page', image: 'https://example.com/og.jpg' },
-              dnsPrefetch: ['https://fonts.googleapis.com'],
+      await test.step('Setup: Start server with complete metadata', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Complete Test Page',
+                description: 'Complete metadata test with all features',
+                keywords: 'test, metadata, seo',
+                canonical: 'https://example.com/test',
+                favicons: { icon: '/icon.svg' },
+                openGraph: { title: 'Complete Test Page', image: 'https://example.com/og.jpg' },
+                dnsPrefetch: ['https://fonts.googleapis.com'],
+              },
+              sections: [],
             },
-            sections: [],
-          },
-        ],
+          ],
+        })
       })
 
-      // WHEN: user navigates to the page
-      await page.goto('/')
+      await test.step('Navigate to page and verify basic metadata', async () => {
+        await page.goto('/')
+        await expect(page.locator('html')).toHaveAttribute('lang', 'en-US')
+        await expect(page).toHaveTitle('Complete Test Page')
+        await expect(page.locator('meta[name="description"]')).toBeAttached()
+      })
 
-      // Verify basic metadata
-      // THEN: assertion
-      await expect(page.locator('html')).toHaveAttribute('lang', 'en-US')
-      await expect(page).toHaveTitle('Complete Test Page')
-      await expect(page.locator('meta[name="description"]')).toBeAttached()
+      await test.step('Verify SEO metadata', async () => {
+        await expect(page.locator('link[rel="canonical"]')).toBeAttached()
+        await expect(page.locator('meta[name="keywords"]')).toBeAttached()
+      })
 
-      // Verify SEO
-      await expect(page.locator('link[rel="canonical"]')).toBeAttached()
-      await expect(page.locator('meta[name="keywords"]')).toBeAttached()
-
-      // Verify social
-      await expect(page.locator('meta[property="og:title"]')).toBeAttached()
-
-      // Verify performance
-      await expect(page.locator('link[rel="dns-prefetch"]')).toBeAttached()
+      await test.step('Verify social and performance metadata', async () => {
+        await expect(page.locator('meta[property="og:title"]')).toBeAttached()
+        await expect(page.locator('link[rel="dns-prefetch"]')).toBeAttached()
+      })
     }
   )
 })

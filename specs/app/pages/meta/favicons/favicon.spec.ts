@@ -258,32 +258,31 @@ test.describe('Favicon', () => {
     'APP-PAGES-FAVICON-009: user can complete full favicon workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: {
-              lang: 'en-US',
-              title: 'Test',
-              description: 'Test',
-              favicon: './public/favicon.ico',
+      await test.step('Setup: Start server with favicon', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                favicon: './public/favicon.ico',
+              },
+              sections: [],
             },
-            sections: [],
-          },
-        ],
+          ],
+        })
       })
 
-      // WHEN: user navigates to the page
-      await page.goto('/')
-
-      // Verify favicon link
-      const favicon = page.locator('link[rel="icon"]')
-      // THEN: assertion
-      await expect(favicon).toBeAttached()
-      await expect(favicon).toHaveAttribute('href', './public/favicon.ico')
+      await test.step('Navigate to page and verify favicon', async () => {
+        await page.goto('/')
+        const favicon = page.locator('link[rel="icon"]')
+        await expect(favicon).toBeAttached()
+        await expect(favicon).toHaveAttribute('href', './public/favicon.ico')
+      })
     }
   )
 })
