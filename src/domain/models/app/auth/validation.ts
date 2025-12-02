@@ -16,7 +16,7 @@ import type { PluginsConfig } from './plugins'
  * used for cross-field validation.
  */
 export interface AuthConfigForValidation {
-  readonly authentication: readonly AuthenticationMethod[]
+  readonly methods: readonly AuthenticationMethod[]
   readonly oauth?: OAuthConfig
   readonly plugins?: PluginsConfig
 }
@@ -51,7 +51,7 @@ export const validateTwoFactorRequiresPrimary = (
     return { success: true }
   }
 
-  const hasPrimaryAuth = config.authentication.some((method) => {
+  const hasPrimaryAuth = config.methods.some((method) => {
     const methodName = typeof method === 'string' ? method : method.method
     return methodName === 'email-and-password' || methodName === 'passkey'
   })
@@ -100,7 +100,7 @@ export const validatePasskeyWithHTTPS = (
   config: AuthConfigForValidation,
   isProduction: boolean
 ): ValidationResult => {
-  const hasPasskey = config.authentication.some(
+  const hasPasskey = config.methods.some(
     (method) => method === 'passkey' || (typeof method === 'object' && method.method === 'passkey')
   )
 
@@ -140,5 +140,5 @@ export const getAuthMethodName = (method: AuthenticationMethod): string => {
  * Check if a specific authentication method is enabled
  */
 export const hasAuthMethod = (config: AuthConfigForValidation, methodName: string): boolean => {
-  return config.authentication.some((method) => getAuthMethodName(method) === methodName)
+  return config.methods.some((method) => getAuthMethodName(method) === methodName)
 }

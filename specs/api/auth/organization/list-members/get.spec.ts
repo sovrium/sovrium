@@ -37,7 +37,7 @@ test.describe('List organization members', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
         },
       })
@@ -103,7 +103,7 @@ test.describe('List organization members', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
         },
       })
@@ -137,7 +137,7 @@ test.describe('List organization members', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
         },
       })
@@ -160,7 +160,7 @@ test.describe('List organization members', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
         },
       })
@@ -196,7 +196,7 @@ test.describe('List organization members', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
         },
       })
@@ -249,7 +249,7 @@ test.describe('List organization members', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
         },
       })
@@ -316,7 +316,7 @@ test.describe('List organization members', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
         },
       })

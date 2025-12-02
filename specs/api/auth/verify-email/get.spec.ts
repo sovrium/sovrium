@@ -38,7 +38,7 @@ test.describe('Verify email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -81,7 +81,7 @@ test.describe('Verify email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -104,7 +104,7 @@ test.describe('Verify email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -127,7 +127,7 @@ test.describe('Verify email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -150,7 +150,7 @@ test.describe('Verify email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -197,7 +197,7 @@ test.describe('Verify email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -250,7 +250,7 @@ test.describe('Verify email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 

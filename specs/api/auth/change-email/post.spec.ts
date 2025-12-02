@@ -30,14 +30,20 @@ test.describe('Change email address', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-CHANGE-EMAIL-001: should return 200 OK and send verification email',
+    'API-AUTH-CHANGE-EMAIL-001: should return 200 OK and send verification email with custom template',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn, mailpit }) => {
-      // GIVEN: An authenticated user with valid new email
+      // GIVEN: An authenticated user with valid new email and custom email templates
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
+          emailTemplates: {
+            verification: {
+              subject: 'Verify your new TestApp email address',
+              text: 'Hi $name, please verify your new email: $url',
+            },
+          },
         },
       })
 
@@ -62,19 +68,20 @@ test.describe('Change email address', () => {
         },
       })
 
-      // THEN: Returns 200 OK and sends verification email to new address
+      // THEN: Returns 200 OK and sends verification email to new address with custom template
       expect(response.status()).toBe(200)
 
       const data = await response.json()
       expect(data).toHaveProperty('status', true)
 
-      // Verify email was sent to the NEW email address (filtered by testId namespace)
+      // Verify email was sent to the NEW email address with custom subject
       const email = await mailpit.waitForEmail(
-        (e) =>
-          e.To[0]?.Address === newEmail &&
-          (e.Subject.toLowerCase().includes('verify') || e.Subject.toLowerCase().includes('email'))
+        (e) => e.To[0]?.Address === newEmail && e.Subject.includes('TestApp')
       )
       expect(email).toBeDefined()
+      expect(email.Subject).toBe('Verify your new TestApp email address')
+      const body = email.HTML || email.Text
+      expect(body).toContain('verify your new email')
     }
   )
 
@@ -86,7 +93,7 @@ test.describe('Change email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -121,7 +128,7 @@ test.describe('Change email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -158,7 +165,7 @@ test.describe('Change email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -182,7 +189,7 @@ test.describe('Change email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -227,7 +234,7 @@ test.describe('Change email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -261,7 +268,7 @@ test.describe('Change email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -310,7 +317,7 @@ test.describe('Change email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 

@@ -31,7 +31,7 @@ test.describe('JWT Token Authentication', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { jwt: true },
         },
       })
@@ -67,7 +67,7 @@ test.describe('JWT Token Authentication', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { jwt: true },
         },
       })
@@ -108,14 +108,13 @@ test.describe('JWT Token Authentication', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { jwt: true },
         },
       })
 
       // WHEN: User makes request with expired JWT
-      const expiredToken =
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxfQ.invalid'
+      const expiredToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxfQ.invalid'
       const response = await page.request.get('/api/auth/get-session', {
         headers: {
           Authorization: `Bearer ${expiredToken}`,
@@ -135,7 +134,7 @@ test.describe('JWT Token Authentication', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { jwt: true },
         },
       })
@@ -160,7 +159,7 @@ test.describe('JWT Token Authentication', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { jwt: true },
         },
       })
@@ -198,7 +197,7 @@ test.describe('JWT Token Authentication', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { jwt: true },
         },
       })

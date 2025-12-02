@@ -1,7 +1,7 @@
 # Sovrium
 
 <<<<<<< HEAD
-[![Spec Progress](<https://img.shields.io/badge/specs-65%25%20(1189%2F1836)-blue>)](SPEC-STATE.md)
+[![Spec Progress](<https://img.shields.io/badge/specs-63%25%20(1189%2F1900)-blue>)](SPEC-STATE.md)
 [![Quality Score](https://img.shields.io/badge/quality-95%25-brightgreen)](SPEC-STATE.md)
 =======
 [![Spec Progress](<https://img.shields.io/badge/specs-60%25%20(1108%2F1839)-blue>)](SPEC-STATE.md)

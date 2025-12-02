@@ -34,7 +34,7 @@ test.describe('Sign in with OAuth (Social Login)', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           oauth: {
             providers: ['google'],
           },
@@ -66,7 +66,7 @@ test.describe('Sign in with OAuth (Social Login)', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           oauth: {
             providers: ['github'],
           },
@@ -98,7 +98,7 @@ test.describe('Sign in with OAuth (Social Login)', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           oauth: {
             providers: ['google'],
           },
@@ -129,7 +129,7 @@ test.describe('Sign in with OAuth (Social Login)', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           // No oauth configuration
         },
       })
@@ -162,7 +162,7 @@ test.describe('Sign in with OAuth (Social Login)', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           oauth: {
             providers: ['google', 'github', 'microsoft'],
           },

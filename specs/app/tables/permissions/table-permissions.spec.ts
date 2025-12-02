@@ -32,7 +32,7 @@ test.describe('Table-Level Permissions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
         tables: [
           {
@@ -41,7 +41,7 @@ test.describe('Table-Level Permissions', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'created_by', type: 'integer' },
+              { id: 3, name: 'created_by', type: 'user' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
@@ -363,7 +363,7 @@ test.describe('Table-Level Permissions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
         tables: [
           {
@@ -372,7 +372,7 @@ test.describe('Table-Level Permissions', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'content', type: 'single-line-text' },
-              { id: 3, name: 'owner_id', type: 'integer' },
+              { id: 3, name: 'owner_id', type: 'user' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {

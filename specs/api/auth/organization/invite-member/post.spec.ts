@@ -30,15 +30,21 @@ test.describe('Invite member to organization', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-ORG-INVITE-MEMBER-001: should return 201 Created with invitation token and send email',
+    'API-AUTH-ORG-INVITE-MEMBER-001: should return 201 Created with invitation token and send email with custom template',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn, mailpit }) => {
-      // GIVEN: An authenticated organization owner
+      // GIVEN: An authenticated organization owner with custom email templates
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
+          emailTemplates: {
+            organizationInvitation: {
+              subject: 'You have been invited to join $organizationName',
+              text: 'Hi, $inviterName has invited you to join $organizationName. Click here: $url',
+            },
+          },
         },
       })
 
@@ -70,20 +76,18 @@ test.describe('Invite member to organization', () => {
         },
       })
 
-      // THEN: Returns 200 OK with invitation data and sends email
+      // THEN: Returns 200 OK with invitation data and sends email with custom template
       expect(response.status()).toBe(200)
 
       const data = await response.json()
       expect(data).toHaveProperty('invitation')
 
-      // Verify invitation email was sent (filtered by testId namespace)
+      // Verify invitation email was sent with custom subject
       const email = await mailpit.waitForEmail(
-        (e) =>
-          e.To[0]?.Address === inviteeEmail &&
-          (e.Subject.toLowerCase().includes('invite') ||
-            e.Subject.toLowerCase().includes('invitation'))
+        (e) => e.To[0]?.Address === inviteeEmail && e.Subject.includes('invited to join Test Org')
       )
       expect(email).toBeDefined()
+      expect(email.Subject).toBe('You have been invited to join Test Org')
     }
   )
 
@@ -95,7 +99,7 @@ test.describe('Invite member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
         },
       })
@@ -135,7 +139,7 @@ test.describe('Invite member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
         },
       })
@@ -179,7 +183,7 @@ test.describe('Invite member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
         },
       })
@@ -206,7 +210,7 @@ test.describe('Invite member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
         },
       })
@@ -273,7 +277,7 @@ test.describe('Invite member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
         },
       })
@@ -313,7 +317,7 @@ test.describe('Invite member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
         },
       })
@@ -379,7 +383,7 @@ test.describe('Invite member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
         },
       })
@@ -433,7 +437,7 @@ test.describe('Invite member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
         },
       })
@@ -502,7 +506,7 @@ test.describe('Invite member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
         },
       })

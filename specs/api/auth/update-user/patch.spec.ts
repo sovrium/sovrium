@@ -42,7 +42,7 @@ test.describe('Update user profile', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -87,7 +87,7 @@ test.describe('Update user profile', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -125,7 +125,7 @@ test.describe('Update user profile', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -149,7 +149,7 @@ test.describe('Update user profile', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -188,7 +188,7 @@ test.describe('Update user profile', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -227,7 +227,7 @@ test.describe('Update user profile', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -270,7 +270,7 @@ test.describe('Update user profile', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 

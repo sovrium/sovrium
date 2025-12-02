@@ -32,7 +32,7 @@ test.describe('Field-Level Permissions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
         tables: [
           {
@@ -325,7 +325,7 @@ test.describe('Field-Level Permissions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
         tables: [
           {
@@ -335,7 +335,7 @@ test.describe('Field-Level Permissions', () => {
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text' },
               { id: 3, name: 'notes', type: 'single-line-text' },
-              { id: 4, name: 'owner_id', type: 'integer' },
+              { id: 4, name: 'owner_id', type: 'user' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
@@ -456,7 +456,7 @@ test.describe('Field-Level Permissions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
         tables: [
           {
@@ -467,7 +467,7 @@ test.describe('Field-Level Permissions', () => {
               { id: 2, name: 'title', type: 'single-line-text' },
               { id: 3, name: 'public_field', type: 'single-line-text' },
               { id: 4, name: 'private_field', type: 'single-line-text' },
-              { id: 5, name: 'owner_id', type: 'integer' },
+              { id: 5, name: 'owner_id', type: 'user' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {

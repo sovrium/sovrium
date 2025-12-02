@@ -28,7 +28,7 @@ describe('AuthConfigRequiredForUserFields', () => {
       // Given
       const message =
         'User fields (user, created-by, updated-by) require auth configuration. ' +
-        'Please add auth: { authentication: ["email-and-password"] } to your app schema.'
+        'Please add auth: { methods: ["email-and-password"] } to your app schema.'
 
       // When
       const error = new AuthConfigRequiredForUserFields({ message })
@@ -68,7 +68,7 @@ describe('AuthConfigRequiredForUserFields', () => {
       // Given
       const message =
         'Table "posts" uses "user" field type but auth is not configured. ' +
-        'Please add auth: { authentication: ["email-and-password"] } to app schema.'
+        'Please add auth: { methods: ["email-and-password"] } to app schema.'
 
       // When
       const error = new AuthConfigRequiredForUserFields({ message })
@@ -164,7 +164,7 @@ describe('AuthConfigRequiredForUserFields', () => {
           throw new AuthConfigRequiredForUserFields({
             message:
               'User fields (user, created-by, updated-by) require auth configuration. ' +
-              'Please add auth: { authentication: ["email-and-password"] } to your app schema.',
+              'Please add auth: { methods: ["email-and-password"] } to your app schema.',
           })
         }
       } catch (e) {

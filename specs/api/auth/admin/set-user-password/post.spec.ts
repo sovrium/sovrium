@@ -42,7 +42,7 @@ test.describe('Admin: Set user password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { admin: true },
         },
       })
@@ -96,7 +96,7 @@ test.describe('Admin: Set user password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { admin: true },
         },
       })
@@ -139,7 +139,7 @@ test.describe('Admin: Set user password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { admin: true },
         },
       })
@@ -168,7 +168,7 @@ test.describe('Admin: Set user password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { admin: true },
         },
       })
@@ -206,7 +206,7 @@ test.describe('Admin: Set user password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { admin: true },
         },
       })
@@ -232,7 +232,7 @@ test.describe('Admin: Set user password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { admin: true },
         },
       })
@@ -273,7 +273,7 @@ test.describe('Admin: Set user password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { admin: true },
         },
       })
@@ -306,7 +306,7 @@ test.describe('Admin: Set user password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { admin: true },
         },
       })

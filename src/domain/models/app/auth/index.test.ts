@@ -13,109 +13,109 @@ describe('AuthSchema', () => {
   describe('valid configurations', () => {
     test('should accept full auth configuration with all plugins', () => {
       const input = {
-        authentication: ['email-and-password'],
+        methods: ['email-and-password'],
         plugins: { admin: true, organization: true },
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
       expect(result).toEqual({
-        authentication: ['email-and-password'],
+        methods: ['email-and-password'],
         plugins: { admin: true, organization: true },
       })
     })
 
     test('should accept auth with only authentication method', () => {
       const input = {
-        authentication: ['email-and-password'],
+        methods: ['email-and-password'],
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
       expect(result).toEqual({
-        authentication: ['email-and-password'],
+        methods: ['email-and-password'],
       })
     })
 
     test('should accept auth with admin plugin only', () => {
       const input = {
-        authentication: ['email-and-password'],
+        methods: ['email-and-password'],
         plugins: { admin: true },
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
       expect(result).toEqual({
-        authentication: ['email-and-password'],
+        methods: ['email-and-password'],
         plugins: { admin: true },
       })
     })
 
     test('should accept auth with organization plugin only', () => {
       const input = {
-        authentication: ['email-and-password'],
+        methods: ['email-and-password'],
         plugins: { organization: true },
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
       expect(result).toEqual({
-        authentication: ['email-and-password'],
+        methods: ['email-and-password'],
         plugins: { organization: true },
       })
     })
 
     test('should accept auth with empty plugins object', () => {
       const input = {
-        authentication: ['email-and-password'],
+        methods: ['email-and-password'],
         plugins: {},
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
       expect(result).toEqual({
-        authentication: ['email-and-password'],
+        methods: ['email-and-password'],
         plugins: {},
       })
     })
 
     test('should accept plugin with config object', () => {
       const input = {
-        authentication: ['email-and-password'],
+        methods: ['email-and-password'],
         plugins: { admin: { impersonation: true } },
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
       expect(result).toEqual({
-        authentication: ['email-and-password'],
+        methods: ['email-and-password'],
         plugins: { admin: { impersonation: true } },
       })
     })
 
     test('should accept OAuth configuration', () => {
       const input = {
-        authentication: ['email-and-password'],
+        methods: ['email-and-password'],
         oauth: { providers: ['google', 'github'] },
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
       expect(result).toEqual({
-        authentication: ['email-and-password'],
+        methods: ['email-and-password'],
         oauth: { providers: ['google', 'github'] },
       })
     })
 
     test('should accept multiple authentication methods', () => {
       const input = {
-        authentication: ['email-and-password', 'magic-link'],
+        methods: ['email-and-password', 'magic-link'],
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
       expect(result).toEqual({
-        authentication: ['email-and-password', 'magic-link'],
+        methods: ['email-and-password', 'magic-link'],
       })
     })
 
     test('should accept authentication method with config', () => {
       const input = {
-        authentication: [{ method: 'email-and-password', minPasswordLength: 12 }],
+        methods: [{ method: 'email-and-password', minPasswordLength: 12 }],
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
       expect(result).toEqual({
-        authentication: [{ method: 'email-and-password', minPasswordLength: 12 }],
+        methods: [{ method: 'email-and-password', minPasswordLength: 12 }],
       })
     })
 
     test('should accept enterprise configuration', () => {
       const input = {
-        authentication: ['email-and-password', 'passkey'],
+        methods: ['email-and-password', 'passkey'],
         oauth: { providers: ['google', 'github'] },
         plugins: {
           admin: { impersonation: true },
@@ -128,7 +128,7 @@ describe('AuthSchema', () => {
 
     test('should accept email templates configuration', () => {
       const input = {
-        authentication: ['email-and-password'],
+        methods: ['email-and-password'],
         emailTemplates: {
           verification: {
             subject: 'Verify your email',
@@ -164,33 +164,33 @@ describe('AuthSchema', () => {
 
     test('should reject empty authentication array', () => {
       const input = {
-        authentication: [],
+        methods: [],
       }
       expect(() => Schema.decodeUnknownSync(AuthSchema)(input)).toThrow()
     })
 
     test('should reject invalid authentication method', () => {
       const input = {
-        authentication: ['unknown-method'],
+        methods: ['unknown-method'],
       }
       expect(() => Schema.decodeUnknownSync(AuthSchema)(input)).toThrow()
     })
 
-    test('should reject authentication as string', () => {
+    test('should reject methods as string', () => {
       const input = {
-        authentication: 'email-and-password',
+        methods: 'email-and-password',
       }
       expect(() => Schema.decodeUnknownSync(AuthSchema)(input)).toThrow()
     })
 
     test('should strip unknown top-level fields (Effect Schema default behavior)', () => {
       const input = {
-        authentication: ['email-and-password'],
+        methods: ['email-and-password'],
         unknownField: 'value',
       }
       // Effect Schema strips unknown fields by default (lenient mode)
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
-      expect(result).toEqual({ authentication: ['email-and-password'] })
+      expect(result).toEqual({ methods: ['email-and-password'] })
       expect(result).not.toHaveProperty('unknownField')
     })
   })
@@ -198,7 +198,7 @@ describe('AuthSchema', () => {
   describe('validation rules', () => {
     test('should reject two-factor without primary auth method', () => {
       const input = {
-        authentication: ['magic-link'],
+        methods: ['magic-link'],
         plugins: { twoFactor: true },
       }
       expect(() => Schema.decodeUnknownSync(AuthSchema)(input)).toThrow(
@@ -208,7 +208,7 @@ describe('AuthSchema', () => {
 
     test('should accept two-factor with email-and-password', () => {
       const input = {
-        authentication: ['email-and-password'],
+        methods: ['email-and-password'],
         plugins: { twoFactor: true },
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
@@ -217,7 +217,7 @@ describe('AuthSchema', () => {
 
     test('should accept two-factor with passkey', () => {
       const input = {
-        authentication: ['passkey'],
+        methods: ['passkey'],
         plugins: { twoFactor: true },
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
@@ -249,7 +249,7 @@ describe('AuthSchema', () => {
         expect(examples.value.length).toBeGreaterThan(0)
         // First example should be minimal config
         expect(examples.value[0]).toEqual({
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         })
       }
     })

@@ -32,7 +32,7 @@ test.describe('Authenticate with Passkey (WebAuthn)', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['passkey'],
+          methods: ['passkey'],
         },
       })
 
@@ -58,7 +58,7 @@ test.describe('Authenticate with Passkey (WebAuthn)', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password', 'passkey'],
+          methods: ['email-and-password', 'passkey'],
         },
       })
 
@@ -143,7 +143,7 @@ test.describe('Authenticate with Passkey (WebAuthn)', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['passkey'],
+          methods: ['passkey'],
         },
       })
 
@@ -184,7 +184,7 @@ test.describe('Authenticate with Passkey (WebAuthn)', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           // No passkey method
         },
       })
@@ -205,7 +205,7 @@ test.describe('Authenticate with Passkey (WebAuthn)', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: [
+          methods: [
             {
               method: 'passkey',
               userVerification: 'required',
@@ -237,7 +237,7 @@ test.describe('Authenticate with Passkey (WebAuthn)', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password', 'passkey'],
+          methods: ['email-and-password', 'passkey'],
         },
       })
 

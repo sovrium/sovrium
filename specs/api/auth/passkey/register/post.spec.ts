@@ -32,7 +32,7 @@ test.describe('Register Passkey (WebAuthn)', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password', 'passkey'],
+          methods: ['email-and-password', 'passkey'],
         },
       })
 
@@ -79,7 +79,7 @@ test.describe('Register Passkey (WebAuthn)', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password', 'passkey'],
+          methods: ['email-and-password', 'passkey'],
         },
       })
 
@@ -142,7 +142,7 @@ test.describe('Register Passkey (WebAuthn)', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['passkey'],
+          methods: ['passkey'],
         },
       })
 
@@ -165,7 +165,7 @@ test.describe('Register Passkey (WebAuthn)', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           // No passkey method
         },
       })
@@ -201,7 +201,7 @@ test.describe('Register Passkey (WebAuthn)', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: [
+          methods: [
             {
               method: 'passkey',
               rpName: 'My Custom App',
@@ -250,7 +250,7 @@ test.describe('Register Passkey (WebAuthn)', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password', 'passkey'],
+          methods: ['email-and-password', 'passkey'],
         },
       })
 

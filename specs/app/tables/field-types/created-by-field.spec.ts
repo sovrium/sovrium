@@ -30,7 +30,7 @@ test.describe('Created By Field', () => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
-        auth: { authentication: ['email-and-password'] },
+        auth: { methods: ['email-and-password'] },
         tables: [
           {
             id: 1,
@@ -77,7 +77,7 @@ test.describe('Created By Field', () => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
-        auth: { authentication: ['email-and-password'] },
+        auth: { methods: ['email-and-password'] },
         tables: [
           {
             id: 2,
@@ -133,7 +133,7 @@ test.describe('Created By Field', () => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
-        auth: { authentication: ['email-and-password'] },
+        auth: { methods: ['email-and-password'] },
         tables: [
           {
             id: 3,
@@ -185,7 +185,7 @@ test.describe('Created By Field', () => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
-        auth: { authentication: ['email-and-password'] },
+        auth: { methods: ['email-and-password'] },
         tables: [
           {
             id: 4,
@@ -253,7 +253,7 @@ test.describe('Created By Field', () => {
       // GIVEN: table configuration with indexed created_by field
       await startServerWithSchema({
         name: 'test-app',
-        auth: { authentication: ['email-and-password'] },
+        auth: { methods: ['email-and-password'] },
         tables: [
           {
             id: 5,
@@ -294,7 +294,7 @@ test.describe('Created By Field', () => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
-        auth: { authentication: ['email-and-password'] },
+        auth: { methods: ['email-and-password'] },
         tables: [
           {
             id: 6,

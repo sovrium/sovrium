@@ -19,11 +19,11 @@ import { Schema } from 'effect'
  * @example
  * ```typescript
  * // Simple enable
- * { authentication: ['magic-link'] }
+ * { methods: ['magic-link'] }
  *
  * // With configuration
  * {
- *   authentication: [{
+ *   methods: [{
  *     method: 'magic-link',
  *     expirationMinutes: 30
  *   }]

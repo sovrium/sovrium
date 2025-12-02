@@ -42,7 +42,7 @@ test.describe('Admin: Revoke user session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { admin: true },
         },
       })
@@ -91,7 +91,7 @@ test.describe('Admin: Revoke user session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { admin: true },
         },
       })
@@ -120,7 +120,7 @@ test.describe('Admin: Revoke user session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { admin: true },
         },
       })
@@ -146,7 +146,7 @@ test.describe('Admin: Revoke user session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { admin: true },
         },
       })
@@ -186,7 +186,7 @@ test.describe('Admin: Revoke user session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { admin: true },
         },
       })
@@ -215,7 +215,7 @@ test.describe('Admin: Revoke user session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { admin: true },
         },
       })
@@ -246,7 +246,7 @@ test.describe('Admin: Revoke user session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { admin: true },
         },
       })
@@ -280,7 +280,7 @@ test.describe('Admin: Revoke user session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { admin: true },
         },
       })
@@ -321,7 +321,7 @@ test.describe('Admin: Revoke user session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { admin: true },
         },
       })

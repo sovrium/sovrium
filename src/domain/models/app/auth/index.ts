@@ -30,7 +30,7 @@ export * from './validation'
  * environment variables, not in this schema. See .env.example for details.
  *
  * Structure:
- * - authentication: Array of enabled authentication methods (required)
+ * - methods: Array of enabled authentication methods (required)
  * - oauth: Social login configuration (optional)
  * - plugins: Feature plugins like 2FA, admin, organization (optional)
  *
@@ -60,17 +60,17 @@ export * from './validation'
  * @example
  * ```typescript
  * // Minimal configuration
- * { authentication: ['email-and-password'] }
+ * { methods: ['email-and-password'] }
  *
  * // Social login
  * {
- *   authentication: ['email-and-password'],
+ *   methods: ['email-and-password'],
  *   oauth: { providers: ['google', 'github'] }
  * }
  *
  * // Enterprise setup
  * {
- *   authentication: ['email-and-password', 'passkey'],
+ *   methods: ['email-and-password', 'passkey'],
  *   oauth: { providers: ['microsoft', 'google'] },
  *   plugins: {
  *     admin: { impersonation: true },
@@ -103,7 +103,7 @@ export const AuthSchema = Schema.Struct({
    * ]
    * ```
    */
-  authentication: Schema.NonEmptyArray(AuthenticationMethodSchema),
+  methods: Schema.NonEmptyArray(AuthenticationMethodSchema),
 
   /**
    * OAuth social login configuration (optional)
@@ -180,10 +180,10 @@ export const AuthSchema = Schema.Struct({
       'Authentication configuration with methods, OAuth, plugins, and email templates. Infrastructure config (secrets, URLs, credentials) is set via environment variables.',
     examples: [
       // Minimal
-      { authentication: ['email-and-password'] },
+      { methods: ['email-and-password'] },
       // Social login with email templates
       {
-        authentication: ['email-and-password'],
+        methods: ['email-and-password'],
         oauth: { providers: ['google', 'github'] },
         emailTemplates: {
           verification: { subject: 'Verify your email', text: 'Click to verify: $url' },
@@ -192,7 +192,7 @@ export const AuthSchema = Schema.Struct({
       },
       // Enterprise setup
       {
-        authentication: ['email-and-password', 'passkey'],
+        methods: ['email-and-password', 'passkey'],
         oauth: { providers: ['microsoft', 'google'] },
         plugins: {
           admin: { impersonation: true },
@@ -224,7 +224,7 @@ export type AuthEncoded = Schema.Schema.Encoded<typeof AuthSchema>
  * Helper to check if auth is configured with a specific method
  */
 export const hasAuthenticationMethod = (auth: Auth, methodName: string): boolean => {
-  return auth.authentication.some((method) => {
+  return auth.methods.some((method) => {
     if (typeof method === 'string') {
       return method === methodName
     }

@@ -32,7 +32,7 @@ test.describe('Revoke/Delete API Key', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: {
             apiKeys: true,
           },
@@ -82,7 +82,7 @@ test.describe('Revoke/Delete API Key', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: {
             apiKeys: true,
           },
@@ -149,7 +149,7 @@ test.describe('Revoke/Delete API Key', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: {
             apiKeys: true,
           },
@@ -198,7 +198,7 @@ test.describe('Revoke/Delete API Key', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: {
             apiKeys: true,
           },
@@ -239,7 +239,7 @@ test.describe('Revoke/Delete API Key', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: {
             apiKeys: true,
           },
@@ -305,7 +305,7 @@ test.describe('Revoke/Delete API Key', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: {
             apiKeys: true,
           },

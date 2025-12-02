@@ -31,14 +31,20 @@ test.describe('Send verification email', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-SEND-VERIFICATION-EMAIL-001: should return 200 OK and send verification email',
+    'API-AUTH-SEND-VERIFICATION-EMAIL-001: should return 200 OK and send verification email with custom template',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
-      // GIVEN: A registered user with unverified email
+      // GIVEN: A registered user with unverified email and custom email templates
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
+          emailTemplates: {
+            verification: {
+              subject: 'Please verify your TestApp account',
+              text: 'Hi $name, please verify your email by clicking: $url',
+            },
+          },
         },
       })
 
@@ -58,21 +64,21 @@ test.describe('Send verification email', () => {
         },
       })
 
-      // THEN: Returns 200 OK and sends verification email with token
+      // THEN: Returns 200 OK and sends verification email with custom template
       expect(response.status()).toBe(200)
 
       const data = await response.json()
       expect(data).toHaveProperty('status', true)
 
-      // Verify email was actually sent (filtered by testId namespace)
+      // Verify email was actually sent with custom subject
       const email = await mailpit.waitForEmail(
-        (e) => e.To[0]?.Address === userEmail && e.Subject.toLowerCase().includes('verify')
+        (e) => e.To[0]?.Address === userEmail && e.Subject.includes('TestApp')
       )
 
       assertEmailReceived(email, {
         to: userEmail,
-        from: 'noreply@sovrium.com',
-        subjectContains: 'verify',
+        subjectEquals: 'Please verify your TestApp account',
+        bodyContains: 'please verify your email',
       })
     }
   )
@@ -85,7 +91,7 @@ test.describe('Send verification email', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -110,7 +116,7 @@ test.describe('Send verification email', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -137,7 +143,7 @@ test.describe('Send verification email', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -167,7 +173,7 @@ test.describe('Send verification email', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -220,7 +226,7 @@ test.describe('Send verification email', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -253,7 +259,7 @@ test.describe('Send verification email', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 

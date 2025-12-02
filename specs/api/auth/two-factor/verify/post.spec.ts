@@ -32,7 +32,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: {
             twoFactor: {
               issuer: 'Test App',
@@ -92,7 +92,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: {
             twoFactor: true,
           },
@@ -143,7 +143,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: {
             twoFactor: {
               issuer: 'Test App',
@@ -201,7 +201,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: {
             twoFactor: true,
           },
@@ -231,7 +231,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: {
             twoFactor: true,
           },
@@ -277,7 +277,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: {
             twoFactor: {
               issuer: 'Test App',

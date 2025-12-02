@@ -31,7 +31,7 @@ test.describe('Bearer Token Authentication', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { bearer: true },
         },
       })
@@ -69,7 +69,7 @@ test.describe('Bearer Token Authentication', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { bearer: true },
         },
       })
@@ -90,7 +90,7 @@ test.describe('Bearer Token Authentication', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { bearer: true },
         },
       })
@@ -115,7 +115,7 @@ test.describe('Bearer Token Authentication', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { bearer: true },
         },
       })
@@ -151,7 +151,7 @@ test.describe('Bearer Token Authentication', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { bearer: true },
         },
       })
@@ -194,7 +194,7 @@ test.describe('Bearer Token Authentication', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { bearer: true },
         },
       })
@@ -233,7 +233,7 @@ test.describe('Bearer Token Authentication', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { bearer: true },
         },
       })

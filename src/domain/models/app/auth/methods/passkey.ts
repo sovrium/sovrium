@@ -24,11 +24,11 @@ import { Schema } from 'effect'
  * @example
  * ```typescript
  * // Simple enable
- * { authentication: ['passkey'] }
+ * { methods: ['passkey'] }
  *
  * // With configuration
  * {
- *   authentication: [{
+ *   methods: [{
  *     method: 'passkey',
  *     rpName: 'My Application',
  *     userVerification: 'required'

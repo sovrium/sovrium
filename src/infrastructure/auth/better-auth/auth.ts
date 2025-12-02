@@ -42,7 +42,8 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: false, // Allow sign-up without email verification for testing
+    requireEmailVerification: true, // Enable email verification to allow send-verification-email endpoint
+    autoSignIn: true, // Allow users to sign in even before verifying email
     // Password reset configuration
     sendResetPassword: async ({
       user,

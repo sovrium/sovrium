@@ -30,7 +30,7 @@ test.describe('Updated By Field', () => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
-        auth: { authentication: ['email-and-password'] },
+        auth: { methods: ['email-and-password'] },
         tables: [
           {
             id: 1,
@@ -78,7 +78,7 @@ test.describe('Updated By Field', () => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
-        auth: { authentication: ['email-and-password'] },
+        auth: { methods: ['email-and-password'] },
         tables: [
           {
             id: 2,
@@ -142,7 +142,7 @@ test.describe('Updated By Field', () => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
-        auth: { authentication: ['email-and-password'] },
+        auth: { methods: ['email-and-password'] },
         tables: [
           {
             id: 3,
@@ -202,7 +202,7 @@ test.describe('Updated By Field', () => {
       // GIVEN: table configuration with both created_by and updated_by
       await startServerWithSchema({
         name: 'test-app',
-        auth: { authentication: ['email-and-password'] },
+        auth: { methods: ['email-and-password'] },
         tables: [
           {
             id: 4,
@@ -260,7 +260,7 @@ test.describe('Updated By Field', () => {
       // GIVEN: table configuration with indexed updated_by field
       await startServerWithSchema({
         name: 'test-app',
-        auth: { authentication: ['email-and-password'] },
+        auth: { methods: ['email-and-password'] },
         tables: [
           {
             id: 5,
@@ -301,7 +301,7 @@ test.describe('Updated By Field', () => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
-        auth: { authentication: ['email-and-password'] },
+        auth: { methods: ['email-and-password'] },
         tables: [
           {
             id: 6,

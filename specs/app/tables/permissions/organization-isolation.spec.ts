@@ -43,7 +43,7 @@ test.describe('Organization Data Isolation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
         },
         tables: [
@@ -125,7 +125,7 @@ test.describe('Organization Data Isolation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
         },
         tables: [
@@ -197,7 +197,7 @@ test.describe('Organization Data Isolation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
         },
         tables: [
@@ -253,7 +253,7 @@ test.describe('Organization Data Isolation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
         },
         tables: [
@@ -328,7 +328,7 @@ test.describe('Organization Data Isolation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
         },
         tables: [
@@ -401,7 +401,7 @@ test.describe('Organization Data Isolation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
         },
         tables: [
@@ -412,7 +412,7 @@ test.describe('Organization Data Isolation', () => {
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'content', type: 'long-text' },
               { id: 3, name: 'organization_id', type: 'integer' },
-              { id: 4, name: 'created_by', type: 'integer' },
+              { id: 4, name: 'created_by', type: 'user' },
             ],
             permissions: {
               organizationScoped: true,
@@ -487,7 +487,7 @@ test.describe('Organization Data Isolation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
         },
         tables: [
@@ -573,7 +573,7 @@ test.describe('Organization Data Isolation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
           plugins: { organization: true },
         },
         tables: [

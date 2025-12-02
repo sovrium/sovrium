@@ -32,7 +32,7 @@ test.describe('Table Permissions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
         tables: [
           {
@@ -41,7 +41,7 @@ test.describe('Table Permissions', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'secret', type: 'single-line-text' },
-              { id: 3, name: 'owner_id', type: 'integer' },
+              { id: 3, name: 'owner_id', type: 'user' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
@@ -176,7 +176,7 @@ test.describe('Table Permissions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
         tables: [
           {
@@ -186,7 +186,7 @@ test.describe('Table Permissions', () => {
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text' },
               { id: 3, name: 'notes', type: 'single-line-text' },
-              { id: 4, name: 'owner_id', type: 'integer' },
+              { id: 4, name: 'owner_id', type: 'user' },
               { id: 5, name: 'status', type: 'single-line-text' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
@@ -319,7 +319,7 @@ test.describe('Table Permissions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
         tables: [
           {
@@ -330,7 +330,7 @@ test.describe('Table Permissions', () => {
               { id: 2, name: 'title', type: 'single-line-text' },
               { id: 3, name: 'body', type: 'single-line-text' },
               { id: 4, name: 'draft', type: 'checkbox' },
-              { id: 5, name: 'author_id', type: 'integer' },
+              { id: 5, name: 'author_id', type: 'user' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
@@ -406,7 +406,7 @@ test.describe('Table Permissions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
         tables: [
           {
@@ -417,7 +417,7 @@ test.describe('Table Permissions', () => {
               { id: 2, name: 'title', type: 'single-line-text' },
               { id: 3, name: 'content', type: 'single-line-text' },
               { id: 4, name: 'salary_info', type: 'single-line-text' },
-              { id: 5, name: 'author_id', type: 'integer' },
+              { id: 5, name: 'author_id', type: 'user' },
               { id: 6, name: 'status', type: 'single-line-text' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },

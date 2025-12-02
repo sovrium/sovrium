@@ -31,14 +31,20 @@ test.describe('Request password reset', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-REQUEST-PASSWORD-RESET-001: should return 200 OK and send reset email',
+    'API-AUTH-REQUEST-PASSWORD-RESET-001: should return 200 OK and send reset email with custom template',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
-      // GIVEN: A registered user with valid email
+      // GIVEN: A registered user with valid email and custom email templates
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
+          emailTemplates: {
+            resetPassword: {
+              subject: 'Reset your TestApp password',
+              text: 'Hi $name, click here to reset your password: $url',
+            },
+          },
         },
       })
 
@@ -58,23 +64,21 @@ test.describe('Request password reset', () => {
         },
       })
 
-      // THEN: Returns 200 OK and sends reset email with token
+      // THEN: Returns 200 OK and sends reset email with custom template
       expect(response.status()).toBe(200)
 
       const data = await response.json()
       expect(data).toHaveProperty('status', true)
 
-      // Verify email was sent (filtered by testId namespace)
+      // Verify email was sent with custom subject
       const email = await mailpit.waitForEmail(
-        (e) =>
-          e.To[0]?.Address === userEmail &&
-          (e.Subject.toLowerCase().includes('password') ||
-            e.Subject.toLowerCase().includes('reset'))
+        (e) => e.To[0]?.Address === userEmail && e.Subject.includes('TestApp')
       )
 
       assertEmailReceived(email, {
         to: userEmail,
-        from: 'noreply@sovrium.com',
+        subjectEquals: 'Reset your TestApp password',
+        bodyContains: 'click here to reset your password',
       })
     }
   )
@@ -87,7 +91,7 @@ test.describe('Request password reset', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -116,7 +120,7 @@ test.describe('Request password reset', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -141,7 +145,7 @@ test.describe('Request password reset', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -168,7 +172,7 @@ test.describe('Request password reset', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -213,7 +217,7 @@ test.describe('Request password reset', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -272,7 +276,7 @@ test.describe('Request password reset', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 
@@ -321,7 +325,7 @@ test.describe('Request password reset', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          methods: ['email-and-password'],
         },
       })
 

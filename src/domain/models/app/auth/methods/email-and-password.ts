@@ -21,11 +21,11 @@ import { Schema } from 'effect'
  * @example
  * ```typescript
  * // Simple enable
- * { authentication: ['email-and-password'] }
+ * { methods: ['email-and-password'] }
  *
  * // With configuration
  * {
- *   authentication: [{
+ *   methods: [{
  *     method: 'email-and-password',
  *     requireEmailVerification: true,
  *     minPasswordLength: 12
