@@ -413,114 +413,108 @@ test.describe('Breakpoints', () => {
     'APP-THEME-BREAKPOINTS-010: user can complete full breakpoints workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with comprehensive breakpoint system
-      await startServerWithSchema({
-        name: 'test-app',
-        theme: {
-          breakpoints: {
-            sm: '640px',
-            md: '768px',
-            lg: '1024px',
+      await test.step('Setup: Start server with breakpoint system', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          theme: {
+            breakpoints: {
+              sm: '640px',
+              md: '768px',
+              lg: '1024px',
+            },
           },
-        },
-        pages: [
-          {
-            name: 'home',
-            path: '/',
-            sections: [
-              {
-                type: 'div',
-                props: {
-                  'data-testid': 'responsive-layout',
-                  className: 'p-5',
-                },
-                children: [
-                  {
-                    type: 'h1',
-                    children: ['Responsive Layout'],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                {
+                  type: 'div',
+                  props: {
+                    'data-testid': 'responsive-layout',
+                    className: 'p-5',
                   },
-                  {
-                    type: 'div',
-                    props: {
-                      className: 'grid grid-cols-1 gap-4',
+                  children: [
+                    {
+                      type: 'h1',
+                      children: ['Responsive Layout'],
                     },
-                    children: [
-                      {
-                        type: 'div',
-                        props: {
-                          className: 'p-4 bg-blue-50 border border-blue-500',
-                        },
-                        children: ['Item 1'],
+                    {
+                      type: 'div',
+                      props: {
+                        className: 'grid grid-cols-1 gap-4',
                       },
-                      {
-                        type: 'div',
-                        props: {
-                          className: 'p-4 bg-blue-50 border border-blue-500',
+                      children: [
+                        {
+                          type: 'div',
+                          props: {
+                            className: 'p-4 bg-blue-50 border border-blue-500',
+                          },
+                          children: ['Item 1'],
                         },
-                        children: ['Item 2'],
-                      },
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
-        ],
+                        {
+                          type: 'div',
+                          props: {
+                            className: 'p-4 bg-blue-50 border border-blue-500',
+                          },
+                          children: ['Item 2'],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
+      await test.step('Navigate to page and verify CSS compilation', async () => {
+        await page.setViewportSize({ width: 375, height: 667 })
+        await page.goto('/')
 
-      // 1. Verify CSS compilation contains breakpoint definitions
-      await page.setViewportSize({ width: 375, height: 667 })
-      // WHEN: user navigates to the page
-      await page.goto('/')
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--breakpoint-sm: 640px')
+        expect(css).toContain('--breakpoint-md: 768px')
+        expect(css).toContain('--breakpoint-lg: 1024px')
+      })
 
-      const cssResponse = await page.request.get('/assets/output.css')
-      // THEN: assertion
-      expect(cssResponse.ok()).toBeTruthy()
-      const css = await cssResponse.text()
-      // THEN: assertion
-      expect(css).toContain('--breakpoint-sm: 640px')
-      expect(css).toContain('--breakpoint-md: 768px')
-      expect(css).toContain('--breakpoint-lg: 1024px')
-
-      // 2. Structure validation (ARIA) - Mobile layout (375px)
-      // THEN: assertion
-      await expect(page.locator('[data-testid="responsive-layout"]')).toMatchAriaSnapshot(`
-        - group:
-          - heading "Responsive Layout" [level=1]
+      await test.step('Verify mobile layout structure (ARIA snapshot)', async () => {
+        await expect(page.locator('[data-testid="responsive-layout"]')).toMatchAriaSnapshot(`
           - group:
-            - group: Item 1
-            - group: Item 2
-      `)
+            - heading "Responsive Layout" [level=1]
+            - group:
+              - group: Item 1
+              - group: Item 2
+        `)
+      })
 
-      // 3. Visual validation across breakpoints
-      await expect(page.locator('[data-testid="responsive-layout"]')).toHaveScreenshot(
-        'breakpoints-regression-001-mobile.png',
-        {
-          animations: 'disabled',
-        }
-      )
+      await test.step('Verify visual rendering across breakpoints', async () => {
+        await expect(page.locator('[data-testid="responsive-layout"]')).toHaveScreenshot(
+          'breakpoints-regression-001-mobile.png',
+          {
+            animations: 'disabled',
+          }
+        )
 
-      // Tablet layout (768px - md breakpoint)
-      await page.setViewportSize({ width: 768, height: 1024 })
-      await expect(page.locator('[data-testid="responsive-layout"]')).toHaveScreenshot(
-        'breakpoints-regression-001-tablet.png',
-        {
-          animations: 'disabled',
-        }
-      )
+        await page.setViewportSize({ width: 768, height: 1024 })
+        await expect(page.locator('[data-testid="responsive-layout"]')).toHaveScreenshot(
+          'breakpoints-regression-001-tablet.png',
+          {
+            animations: 'disabled',
+          }
+        )
 
-      // Desktop layout (1024px - lg breakpoint)
-      await page.setViewportSize({ width: 1024, height: 768 })
-      await expect(page.locator('[data-testid="responsive-layout"]')).toHaveScreenshot(
-        'breakpoints-regression-001-desktop.png',
-        {
-          animations: 'disabled',
-        }
-      )
-
-      // Focus on workflow continuity, not exhaustive coverage
+        await page.setViewportSize({ width: 1024, height: 768 })
+        await expect(page.locator('[data-testid="responsive-layout"]')).toHaveScreenshot(
+          'breakpoints-regression-001-desktop.png',
+          {
+            animations: 'disabled',
+          }
+        )
+      })
     }
   )
 })
