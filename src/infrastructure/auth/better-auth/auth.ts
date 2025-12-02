@@ -11,6 +11,7 @@ import { openAPI, admin, organization, apiKey, twoFactor } from 'better-auth/plu
 import { db } from '../../database/drizzle/db'
 import { sendEmail } from '../../email/email-service'
 import { passwordResetEmail, emailVerificationEmail } from '../../email/templates'
+import { logError } from '../../logging'
 import type { Auth, AuthEmailTemplate } from '@/domain/models/app/auth'
 
 /**
@@ -54,10 +55,7 @@ type EmailHandlerConfig = Readonly<{
  * 3. Falls back to default template otherwise
  * 4. Handles errors silently to prevent user enumeration
  */
-const createEmailHandler = (
-  config: EmailHandlerConfig,
-  customTemplate?: AuthEmailTemplate
-) => {
+const createEmailHandler = (config: EmailHandlerConfig, customTemplate?: AuthEmailTemplate) => {
   return async ({
     user,
     url,
@@ -97,7 +95,7 @@ const createEmailHandler = (
       }
     } catch (error) {
       // Don't throw - silent failure prevents user enumeration attacks
-      console.error(`[EMAIL] Failed to send ${config.emailType} email to ${user.email}:`, error)
+      logError(`[EMAIL] Failed to send ${config.emailType} email to ${user.email}`, error)
     }
   }
 }
