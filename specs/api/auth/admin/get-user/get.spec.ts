@@ -37,7 +37,7 @@ test.describe('Admin: Get user by ID', () => {
   test.fixme(
     'API-AUTH-ADMIN-GET-USER-001: should return 200 OK with user details',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
@@ -75,7 +75,7 @@ test.describe('Admin: Get user by ID', () => {
   test.fixme(
     'API-AUTH-ADMIN-GET-USER-002: should return 400 Bad Request without userId parameter',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -122,7 +122,7 @@ test.describe('Admin: Get user by ID', () => {
   test.fixme(
     'API-AUTH-ADMIN-GET-USER-004: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -154,7 +154,7 @@ test.describe('Admin: Get user by ID', () => {
   test.fixme(
     'API-AUTH-ADMIN-GET-USER-005: should return 404 Not Found for non-existent user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -177,7 +177,7 @@ test.describe('Admin: Get user by ID', () => {
   test.fixme(
     'API-AUTH-ADMIN-GET-USER-006: should return 200 OK with password field excluded',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',

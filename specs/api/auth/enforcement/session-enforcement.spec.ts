@@ -128,7 +128,7 @@ test.describe('Session Permission Enforcement', () => {
   test.fixme(
     'API-AUTH-ENFORCE-SESSION-003: should invalidate session immediately after sign-out',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -182,7 +182,7 @@ test.describe('Session Permission Enforcement', () => {
   test.fixme(
     'API-AUTH-ENFORCE-SESSION-005: should prevent session token reuse after refresh',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: User with active session
       await startServerWithSchema({
         name: 'test-app',
@@ -253,7 +253,7 @@ test.describe('Session Permission Enforcement', () => {
   test.fixme(
     'API-AUTH-ENFORCE-SESSION-007: should bind session to original IP/user-agent when strict mode enabled',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Session created with specific IP and user-agent
       await startServerWithSchema({
         name: 'test-app',
@@ -289,7 +289,7 @@ test.describe('Session Permission Enforcement', () => {
   test.fixme(
     'API-AUTH-ENFORCE-SESSION-008: session enforcement workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: User with active session
       await startServerWithSchema({
         name: 'test-app',

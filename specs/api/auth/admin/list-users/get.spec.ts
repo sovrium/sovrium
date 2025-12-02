@@ -86,7 +86,7 @@ test.describe('Admin: List users', () => {
   test.fixme(
     'API-AUTH-ADMIN-LIST-USERS-002: should return 200 OK with paginated results',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user with multiple users in system
       await startServerWithSchema({
         name: 'test-app',
@@ -117,7 +117,7 @@ test.describe('Admin: List users', () => {
   test.fixme(
     'API-AUTH-ADMIN-LIST-USERS-003: should return 200 OK with users sorted correctly',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user with multiple users
       await startServerWithSchema({
         name: 'test-app',
@@ -169,7 +169,7 @@ test.describe('Admin: List users', () => {
   test.fixme(
     'API-AUTH-ADMIN-LIST-USERS-005: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -196,7 +196,7 @@ test.describe('Admin: List users', () => {
   test.fixme(
     'API-AUTH-ADMIN-LIST-USERS-006: should exclude password field from response',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user with users in system
       await startServerWithSchema({
         name: 'test-app',
@@ -228,7 +228,7 @@ test.describe('Admin: List users', () => {
   test.fixme(
     'API-AUTH-ADMIN-LIST-USERS-007: should return 200 OK with empty list when no other users',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user with no other users
       await startServerWithSchema({
         name: 'test-app',

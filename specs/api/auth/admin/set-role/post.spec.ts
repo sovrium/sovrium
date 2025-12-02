@@ -37,7 +37,7 @@ test.describe('Admin: Set user role', () => {
   test.fixme(
     'API-AUTH-ADMIN-SET-ROLE-001: should return 200 OK with updated user data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
@@ -78,7 +78,7 @@ test.describe('Admin: Set user role', () => {
   test.fixme(
     'API-AUTH-ADMIN-SET-ROLE-002: should return 400 Bad Request without required fields',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -106,7 +106,7 @@ test.describe('Admin: Set user role', () => {
   test.fixme(
     'API-AUTH-ADMIN-SET-ROLE-003: should return 400 Bad Request with invalid role value',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -164,7 +164,7 @@ test.describe('Admin: Set user role', () => {
   test.fixme(
     'API-AUTH-ADMIN-SET-ROLE-005: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -201,7 +201,7 @@ test.describe('Admin: Set user role', () => {
   test.fixme(
     'API-AUTH-ADMIN-SET-ROLE-006: should return 404 Not Found for non-existent user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -229,7 +229,7 @@ test.describe('Admin: Set user role', () => {
   test.fixme(
     'API-AUTH-ADMIN-SET-ROLE-007: should return 200 OK and user gains admin privileges',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user and a member user
       await startServerWithSchema({
         name: 'test-app',
@@ -266,7 +266,7 @@ test.describe('Admin: Set user role', () => {
   test.fixme(
     'API-AUTH-ADMIN-SET-ROLE-008: should return 200 OK when setting same role (idempotent)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user and a member user
       await startServerWithSchema({
         name: 'test-app',

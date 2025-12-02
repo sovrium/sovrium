@@ -27,7 +27,7 @@ test.describe('Create API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-CREATE-001: should create API key with name',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user with API keys plugin enabled
       await startServerWithSchema({
         name: 'test-app',
@@ -66,7 +66,7 @@ test.describe('Create API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-CREATE-002: should create API key with custom expiresIn',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user with API keys plugin enabled
       await startServerWithSchema({
         name: 'test-app',
@@ -138,7 +138,7 @@ test.describe('Create API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-CREATE-004: should create API key without name (name is optional)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user with API keys enabled
       await startServerWithSchema({
         name: 'test-app',
@@ -173,7 +173,7 @@ test.describe('Create API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-CREATE-005: should create API key with metadata',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user with API keys plugin enabled
       await startServerWithSchema({
         name: 'test-app',
@@ -217,7 +217,7 @@ test.describe('Create API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-CREATE-006: should return 404 when API keys plugin not enabled',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user but API keys plugin disabled
       await startServerWithSchema({
         name: 'test-app',
@@ -252,7 +252,7 @@ test.describe('Create API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-CREATE-007: user can complete full API key creation workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Application with API keys enabled
       await startServerWithSchema({
         name: 'test-app',

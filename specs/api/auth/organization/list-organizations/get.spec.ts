@@ -32,7 +32,7 @@ test.describe('List user organizations', () => {
   test.fixme(
     "API-ORG-LIST-ORGANIZATIONS-001: should return 200 OK with all organizations and user's roles",
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user who is member of multiple organizations
       await startServerWithSchema({
         name: 'test-app',
@@ -71,7 +71,7 @@ test.describe('List user organizations', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-ORGANIZATIONS-002: should return 200 OK with empty organizations array',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user who is not member of any organization
       await startServerWithSchema({
         name: 'test-app',
@@ -174,7 +174,7 @@ test.describe('List user organizations', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-ORGANIZATIONS-005: should return 200 OK with correct role for each organization',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user who created organizations (becomes owner)
       await startServerWithSchema({
         name: 'test-app',
@@ -216,7 +216,7 @@ test.describe('List user organizations', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-ORGANIZATIONS-006: user can complete full listOrganizations workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',

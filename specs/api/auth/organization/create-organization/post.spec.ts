@@ -35,7 +35,7 @@ test.describe('Create organization', () => {
   test(
     'API-AUTH-ORG-CREATE-ORGANIZATION-001: should return 201 Created with organization data and user is set as owner',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -73,7 +73,7 @@ test.describe('Create organization', () => {
   test(
     'API-AUTH-ORG-CREATE-ORGANIZATION-002: should return 200 OK with name and slug',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -111,7 +111,7 @@ test.describe('Create organization', () => {
   test(
     'API-AUTH-ORG-CREATE-ORGANIZATION-003: should return 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -168,7 +168,7 @@ test.describe('Create organization', () => {
   test(
     'API-AUTH-ORG-CREATE-ORGANIZATION-005: should return 409 Conflict error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user and an existing organization with same slug
       await startServerWithSchema({
         name: 'test-app',
@@ -215,7 +215,7 @@ test.describe('Create organization', () => {
   test(
     'API-AUTH-ORG-CREATE-ORGANIZATION-006: user can complete full createOrganization workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',

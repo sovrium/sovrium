@@ -34,7 +34,7 @@ test.describe('Delete organization', () => {
   test.fixme(
     'API-AUTH-ORG-DELETE-ORGANIZATION-001: should return 200 OK and permanently delete organization',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -77,7 +77,7 @@ test.describe('Delete organization', () => {
   test.fixme(
     'API-AUTH-ORG-DELETE-ORGANIZATION-002: should return 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -195,7 +195,7 @@ test.describe('Delete organization', () => {
   test.fixme(
     'API-AUTH-ORG-DELETE-ORGANIZATION-005: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -290,7 +290,7 @@ test.describe('Delete organization', () => {
   test.fixme(
     'API-AUTH-ORG-DELETE-ORGANIZATION-007: user can complete full deleteOrganization workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',

@@ -95,7 +95,7 @@ test.describe('Update member role', () => {
   test.fixme(
     'API-AUTH-ORG-UPDATE-MEMBER-ROLE-002: should return 400 Bad Request with validation errors',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -226,7 +226,7 @@ test.describe('Update member role', () => {
   test.fixme(
     'API-AUTH-ORG-UPDATE-MEMBER-ROLE-005: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',

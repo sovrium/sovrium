@@ -32,7 +32,7 @@ test.describe('Revoke specific session', () => {
   test(
     'API-AUTH-REVOKE-SESSION-001: should return 200 OK and revoke the specified session',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user with multiple active sessions
       await startServerWithSchema({
         name: 'test-app',
@@ -82,7 +82,7 @@ test.describe('Revoke specific session', () => {
   test(
     'API-AUTH-REVOKE-SESSION-002: should return 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -135,7 +135,7 @@ test.describe('Revoke specific session', () => {
   test(
     'API-AUTH-REVOKE-SESSION-004: should return 200 OK for non-existent session (idempotent)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -207,7 +207,7 @@ test.describe('Revoke specific session', () => {
   test(
     'API-AUTH-REVOKE-SESSION-006: should return 200 OK and revoke current session',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user with current session
       await startServerWithSchema({
         name: 'test-app',
@@ -256,7 +256,7 @@ test.describe('Revoke specific session', () => {
   test(
     'API-AUTH-REVOKE-SESSION-007: user can complete full revoke-session workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',

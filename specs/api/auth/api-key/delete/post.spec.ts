@@ -27,7 +27,7 @@ test.describe('Revoke/Delete API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-DELETE-001: should revoke API key successfully',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user with existing API key
       await startServerWithSchema({
         name: 'test-app',
@@ -73,7 +73,7 @@ test.describe('Revoke/Delete API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-DELETE-002: should remove revoked key from list',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user with API key
       await startServerWithSchema({
         name: 'test-app',
@@ -124,7 +124,7 @@ test.describe('Revoke/Delete API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-DELETE-003: should return 401 when not authenticated',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Application with API keys enabled and existing key
       await startServerWithSchema({
         name: 'test-app',
@@ -169,7 +169,7 @@ test.describe('Revoke/Delete API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-DELETE-004: should return error for non-existent API key',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -205,7 +205,7 @@ test.describe('Revoke/Delete API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-DELETE-005: should prevent revoking another user API key (user isolation)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Two users with their own API keys
       await startServerWithSchema({
         name: 'test-app',
@@ -258,7 +258,7 @@ test.describe('Revoke/Delete API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-DELETE-006: user can complete full API key revocation workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Application with API keys enabled
       await startServerWithSchema({
         name: 'test-app',

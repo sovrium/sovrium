@@ -37,7 +37,7 @@ test.describe('Admin: Unban user', () => {
   test.fixme(
     'API-AUTH-ADMIN-UNBAN-USER-001: should return 200 OK and remove ban',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user and a banned user
       await startServerWithSchema({
         name: 'test-app',
@@ -82,7 +82,7 @@ test.describe('Admin: Unban user', () => {
   test.fixme(
     'API-AUTH-ADMIN-UNBAN-USER-002: should return 400 Bad Request without userId',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -135,7 +135,7 @@ test.describe('Admin: Unban user', () => {
   test.fixme(
     'API-AUTH-ADMIN-UNBAN-USER-004: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -171,7 +171,7 @@ test.describe('Admin: Unban user', () => {
   test.fixme(
     'API-AUTH-ADMIN-UNBAN-USER-005: should return 404 Not Found for non-existent user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -198,7 +198,7 @@ test.describe('Admin: Unban user', () => {
   test.fixme(
     'API-AUTH-ADMIN-UNBAN-USER-006: should return 200 OK for already unbanned user (idempotent)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user and an already active user
       await startServerWithSchema({
         name: 'test-app',

@@ -32,7 +32,7 @@ test.describe('List organization invitations', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-INVITATIONS-001: should return 200 OK with all invitations',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner and multiple invitations
       await startServerWithSchema({
         name: 'test-app',
@@ -78,7 +78,7 @@ test.describe('List organization invitations', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-INVITATIONS-002: should return 200 OK with filtered pending invitations',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner and multiple invitations
       await startServerWithSchema({
         name: 'test-app',
@@ -123,7 +123,7 @@ test.describe('List organization invitations', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-INVITATIONS-003: should return 400 Bad Request without organizationId',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -229,7 +229,7 @@ test.describe('List organization invitations', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-INVITATIONS-006: should return 404 Not Found for non-existent organization',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -316,7 +316,7 @@ test.describe('List organization invitations', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-INVITATIONS-008: should return 200 OK with empty invitations array',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner with no invitations
       await startServerWithSchema({
         name: 'test-app',
@@ -358,7 +358,7 @@ test.describe('List organization invitations', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-INVITATIONS-009: user can complete full listInvitations workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',

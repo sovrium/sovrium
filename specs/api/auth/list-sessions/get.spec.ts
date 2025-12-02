@@ -32,7 +32,7 @@ test.describe('List user sessions', () => {
   test(
     'API-AUTH-LIST-SESSIONS-001: should return 200 OK with active sessions',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user (created via API)
       await startServerWithSchema({
         name: 'test-app',
@@ -63,7 +63,7 @@ test.describe('List user sessions', () => {
   test(
     'API-AUTH-LIST-SESSIONS-002: should return sessions for authenticated user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user (created via API)
       await startServerWithSchema({
         name: 'test-app',
@@ -115,7 +115,7 @@ test.describe('List user sessions', () => {
   test(
     'API-AUTH-LIST-SESSIONS-004: should show session with metadata',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user (created via API)
       await startServerWithSchema({
         name: 'test-app',
@@ -191,7 +191,7 @@ test.describe('List user sessions', () => {
   test(
     'API-AUTH-LIST-SESSIONS-006: should return empty after sign-out',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user who signs out (created via API)
       await startServerWithSchema({
         name: 'test-app',
@@ -225,7 +225,7 @@ test.describe('List user sessions', () => {
   test(
     'API-AUTH-LIST-SESSIONS-007: should show session creation time',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user (created via API)
       await startServerWithSchema({
         name: 'test-app',
@@ -263,7 +263,7 @@ test.describe('List user sessions', () => {
   test(
     'API-AUTH-LIST-SESSIONS-008: user can complete full list-sessions workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',

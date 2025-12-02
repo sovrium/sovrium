@@ -94,7 +94,7 @@ test.describe('Revoke all other sessions', () => {
   test(
     'API-AUTH-REVOKE-OTHER-SESSIONS-003: should return 200 OK with no sessions to revoke',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user with only current session
       await startServerWithSchema({
         name: 'test-app',
@@ -131,7 +131,7 @@ test.describe('Revoke all other sessions', () => {
   test(
     'API-AUTH-REVOKE-OTHER-SESSIONS-004: should return 200 OK and revoke all sessions except current device',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user with sessions across multiple devices
       await startServerWithSchema({
         name: 'test-app',
@@ -225,7 +225,7 @@ test.describe('Revoke all other sessions', () => {
   test(
     'API-AUTH-REVOKE-OTHER-SESSIONS-006: user can complete full revoke-other-sessions workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',

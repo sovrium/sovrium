@@ -32,7 +32,7 @@ test.describe('Set active organization', () => {
   test.fixme(
     'API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-001: should return 200 OK and update session',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user who is member of multiple organizations
       await startServerWithSchema({
         name: 'test-app',
@@ -78,7 +78,7 @@ test.describe('Set active organization', () => {
   test.fixme(
     'API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-002: should return 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -135,7 +135,7 @@ test.describe('Set active organization', () => {
   test.fixme(
     'API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-004: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -226,7 +226,7 @@ test.describe('Set active organization', () => {
   test.fixme(
     'API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-006: user can complete full setActiveOrganization workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',

@@ -89,7 +89,7 @@ test.describe('Add member to organization', () => {
   test.fixme(
     'API-AUTH-ORG-ADD-MEMBER-002: should return 400 Bad Request with validation errors',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -222,7 +222,7 @@ test.describe('Add member to organization', () => {
   test.fixme(
     'API-AUTH-ORG-ADD-MEMBER-005: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',

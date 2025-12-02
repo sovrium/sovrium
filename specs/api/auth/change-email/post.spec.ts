@@ -88,7 +88,7 @@ test.describe('Change email address', () => {
   test.fixme(
     'API-AUTH-CHANGE-EMAIL-002: should return 400 Bad Request without newEmail',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -119,7 +119,7 @@ test.describe('Change email address', () => {
   test.fixme(
     'API-AUTH-CHANGE-EMAIL-003: should return 400 Bad Request with invalid email format',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -221,7 +221,7 @@ test.describe('Change email address', () => {
   test.fixme(
     'API-AUTH-CHANGE-EMAIL-006: should handle same email attempt',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',

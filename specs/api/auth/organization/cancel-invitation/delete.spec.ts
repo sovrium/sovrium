@@ -34,7 +34,7 @@ test.describe('Cancel organization invitation', () => {
   test.fixme(
     'API-AUTH-ORG-CANCEL-INVITATION-001: should return 200 OK and mark invitation as cancelled',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner and a pending invitation
       await startServerWithSchema({
         name: 'test-app',
@@ -83,7 +83,7 @@ test.describe('Cancel organization invitation', () => {
   test.fixme(
     'API-AUTH-ORG-CANCEL-INVITATION-002: should return 400 Bad Request without invitationId',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -215,7 +215,7 @@ test.describe('Cancel organization invitation', () => {
   test.fixme(
     'API-AUTH-ORG-CANCEL-INVITATION-005: should return 404 Not Found for non-existent invitation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -329,7 +329,7 @@ test.describe('Cancel organization invitation', () => {
   test.fixme(
     'API-AUTH-ORG-CANCEL-INVITATION-007: should return 409 Conflict for already cancelled invitation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner and an already cancelled invitation
       await startServerWithSchema({
         name: 'test-app',
@@ -451,7 +451,7 @@ test.describe('Cancel organization invitation', () => {
   test.fixme(
     'API-AUTH-ORG-CANCEL-INVITATION-009: user can complete full cancelInvitation workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',

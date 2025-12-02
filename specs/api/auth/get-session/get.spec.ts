@@ -32,7 +32,7 @@ test.describe('Get current session', () => {
   test(
     'API-AUTH-GET-SESSION-001: should return 200 OK with session and user data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user with active session (created via API)
       await startServerWithSchema({
         name: 'test-app',
@@ -121,7 +121,7 @@ test.describe('Get current session', () => {
   test(
     'API-AUTH-GET-SESSION-004: should return null session after sign-out',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user who signs out (created via API)
       await startServerWithSchema({
         name: 'test-app',
@@ -153,7 +153,7 @@ test.describe('Get current session', () => {
   test(
     'API-AUTH-GET-SESSION-005: should return session with metadata',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user (created via API)
       await startServerWithSchema({
         name: 'test-app',
@@ -190,7 +190,7 @@ test.describe('Get current session', () => {
   test(
     'API-AUTH-GET-SESSION-006: user can complete full get-session workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',

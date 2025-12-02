@@ -100,7 +100,7 @@ test.describe('Reject organization invitation', () => {
   test.fixme(
     'API-AUTH-ORG-REJECT-INVITATION-002: should return 400 Bad Request without invitationId',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -157,7 +157,7 @@ test.describe('Reject organization invitation', () => {
   test.fixme(
     'API-AUTH-ORG-REJECT-INVITATION-004: should return 404 Not Found for non-existent invitation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -191,7 +191,7 @@ test.describe('Reject organization invitation', () => {
   test.fixme(
     'API-AUTH-ORG-REJECT-INVITATION-005: should return 410 Gone for expired invitation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user and an expired invitation
       await startServerWithSchema({
         name: 'test-app',
@@ -225,7 +225,7 @@ test.describe('Reject organization invitation', () => {
   test.fixme(
     'API-AUTH-ORG-REJECT-INVITATION-006: should return 404 Not Found for different user (prevent enumeration)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user and an invitation for different email
       await startServerWithSchema({
         name: 'test-app',

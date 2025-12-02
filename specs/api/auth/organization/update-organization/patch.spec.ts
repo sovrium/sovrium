@@ -32,7 +32,7 @@ test.describe('Update organization', () => {
   test.fixme(
     'API-AUTH-ORG-UPDATE-ORGANIZATION-001: should return 200 OK with updated organization data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -77,7 +77,7 @@ test.describe('Update organization', () => {
   test.fixme(
     'API-AUTH-ORG-UPDATE-ORGANIZATION-002: should return 200 OK with name updated, slug unchanged',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -119,7 +119,7 @@ test.describe('Update organization', () => {
   test.fixme(
     'API-AUTH-ORG-UPDATE-ORGANIZATION-003: should return 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -242,7 +242,7 @@ test.describe('Update organization', () => {
   test.fixme(
     'API-AUTH-ORG-UPDATE-ORGANIZATION-006: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -277,7 +277,7 @@ test.describe('Update organization', () => {
   test.fixme(
     'API-AUTH-ORG-UPDATE-ORGANIZATION-007: should return 409 Conflict error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner and another existing organization
       await startServerWithSchema({
         name: 'test-app',
@@ -327,7 +327,7 @@ test.describe('Update organization', () => {
   test.fixme(
     'API-AUTH-ORG-UPDATE-ORGANIZATION-008: user can complete full updateOrganization workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',

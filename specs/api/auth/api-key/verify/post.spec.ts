@@ -27,7 +27,7 @@ test.describe('Verify API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-VERIFY-001: should verify valid API key',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Application with API keys enabled and user with valid API key
       await startServerWithSchema({
         name: 'test-app',
@@ -109,7 +109,7 @@ test.describe('Verify API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-VERIFY-003: should reject expired API key',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Application with expired API key
       await startServerWithSchema({
         name: 'test-app',
@@ -160,7 +160,7 @@ test.describe('Verify API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-VERIFY-004: should verify API key with permissions check (when permissions match)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: API key with specific permissions
       await startServerWithSchema({
         name: 'test-app',
@@ -210,7 +210,7 @@ test.describe('Verify API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-VERIFY-005: should reject API key with insufficient permissions',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: API key with limited permissions
       await startServerWithSchema({
         name: 'test-app',
@@ -260,7 +260,7 @@ test.describe('Verify API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-VERIFY-006: should reject disabled API key',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: API key that has been disabled
       await startServerWithSchema({
         name: 'test-app',
@@ -318,7 +318,7 @@ test.describe('Verify API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-VERIFY-007: system can complete full API key verification workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Application with API keys enabled
       await startServerWithSchema({
         name: 'test-app',

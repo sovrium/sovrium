@@ -83,7 +83,7 @@ test.describe('Admin: List user sessions', () => {
   test.fixme(
     'API-AUTH-ADMIN-LIST-USER-SESSIONS-002: should return 400 Bad Request without userId parameter',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -130,7 +130,7 @@ test.describe('Admin: List user sessions', () => {
   test.fixme(
     'API-AUTH-ADMIN-LIST-USER-SESSIONS-004: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -162,7 +162,7 @@ test.describe('Admin: List user sessions', () => {
   test.fixme(
     'API-AUTH-ADMIN-LIST-USER-SESSIONS-005: should return 404 Not Found for non-existent user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -217,7 +217,7 @@ test.describe('Admin: List user sessions', () => {
   test.fixme(
     'API-AUTH-ADMIN-LIST-USER-SESSIONS-007: should return 200 OK with only active sessions',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user and a user with active sessions
       await startServerWithSchema({
         name: 'test-app',

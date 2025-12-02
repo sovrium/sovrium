@@ -102,7 +102,7 @@ test.describe('Remove member from organization', () => {
   test.fixme(
     'API-AUTH-ORG-REMOVE-MEMBER-002: should return 400 Bad Request with validation errors',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -231,7 +231,7 @@ test.describe('Remove member from organization', () => {
   test.fixme(
     'API-AUTH-ORG-REMOVE-MEMBER-005: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -271,7 +271,7 @@ test.describe('Remove member from organization', () => {
   test.fixme(
     'API-AUTH-ORG-REMOVE-MEMBER-006: should return 403 Forbidden to prevent ownerless organization',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner who is the only owner
       await startServerWithSchema({
         name: 'test-app',

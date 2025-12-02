@@ -27,7 +27,7 @@ test.describe('List API Keys', () => {
   test.fixme(
     'API-AUTH-API-KEYS-LIST-001: should return list of user API keys',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user with existing API keys
       await startServerWithSchema({
         name: 'test-app',
@@ -79,7 +79,7 @@ test.describe('List API Keys', () => {
   test.fixme(
     'API-AUTH-API-KEYS-LIST-002: should return empty array when user has no API keys',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user with no API keys
       await startServerWithSchema({
         name: 'test-app',
@@ -138,7 +138,7 @@ test.describe('List API Keys', () => {
   test.fixme(
     'API-AUTH-API-KEYS-LIST-004: should only return API keys belonging to authenticated user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Two users with their own API keys
       await startServerWithSchema({
         name: 'test-app',
@@ -196,7 +196,7 @@ test.describe('List API Keys', () => {
   test.fixme(
     'API-AUTH-API-KEYS-LIST-005: user can complete full API key list workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Application with API keys enabled
       await startServerWithSchema({
         name: 'test-app',

@@ -27,7 +27,7 @@ test.describe('Update API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-UPDATE-001: should update API key name',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user with existing API key
       await startServerWithSchema({
         name: 'test-app',
@@ -75,7 +75,7 @@ test.describe('Update API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-UPDATE-002: should enable/disable API key',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user with enabled API key
       await startServerWithSchema({
         name: 'test-app',
@@ -121,7 +121,7 @@ test.describe('Update API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-UPDATE-003: should update API key metadata',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user with API key
       await startServerWithSchema({
         name: 'test-app',
@@ -176,7 +176,7 @@ test.describe('Update API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-UPDATE-004: should update remaining request quota',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user with API key
       await startServerWithSchema({
         name: 'test-app',
@@ -222,7 +222,7 @@ test.describe('Update API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-UPDATE-005: should update refill settings',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user with API key
       await startServerWithSchema({
         name: 'test-app',
@@ -301,7 +301,7 @@ test.describe('Update API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-UPDATE-007: should return error for non-existent API key',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -338,7 +338,7 @@ test.describe('Update API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-UPDATE-008: should prevent updating another user API key (user isolation)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Two users with their own API keys
       await startServerWithSchema({
         name: 'test-app',
@@ -388,7 +388,7 @@ test.describe('Update API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-UPDATE-009: should require keyId parameter',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -428,7 +428,7 @@ test.describe('Update API Key', () => {
   test.fixme(
     'API-AUTH-API-KEYS-UPDATE-010: user can complete full API key update workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Application with API keys enabled
       await startServerWithSchema({
         name: 'test-app',

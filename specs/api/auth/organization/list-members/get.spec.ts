@@ -94,7 +94,7 @@ test.describe('List organization members', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-MEMBERS-002: should return 400 Bad Request without organizationId',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -147,7 +147,7 @@ test.describe('List organization members', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-MEMBERS-004: should return 404 Not Found for non-existent organization',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -179,7 +179,7 @@ test.describe('List organization members', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-MEMBERS-005: should return 404 Not Found for non-member (prevent enumeration)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user who is not member of an organization
       await startServerWithSchema({
         name: 'test-app',
@@ -287,7 +287,7 @@ test.describe('List organization members', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-MEMBERS-007: user can complete full listMembers workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',

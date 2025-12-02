@@ -30,9 +30,34 @@ const substituteVariables = (
 }
 
 /**
- * Create password reset email handler with optional custom templates
+ * Email handler configuration for the factory
  */
-const createPasswordResetEmailHandler = (customTemplate?: AuthEmailTemplate) => {
+type EmailHandlerConfig = Readonly<{
+  /** Email type for logging (e.g., 'password reset', 'verification') */
+  emailType: string
+  /** Function to build the action URL from base URL and token */
+  buildUrl: (url: string, token: string) => string
+  /** Function to generate the default template when no custom template is provided */
+  getDefaultTemplate: (params: Readonly<{ userName?: string; actionUrl: string }>) => Readonly<{
+    subject: string
+    html: string
+    text: string
+  }>
+}>
+
+/**
+ * Generic email handler factory - eliminates duplication between email types
+ *
+ * Creates a Better Auth email callback that:
+ * 1. Builds the action URL using the provided strategy
+ * 2. Sends custom template if provided (with variable substitution)
+ * 3. Falls back to default template otherwise
+ * 4. Handles errors silently to prevent user enumeration
+ */
+const createEmailHandler = (
+  config: EmailHandlerConfig,
+  customTemplate?: AuthEmailTemplate
+) => {
   return async ({
     user,
     url,
@@ -42,35 +67,24 @@ const createPasswordResetEmailHandler = (customTemplate?: AuthEmailTemplate) => 
     url: string
     token: string
   }>) => {
-    const resetUrl = `${url}?token=${token}`
-    const context = { name: user.name, url: resetUrl, email: user.email }
+    const actionUrl = config.buildUrl(url, token)
+    const context = { name: user.name, url: actionUrl, email: user.email }
 
-    // Send email (uses Mailpit in development, real SMTP in production)
     try {
-      // If custom template provided, use it entirely (don't mix with defaults)
-      // This ensures consistent behavior - either all custom or all default
+      // Custom template takes precedence - use it entirely (don't mix with defaults)
       if (customTemplate?.subject) {
-        const subject = substituteVariables(customTemplate.subject, context)
-        const text = customTemplate.text
-          ? substituteVariables(customTemplate.text, context)
-          : undefined
-        const html = customTemplate.html
-          ? substituteVariables(customTemplate.html, context)
-          : undefined
-
         // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
         await sendEmail({
           to: user.email,
-          subject,
-          html,
-          text,
+          subject: substituteVariables(customTemplate.subject, context),
+          html: customTemplate.html ? substituteVariables(customTemplate.html, context) : undefined,
+          text: customTemplate.text ? substituteVariables(customTemplate.text, context) : undefined,
         })
       } else {
         // Use default template
-        const defaultTemplate = passwordResetEmail({
+        const defaultTemplate = config.getDefaultTemplate({
           userName: user.name,
-          resetUrl,
-          expiresIn: '1 hour',
+          actionUrl,
         })
 
         // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
@@ -82,71 +96,40 @@ const createPasswordResetEmailHandler = (customTemplate?: AuthEmailTemplate) => 
         })
       }
     } catch (error) {
-      console.error(`[EMAIL] Failed to send password reset email to ${user.email}:`, error)
-      // Don't throw - let the user know the email was "sent" to prevent user enumeration
+      // Don't throw - silent failure prevents user enumeration attacks
+      console.error(`[EMAIL] Failed to send ${config.emailType} email to ${user.email}:`, error)
     }
   }
 }
 
 /**
+ * Create password reset email handler with optional custom templates
+ */
+const createPasswordResetEmailHandler = (customTemplate?: AuthEmailTemplate) =>
+  createEmailHandler(
+    {
+      emailType: 'password reset',
+      buildUrl: (url, token) => `${url}?token=${token}`,
+      getDefaultTemplate: ({ userName, actionUrl }) =>
+        passwordResetEmail({ userName, resetUrl: actionUrl, expiresIn: '1 hour' }),
+    },
+    customTemplate
+  )
+
+/**
  * Create email verification handler with optional custom templates
  */
-const createVerificationEmailHandler = (customTemplate?: AuthEmailTemplate) => {
-  return async ({
-    user,
-    url,
-    token,
-  }: Readonly<{
-    user: Readonly<{ email: string; name?: string }>
-    url: string
-    token: string
-  }>) => {
-    // URL already contains token parameter in Better Auth
-    const verifyUrl = url.includes('token=') ? url : `${url}?token=${token}`
-    const context = { name: user.name, url: verifyUrl, email: user.email }
-
-    // Send email (uses Mailpit in development, real SMTP in production)
-    try {
-      // If custom template provided, use it entirely (don't mix with defaults)
-      // This ensures consistent behavior - either all custom or all default
-      if (customTemplate?.subject) {
-        const subject = substituteVariables(customTemplate.subject, context)
-        const text = customTemplate.text
-          ? substituteVariables(customTemplate.text, context)
-          : undefined
-        const html = customTemplate.html
-          ? substituteVariables(customTemplate.html, context)
-          : undefined
-
-        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
-        await sendEmail({
-          to: user.email,
-          subject,
-          html,
-          text,
-        })
-      } else {
-        // Use default template
-        const defaultTemplate = emailVerificationEmail({
-          userName: user.name,
-          verifyUrl,
-          expiresIn: '24 hours',
-        })
-
-        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
-        await sendEmail({
-          to: user.email,
-          subject: defaultTemplate.subject,
-          html: defaultTemplate.html,
-          text: defaultTemplate.text,
-        })
-      }
-    } catch (error) {
-      console.error(`[EMAIL] Failed to send verification email to ${user.email}:`, error)
-      // Don't throw - let the user know the email was "sent" to prevent user enumeration
-    }
-  }
-}
+const createVerificationEmailHandler = (customTemplate?: AuthEmailTemplate) =>
+  createEmailHandler(
+    {
+      emailType: 'verification',
+      // Better Auth sometimes includes token in URL already
+      buildUrl: (url, token) => (url.includes('token=') ? url : `${url}?token=${token}`),
+      getDefaultTemplate: ({ userName, actionUrl }) =>
+        emailVerificationEmail({ userName, verifyUrl: actionUrl, expiresIn: '24 hours' }),
+    },
+    customTemplate
+  )
 
 /**
  * Create Better Auth instance with dynamic configuration

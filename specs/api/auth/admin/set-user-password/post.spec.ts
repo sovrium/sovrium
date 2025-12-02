@@ -37,7 +37,7 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-AUTH-ADMIN-SET-USER-PASSWORD-001: should return 200 OK and update password',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
@@ -127,7 +127,7 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-AUTH-ADMIN-SET-USER-PASSWORD-003: should return 400 Bad Request without required fields',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -155,7 +155,7 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-AUTH-ADMIN-SET-USER-PASSWORD-004: should return 400 Bad Request with short password',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -217,7 +217,7 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-AUTH-ADMIN-SET-USER-PASSWORD-006: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -254,7 +254,7 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-AUTH-ADMIN-SET-USER-PASSWORD-007: should return 404 Not Found for non-existent user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',

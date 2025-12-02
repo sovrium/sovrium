@@ -32,7 +32,7 @@ test.describe('Sign out user', () => {
   test(
     'API-AUTH-SIGN-OUT-001: should invalidate session token',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user with valid session (created via API)
       await startServerWithSchema({
         name: 'test-app',
@@ -83,7 +83,7 @@ test.describe('Sign out user', () => {
   test(
     'API-AUTH-SIGN-OUT-003: should invalidate session and prevent further authenticated requests',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user (created via API)
       await startServerWithSchema({
         name: 'test-app',
@@ -120,7 +120,7 @@ test.describe('Sign out user', () => {
   test(
     'API-AUTH-SIGN-OUT-004: should allow re-login after sign-out',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user who signs out (created via API)
       await startServerWithSchema({
         name: 'test-app',
@@ -156,7 +156,7 @@ test.describe('Sign out user', () => {
   test(
     'API-AUTH-SIGN-OUT-005: should handle multiple sign-out calls gracefully',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user (created via API)
       await startServerWithSchema({
         name: 'test-app',
@@ -189,7 +189,7 @@ test.describe('Sign out user', () => {
   test(
     'API-AUTH-SIGN-OUT-006: user can complete full sign-out workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',

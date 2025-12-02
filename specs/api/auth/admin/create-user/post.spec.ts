@@ -37,7 +37,7 @@ test.describe('Admin: Create user', () => {
   test.fixme(
     'API-AUTH-ADMIN-CREATE-USER-001: should return 201 Created with user data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -77,7 +77,7 @@ test.describe('Admin: Create user', () => {
   test.fixme(
     'API-AUTH-ADMIN-CREATE-USER-002: should return 201 Created with email pre-verified',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -111,7 +111,7 @@ test.describe('Admin: Create user', () => {
   test.fixme(
     'API-AUTH-ADMIN-CREATE-USER-003: should return 400 Bad Request without required fields',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -139,7 +139,7 @@ test.describe('Admin: Create user', () => {
   test.fixme(
     'API-AUTH-ADMIN-CREATE-USER-004: should return 400 Bad Request with invalid email format',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -171,7 +171,7 @@ test.describe('Admin: Create user', () => {
   test.fixme(
     'API-AUTH-ADMIN-CREATE-USER-005: should return 400 Bad Request with short password',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -230,7 +230,7 @@ test.describe('Admin: Create user', () => {
   test.fixme(
     'API-AUTH-ADMIN-CREATE-USER-007: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
@@ -263,7 +263,7 @@ test.describe('Admin: Create user', () => {
   test.fixme(
     'API-AUTH-ADMIN-CREATE-USER-008: should return 409 Conflict for duplicate email',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
@@ -297,7 +297,7 @@ test.describe('Admin: Create user', () => {
   test.fixme(
     'API-AUTH-ADMIN-CREATE-USER-009: should return 201 Created with XSS payload sanitized',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
@@ -331,7 +331,7 @@ test.describe('Admin: Create user', () => {
   test.fixme(
     'API-AUTH-ADMIN-CREATE-USER-010: should return 201 Created with Unicode name preserved',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',

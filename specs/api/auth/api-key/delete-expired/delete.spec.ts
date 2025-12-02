@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable drizzle/enforce-delete-with-where -- False positive: page.request.delete() is HTTP DELETE, not Drizzle */
+
 import { test, expect } from '@/specs/fixtures'
 
 /**
@@ -27,7 +29,7 @@ test.describe('Delete Expired API Keys', () => {
   test.fixme(
     'API-AUTH-API-KEYS-DELETE-EXPIRED-001: should delete expired API keys',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user with expired API keys
       await startServerWithSchema({
         name: 'test-app',
@@ -86,7 +88,7 @@ test.describe('Delete Expired API Keys', () => {
   test.fixme(
     'API-AUTH-API-KEYS-DELETE-EXPIRED-002: should not delete non-expired keys',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user with only valid API keys
       await startServerWithSchema({
         name: 'test-app',
@@ -135,7 +137,7 @@ test.describe('Delete Expired API Keys', () => {
   test.fixme(
     'API-AUTH-API-KEYS-DELETE-EXPIRED-003: should delete keys with no expiration set',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Authenticated user with keys without expiration
       await startServerWithSchema({
         name: 'test-app',
@@ -218,7 +220,7 @@ test.describe('Delete Expired API Keys', () => {
   test.fixme(
     'API-AUTH-API-KEYS-DELETE-EXPIRED-005: system can complete full expired keys cleanup workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Application with mix of expired and valid API keys
       await startServerWithSchema({
         name: 'test-app',

@@ -94,7 +94,7 @@ test.describe('Invite member to organization', () => {
   test.fixme(
     'API-AUTH-ORG-INVITE-MEMBER-002: should return 400 Bad Request without required fields',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -130,7 +130,7 @@ test.describe('Invite member to organization', () => {
   test.fixme(
     'API-AUTH-ORG-INVITE-MEMBER-003: should return 400 Bad Request with invalid email format',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
@@ -260,7 +260,7 @@ test.describe('Invite member to organization', () => {
   test.fixme(
     'API-AUTH-ORG-INVITE-MEMBER-006: should return 404 Not Found for non-existent organization',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -358,7 +358,7 @@ test.describe('Invite member to organization', () => {
   test.fixme(
     'API-AUTH-ORG-INVITE-MEMBER-008: should return 409 Conflict for pending invitation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner and an existing pending invitation
       await startServerWithSchema({
         name: 'test-app',
@@ -473,7 +473,7 @@ test.describe('Invite member to organization', () => {
   test.fixme(
     'API-AUTH-ORG-INVITE-MEMBER-010: user can complete full inviteMember workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',

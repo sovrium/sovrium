@@ -34,7 +34,7 @@ test.describe('Update user profile', () => {
   test(
     'API-AUTH-UPDATE-USER-001: should return 200 OK with updated user data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user with valid profile data
       await startServerWithSchema({
         name: 'test-app',
@@ -75,7 +75,7 @@ test.describe('Update user profile', () => {
   test(
     'API-AUTH-UPDATE-USER-002: should return 200 OK with updated name only',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -141,7 +141,7 @@ test.describe('Update user profile', () => {
   test(
     'API-AUTH-UPDATE-USER-004: should accept name with special characters',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -176,7 +176,7 @@ test.describe('Update user profile', () => {
   test(
     'API-AUTH-UPDATE-USER-005: should preserve Unicode characters in name',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -211,7 +211,7 @@ test.describe('Update user profile', () => {
   test(
     'API-AUTH-UPDATE-USER-006: should allow removing profile image',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user with profile image
       await startServerWithSchema({
         name: 'test-app',
@@ -250,7 +250,7 @@ test.describe('Update user profile', () => {
   test(
     'API-AUTH-UPDATE-USER-007: user can complete full update-user workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',

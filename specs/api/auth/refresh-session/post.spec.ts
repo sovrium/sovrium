@@ -37,7 +37,7 @@ test.describe('Refresh session token', () => {
   test.fixme(
     'API-AUTH-REFRESH-SESSION-001: should return 200 OK with refreshed session',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user with valid session (created via API)
       await startServerWithSchema({
         name: 'test-app',
@@ -124,7 +124,7 @@ test.describe('Refresh session token', () => {
   test.fixme(
     'API-AUTH-REFRESH-SESSION-004: should return 401 Unauthorized after sign-out',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user who signs out (created via API)
       await startServerWithSchema({
         name: 'test-app',
@@ -152,7 +152,7 @@ test.describe('Refresh session token', () => {
   test.fixme(
     'API-AUTH-REFRESH-SESSION-005: should maintain user data after refresh',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user (created via API)
       await startServerWithSchema({
         name: 'test-app',
@@ -187,7 +187,7 @@ test.describe('Refresh session token', () => {
   test.fixme(
     'API-AUTH-REFRESH-SESSION-006: user can complete full refresh-session workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',

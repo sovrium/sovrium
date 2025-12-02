@@ -32,7 +32,7 @@ test.describe('Change password', () => {
   test(
     'API-AUTH-CHANGE-PASSWORD-001: should return 200 OK and password is updated',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user with valid current password
       await startServerWithSchema({
         name: 'test-app',
@@ -78,7 +78,7 @@ test.describe('Change password', () => {
   test(
     'API-AUTH-CHANGE-PASSWORD-002: should return 200 OK with new token and revoke other sessions',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user with multiple active sessions
       await startServerWithSchema({
         name: 'test-app',
@@ -125,7 +125,7 @@ test.describe('Change password', () => {
   test(
     'API-AUTH-CHANGE-PASSWORD-003: should return 400 Bad Request without newPassword',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -158,7 +158,7 @@ test.describe('Change password', () => {
   test(
     'API-AUTH-CHANGE-PASSWORD-004: should return 400 Bad Request without currentPassword',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -191,7 +191,7 @@ test.describe('Change password', () => {
   test(
     'API-AUTH-CHANGE-PASSWORD-005: should return 400 Bad Request with short password',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -250,7 +250,7 @@ test.describe('Change password', () => {
   test(
     'API-AUTH-CHANGE-PASSWORD-007: should return 401 Unauthorized with wrong current password',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -284,7 +284,7 @@ test.describe('Change password', () => {
   test(
     'API-AUTH-CHANGE-PASSWORD-008: should handle same password attempt',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -320,7 +320,7 @@ test.describe('Change password', () => {
   test(
     'API-AUTH-CHANGE-PASSWORD-009: user can complete full change-password workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
