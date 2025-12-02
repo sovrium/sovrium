@@ -222,55 +222,56 @@ test.describe('Required Field Property', () => {
     'APP-TABLES-FIELD-REQUIRED-005: user can complete full required-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative required fields
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 4,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'required_field',
-                type: 'single-line-text',
-                required: true,
-              },
-              {
-                id: 3,
-                name: 'optional_field',
-                type: 'single-line-text',
-                required: false,
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with required and optional fields', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'required_field',
+                  type: 'single-line-text',
+                  required: true,
+                },
+                {
+                  id: 3,
+                  name: 'optional_field',
+                  type: 'single-line-text',
+                  required: false,
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      const constraints = await executeQuery(
-        "SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name IN ('required_field', 'optional_field') ORDER BY column_name"
-      )
-      // THEN: assertion
-      expect(constraints.rows).toEqual([
-        { column_name: 'optional_field', is_nullable: 'YES' },
-        { column_name: 'required_field', is_nullable: 'NO' },
-      ])
+      await test.step('Verify nullable constraints', async () => {
+        const constraints = await executeQuery(
+          "SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name IN ('required_field', 'optional_field') ORDER BY column_name"
+        )
+        expect(constraints.rows).toEqual([
+          { column_name: 'optional_field', is_nullable: 'YES' },
+          { column_name: 'required_field', is_nullable: 'NO' },
+        ])
+      })
 
-      // Required field must have value
-      // THEN: assertion
-      await expect(
-        executeQuery("INSERT INTO data (optional_field) VALUES ('test')")
-      ).rejects.toThrow(/null value in column "required_field".*violates not-null constraint/)
+      await test.step('Test required field enforcement', async () => {
+        await expect(
+          executeQuery("INSERT INTO data (optional_field) VALUES ('test')")
+        ).rejects.toThrow(/null value in column "required_field".*violates not-null constraint/)
+      })
 
-      // Optional field can be NULL
-      const validInsert = await executeQuery(
-        "INSERT INTO data (required_field, optional_field) VALUES ('value', NULL) RETURNING id"
-      )
-      // THEN: assertion
-      expect(typeof validInsert.id).toBe('number')
+      await test.step('Test optional field allows NULL', async () => {
+        const validInsert = await executeQuery(
+          "INSERT INTO data (required_field, optional_field) VALUES ('value', NULL) RETURNING id"
+        )
+        expect(typeof validInsert.id).toBe('number')
+      })
     }
   )
 })
