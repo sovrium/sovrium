@@ -352,75 +352,72 @@ test.describe('Entrance Animation', () => {
     'APP-PAGES-INTERACTION-ENTRANCE-009: user can complete full entrance animation workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with comprehensive entrance animations
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Test' },
-            sections: [
-              {
-                type: 'div',
-                props: {},
-                interactions: { entrance: { animation: 'fadeIn', duration: '600ms' } },
-                children: ['Hero'],
-              },
-              {
-                type: 'div',
-                props: {},
-                children: [
-                  {
-                    type: 'div',
-                    props: {},
-                    interactions: {
-                      entrance: { animation: 'fadeInUp', delay: '100ms', stagger: '100ms' },
+      await test.step('Setup: Start server with entrance animations', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'div',
+                  props: {},
+                  interactions: { entrance: { animation: 'fadeIn', duration: '600ms' } },
+                  children: ['Hero'],
+                },
+                {
+                  type: 'div',
+                  props: {},
+                  children: [
+                    {
+                      type: 'div',
+                      props: {},
+                      interactions: {
+                        entrance: { animation: 'fadeInUp', delay: '100ms', stagger: '100ms' },
+                      },
+                      children: ['Feature 1'],
                     },
-                    children: ['Feature 1'],
-                  },
-                  {
-                    type: 'div',
-                    props: {},
-                    interactions: {
-                      entrance: { animation: 'fadeInUp', delay: '100ms', stagger: '100ms' },
+                    {
+                      type: 'div',
+                      props: {},
+                      interactions: {
+                        entrance: { animation: 'fadeInUp', delay: '100ms', stagger: '100ms' },
+                      },
+                      children: ['Feature 2'],
                     },
-                    children: ['Feature 2'],
-                  },
-                  {
-                    type: 'div',
-                    props: {},
-                    interactions: {
-                      entrance: { animation: 'fadeInUp', delay: '100ms', stagger: '100ms' },
+                    {
+                      type: 'div',
+                      props: {},
+                      interactions: {
+                        entrance: { animation: 'fadeInUp', delay: '100ms', stagger: '100ms' },
+                      },
+                      children: ['Feature 3'],
                     },
-                    children: ['Feature 3'],
-                  },
-                ],
-              },
-            ],
-          },
-        ],
+                  ],
+                },
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
+      await test.step('Navigate to page and verify hero animation', async () => {
+        await page.goto('/')
+        const hero = page.locator('div').filter({ hasText: 'Hero' }).first()
+        await expect(hero).toHaveClass(/animate-fadeIn/)
+      })
 
-      // Verify hero animation
-      const hero = page.locator('div').filter({ hasText: 'Hero' }).first()
-      // THEN: assertion
-      await expect(hero).toHaveClass(/animate-fadeIn/)
-
-      // Verify staggered list animations
-      const featuresContainer = page
-        .locator('div')
-        .filter({ hasText: 'Feature 1Feature 2Feature 3' })
-      const features = featuresContainer.locator('> div')
-      // Note: Browsers may normalize 100ms to 0.1s and 200ms to 0.2s, both are equivalent
-      // THEN: assertion
-      await expect(features.nth(0)).toHaveCSS('animation-delay', '0.1s')
-      await expect(features.nth(1)).toHaveCSS('animation-delay', '0.2s')
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify staggered list animations', async () => {
+        const featuresContainer = page
+          .locator('div')
+          .filter({ hasText: 'Feature 1Feature 2Feature 3' })
+        const features = featuresContainer.locator('> div')
+        // Note: Browsers may normalize 100ms to 0.1s and 200ms to 0.2s, both are equivalent
+        await expect(features.nth(0)).toHaveCSS('animation-delay', '0.1s')
+        await expect(features.nth(1)).toHaveCSS('animation-delay', '0.2s')
+      })
     }
   )
 })

@@ -338,59 +338,55 @@ test.describe('Component Interactions', () => {
     'APP-PAGES-INTERACTION-MAIN-009: user can complete full interactions workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with comprehensive interaction system
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Test' },
-            sections: [
-              {
-                type: 'button',
-                props: {},
-                interactions: {
-                  hover: { transform: 'scale(1.05)' },
-                  click: { navigate: '/about' },
+      await test.step('Setup: Start server with interaction system', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: {
+                    hover: { transform: 'scale(1.05)' },
+                    click: { navigate: '/about' },
+                  },
+                  children: ['Navigate'],
                 },
-                children: ['Navigate'],
-              },
-              {
-                type: 'div',
-                props: {},
-                interactions: { entrance: { animation: 'fadeIn' } },
-                children: ['Entrance'],
-              },
-            ],
-          },
-          {
-            name: 'About',
-            path: '/about',
-            meta: { lang: 'en-US', title: 'About' },
-            sections: [],
-          },
-        ],
+                {
+                  type: 'div',
+                  props: {},
+                  interactions: { entrance: { animation: 'fadeIn' } },
+                  children: ['Entrance'],
+                },
+              ],
+            },
+            {
+              name: 'About',
+              path: '/about',
+              meta: { lang: 'en-US', title: 'About' },
+              sections: [],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
+      await test.step('Navigate to page and verify entrance animation', async () => {
+        await page.goto('/')
+        await expect(page.locator('div')).toHaveClass(/animate-fadeIn/)
+      })
 
-      // Verify entrance animation
-      // THEN: assertion
-      await expect(page.locator('div')).toHaveClass(/animate-fadeIn/)
-
-      // Verify hover and click
-      const button = page.locator('button')
-      await button.hover()
-      // Note: Browsers convert scale(1.05) to matrix(1.05, 0, 0, 1.05, 0, 0)
-      // THEN: assertion
-      await expect(button).toHaveCSS('transform', /matrix\(1\.05, 0, 0, 1\.05, 0, 0\)/)
-      await button.click()
-      // THEN: assertion
-      await expect(page).toHaveURL('/about')
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify hover and click interactions', async () => {
+        const button = page.locator('button')
+        await button.hover()
+        // Note: Browsers convert scale(1.05) to matrix(1.05, 0, 0, 1.05, 0, 0)
+        await expect(button).toHaveCSS('transform', /matrix\(1\.05, 0, 0, 1\.05, 0, 0\)/)
+        await button.click()
+        await expect(page).toHaveURL('/about')
+      })
     }
   )
 })

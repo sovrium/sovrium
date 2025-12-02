@@ -487,60 +487,57 @@ test.describe('Click Interaction', () => {
     'APP-PAGES-INTERACTION-CLICK-013: user can complete full click interaction workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with comprehensive click interactions
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Home',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Home' },
-            sections: [
-              {
-                type: 'button',
-                props: {},
-                interactions: { click: { animation: 'pulse', navigate: '/contact' } },
-                children: ['Contact'],
-              },
-              {
-                type: 'button',
-                props: {},
-                interactions: { click: { scrollTo: '#footer' } },
-                children: ['Scroll Down'],
-              },
-              {
-                type: 'section',
-                props: { id: 'footer', style: 'margin-top: 2000px' },
-                children: ['Footer Content'],
-              },
-            ],
-          },
-          {
-            name: 'Contact',
-            path: '/contact',
-            meta: { lang: 'en-US', title: 'Contact' },
-            sections: [],
-          },
-        ],
+      await test.step('Setup: Start server with click interactions', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Home' },
+              sections: [
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: { click: { animation: 'pulse', navigate: '/contact' } },
+                  children: ['Contact'],
+                },
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: { click: { scrollTo: '#footer' } },
+                  children: ['Scroll Down'],
+                },
+                {
+                  type: 'section',
+                  props: { id: 'footer', style: 'margin-top: 2000px' },
+                  children: ['Footer Content'],
+                },
+              ],
+            },
+            {
+              name: 'Contact',
+              path: '/contact',
+              meta: { lang: 'en-US', title: 'Contact' },
+              sections: [],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
+      await test.step('Navigate to page and verify scroll interaction', async () => {
+        await page.goto('/')
+        const scrollButton = page.locator('button').filter({ hasText: 'Scroll Down' })
+        await scrollButton.click()
+        await expect(page.locator('#footer')).toBeInViewport()
+      })
 
-      // Verify scroll interaction
-      const scrollButton = page.locator('button').filter({ hasText: 'Scroll Down' })
-      await scrollButton.click()
-      // THEN: assertion
-      await expect(page.locator('#footer')).toBeInViewport()
-
-      // Verify animation + navigation
-      const navButton = page.locator('button').filter({ hasText: 'Contact' })
-      await navButton.click()
-      // THEN: assertion
-      await expect(navButton).toHaveClass(/animate-pulse/)
-      await expect(page).toHaveURL('/contact')
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify animation and navigation interaction', async () => {
+        const navButton = page.locator('button').filter({ hasText: 'Contact' })
+        await navButton.click()
+        await expect(navButton).toHaveClass(/animate-pulse/)
+        await expect(page).toHaveURL('/contact')
+      })
     }
   )
 })
