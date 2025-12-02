@@ -566,84 +566,80 @@ test.describe('Responsive Variants', () => {
     'APP-PAGES-RESPONSIVE-011: user can complete full responsive workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with CSS-based responsive configuration (className, visibility)
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'home',
-            path: '/',
-            sections: [
-              {
-                type: 'heading',
-                content: 'Welcome',
-                responsive: {
-                  mobile: {
-                    props: { className: 'text-2xl text-center' },
-                  },
-                  lg: {
-                    props: { className: 'text-4xl text-left' },
-                  },
-                },
-              },
-              {
-                type: 'single-line-text',
-                props: { 'data-testid': 'text' },
-                content: 'Visible text',
-                responsive: {
-                  mobile: {
-                    visible: true,
-                  },
-                  lg: {
-                    visible: true,
-                    props: { className: 'text-lg font-semibold' },
+      await test.step('Setup: Start server with responsive configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                {
+                  type: 'heading',
+                  content: 'Welcome',
+                  responsive: {
+                    mobile: {
+                      props: { className: 'text-2xl text-center' },
+                    },
+                    lg: {
+                      props: { className: 'text-4xl text-left' },
+                    },
                   },
                 },
-              },
-              {
-                type: 'button',
-                content: 'Action Button',
-                responsive: {
-                  mobile: {
-                    props: { className: 'w-full' },
-                  },
-                  lg: {
-                    props: { className: 'w-auto px-8' },
+                {
+                  type: 'single-line-text',
+                  props: { 'data-testid': 'text' },
+                  content: 'Visible text',
+                  responsive: {
+                    mobile: {
+                      visible: true,
+                    },
+                    lg: {
+                      visible: true,
+                      props: { className: 'text-lg font-semibold' },
+                    },
                   },
                 },
-              },
-            ],
-          },
-        ],
+                {
+                  type: 'button',
+                  content: 'Action Button',
+                  responsive: {
+                    mobile: {
+                      props: { className: 'w-full' },
+                    },
+                    lg: {
+                      props: { className: 'w-auto px-8' },
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing CSS-based responsive features
-      await page.setViewportSize({ width: 375, height: 667 })
-      await page.goto('/')
+      await test.step('Verify mobile responsive styles', async () => {
+        await page.setViewportSize({ width: 375, height: 667 })
+        await page.goto('/')
+        await expect(page.locator('h1')).toHaveText('Welcome')
+        await expect(page.locator('h1')).toHaveClass(/text-2xl/)
+        await expect(page.locator('h1')).toHaveClass(/text-center/)
+        await expect(page.locator('[data-testid="text"]')).toBeVisible()
+        await expect(page.locator('button')).toHaveClass(/w-full/)
+      })
 
-      // Verify mobile - CSS-based responsive classes work
-      // THEN: assertion
-      await expect(page.locator('h1')).toHaveText('Welcome')
-      await expect(page.locator('h1')).toHaveClass(/text-2xl/)
-      await expect(page.locator('h1')).toHaveClass(/text-center/)
-      await expect(page.locator('[data-testid="text"]')).toBeVisible()
-      await expect(page.locator('button')).toHaveClass(/w-full/)
-
-      // Verify desktop - Test CSS media query responsiveness
-      await page.setViewportSize({ width: 1024, height: 768 })
-      // WHEN: user navigates to the page
-      await page.goto('/')
-      // THEN: assertion
-      await expect(page.locator('h1')).toHaveText('Welcome')
-      await expect(page.locator('h1')).toHaveClass(/text-4xl/)
-      await expect(page.locator('h1')).toHaveClass(/text-left/)
-      await expect(page.locator('[data-testid="text"]')).toBeVisible()
-      await expect(page.locator('[data-testid="text"]')).toHaveClass(/text-lg/)
-      await expect(page.locator('[data-testid="text"]')).toHaveClass(/font-semibold/)
-      await expect(page.locator('button')).toHaveClass(/w-auto/)
-      await expect(page.locator('button')).toHaveClass(/px-8/)
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify desktop responsive styles', async () => {
+        await page.setViewportSize({ width: 1024, height: 768 })
+        await page.goto('/')
+        await expect(page.locator('h1')).toHaveText('Welcome')
+        await expect(page.locator('h1')).toHaveClass(/text-4xl/)
+        await expect(page.locator('h1')).toHaveClass(/text-left/)
+        await expect(page.locator('[data-testid="text"]')).toBeVisible()
+        await expect(page.locator('[data-testid="text"]')).toHaveClass(/text-lg/)
+        await expect(page.locator('[data-testid="text"]')).toHaveClass(/font-semibold/)
+        await expect(page.locator('button')).toHaveClass(/w-auto/)
+        await expect(page.locator('button')).toHaveClass(/px-8/)
+      })
     }
   )
 })

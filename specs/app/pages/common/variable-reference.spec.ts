@@ -301,63 +301,62 @@ test.describe('Variable Reference', () => {
     'APP-PAGES-VARREF-009: user can complete full variable-reference workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with comprehensive variable usage
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'home',
-            path: '/',
-            vars: {
-              siteName: 'Sovrium',
-              primaryColor: 'blue',
-              productName: 'Pro Plan',
-              price: '$29.99',
-              icon: 'fa-star',
+      await test.step('Setup: Start server with variable configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              vars: {
+                siteName: 'Sovrium',
+                primaryColor: 'blue',
+                productName: 'Pro Plan',
+                price: '$29.99',
+                icon: 'fa-star',
+              },
+              sections: [
+                {
+                  type: 'heading',
+                  content: 'Welcome to $siteName',
+                },
+                {
+                  type: 'text',
+                  props: { 'data-testid': 'description' },
+                  content: 'The $productName costs $price per month',
+                },
+                {
+                  type: 'button',
+                  content: 'Get Started',
+                  props: {
+                    className: 'bg-$primaryColor-500',
+                  },
+                },
+                {
+                  type: 'icon',
+                  props: {
+                    'data-testid': 'icon',
+                    className: '$icon text-$primaryColor-500',
+                  },
+                },
+              ],
             },
-            sections: [
-              {
-                type: 'heading',
-                content: 'Welcome to $siteName',
-              },
-              {
-                type: 'text',
-                props: { 'data-testid': 'description' },
-                content: 'The $productName costs $price per month',
-              },
-              {
-                type: 'button',
-                content: 'Get Started',
-                props: {
-                  className: 'bg-$primaryColor-500',
-                },
-              },
-              {
-                type: 'icon',
-                props: {
-                  'data-testid': 'icon',
-                  className: '$icon text-$primaryColor-500',
-                },
-              },
-            ],
-          },
-        ],
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
+      await test.step('Navigate to page and verify variable substitution', async () => {
+        await page.goto('/')
+        await expect(page.locator('h1')).toHaveText('Welcome to Sovrium')
+        await expect(page.locator('[data-testid="description"]')).toHaveText(
+          'The Pro Plan costs $29.99 per month'
+        )
+      })
 
-      // Verify variable substitution works throughout the page
-      // THEN: assertion
-      await expect(page.locator('h1')).toHaveText('Welcome to Sovrium')
-      await expect(page.locator('[data-testid="description"]')).toHaveText(
-        'The Pro Plan costs $29.99 per month'
-      )
-      // THEN: assertion
-      await expect(page.locator('button')).toHaveText('Get Started')
-      await expect(page.locator('button')).toHaveClass(/bg-blue-500/)
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify variable substitution in props', async () => {
+        await expect(page.locator('button')).toHaveText('Get Started')
+        await expect(page.locator('button')).toHaveClass(/bg-blue-500/)
+      })
     }
   )
 })
