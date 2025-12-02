@@ -59,12 +59,6 @@ export function setupAuthMiddleware(honoApp: Readonly<Hono>): Readonly<Hono> {
  * @returns Hono app with auth routes configured
  */
 export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Hono> {
-  // Debug: Log the app config being passed
-  console.error(
-    '[AUTH-ROUTES] setupAuthRoutes called with app?.auth:',
-    JSON.stringify(app?.auth, null, 2)
-  )
-
   // Create Better Auth instance with app-specific configuration (once per app startup)
   // This instance is reused across all requests to maintain internal state
   const authInstance = createAuthInstance(app?.auth)

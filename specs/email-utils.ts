@@ -346,7 +346,8 @@ export class MailpitHelper {
       const emails = await this.getEmails() // Already filtered by testId
       const email = emails.find(predicate)
       if (email) {
-        return email
+        // Fetch full email details (list API doesn't include HTML/Text body)
+        return this.getEmailById(email.ID)
       }
       await new Promise((resolve) => setTimeout(resolve, interval))
     }
@@ -432,7 +433,10 @@ export class MailpitHelper {
    */
   getSmtpEnv(from?: string, options?: { fromName?: string }) {
     return {
-      SMTP_HOST: 'localhost',
+      // Use explicit IPv4 address to avoid IPv6 resolution issues
+      // Mailpit typically only binds to IPv4, so 'localhost' can fail on systems
+      // that prefer IPv6 (resolving to ::1 instead of 127.0.0.1)
+      SMTP_HOST: '127.0.0.1',
       SMTP_PORT: this.smtpPort.toString(),
       SMTP_SECURE: 'false',
       ...(from && { SMTP_FROM: from }),

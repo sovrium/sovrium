@@ -81,11 +81,14 @@ export function getEmailConfig(): EmailConfig {
   if (isProduction) {
     console.error('[EMAIL] WARNING: SMTP_HOST not configured in production mode')
   } else {
-    console.warn('[EMAIL] SMTP_HOST not configured, using localhost:1025 (Mailpit)')
+    console.warn('[EMAIL] SMTP_HOST not configured, using 127.0.0.1:1025 (Mailpit)')
   }
 
+  // Use explicit IPv4 address to avoid IPv6 resolution issues
+  // Mailpit typically only binds to IPv4, so 'localhost' can fail on systems
+  // that prefer IPv6 (resolving to ::1 instead of 127.0.0.1)
   return {
-    host: 'localhost',
+    host: '127.0.0.1',
     port: 1025,
     secure: false,
     auth: {

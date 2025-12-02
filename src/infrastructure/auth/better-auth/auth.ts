@@ -29,10 +29,7 @@ const sendPasswordResetEmail = async ({
 }>) => {
   const resetUrl = `${url}?token=${token}`
 
-  // Always log for testing/debugging
-  console.log(`[EMAIL] Password reset for ${user.email}: ${resetUrl}`)
-
-  // Send email (uses Ethereal in development, real SMTP in production)
+  // Send email (uses Mailpit in development, real SMTP in production)
   try {
     const template = passwordResetEmail({
       userName: user.name,
@@ -47,8 +44,6 @@ const sendPasswordResetEmail = async ({
       html: template.html,
       text: template.text,
     })
-
-    console.log(`[EMAIL] Password reset email sent to ${user.email}`)
   } catch (error) {
     console.error(`[EMAIL] Failed to send password reset email to ${user.email}:`, error)
     // Don't throw - let the user know the email was "sent" to prevent user enumeration
@@ -60,7 +55,7 @@ const sendPasswordResetEmail = async ({
  *
  * Side effects (logging, email sending) are required for Better Auth callbacks
  */
-const sendVerificationEmailHandler = async ({
+const sendVerificationEmail = async ({
   user,
   url,
   token,
@@ -72,11 +67,7 @@ const sendVerificationEmailHandler = async ({
   // URL already contains token parameter in Better Auth
   const verifyUrl = url.includes('token=') ? url : `${url}?token=${token}`
 
-  // Always log for testing/debugging - use stderr for immediate output
-  console.error(`[EMAIL] Email verification callback triggered for ${user.email}`)
-  console.error(`[EMAIL] Verification URL: ${verifyUrl}`)
-
-  // Send email (uses Ethereal in development, real SMTP in production)
+  // Send email (uses Mailpit in development, real SMTP in production)
   try {
     const template = emailVerificationEmail({
       userName: user.name,
@@ -91,8 +82,6 @@ const sendVerificationEmailHandler = async ({
       html: template.html,
       text: template.text,
     })
-
-    console.log(`[EMAIL] Verification email sent to ${user.email}`)
   } catch (error) {
     console.error(`[EMAIL] Failed to send verification email to ${user.email}:`, error)
     // Don't throw - let the user know the email was "sent" to prevent user enumeration
@@ -113,12 +102,6 @@ export function createAuthInstance(authConfig?: Auth) {
       ? authConfig.emailAndPassword
       : {}
   const requireEmailVerification = emailAndPasswordConfig.requireEmailVerification ?? false
-
-  // Debug logging for email verification configuration
-  // Write to stderr since stdout may be buffered
-  console.error('[AUTH] Creating auth instance with config:', JSON.stringify(authConfig, null, 2))
-  console.error('[AUTH] emailAndPasswordConfig:', JSON.stringify(emailAndPasswordConfig, null, 2))
-  console.error('[AUTH] requireEmailVerification:', requireEmailVerification)
 
   return betterAuth({
     // Infrastructure config from environment variables
@@ -145,7 +128,7 @@ export function createAuthInstance(authConfig?: Auth) {
     emailVerification: {
       sendOnSignUp: requireEmailVerification, // Only send on sign-up if required
       autoSignInAfterVerification: true, // Auto sign-in user after they verify their email
-      sendVerificationEmail: sendVerificationEmailHandler,
+      sendVerificationEmail,
     },
     plugins: [
       openAPI({
@@ -158,7 +141,30 @@ export function createAuthInstance(authConfig?: Auth) {
 }
 
 /**
- * Default Better Auth instance for backward compatibility
+ * Lazy-initialized Better Auth instance for OpenAPI schema generation
  * Uses default configuration (requireEmailVerification: false)
+ *
+ * Lazy initialization prevents module-level instance from being created
+ * before dynamic instances, which could interfere with Better Auth's
+ * internal state.
  */
-export const auth = createAuthInstance()
+// eslint-disable-next-line functional/no-let, unicorn/no-null -- Lazy initialization pattern
+let _defaultAuthInstance: ReturnType<typeof createAuthInstance> | null = null
+
+export function getDefaultAuthInstance(): ReturnType<typeof createAuthInstance> {
+  if (_defaultAuthInstance === null) {
+    // eslint-disable-next-line functional/no-expression-statements -- Lazy initialization pattern
+    _defaultAuthInstance = createAuthInstance()
+  }
+  return _defaultAuthInstance
+}
+
+// Keep for backward compatibility but mark as lazy
+export const auth = {
+  get api() {
+    return getDefaultAuthInstance().api
+  },
+  get handler() {
+    return getDefaultAuthInstance().handler
+  },
+}
