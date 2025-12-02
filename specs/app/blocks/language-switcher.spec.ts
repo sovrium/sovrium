@@ -182,68 +182,56 @@ test.describe('Language Switcher Block', () => {
     'APP-BLOCKS-LANGUAGE-SWITCHER-004: user can complete full language-switcher workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: complete application configuration with all features
-      await startServerWithSchema({
-        name: 'test-app',
-        languages: {
-          default: 'en',
-          persistSelection: true,
-          supported: [
-            { code: 'en', locale: 'en-US', label: 'English', flag: '🇺🇸' },
-            { code: 'fr', locale: 'fr-FR', label: 'Français', flag: '🇫🇷' },
-            { code: 'es', locale: 'es-ES', label: 'Español', flag: '🇪🇸' },
-          ],
-        },
-        blocks: [
-          {
-            name: 'language-switcher',
-            type: 'language-switcher',
-            props: {
-              variant: 'dropdown',
-              showFlags: true,
+      await test.step('Setup: Start server with language-switcher', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          languages: {
+            default: 'en',
+            persistSelection: true,
+            supported: [
+              { code: 'en', locale: 'en-US', label: 'English', flag: '🇺🇸' },
+              { code: 'fr', locale: 'fr-FR', label: 'Français', flag: '🇫🇷' },
+              { code: 'es', locale: 'es-ES', label: 'Español', flag: '🇪🇸' },
+            ],
+          },
+          blocks: [
+            {
+              name: 'language-switcher',
+              type: 'language-switcher',
+              props: {
+                variant: 'dropdown',
+                showFlags: true,
+              },
             },
-          },
-        ],
-        pages: [
-          {
-            name: 'Home',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Test', description: 'Test' },
-            sections: [{ block: 'language-switcher' }],
-          },
-        ],
+          ],
+          pages: [
+            {
+              name: 'Home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test' },
+              sections: [{ block: 'language-switcher' }],
+            },
+          ],
+        })
       })
 
-      // WHEN: user navigates to the page
-      await page.goto('/')
+      await test.step('Navigate to page and verify initial state', async () => {
+        await page.goto('/')
+        const htmlLang = page.locator('html')
+        await expect(htmlLang).toHaveAttribute('lang', 'en-US')
+        const switcher = page.locator('[data-testid="language-switcher"]')
+        await expect(switcher).toBeVisible()
+      })
 
-      // WHEN: user completes full workflow
-      // Step 1: Verify initial state (English)
-      const htmlLang = page.locator('html')
-      // THEN: assertion
-      await expect(htmlLang).toHaveAttribute('lang', 'en-US')
-
-      // Step 2: Click language switcher to open dropdown
-      const switcher = page.locator('[data-testid="language-switcher"]')
-      // THEN: assertion
-      await expect(switcher).toBeVisible()
-      await switcher.click()
-
-      // Step 3: Select French from dropdown
-      await page.locator('[data-testid="language-option-fr-FR"]').click()
-
-      // Step 4: Verify language changed to French
-      const newHtmlLang = page.locator('html')
-      // THEN: assertion
-      await expect(newHtmlLang).toHaveAttribute('lang', 'fr-FR')
-
-      // Step 5: Verify localStorage persisted the choice
-      const storedLanguage = await page.evaluate(() => localStorage.getItem('sovrium_language'))
-      // THEN: assertion
-      expect(storedLanguage).toBe('fr')
-
-      // THEN: user can complete full language-switcher workflow
-      // All features work together: dropdown variant, flags, language switching, persistence
+      await test.step('Switch language to French and verify', async () => {
+        const switcher = page.locator('[data-testid="language-switcher"]')
+        await switcher.click()
+        await page.locator('[data-testid="language-option-fr-FR"]').click()
+        const newHtmlLang = page.locator('html')
+        await expect(newHtmlLang).toHaveAttribute('lang', 'fr-FR')
+        const storedLanguage = await page.evaluate(() => localStorage.getItem('sovrium_language'))
+        expect(storedLanguage).toBe('fr')
+      })
     }
   )
 })

@@ -522,64 +522,62 @@ test.describe('Reusable Blocks', () => {
     'APP-BLOCKS-015: user can complete full blocks workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        blocks: [
-          {
-            name: 'icon-badge',
-            type: 'badge',
-            props: { color: '$color' },
-            children: [
-              { type: 'icon', props: { name: '$icon' } },
-              { type: 'single-line-text', content: '$text' },
-            ],
-          },
-          {
-            name: 'feature-card',
-            type: 'card',
-            children: [
-              { type: 'heading', content: '$title' },
-              { type: 'single-line-text', content: '$description' },
-            ],
-          },
-        ],
-        pages: [
-          {
-            name: 'home',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Test Page', description: 'Test page' },
-            sections: [
-              { block: 'icon-badge', vars: { color: 'blue', icon: 'check', text: 'Success' } },
-              { block: 'feature-card', vars: { title: 'Feature', description: 'Description' } },
-            ],
-          },
-        ],
+      await test.step('Setup: Start server with blocks', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'icon-badge',
+              type: 'badge',
+              props: { color: '$color' },
+              children: [
+                { type: 'icon', props: { name: '$icon' } },
+                { type: 'single-line-text', content: '$text' },
+              ],
+            },
+            {
+              name: 'feature-card',
+              type: 'card',
+              children: [
+                { type: 'heading', content: '$title' },
+                { type: 'single-line-text', content: '$description' },
+              ],
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test Page', description: 'Test page' },
+              sections: [
+                { block: 'icon-badge', vars: { color: 'blue', icon: 'check', text: 'Success' } },
+                { block: 'feature-card', vars: { title: 'Feature', description: 'Description' } },
+              ],
+            },
+          ],
+        })
       })
-      // WHEN: user navigates to the page
-      await page.goto('/')
 
-      // 1. Structure validation (ARIA) - Icon badge
-      // THEN: assertion
-      await expect(page.locator('[data-block="icon-badge"]')).toMatchAriaSnapshot(`
-        - group:
-          - img
-          - text: Success
-      `)
+      await test.step('Navigate to page and verify block structures', async () => {
+        await page.goto('/')
+        await expect(page.locator('[data-block="icon-badge"]')).toMatchAriaSnapshot(`
+          - group:
+            - img
+            - text: Success
+        `)
+        await expect(page.locator('[data-block="feature-card"]')).toMatchAriaSnapshot(`
+          - group:
+            - heading "Feature"
+            - text: Description
+        `)
+      })
 
-      // 2. Structure validation (ARIA) - Feature card
-      await expect(page.locator('[data-block="feature-card"]')).toMatchAriaSnapshot(`
-        - group:
-          - heading "Feature"
-          - text: Description
-      `)
-
-      // 3. Validate variable substitution completed (no $ symbols remain)
-      const iconBadgeHtml = await page.locator('[data-block="icon-badge"]').innerHTML()
-      expect(iconBadgeHtml).not.toContain('$')
-
-      const featureCardHtml = await page.locator('[data-block="feature-card"]').innerHTML()
-      expect(featureCardHtml).not.toContain('$')
+      await test.step('Verify variable substitution completed', async () => {
+        const iconBadgeHtml = await page.locator('[data-block="icon-badge"]').innerHTML()
+        expect(iconBadgeHtml).not.toContain('$')
+        const featureCardHtml = await page.locator('[data-block="feature-card"]').innerHTML()
+        expect(featureCardHtml).not.toContain('$')
+      })
     }
   )
 })
