@@ -701,114 +701,112 @@ test.describe('Spacing Configuration', () => {
     'APP-THEME-SPACING-014: user can complete full spacing workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with comprehensive spacing system
-      await startServerWithSchema({
-        name: 'test-app',
-        theme: {
-          spacing: {
-            section: '4rem',
-            gap: '1.5rem',
-            padding: '2rem',
+      await test.step('Setup: Start server with spacing system', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          theme: {
+            spacing: {
+              section: '4rem',
+              gap: '1.5rem',
+              padding: '2rem',
+            },
           },
-        },
-        pages: [
-          {
-            name: 'home',
-            path: '/',
-            sections: [
-              {
-                type: 'div',
-                props: {
-                  'data-testid': 'spacing-system',
-                  className: 'flex flex-col',
-                  style: {
-                    gap: 'var(--spacing-section)',
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                {
+                  type: 'div',
+                  props: {
+                    'data-testid': 'spacing-system',
+                    className: 'flex flex-col',
+                    style: {
+                      gap: 'var(--spacing-section)',
+                    },
                   },
+                  children: [
+                    {
+                      type: 'div',
+                      props: {
+                        className: 'bg-gray-100 border-2 border-dashed border-gray-400',
+                        style: {
+                          padding: 'var(--spacing-section)',
+                        },
+                      },
+                      children: ['Section with 4rem padding'],
+                    },
+                    {
+                      type: 'div',
+                      props: {
+                        className: 'flex bg-indigo-100 border-2 border-indigo-500',
+                        style: {
+                          gap: 'var(--spacing-gap)',
+                          padding: 'var(--spacing-padding)',
+                        },
+                      },
+                      children: [
+                        {
+                          type: 'div',
+                          props: {
+                            className: 'p-5 bg-white',
+                          },
+                          children: ['Item 1'],
+                        },
+                        {
+                          type: 'div',
+                          props: {
+                            className: 'p-5 bg-white',
+                          },
+                          children: ['Item 2'],
+                        },
+                        {
+                          type: 'div',
+                          props: {
+                            className: 'p-5 bg-white',
+                          },
+                          children: ['Item 3'],
+                        },
+                      ],
+                    },
+                  ],
                 },
-                children: [
-                  {
-                    type: 'div',
-                    props: {
-                      className: 'bg-gray-100 border-2 border-dashed border-gray-400',
-                      style: {
-                        padding: 'var(--spacing-section)',
-                      },
-                    },
-                    children: ['Section with 4rem padding'],
-                  },
-                  {
-                    type: 'div',
-                    props: {
-                      className: 'flex bg-indigo-100 border-2 border-indigo-500',
-                      style: {
-                        gap: 'var(--spacing-gap)',
-                        padding: 'var(--spacing-padding)',
-                      },
-                    },
-                    children: [
-                      {
-                        type: 'div',
-                        props: {
-                          className: 'p-5 bg-white',
-                        },
-                        children: ['Item 1'],
-                      },
-                      {
-                        type: 'div',
-                        props: {
-                          className: 'p-5 bg-white',
-                        },
-                        children: ['Item 2'],
-                      },
-                      {
-                        type: 'div',
-                        props: {
-                          className: 'p-5 bg-white',
-                        },
-                        children: ['Item 3'],
-                      },
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
-        ],
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
+      await test.step('Navigate to page and verify CSS compilation', async () => {
+        await page.goto('/')
 
-      // 1. Verify CSS compilation contains spacing custom properties
-      const cssResponse = await page.request.get('/assets/output.css')
-      // THEN: assertion
-      expect(cssResponse.ok()).toBeTruthy()
-      const css = await cssResponse.text()
-      // THEN: assertion
-      expect(css).toContain('--spacing-section: 4rem')
-      expect(css).toContain('--spacing-gap: 1.5rem')
-      expect(css).toContain('--spacing-padding: 2rem')
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--spacing-section: 4rem')
+        expect(css).toContain('--spacing-gap: 1.5rem')
+        expect(css).toContain('--spacing-padding: 2rem')
+      })
 
-      // 2. Structure validation (ARIA)
-      // THEN: assertion
-      await expect(page.locator('[data-testid="spacing-system"]')).toMatchAriaSnapshot(`
-        - group:
-          - group: Section with 4rem padding
+      await test.step('Verify spacing structure (ARIA snapshot)', async () => {
+        await expect(page.locator('[data-testid="spacing-system"]')).toMatchAriaSnapshot(`
           - group:
-            - group: Item 1
-            - group: Item 2
-            - group: Item 3
-      `)
+            - group: Section with 4rem padding
+            - group:
+              - group: Item 1
+              - group: Item 2
+              - group: Item 3
+        `)
+      })
 
-      // 3. Visual validation (Screenshot) - captures all spacing rendering
-      await expect(page.locator('[data-testid="spacing-system"]')).toHaveScreenshot(
-        'spacing-regression-001-complete-system.png',
-        {
-          animations: 'disabled',
-        }
-      )
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify visual rendering (screenshot)', async () => {
+        await expect(page.locator('[data-testid="spacing-system"]')).toHaveScreenshot(
+          'spacing-regression-001-complete-system.png',
+          {
+            animations: 'disabled',
+          }
+        )
+      })
     }
   )
 })
