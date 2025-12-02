@@ -438,59 +438,58 @@ test.describe('Postal Address', () => {
     'APP-PAGES-POSTALADDRESS-011: user can complete full Postal Address workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: {
-              lang: 'en-US',
-              title: 'Test',
-              description: 'Test',
-              schema: {
-                organization: {
-                  '@context': 'https://schema.org',
-                  '@type': 'Organization',
-                  name: 'Complete Address Test',
-                  address: {
-                    '@type': 'PostalAddress',
-                    streetAddress: '100 Business Blvd',
-                    addressLocality: 'Strasbourg',
-                    addressRegion: 'Grand Est',
-                    postalCode: '67000',
-                    addressCountry: 'FR',
+      await test.step('Setup: Start server with PostalAddress schema', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  organization: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Organization',
+                    name: 'Complete Address Test',
+                    address: {
+                      '@type': 'PostalAddress',
+                      streetAddress: '100 Business Blvd',
+                      addressLocality: 'Strasbourg',
+                      addressRegion: 'Grand Est',
+                      postalCode: '67000',
+                      addressCountry: 'FR',
+                    },
                   },
                 },
               },
+              sections: [],
             },
-            sections: [],
-          },
-        ],
+          ],
+        })
       })
 
-      // WHEN: all properties (street, locality, region, postal code, country) are provided
-      await page.goto('/')
+      let jsonLd: any
 
-      // THEN: it should provide full mailing address
-      // Enhanced JSON-LD validation
-      const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+      await test.step('Navigate to page and parse JSON-LD', async () => {
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        jsonLd = JSON.parse(scriptContent!)
+      })
 
-      // Validate JSON-LD is valid JSON
-      const jsonLd = JSON.parse(scriptContent!)
+      await test.step('Verify Organization with PostalAddress', async () => {
+        expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
+        expect(jsonLd).toHaveProperty('@type', 'Organization')
+        expect(jsonLd).toHaveProperty('name', 'Complete Address Test')
 
-      // Validate JSON-LD structure
-      expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
-      expect(jsonLd).toHaveProperty('@type', 'Organization')
-      expect(jsonLd).toHaveProperty('name', 'Complete Address Test')
-
-      // Validate PostalAddress structure
-      expect(jsonLd.address).toMatchObject({
-        '@type': 'PostalAddress',
-        streetAddress: '100 Business Blvd',
-        addressLocality: 'Strasbourg',
-        addressRegion: 'Grand Est',
-        postalCode: '67000',
+        expect(jsonLd.address).toMatchObject({
+          '@type': 'PostalAddress',
+          streetAddress: '100 Business Blvd',
+          addressLocality: 'Strasbourg',
+          addressRegion: 'Grand Est',
+          postalCode: '67000',
         addressCountry: 'FR',
       })
 
