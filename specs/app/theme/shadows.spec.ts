@@ -943,73 +943,64 @@ test.describe('Shadows', () => {
     'APP-THEME-SHADOWS-017: user can complete full shadows workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with comprehensive shadow system
-      await startServerWithSchema({
-        name: 'test-app',
-        theme: {
-          shadows: {
-            md: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-            xl: '0 20px 25px -5px rgb(0 0 0 / 0.1)',
-            inner: 'inset 0 2px 4px 0 rgb(0 0 0 / 0.05)',
+      await test.step('Setup: Start server with shadow system', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          theme: {
+            shadows: {
+              md: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+              xl: '0 20px 25px -5px rgb(0 0 0 / 0.1)',
+              inner: 'inset 0 2px 4px 0 rgb(0 0 0 / 0.05)',
+            },
           },
-        },
-        pages: [
-          {
-            name: 'home',
-            path: '/',
-            sections: [
-              {
-                type: 'card',
-                content: 'Card',
-                props: {
-                  'data-testid': 'card',
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                {
+                  type: 'card',
+                  content: 'Card',
+                  props: {
+                    'data-testid': 'card',
+                  },
                 },
-              },
-              {
-                type: 'modal',
-                content: 'Modal',
-                props: {
-                  'data-testid': 'modal',
+                {
+                  type: 'modal',
+                  content: 'Modal',
+                  props: {
+                    'data-testid': 'modal',
+                  },
                 },
-              },
-              {
-                type: 'input',
-                props: {
-                  'data-testid': 'input',
+                {
+                  type: 'input',
+                  props: {
+                    'data-testid': 'input',
+                  },
                 },
-              },
-            ],
-          },
-        ],
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
+      await test.step('Navigate to page and verify CSS compilation', async () => {
+        await page.goto('/')
 
-      // Validate CSS compilation and shadow custom properties
-      const cssResponse = await page.request.get('/assets/output.css')
-      // THEN: assertion
-      expect(cssResponse.ok()).toBeTruthy()
-      const css = await cssResponse.text()
-      // THEN: assertion
-      expect(css.length).toBeGreaterThan(1000)
-      expect(css).toContain('--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1)')
-      expect(css).toContain('--shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1)')
-      expect(css).toContain('--shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05)')
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css.length).toBeGreaterThan(1000)
+        expect(css).toContain('--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1)')
+        expect(css).toContain('--shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1)')
+        expect(css).toContain('--shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05)')
+      })
 
-      // Verify card shadow
-      // THEN: assertion
-      await expect(page.locator('[data-testid="card"]')).toBeVisible()
-
-      // Verify modal shadow
-      // THEN: assertion
-      await expect(page.locator('[data-testid="modal"]')).toBeVisible()
-
-      // Verify input shadow
-      // THEN: assertion
-      await expect(page.locator('[data-testid="input"]')).toBeVisible()
-
-      // Focus on workflow continuity - shadows compile and elements render
+      await test.step('Verify shadow elements render', async () => {
+        await expect(page.locator('[data-testid="card"]')).toBeVisible()
+        await expect(page.locator('[data-testid="modal"]')).toBeVisible()
+        await expect(page.locator('[data-testid="input"]')).toBeVisible()
+      })
     }
   )
 })

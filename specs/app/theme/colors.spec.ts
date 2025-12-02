@@ -1063,67 +1063,65 @@ test.describe('Color Palette', () => {
     'APP-THEME-COLORS-016: user can complete full colors workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with comprehensive color palette
-      await startServerWithSchema({
-        name: 'test-app',
-        theme: {
-          colors: {
-            primary: '#007bff',
-            'primary-hover': '#0056b3',
-            success: '#28a745',
-            danger: '#dc3545',
-            text: '#212529',
-            'gray-500': '#adb5bd',
+      await test.step('Setup: Start server with color palette', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          theme: {
+            colors: {
+              primary: '#007bff',
+              'primary-hover': '#0056b3',
+              success: '#28a745',
+              danger: '#dc3545',
+              text: '#212529',
+              'gray-500': '#adb5bd',
+            },
           },
-        },
-        pages: [
-          {
-            name: 'home',
-            path: '/',
-            sections: [
-              {
-                type: 'heading',
-                content: 'Welcome',
-              },
-              {
-                type: 'button',
-                content: 'Get Started',
-                props: {
-                  'data-testid': 'cta-button',
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                {
+                  type: 'heading',
+                  content: 'Welcome',
                 },
-              },
-              {
-                type: 'alert',
-                content: 'Success!',
-                props: {
-                  variant: 'success',
+                {
+                  type: 'button',
+                  content: 'Get Started',
+                  props: {
+                    'data-testid': 'cta-button',
+                  },
                 },
-              },
-            ],
-          },
-        ],
+                {
+                  type: 'alert',
+                  content: 'Success!',
+                  props: {
+                    variant: 'success',
+                  },
+                },
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
+      await test.step('Navigate to page', async () => {
+        await page.goto('/')
+      })
 
-      // Verify text color
-      const heading = page.locator('h1')
-      // THEN: assertion
-      await expect(heading).toHaveText('Welcome')
-      const textColor = await heading.evaluate((el) => window.getComputedStyle(el).color)
-      // THEN: assertion
-      expect(textColor).toContain('33, 37, 41')
+      await test.step('Verify text color rendering', async () => {
+        const heading = page.locator('h1')
+        await expect(heading).toHaveText('Welcome')
+        const textColor = await heading.evaluate((el) => window.getComputedStyle(el).color)
+        expect(textColor).toContain('33, 37, 41')
+      })
 
-      // Verify button color
-      const button = page.locator('[data-testid="cta-button"]')
-      // THEN: assertion
-      await expect(button).toBeVisible()
-      const btnColor = await button.evaluate((el) => window.getComputedStyle(el).backgroundColor)
-      // THEN: assertion
-      expect(btnColor).toContain('0, 123, 255')
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify button color rendering', async () => {
+        const button = page.locator('[data-testid="cta-button"]')
+        await expect(button).toBeVisible()
+        const btnColor = await button.evaluate((el) => window.getComputedStyle(el).backgroundColor)
+        expect(btnColor).toContain('0, 123, 255')
+      })
     }
   )
 })
