@@ -387,86 +387,80 @@ test.describe('Language Configuration', () => {
     'APP-LANGUAGES-CONFIG-009: user can complete full language-config workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application configured with representative language configurations
-      await startServerWithSchema({
-        name: 'test-app',
-        languages: {
-          default: 'en',
-          supported: [
+      await test.step('Setup: Start server with multi-language configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          languages: {
+            default: 'en',
+            supported: [
+              {
+                code: 'en',
+                locale: 'en-US',
+                label: 'English',
+                direction: 'ltr',
+                flag: '🇺🇸',
+              },
+              {
+                code: 'fr',
+                locale: 'fr-FR',
+                label: 'Français',
+                direction: 'ltr',
+                flag: '🇫🇷',
+              },
+              {
+                code: 'ar',
+                locale: 'ar-SA',
+                label: 'العربية',
+                direction: 'rtl',
+                flag: '🇸🇦',
+              },
+            ],
+          },
+          blocks: [
             {
-              code: 'en',
-              locale: 'en-US',
-              label: 'English',
-              direction: 'ltr',
-              flag: '🇺🇸',
-            },
-            {
-              code: 'fr',
-              locale: 'fr-FR',
-              label: 'Français',
-              direction: 'ltr',
-              flag: '🇫🇷',
-            },
-            {
-              code: 'ar',
-              locale: 'ar-SA',
-              label: 'العربية',
-              direction: 'rtl',
-              flag: '🇸🇦',
+              name: 'language-switcher',
+              type: 'language-switcher',
+              props: {
+                showFlags: true,
+              },
             },
           ],
-        },
-        blocks: [
-          {
-            name: 'language-switcher',
-            type: 'language-switcher',
-            props: {
-              showFlags: true,
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [{ block: 'language-switcher' }],
             },
-          },
-        ],
-        pages: [
-          {
-            name: 'home',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-            sections: [{ block: 'language-switcher' }],
-          },
-        ],
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
+      await test.step('Verify default language and flags', async () => {
+        await page.goto('/')
 
-      // Verify default LTR language loads
-      // THEN: assertion
-      await expect(page.locator('html')).toHaveAttribute('dir', 'ltr')
-      await expect(page.locator('[data-testid="current-language"]')).toHaveText('English')
+        await expect(page.locator('html')).toHaveAttribute('dir', 'ltr')
+        await expect(page.locator('[data-testid="current-language"]')).toHaveText('English')
 
-      // Open language switcher and verify all configs
-      await page.locator('[data-testid="language-switcher"]').click()
-      // THEN: assertion
-      await expect(page.locator('[data-testid="language-option"]')).toHaveCount(3)
+        await page.locator('[data-testid="language-switcher"]').click()
+        await expect(page.locator('[data-testid="language-option"]')).toHaveCount(3)
 
-      // Verify flags display
-      // THEN: assertion
-      await expect(page.locator('[data-testid="language-option-en-US"]')).toContainText('🇺🇸')
-      await expect(page.locator('[data-testid="language-option-fr-FR"]')).toContainText('🇫🇷')
+        await expect(page.locator('[data-testid="language-option-en-US"]')).toContainText('🇺🇸')
+        await expect(page.locator('[data-testid="language-option-fr-FR"]')).toContainText('🇫🇷')
+      })
 
-      // Switch to French (LTR with native label)
-      await page.locator('[data-testid="language-option-fr-FR"]').click()
-      // THEN: assertion
-      await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
-      await expect(page.locator('html')).toHaveAttribute('lang', 'fr-FR')
+      await test.step('Switch to French and verify', async () => {
+        await page.locator('[data-testid="language-option-fr-FR"]').click()
+        await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
+        await expect(page.locator('html')).toHaveAttribute('lang', 'fr-FR')
+      })
 
-      // Switch to Arabic (RTL with native label)
-      await page.locator('[data-testid="language-switcher"]').click()
-      await page.locator('[data-testid="language-option-ar-SA"]').click()
-      // THEN: assertion
-      await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
-      await expect(page.locator('[data-testid="current-language"]')).toHaveText('العربية')
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Switch to Arabic (RTL) and verify', async () => {
+        await page.locator('[data-testid="language-switcher"]').click()
+        await page.locator('[data-testid="language-option-ar-SA"]').click()
+        await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
+        await expect(page.locator('[data-testid="current-language"]')).toHaveText('العربية')
+      })
     }
   )
 })

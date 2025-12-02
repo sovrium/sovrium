@@ -388,61 +388,55 @@ test.describe('Common Definitions', () => {
     'APP-PAGES-DEFINITIONS-013: user can complete full definitions workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application using various common definitions
-      await startServerWithSchema({
-        name: 'test-app',
-        theme: { colors: { primary: '#3B82F6' } },
-        blocks: [
-          { name: 'my-component', type: 'div', content: 'Welcome to $siteName' },
-          {
-            name: 'icon-row',
-            type: 'div',
-            children: [
-              { type: 'icon', props: { name: 'check' } },
-              { type: 'icon', props: { name: 'star' } },
-            ],
-          },
-        ],
-        pages: [
-          {
-            name: 'Test Page',
-            path: '/',
-            meta: {
-              lang: 'en-US',
-              title: 'Test',
-              openGraph: { image: 'https://example.com/og.jpg' },
+      await test.step('Setup: Start server with common definitions', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          theme: { colors: { primary: '#3B82F6' } },
+          blocks: [
+            { name: 'my-component', type: 'div', content: 'Welcome to $siteName' },
+            {
+              name: 'icon-row',
+              type: 'div',
+              children: [
+                { type: 'icon', props: { name: 'check' } },
+                { type: 'icon', props: { name: 'star' } },
+              ],
             },
-            layout: { navigation: { logo: './logo.svg' } },
-            sections: [
-              { block: 'my-component', vars: { siteName: 'My Site' } },
-              { block: 'icon-row', vars: {} },
-            ],
-          },
-        ],
+          ],
+          pages: [
+            {
+              name: 'Test Page',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                openGraph: { image: 'https://example.com/og.jpg' },
+              },
+              layout: { navigation: { logo: './logo.svg' } },
+              sections: [
+                { block: 'my-component', vars: { siteName: 'My Site' } },
+                { block: 'icon-row', vars: {} },
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
+      await test.step('Navigate and verify definitions integration', async () => {
+        await page.goto('/')
 
-      // Verify variable reference
-      // THEN: assertion
-      await expect(page.locator('[data-testid="block-my-component"]')).toHaveText(
-        'Welcome to My Site'
-      )
+        await expect(page.locator('[data-testid="block-my-component"]')).toHaveText(
+          'Welcome to My Site'
+        )
 
-      // Verify icons
-      // THEN: assertion
-      await expect(page.locator('[data-testid="icon-check"]')).toBeVisible()
-      await expect(page.locator('[data-testid="icon-star"]')).toBeVisible()
+        await expect(page.locator('[data-testid="icon-check"]')).toBeVisible()
+        await expect(page.locator('[data-testid="icon-star"]')).toBeVisible()
 
-      // Verify URL
-      // THEN: assertion
-      await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
-        'content',
-        'https://example.com/og.jpg'
-      )
-
-      // Focus on workflow continuity, not exhaustive coverage
+        await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+          'content',
+          'https://example.com/og.jpg'
+        )
+      })
     }
   )
 })

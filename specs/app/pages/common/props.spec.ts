@@ -328,53 +328,42 @@ test.describe('Component Props', () => {
     'APP-PAGES-PROPS-011: user can complete full props workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with various prop types
-      await startServerWithSchema({
-        name: 'test-app',
-        blocks: [
-          {
-            name: 'feature-card',
-            type: 'div',
-            props: { className: 'card p-$padding', color: '$cardColor', enabled: true, size: 20 },
-            children: [{ type: 'h3', props: { text: '$title' }, children: [] }],
-          },
-        ],
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Test' },
-            sections: [
-              {
-                block: 'feature-card',
-                vars: { padding: '6', cardColor: 'primary', title: 'Feature Title' },
-              },
-            ],
-          },
-        ],
+      await test.step('Setup: Start server with various prop types', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'feature-card',
+              type: 'div',
+              props: { className: 'card p-$padding', color: '$cardColor', enabled: true, size: 20 },
+              children: [{ type: 'h3', props: { text: '$title' }, children: [] }],
+            },
+          ],
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  block: 'feature-card',
+                  vars: { padding: '6', cardColor: 'primary', title: 'Feature Title' },
+                },
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
+      await test.step('Navigate and verify all prop types', async () => {
+        await page.goto('/')
 
-      // Verify string prop with variable
-      const card = page.locator('div.card')
-      // THEN: assertion
-      await expect(card).toHaveClass(/p-6/)
-
-      // Verify color variable
-      // THEN: assertion
-      await expect(card).toHaveAttribute('data-color', 'primary')
-
-      // Verify boolean prop
-      // THEN: assertion
-      await expect(card).toHaveAttribute('data-enabled', 'true')
-
-      // Verify numeric prop
-      // THEN: assertion
-      await expect(card).toHaveAttribute('data-size', '20')
-
-      // Focus on workflow continuity, not exhaustive coverage
+        const card = page.locator('div.card')
+        await expect(card).toHaveClass(/p-6/)
+        await expect(card).toHaveAttribute('data-color', 'primary')
+        await expect(card).toHaveAttribute('data-enabled', 'true')
+        await expect(card).toHaveAttribute('data-size', '20')
+      })
     }
   )
 })
