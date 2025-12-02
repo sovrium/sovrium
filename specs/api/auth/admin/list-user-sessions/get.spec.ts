@@ -230,8 +230,6 @@ test.describe('Admin: List user sessions', () => {
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
       await signUp({ email: 'target@example.com', password: 'TargetPass123!', name: 'Target User' })
 
-      await signIn({ email: 'target@example.com', password: 'TargetPass123!' })
-
       // WHEN: Admin requests list of user sessions
       const response = await page.request.get('/api/auth/admin/list-user-sessions?userId=2')
 

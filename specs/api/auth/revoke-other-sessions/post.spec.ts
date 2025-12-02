@@ -146,10 +146,6 @@ test.describe('Revoke all other sessions', () => {
         password: 'TestPassword123!',
         name: 'Test User',
       })
-      await signIn({
-        email: 'test@example.com',
-        password: 'TestPassword123!',
-      })
 
       // Get initial session count
       const sessionsBeforeResponse = await page.request.get('/api/auth/list-sessions')
@@ -248,7 +244,6 @@ test.describe('Revoke all other sessions', () => {
         password: 'WorkflowPass123!',
         name: 'Workflow User',
       })
-      await signIn({ email: 'workflow@example.com', password: 'WorkflowPass123!' })
 
       // Get initial session count
       const beforeResponse = await page.request.get('/api/auth/list-sessions')

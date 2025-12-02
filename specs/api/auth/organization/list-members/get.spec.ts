@@ -109,10 +109,6 @@ test.describe('List organization members', () => {
         password: 'UserPass123!',
         name: 'Test User',
       })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-      })
 
       // WHEN: User requests members without organizationId parameter
       const response = await page.request.get('/api/auth/organization/list-members')
@@ -165,10 +161,6 @@ test.describe('List organization members', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // WHEN: User requests members of non-existent organization

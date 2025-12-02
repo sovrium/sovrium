@@ -115,10 +115,6 @@ test.describe('Reject organization invitation', () => {
         password: 'UserPass123!',
         name: 'Test User',
       })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-      })
 
       // WHEN: User submits request without invitationId
       const response = await page.request.post('/api/auth/organization/reject-invitation', {
@@ -176,10 +172,6 @@ test.describe('Reject organization invitation', () => {
         password: 'UserPass123!',
         name: 'Test User',
       })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-      })
 
       // WHEN: User attempts to reject non-existent invitation
       const response = await page.request.post('/api/auth/organization/reject-invitation', {
@@ -213,10 +205,6 @@ test.describe('Reject organization invitation', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // WHEN: User attempts to reject expired invitation

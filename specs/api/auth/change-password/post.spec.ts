@@ -93,10 +93,6 @@ test.describe('Change password', () => {
         password: 'CurrentPass123!',
         name: 'Test User',
       })
-      await signIn({
-        email: 'test@example.com',
-        password: 'CurrentPass123!',
-      })
 
       // Verify multiple sessions
       const sessionsBefore = await page.request.get('/api/auth/list-sessions')

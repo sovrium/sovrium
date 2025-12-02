@@ -239,10 +239,6 @@ test.describe('Admin Permission Enforcement', () => {
         password: 'SuperAdminPass123!',
         name: 'Super Admin',
       })
-      await signIn({
-        email: 'superadmin@example.com',
-        password: 'SuperAdminPass123!',
-      })
 
       // Ban the first admin
       await page.request.post('/api/auth/admin/ban-user', {
