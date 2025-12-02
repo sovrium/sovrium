@@ -671,70 +671,67 @@ test.describe('Block Props', () => {
     'APP-BLOCKS-PROPS-015: user can complete full props workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with comprehensive block props
-      await startServerWithSchema({
-        name: 'test-app',
-        blocks: [
-          {
-            name: 'feature-box',
-            type: 'div',
-            props: {
-              className: 'box-$variant p-$padding rounded-$radius',
-              ariaLabel: '$label',
-              dataConfig: '$config',
+      await test.step('Setup: Start server with block props', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'feature-box',
+              type: 'div',
+              props: {
+                className: 'box-$variant p-$padding rounded-$radius',
+                ariaLabel: '$label',
+                dataConfig: '$config',
+              },
+              content: '$message',
             },
-            content: '$message',
-          },
-        ],
-        pages: [
-          {
-            name: 'home',
-            path: '/',
-            sections: [
-              {
-                block: 'feature-box',
-                vars: {
-                  variant: 'primary',
-                  padding: '6',
-                  radius: 'lg',
-                  label: 'Feature 1',
-                  config: 'enabled',
-                  message: 'First feature',
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                {
+                  block: 'feature-box',
+                  vars: {
+                    variant: 'primary',
+                    padding: '6',
+                    radius: 'lg',
+                    label: 'Feature 1',
+                    config: 'enabled',
+                    message: 'First feature',
+                  },
                 },
-              },
-              {
-                block: 'feature-box',
-                vars: {
-                  variant: 'secondary',
-                  padding: '4',
-                  radius: 'md',
-                  label: 'Feature 2',
-                  config: 'disabled',
-                  message: 'Second feature',
+                {
+                  block: 'feature-box',
+                  vars: {
+                    variant: 'secondary',
+                    padding: '4',
+                    radius: 'md',
+                    label: 'Feature 2',
+                    config: 'disabled',
+                    message: 'Second feature',
+                  },
                 },
-              },
-            ],
-          },
-        ],
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
+      await test.step('Navigate to page and verify first box props', async () => {
+        await page.goto('/')
+        const box1 = page.locator('[data-testid="block-feature-box-0"]')
+        await expect(box1).toHaveClass(/box-primary/)
+        await expect(box1).toHaveClass(/p-6/)
+        await expect(box1).toHaveAttribute('aria-label', 'Feature 1')
+      })
 
-      // Verify first box
-      const box1 = page.locator('[data-testid="block-feature-box-0"]')
-      // THEN: assertion
-      await expect(box1).toHaveClass(/box-primary/)
-      await expect(box1).toHaveClass(/p-6/)
-      await expect(box1).toHaveAttribute('aria-label', 'Feature 1')
-
-      // Verify second box
-      const box2 = page.locator('[data-testid="block-feature-box-1"]')
-      // THEN: assertion
-      await expect(box2).toHaveClass(/box-secondary/)
-      await expect(box2).toHaveClass(/rounded-md/)
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify second box props', async () => {
+        const box2 = page.locator('[data-testid="block-feature-box-1"]')
+        await expect(box2).toHaveClass(/box-secondary/)
+        await expect(box2).toHaveClass(/rounded-md/)
+      })
     }
   )
 })

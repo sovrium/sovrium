@@ -465,82 +465,76 @@ test.describe('Block Children', () => {
     'APP-BLOCKS-CHILDREN-011: user can complete full children workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with complex nested children
-      await startServerWithSchema({
-        name: 'test-app',
-        blocks: [
-          {
-            name: 'feature-card',
-            type: 'card',
-            children: [
-              { type: 'icon', props: { name: '$icon', color: '$color' } },
-              {
-                type: 'div',
-                children: [
-                  { type: 'single-line-text', props: { level: 'h4' }, content: '$title' },
-                  { type: 'single-line-text', content: '$description' },
-                ],
-              },
-            ],
-          },
-        ],
-        pages: [
-          {
-            name: 'home',
-            path: '/',
-            meta: {
-              lang: 'en-US',
-              title: 'Home',
-              description: 'Home page',
+      await test.step('Setup: Start server with nested children blocks', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'feature-card',
+              type: 'card',
+              children: [
+                { type: 'icon', props: { name: '$icon', color: '$color' } },
+                {
+                  type: 'div',
+                  children: [
+                    { type: 'single-line-text', props: { level: 'h4' }, content: '$title' },
+                    { type: 'single-line-text', content: '$description' },
+                  ],
+                },
+              ],
             },
-            sections: [
-              {
-                block: 'feature-card',
-                vars: {
-                  icon: 'star',
-                  color: 'blue',
-                  title: 'Feature 1',
-                  description: 'Description 1',
-                },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Home',
+                description: 'Home page',
               },
-              {
-                block: 'feature-card',
-                vars: {
-                  icon: 'heart',
-                  color: 'red',
-                  title: 'Feature 2',
-                  description: 'Description 2',
+              sections: [
+                {
+                  block: 'feature-card',
+                  vars: {
+                    icon: 'star',
+                    color: 'blue',
+                    title: 'Feature 1',
+                    description: 'Description 1',
+                  },
                 },
-              },
-            ],
-          },
-        ],
+                {
+                  block: 'feature-card',
+                  vars: {
+                    icon: 'heart',
+                    color: 'red',
+                    title: 'Feature 2',
+                    description: 'Description 2',
+                  },
+                },
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
-
-      // 1. Structure validation (ARIA) - First card
-      // THEN: assertion
-      await expect(page.locator('[data-testid="block-feature-card-0"]')).toMatchAriaSnapshot(`
-        - group:
-          - img
+      await test.step('Navigate to page and verify nested structures', async () => {
+        await page.goto('/')
+        await expect(page.locator('[data-testid="block-feature-card-0"]')).toMatchAriaSnapshot(`
           - group:
-            - heading "Feature 1" [level=4]
-            - text: Description 1
-      `)
-
-      // 2. Structure validation (ARIA) - Second card (different data, same structure)
-      // THEN: assertion
-      await expect(page.locator('[data-testid="block-feature-card-1"]')).toMatchAriaSnapshot(`
-        - group:
-          - img
+            - img
+            - group:
+              - heading "Feature 1" [level=4]
+              - text: Description 1
+        `)
+        await expect(page.locator('[data-testid="block-feature-card-1"]')).toMatchAriaSnapshot(`
           - group:
-            - heading "Feature 2" [level=4]
-            - text: Description 2
-      `)
-
-      // Focus on workflow continuity, not exhaustive coverage
+            - img
+            - group:
+              - heading "Feature 2" [level=4]
+              - text: Description 2
+        `)
+      })
     }
   )
 })
