@@ -130,23 +130,24 @@ test.describe('Barcode Field', () => {
     'APP-TABLES-FIELD-TYPES-BARCODE-006: user can complete full barcode-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [{ id: 1, name: 'barcode', type: 'barcode', unique: true }],
-          },
-        ],
+      await test.step('Setup: Start server with barcode field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [{ id: 1, name: 'barcode', type: 'barcode', unique: true }],
+            },
+          ],
+        })
       })
-      // WHEN: executing query
-      await executeQuery("INSERT INTO data (barcode) VALUES ('9876543210987')")
-      // WHEN: querying the database
-      const result = await executeQuery("SELECT barcode FROM data WHERE barcode = '9876543210987'")
-      // THEN: assertion
-      expect(result.barcode).toBe('9876543210987')
+
+      await test.step('Insert and verify barcode value', async () => {
+        await executeQuery("INSERT INTO data (barcode) VALUES ('9876543210987')")
+        const result = await executeQuery("SELECT barcode FROM data WHERE barcode = '9876543210987'")
+        expect(result.barcode).toBe('9876543210987')
+      })
     }
   )
 })

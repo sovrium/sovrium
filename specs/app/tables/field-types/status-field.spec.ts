@@ -288,52 +288,51 @@ test.describe('Status Field', () => {
     'APP-TABLES-FIELD-TYPES-STATUS-006: user can complete full status-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'status',
-                type: 'status',
-                options: [{ value: 'Draft' }, { value: 'Published' }, { value: 'Archived' }],
-                required: true,
-                indexed: true,
-                default: 'Draft',
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with status field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'status',
+                  type: 'status',
+                  options: [{ value: 'Draft' }, { value: 'Published' }, { value: 'Archived' }],
+                  required: true,
+                  indexed: true,
+                  default: 'Draft',
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN: executing query
-      const defaultRecord = await executeQuery(
-        'INSERT INTO data (id) VALUES (DEFAULT) RETURNING status'
-      )
-      // THEN: assertion
-      expect(defaultRecord.status).toBe('Draft')
+      await test.step('Insert record with default status', async () => {
+        const defaultRecord = await executeQuery(
+          'INSERT INTO data (id) VALUES (DEFAULT) RETURNING status'
+        )
+        expect(defaultRecord.status).toBe('Draft')
+      })
 
-      // WHEN: executing query
-      await executeQuery("INSERT INTO data (status) VALUES ('Published')")
-      // WHEN: executing query
-      const publishedRecord = await executeQuery('SELECT status FROM data WHERE id = 2')
-      // THEN: assertion
-      expect(publishedRecord.status).toBe('Published')
+      await test.step('Insert record with explicit status', async () => {
+        await executeQuery("INSERT INTO data (status) VALUES ('Published')")
+        const publishedRecord = await executeQuery('SELECT status FROM data WHERE id = 2')
+        expect(publishedRecord.status).toBe('Published')
+      })
 
-      // WHEN: executing query
-      const statusCounts = await executeQuery(
-        'SELECT status, COUNT(*) as count FROM data GROUP BY status ORDER BY status'
-      )
-      // THEN: assertion
-      expect(statusCounts).toContainEqual({ status: 'Draft', count: 1 })
-      // THEN: assertion
-      expect(statusCounts).toContainEqual({ status: 'Published', count: 1 })
+      await test.step('Verify status grouping and counts', async () => {
+        const statusCounts = await executeQuery(
+          'SELECT status, COUNT(*) as count FROM data GROUP BY status ORDER BY status'
+        )
+        expect(statusCounts).toContainEqual({ status: 'Draft', count: 1 })
+        expect(statusCounts).toContainEqual({ status: 'Published', count: 1 })
+      })
     }
   )
 })

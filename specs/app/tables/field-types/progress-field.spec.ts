@@ -100,34 +100,37 @@ test.describe('Progress Field', () => {
     'APP-TABLES-FIELD-TYPES-PROGRESS-003: user can complete full progress-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 3,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'progress_field',
-                type: 'progress',
-                required: true,
-                default: 0,
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with progress field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 3,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'progress_field',
+                  type: 'progress',
+                  required: true,
+                  default: 0,
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN: executing query
-      await executeQuery('INSERT INTO data (progress_field) VALUES (25), (50), (100)')
-      // WHEN: querying the database
-      const results = await executeQuery('SELECT AVG(progress_field) as avg FROM data')
-      // THEN: assertion
-      expect(parseFloat(results.avg)).toBeCloseTo(58.33, 1)
+      await test.step('Insert progress values', async () => {
+        await executeQuery('INSERT INTO data (progress_field) VALUES (25), (50), (100)')
+      })
+
+      await test.step('Verify average calculation', async () => {
+        const results = await executeQuery('SELECT AVG(progress_field) as avg FROM data')
+        expect(parseFloat(results.avg)).toBeCloseTo(58.33, 1)
+      })
     }
   )
 })

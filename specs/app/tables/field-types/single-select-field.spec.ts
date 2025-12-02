@@ -217,45 +217,44 @@ test.describe('Single Select Field', () => {
     'APP-TABLES-FIELD-TYPES-SINGLE-SELECT-006: user can complete full single-select-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'select_field',
-                type: 'single-select',
-                options: ['option1', 'option2', 'option3'],
-                required: true,
-                indexed: true,
-                default: 'option1',
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with single-select field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'select_field',
+                  type: 'single-select',
+                  options: ['option1', 'option2', 'option3'],
+                  required: true,
+                  indexed: true,
+                  default: 'option1',
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN: executing query
-      await executeQuery("INSERT INTO data (select_field) VALUES ('option2')")
-      // WHEN: executing query
-      const stored = await executeQuery('SELECT select_field FROM data WHERE id = 1')
-      // THEN: assertion
-      expect(stored.select_field).toBe('option2')
+      await test.step('Insert and verify selected value', async () => {
+        await executeQuery("INSERT INTO data (select_field) VALUES ('option2')")
+        const stored = await executeQuery('SELECT select_field FROM data WHERE id = 1')
+        expect(stored.select_field).toBe('option2')
+      })
 
-      // Count by option
-      await executeQuery("INSERT INTO data (select_field) VALUES ('option2'), ('option3')")
-      // WHEN: executing query
-      const grouped = await executeQuery(
-        'SELECT select_field, COUNT(*) as count FROM data GROUP BY select_field ORDER BY select_field'
-      )
-      // THEN: assertion
-      expect(grouped).toContainEqual({ select_field: 'option2', count: 2 })
+      await test.step('Test grouping by option', async () => {
+        await executeQuery("INSERT INTO data (select_field) VALUES ('option2'), ('option3')")
+        const grouped = await executeQuery(
+          'SELECT select_field, COUNT(*) as count FROM data GROUP BY select_field ORDER BY select_field'
+        )
+        expect(grouped).toContainEqual({ select_field: 'option2', count: 2 })
+      })
     }
   )
 })
