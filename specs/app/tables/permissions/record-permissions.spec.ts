@@ -497,86 +497,87 @@ test.describe('Record-Level Permissions', () => {
     'APP-TABLES-RECORD-PERMISSIONS-007: user can complete full record-permissions workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: Application configured with representative record-level permissions
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
-        tables: [
-          {
-            id: 7,
-            name: 'items',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'owner_id', type: 'user' },
-              { id: 4, name: 'status', type: 'single-line-text' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-            permissions: {
-              records: [
-                {
-                  action: 'read',
-                  condition: '{userId} = owner_id',
-                },
-                {
-                  action: 'update',
-                  condition: '{userId} = owner_id',
-                },
-                {
-                  action: 'delete',
-                  condition: "{userId} = owner_id AND status = 'draft'",
-                },
-              ],
-            },
+      let user1: any
+      let user2: any
+
+      await test.step('Setup: Start server with record-level permissions', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
           },
-        ],
+          tables: [
+            {
+              id: 7,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'owner_id', type: 'user' },
+                { id: 4, name: 'status', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                records: [
+                  {
+                    action: 'read',
+                    condition: '{userId} = owner_id',
+                  },
+                  {
+                    action: 'update',
+                    condition: '{userId} = owner_id',
+                  },
+                  {
+                    action: 'delete',
+                    condition: "{userId} = owner_id AND status = 'draft'",
+                  },
+                ],
+              },
+            },
+          ],
+        })
       })
 
-      // Create test users
-      const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
-      const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
+      await test.step('Create test users and RLS policies', async () => {
+        user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
+        user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
 
-      await executeQuery([
-        'ALTER TABLE items ENABLE ROW LEVEL SECURITY',
-        "CREATE POLICY user_read ON items FOR SELECT USING (owner_id = current_setting('app.user_id')::INTEGER)",
-        "CREATE POLICY user_update ON items FOR UPDATE USING (owner_id = current_setting('app.user_id')::INTEGER)",
-        "CREATE POLICY user_delete ON items FOR DELETE USING (owner_id = current_setting('app.user_id')::INTEGER AND status = 'draft')",
-        `INSERT INTO items (title, owner_id, status) VALUES ('Item 1', '${user1.user.id}', 'draft'), ('Item 2', '${user2.user.id}', 'published')`,
-      ])
+        await executeQuery([
+          'ALTER TABLE items ENABLE ROW LEVEL SECURITY',
+          "CREATE POLICY user_read ON items FOR SELECT USING (owner_id = current_setting('app.user_id')::INTEGER)",
+          "CREATE POLICY user_update ON items FOR UPDATE USING (owner_id = current_setting('app.user_id')::INTEGER)",
+          "CREATE POLICY user_delete ON items FOR DELETE USING (owner_id = current_setting('app.user_id')::INTEGER AND status = 'draft')",
+          `INSERT INTO items (title, owner_id, status) VALUES ('Item 1', '${user1.user.id}', 'draft'), ('Item 2', '${user2.user.id}', 'published')`,
+        ])
+      })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
+      await test.step('Verify user can read their own records', async () => {
+        const readResult = await executeQuery(
+          `SET LOCAL app.user_id = '${user1.user.id}'; SELECT COUNT(*) as count FROM items`
+        )
+        expect(readResult.count).toBe(1)
+      })
 
-      // User can read their own records
-      const readResult = await executeQuery(
-        `SET LOCAL app.user_id = '${user1.user.id}'; SELECT COUNT(*) as count FROM items`
-      )
-      // THEN: assertion
-      expect(readResult.count).toBe(1)
+      await test.step('Verify user can update their own records', async () => {
+        const updateResult = await executeQuery(
+          `SET LOCAL app.user_id = '${user1.user.id}'; UPDATE items SET title = 'Updated' WHERE id = 1 RETURNING title`
+        )
+        expect(updateResult.title).toBe('Updated')
+      })
 
-      // User can update their own records
-      const updateResult = await executeQuery(
-        `SET LOCAL app.user_id = '${user1.user.id}'; UPDATE items SET title = 'Updated' WHERE id = 1 RETURNING title`
-      )
-      // THEN: assertion
-      expect(updateResult.title).toBe('Updated')
+      await test.step('Verify user can delete their own draft records', async () => {
+        const deleteResult = await executeQuery(
+          `SET LOCAL app.user_id = '${user1.user.id}'; DELETE FROM items WHERE id = 1 RETURNING id`
+        )
+        expect(deleteResult.id).toBe(1)
+      })
 
-      // User can delete their own draft records
-      const deleteResult = await executeQuery(
-        `SET LOCAL app.user_id = '${user1.user.id}'; DELETE FROM items WHERE id = 1 RETURNING id`
-      )
-      // THEN: assertion
-      expect(deleteResult.id).toBe(1)
-
-      // User cannot access other users' records
-      const crossUserResult = await executeQuery(
-        `SET LOCAL app.user_id = '${user1.user.id}'; SELECT COUNT(*) as count FROM items WHERE owner_id = '${user2.user.id}'`
-      )
-      // THEN: assertion
-      expect(crossUserResult.count).toBe(0)
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify user cannot access other users records', async () => {
+        const crossUserResult = await executeQuery(
+          `SET LOCAL app.user_id = '${user1.user.id}'; SELECT COUNT(*) as count FROM items WHERE owner_id = '${user2.user.id}'`
+        )
+        expect(crossUserResult.count).toBe(0)
+      })
     }
   )
 })

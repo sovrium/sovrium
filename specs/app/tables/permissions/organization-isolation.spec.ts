@@ -596,85 +596,93 @@ test.describe('Organization Data Isolation', () => {
       createAuthenticatedUser,
       createOrganization,
     }) => {
-      // GIVEN: Two organizations with separate data
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { organization: true },
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'resources',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
-            ],
-            permissions: {
-              organizationScoped: true,
-            },
+      let orgA: any
+      let orgB: any
+
+      await test.step('Setup: Start server with organization-scoped table', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true },
           },
-        ],
+          tables: [
+            {
+              id: 1,
+              name: 'resources',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'organization_id', type: 'single-line-text' },
+              ],
+              permissions: {
+                organizationScoped: true,
+              },
+            },
+          ],
+        })
       })
 
-      // Create user A and their organization (userA becomes owner automatically)
-      await createAuthenticatedUser({ email: 'user1@example.com' })
-      const orgA = await createOrganization({ name: 'Organization A' })
+      await test.step('Create two organizations with separate users', async () => {
+        await createAuthenticatedUser({ email: 'user1@example.com' })
+        orgA = await createOrganization({ name: 'Organization A' })
 
-      // Create user B and their organization (userB becomes owner automatically)
-      await createAuthenticatedUser({ email: 'user2@example.com' })
-      const orgB = await createOrganization({ name: 'Organization B' })
+        await createAuthenticatedUser({ email: 'user2@example.com' })
+        orgB = await createOrganization({ name: 'Organization B' })
+      })
 
-      // Insert resources for each organization (Better Auth uses TEXT IDs)
-      await executeQuery([
-        `INSERT INTO resources (id, name, organization_id) VALUES
-         (1, 'My Resource', '${orgA.organization.id}'),
-         (2, 'Other Org Resource', '${orgB.organization.id}')`,
-      ])
+      await test.step('Insert resources for each organization', async () => {
+        await executeQuery([
+          `INSERT INTO resources (id, name, organization_id) VALUES
+           (1, 'My Resource', '${orgA.organization.id}'),
+           (2, 'Other Org Resource', '${orgB.organization.id}')`,
+        ])
+      })
 
-      // WHEN: Checking complete organization isolation RLS configuration
-      // THEN: All CRUD operations should have organization-scoped policies
+      await test.step('Verify RLS enabled on table', async () => {
+        const rlsEnabled = await executeQuery(
+          `SELECT relrowsecurity FROM pg_class WHERE relname = 'resources'`
+        )
+        expect(rlsEnabled.rows[0].relrowsecurity).toBe(true)
+      })
 
-      // Test 1: RLS enabled on table
-      const rlsEnabled = await executeQuery(
-        `SELECT relrowsecurity FROM pg_class WHERE relname = 'resources'`
-      )
-      expect(rlsEnabled.rows[0].relrowsecurity).toBe(true)
+      await test.step('Verify policies exist for all CRUD operations', async () => {
+        const policies = await executeQuery(
+          `SELECT policyname, cmd FROM pg_policies WHERE tablename = 'resources' ORDER BY cmd`
+        )
+        const cmds = policies.rows.map((p: { cmd: string }) => p.cmd)
+        expect(cmds).toContain('SELECT')
+        expect(cmds).toContain('INSERT')
+        expect(cmds).toContain('UPDATE')
+        expect(cmds).toContain('DELETE')
+      })
 
-      // Test 2: Policies exist for all CRUD operations
-      const policies = await executeQuery(
-        `SELECT policyname, cmd FROM pg_policies WHERE tablename = 'resources' ORDER BY cmd`
-      )
-      const cmds = policies.rows.map((p: { cmd: string }) => p.cmd)
-      expect(cmds).toContain('SELECT')
-      expect(cmds).toContain('INSERT')
-      expect(cmds).toContain('UPDATE')
-      expect(cmds).toContain('DELETE')
+      await test.step('Verify all policies reference organization_id', async () => {
+        const policyDefs = await executeQuery(
+          `SELECT polcmd, pg_get_expr(polqual, polrelid) as qual, pg_get_expr(polwithcheck, polrelid) as withcheck
+           FROM pg_policy WHERE polrelid = 'resources'::regclass`
+        )
+        const policies2 = policyDefs.rows as Array<{
+          polcmd: string
+          qual: string | null
+          withcheck: string | null
+        }>
+        for (const policy of policies2) {
+          const def = policy.qual || policy.withcheck
+          expect(def).toContain('organization_id')
+        }
+      })
 
-      // Test 3: All policies reference organization_id
-      const policyDefs = await executeQuery(
-        `SELECT polcmd, pg_get_expr(polqual, polrelid) as qual, pg_get_expr(polwithcheck, polrelid) as withcheck
-         FROM pg_policy WHERE polrelid = 'resources'::regclass`
-      )
-      const policies2 = policyDefs.rows as Array<{
-        polcmd: string
-        qual: string | null
-        withcheck: string | null
-      }>
-      for (const policy of policies2) {
-        const def = policy.qual || policy.withcheck
-        expect(def).toContain('organization_id')
-      }
-
-      // Test 4: Data is stored correctly with different org IDs
-      const data = await executeQuery(`SELECT id, name, organization_id FROM resources ORDER BY id`)
-      expect(data.rows).toHaveLength(2)
-      expect(data.rows[0].name).toBe('My Resource')
-      expect(data.rows[0].organization_id).toBe(orgA.organization.id)
-      expect(data.rows[1].name).toBe('Other Org Resource')
-      expect(data.rows[1].organization_id).toBe(orgB.organization.id)
+      await test.step('Verify data stored with correct organization IDs', async () => {
+        const data = await executeQuery(
+          `SELECT id, name, organization_id FROM resources ORDER BY id`
+        )
+        expect(data.rows).toHaveLength(2)
+        expect(data.rows[0].name).toBe('My Resource')
+        expect(data.rows[0].organization_id).toBe(orgA.organization.id)
+        expect(data.rows[1].name).toBe('Other Org Resource')
+        expect(data.rows[1].organization_id).toBe(orgB.organization.id)
+      })
     }
   )
 })

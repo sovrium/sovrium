@@ -452,88 +452,89 @@ test.describe('Field-Level Permissions', () => {
     'APP-TABLES-FIELD-PERMISSIONS-007: user can complete full field-permissions workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: Application configured with representative field-level permissions
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
-        tables: [
-          {
-            id: 7,
-            name: 'records',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'public_field', type: 'single-line-text' },
-              { id: 4, name: 'private_field', type: 'single-line-text' },
-              { id: 5, name: 'owner_id', type: 'user' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-            permissions: {
-              read: {
-                type: 'authenticated',
-              },
-              fields: [
-                {
-                  field: 'private_field',
-                  read: {
-                    type: 'custom',
-                    condition: '{userId} = owner_id',
-                  },
-                  write: {
-                    type: 'custom',
-                    condition: '{userId} = owner_id',
-                  },
-                },
-              ],
-            },
+      let user1: any
+      let user2: any
+
+      await test.step('Setup: Start server with field-level permissions', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
           },
-        ],
+          tables: [
+            {
+              id: 7,
+              name: 'records',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'public_field', type: 'single-line-text' },
+                { id: 4, name: 'private_field', type: 'single-line-text' },
+                { id: 5, name: 'owner_id', type: 'user' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                read: {
+                  type: 'authenticated',
+                },
+                fields: [
+                  {
+                    field: 'private_field',
+                    read: {
+                      type: 'custom',
+                      condition: '{userId} = owner_id',
+                    },
+                    write: {
+                      type: 'custom',
+                      condition: '{userId} = owner_id',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        })
       })
 
-      // Create test users
-      const user1 = await createAuthenticatedUser({ email: 'owner@example.com' })
-      const user2 = await createAuthenticatedUser({ email: 'other@example.com' })
+      await test.step('Create test users and insert data', async () => {
+        user1 = await createAuthenticatedUser({ email: 'owner@example.com' })
+        user2 = await createAuthenticatedUser({ email: 'other@example.com' })
 
-      await executeQuery([
-        `INSERT INTO records (title, public_field, private_field, owner_id) VALUES ('Record 1', 'Public', 'Private', '${user1.user.id}')`,
-      ])
+        await executeQuery([
+          `INSERT INTO records (title, public_field, private_field, owner_id) VALUES ('Record 1', 'Public', 'Private', '${user1.user.id}')`,
+        ])
+      })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-
-      // Owner can read all fields including private_field
-      const ownerRead = await executeQuery(
-        `SET LOCAL app.user_id = '${user1.user.id}'; SELECT title, public_field, private_field FROM records WHERE id = 1`
-      )
-      // THEN: assertion
-      expect(ownerRead.title).toBe('Record 1')
-      expect(ownerRead.private_field).toBe('Private')
-
-      // Non-owner can read public fields but not private_field
-      // THEN: assertion
-      await expect(async () => {
-        await executeQuery(
-          `SET LOCAL app.user_id = '${user2.user.id}'; SELECT private_field FROM records WHERE id = 1`
+      await test.step('Verify owner can read all fields including private field', async () => {
+        const ownerRead = await executeQuery(
+          `SET LOCAL app.user_id = '${user1.user.id}'; SELECT title, public_field, private_field FROM records WHERE id = 1`
         )
-      }).rejects.toThrow('permission denied')
+        expect(ownerRead.title).toBe('Record 1')
+        expect(ownerRead.private_field).toBe('Private')
+      })
 
-      // Owner can update private_field
-      const ownerUpdate = await executeQuery(
-        `SET LOCAL app.user_id = '${user1.user.id}'; UPDATE records SET private_field = 'Updated' WHERE id = 1 RETURNING private_field`
-      )
-      // THEN: assertion
-      expect(ownerUpdate.private_field).toBe('Updated')
+      await test.step('Verify non-owner cannot read private field', async () => {
+        await expect(async () => {
+          await executeQuery(
+            `SET LOCAL app.user_id = '${user2.user.id}'; SELECT private_field FROM records WHERE id = 1`
+          )
+        }).rejects.toThrow('permission denied')
+      })
 
-      // Non-owner cannot update private_field
-      // THEN: assertion
-      await expect(async () => {
-        await executeQuery(
-          `SET LOCAL app.user_id = '${user2.user.id}'; UPDATE records SET private_field = 'Hacked' WHERE id = 1`
+      await test.step('Verify owner can update private field', async () => {
+        const ownerUpdate = await executeQuery(
+          `SET LOCAL app.user_id = '${user1.user.id}'; UPDATE records SET private_field = 'Updated' WHERE id = 1 RETURNING private_field`
         )
-      }).rejects.toThrow('permission denied')
+        expect(ownerUpdate.private_field).toBe('Updated')
+      })
 
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify non-owner cannot update private field', async () => {
+        await expect(async () => {
+          await executeQuery(
+            `SET LOCAL app.user_id = '${user2.user.id}'; UPDATE records SET private_field = 'Hacked' WHERE id = 1`
+          )
+        }).rejects.toThrow('permission denied')
+      })
     }
   )
 })

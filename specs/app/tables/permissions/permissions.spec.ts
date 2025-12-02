@@ -402,87 +402,86 @@ test.describe('Table Permissions', () => {
     'APP-TABLES-PERMISSIONS-006: user can complete full permissions workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative hierarchical permissions
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
-        tables: [
-          {
-            id: 6,
-            name: 'documents',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'content', type: 'single-line-text' },
-              { id: 4, name: 'salary_info', type: 'single-line-text' },
-              { id: 5, name: 'author_id', type: 'user' },
-              { id: 6, name: 'status', type: 'single-line-text' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-            permissions: {
-              read: {
-                type: 'authenticated',
-              },
-              fields: [
-                {
-                  field: 'salary_info',
-                  read: {
-                    type: 'roles',
-                    roles: ['admin'],
-                  },
-                },
-              ],
-              records: [
-                {
-                  action: 'read',
-                  condition: "{userId} = author_id OR status = 'published'",
-                },
-              ],
-            },
+      await test.step('Setup: Start server with hierarchical permissions', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
           },
-        ],
+          tables: [
+            {
+              id: 6,
+              name: 'documents',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'content', type: 'single-line-text' },
+                { id: 4, name: 'salary_info', type: 'single-line-text' },
+                { id: 5, name: 'author_id', type: 'user' },
+                { id: 6, name: 'status', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                read: {
+                  type: 'authenticated',
+                },
+                fields: [
+                  {
+                    field: 'salary_info',
+                    read: {
+                      type: 'roles',
+                      roles: ['admin'],
+                    },
+                  },
+                ],
+                records: [
+                  {
+                    action: 'read',
+                    condition: "{userId} = author_id OR status = 'published'",
+                  },
+                ],
+              },
+            },
+          ],
+        })
       })
 
-      await executeQuery([
-        'ALTER TABLE documents ENABLE ROW LEVEL SECURITY',
-        'CREATE POLICY authenticated_read ON documents FOR SELECT USING (auth.is_authenticated())',
-        "CREATE POLICY owner_or_published ON documents FOR SELECT USING (author_id = current_setting('app.user_id')::INTEGER OR status = 'published')",
-        "INSERT INTO documents (title, content, salary_info, author_id, status) VALUES ('Public Doc', 'Content', 'Confidential', 1, 'published'), ('Private Doc', 'Private', 'Secret', 2, 'draft')",
-      ])
+      await test.step('Create RLS policies and insert test data', async () => {
+        await executeQuery([
+          'ALTER TABLE documents ENABLE ROW LEVEL SECURITY',
+          'CREATE POLICY authenticated_read ON documents FOR SELECT USING (auth.is_authenticated())',
+          "CREATE POLICY owner_or_published ON documents FOR SELECT USING (author_id = current_setting('app.user_id')::INTEGER OR status = 'published')",
+          "INSERT INTO documents (title, content, salary_info, author_id, status) VALUES ('Public Doc', 'Content', 'Confidential', 1, 'published'), ('Private Doc', 'Private', 'Secret', 2, 'draft')",
+        ])
+      })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
+      await test.step('Verify hierarchical permission structure exists', async () => {
+        const policies = await executeQuery(
+          "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='documents'"
+        )
+        expect(policies.count).toBeGreaterThan(0)
+      })
 
-      // Verify hierarchical permission structure exists
-      const policies = await executeQuery(
-        "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='documents'"
-      )
-      // THEN: assertion
-      expect(policies.count).toBeGreaterThan(0)
+      await test.step('Verify authenticated user can access published documents', async () => {
+        const userDocs = await executeQuery(
+          "SET LOCAL app.user_id = 3; SELECT COUNT(*) as count FROM documents WHERE status = 'published'"
+        )
+        expect(userDocs.count).toBe(1)
+      })
 
-      // Authenticated user can access published documents (table + record level)
-      const userDocs = await executeQuery(
-        "SET LOCAL app.user_id = 3; SELECT COUNT(*) as count FROM documents WHERE status = 'published'"
-      )
-      // THEN: assertion
-      expect(userDocs.count).toBe(1)
+      await test.step('Verify field-level restriction for non-admin users', async () => {
+        await expect(async () => {
+          await executeQuery('SET ROLE member_user; SELECT salary_info FROM documents WHERE id = 1')
+        }).rejects.toThrow('permission denied')
+      })
 
-      // Field-level restriction works (non-admin cannot see salary_info)
-      // THEN: assertion
-      await expect(async () => {
-        await executeQuery('SET ROLE member_user; SELECT salary_info FROM documents WHERE id = 1')
-      }).rejects.toThrow('permission denied')
-
-      // Admin can see restricted fields
-      const adminFields = await executeQuery(
-        'SET ROLE admin_user; SELECT title, salary_info FROM documents WHERE id = 1'
-      )
-      // THEN: assertion
-      expect(adminFields.title).toBe('Public Doc')
-      expect(adminFields.salary_info).toBe('Confidential')
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify admin can see restricted fields', async () => {
+        const adminFields = await executeQuery(
+          'SET ROLE admin_user; SELECT title, salary_info FROM documents WHERE id = 1'
+        )
+        expect(adminFields.title).toBe('Public Doc')
+        expect(adminFields.salary_info).toBe('Confidential')
+      })
     }
   )
 })
