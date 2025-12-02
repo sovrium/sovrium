@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/auth/organization/list-organizations/get.json
  * Domain: api
- * Spec Count: 5
+ * Spec Count: 3
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (5 tests) - Exhaustive acceptance criteria
@@ -32,12 +32,12 @@ test.describe('List user organizations', () => {
   test.fixme(
     "API-ORG-LIST-ORGANIZATIONS-001: should return 200 OK with all organizations and user's roles",
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user who is member of multiple organizations
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -46,10 +46,6 @@ test.describe('List user organizations', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // Create multiple organizations
@@ -75,12 +71,12 @@ test.describe('List user organizations', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-ORGANIZATIONS-002: should return 200 OK with empty organizations array',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user who is not member of any organization
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -89,10 +85,6 @@ test.describe('List user organizations', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // WHEN: User requests list of their organizations
@@ -115,7 +107,7 @@ test.describe('List user organizations', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -136,7 +128,7 @@ test.describe('List user organizations', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -147,10 +139,6 @@ test.describe('List user organizations', () => {
         password: 'User1Pass123!',
         name: 'User 1',
       })
-      await signIn({
-        email: 'user1@example.com',
-        password: 'User1Pass123!',
-      })
       await page.request.post('/api/auth/organization/create', {
         data: { name: 'User 1 Org', slug: 'user1-org' },
       })
@@ -160,10 +148,6 @@ test.describe('List user organizations', () => {
         email: 'user2@example.com',
         password: 'User2Pass123!',
         name: 'User 2',
-      })
-      await signIn({
-        email: 'user2@example.com',
-        password: 'User2Pass123!',
       })
       await page.request.post('/api/auth/organization/create', {
         data: { name: 'User 2 Org', slug: 'user2-org' },
@@ -190,12 +174,12 @@ test.describe('List user organizations', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-ORGANIZATIONS-005: should return 200 OK with correct role for each organization',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user who created organizations (becomes owner)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -204,10 +188,6 @@ test.describe('List user organizations', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // Create organizations
@@ -236,47 +216,50 @@ test.describe('List user organizations', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-ORGANIZATIONS-006: user can complete full listOrganizations workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          authentication: ['email-and-password'],
-          plugins: { organization: true },
-        },
+    async ({ page, startServerWithSchema, signUp }) => {
+      await test.step('Setup: Start server with organization plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true },
+          },
+        })
       })
 
-      // Test 1: List organizations without auth fails
-      const noAuthResponse = await page.request.get('/api/auth/organization/list')
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create and authenticate user
-      await signUp({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-        name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
+      await test.step('Verify list organizations fails without auth', async () => {
+        const noAuthResponse = await page.request.get('/api/auth/organization/list')
+        expect(noAuthResponse.status()).toBe(401)
       })
 
-      // Test 2: List returns empty array for new user
-      const emptyResponse = await page.request.get('/api/auth/organization/list')
-      expect(emptyResponse.status()).toBe(200)
-      const emptyData = await emptyResponse.json()
-      expect(emptyData.length).toBe(0)
-
-      // Test 3: List returns organization after creation
-      await page.request.post('/api/auth/organization/create', {
-        data: { name: 'Test Org', slug: 'test-org' },
+      await test.step('Setup: Create and authenticate user', async () => {
+        await signUp({
+          email: 'user@example.com',
+          password: 'UserPass123!',
+          name: 'Test User',
+        })
       })
 
-      const listResponse = await page.request.get('/api/auth/organization/list')
-      expect(listResponse.status()).toBe(200)
-      const listData = await listResponse.json()
-      expect(listData.length).toBe(1)
-      expect(listData[0]).toHaveProperty('name', 'Test Org')
+      await test.step('Verify list returns empty array for new user', async () => {
+        const emptyResponse = await page.request.get('/api/auth/organization/list')
+        expect(emptyResponse.status()).toBe(200)
+        const emptyData = await emptyResponse.json()
+        expect(emptyData.length).toBe(0)
+      })
+
+      await test.step('Create organization', async () => {
+        await page.request.post('/api/auth/organization/create', {
+          data: { name: 'Test Org', slug: 'test-org' },
+        })
+      })
+
+      await test.step('Verify list returns organization after creation', async () => {
+        const listResponse = await page.request.get('/api/auth/organization/list')
+        expect(listResponse.status()).toBe(200)
+        const listData = await listResponse.json()
+        expect(listData.length).toBe(1)
+        expect(listData[0]).toHaveProperty('name', 'Test Org')
+      })
     }
   )
 })

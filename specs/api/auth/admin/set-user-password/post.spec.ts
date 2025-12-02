@@ -37,12 +37,12 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-AUTH-ADMIN-SET-USER-PASSWORD-001: should return 200 OK and update password',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -56,11 +56,6 @@ test.describe('Admin: Set user password', () => {
         email: 'target@example.com',
         password: 'OldPassword123!',
         name: 'Target User',
-      })
-
-      await signIn({
-        email: 'admin@example.com',
-        password: 'AdminPass123!',
       })
 
       // WHEN: Admin sets new password for user
@@ -96,7 +91,7 @@ test.describe('Admin: Set user password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -111,8 +106,6 @@ test.describe('Admin: Set user password', () => {
       // Create multiple sessions for target user
       await signIn({ email: 'target@example.com', password: 'OldPassword123!' })
       await signIn({ email: 'target@example.com', password: 'OldPassword123!' })
-
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin sets password with revokeOtherSessions enabled
       const response = await page.request.post('/api/auth/admin/set-user-password', {
@@ -134,18 +127,17 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-AUTH-ADMIN-SET-USER-PASSWORD-003: should return 400 Bad Request without required fields',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits request without required fields
       const response = await page.request.post('/api/auth/admin/set-user-password', {
@@ -163,12 +155,12 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-AUTH-ADMIN-SET-USER-PASSWORD-004: should return 400 Bad Request with short password',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -179,8 +171,6 @@ test.describe('Admin: Set user password', () => {
         password: 'OldPassword123!',
         name: 'Target User',
       })
-
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits password shorter than 8 characters
       const response = await page.request.post('/api/auth/admin/set-user-password', {
@@ -206,7 +196,7 @@ test.describe('Admin: Set user password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -227,12 +217,12 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-AUTH-ADMIN-SET-USER-PASSWORD-006: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -246,10 +236,6 @@ test.describe('Admin: Set user password', () => {
         email: 'target@example.com',
         password: 'OldPassword123!',
         name: 'Target User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // WHEN: Regular user attempts to set another user's password
@@ -268,18 +254,17 @@ test.describe('Admin: Set user password', () => {
   test.fixme(
     'API-AUTH-ADMIN-SET-USER-PASSWORD-007: should return 404 Not Found for non-existent user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin attempts to set password for non-existent user
       const response = await page.request.post('/api/auth/admin/set-user-password', {
@@ -302,41 +287,50 @@ test.describe('Admin: Set user password', () => {
     'API-AUTH-ADMIN-SET-USER-PASSWORD-008: admin can complete full set-user-password workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          authentication: ['email-and-password'],
-          plugins: { admin: true },
-        },
+      await test.step('Setup: Start server with admin plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { admin: true },
+          },
+        })
       })
 
-      // Test 1: Set password without auth fails
-      const noAuthResponse = await page.request.post('/api/auth/admin/set-user-password', {
-        data: { userId: '2', newPassword: 'NewPass123!' },
+      await test.step('Verify set password fails without auth', async () => {
+        const noAuthResponse = await page.request.post('/api/auth/admin/set-user-password', {
+          data: { userId: '2', newPassword: 'NewPass123!' },
+        })
+        expect(noAuthResponse.status()).toBe(401)
       })
-      expect(noAuthResponse.status()).toBe(401)
 
-      // Create admin and regular user
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signUp({ email: 'user@example.com', password: 'OldPass123!', name: 'Regular User' })
-
-      // Test 2: Set password fails for non-admin
-      await signIn({ email: 'user@example.com', password: 'OldPass123!' })
-      const nonAdminResponse = await page.request.post('/api/auth/admin/set-user-password', {
-        data: { userId: '1', newPassword: 'NewPass123!' },
+      await test.step('Setup: Create admin and regular user', async () => {
+        await signUp({
+          email: 'admin@example.com',
+          password: 'AdminPass123!',
+          name: 'Admin User',
+        })
+        await signUp({ email: 'user@example.com', password: 'OldPass123!', name: 'Regular User' })
       })
-      expect(nonAdminResponse.status()).toBe(403)
 
-      // Test 3: Set password succeeds for admin
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
-      const adminResponse = await page.request.post('/api/auth/admin/set-user-password', {
-        data: { userId: '2', newPassword: 'NewSecurePass123!' },
+      await test.step('Verify set password fails for non-admin', async () => {
+        await signIn({ email: 'user@example.com', password: 'OldPass123!' })
+        const nonAdminResponse = await page.request.post('/api/auth/admin/set-user-password', {
+          data: { userId: '1', newPassword: 'NewPass123!' },
+        })
+        expect(nonAdminResponse.status()).toBe(403)
       })
-      expect(adminResponse.status()).toBe(200)
 
-      const data = await adminResponse.json()
-      expect(data).toHaveProperty('status', true)
+      await test.step('Set user password as admin', async () => {
+        await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
+        const adminResponse = await page.request.post('/api/auth/admin/set-user-password', {
+          data: { userId: '2', newPassword: 'NewSecurePass123!' },
+        })
+        expect(adminResponse.status()).toBe(200)
+
+        const data = await adminResponse.json()
+        expect(data).toHaveProperty('status', true)
+      })
     }
   )
 })

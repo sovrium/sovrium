@@ -12,8 +12,8 @@ Sovrium uses a **dual-track API architecture** that provides both type-safe RPC 
 
 | Library           | Version | Usage                            | Allowed Locations                                                | Enforced By       |
 | ----------------- | ------- | -------------------------------- | ---------------------------------------------------------------- | ----------------- |
-| **Effect Schema** | 3.19.5  | Server validation, domain models | All `src/` files                                                 | Project standard  |
-| **Zod**           | 4.1.12  | OpenAPI integration ONLY         | `src/presentation/api/schemas/` + `src/presentation/api/routes/` | ESLint boundaries |
+| **Effect Schema** | 3.19.8  | Server validation, domain models | All `src/` files                                                 | Project standard  |
+| **Zod**           | 4.1.13  | OpenAPI integration ONLY         | `src/presentation/api/schemas/` + `src/presentation/api/routes/` | ESLint boundaries |
 
 **Why This Separation Exists**:
 

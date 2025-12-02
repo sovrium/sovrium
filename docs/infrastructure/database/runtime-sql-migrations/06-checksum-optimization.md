@@ -261,7 +261,7 @@ describe('Checksum Performance', () => {
 })
 ```
 
-**Results** (local Bun 1.3.0):
+**Results** (local Bun 1.3.3):
 
 | Config Size       | JSON Size | Checksum Time | DB Query Time | Total Time |
 | ----------------- | --------- | ------------- | ------------- | ---------- |

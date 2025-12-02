@@ -37,7 +37,7 @@ test.describe('Sign in with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -73,7 +73,7 @@ test.describe('Sign in with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -100,7 +100,7 @@ test.describe('Sign in with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -127,7 +127,7 @@ test.describe('Sign in with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -155,7 +155,7 @@ test.describe('Sign in with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -190,7 +190,7 @@ test.describe('Sign in with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -218,7 +218,7 @@ test.describe('Sign in with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -254,7 +254,7 @@ test.describe('Sign in with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -291,46 +291,46 @@ test.describe('Sign in with email and password', () => {
     'API-AUTH-SIGN-IN-EMAIL-009: user can complete full sign-in workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          authentication: ['email-and-password'],
-        },
-      })
+      await test.step('Setup: Create server and test user', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+          },
+        })
 
-      // Create a user first via sign-up
-      await signUp({
-        name: 'Regression User',
-        email: 'regression@example.com',
-        password: 'SecurePass123!',
-      })
-
-      // WHEN: User signs in with valid credentials
-      const signInResponse = await page.request.post('/api/auth/sign-in/email', {
-        data: {
+        await signUp({
+          name: 'Regression User',
           email: 'regression@example.com',
           password: 'SecurePass123!',
-        },
+        })
       })
 
-      // THEN: Sign-in succeeds
-      expect(signInResponse.status()).toBe(200)
-      const signInData = await signInResponse.json()
-      expect(signInData).toHaveProperty('user')
-      expect(signInData.user.email).toBe('regression@example.com')
-      expect(signInData).toHaveProperty('token')
+      await test.step('Sign in with valid credentials', async () => {
+        const signInResponse = await page.request.post('/api/auth/sign-in/email', {
+          data: {
+            email: 'regression@example.com',
+            password: 'SecurePass123!',
+          },
+        })
 
-      // WHEN: User tries to sign in again with wrong password
-      const failedResponse = await page.request.post('/api/auth/sign-in/email', {
-        data: {
-          email: 'regression@example.com',
-          password: 'WrongPassword!',
-        },
+        expect(signInResponse.status()).toBe(200)
+        const signInData = await signInResponse.json()
+        expect(signInData).toHaveProperty('user')
+        expect(signInData.user.email).toBe('regression@example.com')
+        expect(signInData).toHaveProperty('token')
       })
 
-      // THEN: Sign-in fails with 401
-      expect(failedResponse.status()).toBe(401)
+      await test.step('Verify sign-in fails with wrong password', async () => {
+        const failedResponse = await page.request.post('/api/auth/sign-in/email', {
+          data: {
+            email: 'regression@example.com',
+            password: 'WrongPassword!',
+          },
+        })
+
+        expect(failedResponse.status()).toBe(401)
+      })
     }
   )
 })

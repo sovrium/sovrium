@@ -8,10 +8,14 @@
 import { Schema } from 'effect'
 
 /**
- * Email and Password Authentication Method
+ * Email and Password Authentication Method Configuration
  *
  * Traditional credential-based authentication using email and password.
  * This is the most common authentication method.
+ *
+ * Can be:
+ * - A boolean (true to enable with defaults)
+ * - A configuration object for customization
  *
  * Configuration options:
  * - requireEmailVerification: Require email verification before allowing sign-in
@@ -21,56 +25,44 @@ import { Schema } from 'effect'
  * @example
  * ```typescript
  * // Simple enable
- * { authentication: ['email-and-password'] }
+ * { emailAndPassword: true }
  *
  * // With configuration
  * {
- *   authentication: [{
- *     method: 'email-and-password',
+ *   emailAndPassword: {
  *     requireEmailVerification: true,
  *     minPasswordLength: 12
- *   }]
+ *   }
  * }
  * ```
  */
-
-/**
- * Email and Password configuration options
- */
-export const EmailAndPasswordConfigSchema = Schema.Struct({
-  method: Schema.Literal('email-and-password'),
-  requireEmailVerification: Schema.optional(Schema.Boolean),
-  minPasswordLength: Schema.optional(
-    Schema.Number.pipe(
-      Schema.between(6, 128),
-      Schema.annotations({ description: 'Minimum password length (6-128)' })
-    )
-  ),
-  maxPasswordLength: Schema.optional(
-    Schema.Number.pipe(
-      Schema.between(8, 256),
-      Schema.annotations({ description: 'Maximum password length (8-256)' })
-    )
-  ),
-}).pipe(
+export const EmailAndPasswordConfigSchema = Schema.Union(
+  Schema.Boolean,
+  Schema.Struct({
+    requireEmailVerification: Schema.optional(
+      Schema.Boolean.pipe(
+        Schema.annotations({ description: 'Require email verification before sign-in' })
+      )
+    ),
+    minPasswordLength: Schema.optional(
+      Schema.Number.pipe(
+        Schema.between(6, 128),
+        Schema.annotations({ description: 'Minimum password length (6-128)' })
+      )
+    ),
+    maxPasswordLength: Schema.optional(
+      Schema.Number.pipe(
+        Schema.between(8, 256),
+        Schema.annotations({ description: 'Maximum password length (8-256)' })
+      )
+    ),
+  })
+).pipe(
   Schema.annotations({
     title: 'Email and Password Configuration',
     description: 'Configuration for email and password authentication',
-  })
-)
-
-/**
- * Email and Password method - can be literal or config object
- */
-export const EmailAndPasswordMethodSchema = Schema.Union(
-  Schema.Literal('email-and-password'),
-  EmailAndPasswordConfigSchema
-).pipe(
-  Schema.annotations({
-    title: 'Email and Password Method',
-    description: 'Email and password authentication method',
+    examples: [true, { requireEmailVerification: true }, { minPasswordLength: 12 }],
   })
 )
 
 export type EmailAndPasswordConfig = Schema.Schema.Type<typeof EmailAndPasswordConfigSchema>
-export type EmailAndPasswordMethod = Schema.Schema.Type<typeof EmailAndPasswordMethodSchema>

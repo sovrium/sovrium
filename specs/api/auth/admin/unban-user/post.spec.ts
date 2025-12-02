@@ -37,12 +37,12 @@ test.describe('Admin: Unban user', () => {
   test.fixme(
     'API-AUTH-ADMIN-UNBAN-USER-001: should return 200 OK and remove ban',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user and a banned user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -56,11 +56,6 @@ test.describe('Admin: Unban user', () => {
         email: 'target@example.com',
         password: 'TargetPass123!',
         name: 'Target User',
-      })
-
-      await signIn({
-        email: 'admin@example.com',
-        password: 'AdminPass123!',
       })
 
       // Ban the user first
@@ -87,18 +82,17 @@ test.describe('Admin: Unban user', () => {
   test.fixme(
     'API-AUTH-ADMIN-UNBAN-USER-002: should return 400 Bad Request without userId',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits request without userId
       const response = await page.request.post('/api/auth/admin/unban-user', {
@@ -121,7 +115,7 @@ test.describe('Admin: Unban user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -141,12 +135,12 @@ test.describe('Admin: Unban user', () => {
   test.fixme(
     'API-AUTH-ADMIN-UNBAN-USER-004: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -160,10 +154,6 @@ test.describe('Admin: Unban user', () => {
         email: 'target@example.com',
         password: 'TargetPass123!',
         name: 'Target User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // WHEN: Regular user attempts to unban another user
@@ -181,18 +171,17 @@ test.describe('Admin: Unban user', () => {
   test.fixme(
     'API-AUTH-ADMIN-UNBAN-USER-005: should return 404 Not Found for non-existent user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin attempts to unban non-existent user
       const response = await page.request.post('/api/auth/admin/unban-user', {
@@ -209,20 +198,18 @@ test.describe('Admin: Unban user', () => {
   test.fixme(
     'API-AUTH-ADMIN-UNBAN-USER-006: should return 200 OK for already unbanned user (idempotent)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user and an already active user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
       await signUp({ email: 'target@example.com', password: 'TargetPass123!', name: 'Target User' })
-
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin unbans already unbanned user
       const response = await page.request.post('/api/auth/admin/unban-user', {
@@ -248,49 +235,58 @@ test.describe('Admin: Unban user', () => {
     'API-AUTH-ADMIN-UNBAN-USER-007: admin can complete full unban-user workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          authentication: ['email-and-password'],
-          plugins: { admin: true },
-        },
+      await test.step('Setup: Start server with admin plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { admin: true },
+          },
+        })
       })
 
-      // Test 1: Unban without auth fails
-      const noAuthResponse = await page.request.post('/api/auth/admin/unban-user', {
-        data: { userId: '2' },
-      })
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create admin and regular user
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
-
-      // Test 2: Unban fails for non-admin
-      await signIn({ email: 'user@example.com', password: 'UserPass123!' })
-      const nonAdminResponse = await page.request.post('/api/auth/admin/unban-user', {
-        data: { userId: '1' },
-      })
-      expect(nonAdminResponse.status()).toBe(403)
-
-      // Test 3: Ban and then unban succeeds for admin
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
-
-      // First ban the user
-      await page.request.post('/api/auth/admin/ban-user', {
-        data: { userId: '2' },
+      await test.step('Verify unban user fails without auth', async () => {
+        const noAuthResponse = await page.request.post('/api/auth/admin/unban-user', {
+          data: { userId: '2' },
+        })
+        expect(noAuthResponse.status()).toBe(401)
       })
 
-      // Then unban
-      const adminResponse = await page.request.post('/api/auth/admin/unban-user', {
-        data: { userId: '2' },
+      await test.step('Setup: Create admin and regular user', async () => {
+        await signUp({
+          email: 'admin@example.com',
+          password: 'AdminPass123!',
+          name: 'Admin User',
+        })
+        await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
       })
-      expect(adminResponse.status()).toBe(200)
 
-      const data = await adminResponse.json()
-      expect(data).toHaveProperty('user')
-      expect(data.user).toHaveProperty('banned', false)
+      await test.step('Verify unban user fails for non-admin', async () => {
+        await signIn({ email: 'user@example.com', password: 'UserPass123!' })
+        const nonAdminResponse = await page.request.post('/api/auth/admin/unban-user', {
+          data: { userId: '1' },
+        })
+        expect(nonAdminResponse.status()).toBe(403)
+      })
+
+      await test.step('Ban and unban user as admin', async () => {
+        await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
+
+        // First ban the user
+        await page.request.post('/api/auth/admin/ban-user', {
+          data: { userId: '2' },
+        })
+
+        // Then unban
+        const adminResponse = await page.request.post('/api/auth/admin/unban-user', {
+          data: { userId: '2' },
+        })
+        expect(adminResponse.status()).toBe(200)
+
+        const data = await adminResponse.json()
+        expect(data).toHaveProperty('user')
+        expect(data.user).toHaveProperty('banned', false)
+      })
     }
   )
 })

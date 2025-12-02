@@ -31,14 +31,14 @@
 |-----------|---------|---------|
 | **Bun** | 1.3.3 | Runtime & package manager |
 | **TypeScript** | ^5.9.3 | Type-safe language |
-| **Effect** | ^3.19.6 | Functional programming, DI, error handling |
-| **Effect Schema** | ^3.19.6 | Server validation (domain/application/infrastructure) |
+| **Effect** | ^3.19.8 | Functional programming, DI, error handling |
+| **Effect Schema** | ^3.19.8 | Server validation (domain/application/infrastructure) |
 | **Hono** | ^4.10.7 | Web framework (API routes, RPC client, OpenAPI) |
 | **Zod** | ^4.1.13 | OpenAPI integration ONLY (src/presentation/api/schemas/) + client forms |
-| **Better Auth** | 1.3.34 | Authentication |
+| **Better Auth** | ^1.4.4 | Authentication |
 | **Drizzle ORM** | ^0.44.7 | Database (PostgreSQL via bun:sql) |
 | **React** | 19.2.0 | UI library |
-| **Tailwind CSS** | 4.1.17 | Styling (programmatic CSS compiler) |
+| **Tailwind CSS** | ^4.1.17 | Styling (programmatic CSS compiler) |
 | **TanStack Query** | ^5.90.11 | Server state management |
 | **TanStack Table** | ^8.21.3 | Data tables |
 
@@ -75,14 +75,12 @@ bun test:e2e:spec                  # Run @spec tests only (exhaustive)
 bun test:e2e:regression            # Run @regression tests only (optimized)
 bun test:e2e:update-snapshots      # Update ALL snapshots (ARIA + visual)
 bun test:e2e:update-snapshots:spec # Update @spec test snapshots only
-bun test:snapshots:guide           # Show snapshot testing guide & best practices
 
 # Utility Scripts (Additional)
-bun run quality                    # Check code quality comprehensively
+bun run quality                    # Check code quality with smart E2E detection
+bun run quality --skip-e2e         # Skip E2E tests entirely
+bun run quality --skip-coverage    # Skip coverage check (gradual adoption)
 bun run generate:roadmap           # Generate roadmap from specifications
-bun run validate:admin-specs       # Validate admin panel specifications
-bun run validate:api-specs         # Validate API specifications
-bun run validate:app-specs         # Validate application specifications
 bun run validate:docs              # Validate documentation versions match package.json
 bun run release                    # Manually trigger release (semantic-release)
 
@@ -118,6 +116,104 @@ git push origin main               # Triggers release ONLY with "release:" type
 # Agent Workflows (TDD Pipeline)
 # See: @docs/development/tdd-automation-pipeline.md for complete TDD automation guide
 ```
+
+## Smart Testing Strategy
+
+The `bun run quality` command includes **smart E2E detection** to prevent timeouts during development and TDD automation. It runs @regression tests ONLY for spec files affected by your changes.
+
+### What `bun run quality` Runs
+
+1. **ESLint** - Code linting with caching
+2. **TypeScript** - Type checking (incremental)
+3. **Unit Tests** - All `.test.ts` files in `src/` and `scripts/`
+4. **Coverage Check** - Verifies domain layer has unit tests
+5. **Smart E2E Detection** - Identifies affected @regression specs and runs them
+
+### How Smart E2E Detection Works
+
+| Environment | Detection Mode | What's Compared |
+|-------------|----------------|-----------------|
+| **Local dev** | uncommitted | Staged + unstaged + untracked files |
+| **CI/PR branches** | branch diff | Changes since merge-base with main |
+| **GitHub Actions** | auto-detect | Uses CI mode when `GITHUB_ACTIONS=true` |
+
+**Mapping Rules** - Changed files are mapped to related specs:
+- `specs/**/*.spec.ts` → Runs that spec directly
+- `src/domain/models/app/version.ts` → `specs/app/version.spec.ts`
+- `src/infrastructure/auth/**` → All `specs/api/auth/**/*.spec.ts`
+- `src/infrastructure/server/route-setup/auth-routes.ts` → All auth specs
+
+### When E2E Tests Run
+
+- Direct spec file changes (`specs/**/*.spec.ts`)
+- Source files with mapped specs
+- Auth infrastructure changes trigger all auth specs
+- Database changes trigger migration and table specs
+
+### When E2E Tests Skip
+
+- Documentation-only changes (`.md` files)
+- Unit test file changes (`.test.ts`)
+- Script file changes (`scripts/`)
+- No related specs found for changed source files
+
+**Example Output (no E2E needed)**:
+```
+→ ESLint... ✓ (2341ms)
+→ TypeScript... ✓ (4521ms)
+→ Unit Tests... ✓ (12034ms)
+→ Coverage Check... ✓
+→ Analyzing changed files... (3 files, mode: local)
+⏭ Skipping E2E: no modified specs or related sources
+─────────────────────────────────────────────
+✅ All quality checks passed! (18896ms)
+```
+
+**Example Output (E2E runs for affected specs)**:
+```
+→ ESLint... ✓ (2341ms)
+→ TypeScript... ✓ (4521ms)
+→ Unit Tests... ✓ (12034ms)
+→ Coverage Check... ✓
+→ Analyzing changed files... (5 files, mode: ci)
+→ E2E will run: 2 specs (@regression only)
+   - specs/app/version.spec.ts
+   - specs/api/auth/sign-up/email/post.spec.ts
+→ E2E Regression Tests... ✓ (45231ms)
+```
+
+### Unit Test Coverage Enforcement
+
+The quality command enforces unit test coverage for the domain layer:
+
+```bash
+bun run quality              # Fails if domain files lack .test.ts
+bun run quality --skip-coverage  # Skip coverage check (gradual adoption)
+```
+
+**Coverage by layer** (current status):
+- `domain/`: 93.4% covered (enforced)
+- `application/`: 33.3% covered (not enforced yet)
+- `infrastructure/`: 43.8% covered (not enforced yet)
+- `presentation/`: 26.7% covered (not enforced yet)
+
+### Override Options
+
+```bash
+bun run quality              # Smart detection (default)
+bun run quality --skip-e2e   # Force skip E2E tests entirely
+bun run quality --skip-coverage  # Skip coverage enforcement
+```
+
+### CI vs Local Behavior
+
+| Context | Command | E2E Behavior |
+|---------|---------|--------------|
+| **CI merge to main** | `test.yml` | Runs ALL @regression specs (full suite) |
+| **TDD automation** | `bun run quality` | Smart detection - affected @regression only |
+| **Local development** | `bun run quality` | Smart detection - affected @regression only |
+
+**Important**: The `test.yml` CI workflow always runs the full E2E regression suite before merging to main. The smart detection in `bun run quality` is for faster feedback during development and TDD automation.
 
 ## Coding Standards (Critical Rules)
 
@@ -168,6 +264,12 @@ git push origin main               # Triggers release ONLY with "release:" type
 - **Storage**: Snapshots saved in `specs/**/__snapshots__/` (committed to git)
 - **Update Command**: `bun test:e2e:update-snapshots` after implementing features
 - **Guide**: Run `bun test:snapshots:guide` for decision matrix & best practices
+
+### test.step Pattern (@regression Tests)
+- **Mandatory for @regression tests**: Wrap workflow scenarios in descriptive `test.step()` calls
+- **Optional for @spec tests**: Recommended for complex tests (50+ lines) to enhance reporting
+- **Benefits**: Better CI logs, improved debugging, self-documenting test flows, enhanced HTML reports
+- **See**: `@docs/architecture/testing-strategy/14-using-test-steps-for-readability.md` for comprehensive guide with architectural rationale, patterns, and adoption metrics
 
 ### Commit Messages (Conventional Commits - REQUIRED)
 - `release:` → Publish new version (patch bump 0.0.X) - **ONLY this triggers releases**

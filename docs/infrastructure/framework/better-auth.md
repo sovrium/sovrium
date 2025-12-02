@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Version**: ^1.3.34 (minimum 1.3.34, allows patch/minor updates)
+**Version**: ^1.4.4 (minimum 1.4.4, allows patch/minor updates)
 **Purpose**: Framework-agnostic authentication and authorization library for TypeScript providing type-safe auth flows with built-in support for email/password, social providers, 2FA, passkeys, and extensible plugin ecosystem
 
 Better Auth is a comprehensive authentication library designed to work seamlessly with any TypeScript framework. It provides production-ready auth features out of the box while remaining flexible and extensible through a powerful plugin system.

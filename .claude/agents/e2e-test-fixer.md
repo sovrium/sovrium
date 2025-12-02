@@ -696,9 +696,11 @@ As a CREATIVE agent, **proactive communication is a core responsibility**, not a
 ## Quality Assurance
 
 **Quality Check Components** (`bun run quality`):
-- Runs ESLint, TypeScript, unit tests, and @regression E2E tests **in parallel**
-- Typically completes in <30s for full codebase
+- Runs ESLint, TypeScript, unit tests, coverage check, and **smart E2E detection** in sequence
+- Smart E2E detection: Identifies changed files, maps to related @regression specs, runs only affected tests
+- Typically completes in <30s when no E2E tests needed, up to 5min with affected specs
 - **Does NOT include @spec tests** - must run separately: `bun test:e2e --grep @spec`
+- **Mode detection**: Uses CI mode (branch diff) on GitHub Actions, local mode (uncommitted) elsewhere
 
 **Complete Validation Sequence**:
 1. `bun run quality` - Must pass 100%

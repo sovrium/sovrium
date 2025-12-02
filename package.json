@@ -51,7 +51,7 @@
     "tsconfig.json"
   ],
   "scripts": {
-    "prepare": "effect-language-service patch",
+    "prepare": "effect-language-service patch > /dev/null 2>&1",
     "start": "bun run src/cli.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -76,6 +76,7 @@
     "export:schema": "bun run scripts/export-schema.ts",
     "export:openapi": "bun run scripts/export-openapi.ts",
     "analyze:specs": "bun run scripts/analyze-specs.ts",
+    "validate:spec-counts": "bun run scripts/validate-spec-counts.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
@@ -102,7 +103,6 @@
     "@types/nodemailer": "^7.0.4",
     "@types/pg": "^8.15.6",
     "@types/react-dom": "^19.2.3",
-    "actionlint": "^2.0.6",
     "drizzle-kit": "^0.31.7",
     "eslint": "^9.39.1",
     "eslint-import-resolver-typescript": "^4.4.4",
@@ -123,7 +123,7 @@
     "prettier-plugin-tailwindcss": "^0.7.2",
     "semantic-release": "^25.0.2",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.48.0"
+    "typescript-eslint": "^8.48.1"
   },
   "peerDependencies": {
     "typescript": "^5.9.3"

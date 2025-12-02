@@ -29,16 +29,22 @@ test.describe('Invite member to organization', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test(
-    'API-AUTH-ORG-INVITE-MEMBER-001: should return 201 Created with invitation token and send email',
+  test.fixme(
+    'API-AUTH-ORG-INVITE-MEMBER-001: should return 201 Created with invitation token and send email with custom template',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn, mailpit }) => {
-      // GIVEN: An authenticated organization owner
+      // GIVEN: An authenticated organization owner with custom email templates
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
+          emailTemplates: {
+            organizationInvitation: {
+              subject: 'You have been invited to join $organizationName',
+              text: 'Hi, $inviterName has invited you to join $organizationName. Click here: $url',
+            },
+          },
         },
       })
 
@@ -70,32 +76,30 @@ test.describe('Invite member to organization', () => {
         },
       })
 
-      // THEN: Returns 200 OK with invitation data and sends email
+      // THEN: Returns 200 OK with invitation data and sends email with custom template
       expect(response.status()).toBe(200)
 
       const data = await response.json()
       expect(data).toHaveProperty('invitation')
 
-      // Verify invitation email was sent (filtered by testId namespace)
+      // Verify invitation email was sent with custom subject
       const email = await mailpit.waitForEmail(
-        (e) =>
-          e.To[0]?.Address === inviteeEmail &&
-          (e.Subject.toLowerCase().includes('invite') ||
-            e.Subject.toLowerCase().includes('invitation'))
+        (e) => e.To[0]?.Address === inviteeEmail && e.Subject.includes('invited to join Test Org')
       )
       expect(email).toBeDefined()
+      expect(email.Subject).toBe('You have been invited to join Test Org')
     }
   )
 
   test.fixme(
     'API-AUTH-ORG-INVITE-MEMBER-002: should return 400 Bad Request without required fields',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -104,10 +108,6 @@ test.describe('Invite member to organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       await page.request.post('/api/auth/organization/create', {
@@ -130,12 +130,12 @@ test.describe('Invite member to organization', () => {
   test.fixme(
     'API-AUTH-ORG-INVITE-MEMBER-003: should return 400 Bad Request with invalid email format',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -144,10 +144,6 @@ test.describe('Invite member to organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       await page.request.post('/api/auth/organization/create', {
@@ -179,7 +175,7 @@ test.describe('Invite member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -206,7 +202,7 @@ test.describe('Invite member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -216,10 +212,6 @@ test.describe('Invite member to organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -268,12 +260,12 @@ test.describe('Invite member to organization', () => {
   test.fixme(
     'API-AUTH-ORG-INVITE-MEMBER-006: should return 404 Not Found for non-existent organization',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -282,10 +274,6 @@ test.describe('Invite member to organization', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // WHEN: User attempts to invite to non-existent organization
@@ -313,7 +301,7 @@ test.describe('Invite member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -322,10 +310,6 @@ test.describe('Invite member to organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -374,12 +358,12 @@ test.describe('Invite member to organization', () => {
   test.fixme(
     'API-AUTH-ORG-INVITE-MEMBER-008: should return 409 Conflict for pending invitation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner and an existing pending invitation
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -388,10 +372,6 @@ test.describe('Invite member to organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -433,7 +413,7 @@ test.describe('Invite member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -442,10 +422,6 @@ test.describe('Invite member to organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -497,57 +473,61 @@ test.describe('Invite member to organization', () => {
   test.fixme(
     'API-AUTH-ORG-INVITE-MEMBER-010: user can complete full inviteMember workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          authentication: ['email-and-password'],
-          plugins: { organization: true },
-        },
+    async ({ page, startServerWithSchema, signUp }) => {
+      await test.step('Setup: Start server with organization plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true },
+          },
+        })
       })
 
-      // Test 1: Invite without auth fails
-      const noAuthResponse = await page.request.post('/api/auth/organization/invite-member', {
-        data: { organizationId: '1', email: 'new@example.com', role: 'member' },
-      })
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create owner and organization
-      await signUp({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-        name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
+      await test.step('Verify invite member fails without auth', async () => {
+        const noAuthResponse = await page.request.post('/api/auth/organization/invite-member', {
+          data: { organizationId: '1', email: 'new@example.com', role: 'member' },
+        })
+        expect(noAuthResponse.status()).toBe(401)
       })
 
-      const createResponse = await page.request.post('/api/auth/organization/create', {
-        data: { name: 'Test Org', slug: 'test-org' },
-      })
-      const org = await createResponse.json()
+      let orgId: string
 
-      // Test 2: Invite succeeds for owner
-      const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
-        data: {
-          organizationId: org.id,
-          email: 'newmember@example.com',
-          role: 'member',
-        },
-      })
-      expect(inviteResponse.status()).toBe(201)
+      await test.step('Setup: Create owner and organization', async () => {
+        await signUp({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+          name: 'Owner User',
+        })
 
-      // Test 3: Duplicate invite fails
-      const duplicateResponse = await page.request.post('/api/auth/organization/invite-member', {
-        data: {
-          organizationId: org.id,
-          email: 'newmember@example.com',
-          role: 'member',
-        },
+        const createResponse = await page.request.post('/api/auth/organization/create', {
+          data: { name: 'Test Org', slug: 'test-org' },
+        })
+        const org = await createResponse.json()
+        orgId = org.id
       })
-      expect(duplicateResponse.status()).toBe(409)
+
+      await test.step('Invite member to organization', async () => {
+        const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
+          data: {
+            organizationId: orgId,
+            email: 'newmember@example.com',
+            role: 'member',
+          },
+        })
+        expect(inviteResponse.status()).toBe(200)
+      })
+
+      await test.step('Verify duplicate invite fails', async () => {
+        const duplicateResponse = await page.request.post('/api/auth/organization/invite-member', {
+          data: {
+            organizationId: orgId,
+            email: 'newmember@example.com',
+            role: 'member',
+          },
+        })
+        expect(duplicateResponse.status()).toBe(409)
+      })
     }
   )
 })

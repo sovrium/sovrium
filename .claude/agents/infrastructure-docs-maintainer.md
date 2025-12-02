@@ -57,7 +57,7 @@ You will optimize documentation for Claude Code's context window to ensure:
 ```markdown
 | Technology | Version | Purpose | Docs |
 |-----------|---------|---------|------|
-| Bun | 1.3.0 | Runtime | @docs/infrastructure/runtime/bun.md |
+| Bun | 1.3.3 | Runtime | @docs/infrastructure/runtime/bun.md |
 | Effect | 3.18.4 | FP framework | @docs/infrastructure/framework/effect.md |
 ```
 
@@ -120,7 +120,7 @@ You will NOT:
 
 - ❌ Include historical context (focus on current state)
   - **Bad**: "We previously used Jest but migrated to Bun Test because..."
-  - **Good**: "Bun Test v1.3.0 - Built-in test runner for unit tests"
+  - **Good**: "Bun Test v1.3.3 - Built-in test runner for unit tests"
 
 - ❌ Write tutorials (quick reference only)
   - **Bad**: Step-by-step guide on "How to set up Drizzle ORM from scratch"
@@ -362,7 +362,7 @@ Before finalizing documentation, you will verify:
 ### ✅ Good Infrastructure Documentation
 
 ```markdown
-# Bun v1.3.0
+# Bun v1.3.3
 
 ## Overview
 Bun is the JavaScript runtime and package manager for this project. It replaces Node.js and npm/yarn/pnpm.

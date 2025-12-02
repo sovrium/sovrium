@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Theme Configuration
  *
  * Source: src/domain/models/app/theme/index.ts
- * Spec Count: 11
+ * Spec Count: 12
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (11 tests) - Exhaustive acceptance criteria

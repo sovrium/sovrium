@@ -26,7 +26,7 @@ test.describe('Delete record', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-001: should return 204 No Content and remove record',
+    'API-TABLES-RECORDS-DELETE-001: should return 204 No Content and remove record',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table 'users' with record ID=1
@@ -58,7 +58,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-002: should return 404 Not Found',
+    'API-TABLES-RECORDS-DELETE-002: should return 404 Not Found',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: Table 'users' exists but record ID=9999 does not
@@ -87,7 +87,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-003: should return 401 Unauthorized',
+    'API-TABLES-RECORDS-DELETE-003: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An unauthenticated user
@@ -128,7 +128,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-004: should return 403 for member without delete permission',
+    'API-TABLES-RECORDS-DELETE-004: should return 403 for member without delete permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member user without delete permission
@@ -171,7 +171,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-005: should return 403 for viewer with read-only access',
+    'API-TABLES-RECORDS-DELETE-005: should return 403 for viewer with read-only access',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A viewer user with read-only access
@@ -209,7 +209,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-006: should return 404 for cross-org access',
+    'API-TABLES-RECORDS-DELETE-006: should return 404 for cross-org access',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An admin user from organization org_123
@@ -253,7 +253,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-007: should return 204 for admin with full access',
+    'API-TABLES-RECORDS-DELETE-007: should return 204 for admin with full access',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An admin user with full delete permissions
@@ -289,7 +289,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-008: should return 204 for owner with full access',
+    'API-TABLES-RECORDS-DELETE-008: should return 204 for owner with full access',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An owner user with full delete permissions
@@ -326,7 +326,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-009: should return 404 to prevent org enumeration',
+    'API-TABLES-RECORDS-DELETE-009: should return 404 to prevent org enumeration',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A record with organization_id='org_456' and admin from org_123
@@ -371,7 +371,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-010: should return 404 when both org and permission violations exist',
+    'API-TABLES-RECORDS-DELETE-010: should return 404 when both org and permission violations exist',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member without delete permission tries to delete record from different org
@@ -411,55 +411,57 @@ test.describe('Delete record', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-011: user can complete full record deletion workflow',
+    'API-TABLES-RECORDS-DELETE-011: user can complete full record deletion workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application with representative table and permission configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 11,
-            name: 'users',
-            fields: [
-              { id: 1, name: 'email', type: 'email', required: true },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-            ],
-          },
-        ],
+      await test.step('Setup: Start server with users table', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 11,
+              name: 'users',
+              fields: [
+                { id: 1, name: 'email', type: 'email', required: true },
+                { id: 2, name: 'organization_id', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
       })
-      await executeQuery(`
-        INSERT INTO users (id, email, organization_id) VALUES
-          (1, 'admin@example.com', 'org_123'),
-          (2, 'member@example.com', 'org_123')
-      `)
 
-      // WHEN/THEN: Streamlined workflow testing integration points
+      await test.step('Setup: Insert test records', async () => {
+        await executeQuery(`
+          INSERT INTO users (id, email, organization_id) VALUES
+            (1, 'admin@example.com', 'org_123'),
+            (2, 'member@example.com', 'org_123')
+        `)
+      })
 
-      // Test successful deletion (admin with permission)
-      const successResponse = await request.delete('/api/tables/1/records/1', {})
-      // THEN: assertion
-      expect(successResponse.status()).toBe(204)
+      await test.step('Delete record successfully', async () => {
+        const successResponse = await request.delete('/api/tables/1/records/1', {})
+        expect(successResponse.status()).toBe(204)
+      })
 
-      // Verify deletion
-      const verifyDelete = await executeQuery(`SELECT COUNT(*) as count FROM users WHERE id=1`)
-      // THEN: assertion
-      expect(verifyDelete.rows[0].count).toBe(0)
+      await test.step('Verify deletion in database', async () => {
+        const verifyDelete = await executeQuery(`SELECT COUNT(*) as count FROM users WHERE id=1`)
+        expect(verifyDelete.rows[0].count).toBe(0)
+      })
 
-      // Test record not found
-      const notFoundResponse = await request.delete('/api/tables/1/records/9999', {})
-      // THEN: assertion
-      expect(notFoundResponse.status()).toBe(404)
+      await test.step('Verify delete non-existent record fails', async () => {
+        const notFoundResponse = await request.delete('/api/tables/1/records/9999', {})
+        expect(notFoundResponse.status()).toBe(404)
+      })
 
-      // Test permission denied
-      const forbiddenResponse = await request.delete('/api/tables/1/records/2', {})
-      // THEN: assertion
-      expect(forbiddenResponse.status()).toBe(403)
+      await test.step('Verify unauthorized delete fails', async () => {
+        const forbiddenResponse = await request.delete('/api/tables/1/records/2', {})
+        expect(forbiddenResponse.status()).toBe(403)
+      })
 
-      // Test unauthorized
-      const unauthorizedResponse = await request.delete('/api/tables/1/records/2')
-      // THEN: assertion
-      expect(unauthorizedResponse.status()).toBe(401)
+      await test.step('Verify unauthenticated delete fails', async () => {
+        const unauthorizedResponse = await request.delete('/api/tables/1/records/2')
+        expect(unauthorizedResponse.status()).toBe(401)
+      })
     }
   )
 })

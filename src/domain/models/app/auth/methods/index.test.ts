@@ -7,188 +7,145 @@
 
 import { describe, expect, test } from 'bun:test'
 import { Schema, SchemaAST } from 'effect'
-import { AuthenticationMethodLiteralSchema, AuthenticationMethodSchema, getMethodName } from '.'
+import { EmailAndPasswordConfigSchema } from './email-and-password'
+import { MagicLinkConfigSchema } from './magic-link'
 
-describe('AuthenticationMethodSchema', () => {
-  describe('valid string methods', () => {
-    test('should accept email-and-password string', () => {
-      const result = Schema.decodeUnknownSync(AuthenticationMethodSchema)('email-and-password')
-      expect(result).toBe('email-and-password')
+describe('EmailAndPasswordConfigSchema', () => {
+  describe('valid boolean', () => {
+    test('should accept true', () => {
+      const result = Schema.decodeUnknownSync(EmailAndPasswordConfigSchema)(true)
+      expect(result).toBe(true)
     })
 
-    test('should accept magic-link string', () => {
-      const result = Schema.decodeUnknownSync(AuthenticationMethodSchema)('magic-link')
-      expect(result).toBe('magic-link')
-    })
-
-    test('should accept passkey string', () => {
-      const result = Schema.decodeUnknownSync(AuthenticationMethodSchema)('passkey')
-      expect(result).toBe('passkey')
+    test('should accept false', () => {
+      const result = Schema.decodeUnknownSync(EmailAndPasswordConfigSchema)(false)
+      expect(result).toBe(false)
     })
   })
 
   describe('valid config objects', () => {
-    test('should accept email-and-password config', () => {
-      const input = { method: 'email-and-password', minPasswordLength: 12 }
-      const result = Schema.decodeUnknownSync(AuthenticationMethodSchema)(input)
-      expect(result).toEqual({ method: 'email-and-password', minPasswordLength: 12 })
+    test('should accept config with requireEmailVerification', () => {
+      const input = { requireEmailVerification: true }
+      const result = Schema.decodeUnknownSync(EmailAndPasswordConfigSchema)(input)
+      expect(result).toEqual({ requireEmailVerification: true })
     })
 
-    test('should accept email-and-password with requireEmailVerification', () => {
-      const input = { method: 'email-and-password', requireEmailVerification: true }
-      const result = Schema.decodeUnknownSync(AuthenticationMethodSchema)(input)
-      expect(result).toEqual({ method: 'email-and-password', requireEmailVerification: true })
+    test('should accept config with minPasswordLength', () => {
+      const input = { minPasswordLength: 12 }
+      const result = Schema.decodeUnknownSync(EmailAndPasswordConfigSchema)(input)
+      expect(result).toEqual({ minPasswordLength: 12 })
     })
 
-    test('should accept magic-link config', () => {
-      const input = { method: 'magic-link', expirationMinutes: 30 }
-      const result = Schema.decodeUnknownSync(AuthenticationMethodSchema)(input)
-      expect(result).toEqual({ method: 'magic-link', expirationMinutes: 30 })
+    test('should accept config with maxPasswordLength', () => {
+      const input = { maxPasswordLength: 128 }
+      const result = Schema.decodeUnknownSync(EmailAndPasswordConfigSchema)(input)
+      expect(result).toEqual({ maxPasswordLength: 128 })
     })
 
-    test('should accept passkey config', () => {
-      const input = { method: 'passkey', userVerification: 'required' }
-      const result = Schema.decodeUnknownSync(AuthenticationMethodSchema)(input)
-      expect(result).toEqual({ method: 'passkey', userVerification: 'required' })
+    test('should accept config with all options', () => {
+      const input = {
+        requireEmailVerification: true,
+        minPasswordLength: 12,
+        maxPasswordLength: 128,
+      }
+      const result = Schema.decodeUnknownSync(EmailAndPasswordConfigSchema)(input)
+      expect(result).toEqual({
+        requireEmailVerification: true,
+        minPasswordLength: 12,
+        maxPasswordLength: 128,
+      })
+    })
+
+    test('should accept empty config object', () => {
+      const result = Schema.decodeUnknownSync(EmailAndPasswordConfigSchema)({})
+      expect(result).toEqual({})
     })
   })
 
   describe('invalid inputs', () => {
-    test('should reject unknown method string', () => {
-      expect(() => Schema.decodeUnknownSync(AuthenticationMethodSchema)('unknown-method')).toThrow()
-    })
-
-    test('should reject invalid config object', () => {
+    test('should reject minPasswordLength below 6', () => {
       expect(() =>
-        Schema.decodeUnknownSync(AuthenticationMethodSchema)({ method: 'invalid' })
+        Schema.decodeUnknownSync(EmailAndPasswordConfigSchema)({ minPasswordLength: 5 })
       ).toThrow()
     })
 
-    test('should reject number', () => {
-      expect(() => Schema.decodeUnknownSync(AuthenticationMethodSchema)(123)).toThrow()
-    })
-
-    test('should reject null', () => {
-      expect(() => Schema.decodeUnknownSync(AuthenticationMethodSchema)(null)).toThrow()
-    })
-
-    test('should reject removed method email-otp', () => {
-      expect(() => Schema.decodeUnknownSync(AuthenticationMethodSchema)('email-otp')).toThrow()
-    })
-
-    test('should reject removed method phone-number', () => {
-      expect(() => Schema.decodeUnknownSync(AuthenticationMethodSchema)('phone-number')).toThrow()
-    })
-
-    test('should reject removed method username', () => {
-      expect(() => Schema.decodeUnknownSync(AuthenticationMethodSchema)('username')).toThrow()
-    })
-
-    test('should reject removed method anonymous', () => {
-      expect(() => Schema.decodeUnknownSync(AuthenticationMethodSchema)('anonymous')).toThrow()
-    })
-  })
-
-  describe('schema metadata', () => {
-    test('should have title annotation', () => {
-      const title = SchemaAST.getTitleAnnotation(AuthenticationMethodSchema.ast)
-      expect(title._tag).toBe('Some')
-      if (title._tag === 'Some') {
-        expect(title.value).toBe('Authentication Method')
-      }
-    })
-
-    test('should have description annotation', () => {
-      const description = SchemaAST.getDescriptionAnnotation(AuthenticationMethodSchema.ast)
-      expect(description._tag).toBe('Some')
-      if (description._tag === 'Some') {
-        expect(description.value).toBe(
-          'Available authentication methods (can be string or config object)'
-        )
-      }
-    })
-
-    test('should have examples annotation', () => {
-      const examples = SchemaAST.getExamplesAnnotation(AuthenticationMethodSchema.ast)
-      expect(examples._tag).toBe('Some')
-      if (examples._tag === 'Some') {
-        expect(examples.value).toContain('email-and-password')
-        expect(examples.value).toContain('magic-link')
-        expect(examples.value).toContain('passkey')
-      }
-    })
-  })
-})
-
-describe('AuthenticationMethodLiteralSchema', () => {
-  describe('valid literals', () => {
-    test('should accept all valid method literals', () => {
-      const methods = ['email-and-password', 'magic-link', 'passkey'] as const
-
-      for (const method of methods) {
-        const result = Schema.decodeUnknownSync(AuthenticationMethodLiteralSchema)(method)
-        expect(result).toBe(method)
-      }
-    })
-  })
-
-  describe('invalid inputs', () => {
-    test('should reject unknown method', () => {
-      expect(() => Schema.decodeUnknownSync(AuthenticationMethodLiteralSchema)('unknown')).toThrow()
-    })
-
-    test('should reject object', () => {
+    test('should reject minPasswordLength above 128', () => {
       expect(() =>
-        Schema.decodeUnknownSync(AuthenticationMethodLiteralSchema)({
-          method: 'email-and-password',
-        })
+        Schema.decodeUnknownSync(EmailAndPasswordConfigSchema)({ minPasswordLength: 129 })
+      ).toThrow()
+    })
+
+    test('should reject maxPasswordLength below 8', () => {
+      expect(() =>
+        Schema.decodeUnknownSync(EmailAndPasswordConfigSchema)({ maxPasswordLength: 7 })
+      ).toThrow()
+    })
+
+    test('should reject maxPasswordLength above 256', () => {
+      expect(() =>
+        Schema.decodeUnknownSync(EmailAndPasswordConfigSchema)({ maxPasswordLength: 257 })
       ).toThrow()
     })
   })
 
   describe('schema metadata', () => {
     test('should have title annotation', () => {
-      const title = SchemaAST.getTitleAnnotation(AuthenticationMethodLiteralSchema.ast)
+      const title = SchemaAST.getTitleAnnotation(EmailAndPasswordConfigSchema.ast)
       expect(title._tag).toBe('Some')
       if (title._tag === 'Some') {
-        expect(title.value).toBe('Authentication Method Literal')
+        expect(title.value).toBe('Email and Password Configuration')
       }
     })
   })
 })
 
-describe('getMethodName', () => {
-  test('should return string method as-is', () => {
-    expect(getMethodName('email-and-password')).toBe('email-and-password')
-    expect(getMethodName('magic-link')).toBe('magic-link')
-    expect(getMethodName('passkey')).toBe('passkey')
+describe('MagicLinkConfigSchema', () => {
+  describe('valid boolean', () => {
+    test('should accept true', () => {
+      const result = Schema.decodeUnknownSync(MagicLinkConfigSchema)(true)
+      expect(result).toBe(true)
+    })
+
+    test('should accept false', () => {
+      const result = Schema.decodeUnknownSync(MagicLinkConfigSchema)(false)
+      expect(result).toBe(false)
+    })
   })
 
-  test('should extract method from config object', () => {
-    expect(getMethodName({ method: 'email-and-password', minPasswordLength: 12 })).toBe(
-      'email-and-password'
-    )
-    expect(getMethodName({ method: 'passkey', userVerification: 'required' })).toBe('passkey')
-    expect(getMethodName({ method: 'magic-link', expirationMinutes: 30 })).toBe('magic-link')
+  describe('valid config objects', () => {
+    test('should accept config with expirationMinutes', () => {
+      const input = { expirationMinutes: 30 }
+      const result = Schema.decodeUnknownSync(MagicLinkConfigSchema)(input)
+      expect(result).toEqual({ expirationMinutes: 30 })
+    })
+
+    test('should accept empty config object', () => {
+      const result = Schema.decodeUnknownSync(MagicLinkConfigSchema)({})
+      expect(result).toEqual({})
+    })
   })
 
-  test('should handle all method types as strings', () => {
-    const methods = ['email-and-password', 'magic-link', 'passkey'] as const
+  describe('invalid inputs', () => {
+    test('should reject negative expirationMinutes', () => {
+      expect(() =>
+        Schema.decodeUnknownSync(MagicLinkConfigSchema)({ expirationMinutes: -1 })
+      ).toThrow()
+    })
 
-    for (const method of methods) {
-      expect(getMethodName(method)).toBe(method)
-    }
+    test('should reject zero expirationMinutes', () => {
+      expect(() =>
+        Schema.decodeUnknownSync(MagicLinkConfigSchema)({ expirationMinutes: 0 })
+      ).toThrow()
+    })
   })
 
-  test('should handle all method types as config objects', () => {
-    const configs = [
-      { method: 'email-and-password' as const },
-      { method: 'magic-link' as const },
-      { method: 'passkey' as const },
-    ]
-
-    for (const config of configs) {
-      expect(getMethodName(config)).toBe(config.method)
-    }
+  describe('schema metadata', () => {
+    test('should have title annotation', () => {
+      const title = SchemaAST.getTitleAnnotation(MagicLinkConfigSchema.ast)
+      expect(title._tag).toBe('Some')
+      if (title._tag === 'Some') {
+        expect(title.value).toBe('Magic Link Configuration')
+      }
+    })
   })
 })

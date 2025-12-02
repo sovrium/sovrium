@@ -7,17 +7,51 @@
 
 import { Schema } from 'effect'
 import { AuthEmailTemplatesSchema } from './config'
-import { AuthenticationMethodSchema } from './methods'
+import { EmailAndPasswordConfigSchema } from './methods/email-and-password'
+import { MagicLinkConfigSchema } from './methods/magic-link'
 import { OAuthConfigSchema } from './oauth'
 import { PluginsConfigSchema } from './plugins'
-import { validateAuthConfig } from './validation'
 
 // Re-export all auth-related schemas and types for convenient imports
 export * from './config'
-export * from './methods'
+export * from './methods/email-and-password'
+export * from './methods/magic-link'
 export * from './oauth'
 export * from './plugins'
-export * from './validation'
+
+/**
+ * Authentication Method Names
+ *
+ * List of authentication method keys in the flattened schema.
+ * Used for validation and helper functions.
+ */
+const AUTH_METHODS = ['emailAndPassword', 'magicLink', 'oauth'] as const
+type AuthMethodName = (typeof AUTH_METHODS)[number]
+
+/**
+ * Check if a specific authentication method is enabled
+ */
+export const isMethodEnabled = (auth: Auth | undefined, method: AuthMethodName): boolean => {
+  if (!auth) return false
+  const value = auth[method]
+  if (typeof value === 'boolean') return value
+  return value !== undefined
+}
+
+/**
+ * Get all enabled authentication method names
+ */
+export const getEnabledMethods = (auth: Auth | undefined): readonly AuthMethodName[] => {
+  if (!auth) return []
+  return AUTH_METHODS.filter((method) => isMethodEnabled(auth, method))
+}
+
+/**
+ * Check if at least one authentication method is enabled
+ */
+export const hasAnyMethodEnabled = (auth: Auth | undefined): boolean => {
+  return getEnabledMethods(auth).length > 0
+}
 
 /**
  * Authentication Configuration Schema
@@ -29,15 +63,14 @@ export * from './validation'
  * Infrastructure configuration (secrets, URLs, credentials) is handled via
  * environment variables, not in this schema. See .env.example for details.
  *
- * Structure:
- * - authentication: Array of enabled authentication methods (required)
+ * Structure (flat - all authentication methods are peer-level):
+ * - emailAndPassword: Traditional credential-based authentication (optional)
+ * - magicLink: Passwordless email link authentication (optional)
  * - oauth: Social login configuration (optional)
  * - plugins: Feature plugins like 2FA, admin, organization (optional)
+ * - emailTemplates: Custom email templates (optional)
  *
- * Authentication Methods (v1):
- * - email-and-password: Traditional credential-based authentication
- * - magic-link: Passwordless email link authentication
- * - passkey: WebAuthn biometric/security key authentication
+ * At least one authentication method must be enabled.
  *
  * OAuth Providers (v1):
  * - google, github, microsoft, slack, gitlab
@@ -48,7 +81,6 @@ export * from './validation'
  * - organization: Multi-tenancy, team management
  * - twoFactor: TOTP-based two-factor authentication
  * - apiKeys: Programmatic API access
- * - bearer/jwt: Token-based authentication
  *
  * Environment Variables (infrastructure config):
  * - BETTER_AUTH_SECRET: Secret key for signing tokens
@@ -60,71 +92,90 @@ export * from './validation'
  * @example
  * ```typescript
  * // Minimal configuration
- * { authentication: ['email-and-password'] }
+ * { emailAndPassword: true }
  *
- * // Social login
+ * // With email verification
+ * { emailAndPassword: { requireEmailVerification: true } }
+ *
+ * // OAuth only
+ * { oauth: { providers: ['google', 'github'] } }
+ *
+ * // Social login with email/password
  * {
- *   authentication: ['email-and-password'],
+ *   emailAndPassword: true,
  *   oauth: { providers: ['google', 'github'] }
  * }
  *
  * // Enterprise setup
  * {
- *   authentication: ['email-and-password', 'passkey'],
+ *   emailAndPassword: { requireEmailVerification: true },
+ *   magicLink: true,
  *   oauth: { providers: ['microsoft', 'google'] },
  *   plugins: {
  *     admin: { impersonation: true },
  *     organization: { maxMembersPerOrg: 50 },
  *     twoFactor: { issuer: 'MyCompany', backupCodes: true }
- *   },
- *   emailTemplates: {
- *     verification: { subject: 'Verify your email', text: 'Click: $url' }
  *   }
  * }
  * ```
  */
 export const AuthSchema = Schema.Struct({
+  // ============================================================================
+  // Authentication Methods (all equal peers)
+  // ============================================================================
+
   /**
-   * Authentication methods to enable
+   * Email and password authentication (optional)
    *
-   * At least one authentication method must be specified.
-   * Each method can be a simple string or a configuration object.
+   * Traditional credential-based authentication.
+   * Can be a boolean (true to enable) or a configuration object.
    *
    * @example
    * ```typescript
-   * // Simple methods
-   * ['email-and-password', 'magic-link']
+   * // Simple enable
+   * { emailAndPassword: true }
    *
    * // With configuration
-   * [
-   *   { method: 'email-and-password', minPasswordLength: 12 },
-   *   'magic-link',
-   *   { method: 'passkey', userVerification: 'required' }
-   * ]
+   * { emailAndPassword: { requireEmailVerification: true, minPasswordLength: 12 } }
    * ```
    */
-  authentication: Schema.NonEmptyArray(AuthenticationMethodSchema),
+  emailAndPassword: Schema.optional(EmailAndPasswordConfigSchema),
+
+  /**
+   * Magic link authentication (optional)
+   *
+   * Passwordless authentication via email link.
+   * Can be a boolean (true to enable) or a configuration object.
+   *
+   * @example
+   * ```typescript
+   * // Simple enable
+   * { magicLink: true }
+   *
+   * // With configuration
+   * { magicLink: { expirationMinutes: 30 } }
+   * ```
+   */
+  magicLink: Schema.optional(MagicLinkConfigSchema),
 
   /**
    * OAuth social login configuration (optional)
    *
    * Enable social login with providers like Google, GitHub, etc.
+   * OAuth is treated as an authentication method, not a separate category.
    * Credentials are loaded from environment variables.
    *
    * @example
    * ```typescript
-   * // Simple (uses default env vars)
-   * { providers: ['google', 'github'] }
-   *
-   * // Explicit env references
-   * {
-   *   providers: [
-   *     { provider: 'google', clientId: '$MY_GOOGLE_ID', clientSecret: '$MY_GOOGLE_SECRET' }
-   *   ]
-   * }
+   * // Enable Google and GitHub OAuth
+   * { oauth: { providers: ['google', 'github'] } }
    * ```
    */
   oauth: Schema.optional(OAuthConfigSchema),
+
+  // ============================================================================
+  // Feature Extensions (not authentication methods)
+  // ============================================================================
 
   /**
    * Authentication plugins configuration (optional)
@@ -135,9 +186,11 @@ export const AuthSchema = Schema.Struct({
    * @example
    * ```typescript
    * {
-   *   admin: true,
-   *   organization: { maxMembersPerOrg: 50 },
-   *   twoFactor: { issuer: 'MyApp' }
+   *   plugins: {
+   *     admin: true,
+   *     organization: { maxMembersPerOrg: 50 },
+   *     twoFactor: { issuer: 'MyApp' }
+   *   }
    * }
    * ```
    */
@@ -153,37 +206,63 @@ export const AuthSchema = Schema.Struct({
    * @example
    * ```typescript
    * {
-   *   verification: {
-   *     subject: 'Verify your email for MyApp',
-   *     text: 'Hi $name, click here to verify: $url'
-   *   },
-   *   resetPassword: {
-   *     subject: 'Reset your password',
-   *     text: 'Click the link to reset your password: $url'
+   *   emailTemplates: {
+   *     verification: {
+   *       subject: 'Verify your email for MyApp',
+   *       text: 'Hi $name, click here to verify: $url'
+   *     },
+   *     resetPassword: {
+   *       subject: 'Reset your password',
+   *       text: 'Click the link to reset your password: $url'
+   *     }
    *   }
    * }
    * ```
    */
   emailTemplates: Schema.optional(AuthEmailTemplatesSchema),
 }).pipe(
-  // Cross-field validation - returns undefined for valid, string for error
+  // Cross-field validation
   Schema.filter((config) => {
-    const result = validateAuthConfig(config)
-    if (!result.success) {
-      return result.message ?? 'Validation failed'
+    // Check at least one authentication method is enabled
+    const hasEmailPassword = config.emailAndPassword !== undefined
+    const hasMagicLink = config.magicLink !== undefined
+    const hasOAuth = config.oauth !== undefined
+
+    if (!hasEmailPassword && !hasMagicLink && !hasOAuth) {
+      return 'At least one authentication method must be enabled (emailAndPassword, magicLink, or oauth)'
     }
+
+    // Validate two-factor requires a primary auth method (emailAndPassword)
+    const hasTwoFactor = config.plugins?.twoFactor
+    if (hasTwoFactor && !hasEmailPassword) {
+      return 'Two-factor authentication requires emailAndPassword authentication'
+    }
+
+    // Validate OAuth has providers (already enforced by NonEmptyArray, but explicit check)
+    if (config.oauth && (!config.oauth.providers || config.oauth.providers.length === 0)) {
+      return 'OAuth configuration requires at least one provider'
+    }
+
     return undefined
   }),
   Schema.annotations({
     title: 'Authentication Configuration',
     description:
-      'Authentication configuration with methods, OAuth, plugins, and email templates. Infrastructure config (secrets, URLs, credentials) is set via environment variables.',
+      'Authentication configuration with methods (emailAndPassword, magicLink, oauth), plugins, and email templates. Infrastructure config (secrets, URLs, credentials) is set via environment variables.',
     examples: [
       // Minimal
-      { authentication: ['email-and-password'] },
+      { emailAndPassword: true },
+      // With email verification
+      {
+        emailAndPassword: { requireEmailVerification: true },
+      },
+      // OAuth only
+      {
+        oauth: { providers: ['google', 'github'] },
+      },
       // Social login with email templates
       {
-        authentication: ['email-and-password'],
+        emailAndPassword: true,
         oauth: { providers: ['google', 'github'] },
         emailTemplates: {
           verification: { subject: 'Verify your email', text: 'Click to verify: $url' },
@@ -192,16 +271,13 @@ export const AuthSchema = Schema.Struct({
       },
       // Enterprise setup
       {
-        authentication: ['email-and-password', 'passkey'],
+        emailAndPassword: { requireEmailVerification: true },
+        magicLink: true,
         oauth: { providers: ['microsoft', 'google'] },
         plugins: {
           admin: { impersonation: true },
           organization: { maxMembersPerOrg: 50 },
           twoFactor: { issuer: 'MyCompany', backupCodes: true },
-        },
-        emailTemplates: {
-          verification: { subject: 'Verify your email', text: 'Hi $name, verify here: $url' },
-          resetPassword: { subject: 'Reset your password', text: 'Click to reset: $url' },
         },
       },
     ],
@@ -223,13 +299,8 @@ export type AuthEncoded = Schema.Schema.Encoded<typeof AuthSchema>
 /**
  * Helper to check if auth is configured with a specific method
  */
-export const hasAuthenticationMethod = (auth: Auth, methodName: string): boolean => {
-  return auth.authentication.some((method) => {
-    if (typeof method === 'string') {
-      return method === methodName
-    }
-    return method.method === methodName
-  })
+export const hasAuthenticationMethod = (auth: Auth, methodName: AuthMethodName): boolean => {
+  return isMethodEnabled(auth, methodName)
 }
 
 /**

@@ -84,7 +84,7 @@ You validate configuration files (eslint.config.ts, tsconfig.json) against docum
 **Validate**:
 - **Core Dependencies**
   - Effect (^3.18.4)
-  - Bun runtime (1.3.0)
+  - Bun runtime (1.3.3)
   - React (19.2.0)
   - TypeScript (^5)
 

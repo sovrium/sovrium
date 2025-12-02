@@ -21,7 +21,7 @@ export type User = typeof users.$inferSelect // { id: number; name: string; emai
 export type NewUser = typeof users.$inferInsert // { name: string; email: string; id?: number }
 ```
 
-### Effect.ts (3.19.5)
+### Effect.ts (3.19.8)
 
 Drizzle operations integrate seamlessly with Effect using Bun SQL:
 
