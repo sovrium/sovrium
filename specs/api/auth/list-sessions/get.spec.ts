@@ -264,38 +264,42 @@ test.describe('List user sessions', () => {
     'API-AUTH-LIST-SESSIONS-008: user can complete full list-sessions workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
+      await test.step('Setup: Start server with auth enabled', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+          },
+        })
       })
 
-      // Test 1: List sessions fails without auth
-      const noAuthResponse = await page.request.get('/api/auth/list-sessions')
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create user and sign in
-      await signUp({
-        email: 'workflow@example.com',
-        password: 'WorkflowPass123!',
-        name: 'Workflow User',
+      await test.step('Verify list sessions fails without auth', async () => {
+        const noAuthResponse = await page.request.get('/api/auth/list-sessions')
+        expect(noAuthResponse.status()).toBe(401)
       })
 
-      // Test 2: List sessions succeeds with auth
-      const authResponse = await page.request.get('/api/auth/list-sessions')
-      expect(authResponse.status()).toBe(200)
-      const sessions = await authResponse.json()
-      expect(Array.isArray(sessions)).toBe(true)
-      expect(sessions.length).toBeGreaterThanOrEqual(1)
+      await test.step('Setup: Create and authenticate user', async () => {
+        await signUp({
+          email: 'workflow@example.com',
+          password: 'WorkflowPass123!',
+          name: 'Workflow User',
+        })
+      })
 
-      // Sign out
-      await page.request.post('/api/auth/sign-out')
+      await test.step('List sessions with valid auth', async () => {
+        const authResponse = await page.request.get('/api/auth/list-sessions')
+        expect(authResponse.status()).toBe(200)
+        const sessions = await authResponse.json()
+        expect(Array.isArray(sessions)).toBe(true)
+        expect(sessions.length).toBeGreaterThanOrEqual(1)
+      })
 
-      // Test 3: List sessions fails after sign-out
-      const afterSignOutResponse = await page.request.get('/api/auth/list-sessions')
-      expect(afterSignOutResponse.status()).toBe(401)
+      await test.step('Verify list sessions fails after sign-out', async () => {
+        await page.request.post('/api/auth/sign-out')
+
+        const afterSignOutResponse = await page.request.get('/api/auth/list-sessions')
+        expect(afterSignOutResponse.status()).toBe(401)
+      })
     }
   )
 })

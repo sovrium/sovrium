@@ -263,46 +263,55 @@ test.describe('Revoke specific session', () => {
     'API-AUTH-REVOKE-SESSION-007: user can complete full revoke-session workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
-      })
-
-      // Test 1: Revoke fails without auth
-      const noAuthResponse = await page.request.post('/api/auth/revoke-session', {
-        data: { token: 'test_token' },
-      })
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create user and sign in multiple times
-      await signUp({
-        email: 'workflow@example.com',
-        password: 'WorkflowPass123!',
-        name: 'Workflow User',
-      })
-
-      // Get sessions list
-      const sessionsResponse = await page.request.get('/api/auth/list-sessions')
-      const sessions = await sessionsResponse.json()
-      expect(sessions.length).toBeGreaterThanOrEqual(1)
-
-      // Test 2: Revoke succeeds for non-existent session (idempotent)
-      const notFoundResponse = await page.request.post('/api/auth/revoke-session', {
-        data: { token: 'nonexistent_token' },
-      })
-      expect([200, 404]).toContain(notFoundResponse.status())
-
-      // Test 3: Revoke succeeds for valid session (if multiple exist)
-      if (sessions.length >= 2) {
-        const sessionToRevoke = sessions[1]
-        const revokeResponse = await page.request.post('/api/auth/revoke-session', {
-          data: { token: sessionToRevoke.token },
+      await test.step('Setup: Start server with auth enabled', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+          },
         })
-        expect(revokeResponse.status()).toBe(200)
-      }
+      })
+
+      await test.step('Verify revoke fails without auth', async () => {
+        const noAuthResponse = await page.request.post('/api/auth/revoke-session', {
+          data: { token: 'test_token' },
+        })
+        expect(noAuthResponse.status()).toBe(401)
+      })
+
+      await test.step('Setup: Create and authenticate user', async () => {
+        await signUp({
+          email: 'workflow@example.com',
+          password: 'WorkflowPass123!',
+          name: 'Workflow User',
+        })
+      })
+
+      await test.step('Verify user has active sessions', async () => {
+        const sessionsResponse = await page.request.get('/api/auth/list-sessions')
+        const sessions = await sessionsResponse.json()
+        expect(sessions.length).toBeGreaterThanOrEqual(1)
+      })
+
+      await test.step('Revoke non-existent session (idempotent)', async () => {
+        const notFoundResponse = await page.request.post('/api/auth/revoke-session', {
+          data: { token: 'nonexistent_token' },
+        })
+        expect([200, 404]).toContain(notFoundResponse.status())
+      })
+
+      await test.step('Revoke valid session if multiple exist', async () => {
+        const sessionsResponse = await page.request.get('/api/auth/list-sessions')
+        const sessions = await sessionsResponse.json()
+
+        if (sessions.length >= 2) {
+          const sessionToRevoke = sessions[1]
+          const revokeResponse = await page.request.post('/api/auth/revoke-session', {
+            data: { token: sessionToRevoke.token },
+          })
+          expect(revokeResponse.status()).toBe(200)
+        }
+      })
     }
   )
 })

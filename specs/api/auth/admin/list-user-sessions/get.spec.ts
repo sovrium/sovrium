@@ -250,36 +250,47 @@ test.describe('Admin: List user sessions', () => {
     'API-AUTH-ADMIN-LIST-USER-SESSIONS-008: admin can complete full list-user-sessions workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { admin: true },
-        },
+      await test.step('Setup: Start server with admin plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { admin: true },
+          },
+        })
       })
 
-      // Test 1: List sessions without auth fails
-      const noAuthResponse = await page.request.get('/api/auth/admin/list-user-sessions?userId=1')
-      expect(noAuthResponse.status()).toBe(401)
+      await test.step('Verify list sessions fails without auth', async () => {
+        const noAuthResponse = await page.request.get('/api/auth/admin/list-user-sessions?userId=1')
+        expect(noAuthResponse.status()).toBe(401)
+      })
 
-      // Create admin and regular user
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
+      await test.step('Setup: Create admin and regular users', async () => {
+        await signUp({
+          email: 'admin@example.com',
+          password: 'AdminPass123!',
+          name: 'Admin User',
+        })
+        await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
+      })
 
-      // Test 2: List sessions fails for non-admin
-      await signIn({ email: 'user@example.com', password: 'UserPass123!' })
-      const nonAdminResponse = await page.request.get('/api/auth/admin/list-user-sessions?userId=1')
-      expect(nonAdminResponse.status()).toBe(403)
+      await test.step('Verify list sessions fails for non-admin', async () => {
+        await signIn({ email: 'user@example.com', password: 'UserPass123!' })
+        const nonAdminResponse = await page.request.get(
+          '/api/auth/admin/list-user-sessions?userId=1'
+        )
+        expect(nonAdminResponse.status()).toBe(403)
+      })
 
-      // Test 3: List sessions succeeds for admin
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
-      const adminResponse = await page.request.get('/api/auth/admin/list-user-sessions?userId=2')
-      expect(adminResponse.status()).toBe(200)
+      await test.step('List user sessions as admin', async () => {
+        await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
+        const adminResponse = await page.request.get('/api/auth/admin/list-user-sessions?userId=2')
+        expect(adminResponse.status()).toBe(200)
 
-      const data = await adminResponse.json()
-      expect(data).toHaveProperty('sessions')
-      expect(Array.isArray(data.sessions)).toBe(true)
+        const data = await adminResponse.json()
+        expect(data).toHaveProperty('sessions')
+        expect(Array.isArray(data.sessions)).toBe(true)
+      })
     }
   )
 })

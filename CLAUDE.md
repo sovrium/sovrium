@@ -269,6 +269,12 @@ bun run quality --skip-coverage  # Skip coverage enforcement
 - **Update Command**: `bun test:e2e:update-snapshots` after implementing features
 - **Guide**: Run `bun test:snapshots:guide` for decision matrix & best practices
 
+### test.step Pattern (@regression Tests)
+- **Mandatory for @regression tests**: Wrap workflow scenarios in descriptive `test.step()` calls
+- **Optional for @spec tests**: Recommended for complex tests (50+ lines) to enhance reporting
+- **Benefits**: Better CI logs, improved debugging, self-documenting test flows, enhanced HTML reports
+- **See**: `@docs/architecture/testing-strategy/test-step-architecture-pattern.md` for architectural rationale and patterns
+
 ### Commit Messages (Conventional Commits - REQUIRED)
 - `release:` → Publish new version (patch bump 0.0.X) - **ONLY this triggers releases**
 - `feat:`, `fix:`, `docs:`, `style:`, `refactor:`, `test:`, `chore:` → No version bump

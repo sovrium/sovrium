@@ -191,43 +191,47 @@ test.describe('Get current session', () => {
     'API-AUTH-GET-SESSION-006: user can complete full get-session workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
+      await test.step('Setup: Start server with auth enabled', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+          },
+        })
       })
 
-      // Test 1: No session before sign-in (returns null body)
-      const noSessionResponse = await page.request.get('/api/auth/get-session')
-      expect(noSessionResponse.status()).toBe(200)
-      const noSessionData = await noSessionResponse.json()
-      expect(noSessionData).toBeNull()
-
-      // Create user and sign in
-      await signUp({
-        name: 'Regression User',
-        email: 'regression@example.com',
-        password: 'SecurePass123!',
+      await test.step('Verify no session before sign-in', async () => {
+        const noSessionResponse = await page.request.get('/api/auth/get-session')
+        expect(noSessionResponse.status()).toBe(200)
+        const noSessionData = await noSessionResponse.json()
+        expect(noSessionData).toBeNull()
       })
 
-      // Test 2: Session exists after sign-in
-      const sessionResponse = await page.request.get('/api/auth/get-session')
-      expect(sessionResponse.status()).toBe(200)
-      const sessionData = await sessionResponse.json()
-      expect(sessionData).toHaveProperty('session')
-      expect(sessionData).toHaveProperty('user')
-      expect(sessionData.user.email).toBe('regression@example.com')
+      await test.step('Setup: Create and authenticate user', async () => {
+        await signUp({
+          name: 'Regression User',
+          email: 'regression@example.com',
+          password: 'SecurePass123!',
+        })
+      })
 
-      // Sign out
-      await page.request.post('/api/auth/sign-out')
+      await test.step('Verify session exists after sign-in', async () => {
+        const sessionResponse = await page.request.get('/api/auth/get-session')
+        expect(sessionResponse.status()).toBe(200)
+        const sessionData = await sessionResponse.json()
+        expect(sessionData).toHaveProperty('session')
+        expect(sessionData).toHaveProperty('user')
+        expect(sessionData.user.email).toBe('regression@example.com')
+      })
 
-      // Test 3: No session after sign-out (returns null body)
-      const afterSignOutResponse = await page.request.get('/api/auth/get-session')
-      expect(afterSignOutResponse.status()).toBe(200)
-      const afterSignOutData = await afterSignOutResponse.json()
-      expect(afterSignOutData).toBeNull()
+      await test.step('Verify no session after sign-out', async () => {
+        await page.request.post('/api/auth/sign-out')
+
+        const afterSignOutResponse = await page.request.get('/api/auth/get-session')
+        expect(afterSignOutResponse.status()).toBe(200)
+        const afterSignOutData = await afterSignOutResponse.json()
+        expect(afterSignOutData).toBeNull()
+      })
     }
   )
 })

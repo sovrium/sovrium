@@ -231,43 +231,47 @@ test.describe('Revoke all other sessions', () => {
     'API-AUTH-REVOKE-OTHER-SESSIONS-006: user can complete full revoke-other-sessions workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
+      await test.step('Setup: Start server with auth enabled', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+          },
+        })
       })
 
-      // Test 1: Revoke fails without auth
-      const noAuthResponse = await page.request.post('/api/auth/revoke-other-sessions')
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create user and sign in multiple times
-      await signUp({
-        email: 'workflow@example.com',
-        password: 'WorkflowPass123!',
-        name: 'Workflow User',
-      })
-      // Create another session by signing in again
-      await signIn({
-        email: 'workflow@example.com',
-        password: 'WorkflowPass123!',
+      await test.step('Verify revoke fails without auth', async () => {
+        const noAuthResponse = await page.request.post('/api/auth/revoke-other-sessions')
+        expect(noAuthResponse.status()).toBe(401)
       })
 
-      // Get initial session count
-      const beforeResponse = await page.request.get('/api/auth/list-sessions')
-      const beforeSessions = await beforeResponse.json()
-      expect(beforeSessions.length).toBeGreaterThanOrEqual(2)
+      await test.step('Setup: Create user with multiple sessions', async () => {
+        await signUp({
+          email: 'workflow@example.com',
+          password: 'WorkflowPass123!',
+          name: 'Workflow User',
+        })
 
-      // Test 2: Revoke other sessions succeeds
-      const revokeResponse = await page.request.post('/api/auth/revoke-other-sessions')
-      expect(revokeResponse.status()).toBe(200)
+        await signIn({
+          email: 'workflow@example.com',
+          password: 'WorkflowPass123!',
+        })
 
-      // Test 3: Only one session remains
-      const afterResponse = await page.request.get('/api/auth/list-sessions')
-      const afterSessions = await afterResponse.json()
-      expect(afterSessions.length).toBe(1)
+        const beforeResponse = await page.request.get('/api/auth/list-sessions')
+        const beforeSessions = await beforeResponse.json()
+        expect(beforeSessions.length).toBeGreaterThanOrEqual(2)
+      })
+
+      await test.step('Revoke other sessions', async () => {
+        const revokeResponse = await page.request.post('/api/auth/revoke-other-sessions')
+        expect(revokeResponse.status()).toBe(200)
+      })
+
+      await test.step('Verify only current session remains', async () => {
+        const afterResponse = await page.request.get('/api/auth/list-sessions')
+        const afterSessions = await afterResponse.json()
+        expect(afterSessions.length).toBe(1)
+      })
     }
   )
 })

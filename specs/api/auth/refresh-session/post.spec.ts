@@ -188,41 +188,44 @@ test.describe('Refresh session token', () => {
     'API-AUTH-REFRESH-SESSION-006: user can complete full refresh-session workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
+      await test.step('Setup: Start server with auth enabled', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+          },
+        })
       })
 
-      // Test 1: Refresh fails without auth
-      const noAuthRefresh = await page.request.post('/api/auth/refresh-session')
-      expect(noAuthRefresh.status()).toBe(401)
-
-      // Create user and sign in
-      await signUp({
-        name: 'Regression User',
-        email: 'regression@example.com',
-        password: 'SecurePass123!',
+      await test.step('Verify refresh fails without auth', async () => {
+        const noAuthRefresh = await page.request.post('/api/auth/refresh-session')
+        expect(noAuthRefresh.status()).toBe(401)
       })
 
-      // Test 2: Refresh succeeds with valid session
-      const authRefresh = await page.request.post('/api/auth/refresh-session')
-      expect(authRefresh.status()).toBe(200)
+      await test.step('Setup: Create and authenticate user', async () => {
+        await signUp({
+          name: 'Regression User',
+          email: 'regression@example.com',
+          password: 'SecurePass123!',
+        })
+      })
 
-      // Verify session is still valid
-      const sessionResponse = await page.request.get('/api/auth/get-session')
-      const sessionData = await sessionResponse.json()
-      expect(sessionData.session).toBeTruthy()
-      expect(sessionData.user.email).toBe('regression@example.com')
+      await test.step('Refresh session with valid auth', async () => {
+        const authRefresh = await page.request.post('/api/auth/refresh-session')
+        expect(authRefresh.status()).toBe(200)
 
-      // Sign out
-      await page.request.post('/api/auth/sign-out')
+        const sessionResponse = await page.request.get('/api/auth/get-session')
+        const sessionData = await sessionResponse.json()
+        expect(sessionData.session).toBeTruthy()
+        expect(sessionData.user.email).toBe('regression@example.com')
+      })
 
-      // Test 3: Refresh fails after sign-out
-      const afterSignOutRefresh = await page.request.post('/api/auth/refresh-session')
-      expect(afterSignOutRefresh.status()).toBe(401)
+      await test.step('Verify refresh fails after sign-out', async () => {
+        await page.request.post('/api/auth/sign-out')
+
+        const afterSignOutRefresh = await page.request.post('/api/auth/refresh-session')
+        expect(afterSignOutRefresh.status()).toBe(401)
+      })
     }
   )
 })
