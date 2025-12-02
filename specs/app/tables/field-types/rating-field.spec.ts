@@ -191,41 +191,41 @@ test.describe('Rating Field', () => {
     'APP-TABLES-FIELD-TYPES-RATING-006: user can complete full rating-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'rating_field',
-                type: 'rating',
-                required: true,
-                indexed: true,
-                max: 5,
-                default: 3,
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with rating field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'rating_field',
+                  type: 'rating',
+                  required: true,
+                  indexed: true,
+                  max: 5,
+                  default: 3,
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN: executing query
-      await executeQuery('INSERT INTO data (rating_field) VALUES (4)')
-      // WHEN: executing query
-      const stored = await executeQuery('SELECT rating_field FROM data WHERE id = 1')
-      // THEN: assertion
-      expect(stored.rating_field).toBe(4)
+      await test.step('Insert and verify rating value', async () => {
+        await executeQuery('INSERT INTO data (rating_field) VALUES (4)')
+        const stored = await executeQuery('SELECT rating_field FROM data WHERE id = 1')
+        expect(stored.rating_field).toBe(4)
+      })
 
-      // WHEN: executing query
-      const avgRating = await executeQuery('SELECT AVG(rating_field) as avg FROM data')
-      // THEN: assertion
-      expect(avgRating.avg).toBeTruthy()
+      await test.step('Test aggregate functions', async () => {
+        const avgRating = await executeQuery('SELECT AVG(rating_field) as avg FROM data')
+        expect(avgRating.avg).toBeTruthy()
+      })
     }
   )
 })

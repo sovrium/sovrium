@@ -128,23 +128,24 @@ test.describe('Color Field', () => {
     'APP-TABLES-FIELD-TYPES-COLOR-006: user can complete full color-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [{ id: 1, name: 'color', type: 'color' }],
-          },
-        ],
+      await test.step('Setup: Start server with color field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [{ id: 1, name: 'color', type: 'color' }],
+            },
+          ],
+        })
       })
-      // WHEN: executing query
-      await executeQuery("INSERT INTO data (color) VALUES ('#ABCDEF')")
-      // WHEN: querying the database
-      const result = await executeQuery('SELECT color FROM data WHERE id = 1')
-      // THEN: assertion
-      expect(result.color).toBe('#ABCDEF')
+
+      await test.step('Insert and verify color value', async () => {
+        await executeQuery("INSERT INTO data (color) VALUES ('#ABCDEF')")
+        const result = await executeQuery('SELECT color FROM data WHERE id = 1')
+        expect(result.color).toBe('#ABCDEF')
+      })
     }
   )
 })
