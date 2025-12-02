@@ -179,7 +179,7 @@ test.describe('Record-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-RECORD-PERMISSIONS-003: should deny DELETE when user attempts to delete published record they created',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: record-level permission 'delete: {userId} = created_by AND status = draft'
       await startServerWithSchema({
         name: 'test-app',
@@ -209,10 +209,14 @@ test.describe('Record-Level Permissions', () => {
         ],
       })
 
+      // Create test users
+      const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
+      const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
+
       await executeQuery([
         'ALTER TABLE articles ENABLE ROW LEVEL SECURITY',
         "CREATE POLICY user_delete_draft ON articles FOR DELETE USING (created_by = current_setting('app.user_id')::INTEGER AND status = 'draft')",
-        "INSERT INTO articles (title, status, created_by) VALUES ('Draft 1', 'draft', 1), ('Published 1', 'published', 1), ('Draft 2', 'draft', 2)",
+        `INSERT INTO articles (title, status, created_by) VALUES ('Draft 1', 'draft', '${user1.user.id}'), ('Published 1', 'published', '${user1.user.id}'), ('Draft 2', 'draft', '${user2.user.id}')`,
       ])
 
       // WHEN: user attempts to delete published record they created
@@ -227,21 +231,21 @@ test.describe('Record-Level Permissions', () => {
 
       // User 1 can DELETE their draft article
       const user1Delete = await executeQuery(
-        'SET LOCAL app.user_id = 1; DELETE FROM articles WHERE id = 1 RETURNING id'
+        `SET LOCAL app.user_id = '${user1.user.id}'; DELETE FROM articles WHERE id = 1 RETURNING id`
       )
       // THEN: assertion
       expect(user1Delete.id).toBe(1)
 
       // User 1 cannot DELETE their published article (status not draft)
       const user1FailedDelete = await executeQuery(
-        'SET LOCAL app.user_id = 1; DELETE FROM articles WHERE id = 2 RETURNING id'
+        `SET LOCAL app.user_id = '${user1.user.id}'; DELETE FROM articles WHERE id = 2 RETURNING id`
       )
       // THEN: assertion
       expect(user1FailedDelete.id).toBeNull()
 
       // User 1 cannot DELETE drafts by user 2 (not their own)
       const user1CrossDelete = await executeQuery(
-        'SET LOCAL app.user_id = 1; DELETE FROM articles WHERE id = 3 RETURNING id'
+        `SET LOCAL app.user_id = '${user1.user.id}'; DELETE FROM articles WHERE id = 3 RETURNING id`
       )
       // THEN: assertion
       expect(user1CrossDelete.id).toBeNull()
@@ -251,7 +255,7 @@ test.describe('Record-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-RECORD-PERMISSIONS-004: should filter records matching ALL conditions when multiple record-level read conditions with AND logic',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: multiple record-level read conditions with AND logic
       await startServerWithSchema({
         name: 'test-app',
@@ -286,10 +290,14 @@ test.describe('Record-Level Permissions', () => {
         ],
       })
 
+      // Create test users
+      const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
+      const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
+
       await executeQuery([
         'ALTER TABLE projects ENABLE ROW LEVEL SECURITY',
         "CREATE POLICY user_read_projects ON projects FOR SELECT USING (department = current_setting('app.user_department')::TEXT AND status = 'active')",
-        "INSERT INTO projects (name, department, status, owner_id) VALUES ('Project A', 'Engineering', 'active', 1), ('Project B', 'Engineering', 'archived', 1), ('Project C', 'Marketing', 'active', 2)",
+        `INSERT INTO projects (name, department, status, owner_id) VALUES ('Project A', 'Engineering', 'active', '${user1.user.id}'), ('Project B', 'Engineering', 'archived', '${user1.user.id}'), ('Project C', 'Marketing', 'active', '${user2.user.id}')`,
       ])
 
       // WHEN: user lists records
@@ -401,7 +409,7 @@ test.describe('Record-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-RECORD-PERMISSIONS-006: should filter records where user is creator OR assignee when record-level permission has complex OR condition',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: record-level permission with complex condition '{userId} = created_by OR {userId} = assigned_to'
       await startServerWithSchema({
         name: 'test-app',
@@ -431,10 +439,15 @@ test.describe('Record-Level Permissions', () => {
         ],
       })
 
+      // Create test users
+      const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
+      const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
+      const user3 = await createAuthenticatedUser({ email: 'user3@example.com' })
+
       await executeQuery([
         'ALTER TABLE tickets ENABLE ROW LEVEL SECURITY',
         "CREATE POLICY user_read_tickets ON tickets FOR SELECT USING (created_by = current_setting('app.user_id')::INTEGER OR assigned_to = current_setting('app.user_id')::INTEGER)",
-        "INSERT INTO tickets (title, created_by, assigned_to) VALUES ('Ticket 1', 1, 2), ('Ticket 2', 2, 1), ('Ticket 3', 1, 1), ('Ticket 4', 3, 3)",
+        `INSERT INTO tickets (title, created_by, assigned_to) VALUES ('Ticket 1', '${user1.user.id}', '${user2.user.id}'), ('Ticket 2', '${user2.user.id}', '${user1.user.id}'), ('Ticket 3', '${user1.user.id}', '${user1.user.id}'), ('Ticket 4', '${user3.user.id}', '${user3.user.id}')`,
       ])
 
       // WHEN: user lists records
@@ -451,14 +464,14 @@ test.describe('Record-Level Permissions', () => {
 
       // User 1 sees tickets they created OR are assigned to
       const user1Count = await executeQuery(
-        'SET LOCAL app.user_id = 1; SELECT COUNT(*) as count FROM tickets'
+        `SET LOCAL app.user_id = '${user1.user.id}'; SELECT COUNT(*) as count FROM tickets`
       )
       // THEN: assertion
       expect(user1Count.count).toBe(3)
 
       // User 1 sees Ticket 1 (created), Ticket 2 (assigned), Ticket 3 (both)
       const user1Tickets = await executeQuery(
-        'SET LOCAL app.user_id = 1; SELECT title FROM tickets ORDER BY id'
+        `SET LOCAL app.user_id = '${user1.user.id}'; SELECT title FROM tickets ORDER BY id`
       )
       // THEN: assertion
       expect(user1Tickets).toEqual([
@@ -469,7 +482,7 @@ test.describe('Record-Level Permissions', () => {
 
       // User 2 sees tickets they created OR are assigned to
       const user2Tickets = await executeQuery(
-        'SET LOCAL app.user_id = 2; SELECT title FROM tickets ORDER BY id'
+        `SET LOCAL app.user_id = '${user2.user.id}'; SELECT title FROM tickets ORDER BY id`
       )
       // THEN: assertion
       expect(user2Tickets).toEqual([{ title: 'Ticket 1' }, { title: 'Ticket 2' }])
@@ -483,7 +496,7 @@ test.describe('Record-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-RECORD-PERMISSIONS-007: user can complete full record-permissions workflow',
     { tag: '@regression' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Application configured with representative record-level permissions
       await startServerWithSchema({
         name: 'test-app',
@@ -521,40 +534,44 @@ test.describe('Record-Level Permissions', () => {
         ],
       })
 
+      // Create test users
+      const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
+      const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
+
       await executeQuery([
         'ALTER TABLE items ENABLE ROW LEVEL SECURITY',
         "CREATE POLICY user_read ON items FOR SELECT USING (owner_id = current_setting('app.user_id')::INTEGER)",
         "CREATE POLICY user_update ON items FOR UPDATE USING (owner_id = current_setting('app.user_id')::INTEGER)",
         "CREATE POLICY user_delete ON items FOR DELETE USING (owner_id = current_setting('app.user_id')::INTEGER AND status = 'draft')",
-        "INSERT INTO items (title, owner_id, status) VALUES ('Item 1', 1, 'draft'), ('Item 2', 2, 'published')",
+        `INSERT INTO items (title, owner_id, status) VALUES ('Item 1', '${user1.user.id}', 'draft'), ('Item 2', '${user2.user.id}', 'published')`,
       ])
 
       // WHEN/THEN: Streamlined workflow testing integration points
 
       // User can read their own records
       const readResult = await executeQuery(
-        'SET LOCAL app.user_id = 1; SELECT COUNT(*) as count FROM items'
+        `SET LOCAL app.user_id = '${user1.user.id}'; SELECT COUNT(*) as count FROM items`
       )
       // THEN: assertion
       expect(readResult.count).toBe(1)
 
       // User can update their own records
       const updateResult = await executeQuery(
-        "SET LOCAL app.user_id = 1; UPDATE items SET title = 'Updated' WHERE id = 1 RETURNING title"
+        `SET LOCAL app.user_id = '${user1.user.id}'; UPDATE items SET title = 'Updated' WHERE id = 1 RETURNING title`
       )
       // THEN: assertion
       expect(updateResult.title).toBe('Updated')
 
       // User can delete their own draft records
       const deleteResult = await executeQuery(
-        'SET LOCAL app.user_id = 1; DELETE FROM items WHERE id = 1 RETURNING id'
+        `SET LOCAL app.user_id = '${user1.user.id}'; DELETE FROM items WHERE id = 1 RETURNING id`
       )
       // THEN: assertion
       expect(deleteResult.id).toBe(1)
 
       // User cannot access other users' records
       const crossUserResult = await executeQuery(
-        'SET LOCAL app.user_id = 1; SELECT COUNT(*) as count FROM items WHERE owner_id = 2'
+        `SET LOCAL app.user_id = '${user1.user.id}'; SELECT COUNT(*) as count FROM items WHERE owner_id = '${user2.user.id}'`
       )
       // THEN: assertion
       expect(crossUserResult.count).toBe(0)
