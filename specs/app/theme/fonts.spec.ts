@@ -740,102 +740,100 @@ test.describe('Font Configuration', () => {
     'APP-THEME-FONTS-013: user can complete full fonts workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with comprehensive font system
-      await startServerWithSchema({
-        name: 'test-app',
-        theme: {
-          fonts: {
-            title: {
-              family: 'Bely Display',
-              fallback: 'Georgia, serif',
-              size: '32px',
-            },
-            body: {
-              family: 'Inter',
-              fallback: 'sans-serif',
-              size: '16px',
-              lineHeight: '1.5',
-            },
-            mono: {
-              family: 'JetBrains Mono',
-              fallback: 'monospace',
-              size: '14px',
-            },
-          },
-        },
-        pages: [
-          {
-            name: 'home',
-            path: '/',
-            sections: [
-              {
-                type: 'div',
-                props: {
-                  'data-testid': 'font-system',
-                  className: 'flex flex-col gap-6 p-5',
-                },
-                children: [
-                  {
-                    type: 'h1',
-                    props: {
-                      className: 'font-title text-3xl',
-                    },
-                    children: ['Welcome to Sovrium'],
-                  },
-                  {
-                    type: 'p',
-                    props: {
-                      className: 'font-body text-base',
-                    },
-                    children: [
-                      'This is body text using Inter font family with 16px size and 1.5 line-height for optimal readability.',
-                    ],
-                  },
-                  {
-                    type: 'code',
-                    props: {
-                      className: 'font-mono text-sm block p-3 bg-gray-100',
-                    },
-                    children: ['console.log("Hello, World!")'],
-                  },
-                ],
+      await test.step('Setup: Start server with font system', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          theme: {
+            fonts: {
+              title: {
+                family: 'Bely Display',
+                fallback: 'Georgia, serif',
+                size: '32px',
               },
-            ],
+              body: {
+                family: 'Inter',
+                fallback: 'sans-serif',
+                size: '16px',
+                lineHeight: '1.5',
+              },
+              mono: {
+                family: 'JetBrains Mono',
+                fallback: 'monospace',
+                size: '14px',
+              },
+            },
           },
-        ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                {
+                  type: 'div',
+                  props: {
+                    'data-testid': 'font-system',
+                    className: 'flex flex-col gap-6 p-5',
+                  },
+                  children: [
+                    {
+                      type: 'h1',
+                      props: {
+                        className: 'font-title text-3xl',
+                      },
+                      children: ['Welcome to Sovrium'],
+                    },
+                    {
+                      type: 'p',
+                      props: {
+                        className: 'font-body text-base',
+                      },
+                      children: [
+                        'This is body text using Inter font family with 16px size and 1.5 line-height for optimal readability.',
+                      ],
+                    },
+                    {
+                      type: 'code',
+                      props: {
+                        className: 'font-mono text-sm block p-3 bg-gray-100',
+                      },
+                      children: ['console.log("Hello, World!")'],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
+      await test.step('Navigate to page and verify CSS compilation', async () => {
+        await page.goto('/')
 
-      // 1. Verify CSS compilation contains all font categories
-      const cssResponse = await page.request.get('/assets/output.css')
-      // THEN: assertion
-      expect(cssResponse.ok()).toBeTruthy()
-      const css = await cssResponse.text()
-      // THEN: assertion
-      expect(css).toContain('--font-title: Bely Display, Georgia, serif')
-      expect(css).toContain('--font-body: Inter, sans-serif')
-      expect(css).toContain('--font-mono: JetBrains Mono, monospace')
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css).toContain('--font-title: Bely Display, Georgia, serif')
+        expect(css).toContain('--font-body: Inter, sans-serif')
+        expect(css).toContain('--font-mono: JetBrains Mono, monospace')
+      })
 
-      // 2. Structure validation (ARIA)
-      // THEN: assertion
-      await expect(page.locator('[data-testid="font-system"]')).toMatchAriaSnapshot(`
-        - group:
-          - heading "Welcome to Sovrium" [level=1]
-          - paragraph: "This is body text using Inter font family with 16px size and 1.5 line-height for optimal readability."
-          - code: "console.log(\\"Hello, World!\\")"
-      `)
+      await test.step('Verify font structure (ARIA snapshot)', async () => {
+        await expect(page.locator('[data-testid="font-system"]')).toMatchAriaSnapshot(`
+          - group:
+            - heading "Welcome to Sovrium" [level=1]
+            - paragraph: "This is body text using Inter font family with 16px size and 1.5 line-height for optimal readability."
+            - code: "console.log(\\"Hello, World!\\")"
+        `)
+      })
 
-      // 3. Visual validation (Screenshot) - captures all typography rendering
-      await expect(page.locator('[data-testid="font-system"]')).toHaveScreenshot(
-        'font-regression-001-complete-system.png',
-        {
-          animations: 'disabled',
-        }
-      )
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify visual rendering (screenshot)', async () => {
+        await expect(page.locator('[data-testid="font-system"]')).toHaveScreenshot(
+          'font-regression-001-complete-system.png',
+          {
+            animations: 'disabled',
+          }
+        )
+      })
     }
   )
 })
