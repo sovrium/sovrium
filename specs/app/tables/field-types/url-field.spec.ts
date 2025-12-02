@@ -24,7 +24,7 @@ test.describe('URL Field', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-URL-001: should create PostgreSQL VARCHAR(255) column for URL storage when table configuration has url field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -50,12 +50,10 @@ test.describe('URL Field', () => {
         "SELECT column_name, data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='companies' AND column_name='website'"
       )
       // THEN: assertion
-      expect(columnInfo).toEqual({
-        column_name: 'website',
-        data_type: 'character varying',
-        character_maximum_length: 255,
-        is_nullable: 'YES',
-      })
+      expect(columnInfo.column_name).toBe('website')
+      expect(columnInfo.data_type).toBe('character varying')
+      expect(columnInfo.character_maximum_length).toBe(255)
+      expect(columnInfo.is_nullable).toBe('YES')
 
       const validInsert = await executeQuery(
         "INSERT INTO companies (website) VALUES ('https://example.com') RETURNING website"
@@ -190,7 +188,7 @@ test.describe('URL Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-URL-005: should create btree index for fast URL lookups when url field has indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -216,10 +214,8 @@ test.describe('URL Field', () => {
         "SELECT indexname, tablename FROM pg_indexes WHERE indexname = 'idx_bookmarks_url'"
       )
       // THEN: assertion
-      expect(indexExists).toEqual({
-        indexname: 'idx_bookmarks_url',
-        tablename: 'bookmarks',
-      })
+      expect(indexExists.indexname).toBe('idx_bookmarks_url')
+      expect(indexExists.tablename).toBe('bookmarks')
 
       const indexDef = await executeQuery(
         "SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_bookmarks_url'"

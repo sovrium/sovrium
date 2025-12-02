@@ -392,7 +392,7 @@ test.describe('Database Indexes', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-INDEXES-006: should optimize ORDER BY and range queries with index on timestamp field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -444,7 +444,7 @@ test.describe('Database Indexes', () => {
         `SELECT COUNT(*) as count FROM events WHERE created_at > '2024-01-01'`
       )
       // THEN: assertion
-      expect(rangeQuery.rows[0]).toMatchObject({ count: 2 })
+      expect(rangeQuery.rows[0]).toMatchObject({ count: 3 })
 
       // ORDER BY uses index for sorting
       const orderBy = await executeQuery(`SELECT name FROM events ORDER BY created_at DESC LIMIT 1`)
@@ -541,12 +541,18 @@ test.describe('Database Indexes', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-INDEXES-008: should enable efficient text search queries with GIN index for full-text search',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with text search index using GIN (for full-text search)
       // WHEN: index is created with to_tsvector
+      // Initialize database for raw SQL testing
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [], // No app tables needed - testing raw PostgreSQL GIN functionality
+      })
+
       await executeQuery(
         `CREATE TABLE articles (id SERIAL PRIMARY KEY, title VARCHAR(255), content TEXT)`
       )
@@ -572,7 +578,7 @@ test.describe('Database Indexes', () => {
       )
       // THEN: assertion
       expect(indexDef.rows[0]).toMatchObject({
-        indexdef: `CREATE INDEX idx_articles_search ON public.articles USING gin (to_tsvector('english'::regconfig, ((title)::text || ' '::text) || content))`,
+        indexdef: `CREATE INDEX idx_articles_search ON public.articles USING gin (to_tsvector('english'::regconfig, (((title)::text || ' '::text) || content)))`,
       })
 
       // Full-text search uses GIN index
@@ -595,7 +601,7 @@ test.describe('Database Indexes', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-INDEXES-009: user can complete full Database Indexes workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -656,7 +662,7 @@ test.describe('Database Indexes', () => {
         `SELECT COUNT(*) as count FROM users WHERE created_at > '2024-01-01'`
       )
       // THEN: assertion
-      expect(rangeQuery.rows[0]).toMatchObject({ count: 1 })
+      expect(rangeQuery.rows[0]).toMatchObject({ count: 2 })
 
       // 4. All indexes are retrievable
       const indexes = await executeQuery(

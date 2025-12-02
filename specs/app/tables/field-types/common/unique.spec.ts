@@ -121,12 +121,17 @@ test.describe('Unique Field Property', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-UNIQUE-003: should fail migration when attempting to add UNIQUE constraint with existing duplicates',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: unique field with existing duplicate values
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [],
+      })
       await executeQuery([
+        'DROP TABLE IF EXISTS accounts',
         'CREATE TABLE accounts (id SERIAL PRIMARY KEY, username VARCHAR(255))',
         "INSERT INTO accounts (username) VALUES ('alice'), ('bob'), ('alice')",
       ])
@@ -142,7 +147,8 @@ test.describe('Unique Field Property', () => {
         'SELECT username, COUNT(*) as count FROM accounts GROUP BY username HAVING COUNT(*) > 1'
       )
       // THEN: assertion
-      expect(duplicatesExist).toEqual({ username: 'alice', count: 2 })
+      expect(duplicatesExist.username).toBe('alice')
+      expect(duplicatesExist.count).toBe(2)
 
       // THEN: PostgreSQL migration fails if existing duplicates present
       await expect(
@@ -153,7 +159,7 @@ test.describe('Unique Field Property', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-UNIQUE-004: should automatically create index for efficient lookups when UNIQUE constraint is added',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -262,7 +268,7 @@ test.describe('Unique Field Property', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-UNIQUE-006: user can complete full unique-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -317,7 +323,8 @@ test.describe('Unique Field Property', () => {
         "INSERT INTO data (unique_field, non_unique_field) VALUES ('value2', 'duplicate') RETURNING id"
       )
       // THEN: assertion
-      expect(validDuplicate.id).toBe(2)
+      // Note: ID is 3 because failed INSERT consumed sequence value 2 (PostgreSQL behavior)
+      expect(validDuplicate.id).toBe(3)
     }
   )
 })

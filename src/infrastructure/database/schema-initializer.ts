@@ -157,6 +157,36 @@ EXECUTE FUNCTION ${triggerFunctionName}()`,
 }
 
 /**
+ * Generate trigger to prevent updates to autonumber fields (immutability)
+ */
+const generateAutonumberTriggers = (table: Table): readonly string[] => {
+  const autonumberFields = table.fields.filter((field) => field.type === 'autonumber')
+
+  if (autonumberFields.length === 0) return []
+
+  const fieldNames = autonumberFields.map((f) => f.name)
+  const triggerFunctionName = `prevent_${table.name}_autonumber_update`
+  const triggerName = `trigger_${table.name}_autonumber_immutable`
+
+  return [
+    // Create trigger function
+    `CREATE OR REPLACE FUNCTION ${triggerFunctionName}()
+RETURNS TRIGGER AS $$
+BEGIN
+  ${fieldNames.map((name) => `NEW.${name} = OLD.${name};`).join('\n  ')}
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql`,
+    // Create trigger
+    `DROP TRIGGER IF EXISTS ${triggerName} ON ${table.name}`,
+    `CREATE TRIGGER ${triggerName}
+BEFORE UPDATE ON ${table.name}
+FOR EACH ROW
+EXECUTE FUNCTION ${triggerFunctionName}()`,
+  ]
+}
+
+/**
  * Generate trigger to automatically update updated-by fields on UPDATE
  */
 const generateUpdatedByTriggers = (table: Table): readonly string[] => {
@@ -440,6 +470,7 @@ const generateAlterTableStatements = (
 /**
  * Sync unique constraints for existing table
  * Adds named UNIQUE constraints for fields with unique property
+ * Uses PostgreSQL default naming convention: {table}_{column}_key
  */
 /* eslint-disable functional/no-expression-statements, functional/no-loop-statements */
 const syncUniqueConstraints = async (
@@ -451,7 +482,7 @@ const syncUniqueConstraints = async (
   )
 
   for (const fieldName of uniqueFields) {
-    const constraintName = `${table.name}_${fieldName}_unique`
+    const constraintName = `${table.name}_${fieldName}_key`
     // Add constraint if it doesn't exist (using IF NOT EXISTS equivalent)
     await tx.unsafe(`
       DO $$
@@ -507,6 +538,11 @@ const migrateExistingTable = async (
     await tx.unsafe(triggerSQL)
   }
 
+  // Always create/update triggers for autonumber fields
+  for (const triggerSQL of generateAutonumberTriggers(table)) {
+    await tx.unsafe(triggerSQL)
+  }
+
   // Always create/update triggers for updated-by fields
   for (const triggerSQL of generateUpdatedByTriggers(table)) {
     await tx.unsafe(triggerSQL)
@@ -530,6 +566,10 @@ const createNewTable = async (
   }
 
   for (const triggerSQL of generateCreatedAtTriggers(table)) {
+    await tx.unsafe(triggerSQL)
+  }
+
+  for (const triggerSQL of generateAutonumberTriggers(table)) {
     await tx.unsafe(triggerSQL)
   }
 

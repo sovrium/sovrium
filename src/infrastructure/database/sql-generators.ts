@@ -410,6 +410,7 @@ const generateColorConstraints = (fields: readonly Fields[number][]): readonly s
 
 /**
  * Generate UNIQUE constraints for fields with unique property
+ * Uses PostgreSQL default naming convention: {table}_{column}_key
  */
 export const generateUniqueConstraints = (
   tableName: string,
@@ -419,7 +420,7 @@ export const generateUniqueConstraints = (
     .filter(
       (field): field is Fields[number] & { unique: true } => 'unique' in field && !!field.unique
     )
-    .map((field) => `CONSTRAINT ${tableName}_${field.name}_unique UNIQUE (${field.name})`)
+    .map((field) => `CONSTRAINT ${tableName}_${field.name}_key UNIQUE (${field.name})`)
 
 /**
  * Generate FOREIGN KEY constraints for user fields
