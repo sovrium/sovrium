@@ -19,7 +19,7 @@
  * Smart E2E Detection:
  * - Detects changed files (local: uncommitted changes, CI: diff from main branch)
  * - Maps source file changes to related E2E specs
- * - Only runs E2E tests for specs affected by changes
+ * - Runs @regression E2E tests only for affected specs (fast feedback)
  * - Skips E2E if no specs or related source files changed
  *
  * Coverage Check:
@@ -537,10 +537,10 @@ const runFullChecks = (options: QualityOptions) =>
       yield* Effect.log(`    ... and ${e2eDecision.specs.length - 5} more`)
     }
 
-    // Run E2E tests for specific specs with @regression tag
+    // Run E2E tests for specific specs (@regression only for speed)
     const e2eResult = yield* runCheck(
       'E2E Regression Tests',
-      ['bunx', 'playwright', 'test', '--grep=@regression', ...e2eDecision.specs],
+      ['bunx', 'playwright', 'test', '--grep', '@regression', ...e2eDecision.specs],
       300_000 // 5 minutes
     )
     results.push(e2eResult)

@@ -5,9 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Console, Effect } from 'effect'
+import { Console, Effect, Config } from 'effect'
 import { Hono } from 'hono'
 import { compileCSS } from '@/infrastructure/css/compiler'
+import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
 import {
   initializeSchema,
   type AuthConfigRequiredForUserFields,
@@ -137,6 +138,7 @@ const logServerStartup = (url: string): Effect.Effect<void, never> =>
  * ```
  */
 // @knip-ignore - Used via dynamic import in StartServer.ts
+// eslint-disable-next-line max-lines-per-function -- Server factory requires comprehensive setup
 export const createServer = (
   config: ServerConfig
 ): Effect.Effect<
@@ -146,6 +148,7 @@ export const createServer = (
   | AuthConfigRequiredForUserFields
   | SchemaInitializationError
 > =>
+  // eslint-disable-next-line max-lines-per-function -- Server setup generator needs comprehensive initialization
   Effect.gen(function* () {
     const {
       app,
@@ -156,6 +159,30 @@ export const createServer = (
       renderNotFoundPage,
       renderErrorPage,
     } = config
+
+    // Get database URL from Effect Config (reads from environment)
+    // Catch ConfigError and convert to empty string (no DATABASE_URL = skip migrations)
+    const databaseUrl = yield* Config.string('DATABASE_URL')
+      .pipe(Config.withDefault(''))
+      .pipe(
+        Effect.catchAll(() => Effect.succeed('')) // If config fails, use empty string
+      )
+
+    // Run Drizzle migrations for Better Auth tables (if DATABASE_URL is configured)
+    yield* Console.log(`[createServer] DATABASE_URL: ${databaseUrl ? 'present' : 'missing'}`)
+    yield* Console.log(`[createServer] app.auth: ${app.auth ? 'configured' : 'not configured'}`)
+    if (databaseUrl && app.auth) {
+      yield* Console.log('[createServer] Running migrations...')
+      yield* runMigrations(databaseUrl).pipe(
+        Effect.catchAll((error) => {
+          // Log error but don't fail - allow server to start even if migrations fail
+          // This is useful for development where the database might not be ready yet
+          return Console.error(`Migration warning: ${error.message}`)
+        })
+      )
+    } else {
+      yield* Console.log('[createServer] Skipping migrations (no DATABASE_URL or no auth config)')
+    }
 
     // Initialize database schema from app configuration
     yield* initializeSchema(app)
