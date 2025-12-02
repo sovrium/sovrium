@@ -290,30 +290,36 @@ test.describe('Session Permission Enforcement', () => {
     'API-AUTH-ENFORCE-SESSION-008: session enforcement workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      // GIVEN: User with active session
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
+      await test.step('Setup: Start server with email auth', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+          },
+        })
       })
 
-      await signUp({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-        name: 'Test User',
+      await test.step('Setup: Sign up user', async () => {
+        await signUp({
+          email: 'user@example.com',
+          password: 'UserPass123!',
+          name: 'Test User',
+        })
       })
 
-      // Test 1: Valid session - success
-      const validResponse = await page.request.get('/api/auth/get-session')
-      expect(validResponse.status()).toBe(200)
+      await test.step('Verify session is valid', async () => {
+        const validResponse = await page.request.get('/api/auth/get-session')
+        expect(validResponse.status()).toBe(200)
+      })
 
-      // Test 2: Sign out
-      await page.request.post('/api/auth/sign-out')
+      await test.step('Sign out', async () => {
+        await page.request.post('/api/auth/sign-out')
+      })
 
-      // Test 3: Token now invalid
-      const invalidResponse = await page.request.get('/api/auth/get-session')
-      expect(invalidResponse.status()).toBe(401)
+      await test.step('Verify session is invalid after sign out', async () => {
+        const invalidResponse = await page.request.get('/api/auth/get-session')
+        expect(invalidResponse.status()).toBe(401)
+      })
     }
   )
 })

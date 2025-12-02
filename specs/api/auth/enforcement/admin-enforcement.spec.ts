@@ -300,40 +300,46 @@ test.describe('Admin Permission Enforcement', () => {
     'API-AUTH-ENFORCE-ADMIN-009: admin permission enforcement workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      // GIVEN: Users with different roles
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { admin: true },
-        },
+      await test.step('Setup: Start server with admin plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { admin: true },
+          },
+        })
       })
 
-      // Test 1: Unauthenticated - 401
-      const unauthResponse = await page.request.get('/api/auth/admin/list-users')
-      expect(unauthResponse.status()).toBe(401)
-
-      // Create regular user
-      await signUp({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-        name: 'Regular User',
+      await test.step('Verify unauthenticated access fails', async () => {
+        const unauthResponse = await page.request.get('/api/auth/admin/list-users')
+        expect(unauthResponse.status()).toBe(401)
       })
 
-      // Test 2: Regular user - 403
-      const userResponse = await page.request.get('/api/auth/admin/list-users')
-      expect(userResponse.status()).toBe(403)
-
-      // Create admin user
-      await signUp({
-        email: 'admin@example.com',
-        password: 'AdminPass123!',
-        name: 'Admin User',
+      await test.step('Create regular user', async () => {
+        await signUp({
+          email: 'user@example.com',
+          password: 'UserPass123!',
+          name: 'Regular User',
+        })
       })
 
-      // Test 3: Admin - 200
-      const adminResponse = await page.request.get('/api/auth/admin/list-users')
-      expect(adminResponse.status()).toBe(200)
+      await test.step('Verify regular user access fails', async () => {
+        const userResponse = await page.request.get('/api/auth/admin/list-users')
+        expect(userResponse.status()).toBe(403)
+      })
+
+      await test.step('Create admin user', async () => {
+        await signUp({
+          email: 'admin@example.com',
+          password: 'AdminPass123!',
+          name: 'Admin User',
+        })
+      })
+
+      await test.step('Verify admin access succeeds', async () => {
+        const adminResponse = await page.request.get('/api/auth/admin/list-users')
+        expect(adminResponse.status()).toBe(200)
+      })
     }
   )
 })
