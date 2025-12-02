@@ -29,7 +29,7 @@ test.describe('Organization Data Isolation', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-ORG-ISOLATION-001: should prevent access to data from other organizations',
     { tag: '@spec' },
     async ({

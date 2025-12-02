@@ -7,6 +7,7 @@
 
 import { createVolatileFormulaTriggers } from './formula-trigger-generators'
 import { generateIndexStatements } from './index-generators'
+import { generateRLSPolicyStatements } from './rls-policy-generators'
 import {
   getExistingColumns,
   generateAlterTableStatements,
@@ -118,6 +119,11 @@ export const migrateExistingTable = async (
 
   // Always create/update triggers for volatile formula fields
   await createVolatileFormulaTriggers(tx, table.name, table.fields)
+
+  // Always create/update RLS policies for organization-scoped tables
+  for (const rlsSQL of generateRLSPolicyStatements(table)) {
+    await tx.unsafe(rlsSQL)
+  }
 }
 /* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
 
@@ -150,6 +156,11 @@ export const createNewTable = async (
 
   // Create triggers for volatile formula fields
   await createVolatileFormulaTriggers(tx, table.name, table.fields)
+
+  // Create RLS policies for organization-scoped tables
+  for (const rlsSQL of generateRLSPolicyStatements(table)) {
+    await tx.unsafe(rlsSQL)
+  }
 }
 /* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
 
