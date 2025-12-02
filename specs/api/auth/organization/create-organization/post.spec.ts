@@ -216,52 +216,54 @@ test.describe('Create organization', () => {
     'API-AUTH-ORG-CREATE-ORGANIZATION-006: user can complete full createOrganization workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { organization: true },
-        },
+      await test.step('Setup: Start server with organization plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true },
+          },
+        })
       })
 
-      // Test 1: Create organization without auth fails
-      const noAuthResponse = await page.request.post('/api/auth/organization/create', {
-        data: { name: 'Test Org' },
-      })
-      // Note: Better Auth returns 400 for unauthenticated requests to organization endpoints
-      expect([400, 401]).toContain(noAuthResponse.status())
-
-      // Create and authenticate user
-      await signUp({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-        name: 'Test User',
+      await test.step('Verify create organization fails without auth', async () => {
+        const noAuthResponse = await page.request.post('/api/auth/organization/create', {
+          data: { name: 'Test Org' },
+        })
+        expect([400, 401]).toContain(noAuthResponse.status())
       })
 
-      // Test 2: Create organization succeeds
-      const createResponse = await page.request.post('/api/auth/organization/create', {
-        data: {
-          name: 'My Organization',
-          slug: 'my-org',
-        },
+      await test.step('Setup: Create and authenticate user', async () => {
+        await signUp({
+          email: 'user@example.com',
+          password: 'UserPass123!',
+          name: 'Test User',
+        })
       })
-      // Note: Better Auth returns 200 for organization create (not 201)
-      expect(createResponse.status()).toBe(200)
 
-      const org = await createResponse.json()
-      expect(org).toHaveProperty('name', 'My Organization')
-      expect(org).toHaveProperty('slug', 'my-org')
+      await test.step('Create organization with valid data', async () => {
+        const createResponse = await page.request.post('/api/auth/organization/create', {
+          data: {
+            name: 'My Organization',
+            slug: 'my-org',
+          },
+        })
+        expect(createResponse.status()).toBe(200)
 
-      // Test 3: Duplicate slug fails
-      const duplicateResponse = await page.request.post('/api/auth/organization/create', {
-        data: {
-          name: 'Another Org',
-          slug: 'my-org',
-        },
+        const org = await createResponse.json()
+        expect(org).toHaveProperty('name', 'My Organization')
+        expect(org).toHaveProperty('slug', 'my-org')
       })
-      // Note: Better Auth returns 400 for duplicate slug (not 409)
-      expect([400, 409]).toContain(duplicateResponse.status())
+
+      await test.step('Verify duplicate slug fails', async () => {
+        const duplicateResponse = await page.request.post('/api/auth/organization/create', {
+          data: {
+            name: 'Another Org',
+            slug: 'my-org',
+          },
+        })
+        expect([400, 409]).toContain(duplicateResponse.status())
+      })
     }
   )
 })

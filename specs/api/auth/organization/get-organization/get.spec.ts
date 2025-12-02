@@ -207,48 +207,55 @@ test.describe('Get organization details', () => {
     'API-AUTH-ORG-GET-ORGANIZATION-006: user can complete full getOrganization workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { organization: true },
-        },
+      await test.step('Setup: Start server with organization plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true },
+          },
+        })
       })
 
-      // Test 1: Get organization without auth fails
-      const noAuthResponse = await page.request.get(
-        '/api/auth/organization/get-full-organization?organizationId=1'
-      )
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create and authenticate user
-      await signUp({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-        name: 'Test User',
+      await test.step('Verify get organization fails without auth', async () => {
+        const noAuthResponse = await page.request.get(
+          '/api/auth/organization/get-full-organization?organizationId=1'
+        )
+        expect(noAuthResponse.status()).toBe(401)
       })
 
-      // Create organization
-      const createResponse = await page.request.post('/api/auth/organization/create', {
-        data: { name: 'Test Org', slug: 'test-org' },
+      let orgId: string
+
+      await test.step('Setup: Create user and organization', async () => {
+        await signUp({
+          email: 'user@example.com',
+          password: 'UserPass123!',
+          name: 'Test User',
+        })
+
+        const createResponse = await page.request.post('/api/auth/organization/create', {
+          data: { name: 'Test Org', slug: 'test-org' },
+        })
+        const org = await createResponse.json()
+        orgId = org.id
       })
-      const org = await createResponse.json()
 
-      // Test 2: Get own organization succeeds
-      const getResponse = await page.request.get(
-        `/api/auth/organization/get-full-organization?organizationId=${org.id}`
-      )
-      expect(getResponse.status()).toBe(200)
+      await test.step('Get own organization', async () => {
+        const getResponse = await page.request.get(
+          `/api/auth/organization/get-full-organization?organizationId=${orgId}`
+        )
+        expect(getResponse.status()).toBe(200)
 
-      const data = await getResponse.json()
-      expect(data).toHaveProperty('name', 'Test Org')
+        const data = await getResponse.json()
+        expect(data).toHaveProperty('name', 'Test Org')
+      })
 
-      // Test 3: Get non-existent organization fails
-      const notFoundResponse = await page.request.get(
-        '/api/auth/organization/get-full-organization?organizationId=nonexistent-id'
-      )
-      expect(notFoundResponse.status()).toBe(404)
+      await test.step('Verify get non-existent organization fails', async () => {
+        const notFoundResponse = await page.request.get(
+          '/api/auth/organization/get-full-organization?organizationId=nonexistent-id'
+        )
+        expect(notFoundResponse.status()).toBe(404)
+      })
     }
   )
 })

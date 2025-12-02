@@ -452,57 +452,70 @@ test.describe('Cancel organization invitation', () => {
     'API-AUTH-ORG-CANCEL-INVITATION-009: user can complete full cancelInvitation workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { organization: true },
-        },
+      await test.step('Setup: Start server with organization plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true },
+          },
+        })
       })
 
-      // Test 1: Cancel without auth fails
-      const noAuthResponse = await page.request.delete('/api/auth/organization/cancel-invitation', {
-        data: { invitationId: '1' },
-      })
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create owner and organization
-      await signUp({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-        name: 'Owner User',
+      await test.step('Verify cancel invitation fails without auth', async () => {
+        const noAuthResponse = await page.request.delete(
+          '/api/auth/organization/cancel-invitation',
+          {
+            data: { invitationId: '1' },
+          }
+        )
+        expect(noAuthResponse.status()).toBe(401)
       })
 
-      const createResponse = await page.request.post('/api/auth/organization/create', {
-        data: { name: 'Test Org', slug: 'test-org' },
-      })
-      const org = await createResponse.json()
+      let invitationId: string
 
-      const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
-        data: {
-          organizationId: org.id,
-          email: 'invitee@example.com',
-          role: 'member',
-        },
-      })
-      const invitation = await inviteResponse.json()
-      const invitationId = invitation.invitation?.id || invitation.id
+      await test.step('Setup: Create owner and organization', async () => {
+        await signUp({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+          name: 'Owner User',
+        })
 
-      // Test 2: Cancel invitation succeeds for owner
-      const cancelResponse = await page.request.delete('/api/auth/organization/cancel-invitation', {
-        data: { invitationId },
-      })
-      expect(cancelResponse.status()).toBe(200)
+        const createResponse = await page.request.post('/api/auth/organization/create', {
+          data: { name: 'Test Org', slug: 'test-org' },
+        })
+        const org = await createResponse.json()
 
-      // Test 3: Cancel again fails
-      const duplicateResponse = await page.request.delete(
-        '/api/auth/organization/cancel-invitation',
-        {
-          data: { invitationId },
-        }
-      )
-      expect(duplicateResponse.status()).toBe(409)
+        const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
+          data: {
+            organizationId: org.id,
+            email: 'invitee@example.com',
+            role: 'member',
+          },
+        })
+        const invitation = await inviteResponse.json()
+        invitationId = invitation.invitation?.id || invitation.id
+      })
+
+      await test.step('Cancel invitation as owner', async () => {
+        const cancelResponse = await page.request.delete(
+          '/api/auth/organization/cancel-invitation',
+          {
+            data: { invitationId },
+          }
+        )
+        expect(cancelResponse.status()).toBe(200)
+      })
+
+      await test.step('Verify cancel invitation again fails', async () => {
+        const duplicateResponse = await page.request.delete(
+          '/api/auth/organization/cancel-invitation',
+          {
+            data: { invitationId },
+          }
+        )
+        expect(duplicateResponse.status()).toBe(409)
+      })
     }
   )
 })

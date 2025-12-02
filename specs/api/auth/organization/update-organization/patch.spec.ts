@@ -328,54 +328,63 @@ test.describe('Update organization', () => {
     'API-AUTH-ORG-UPDATE-ORGANIZATION-008: user can complete full updateOrganization workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { organization: true },
-        },
+      await test.step('Setup: Start server with organization plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true },
+          },
+        })
       })
 
-      // Test 1: Update organization without auth fails
-      const noAuthResponse = await page.request.patch('/api/auth/organization/update', {
-        data: { organizationId: '1', data: { name: 'New Name' } },
-      })
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create and authenticate user
-      await signUp({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-        name: 'Owner User',
+      await test.step('Verify update organization fails without auth', async () => {
+        const noAuthResponse = await page.request.patch('/api/auth/organization/update', {
+          data: { organizationId: '1', data: { name: 'New Name' } },
+        })
+        expect(noAuthResponse.status()).toBe(401)
       })
 
-      // Create organization
-      const createResponse = await page.request.post('/api/auth/organization/create', {
-        data: { name: 'Original Name', slug: 'original-slug' },
-      })
-      const org = await createResponse.json()
+      let orgId: string
 
-      // Test 2: Update organization succeeds for owner
-      const updateResponse = await page.request.patch('/api/auth/organization/update', {
-        data: {
-          organizationId: org.id,
-          data: { name: 'Updated Name' },
-        },
+      await test.step('Setup: Create and authenticate user', async () => {
+        await signUp({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+          name: 'Owner User',
+        })
       })
-      expect(updateResponse.status()).toBe(200)
 
-      const data = await updateResponse.json()
-      expect(data).toHaveProperty('name', 'Updated Name')
-
-      // Test 3: Update non-existent organization fails
-      const notFoundResponse = await page.request.patch('/api/auth/organization/update', {
-        data: {
-          organizationId: 'nonexistent-id',
-          data: { name: 'New Name' },
-        },
+      await test.step('Setup: Create organization', async () => {
+        const createResponse = await page.request.post('/api/auth/organization/create', {
+          data: { name: 'Original Name', slug: 'original-slug' },
+        })
+        const org = await createResponse.json()
+        orgId = org.id
       })
-      expect(notFoundResponse.status()).toBe(404)
+
+      await test.step('Update organization with new name', async () => {
+        const updateResponse = await page.request.patch('/api/auth/organization/update', {
+          data: {
+            organizationId: orgId,
+            data: { name: 'Updated Name' },
+          },
+        })
+        expect(updateResponse.status()).toBe(200)
+
+        const data = await updateResponse.json()
+        expect(data).toHaveProperty('name', 'Updated Name')
+      })
+
+      await test.step('Verify update non-existent organization fails', async () => {
+        const notFoundResponse = await page.request.patch('/api/auth/organization/update', {
+          data: {
+            organizationId: 'nonexistent-id',
+            data: { name: 'New Name' },
+          },
+        })
+        expect(notFoundResponse.status()).toBe(404)
+      })
     }
   )
 })

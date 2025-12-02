@@ -330,74 +330,89 @@ test.describe('Update member role', () => {
     'API-AUTH-ORG-UPDATE-MEMBER-ROLE-007: user can complete full updateMemberRole workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { organization: true },
-        },
-      })
-
-      // Test 1: Update member role without auth fails
-      const noAuthResponse = await page.request.patch('/api/auth/organization/update-member-role', {
-        data: { organizationId: '1', userId: '2', role: 'admin' },
-      })
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create owner and organization
-      await signUp({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-        name: 'Owner User',
-      })
-
-      const createResponse = await page.request.post('/api/auth/organization/create', {
-        data: { name: 'Test Org', slug: 'test-org' },
-      })
-      const org = await createResponse.json()
-
-      // Create and add member
-      await signUp({
-        email: 'member@example.com',
-        password: 'MemberPass123!',
-        name: 'Member User',
-      })
-
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-      })
-
-      await page.request.post('/api/auth/organization/add-member', {
-        data: { organizationId: org.id, userId: '2', role: 'member' },
-      })
-
-      // Test 2: Update member role succeeds for owner
-      const updateResponse = await page.request.patch('/api/auth/organization/update-member-role', {
-        data: {
-          organizationId: org.id,
-          userId: '2',
-          role: 'admin',
-        },
-      })
-      expect(updateResponse.status()).toBe(200)
-
-      const data = await updateResponse.json()
-      expect(data).toHaveProperty('member')
-
-      // Test 3: Update non-existent member fails
-      const notFoundResponse = await page.request.patch(
-        '/api/auth/organization/update-member-role',
-        {
-          data: {
-            organizationId: org.id,
-            userId: 'nonexistent-id',
-            role: 'admin',
+      await test.step('Setup: Start server with organization plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true },
           },
-        }
-      )
-      expect(notFoundResponse.status()).toBe(404)
+        })
+      })
+
+      await test.step('Verify update member role fails without auth', async () => {
+        const noAuthResponse = await page.request.patch(
+          '/api/auth/organization/update-member-role',
+          {
+            data: { organizationId: '1', userId: '2', role: 'admin' },
+          }
+        )
+        expect(noAuthResponse.status()).toBe(401)
+      })
+
+      let orgId: string
+
+      await test.step('Setup: Create owner and organization', async () => {
+        await signUp({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+          name: 'Owner User',
+        })
+
+        const createResponse = await page.request.post('/api/auth/organization/create', {
+          data: { name: 'Test Org', slug: 'test-org' },
+        })
+        const org = await createResponse.json()
+        orgId = org.id
+      })
+
+      await test.step('Setup: Create and add member', async () => {
+        await signUp({
+          email: 'member@example.com',
+          password: 'MemberPass123!',
+          name: 'Member User',
+        })
+
+        await signIn({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+        })
+
+        await page.request.post('/api/auth/organization/add-member', {
+          data: { organizationId: orgId, userId: '2', role: 'member' },
+        })
+      })
+
+      await test.step('Update member role to admin', async () => {
+        const updateResponse = await page.request.patch(
+          '/api/auth/organization/update-member-role',
+          {
+            data: {
+              organizationId: orgId,
+              userId: '2',
+              role: 'admin',
+            },
+          }
+        )
+        expect(updateResponse.status()).toBe(200)
+
+        const data = await updateResponse.json()
+        expect(data).toHaveProperty('member')
+      })
+
+      await test.step('Verify update non-existent member fails', async () => {
+        const notFoundResponse = await page.request.patch(
+          '/api/auth/organization/update-member-role',
+          {
+            data: {
+              organizationId: orgId,
+              userId: 'nonexistent-id',
+              role: 'admin',
+            },
+          }
+        )
+        expect(notFoundResponse.status()).toBe(404)
+      })
     }
   )
 })

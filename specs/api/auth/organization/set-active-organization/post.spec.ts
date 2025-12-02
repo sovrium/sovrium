@@ -227,56 +227,68 @@ test.describe('Set active organization', () => {
     'API-AUTH-ORG-SET-ACTIVE-ORGANIZATION-006: user can complete full setActiveOrganization workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { organization: true },
-        },
+      await test.step('Setup: Start server with organization plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true },
+          },
+        })
       })
 
-      // Test 1: Set active organization without auth fails
-      const noAuthResponse = await page.request.post('/api/auth/organization/set-active', {
-        data: { organizationId: '1' },
-      })
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create user and sign in
-      await signUp({
-        email: 'user@example.com',
-        password: 'UserPass123!',
-        name: 'Test User',
+      await test.step('Verify set active organization fails without auth', async () => {
+        const noAuthResponse = await page.request.post('/api/auth/organization/set-active', {
+          data: { organizationId: '1' },
+        })
+        expect(noAuthResponse.status()).toBe(401)
       })
 
-      // Create two organizations
-      const createResponse1 = await page.request.post('/api/auth/organization/create', {
-        data: { name: 'Org One', slug: 'org-one' },
-      })
-      const org1 = await createResponse1.json()
+      let org1Id: string
+      let org2Id: string
 
-      const createResponse2 = await page.request.post('/api/auth/organization/create', {
-        data: { name: 'Org Two', slug: 'org-two' },
+      await test.step('Setup: Create user and sign in', async () => {
+        await signUp({
+          email: 'user@example.com',
+          password: 'UserPass123!',
+          name: 'Test User',
+        })
       })
-      const org2 = await createResponse2.json()
 
-      // Test 2: Set active organization succeeds
-      const setActiveResponse = await page.request.post('/api/auth/organization/set-active', {
-        data: { organizationId: org2.id },
-      })
-      expect(setActiveResponse.status()).toBe(200)
+      await test.step('Setup: Create two organizations', async () => {
+        const createResponse1 = await page.request.post('/api/auth/organization/create', {
+          data: { name: 'Org One', slug: 'org-one' },
+        })
+        const org1 = await createResponse1.json()
+        org1Id = org1.id
 
-      // Test 3: Switch back to first organization
-      const switchResponse = await page.request.post('/api/auth/organization/set-active', {
-        data: { organizationId: org1.id },
+        const createResponse2 = await page.request.post('/api/auth/organization/create', {
+          data: { name: 'Org Two', slug: 'org-two' },
+        })
+        const org2 = await createResponse2.json()
+        org2Id = org2.id
       })
-      expect(switchResponse.status()).toBe(200)
 
-      // Test 4: Set non-member organization fails
-      const notFoundResponse = await page.request.post('/api/auth/organization/set-active', {
-        data: { organizationId: 'nonexistent-id' },
+      await test.step('Set active organization to second org', async () => {
+        const setActiveResponse = await page.request.post('/api/auth/organization/set-active', {
+          data: { organizationId: org2Id },
+        })
+        expect(setActiveResponse.status()).toBe(200)
       })
-      expect(notFoundResponse.status()).toBe(404)
+
+      await test.step('Switch back to first organization', async () => {
+        const switchResponse = await page.request.post('/api/auth/organization/set-active', {
+          data: { organizationId: org1Id },
+        })
+        expect(switchResponse.status()).toBe(200)
+      })
+
+      await test.step('Verify set non-member organization fails', async () => {
+        const notFoundResponse = await page.request.post('/api/auth/organization/set-active', {
+          data: { organizationId: 'nonexistent-id' },
+        })
+        expect(notFoundResponse.status()).toBe(404)
+      })
     }
   )
 })

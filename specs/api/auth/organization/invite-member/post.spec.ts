@@ -474,52 +474,60 @@ test.describe('Invite member to organization', () => {
     'API-AUTH-ORG-INVITE-MEMBER-010: user can complete full inviteMember workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { organization: true },
-        },
+      await test.step('Setup: Start server with organization plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true },
+          },
+        })
       })
 
-      // Test 1: Invite without auth fails
-      const noAuthResponse = await page.request.post('/api/auth/organization/invite-member', {
-        data: { organizationId: '1', email: 'new@example.com', role: 'member' },
-      })
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create owner and organization
-      await signUp({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-        name: 'Owner User',
+      await test.step('Verify invite member fails without auth', async () => {
+        const noAuthResponse = await page.request.post('/api/auth/organization/invite-member', {
+          data: { organizationId: '1', email: 'new@example.com', role: 'member' },
+        })
+        expect(noAuthResponse.status()).toBe(401)
       })
 
-      const createResponse = await page.request.post('/api/auth/organization/create', {
-        data: { name: 'Test Org', slug: 'test-org' },
-      })
-      const org = await createResponse.json()
+      let orgId: string
 
-      // Test 2: Invite succeeds for owner
-      const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
-        data: {
-          organizationId: org.id,
-          email: 'newmember@example.com',
-          role: 'member',
-        },
-      })
-      expect(inviteResponse.status()).toBe(200)
+      await test.step('Setup: Create owner and organization', async () => {
+        await signUp({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+          name: 'Owner User',
+        })
 
-      // Test 3: Duplicate invite fails
-      const duplicateResponse = await page.request.post('/api/auth/organization/invite-member', {
-        data: {
-          organizationId: org.id,
-          email: 'newmember@example.com',
-          role: 'member',
-        },
+        const createResponse = await page.request.post('/api/auth/organization/create', {
+          data: { name: 'Test Org', slug: 'test-org' },
+        })
+        const org = await createResponse.json()
+        orgId = org.id
       })
-      expect(duplicateResponse.status()).toBe(409)
+
+      await test.step('Invite member to organization', async () => {
+        const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
+          data: {
+            organizationId: orgId,
+            email: 'newmember@example.com',
+            role: 'member',
+          },
+        })
+        expect(inviteResponse.status()).toBe(200)
+      })
+
+      await test.step('Verify duplicate invite fails', async () => {
+        const duplicateResponse = await page.request.post('/api/auth/organization/invite-member', {
+          data: {
+            organizationId: orgId,
+            email: 'newmember@example.com',
+            role: 'member',
+          },
+        })
+        expect(duplicateResponse.status()).toBe(409)
+      })
     }
   )
 })

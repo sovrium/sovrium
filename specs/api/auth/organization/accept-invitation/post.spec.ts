@@ -440,67 +440,74 @@ test.describe('Accept organization invitation', () => {
     'API-AUTH-ORG-ACCEPT-INVITATION-009: user can complete full acceptInvitation workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: { organization: true },
-        },
+      await test.step('Setup: Start server with organization plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true },
+          },
+        })
       })
 
-      // Test 1: Accept without auth fails
-      const noAuthResponse = await page.request.post('/api/auth/organization/accept-invitation', {
-        data: { invitationId: '1' },
-      })
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create owner, organization, and invitation
-      await signUp({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-        name: 'Owner User',
-      })
-      await signUp({
-        email: 'invitee@example.com',
-        password: 'InviteePass123!',
-        name: 'Invitee User',
+      await test.step('Verify accept invitation fails without auth', async () => {
+        const noAuthResponse = await page.request.post('/api/auth/organization/accept-invitation', {
+          data: { invitationId: '1' },
+        })
+        expect(noAuthResponse.status()).toBe(401)
       })
 
-      const createResponse = await page.request.post('/api/auth/organization/create', {
-        data: { name: 'Test Org', slug: 'test-org' },
-      })
-      const org = await createResponse.json()
+      let invitationId: string
 
-      const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
-        data: {
-          organizationId: org.id,
+      await test.step('Setup: Create owner, invitee, and organization', async () => {
+        await signUp({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+          name: 'Owner User',
+        })
+        await signUp({
           email: 'invitee@example.com',
-          role: 'member',
-        },
-      })
-      const invitation = await inviteResponse.json()
-      const invitationId = invitation.invitation?.id || invitation.id
+          password: 'InviteePass123!',
+          name: 'Invitee User',
+        })
 
-      // Test 2: Accept invitation succeeds
-      await signIn({
-        email: 'invitee@example.com',
-        password: 'InviteePass123!',
+        const createResponse = await page.request.post('/api/auth/organization/create', {
+          data: { name: 'Test Org', slug: 'test-org' },
+        })
+        const org = await createResponse.json()
+
+        const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
+          data: {
+            organizationId: org.id,
+            email: 'invitee@example.com',
+            role: 'member',
+          },
+        })
+        const invitation = await inviteResponse.json()
+        invitationId = invitation.invitation?.id || invitation.id
       })
 
-      const acceptResponse = await page.request.post('/api/auth/organization/accept-invitation', {
-        data: { invitationId },
-      })
-      expect(acceptResponse.status()).toBe(200)
+      await test.step('Accept invitation as invitee', async () => {
+        await signIn({
+          email: 'invitee@example.com',
+          password: 'InviteePass123!',
+        })
 
-      // Test 3: Accept again fails
-      const duplicateResponse = await page.request.post(
-        '/api/auth/organization/accept-invitation',
-        {
+        const acceptResponse = await page.request.post('/api/auth/organization/accept-invitation', {
           data: { invitationId },
-        }
-      )
-      expect(duplicateResponse.status()).toBe(409)
+        })
+        expect(acceptResponse.status()).toBe(200)
+      })
+
+      await test.step('Verify accept invitation again fails', async () => {
+        const duplicateResponse = await page.request.post(
+          '/api/auth/organization/accept-invitation',
+          {
+            data: { invitationId },
+          }
+        )
+        expect(duplicateResponse.status()).toBe(409)
+      })
     }
   )
 })
