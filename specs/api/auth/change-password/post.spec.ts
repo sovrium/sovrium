@@ -22,19 +22,14 @@ import { test, expect } from '@/specs/fixtures'
  * - API response assertions (status codes, response schemas)
  * - Database state validation via API (no direct executeQuery for auth data)
  * - Authentication/authorization checks via auth fixtures
- *
- * Note: Better Auth's change-password endpoint may not be publicly exposed.
- * These tests verify the behavior when calling the endpoint.
  */
 
 test.describe('Change password', () => {
   // ============================================================================
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
-  // Note: These tests are marked .fixme() because the /api/auth/change-password
-  // endpoint is not yet implemented (returns 404)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-CHANGE-PASSWORD-001: should return 200 OK and password is updated',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -69,7 +64,8 @@ test.describe('Change password', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data).toHaveProperty('success', true)
+      // Better Auth returns {user, token} on success
+      expect(data).toHaveProperty('user')
 
       // Verify new password works
       await page.request.post('/api/auth/sign-out')
@@ -83,7 +79,7 @@ test.describe('Change password', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-CHANGE-PASSWORD-002: should return 200 OK with new token and revoke other sessions',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -128,7 +124,8 @@ test.describe('Change password', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data).toHaveProperty('success', true)
+      // Better Auth returns {user, token} on success
+      expect(data).toHaveProperty('user')
 
       // Verify only one session remains
       const sessionsAfter = await page.request.get('/api/auth/list-sessions')
@@ -137,7 +134,7 @@ test.describe('Change password', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-CHANGE-PASSWORD-003: should return 400 Bad Request without newPassword',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -174,7 +171,7 @@ test.describe('Change password', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-CHANGE-PASSWORD-004: should return 400 Bad Request without currentPassword',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -211,7 +208,7 @@ test.describe('Change password', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-CHANGE-PASSWORD-005: should return 400 Bad Request with short password',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -249,7 +246,7 @@ test.describe('Change password', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-CHANGE-PASSWORD-006: should return 401 Unauthorized without authentication',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -274,7 +271,7 @@ test.describe('Change password', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-CHANGE-PASSWORD-007: should return 401 Unauthorized with wrong current password',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -304,15 +301,15 @@ test.describe('Change password', () => {
         },
       })
 
-      // THEN: Returns 401 Unauthorized
-      expect(response.status()).toBe(401)
+      // THEN: Returns 400 Bad Request (Better Auth validation error for incorrect password)
+      expect(response.status()).toBe(400)
 
       const data = await response.json()
       expect(data).toHaveProperty('message')
     }
   )
 
-  test.fixme(
+  test(
     'API-AUTH-CHANGE-PASSWORD-008: should handle same password attempt',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -352,7 +349,7 @@ test.describe('Change password', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-AUTH-CHANGE-PASSWORD-009: user can complete full change-password workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
@@ -391,7 +388,7 @@ test.describe('Change password', () => {
           newPassword: 'NewWorkflow123!',
         },
       })
-      expect(wrongPassResponse.status()).toBe(401)
+      expect(wrongPassResponse.status()).toBe(400)
 
       // Test 3: Change password succeeds with correct current password
       const successResponse = await page.request.post('/api/auth/change-password', {

@@ -23,15 +23,15 @@ import { test, expect } from '@/specs/fixtures'
  * - Database state validation via API (no direct executeQuery for auth data)
  * - Authentication/authorization checks
  *
- * Note: Better Auth's refresh-session endpoint may not be publicly exposed.
- * These tests verify the behavior when calling the endpoint.
+ * Note: Better Auth may not expose a refresh-session endpoint - session refresh
+ * may be handled automatically via cookies.
  */
 
 test.describe('Refresh session token', () => {
   // ============================================================================
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
-  // Note: These tests are marked .fixme() because the /api/auth/refresh-session
-  // endpoint is not yet implemented (returns 404)
+  // Note: Better Auth may not have a dedicated refresh-session endpoint.
+  // Session refresh is typically handled automatically by the session middleware.
   // ============================================================================
 
   test.fixme(
