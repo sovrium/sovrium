@@ -208,7 +208,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-004: should apply mathematical functions like ROUND',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -243,27 +243,27 @@ test.describe('Formula Field', () => {
         'SELECT raw_value, rounded_value FROM measurements WHERE id = 1'
       )
       // THEN: assertion
-      expect(firstMeasurement.raw_value).toBe('19.9567')
+      expect(firstMeasurement.raw_value).toBe(19.9567)
       // THEN: assertion
-      expect(firstMeasurement.rounded_value).toBe('19.96')
+      expect(firstMeasurement.rounded_value).toBe(19.96)
 
       // WHEN: executing query
       const secondMeasurement = await executeQuery(
         'SELECT raw_value, rounded_value FROM measurements WHERE id = 2'
       )
       // THEN: assertion
-      expect(secondMeasurement.raw_value).toBe('49.1234')
+      expect(secondMeasurement.raw_value).toBe(49.1234)
       // THEN: assertion
-      expect(secondMeasurement.rounded_value).toBe('49.12')
+      expect(secondMeasurement.rounded_value).toBe(49.12)
 
       // WHEN: executing query
       const negativeMeasurement = await executeQuery(
         'SELECT raw_value, rounded_value FROM measurements WHERE id = 3'
       )
       // THEN: assertion
-      expect(negativeMeasurement.raw_value).toBe('-15.6789')
+      expect(negativeMeasurement.raw_value).toBe(-15.6789)
       // THEN: assertion
-      expect(negativeMeasurement.rounded_value).toBe('-15.68')
+      expect(negativeMeasurement.rounded_value).toBe(-15.68)
     }
   )
 
