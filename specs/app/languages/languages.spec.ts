@@ -1492,73 +1492,67 @@ test.describe('Languages Configuration', () => {
     'APP-LANGUAGES-030: user can complete full languages workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application configured with representative multi-language setup
-      await startServerWithSchema({
-        name: 'test-app',
-        languages: {
-          default: 'en',
-          supported: [
-            { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr', flag: '🇺🇸' },
-            { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr', flag: '🇫🇷' },
-            { code: 'ar', locale: 'ar-SA', label: 'العربية', direction: 'rtl', flag: '🇸🇦' },
-          ],
-          fallback: 'en',
-          detectBrowser: false,
-          persistSelection: true,
-        },
-        blocks: [
-          {
-            name: 'language-switcher',
-            type: 'language-switcher',
-            props: {
-              variant: 'dropdown',
-            },
-          },
-        ],
-        pages: [
-          {
-            name: 'home',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-            sections: [
-              {
-                block: 'language-switcher',
-              },
+      await test.step('Setup: Start server with multi-language configuration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          languages: {
+            default: 'en',
+            supported: [
+              { code: 'en', locale: 'en-US', label: 'English', direction: 'ltr', flag: '🇺🇸' },
+              { code: 'fr', locale: 'fr-FR', label: 'Français', direction: 'ltr', flag: '🇫🇷' },
+              { code: 'ar', locale: 'ar-SA', label: 'العربية', direction: 'rtl', flag: '🇸🇦' },
             ],
+            fallback: 'en',
+            detectBrowser: false,
+            persistSelection: true,
           },
-        ],
+          blocks: [
+            {
+              name: 'language-switcher',
+              type: 'language-switcher',
+              props: {
+                variant: 'dropdown',
+              },
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [
+                {
+                  block: 'language-switcher',
+                },
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
+      await test.step('Verify default language and switching', async () => {
+        await page.goto('/')
 
-      // Verify default language loads
-      // THEN: assertion
-      await expect(page.locator('[data-testid="current-language"]')).toHaveText('English')
+        await expect(page.locator('[data-testid="current-language"]')).toHaveText('English')
 
-      // Verify language switching works
-      await page.locator('[data-testid="language-switcher"]').click()
-      // THEN: assertion
-      await expect(page.locator('[data-testid="language-option"]')).toHaveCount(3)
+        await page.locator('[data-testid="language-switcher"]').click()
+        await expect(page.locator('[data-testid="language-option"]')).toHaveCount(3)
+      })
 
-      // Switch to French and verify
-      await page.locator('[data-testid="language-option-fr-FR"]').click()
-      // THEN: assertion
-      await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
+      await test.step('Switch to French and verify persistence', async () => {
+        await page.locator('[data-testid="language-option-fr-FR"]').click()
+        await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
 
-      // Verify persistence (reload check)
-      await page.reload()
-      // THEN: assertion
-      await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
+        await page.reload()
+        await expect(page.locator('[data-testid="current-language"]')).toHaveText('Français')
+      })
 
-      // Switch to Arabic and verify RTL direction
-      await page.locator('[data-testid="language-switcher"]').click()
-      await page.locator('[data-testid="language-option-ar-SA"]').click()
-      // THEN: assertion
-      await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
-      await expect(page.locator('[data-testid="current-language"]')).toHaveText('العربية')
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Switch to Arabic and verify RTL', async () => {
+        await page.locator('[data-testid="language-switcher"]').click()
+        await page.locator('[data-testid="language-option-ar-SA"]').click()
+        await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
+        await expect(page.locator('[data-testid="current-language"]')).toHaveText('العربية')
+      })
     }
   )
 
