@@ -490,59 +490,58 @@ test.describe('Open Graph Metadata', () => {
     'APP-PAGES-OG-013: user can complete full Open Graph workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: {
-              lang: 'en-US',
-              title: 'Test',
-              description: 'Test',
-              openGraph: {
-                title: 'Complete Open Graph Test',
-                description: 'Testing all Open Graph features',
-                type: 'website',
-                url: 'https://example.com',
-                image: 'https://example.com/og-image.jpg',
-                imageAlt: 'Test image',
-                siteName: 'Test Site',
-                locale: 'en_US',
+      await test.step('Setup: Start server with Open Graph', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                openGraph: {
+                  title: 'Complete Open Graph Test',
+                  description: 'Testing all Open Graph features',
+                  type: 'website',
+                  url: 'https://example.com',
+                  image: 'https://example.com/og-image.jpg',
+                  imageAlt: 'Test image',
+                  siteName: 'Test Site',
+                  locale: 'en_US',
+                },
               },
+              sections: [],
             },
-            sections: [],
-          },
-        ],
+          ],
+        })
       })
 
-      // WHEN: user navigates to the page
-      await page.goto('/')
+      await test.step('Navigate to page and verify required OG tags', async () => {
+        await page.goto('/')
+        await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
+          'content',
+          'Complete Open Graph Test'
+        )
+        await expect(page.locator('meta[property="og:description"]')).toHaveAttribute(
+          'content',
+          'Testing all Open Graph features'
+        )
+        await expect(page.locator('meta[property="og:type"]')).toHaveAttribute('content', 'website')
+        await expect(page.locator('meta[property="og:url"]')).toHaveAttribute(
+          'content',
+          'https://example.com'
+        )
+      })
 
-      // Verify required properties
-      // THEN: assertion
-      await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
-        'content',
-        'Complete Open Graph Test'
-      )
-      await expect(page.locator('meta[property="og:description"]')).toHaveAttribute(
-        'content',
-        'Testing all Open Graph features'
-      )
-      await expect(page.locator('meta[property="og:type"]')).toHaveAttribute('content', 'website')
-      await expect(page.locator('meta[property="og:url"]')).toHaveAttribute(
-        'content',
-        'https://example.com'
-      )
-
-      // Verify optional properties
-      await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
-        'content',
-        'https://example.com/og-image.jpg'
-      )
-      await expect(page.locator('meta[property="og:image:alt"]')).toHaveAttribute(
-        'content',
+      await test.step('Verify optional OG tags', async () => {
+        await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+          'content',
+          'https://example.com/og-image.jpg'
+        )
+        await expect(page.locator('meta[property="og:image:alt"]')).toHaveAttribute(
+          'content',
         'Test image'
       )
       await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute(

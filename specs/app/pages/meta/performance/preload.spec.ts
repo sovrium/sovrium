@@ -345,44 +345,43 @@ test.describe('Resource Preloading', () => {
     'APP-PAGES-PRELOAD-011: user can complete full preload workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: {
-              lang: 'en-US',
-              title: 'Test',
-              description: 'Test',
-              preload: [
-                { href: './output.css', as: 'style' },
-                {
-                  href: './fonts/Inter-Regular.woff2',
-                  as: 'font',
-                  type: 'font/woff2',
-                  crossorigin: true,
-                },
-                { href: './images/hero.jpg', as: 'image' },
-                { href: '/api/data.json', as: 'fetch' },
-              ],
+      await test.step('Setup: Start server with preload resources', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                preload: [
+                  { href: './output.css', as: 'style' },
+                  {
+                    href: './fonts/Inter-Regular.woff2',
+                    as: 'font',
+                    type: 'font/woff2',
+                    crossorigin: true,
+                  },
+                  { href: './images/hero.jpg', as: 'image' },
+                  { href: '/api/data.json', as: 'fetch' },
+                ],
+              },
+              sections: [],
             },
-            sections: [],
-          },
-        ],
+          ],
+        })
       })
 
-      // WHEN: user navigates to the page
-      await page.goto('/')
-
-      // Verify all preload links
-      // THEN: assertion
-      await expect(page.locator('link[rel="preload"]')).toHaveCount(4)
-      await expect(page.locator('link[rel="preload"][as="style"]')).toBeAttached()
-      await expect(page.locator('link[rel="preload"][as="font"]')).toBeAttached()
-      await expect(page.locator('link[rel="preload"][as="image"]')).toBeAttached()
-      await expect(page.locator('link[rel="preload"][as="fetch"]')).toBeAttached()
+      await test.step('Navigate to page and verify all preload links', async () => {
+        await page.goto('/')
+        await expect(page.locator('link[rel="preload"]')).toHaveCount(4)
+        await expect(page.locator('link[rel="preload"][as="style"]')).toBeAttached()
+        await expect(page.locator('link[rel="preload"][as="font"]')).toBeAttached()
+        await expect(page.locator('link[rel="preload"][as="image"]')).toBeAttached()
+        await expect(page.locator('link[rel="preload"][as="fetch"]')).toBeAttached()
+      })
     }
   )
 })

@@ -479,68 +479,67 @@ test.describe('Twitter Card Metadata', () => {
     'APP-PAGES-TWITTER-013: user can complete full Twitter Card workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: {
-              lang: 'en-US',
-              title: 'Test',
-              description: 'Test',
-              twitter: {
-                card: 'summary_large_image',
-                title: 'Complete Twitter Card Test',
-                description: 'Testing all Twitter Card features',
-                image: 'https://example.com/twitter-image.jpg',
-                imageAlt: 'Test image',
-                site: '@testsite',
-                creator: '@testcreator',
+      await test.step('Setup: Start server with Twitter Card', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                twitter: {
+                  card: 'summary_large_image',
+                  title: 'Complete Twitter Card Test',
+                  description: 'Testing all Twitter Card features',
+                  image: 'https://example.com/twitter-image.jpg',
+                  imageAlt: 'Test image',
+                  site: '@testsite',
+                  creator: '@testcreator',
+                },
               },
+              sections: [],
             },
-            sections: [],
-          },
-        ],
+          ],
+        })
       })
 
-      // WHEN: user navigates to the page
-      await page.goto('/')
+      await test.step('Navigate to page and verify required meta tags', async () => {
+        await page.goto('/')
+        await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
+          'content',
+          'summary_large_image'
+        )
+      })
 
-      // Enhanced meta tag validation with explicit content checks
-      // Verify required property
-      // THEN: assertion
-      await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
-        'content',
-        'summary_large_image'
-      )
-
-      // Verify optional properties with exact content validation
-      await expect(page.locator('meta[name="twitter:title"]')).toHaveAttribute(
-        'content',
-        'Complete Twitter Card Test'
-      )
-      await expect(page.locator('meta[name="twitter:description"]')).toHaveAttribute(
-        'content',
-        'Testing all Twitter Card features'
-      )
-      await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute(
-        'content',
-        'https://example.com/twitter-image.jpg'
-      )
-      await expect(page.locator('meta[name="twitter:image:alt"]')).toHaveAttribute(
-        'content',
-        'Test image'
-      )
-      await expect(page.locator('meta[name="twitter:site"]')).toHaveAttribute(
-        'content',
-        '@testsite'
-      )
-      await expect(page.locator('meta[name="twitter:creator"]')).toHaveAttribute(
-        'content',
-        '@testcreator'
-      )
+      await test.step('Verify optional Twitter Card meta tags', async () => {
+        await expect(page.locator('meta[name="twitter:title"]')).toHaveAttribute(
+          'content',
+          'Complete Twitter Card Test'
+        )
+        await expect(page.locator('meta[name="twitter:description"]')).toHaveAttribute(
+          'content',
+          'Testing all Twitter Card features'
+        )
+        await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute(
+          'content',
+          'https://example.com/twitter-image.jpg'
+        )
+        await expect(page.locator('meta[name="twitter:image:alt"]')).toHaveAttribute(
+          'content',
+          'Test image'
+        )
+        await expect(page.locator('meta[name="twitter:site"]')).toHaveAttribute(
+          'content',
+          '@testsite'
+        )
+        await expect(page.locator('meta[name="twitter:creator"]')).toHaveAttribute(
+          'content',
+          '@testcreator'
+        )
+      })
     }
   )
 })

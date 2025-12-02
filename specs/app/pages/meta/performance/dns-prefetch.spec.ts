@@ -362,41 +362,40 @@ test.describe('DNS Prefetch', () => {
     'APP-PAGES-DNS-011: user can complete full DNS prefetch workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: {
-              lang: 'en-US',
-              title: 'Test',
-              description: 'Test',
-              dnsPrefetch: [
-                'https://fonts.googleapis.com',
-                'https://fonts.gstatic.com',
-                'https://www.google-analytics.com',
-                'https://cdn.jsdelivr.net',
-              ],
+      await test.step('Setup: Start server with DNS prefetch', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                dnsPrefetch: [
+                  'https://fonts.googleapis.com',
+                  'https://fonts.gstatic.com',
+                  'https://www.google-analytics.com',
+                  'https://cdn.jsdelivr.net',
+                ],
+              },
+              sections: [],
             },
-            sections: [],
-          },
-        ],
+          ],
+        })
       })
 
-      // WHEN: user navigates to the page
-      await page.goto('/')
-
-      // Verify all DNS prefetch links
-      // THEN: assertion
-      await expect(page.locator('link[rel="dns-prefetch"]')).toHaveCount(4)
-      await expect(
-        page.locator('link[rel="dns-prefetch"][href="https://fonts.googleapis.com"]')
-      ).toBeAttached()
-      await expect(
-        page.locator('link[rel="dns-prefetch"][href="https://www.google-analytics.com"]')
-      ).toBeAttached()
+      await test.step('Navigate to page and verify DNS prefetch links', async () => {
+        await page.goto('/')
+        await expect(page.locator('link[rel="dns-prefetch"]')).toHaveCount(4)
+        await expect(
+          page.locator('link[rel="dns-prefetch"][href="https://fonts.googleapis.com"]')
+        ).toBeAttached()
+        await expect(
+          page.locator('link[rel="dns-prefetch"][href="https://www.google-analytics.com"]')
+        ).toBeAttached()
+      })
     }
   )
 })
