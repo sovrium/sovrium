@@ -9,6 +9,7 @@ import { SQL } from 'bun'
 import { Config, Effect, Console, Data, type ConfigError } from 'effect'
 import { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
 import { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
+import { createVolatileFormulaTriggers } from './formula-trigger-generators'
 import {
   mapFieldTypeToPostgres,
   generateColumnDefinition,
@@ -547,6 +548,9 @@ const migrateExistingTable = async (
   for (const triggerSQL of generateUpdatedByTriggers(table)) {
     await tx.unsafe(triggerSQL)
   }
+
+  // Always create/update triggers for volatile formula fields
+  await createVolatileFormulaTriggers(tx, table.name, table.fields)
 }
 /* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
 
@@ -576,6 +580,9 @@ const createNewTable = async (
   for (const triggerSQL of generateUpdatedByTriggers(table)) {
     await tx.unsafe(triggerSQL)
   }
+
+  // Create triggers for volatile formula fields
+  await createVolatileFormulaTriggers(tx, table.name, table.fields)
 }
 /* eslint-enable functional/no-expression-statements, functional/no-loop-statements */
 

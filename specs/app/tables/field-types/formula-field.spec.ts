@@ -267,7 +267,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-005: should evaluate boolean date logic for overdue detection',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
