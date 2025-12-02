@@ -54,36 +54,30 @@ export interface EmailConfig {
  *
  * @see https://mailpit.axllent.org/ for local development email testing
  */
-export function getEmailConfig(): EmailConfig {
-  const host = process.env.SMTP_HOST
-  const isProduction = process.env.NODE_ENV === 'production'
-
-  // Use real SMTP in production or when explicitly configured
-  if (host) {
-    const port = parseInt(process.env.SMTP_PORT ?? '587', 10)
-    return {
-      host,
-      port,
-      secure: process.env.SMTP_SECURE === 'true' || port === 465,
-      auth: {
-        user: process.env.SMTP_USER ?? '',
-        pass: process.env.SMTP_PASS ?? '',
-      },
-      from: {
-        email: process.env.SMTP_FROM ?? 'noreply@sovrium.com',
-        name: process.env.SMTP_FROM_NAME ?? 'Sovrium',
-      },
-    }
+/**
+ * Create production SMTP configuration from environment variables
+ */
+function createProductionConfig(host: string): EmailConfig {
+  const port = parseInt(process.env.SMTP_PORT ?? '587', 10)
+  return {
+    host,
+    port,
+    secure: process.env.SMTP_SECURE === 'true' || port === 465,
+    auth: {
+      user: process.env.SMTP_USER ?? '',
+      pass: process.env.SMTP_PASS ?? '',
+    },
+    from: {
+      email: process.env.SMTP_FROM ?? 'noreply@sovrium.com',
+      name: process.env.SMTP_FROM_NAME ?? 'Sovrium',
+    },
   }
+}
 
-  // Development fallback - requires Mailpit or similar local SMTP
-  // E2E tests configure Mailpit via fixtures.ts
-  if (isProduction) {
-    console.error('[EMAIL] WARNING: SMTP_HOST not configured in production mode')
-  } else {
-    console.warn('[EMAIL] SMTP_HOST not configured, using localhost:1025 (Mailpit)')
-  }
-
+/**
+ * Create development fallback configuration for local testing
+ */
+function createDevelopmentConfig(): EmailConfig {
   return {
     host: 'localhost',
     port: 1025,
@@ -99,12 +93,32 @@ export function getEmailConfig(): EmailConfig {
   }
 }
 
+export function getEmailConfig(): EmailConfig {
+  const host = process.env.SMTP_HOST
+  const isProduction = process.env.NODE_ENV === 'production'
+
+  // Use real SMTP in production or when explicitly configured
+  if (host) {
+    return createProductionConfig(host)
+  }
+
+  // Development fallback - requires Mailpit or similar local SMTP
+  // E2E tests configure Mailpit via fixtures.ts
+  if (isProduction) {
+    console.error('[EMAIL] WARNING: SMTP_HOST not configured in production mode')
+  } else {
+    console.warn('[EMAIL] SMTP_HOST not configured, using localhost:1025 (Mailpit)')
+  }
+
+  return createDevelopmentConfig()
+}
+
 /**
  * Create a nodemailer transporter from configuration
  */
 export function createTransporter(
   config: Readonly<EmailConfig>
-): nodemailer.Transporter<SMTPTransport.SentMessageInfo> {
+): Readonly<nodemailer.Transporter<SMTPTransport.SentMessageInfo>> {
   return nodemailer.createTransport({
     host: config.host,
     port: config.port,
