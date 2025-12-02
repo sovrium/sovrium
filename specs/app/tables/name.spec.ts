@@ -29,7 +29,7 @@ test.describe('Table Name', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-NAME-001: should meet schema requirements when validating input',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -78,7 +78,7 @@ test.describe('Table Name', () => {
             },
           ],
         })
-      ).rejects.toThrow(/validation error/)
+      ).rejects.toThrow(/AppValidationError|ParseError/)
 
       // THEN: assertion
       await expect(
@@ -92,7 +92,7 @@ test.describe('Table Name', () => {
             },
           ],
         })
-      ).rejects.toThrow(/validation error/)
+      ).rejects.toThrow(/AppValidationError|ParseError/)
 
       // THEN: assertion
       await expect(
@@ -106,7 +106,7 @@ test.describe('Table Name', () => {
             },
           ],
         })
-      ).rejects.toThrow(/validation error/)
+      ).rejects.toThrow(/AppValidationError|ParseError/)
     }
   )
 
