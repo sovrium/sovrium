@@ -272,59 +272,61 @@ test.describe('Unique Field Property', () => {
     'APP-TABLES-FIELD-UNIQUE-006: user can complete full unique-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative unique fields
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 5,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'unique_field',
-                type: 'single-line-text',
-                unique: true,
-                required: true,
-              },
-              {
-                id: 3,
-                name: 'non_unique_field',
-                type: 'single-line-text',
-                unique: false,
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with unique and non-unique fields', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'unique_field',
+                  type: 'single-line-text',
+                  unique: true,
+                  required: true,
+                },
+                {
+                  id: 3,
+                  name: 'non_unique_field',
+                  type: 'single-line-text',
+                  unique: false,
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      const uniqueConstraint = await executeQuery(
-        "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='data' AND constraint_type='UNIQUE' AND constraint_name LIKE '%unique_field%'"
-      )
-      // THEN: assertion
-      expect(uniqueConstraint.count).toBe(1)
+      await test.step('Verify unique constraint exists', async () => {
+        const uniqueConstraint = await executeQuery(
+          "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='data' AND constraint_type='UNIQUE' AND constraint_name LIKE '%unique_field%'"
+        )
+        expect(uniqueConstraint.count).toBe(1)
+      })
 
-      // Insert first value
-      await executeQuery(
-        "INSERT INTO data (unique_field, non_unique_field) VALUES ('value1', 'duplicate')"
-      )
+      await test.step('Insert initial unique value', async () => {
+        await executeQuery(
+          "INSERT INTO data (unique_field, non_unique_field) VALUES ('value1', 'duplicate')"
+        )
+      })
 
-      // Duplicate unique field should fail
-      // THEN: assertion
-      await expect(
-        executeQuery("INSERT INTO data (unique_field, non_unique_field) VALUES ('value1', 'other')")
-      ).rejects.toThrow(/duplicate key value violates unique constraint/)
+      await test.step('Test unique constraint enforcement', async () => {
+        await expect(
+          executeQuery("INSERT INTO data (unique_field, non_unique_field) VALUES ('value1', 'other')")
+        ).rejects.toThrow(/duplicate key value violates unique constraint/)
+      })
 
-      // Duplicate non-unique field should succeed
-      const validDuplicate = await executeQuery(
-        "INSERT INTO data (unique_field, non_unique_field) VALUES ('value2', 'duplicate') RETURNING id"
-      )
-      // THEN: assertion
-      // Note: ID is 3 because failed INSERT consumed sequence value 2 (PostgreSQL behavior)
-      expect(validDuplicate.id).toBe(3)
+      await test.step('Test non-unique field allows duplicates', async () => {
+        const validDuplicate = await executeQuery(
+          "INSERT INTO data (unique_field, non_unique_field) VALUES ('value2', 'duplicate') RETURNING id"
+        )
+        // Note: ID is 3 because failed INSERT consumed sequence value 2 (PostgreSQL behavior)
+        expect(validDuplicate.id).toBe(3)
+      })
     }
   )
 })

@@ -253,44 +253,48 @@ test.describe('Phone Number Field', () => {
     'APP-TABLES-FIELD-PHONE-NUMBER-006: user can complete full phone-number-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative phone-number field
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'phone_field',
-                type: 'phone-number',
-                required: true,
-                unique: true,
-                indexed: true,
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with phone-number field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'phone_field',
+                  type: 'phone-number',
+                  required: true,
+                  unique: true,
+                  indexed: true,
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      const columnInfo = await executeQuery(
-        "SELECT data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='phone_field'"
-      )
-      // THEN: assertion
-      expect(columnInfo.data_type).toBe('character varying')
-      expect(columnInfo.character_maximum_length).toBe(255)
-      expect(columnInfo.is_nullable).toBe('NO')
+      await test.step('Verify column setup and constraints', async () => {
+        const columnInfo = await executeQuery(
+          "SELECT data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='phone_field'"
+        )
+        expect(columnInfo.data_type).toBe('character varying')
+        expect(columnInfo.character_maximum_length).toBe(255)
+        expect(columnInfo.is_nullable).toBe('NO')
+      })
 
-      // Test international format and uniqueness
-      await executeQuery("INSERT INTO data (phone_field) VALUES ('+1-555-TEST')")
-      // THEN: assertion
-      await expect(
-        executeQuery("INSERT INTO data (phone_field) VALUES ('+1-555-TEST')")
-      ).rejects.toThrow(/duplicate key value violates unique constraint/)
+      await test.step('Test international format insertion', async () => {
+        await executeQuery("INSERT INTO data (phone_field) VALUES ('+1-555-TEST')")
+      })
+
+      await test.step('Test unique constraint enforcement', async () => {
+        await expect(
+          executeQuery("INSERT INTO data (phone_field) VALUES ('+1-555-TEST')")
+        ).rejects.toThrow(/duplicate key value violates unique constraint/)
+      })
     }
   )
 })

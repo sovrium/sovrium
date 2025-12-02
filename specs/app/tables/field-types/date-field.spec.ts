@@ -220,49 +220,50 @@ test.describe('Date Field', () => {
     'APP-TABLES-FIELD-TYPES-DATE-006: user can complete full date-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative date field
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'date_field',
-                type: 'date',
-                required: true,
-                indexed: true,
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with date field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'date_field',
+                  type: 'date',
+                  required: true,
+                  indexed: true,
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      const columnInfo = await executeQuery(
-        "SELECT data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='date_field'"
-      )
-      // THEN: assertion
-      expect(columnInfo.data_type).toBe('date')
-      expect(columnInfo.is_nullable).toBe('NO')
+      await test.step('Verify column setup and constraints', async () => {
+        const columnInfo = await executeQuery(
+          "SELECT data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='date_field'"
+        )
+        expect(columnInfo.data_type).toBe('date')
+        expect(columnInfo.is_nullable).toBe('NO')
+      })
 
-      // Test date storage
-      await executeQuery("INSERT INTO data (date_field) VALUES ('2024-06-15')")
-      const stored = await executeQuery('SELECT date_field FROM data WHERE id = 1')
-      // THEN: assertion
-      expect(stored.date_field).toBe('2024-06-15')
+      await test.step('Test date storage', async () => {
+        await executeQuery("INSERT INTO data (date_field) VALUES ('2024-06-15')")
+        const stored = await executeQuery('SELECT date_field FROM data WHERE id = 1')
+        expect(stored.date_field).toBe('2024-06-15')
+      })
 
-      // Test date range queries
-      await executeQuery("INSERT INTO data (date_field) VALUES ('2024-01-01'), ('2024-12-31')")
-      const rangeQuery = await executeQuery(
-        "SELECT COUNT(*) as count FROM data WHERE date_field >= '2024-06-01' AND date_field <= '2024-12-31'"
-      )
-      // THEN: assertion
-      expect(rangeQuery.count).toBeGreaterThan(0)
+      await test.step('Test date range queries', async () => {
+        await executeQuery("INSERT INTO data (date_field) VALUES ('2024-01-01'), ('2024-12-31')")
+        const rangeQuery = await executeQuery(
+          "SELECT COUNT(*) as count FROM data WHERE date_field >= '2024-06-01' AND date_field <= '2024-12-31'"
+        )
+        expect(rangeQuery.count).toBeGreaterThan(0)
+      })
     }
   )
 })

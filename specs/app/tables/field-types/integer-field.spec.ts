@@ -260,54 +260,56 @@ test.describe('Integer Field', () => {
     'APP-TABLES-FIELD-TYPES-INTEGER-006: user can complete full integer-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative integer field
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'integer_field',
-                type: 'integer',
-                required: true,
-                unique: true,
-                indexed: true,
-                min: 0,
-                max: 100,
-                default: 50,
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with integer field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'integer_field',
+                  type: 'integer',
+                  required: true,
+                  unique: true,
+                  indexed: true,
+                  min: 0,
+                  max: 100,
+                  default: 50,
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      const columnInfo = await executeQuery(
-        "SELECT data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='integer_field'"
-      )
-      // THEN: assertion
-      expect(columnInfo.data_type).toBe('integer')
-      expect(columnInfo.is_nullable).toBe('NO')
+      await test.step('Verify column setup and constraints', async () => {
+        const columnInfo = await executeQuery(
+          "SELECT data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='integer_field'"
+        )
+        expect(columnInfo.data_type).toBe('integer')
+        expect(columnInfo.is_nullable).toBe('NO')
+      })
 
-      // Test range constraint
-      // THEN: assertion
-      await expect(executeQuery('INSERT INTO data (integer_field) VALUES (101)')).rejects.toThrow(
-        /violates check constraint/
-      )
+      await test.step('Test range constraint enforcement', async () => {
+        await expect(executeQuery('INSERT INTO data (integer_field) VALUES (101)')).rejects.toThrow(
+          /violates check constraint/
+        )
+      })
 
-      // Test valid value
-      await executeQuery('INSERT INTO data (integer_field) VALUES (75)')
+      await test.step('Test valid value insertion', async () => {
+        await executeQuery('INSERT INTO data (integer_field) VALUES (75)')
+      })
 
-      // Test uniqueness
-      // THEN: assertion
-      await expect(executeQuery('INSERT INTO data (integer_field) VALUES (75)')).rejects.toThrow(
-        /duplicate key value violates unique constraint/
-      )
+      await test.step('Test unique constraint enforcement', async () => {
+        await expect(executeQuery('INSERT INTO data (integer_field) VALUES (75)')).rejects.toThrow(
+          /duplicate key value violates unique constraint/
+        )
+      })
     }
   )
 })

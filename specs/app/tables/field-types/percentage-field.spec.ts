@@ -234,50 +234,51 @@ test.describe('Percentage Field', () => {
     'APP-TABLES-FIELD-TYPES-PERCENTAGE-006: user can complete full percentage-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative percentage field
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'percentage_field',
-                type: 'percentage',
-                required: true,
-                indexed: true,
-                min: 0,
-                max: 100,
-                default: 50.0,
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with percentage field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'percentage_field',
+                  type: 'percentage',
+                  required: true,
+                  indexed: true,
+                  min: 0,
+                  max: 100,
+                  default: 50.0,
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      const columnInfo = await executeQuery(
-        "SELECT data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='percentage_field'"
-      )
-      // THEN: assertion
-      expect(columnInfo.data_type).toMatch(/numeric|decimal/)
-      expect(columnInfo.is_nullable).toBe('NO')
+      await test.step('Verify column setup and constraints', async () => {
+        const columnInfo = await executeQuery(
+          "SELECT data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='percentage_field'"
+        )
+        expect(columnInfo.data_type).toMatch(/numeric|decimal/)
+        expect(columnInfo.is_nullable).toBe('NO')
+      })
 
-      // Test percentage range (0-100)
-      await executeQuery('INSERT INTO data (percentage_field) VALUES (75.25)')
-      const stored = await executeQuery('SELECT percentage_field FROM data WHERE id = 1')
-      // THEN: assertion
-      expect(parseFloat(stored.percentage_field)).toBe(75.25)
+      await test.step('Test percentage value storage', async () => {
+        await executeQuery('INSERT INTO data (percentage_field) VALUES (75.25)')
+        const stored = await executeQuery('SELECT percentage_field FROM data WHERE id = 1')
+        expect(parseFloat(stored.percentage_field)).toBe(75.25)
+      })
 
-      // Verify out-of-range rejected
-      // THEN: assertion
-      await expect(
-        executeQuery('INSERT INTO data (percentage_field) VALUES (150.0)')
-      ).rejects.toThrow(/violates check constraint/)
+      await test.step('Test range constraint enforcement', async () => {
+        await expect(
+          executeQuery('INSERT INTO data (percentage_field) VALUES (150.0)')
+        ).rejects.toThrow(/violates check constraint/)
+      })
     }
   )
 })

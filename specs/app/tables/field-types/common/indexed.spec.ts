@@ -272,46 +272,51 @@ test.describe('Indexed Field Property', () => {
     'APP-TABLES-FIELD-INDEXED-006: user can complete full indexed-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative indexed fields
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'email', type: 'email', indexed: true },
-              { id: 3, name: 'created_at', type: 'datetime', indexed: true },
-              { id: 4, name: 'notes', type: 'long-text', indexed: false },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with indexed and non-indexed fields', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'email', type: 'email', indexed: true },
+                { id: 3, name: 'created_at', type: 'datetime', indexed: true },
+                { id: 4, name: 'notes', type: 'long-text', indexed: false },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      await executeQuery([
-        "INSERT INTO data (email, created_at, notes) VALUES ('test@example.com', '2024-01-01 10:00:00', 'Some notes')",
-      ])
+      await test.step('Insert test data', async () => {
+        await executeQuery([
+          "INSERT INTO data (email, created_at, notes) VALUES ('test@example.com', '2024-01-01 10:00:00', 'Some notes')",
+        ])
+      })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      const emailIndex = await executeQuery(
-        "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='data' AND indexname LIKE '%email%'"
-      )
-      // THEN: assertion
-      expect(emailIndex.count).toBeGreaterThan(0)
+      await test.step('Verify email field index exists', async () => {
+        const emailIndex = await executeQuery(
+          "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='data' AND indexname LIKE '%email%'"
+        )
+        expect(emailIndex.count).toBeGreaterThan(0)
+      })
 
-      const timestampIndex = await executeQuery(
-        "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='data' AND indexname LIKE '%created_at%'"
-      )
-      // THEN: assertion
-      expect(timestampIndex.count).toBeGreaterThan(0)
+      await test.step('Verify created_at field index exists', async () => {
+        const timestampIndex = await executeQuery(
+          "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='data' AND indexname LIKE '%created_at%'"
+        )
+        expect(timestampIndex.count).toBeGreaterThan(0)
+      })
 
-      const noNotesIndex = await executeQuery(
-        "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='data' AND indexname LIKE '%notes%'"
-      )
-      // THEN: assertion
-      expect(noNotesIndex.count).toBe(0)
+      await test.step('Verify non-indexed field has no index', async () => {
+        const noNotesIndex = await executeQuery(
+          "SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='data' AND indexname LIKE '%notes%'"
+        )
+        expect(noNotesIndex.count).toBe(0)
+      })
     }
   )
 })

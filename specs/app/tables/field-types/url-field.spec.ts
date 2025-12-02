@@ -235,44 +235,48 @@ test.describe('URL Field', () => {
     'APP-TABLES-FIELD-URL-006: user can complete full url-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative url field
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'url_field',
-                type: 'url',
-                required: true,
-                unique: true,
-                indexed: true,
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with url field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'url_field',
+                  type: 'url',
+                  required: true,
+                  unique: true,
+                  indexed: true,
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      const columnInfo = await executeQuery(
-        "SELECT data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='url_field'"
-      )
-      // THEN: assertion
-      expect(columnInfo.data_type).toBe('character varying')
-      expect(columnInfo.character_maximum_length).toBe(255)
-      expect(columnInfo.is_nullable).toBe('NO')
+      await test.step('Verify column setup and constraints', async () => {
+        const columnInfo = await executeQuery(
+          "SELECT data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='url_field'"
+        )
+        expect(columnInfo.data_type).toBe('character varying')
+        expect(columnInfo.character_maximum_length).toBe(255)
+        expect(columnInfo.is_nullable).toBe('NO')
+      })
 
-      // Test URL insertion and uniqueness
-      await executeQuery("INSERT INTO data (url_field) VALUES ('https://test.com/path')")
-      // THEN: assertion
-      await expect(
-        executeQuery("INSERT INTO data (url_field) VALUES ('https://test.com/path')")
-      ).rejects.toThrow(/duplicate key value violates unique constraint/)
+      await test.step('Test URL insertion', async () => {
+        await executeQuery("INSERT INTO data (url_field) VALUES ('https://test.com/path')")
+      })
+
+      await test.step('Test unique constraint enforcement', async () => {
+        await expect(
+          executeQuery("INSERT INTO data (url_field) VALUES ('https://test.com/path')")
+        ).rejects.toThrow(/duplicate key value violates unique constraint/)
+      })
     }
   )
 })

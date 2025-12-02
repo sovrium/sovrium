@@ -193,34 +193,34 @@ test.describe('Time Field', () => {
     'APP-TABLES-FIELD-TYPES-TIME-006: user can complete full time-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'time_field',
-                type: 'time',
-                required: true,
-                indexed: true,
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with time field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'time_field',
+                  type: 'time',
+                  required: true,
+                  indexed: true,
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN: executing query
-      await executeQuery("INSERT INTO data (time_field) VALUES ('10:30:00')")
-      // WHEN: querying the database
-      const stored = await executeQuery('SELECT time_field FROM data WHERE id = 1')
-      // THEN: assertion
-      expect(stored.time_field).toBeTruthy()
+      await test.step('Test time storage', async () => {
+        await executeQuery("INSERT INTO data (time_field) VALUES ('10:30:00')")
+        const stored = await executeQuery('SELECT time_field FROM data WHERE id = 1')
+        expect(stored.time_field).toBeTruthy()
+      })
     }
   )
 })

@@ -220,47 +220,49 @@ test.describe('DateTime Field', () => {
     'APP-TABLES-FIELD-TYPES-DATETIME-006: user can complete full datetime-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative datetime field
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'datetime_field',
-                type: 'datetime',
-                required: true,
-                indexed: true,
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with datetime field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'datetime_field',
+                  type: 'datetime',
+                  required: true,
+                  indexed: true,
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      const columnInfo = await executeQuery(
-        "SELECT data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='datetime_field'"
-      )
-      // THEN: assertion
-      expect(columnInfo.data_type).toMatch(/timestamp/)
-      expect(columnInfo.is_nullable).toBe('NO')
+      await test.step('Verify column setup and constraints', async () => {
+        const columnInfo = await executeQuery(
+          "SELECT data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='datetime_field'"
+        )
+        expect(columnInfo.data_type).toMatch(/timestamp/)
+        expect(columnInfo.is_nullable).toBe('NO')
+      })
 
-      // Test datetime storage
-      await executeQuery(
-        "INSERT INTO data (datetime_field) VALUES ('2024-06-15 10:30:00+00'), ('2024-06-15 14:30:00+00')"
-      )
+      await test.step('Test datetime storage', async () => {
+        await executeQuery(
+          "INSERT INTO data (datetime_field) VALUES ('2024-06-15 10:30:00+00'), ('2024-06-15 14:30:00+00')"
+        )
+      })
 
-      // Test datetime range queries
-      const rangeQuery = await executeQuery(
-        "SELECT COUNT(*) as count FROM data WHERE datetime_field >= '2024-06-15 10:00:00+00' AND datetime_field <= '2024-06-15 15:00:00+00'"
-      )
-      // THEN: assertion
-      expect(rangeQuery.count).toBe(2)
+      await test.step('Test datetime range queries', async () => {
+        const rangeQuery = await executeQuery(
+          "SELECT COUNT(*) as count FROM data WHERE datetime_field >= '2024-06-15 10:00:00+00' AND datetime_field <= '2024-06-15 15:00:00+00'"
+        )
+        expect(rangeQuery.count).toBe(2)
+      })
     }
   )
 })
