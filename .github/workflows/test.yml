@@ -55,6 +55,9 @@ jobs:
       - name: Run unit tests
         run: bun test:unit
 
+      - name: Validate spec counts
+        run: bun run validate:spec-counts
+
       - name: Get Playwright version
         id: playwright-version
         run: echo "version=$(bun pm ls @playwright/test | grep '@playwright/test' | awk '{print $2}' | head -n 1)" >> $GITHUB_OUTPUT

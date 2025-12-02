@@ -143,3 +143,45 @@ export type {
   AnnotationType,
   LoggerConfig,
 } from './LoggerService'
+
+// Git Service
+export {
+  GitService,
+  GitServiceLive,
+  GitError,
+  getMode,
+  getChangedFiles,
+  getBaseBranch,
+  getCurrentBranch,
+} from './GitService'
+
+export type { GitService as GitServiceType, ExecutionMode } from './GitService'
+
+// Spec Mapping Service
+export {
+  SpecMappingService,
+  SpecMappingServiceLive,
+  getSpecsForSource,
+  getSpecsToRun,
+  shouldRunE2E,
+} from './SpecMappingService'
+
+export type { SpecMappingService as SpecMappingServiceType } from './SpecMappingService'
+
+// Coverage Service
+export {
+  CoverageService,
+  CoverageServiceLive,
+  CoverageCheckError,
+  checkLayer,
+  checkAll,
+  enforce,
+  getDefaultLayers,
+  DEFAULT_LAYERS,
+} from './CoverageService'
+
+export type {
+  CoverageService as CoverageServiceType,
+  CoverageResult,
+  LayerConfig,
+} from './CoverageService'

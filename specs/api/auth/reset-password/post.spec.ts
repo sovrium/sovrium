@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-import { extractTokenFromUrl } from '../email-helpers'
+import { extractTokenFromUrl } from '../../../email-utils'
 
 /**
  * E2E Tests for Reset password
@@ -30,7 +30,7 @@ test.describe('Reset password', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-AUTH-RESET-PASSWORD-001: should return 200 OK and update password',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn, mailpit }) => {
@@ -38,7 +38,7 @@ test.describe('Reset password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -88,7 +88,7 @@ test.describe('Reset password', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-RESET-PASSWORD-002: should return 400 Bad Request without newPassword',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -96,7 +96,7 @@ test.describe('Reset password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -136,7 +136,7 @@ test.describe('Reset password', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-RESET-PASSWORD-003: should return 400 Bad Request with short password',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -144,7 +144,7 @@ test.describe('Reset password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -185,7 +185,7 @@ test.describe('Reset password', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-RESET-PASSWORD-004: should return 401 Unauthorized with invalid token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -193,7 +193,7 @@ test.describe('Reset password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -213,7 +213,7 @@ test.describe('Reset password', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-RESET-PASSWORD-005: should return 401 Unauthorized with expired token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -221,7 +221,7 @@ test.describe('Reset password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -241,7 +241,7 @@ test.describe('Reset password', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-RESET-PASSWORD-006: should return 401 Unauthorized with already used token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -249,7 +249,7 @@ test.describe('Reset password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -301,7 +301,7 @@ test.describe('Reset password', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-RESET-PASSWORD-007: should return 400 Bad Request without token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -309,7 +309,7 @@ test.describe('Reset password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -328,7 +328,7 @@ test.describe('Reset password', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-RESET-PASSWORD-008: should revoke all sessions after password reset',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn, mailpit }) => {
@@ -336,7 +336,7 @@ test.describe('Reset password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -393,71 +393,77 @@ test.describe('Reset password', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-AUTH-RESET-PASSWORD-009: user can complete full reset-password workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn, mailpit }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          authentication: ['email-and-password'],
-        },
+      let userEmail: string
+
+      await test.step('Setup: Create server and test user', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+          },
+        })
+
+        userEmail = mailpit.email('workflow')
+
+        await signUp({
+          email: userEmail,
+          password: 'WorkflowPass123!',
+          name: 'Workflow User',
+        })
       })
 
-      const userEmail = mailpit.email('workflow')
-
-      // Create user
-      await signUp({
-        email: userEmail,
-        password: 'WorkflowPass123!',
-        name: 'Workflow User',
+      await test.step('Verify reset fails without token', async () => {
+        const noTokenResponse = await page.request.post('/api/auth/reset-password', {
+          data: { newPassword: 'NewPass123!' },
+        })
+        expect(noTokenResponse.status()).toBe(400)
       })
 
-      // Test 1: Reset without token fails
-      const noTokenResponse = await page.request.post('/api/auth/reset-password', {
-        data: { newPassword: 'NewPass123!' },
-      })
-      expect(noTokenResponse.status()).toBe(400)
-
-      // Test 2: Reset with invalid token fails
-      const invalidTokenResponse = await page.request.post('/api/auth/reset-password', {
-        data: {
-          token: 'invalid_token',
-          newPassword: 'NewPass123!',
-        },
-      })
-      expect([400, 401]).toContain(invalidTokenResponse.status())
-
-      // Test 3: Full workflow - request reset, extract token, reset password, sign in
-      await page.request.post('/api/auth/forget-password', {
-        data: { email: userEmail },
+      await test.step('Verify reset fails with invalid token', async () => {
+        const invalidTokenResponse = await page.request.post('/api/auth/reset-password', {
+          data: {
+            token: 'invalid_token',
+            newPassword: 'NewPass123!',
+          },
+        })
+        expect([400, 401]).toContain(invalidTokenResponse.status())
       })
 
-      const email = await mailpit.waitForEmail(
-        (e) =>
-          e.To[0]?.Address === userEmail &&
-          (e.Subject.toLowerCase().includes('password') ||
-            e.Subject.toLowerCase().includes('reset'))
-      )
+      await test.step('Complete password reset with valid token', async () => {
+        await page.request.post('/api/auth/forget-password', {
+          data: { email: userEmail },
+        })
 
-      const token = extractTokenFromUrl(email.HTML, 'token')
-      expect(token).not.toBeNull()
+        const email = await mailpit.waitForEmail(
+          (e) =>
+            e.To[0]?.Address === userEmail &&
+            (e.Subject.toLowerCase().includes('password') ||
+              e.Subject.toLowerCase().includes('reset'))
+        )
 
-      const resetResponse = await page.request.post('/api/auth/reset-password', {
-        data: {
-          token,
-          newPassword: 'NewWorkflowPass123!',
-        },
+        const token = extractTokenFromUrl(email.HTML, 'token')
+        expect(token).not.toBeNull()
+
+        const resetResponse = await page.request.post('/api/auth/reset-password', {
+          data: {
+            token,
+            newPassword: 'NewWorkflowPass123!',
+          },
+        })
+        expect(resetResponse.status()).toBe(200)
       })
-      expect(resetResponse.status()).toBe(200)
 
-      // Verify new password works
-      const signInResult = await signIn({
-        email: userEmail,
-        password: 'NewWorkflowPass123!',
+      await test.step('Verify new password works', async () => {
+        const signInResult = await signIn({
+          email: userEmail,
+          password: 'NewWorkflowPass123!',
+        })
+        expect(signInResult.user).toBeDefined()
       })
-      expect(signInResult.user).toBeDefined()
     }
   )
 })

@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Version**: 1.3.0
+**Version**: 1.3.3
 **Purpose**: All-in-one JavaScript/TypeScript runtime and package manager replacing Node.js and npm
 
 ## Bun Runtime

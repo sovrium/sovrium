@@ -23,36 +23,32 @@ import { test, expect } from '@/specs/fixtures'
  * - Database state validation via API (no direct executeQuery for auth data)
  * - Authentication/authorization checks
  *
- * Note: Better Auth's refresh-session endpoint may not be publicly exposed.
- * These tests verify the behavior when calling the endpoint.
+ * Note: Better Auth may not expose a refresh-session endpoint - session refresh
+ * may be handled automatically via cookies.
  */
 
 test.describe('Refresh session token', () => {
   // ============================================================================
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
-  // Note: These tests are marked .fixme() because the /api/auth/refresh-session
-  // endpoint is not yet implemented (returns 404)
+  // Note: Better Auth may not have a dedicated refresh-session endpoint.
+  // Session refresh is typically handled automatically by the session middleware.
   // ============================================================================
 
   test.fixme(
     'API-AUTH-REFRESH-SESSION-001: should return 200 OK with refreshed session',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user with valid session (created via API)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
       // Create user and sign in via API
       await signUp({
         name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
@@ -83,7 +79,7 @@ test.describe('Refresh session token', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -106,7 +102,7 @@ test.describe('Refresh session token', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -128,22 +124,18 @@ test.describe('Refresh session token', () => {
   test.fixme(
     'API-AUTH-REFRESH-SESSION-004: should return 401 Unauthorized after sign-out',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user who signs out (created via API)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
       // Create user, sign in, then sign out
       await signUp({
         name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
@@ -160,22 +152,18 @@ test.describe('Refresh session token', () => {
   test.fixme(
     'API-AUTH-REFRESH-SESSION-005: should maintain user data after refresh',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user (created via API)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
       // Create user and sign in
       await signUp({
         name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
@@ -199,46 +187,45 @@ test.describe('Refresh session token', () => {
   test.fixme(
     'API-AUTH-REFRESH-SESSION-006: user can complete full refresh-session workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          authentication: ['email-and-password'],
-        },
+    async ({ page, startServerWithSchema, signUp }) => {
+      await test.step('Setup: Start server with auth enabled', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+          },
+        })
       })
 
-      // Test 1: Refresh fails without auth
-      const noAuthRefresh = await page.request.post('/api/auth/refresh-session')
-      expect(noAuthRefresh.status()).toBe(401)
-
-      // Create user and sign in
-      await signUp({
-        name: 'Regression User',
-        email: 'regression@example.com',
-        password: 'SecurePass123!',
-      })
-      await signIn({
-        email: 'regression@example.com',
-        password: 'SecurePass123!',
+      await test.step('Verify refresh fails without auth', async () => {
+        const noAuthRefresh = await page.request.post('/api/auth/refresh-session')
+        expect(noAuthRefresh.status()).toBe(401)
       })
 
-      // Test 2: Refresh succeeds with valid session
-      const authRefresh = await page.request.post('/api/auth/refresh-session')
-      expect(authRefresh.status()).toBe(200)
+      await test.step('Setup: Create and authenticate user', async () => {
+        await signUp({
+          name: 'Regression User',
+          email: 'regression@example.com',
+          password: 'SecurePass123!',
+        })
+      })
 
-      // Verify session is still valid
-      const sessionResponse = await page.request.get('/api/auth/get-session')
-      const sessionData = await sessionResponse.json()
-      expect(sessionData.session).toBeTruthy()
-      expect(sessionData.user.email).toBe('regression@example.com')
+      await test.step('Refresh session with valid auth', async () => {
+        const authRefresh = await page.request.post('/api/auth/refresh-session')
+        expect(authRefresh.status()).toBe(200)
 
-      // Sign out
-      await page.request.post('/api/auth/sign-out')
+        const sessionResponse = await page.request.get('/api/auth/get-session')
+        const sessionData = await sessionResponse.json()
+        expect(sessionData.session).toBeTruthy()
+        expect(sessionData.user.email).toBe('regression@example.com')
+      })
 
-      // Test 3: Refresh fails after sign-out
-      const afterSignOutRefresh = await page.request.post('/api/auth/refresh-session')
-      expect(afterSignOutRefresh.status()).toBe(401)
+      await test.step('Verify refresh fails after sign-out', async () => {
+        await page.request.post('/api/auth/sign-out')
+
+        const afterSignOutRefresh = await page.request.post('/api/auth/refresh-session')
+        expect(afterSignOutRefresh.status()).toBe(401)
+      })
     }
   )
 })

@@ -269,7 +269,7 @@ const report = {
 # Dependency Tracking Report
 
 **Timestamp**: 2025-01-15T10:30:00Z
-**Package Manager**: Bun 1.3.0
+**Package Manager**: Bun 1.3.3
 **Status**: ⚠️  ISSUES FOUND
 
 ## Summary

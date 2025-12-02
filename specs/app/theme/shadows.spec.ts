@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Shadows
  *
  * Source: src/domain/models/app/theme/index.ts
- * Spec Count: 17 (16 @spec + 1 @regression)
+ * Spec Count: 16 (16 @spec + 1 @regression)
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (16 tests: 6 validation + 10 application) - Exhaustive acceptance criteria

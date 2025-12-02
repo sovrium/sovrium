@@ -785,7 +785,7 @@ const initializeSchemaInternal = (
       return yield* Effect.fail(
         new AuthConfigRequiredForUserFields({
           message:
-            'User fields (user, created-by, updated-by) require auth configuration. Please add auth: { authentication: ["email-and-password"] } to your app schema.',
+            'User fields (user, created-by, updated-by) require auth configuration. Please add auth: { methods: ["email-and-password"] } to your app schema.',
         })
       )
     }

@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Version**: 3.6.2
+**Version**: 3.7.3
 **Purpose**: Enforces consistent code formatting across the entire codebase automatically, eliminating style debates and ensuring uniform code appearance
 
 ## Why Prettier

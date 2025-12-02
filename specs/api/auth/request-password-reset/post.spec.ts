@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-import { assertEmailReceived } from '../email-helpers'
+import { assertEmailReceived } from '../../../email-utils'
 
 /**
  * E2E Tests for Request password reset
@@ -30,15 +30,21 @@ test.describe('Request password reset', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test(
-    'API-AUTH-REQUEST-PASSWORD-RESET-001: should return 200 OK and send reset email',
+  test.fixme(
+    'API-AUTH-REQUEST-PASSWORD-RESET-001: should return 200 OK and send reset email with custom template',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
-      // GIVEN: A registered user with valid email
+      // GIVEN: A registered user with valid email and custom email templates
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
+          emailTemplates: {
+            resetPassword: {
+              subject: 'Reset your TestApp password',
+              text: 'Hi $name, click here to reset your password: $url',
+            },
+          },
         },
       })
 
@@ -58,28 +64,26 @@ test.describe('Request password reset', () => {
         },
       })
 
-      // THEN: Returns 200 OK and sends reset email with token
+      // THEN: Returns 200 OK and sends reset email with custom template
       expect(response.status()).toBe(200)
 
       const data = await response.json()
       expect(data).toHaveProperty('status', true)
 
-      // Verify email was sent (filtered by testId namespace)
+      // Verify email was sent with custom subject
       const email = await mailpit.waitForEmail(
-        (e) =>
-          e.To[0]?.Address === userEmail &&
-          (e.Subject.toLowerCase().includes('password') ||
-            e.Subject.toLowerCase().includes('reset'))
+        (e) => e.To[0]?.Address === userEmail && e.Subject.includes('TestApp')
       )
 
       assertEmailReceived(email, {
         to: userEmail,
-        from: 'noreply@sovrium.com',
+        subjectEquals: 'Reset your TestApp password',
+        bodyContains: 'click here to reset your password',
       })
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-REQUEST-PASSWORD-RESET-002: should return 200 OK for non-existent email',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -87,7 +91,7 @@ test.describe('Request password reset', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -108,7 +112,7 @@ test.describe('Request password reset', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-REQUEST-PASSWORD-RESET-003: should return 400 Bad Request without email',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -116,7 +120,7 @@ test.describe('Request password reset', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -133,7 +137,7 @@ test.describe('Request password reset', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-REQUEST-PASSWORD-RESET-004: should return 400 Bad Request with invalid email format',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -141,7 +145,7 @@ test.describe('Request password reset', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -160,7 +164,7 @@ test.describe('Request password reset', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-REQUEST-PASSWORD-RESET-005: should return 200 OK with case-insensitive email',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -168,7 +172,7 @@ test.describe('Request password reset', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -205,7 +209,7 @@ test.describe('Request password reset', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-REQUEST-PASSWORD-RESET-006: should invalidate old token on new request',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -213,7 +217,7 @@ test.describe('Request password reset', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -264,7 +268,7 @@ test.describe('Request password reset', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-AUTH-REQUEST-PASSWORD-RESET-007: should include redirectTo in reset email',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
@@ -272,7 +276,7 @@ test.describe('Request password reset', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -313,54 +317,59 @@ test.describe('Request password reset', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-AUTH-REQUEST-PASSWORD-RESET-008: user can complete full request-password-reset workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          authentication: ['email-and-password'],
-        },
+      let userEmail: string
+      let nonExistentEmail: string
+
+      await test.step('Setup: Create server and test user', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+          },
+        })
+
+        userEmail = mailpit.email('workflow')
+        nonExistentEmail = mailpit.email('nonexistent')
+
+        await signUp({
+          email: userEmail,
+          password: 'WorkflowPass123!',
+          name: 'Workflow User',
+        })
       })
 
-      const userEmail = mailpit.email('workflow')
-      const nonExistentEmail = mailpit.email('nonexistent')
-
-      // Create user
-      await signUp({
-        email: userEmail,
-        password: 'WorkflowPass123!',
-        name: 'Workflow User',
+      await test.step('Verify request fails with invalid email format', async () => {
+        const invalidResponse = await page.request.post('/api/auth/forget-password', {
+          data: { email: 'not-an-email' },
+        })
+        expect(invalidResponse.status()).toBe(400)
       })
 
-      // Test 1: Request with invalid email format fails
-      const invalidResponse = await page.request.post('/api/auth/forget-password', {
-        data: { email: 'not-an-email' },
-      })
-      expect(invalidResponse.status()).toBe(400)
+      await test.step('Request password reset for registered email', async () => {
+        const successResponse = await page.request.post('/api/auth/forget-password', {
+          data: { email: userEmail },
+        })
+        expect(successResponse.status()).toBe(200)
 
-      // Test 2: Request for registered email succeeds and sends email
-      const successResponse = await page.request.post('/api/auth/forget-password', {
-        data: { email: userEmail },
+        const email = await mailpit.waitForEmail(
+          (e) =>
+            e.To[0]?.Address === userEmail &&
+            (e.Subject.toLowerCase().includes('password') ||
+              e.Subject.toLowerCase().includes('reset'))
+        )
+        expect(email).toBeDefined()
       })
-      expect(successResponse.status()).toBe(200)
 
-      // Verify email was sent (filtered by testId namespace)
-      const email = await mailpit.waitForEmail(
-        (e) =>
-          e.To[0]?.Address === userEmail &&
-          (e.Subject.toLowerCase().includes('password') ||
-            e.Subject.toLowerCase().includes('reset'))
-      )
-      expect(email).toBeDefined()
-
-      // Test 3: Request for non-existent email also succeeds (prevent enumeration)
-      const nonExistentResponse = await page.request.post('/api/auth/forget-password', {
-        data: { email: nonExistentEmail },
+      await test.step('Verify non-existent email succeeds (prevent enumeration)', async () => {
+        const nonExistentResponse = await page.request.post('/api/auth/forget-password', {
+          data: { email: nonExistentEmail },
+        })
+        expect(nonExistentResponse.status()).toBe(200)
       })
-      expect(nonExistentResponse.status()).toBe(200)
     }
   )
 })

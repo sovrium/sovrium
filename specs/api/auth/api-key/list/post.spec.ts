@@ -1,0 +1,252 @@
+/**
+ * Copyright (c) 2025 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { test, expect } from '@/specs/fixtures'
+
+/**
+ * E2E Tests for List API Keys
+ *
+ * Source: src/domain/models/app/auth/plugins/api-keys.ts
+ * Domain: api
+ * Spec Count: 4
+ *
+ * Test Organization:
+ * 1. @spec tests - One per acceptance criterion (4 tests) - Exhaustive coverage
+ * 2. @regression test - ONE optimized integration test - Efficient workflow validation
+ */
+
+test.describe('List API Keys', () => {
+  // ============================================================================
+  // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
+  // ============================================================================
+
+  test.fixme(
+    'API-AUTH-API-KEYS-LIST-001: should return list of user API keys',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, signUp }) => {
+      // GIVEN: Authenticated user with existing API keys
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            apiKeys: true,
+          },
+        },
+      })
+
+      await signUp({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: 'ValidPassword123!',
+      })
+
+      // Create two API keys
+      await page.request.post('/api/auth/api-key/create', {
+        data: {
+          name: 'Production Key',
+        },
+      })
+
+      await page.request.post('/api/auth/api-key/create', {
+        data: {
+          name: 'Development Key',
+        },
+      })
+
+      // WHEN: User requests list of their API keys via Better Auth endpoint
+      const response = await page.request.get('/api/auth/api-key/list')
+
+      // THEN: Returns 200 OK with array of API keys (without key values for security)
+      expect(response.status()).toBe(200)
+
+      const data = await response.json()
+      expect(Array.isArray(data)).toBe(true)
+      expect(data).toHaveLength(2)
+
+      // API keys should NOT include the actual key value (security - only shown on creation)
+      expect(data[0]).not.toHaveProperty('key')
+      expect(data[0]).toHaveProperty('id')
+      expect(data[0]).toHaveProperty('name')
+      expect(data[0]).toHaveProperty('createdAt')
+    }
+  )
+
+  test.fixme(
+    'API-AUTH-API-KEYS-LIST-002: should return empty array when user has no API keys',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, signUp }) => {
+      // GIVEN: Authenticated user with no API keys
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            apiKeys: true,
+          },
+        },
+      })
+
+      await signUp({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: 'ValidPassword123!',
+      })
+
+      // WHEN: User requests list of their API keys
+      const response = await page.request.get('/api/auth/api-key/list')
+
+      // THEN: Returns 200 OK with empty array
+      expect(response.status()).toBe(200)
+
+      const data = await response.json()
+      expect(Array.isArray(data)).toBe(true)
+      expect(data).toHaveLength(0)
+    }
+  )
+
+  test.fixme(
+    'API-AUTH-API-KEYS-LIST-003: should return 401 when not authenticated',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema }) => {
+      // GIVEN: Application with API keys enabled but no authentication
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            apiKeys: true,
+          },
+        },
+      })
+
+      // WHEN: Unauthenticated user attempts to list API keys
+      const response = await page.request.get('/api/auth/api-key/list')
+
+      // THEN: Returns 401 Unauthorized
+      expect(response.status()).toBe(401)
+
+      const data = await response.json()
+      expect(data).toHaveProperty('message')
+    }
+  )
+
+  test.fixme(
+    'API-AUTH-API-KEYS-LIST-004: should only return API keys belonging to authenticated user',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema, signUp }) => {
+      // GIVEN: Two users with their own API keys
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          emailAndPassword: true,
+          plugins: {
+            apiKeys: true,
+          },
+        },
+      })
+
+      // Create first user with API key
+      await signUp({
+        name: 'User One',
+        email: 'user1@example.com',
+        password: 'ValidPassword123!',
+      })
+
+      await page.request.post('/api/auth/api-key/create', {
+        data: {
+          name: 'User 1 Key',
+        },
+      })
+
+      // Create second user with API key
+      await signUp({
+        name: 'User Two',
+        email: 'user2@example.com',
+        password: 'ValidPassword123!',
+      })
+
+      await page.request.post('/api/auth/api-key/create', {
+        data: {
+          name: 'User 2 Key',
+        },
+      })
+
+      // WHEN: User 2 requests their API keys (session is established via cookie)
+      const response = await page.request.get('/api/auth/api-key/list')
+
+      // THEN: Returns only User 2's API key (user isolation enforced by Better Auth)
+      expect(response.status()).toBe(200)
+
+      const data = await response.json()
+      expect(Array.isArray(data)).toBe(true)
+      expect(data).toHaveLength(1)
+      expect(data[0].name).toBe('User 2 Key')
+    }
+  )
+
+  // ============================================================================
+  // @regression test - OPTIMIZED integration confidence check
+  // ============================================================================
+
+  test.fixme(
+    'API-AUTH-API-KEYS-LIST-005: user can complete full API key list workflow',
+    { tag: '@regression' },
+    async ({ page, startServerWithSchema, signUp }) => {
+      await test.step('Setup: Start server with API keys plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: {
+              apiKeys: true,
+            },
+          },
+        })
+      })
+
+      await test.step('Setup: Sign up user', async () => {
+        await signUp({
+          name: 'Test User',
+          email: 'test@example.com',
+          password: 'ValidPassword123!',
+        })
+      })
+
+      await test.step('List API keys returns empty array', async () => {
+        const emptyResponse = await page.request.get('/api/auth/api-key/list')
+
+        expect(emptyResponse.status()).toBe(200)
+        const emptyData = await emptyResponse.json()
+        expect(emptyData).toHaveLength(0)
+      })
+
+      await test.step('Create multiple API keys', async () => {
+        await page.request.post('/api/auth/api-key/create', {
+          data: { name: 'Key 1' },
+        })
+
+        await page.request.post('/api/auth/api-key/create', {
+          data: { name: 'Key 2' },
+        })
+      })
+
+      await test.step('List all API keys', async () => {
+        const listResponse = await page.request.get('/api/auth/api-key/list')
+
+        expect(listResponse.status()).toBe(200)
+        const listData = await listResponse.json()
+        expect(listData).toHaveLength(2)
+      })
+
+      await test.step('Verify list API keys fails without auth', async () => {
+        const unauthResponse = await page.request.get('/api/auth/api-key/list')
+        expect(unauthResponse.status()).toBe(401)
+      })
+    }
+  )
+})

@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-import { assertEmailReceived } from '../email-helpers'
+import { assertEmailReceived } from '../../../email-utils'
 
 /**
  * E2E Tests for Send verification email
@@ -31,14 +31,20 @@ test.describe('Send verification email', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-SEND-VERIFICATION-EMAIL-001: should return 200 OK and send verification email',
+    'API-AUTH-SEND-VERIFICATION-EMAIL-001: should return 200 OK and send verification email with custom template',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
-      // GIVEN: A registered user with unverified email
+      // GIVEN: A registered user with unverified email and custom email templates
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
+          emailTemplates: {
+            verification: {
+              subject: 'Please verify your TestApp account',
+              text: 'Hi $name, please verify your email by clicking: $url',
+            },
+          },
         },
       })
 
@@ -58,21 +64,21 @@ test.describe('Send verification email', () => {
         },
       })
 
-      // THEN: Returns 200 OK and sends verification email with token
+      // THEN: Returns 200 OK and sends verification email with custom template
       expect(response.status()).toBe(200)
 
       const data = await response.json()
       expect(data).toHaveProperty('status', true)
 
-      // Verify email was actually sent (filtered by testId namespace)
+      // Verify email was actually sent with custom subject
       const email = await mailpit.waitForEmail(
-        (e) => e.To[0]?.Address === userEmail && e.Subject.toLowerCase().includes('verify')
+        (e) => e.To[0]?.Address === userEmail && e.Subject.includes('TestApp')
       )
 
       assertEmailReceived(email, {
         to: userEmail,
-        from: 'noreply@sovrium.com',
-        subjectContains: 'verify',
+        subjectEquals: 'Please verify your TestApp account',
+        bodyContains: 'please verify your email',
       })
     }
   )
@@ -85,7 +91,7 @@ test.describe('Send verification email', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -110,7 +116,7 @@ test.describe('Send verification email', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -137,7 +143,7 @@ test.describe('Send verification email', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -167,7 +173,7 @@ test.describe('Send verification email', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -220,7 +226,7 @@ test.describe('Send verification email', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -249,47 +255,53 @@ test.describe('Send verification email', () => {
     'API-AUTH-SEND-VERIFICATION-EMAIL-007: user can complete full send-verification-email workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          authentication: ['email-and-password'],
-        },
+      let userEmail: string
+      const nonExistentEmail = 'nonexistent@example.com'
+
+      await test.step('Setup: Create server and test user', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+          },
+        })
+
+        userEmail = mailpit.email('workflow')
+
+        await signUp({
+          email: userEmail,
+          password: 'WorkflowPass123!',
+          name: 'Workflow User',
+        })
       })
 
-      const userEmail = mailpit.email('workflow')
-      const nonExistentEmail = mailpit.email('nonexistent')
-
-      // Create user
-      await signUp({
-        email: userEmail,
-        password: 'WorkflowPass123!',
-        name: 'Workflow User',
+      await test.step('Verify request fails with invalid email format', async () => {
+        const invalidResponse = await page.request.post('/api/auth/send-verification-email', {
+          data: { email: 'not-an-email' },
+        })
+        expect(invalidResponse.status()).toBe(400)
       })
 
-      // Test 1: Request with invalid email format fails
-      const invalidResponse = await page.request.post('/api/auth/send-verification-email', {
-        data: { email: 'not-an-email' },
-      })
-      expect(invalidResponse.status()).toBe(400)
+      await test.step('Send verification email for registered user', async () => {
+        const successResponse = await page.request.post('/api/auth/send-verification-email', {
+          data: { email: userEmail },
+        })
+        expect(successResponse.status()).toBe(200)
 
-      // Test 2: Request for registered email succeeds and sends email
-      const successResponse = await page.request.post('/api/auth/send-verification-email', {
-        data: { email: userEmail },
+        const email = await mailpit.waitForEmail(
+          (e) => e.To[0]?.Address === userEmail && e.Subject.toLowerCase().includes('verify')
+        )
+        expect(email).toBeDefined()
       })
-      expect(successResponse.status()).toBe(200)
 
-      // Verify email was sent (filtered by testId namespace)
-      const email = await mailpit.waitForEmail(
-        (e) => e.To[0]?.Address === userEmail && e.Subject.toLowerCase().includes('verify')
-      )
-      expect(email).toBeDefined()
+      await test.step('Verify non-existent email succeeds (prevent enumeration)', async () => {
+        await page.request.post('/api/auth/sign-out')
 
-      // Test 3: Request for non-existent email also succeeds (prevent enumeration)
-      const nonExistentResponse = await page.request.post('/api/auth/send-verification-email', {
-        data: { email: nonExistentEmail },
+        const nonExistentResponse = await page.request.post('/api/auth/send-verification-email', {
+          data: { email: nonExistentEmail },
+        })
+        expect(nonExistentResponse.status()).toBe(200)
       })
-      expect(nonExistentResponse.status()).toBe(200)
     }
   )
 })

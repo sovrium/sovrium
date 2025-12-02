@@ -4,7 +4,7 @@
 
 ## Overview
 
-**Version**: TBD (installed as dependency)
+**Version**: ^0.44.7
 **Purpose**: TypeScript-first ORM for SQL databases providing type-safe queries with zero-cost type safety, SQL-like syntax, and native Bun runtime integration
 Drizzle ORM is a headless TypeScript ORM that acts as a type-safe SQL wrapper rather than a traditional abstraction layer. It provides full TypeScript inference, compile-time validation, and a query API that closely resembles SQL while maintaining complete type safety.
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Version**: 5.90.5
+**Version**: ^5.90.11
 **DevTools Version**: 5.90.2
 **Purpose**: Powerful data fetching and server-state management library for React applications. Handles caching, background updates, request deduplication, and synchronization with minimal boilerplate.
 
@@ -56,7 +56,7 @@ TanStack Query is already installed in Sovrium:
 ```json
 {
   "dependencies": {
-    "@tanstack/react-query": "^5.90.5",
+    "@tanstack/react-query": "^5.90.11",
     "@tanstack/react-query-devtools": "^5.90.2"
   }
 }

@@ -42,7 +42,7 @@ test.describe('Admin: Revoke user session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -86,18 +86,17 @@ test.describe('Admin: Revoke user session', () => {
   test.fixme(
     'API-AUTH-ADMIN-REVOKE-USER-SESSION-002: should return 400 Bad Request without required fields',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits request without required fields
       const response = await page.request.post('/api/auth/admin/revoke-user-session', {
@@ -120,7 +119,7 @@ test.describe('Admin: Revoke user session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -141,12 +140,12 @@ test.describe('Admin: Revoke user session', () => {
   test.fixme(
     'API-AUTH-ADMIN-REVOKE-USER-SESSION-004: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -161,9 +160,6 @@ test.describe('Admin: Revoke user session', () => {
         password: 'TargetPass123!',
         name: 'Target User',
       })
-
-      await signIn({ email: 'target@example.com', password: 'TargetPass123!' })
-      await signIn({ email: 'user@example.com', password: 'UserPass123!' })
 
       // WHEN: Regular user attempts to revoke another user's session
       const response = await page.request.post('/api/auth/admin/revoke-user-session', {
@@ -181,18 +177,17 @@ test.describe('Admin: Revoke user session', () => {
   test.fixme(
     'API-AUTH-ADMIN-REVOKE-USER-SESSION-005: should return 404 Not Found for non-existent user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin attempts to revoke session for non-existent user
       const response = await page.request.post('/api/auth/admin/revoke-user-session', {
@@ -210,20 +205,18 @@ test.describe('Admin: Revoke user session', () => {
   test.fixme(
     'API-AUTH-ADMIN-REVOKE-USER-SESSION-006: should return 404 Not Found for non-existent session',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
       await signUp({ email: 'target@example.com', password: 'TargetPass123!', name: 'Target User' })
-
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin attempts to revoke non-existent session
       const response = await page.request.post('/api/auth/admin/revoke-user-session', {
@@ -246,7 +239,7 @@ test.describe('Admin: Revoke user session', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
@@ -257,7 +250,6 @@ test.describe('Admin: Revoke user session', () => {
 
       await signIn({ email: 'user1@example.com', password: 'User1Pass123!' })
       await signIn({ email: 'user2@example.com', password: 'User2Pass123!' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin attempts to revoke session belonging to different user
       const response = await page.request.post('/api/auth/admin/revoke-user-session', {
@@ -275,21 +267,18 @@ test.describe('Admin: Revoke user session', () => {
   test.fixme(
     'API-AUTH-ADMIN-REVOKE-USER-SESSION-008: should return 200 OK for already revoked session (idempotent)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated admin user and an already revoked session
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { admin: true },
         },
       })
 
       await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
       await signUp({ email: 'target@example.com', password: 'TargetPass123!', name: 'Target User' })
-
-      await signIn({ email: 'target@example.com', password: 'TargetPass123!' })
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // First revoke
       await page.request.post('/api/auth/admin/revoke-user-session', {
@@ -317,39 +306,47 @@ test.describe('Admin: Revoke user session', () => {
     'API-AUTH-ADMIN-REVOKE-USER-SESSION-009: admin can complete full revoke-user-session workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          authentication: ['email-and-password'],
-          plugins: { admin: true },
-        },
+      await test.step('Setup: Start server with admin plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { admin: true },
+          },
+        })
       })
 
-      // Test 1: Revoke session without auth fails
-      const noAuthResponse = await page.request.post('/api/auth/admin/revoke-user-session', {
-        data: { userId: '2', sessionToken: 'some_token' },
+      await test.step('Verify revoke session fails without auth', async () => {
+        const noAuthResponse = await page.request.post('/api/auth/admin/revoke-user-session', {
+          data: { userId: '2', sessionToken: 'some_token' },
+        })
+        expect(noAuthResponse.status()).toBe(401)
       })
-      expect(noAuthResponse.status()).toBe(401)
 
-      // Create admin and regular user
-      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
-      await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
-
-      // Test 2: Revoke session fails for non-admin
-      await signIn({ email: 'user@example.com', password: 'UserPass123!' })
-      const nonAdminResponse = await page.request.post('/api/auth/admin/revoke-user-session', {
-        data: { userId: '1', sessionToken: 'some_token' },
+      await test.step('Setup: Create admin and regular users', async () => {
+        await signUp({
+          email: 'admin@example.com',
+          password: 'AdminPass123!',
+          name: 'Admin User',
+        })
+        await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
       })
-      expect(nonAdminResponse.status()).toBe(403)
 
-      // Test 3: Revoke session succeeds for admin
-      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
-      const adminResponse = await page.request.post('/api/auth/admin/revoke-user-session', {
-        data: { userId: '2', sessionToken: 'valid_session_token' },
+      await test.step('Verify revoke session fails for non-admin', async () => {
+        await signIn({ email: 'user@example.com', password: 'UserPass123!' })
+        const nonAdminResponse = await page.request.post('/api/auth/admin/revoke-user-session', {
+          data: { userId: '1', sessionToken: 'some_token' },
+        })
+        expect(nonAdminResponse.status()).toBe(403)
       })
-      // May return 200 or 404 depending on session token validity
-      expect([200, 404]).toContain(adminResponse.status())
+
+      await test.step('Revoke user session as admin', async () => {
+        await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
+        const adminResponse = await page.request.post('/api/auth/admin/revoke-user-session', {
+          data: { userId: '2', sessionToken: 'valid_session_token' },
+        })
+        expect([200, 404]).toContain(adminResponse.status())
+      })
     }
   )
 })

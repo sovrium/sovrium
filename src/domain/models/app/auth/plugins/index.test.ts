@@ -53,18 +53,6 @@ describe('PluginsConfigSchema', () => {
       expect(result.twoFactor).toEqual({ issuer: 'MyApp', backupCodes: true })
     })
 
-    test('should accept bearer plugin as boolean', () => {
-      const input = { bearer: true }
-      const result = Schema.decodeUnknownSync(PluginsConfigSchema)(input)
-      expect(result.bearer).toBe(true)
-    })
-
-    test('should accept jwt plugin as boolean', () => {
-      const input = { jwt: true }
-      const result = Schema.decodeUnknownSync(PluginsConfigSchema)(input)
-      expect(result.jwt).toBe(true)
-    })
-
     test('should accept apiKeys plugin as boolean', () => {
       const input = { apiKeys: true }
       const result = Schema.decodeUnknownSync(PluginsConfigSchema)(input)
@@ -86,13 +74,12 @@ describe('PluginsConfigSchema', () => {
         admin: { impersonation: true },
         organization: { maxMembersPerOrg: 100 },
         twoFactor: true,
-        bearer: true,
-        jwt: true,
         apiKeys: { expirationDays: 90 },
       }
       const result = Schema.decodeUnknownSync(PluginsConfigSchema)(input)
       expect(result.admin).toEqual({ impersonation: true })
       expect(result.organization).toEqual({ maxMembersPerOrg: 100 })
+      expect(result.twoFactor).toBe(true)
       expect(result.apiKeys).toEqual({ expirationDays: 90 })
     })
   })
@@ -161,7 +148,7 @@ describe('isPluginEnabled', () => {
   test('should return true when plugin is set to true', () => {
     expect(isPluginEnabled({ admin: true }, 'admin')).toBe(true)
     expect(isPluginEnabled({ twoFactor: true }, 'twoFactor')).toBe(true)
-    expect(isPluginEnabled({ bearer: true }, 'bearer')).toBe(true)
+    expect(isPluginEnabled({ apiKeys: true }, 'apiKeys')).toBe(true)
   })
 
   test('should return false when plugin is set to false', () => {
@@ -187,16 +174,12 @@ describe('isPluginEnabled', () => {
       admin: true,
       organization: true,
       twoFactor: true,
-      bearer: true,
-      jwt: true,
       apiKeys: true,
     }
 
     expect(isPluginEnabled(allPlugins, 'admin')).toBe(true)
     expect(isPluginEnabled(allPlugins, 'organization')).toBe(true)
     expect(isPluginEnabled(allPlugins, 'twoFactor')).toBe(true)
-    expect(isPluginEnabled(allPlugins, 'bearer')).toBe(true)
-    expect(isPluginEnabled(allPlugins, 'jwt')).toBe(true)
     expect(isPluginEnabled(allPlugins, 'apiKeys')).toBe(true)
   })
 })

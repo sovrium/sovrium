@@ -32,12 +32,12 @@ test.describe('Update organization', () => {
   test.fixme(
     'API-AUTH-ORG-UPDATE-ORGANIZATION-001: should return 200 OK with updated organization data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -46,10 +46,6 @@ test.describe('Update organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       // Create organization
@@ -81,12 +77,12 @@ test.describe('Update organization', () => {
   test.fixme(
     'API-AUTH-ORG-UPDATE-ORGANIZATION-002: should return 200 OK with name updated, slug unchanged',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -95,10 +91,6 @@ test.describe('Update organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       // Create organization
@@ -127,12 +119,12 @@ test.describe('Update organization', () => {
   test.fixme(
     'API-AUTH-ORG-UPDATE-ORGANIZATION-003: should return 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -141,10 +133,6 @@ test.describe('Update organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       // WHEN: Owner submits request without organizationId
@@ -170,7 +158,7 @@ test.describe('Update organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -196,7 +184,7 @@ test.describe('Update organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -206,10 +194,6 @@ test.describe('Update organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -258,12 +242,12 @@ test.describe('Update organization', () => {
   test.fixme(
     'API-AUTH-ORG-UPDATE-ORGANIZATION-006: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -272,10 +256,6 @@ test.describe('Update organization', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // WHEN: User attempts to update non-existent organization
@@ -297,12 +277,12 @@ test.describe('Update organization', () => {
   test.fixme(
     'API-AUTH-ORG-UPDATE-ORGANIZATION-007: should return 409 Conflict error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner and another existing organization
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -311,10 +291,6 @@ test.describe('Update organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       // Create first organization
@@ -351,59 +327,64 @@ test.describe('Update organization', () => {
   test.fixme(
     'API-AUTH-ORG-UPDATE-ORGANIZATION-008: user can complete full updateOrganization workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          authentication: ['email-and-password'],
-          plugins: { organization: true },
-        },
+    async ({ page, startServerWithSchema, signUp }) => {
+      await test.step('Setup: Start server with organization plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true },
+          },
+        })
       })
 
-      // Test 1: Update organization without auth fails
-      const noAuthResponse = await page.request.patch('/api/auth/organization/update', {
-        data: { organizationId: '1', data: { name: 'New Name' } },
-      })
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create and authenticate user
-      await signUp({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-        name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
+      await test.step('Verify update organization fails without auth', async () => {
+        const noAuthResponse = await page.request.patch('/api/auth/organization/update', {
+          data: { organizationId: '1', data: { name: 'New Name' } },
+        })
+        expect(noAuthResponse.status()).toBe(401)
       })
 
-      // Create organization
-      const createResponse = await page.request.post('/api/auth/organization/create', {
-        data: { name: 'Original Name', slug: 'original-slug' },
-      })
-      const org = await createResponse.json()
+      let orgId: string
 
-      // Test 2: Update organization succeeds for owner
-      const updateResponse = await page.request.patch('/api/auth/organization/update', {
-        data: {
-          organizationId: org.id,
-          data: { name: 'Updated Name' },
-        },
+      await test.step('Setup: Create and authenticate user', async () => {
+        await signUp({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+          name: 'Owner User',
+        })
       })
-      expect(updateResponse.status()).toBe(200)
 
-      const data = await updateResponse.json()
-      expect(data).toHaveProperty('name', 'Updated Name')
-
-      // Test 3: Update non-existent organization fails
-      const notFoundResponse = await page.request.patch('/api/auth/organization/update', {
-        data: {
-          organizationId: 'nonexistent-id',
-          data: { name: 'New Name' },
-        },
+      await test.step('Setup: Create organization', async () => {
+        const createResponse = await page.request.post('/api/auth/organization/create', {
+          data: { name: 'Original Name', slug: 'original-slug' },
+        })
+        const org = await createResponse.json()
+        orgId = org.id
       })
-      expect(notFoundResponse.status()).toBe(404)
+
+      await test.step('Update organization with new name', async () => {
+        const updateResponse = await page.request.patch('/api/auth/organization/update', {
+          data: {
+            organizationId: orgId,
+            data: { name: 'Updated Name' },
+          },
+        })
+        expect(updateResponse.status()).toBe(200)
+
+        const data = await updateResponse.json()
+        expect(data).toHaveProperty('name', 'Updated Name')
+      })
+
+      await test.step('Verify update non-existent organization fails', async () => {
+        const notFoundResponse = await page.request.patch('/api/auth/organization/update', {
+          data: {
+            organizationId: 'nonexistent-id',
+            data: { name: 'New Name' },
+          },
+        })
+        expect(notFoundResponse.status()).toBe(404)
+      })
     }
   )
 })

@@ -39,7 +39,7 @@ test.describe('Add member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -49,10 +49,6 @@ test.describe('Add member to organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -83,7 +79,7 @@ test.describe('Add member to organization', () => {
       })
 
       // THEN: Returns 201 Created with member data
-      expect(response.status()).toBe(201)
+      expect(response.status()).toBe(200)
 
       const data = await response.json()
       expect(data).toHaveProperty('member')
@@ -93,12 +89,12 @@ test.describe('Add member to organization', () => {
   test.fixme(
     'API-AUTH-ORG-ADD-MEMBER-002: should return 400 Bad Request with validation errors',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -107,10 +103,6 @@ test.describe('Add member to organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       await page.request.post('/api/auth/organization/create', {
@@ -138,7 +130,7 @@ test.describe('Add member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -165,7 +157,7 @@ test.describe('Add member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -175,10 +167,6 @@ test.describe('Add member to organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -234,12 +222,12 @@ test.describe('Add member to organization', () => {
   test.fixme(
     'API-AUTH-ORG-ADD-MEMBER-005: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -248,10 +236,6 @@ test.describe('Add member to organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -284,7 +268,7 @@ test.describe('Add member to organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -293,10 +277,6 @@ test.describe('Add member to organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -350,69 +330,75 @@ test.describe('Add member to organization', () => {
     'API-AUTH-ORG-ADD-MEMBER-007: user can complete full addMember workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          authentication: ['email-and-password'],
-          plugins: { organization: true },
-        },
+      await test.step('Setup: Start server with organization plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true },
+          },
+        })
       })
 
-      // Test 1: Add member without auth fails
-      const noAuthResponse = await page.request.post('/api/auth/organization/add-member', {
-        data: { organizationId: '1', userId: '2', role: 'member' },
-      })
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create owner and organization
-      await signUp({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-        name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
+      await test.step('Verify add member fails without auth', async () => {
+        const noAuthResponse = await page.request.post('/api/auth/organization/add-member', {
+          data: { organizationId: '1', userId: '2', role: 'member' },
+        })
+        expect(noAuthResponse.status()).toBe(401)
       })
 
-      const createResponse = await page.request.post('/api/auth/organization/create', {
-        data: { name: 'Test Org', slug: 'test-org' },
-      })
-      const org = await createResponse.json()
+      let orgId: string
 
-      // Create user to add
-      await signUp({
-        email: 'newmember@example.com',
-        password: 'MemberPass123!',
-        name: 'New Member',
-      })
+      await test.step('Setup: Create owner and organization', async () => {
+        await signUp({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+          name: 'Owner User',
+        })
 
-      // Sign back in as owner
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
+        const createResponse = await page.request.post('/api/auth/organization/create', {
+          data: { name: 'Test Org', slug: 'test-org' },
+        })
+        const org = await createResponse.json()
+        orgId = org.id
       })
 
-      // Test 2: Add member succeeds for owner
-      const addResponse = await page.request.post('/api/auth/organization/add-member', {
-        data: {
-          organizationId: org.id,
-          userId: '2',
-          role: 'member',
-        },
+      await test.step('Setup: Create user to add', async () => {
+        await signUp({
+          email: 'newmember@example.com',
+          password: 'MemberPass123!',
+          name: 'New Member',
+        })
       })
-      expect(addResponse.status()).toBe(201)
 
-      // Test 3: Adding same user again fails
-      const duplicateResponse = await page.request.post('/api/auth/organization/add-member', {
-        data: {
-          organizationId: org.id,
-          userId: '2',
-          role: 'member',
-        },
+      await test.step('Setup: Sign back in as owner', async () => {
+        await signIn({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+        })
       })
-      expect(duplicateResponse.status()).toBe(409)
+
+      await test.step('Add member to organization', async () => {
+        const addResponse = await page.request.post('/api/auth/organization/add-member', {
+          data: {
+            organizationId: orgId,
+            userId: '2',
+            role: 'member',
+          },
+        })
+        expect(addResponse.status()).toBe(200)
+      })
+
+      await test.step('Verify adding same user again fails', async () => {
+        const duplicateResponse = await page.request.post('/api/auth/organization/add-member', {
+          data: {
+            organizationId: orgId,
+            userId: '2',
+            role: 'member',
+          },
+        })
+        expect(duplicateResponse.status()).toBe(409)
+      })
     }
   )
 })
