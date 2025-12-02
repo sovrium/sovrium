@@ -541,12 +541,18 @@ test.describe('Database Indexes', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-INDEXES-008: should enable efficient text search queries with GIN index for full-text search',
     { tag: '@spec' },
-    async ({ executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table with text search index using GIN (for full-text search)
       // WHEN: index is created with to_tsvector
+      // Initialize database for raw SQL testing
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [], // No app tables needed - testing raw PostgreSQL GIN functionality
+      })
+
       await executeQuery(
         `CREATE TABLE articles (id SERIAL PRIMARY KEY, title VARCHAR(255), content TEXT)`
       )
@@ -572,7 +578,7 @@ test.describe('Database Indexes', () => {
       )
       // THEN: assertion
       expect(indexDef.rows[0]).toMatchObject({
-        indexdef: `CREATE INDEX idx_articles_search ON public.articles USING gin (to_tsvector('english'::regconfig, ((title)::text || ' '::text) || content))`,
+        indexdef: `CREATE INDEX idx_articles_search ON public.articles USING gin (to_tsvector('english'::regconfig, (((title)::text || ' '::text) || content)))`,
       })
 
       // Full-text search uses GIN index

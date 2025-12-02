@@ -7,22 +7,46 @@
 
 import { Schema } from 'effect'
 import { TableSchema } from '@/domain/models/app/table'
-import type { TableId } from '@/domain/models/app/common/branded-ids'
 
 /**
- * Table with optional ID (input type)
- * Used for decoding where ID can be auto-generated
+ * Auto-generate table IDs for tables that don't have one
+ *
+ * Tables without explicit IDs get auto-generated numeric IDs.
+ * IDs are assigned sequentially starting from the highest existing ID + 1.
  */
-const TableWithOptionalIdSchema = Schema.Struct({
-  id: Schema.optional(TableSchema.fields.id),
-  name: TableSchema.fields.name,
-  fields: TableSchema.fields.fields,
-  primaryKey: TableSchema.fields.primaryKey,
-  uniqueConstraints: TableSchema.fields.uniqueConstraints,
-  indexes: TableSchema.fields.indexes,
-  views: TableSchema.fields.views,
-  permissions: TableSchema.fields.permissions,
-})
+const autoGenerateTableIds = (
+  tables: ReadonlyArray<Record<string, unknown>>
+): ReadonlyArray<Record<string, unknown>> => {
+  // Find the highest existing numeric ID
+  const maxId = tables.reduce((max, table) => {
+    if (table.id !== undefined && typeof table.id === 'number') {
+      return Math.max(max, table.id)
+    }
+    return max
+  }, 0)
+
+  // Assign IDs to tables without one using reduce (functional pattern)
+  const { tablesWithIds } = tables.reduce<{
+    tablesWithIds: ReadonlyArray<Record<string, unknown>>
+    nextId: number
+  }>(
+    (acc, table) => {
+      if (table.id === undefined) {
+        return {
+          tablesWithIds: [...acc.tablesWithIds, { ...table, id: acc.nextId }],
+          nextId: acc.nextId + 1,
+        }
+      }
+      return {
+        ...acc,
+        tablesWithIds: [...acc.tablesWithIds, table],
+      }
+    },
+    { tablesWithIds: [], nextId: maxId + 1 }
+  )
+
+  return tablesWithIds
+}
 
 /**
  * Data Tables
@@ -33,8 +57,11 @@ const TableWithOptionalIdSchema = Schema.Struct({
  * field types. Tables are the foundation of your application's data model and
  * determine what information can be stored and how it relates.
  *
- * Auto-generates IDs for tables without explicit IDs. IDs are assigned sequentially
- * starting from the highest existing ID + 1, or from 1 if no IDs exist.
+ * Table IDs can be:
+ * - Explicit numeric IDs (e.g., 1, 2, 3)
+ * - UUID strings (e.g., '550e8400-e29b-41d4-a716-446655440000')
+ * - Simple string identifiers (e.g., 'products', 'users')
+ * - Auto-generated (omit the id field and it will be assigned automatically)
  *
  * @example
  * ```typescript
@@ -52,37 +79,18 @@ const TableWithOptionalIdSchema = Schema.Struct({
  *
  * @see docs/specifications/roadmap/tables.md for full specification
  */
-export const TablesSchema = Schema.transform(
-  Schema.Array(TableWithOptionalIdSchema),
-  Schema.Array(TableSchema),
-  {
-    strict: true,
-    decode: (tables) => {
-      // Find the highest existing ID
-      const existingIds = tables
-        .map((table) => table.id)
-        .filter((id): id is TableId => id !== undefined)
-      const maxId = existingIds.length > 0 ? Math.max(...existingIds) : 0
-
-      // Auto-generate IDs for tables without one
-      const tablesWithIds = tables.reduce<
-        { tables: Array<typeof tables[number] & { id: TableId }>; nextId: number }
-      >(
-        (acc, table) => ({
-          tables: [
-            ...acc.tables,
-            table.id !== undefined ? { ...table, id: table.id } : { ...table, id: acc.nextId },
-          ],
-          nextId: table.id !== undefined ? acc.nextId : acc.nextId + 1,
-        }),
-        { tables: [], nextId: maxId + 1 }
-      )
-
-      return tablesWithIds.tables
-    },
-    encode: (tables) => tables,
-  }
-).pipe(
+export const TablesSchema = Schema.Array(TableSchema).pipe(
+  Schema.transform(
+    Schema.Array(TableSchema.pipe(Schema.annotations({ identifier: 'TableWithRequiredId' }))),
+    {
+      strict: true,
+      decode: (tables) =>
+        autoGenerateTableIds(tables as ReadonlyArray<Record<string, unknown>>) as ReadonlyArray<
+          Schema.Schema.Type<typeof TableSchema>
+        >,
+      encode: (tables) => tables,
+    }
+  ),
   Schema.annotations({
     title: 'Data Tables',
     description:

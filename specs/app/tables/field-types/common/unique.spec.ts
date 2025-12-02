@@ -268,7 +268,7 @@ test.describe('Unique Field Property', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-UNIQUE-006: user can complete full unique-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -323,7 +323,8 @@ test.describe('Unique Field Property', () => {
         "INSERT INTO data (unique_field, non_unique_field) VALUES ('value2', 'duplicate') RETURNING id"
       )
       // THEN: assertion
-      expect(validDuplicate.id).toBe(2)
+      // Note: ID is 3 because failed INSERT consumed sequence value 2 (PostgreSQL behavior)
+      expect(validDuplicate.id).toBe(3)
     }
   )
 })

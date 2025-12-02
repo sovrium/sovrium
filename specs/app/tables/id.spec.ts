@@ -96,7 +96,6 @@ test.describe('Table ID', () => {
       await startServerWithSchema({
         name: 'test-app',
         tables: [
-          // @ts-expect-error - Testing table without explicit ID
           {
             name: 'orders',
             fields: [
@@ -231,7 +230,7 @@ test.describe('Table ID', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-ID-007: user can complete full table ID workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema }) => {
@@ -252,7 +251,6 @@ test.describe('Table ID', () => {
             ],
           },
           {
-            // @ts-expect-error - Testing UUID string as table ID
             id: '550e8400-e29b-41d4-a716-446655440000',
             name: 'invoices',
             fields: [
@@ -264,7 +262,6 @@ test.describe('Table ID', () => {
               },
             ],
           },
-          // @ts-expect-error - Testing table without ID
           {
             name: 'orders',
             fields: [

@@ -173,7 +173,7 @@ test.describe('Created At Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-CREATED-AT-006: user can complete full created-at-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -199,9 +199,9 @@ test.describe('Created At Field', () => {
       // WHEN: querying the database
       const results = await executeQuery('SELECT created_at FROM data ORDER BY created_at')
       // THEN: assertion
-      expect(results.length).toBe(3)
+      expect(results.rows.length).toBe(3)
       // THEN: assertion
-      expect(results[0].created_at).toBeTruthy()
+      expect(results.rows[0].created_at).toBeTruthy()
     }
   )
 })
