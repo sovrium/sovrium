@@ -516,82 +516,88 @@ test.describe('Row-Level Security Enforcement', () => {
     'APP-TABLES-RLS-ENFORCEMENT-009: row-level security enforcement workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: Table with owner-based permissions for all CRUD operations
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
-        tables: [
-          {
-            id: 1,
-            name: 'items',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'user_id', type: 'user' },
-            ],
-            permissions: {
-              read: { type: 'owner', field: 'user_id' },
-              create: { type: 'owner', field: 'user_id' },
-              update: { type: 'owner', field: 'user_id' },
-              delete: { type: 'owner', field: 'user_id' },
-            },
+      let user1: any
+      let user2: any
+
+      await test.step('Setup: Start server with owner-based permissions', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
           },
-        ],
+          tables: [
+            {
+              id: 1,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'user_id', type: 'user' },
+              ],
+              permissions: {
+                read: { type: 'owner', field: 'user_id' },
+                create: { type: 'owner', field: 'user_id' },
+                update: { type: 'owner', field: 'user_id' },
+                delete: { type: 'owner', field: 'user_id' },
+              },
+            },
+          ],
+        })
       })
 
-      // Create test users
-      const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
-      const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
+      await test.step('Create test users and insert data', async () => {
+        user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
+        user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
 
-      await executeQuery([
-        `INSERT INTO items (id, name, user_id) VALUES
-         (1, 'User 1 Item', '${user1.user.id}'),
-         (2, 'User 2 Item', '${user2.user.id}')`,
-      ])
+        await executeQuery([
+          `INSERT INTO items (id, name, user_id) VALUES
+           (1, 'User 1 Item', '${user1.user.id}'),
+           (2, 'User 2 Item', '${user2.user.id}')`,
+        ])
+      })
 
-      // WHEN: Checking complete RLS configuration
-      // THEN: All CRUD policies should be properly configured
+      await test.step('Verify RLS enabled on table', async () => {
+        const rlsEnabled = await executeQuery(
+          `SELECT relrowsecurity FROM pg_class WHERE relname = 'items'`
+        )
+        expect(rlsEnabled[0].relrowsecurity).toBe(true)
+      })
 
-      // Test 1: RLS enabled on table
-      const rlsEnabled = await executeQuery(
-        `SELECT relrowsecurity FROM pg_class WHERE relname = 'items'`
-      )
-      expect(rlsEnabled[0].relrowsecurity).toBe(true)
+      await test.step('Verify policies exist for all CRUD operations', async () => {
+        const policies = await executeQuery(
+          `SELECT policyname, cmd FROM pg_policies WHERE tablename = 'items' ORDER BY cmd`
+        )
+        const cmds = policies.map((p: { cmd: string }) => p.cmd)
+        expect(cmds).toContain('SELECT')
+        expect(cmds).toContain('INSERT')
+        expect(cmds).toContain('UPDATE')
+        expect(cmds).toContain('DELETE')
+      })
 
-      // Test 2: Policies exist for all CRUD operations
-      const policies = await executeQuery(
-        `SELECT policyname, cmd FROM pg_policies WHERE tablename = 'items' ORDER BY cmd`
-      )
-      const cmds = policies.map((p: { cmd: string }) => p.cmd)
-      expect(cmds).toContain('SELECT')
-      expect(cmds).toContain('INSERT')
-      expect(cmds).toContain('UPDATE')
-      expect(cmds).toContain('DELETE')
+      await test.step('Verify all policies reference user_id field', async () => {
+        const policyDefs = await executeQuery(
+          `SELECT polcmd, pg_get_expr(polqual, polrelid) as qual, pg_get_expr(polwithcheck, polrelid) as withcheck
+           FROM pg_policy WHERE polrelid = 'items'::regclass`
+        )
+        const policies2 = policyDefs as unknown as Array<{
+          polcmd: string
+          qual: string | null
+          withcheck: string | null
+        }>
+        for (const policy of policies2) {
+          const def = policy.qual || policy.withcheck
+          expect(def).toContain('user_id')
+        }
+      })
 
-      // Test 3: All policies reference user_id field
-      const policyDefs = await executeQuery(
-        `SELECT polcmd, pg_get_expr(polqual, polrelid) as qual, pg_get_expr(polwithcheck, polrelid) as withcheck
-         FROM pg_policy WHERE polrelid = 'items'::regclass`
-      )
-      const policies2 = policyDefs as unknown as Array<{
-        polcmd: string
-        qual: string | null
-        withcheck: string | null
-      }>
-      for (const policy of policies2) {
-        const def = policy.qual || policy.withcheck
-        expect(def).toContain('user_id')
-      }
-
-      // Test 4: Data is stored correctly
-      const data = await executeQuery(`SELECT id, name, user_id FROM items ORDER BY id`)
-      expect(data).toHaveLength(2)
-      expect(data[0].name).toBe('User 1 Item')
-      expect(data[0].user_id).toBe(1)
-      expect(data[1].name).toBe('User 2 Item')
-      expect(data[1].user_id).toBe(2)
+      await test.step('Verify data stored correctly', async () => {
+        const data = await executeQuery(`SELECT id, name, user_id FROM items ORDER BY id`)
+        expect(data).toHaveLength(2)
+        expect(data[0].name).toBe('User 1 Item')
+        expect(data[0].user_id).toBe(1)
+        expect(data[1].name).toBe('User 2 Item')
+        expect(data[1].user_id).toBe(2)
+      })
     }
   )
 })

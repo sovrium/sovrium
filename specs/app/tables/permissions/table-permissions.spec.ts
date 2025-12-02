@@ -359,77 +359,77 @@ test.describe('Table-Level Permissions', () => {
     'APP-TABLES-TABLE-PERMISSIONS-006: user can complete full table-permissions workflow',
     { tag: '@regression' },
     async ({ page: _page, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: Application configured with representative table-level permissions
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'content', type: 'single-line-text' },
-              { id: 3, name: 'owner_id', type: 'user' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-            permissions: {
-              read: {
-                type: 'authenticated',
-              },
-              create: {
-                type: 'roles',
-                roles: ['admin'],
+      let user1: any
+
+      await test.step('Setup: Start server with table-level permissions', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+          },
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'content', type: 'single-line-text' },
+                { id: 3, name: 'owner_id', type: 'user' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              permissions: {
+                read: {
+                  type: 'authenticated',
+                },
+                create: {
+                  type: 'roles',
+                  roles: ['admin'],
+                },
               },
             },
-          },
-        ],
+          ],
+        })
       })
 
-      // Create test user
-      const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
+      await test.step('Create test user and RLS policies', async () => {
+        user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
 
-      await executeQuery([
-        'ALTER TABLE data ENABLE ROW LEVEL SECURITY',
-        'CREATE POLICY authenticated_read ON data FOR SELECT USING (auth.is_authenticated())',
-        "CREATE POLICY admin_create ON data FOR INSERT WITH CHECK (auth.user_has_role('admin'))",
-        `INSERT INTO data (content, owner_id) VALUES ('Data 1', '${user1.user.id}')`,
-      ])
+        await executeQuery([
+          'ALTER TABLE data ENABLE ROW LEVEL SECURITY',
+          'CREATE POLICY authenticated_read ON data FOR SELECT USING (auth.is_authenticated())',
+          "CREATE POLICY admin_create ON data FOR INSERT WITH CHECK (auth.user_has_role('admin'))",
+          `INSERT INTO data (content, owner_id) VALUES ('Data 1', '${user1.user.id}')`,
+        ])
+      })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-
-      // Verify RLS policies exist
-      const policies = await executeQuery(
-        "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='data'"
-      )
-      // THEN: assertion
-      expect(policies.count).toBe(2)
-
-      // Authenticated user can read
-      const readResult = await executeQuery(
-        'SET ROLE authenticated_user; SELECT COUNT(*) as count FROM data'
-      )
-      // THEN: assertion
-      expect(readResult.count).toBe(1)
-
-      // Admin can create
-      const createResult = await executeQuery(
-        "SET ROLE admin_user; INSERT INTO data (content, owner_id) VALUES ('Data 2', 2) RETURNING id"
-      )
-      // THEN: assertion
-      expect(createResult.id).toBe(2)
-
-      // Non-admin cannot create
-      // THEN: assertion
-      await expect(async () => {
-        await executeQuery(
-          "SET ROLE member_user; INSERT INTO data (content, owner_id) VALUES ('Data 3', 3)"
+      await test.step('Verify RLS policies exist', async () => {
+        const policies = await executeQuery(
+          "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='data'"
         )
-      }).rejects.toThrow()
+        expect(policies.count).toBe(2)
+      })
 
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify authenticated user can read', async () => {
+        const readResult = await executeQuery(
+          'SET ROLE authenticated_user; SELECT COUNT(*) as count FROM data'
+        )
+        expect(readResult.count).toBe(1)
+      })
+
+      await test.step('Verify admin can create', async () => {
+        const createResult = await executeQuery(
+          "SET ROLE admin_user; INSERT INTO data (content, owner_id) VALUES ('Data 2', 2) RETURNING id"
+        )
+        expect(createResult.id).toBe(2)
+      })
+
+      await test.step('Verify non-admin cannot create', async () => {
+        await expect(async () => {
+          await executeQuery(
+            "SET ROLE member_user; INSERT INTO data (content, owner_id) VALUES ('Data 3', 3)"
+          )
+        }).rejects.toThrow()
+      })
     }
   )
 })
