@@ -451,13 +451,14 @@ test.describe('Structured Data', () => {
       })
 
       let jsonLdSchemas: any[]
+      let allContent: (string | null)[]
 
       await test.step('Navigate to page and parse JSON-LD scripts', async () => {
         await page.goto('/')
         const scripts = await page.locator('script[type="application/ld+json"]').all()
         expect(scripts.length).toBeGreaterThanOrEqual(2)
 
-        const allContent = await Promise.all(scripts.map((script) => script.textContent()))
+        allContent = await Promise.all(scripts.map((script) => script.textContent()))
         jsonLdSchemas = allContent
           .filter((content) => content !== null)
           .map((content) => JSON.parse(content!))
@@ -483,16 +484,17 @@ test.describe('Structured Data', () => {
         '@context': 'https://schema.org',
         '@type': 'BreadcrumbList',
       })
-      expect(Array.isArray(breadcrumbSchema!.itemListElement)).toBe(true)
-      expect(breadcrumbSchema!.itemListElement[0]).toMatchObject({
-        '@type': 'ListItem',
-        position: 1,
-        name: 'Home',
-      })
+        expect(Array.isArray(breadcrumbSchema!.itemListElement)).toBe(true)
+        expect(breadcrumbSchema!.itemListElement[0]).toMatchObject({
+          '@type': 'ListItem',
+          position: 1,
+          name: 'Home',
+        })
 
-      // Backwards compatibility: string containment check
-      const combinedContent = allContent.join(' ')
-      expect(combinedContent).toContain('schema.org')
+        // Backwards compatibility: string containment check
+        const combinedContent = allContent.join(' ')
+        expect(combinedContent).toContain('schema.org')
+      })
     }
   )
 })

@@ -520,10 +520,11 @@ test.describe('FAQ Page Schema', () => {
                     ],
                   },
                 },
+              },
+              sections: [],
             },
-            sections: [],
-          },
-        ],
+          ],
+        })
       })
 
       let jsonLd: any

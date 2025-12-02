@@ -530,11 +530,13 @@ test.describe('Breadcrumb Schema', () => {
         item: 'https://example.com/products/widget',
       })
 
-      // Backwards compatibility: string containment checks
-      expect(scriptContent).toContain('"@type":"BreadcrumbList"')
-      expect(scriptContent).toContain('Home')
-      expect(scriptContent).toContain('Products')
-      expect(scriptContent).toContain('Widget')
+        // Backwards compatibility: string containment checks
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"BreadcrumbList"')
+        expect(scriptContent).toContain('Home')
+        expect(scriptContent).toContain('Products')
+        expect(scriptContent).toContain('Widget')
+      })
     }
   )
 })

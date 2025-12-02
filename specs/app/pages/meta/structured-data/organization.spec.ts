@@ -662,6 +662,7 @@ test.describe('Organization Schema', () => {
         expect(scriptContent).toContain('"@type":"Organization"')
         expect(scriptContent).toContain('Complete Tech Company')
         expect(scriptContent).toContain('San Francisco')
+      })
     }
   )
 })

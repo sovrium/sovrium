@@ -561,10 +561,12 @@ test.describe('Person Schema', () => {
       expect(jsonLd.sameAs).toContain('https://linkedin.com/in/johnsmith')
       expect(jsonLd.sameAs).toContain('https://github.com/johnsmith')
 
-      // Backwards compatibility: string containment checks
-      expect(scriptContent).toContain('"@type":"Person"')
-      expect(scriptContent).toContain('Complete Person Profile')
-      expect(scriptContent).toContain('Tech Innovations Inc')
+        // Backwards compatibility: string containment checks
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"Person"')
+        expect(scriptContent).toContain('Complete Person Profile')
+        expect(scriptContent).toContain('Tech Innovations Inc')
+      })
     }
   )
 })

@@ -493,11 +493,13 @@ test.describe('Postal Address', () => {
         addressCountry: 'FR',
       })
 
-      // Backwards compatibility: string containment checks
-      expect(scriptContent).toContain('"@type":"PostalAddress"')
-      expect(scriptContent).toContain('100 Business Blvd')
-      expect(scriptContent).toContain('Strasbourg')
-      expect(scriptContent).toContain('FR')
+        // Backwards compatibility: string containment checks
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        expect(scriptContent).toContain('"@type":"PostalAddress"')
+        expect(scriptContent).toContain('100 Business Blvd')
+        expect(scriptContent).toContain('Strasbourg')
+        expect(scriptContent).toContain('FR')
+      })
     }
   )
 })

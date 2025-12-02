@@ -542,13 +542,14 @@ test.describe('Open Graph Metadata', () => {
         )
         await expect(page.locator('meta[property="og:image:alt"]')).toHaveAttribute(
           'content',
-        'Test image'
-      )
-      await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute(
-        'content',
-        'Test Site'
-      )
-      await expect(page.locator('meta[property="og:locale"]')).toHaveAttribute('content', 'en_US')
+          'Test image'
+        )
+        await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute(
+          'content',
+          'Test Site'
+        )
+        await expect(page.locator('meta[property="og:locale"]')).toHaveAttribute('content', 'en_US')
+      })
     }
   )
 })
