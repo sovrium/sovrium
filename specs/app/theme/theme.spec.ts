@@ -785,95 +785,92 @@ test.describe('Theme Configuration', () => {
     'APP-THEME-013: user can complete full theme workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application configured with comprehensive theme system
-      await startServerWithSchema({
-        name: 'test-app',
-        theme: {
-          colors: {
-            primary: '#007bff',
-            secondary: '#6c757d',
-            background: '#ffffff',
-          },
-          fonts: {
-            body: {
-              family: 'Inter',
-              fallback: 'sans-serif',
+      await test.step('Setup: Start server with comprehensive theme', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          theme: {
+            colors: {
+              primary: '#007bff',
+              secondary: '#6c757d',
+              background: '#ffffff',
             },
-            heading: {
-              family: 'Poppins',
-              fallback: 'sans-serif',
+            fonts: {
+              body: {
+                family: 'Inter',
+                fallback: 'sans-serif',
+              },
+              heading: {
+                family: 'Poppins',
+                fallback: 'sans-serif',
+              },
+            },
+            spacing: {
+              section: '4rem',
+              container: '80rem',
+            },
+            borderRadius: {
+              DEFAULT: '0.25rem',
+              lg: '0.5rem',
+            },
+            shadows: {
+              md: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
             },
           },
-          spacing: {
-            section: '4rem',
-            container: '80rem',
-          },
-          borderRadius: {
-            DEFAULT: '0.25rem',
-            lg: '0.5rem',
-          },
-          shadows: {
-            md: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-          },
-        },
-        pages: [
-          {
-            name: 'home',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-            sections: [
-              {
-                type: 'heading',
-                level: 1,
-                text: 'Theme Test Heading',
-              },
-              {
-                type: 'paragraph',
-                text: 'Theme test paragraph content',
-              },
-            ],
-          },
-        ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
+              sections: [
+                {
+                  type: 'heading',
+                  level: 1,
+                  text: 'Theme Test Heading',
+                },
+                {
+                  type: 'paragraph',
+                  text: 'Theme test paragraph content',
+                },
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Validate full theme workflow
-      await page.goto('/')
+      await test.step('Navigate to page and verify CSS compilation', async () => {
+        await page.goto('/')
 
-      // 1. Verify CSS compilation contains all theme definitions
-      const cssResponse = await page.request.get('/assets/output.css')
-      // THEN: assertion
-      expect(cssResponse.ok()).toBeTruthy()
-      const css = await cssResponse.text()
-      // THEN: assertion
-      expect(css.length).toBeGreaterThan(1000) // Tailwind CSS is substantial
-      expect(css).toContain('--color-primary: #007bff')
-      expect(css).toContain('--color-secondary: #6c757d')
-      expect(css).toContain('--color-background: #ffffff')
-      expect(css).toContain('--spacing-section: 4rem')
-      expect(css).toContain('--spacing-container: 80rem')
-      expect(css).toContain('--radius-lg: 0.5rem')
+        const cssResponse = await page.request.get('/assets/output.css')
+        expect(cssResponse.ok()).toBeTruthy()
+        const css = await cssResponse.text()
+        expect(css.length).toBeGreaterThan(1000)
+        expect(css).toContain('--color-primary: #007bff')
+        expect(css).toContain('--color-secondary: #6c757d')
+        expect(css).toContain('--color-background: #ffffff')
+        expect(css).toContain('--spacing-section: 4rem')
+        expect(css).toContain('--spacing-container: 80rem')
+        expect(css).toContain('--radius-lg: 0.5rem')
+      })
 
-      // 2. Structure validation - CSS link exists in head (theme CSS loaded globally)
-      const cssLink = page.locator('link[href="/assets/output.css"]')
-      // THEN: assertion
-      await expect(cssLink).toHaveCount(1)
+      await test.step('Verify CSS link and no inline styles', async () => {
+        const cssLink = page.locator('link[href="/assets/output.css"]')
+        await expect(cssLink).toHaveCount(1)
 
-      // Verify no inline theme styles (theme CSS now compiled at startup, not per-page)
-      const themeStyleTags = page.locator('style:has-text(":root"), style:has-text("--color-")')
-      // THEN: assertion
-      await expect(themeStyleTags).toHaveCount(0)
+        const themeStyleTags = page.locator(
+          'style:has-text(":root"), style:has-text("--color-")'
+        )
+        await expect(themeStyleTags).toHaveCount(0)
+      })
 
-      // 3. Visual validation - page renders successfully
-      // THEN: assertion
-      await expect(page.locator('html')).toBeVisible()
-      await expect(page.locator('body')).toHaveScreenshot(
-        'theme-regression-001-complete-system.png',
-        {
-          animations: 'disabled',
-        }
-      )
-
-      // Regression test validates: theme compiles → CSS serves → page renders
+      await test.step('Verify visual rendering (screenshot)', async () => {
+        await expect(page.locator('html')).toBeVisible()
+        await expect(page.locator('body')).toHaveScreenshot(
+          'theme-regression-001-complete-system.png',
+          {
+            animations: 'disabled',
+          }
+        )
+      })
     }
   )
 })
