@@ -350,63 +350,61 @@ test.describe('Banner Configuration', () => {
     'APP-PAGES-BANNER-011: user can complete full banner workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with comprehensive banner system
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Home',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Home' },
-            layout: {
-              banner: {
-                enabled: true,
-                text: '🎉 Black Friday Sale: 50% off all plans!',
-                link: { href: '/pricing', label: 'Shop Now →' },
-                gradient: 'linear-gradient(90deg, #F59E0B 0%, #EF4444 100%)',
-                textColor: '#FFFFFF',
-                dismissible: true,
-                sticky: true,
+      await test.step('Setup: Start server with banner', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Home' },
+              layout: {
+                banner: {
+                  enabled: true,
+                  text: '🎉 Black Friday Sale: 50% off all plans!',
+                  link: { href: '/pricing', label: 'Shop Now →' },
+                  gradient: 'linear-gradient(90deg, #F59E0B 0%, #EF4444 100%)',
+                  textColor: '#FFFFFF',
+                  dismissible: true,
+                  sticky: true,
+                },
               },
+              sections: [{ type: 'div', props: { style: 'height: 2000px' }, children: ['Content'] }],
             },
-            sections: [{ type: 'div', props: { style: 'height: 2000px' }, children: ['Content'] }],
-          },
-          {
-            name: 'Pricing',
-            path: '/pricing',
-            meta: { lang: 'en-US', title: 'Pricing' },
-            sections: [],
-          },
-        ],
+            {
+              name: 'Pricing',
+              path: '/pricing',
+              meta: { lang: 'en-US', title: 'Pricing' },
+              sections: [],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
+      await test.step('Navigate to page and verify banner display', async () => {
+        await page.goto('/')
+        const banner = page.locator('[data-testid="banner"]')
+        await expect(banner).toContainText('🎉 Black Friday Sale: 50% off all plans!')
+        await expect(banner).toHaveCSS('background', /linear-gradient/)
+      })
 
-      // Verify banner display
-      const banner = page.locator('[data-testid="banner"]')
-      // THEN: assertion
-      await expect(banner).toContainText('🎉 Black Friday Sale: 50% off all plans!')
-      await expect(banner).toHaveCSS('background', /linear-gradient/)
+      await test.step('Verify sticky behavior on scroll', async () => {
+        await page.evaluate(() => window.scrollTo(0, 500))
+        const banner = page.locator('[data-testid="banner"]')
+        await expect(banner).toBeInViewport()
+      })
 
-      // Verify sticky behavior
-      await page.evaluate(() => window.scrollTo(0, 500))
-      // THEN: assertion
-      await expect(banner).toBeInViewport()
+      await test.step('Verify banner link navigation', async () => {
+        await page.click('[data-testid="banner-link"]')
+        await expect(page).toHaveURL('/pricing')
+      })
 
-      // Verify link
-      await page.click('[data-testid="banner-link"]')
-      // THEN: assertion
-      await expect(page).toHaveURL('/pricing')
-
-      // Navigate back and dismiss
-      // WHEN: user navigates to the page
-      await page.goto('/')
-      await page.click('[data-testid="banner-dismiss"]')
-      // THEN: assertion
-      await expect(banner).toBeHidden()
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify banner dismissal', async () => {
+        await page.goto('/')
+        await page.click('[data-testid="banner-dismiss"]')
+        const banner = page.locator('[data-testid="banner"]')
+        await expect(banner).toBeHidden()
+      })
     }
   )
 })

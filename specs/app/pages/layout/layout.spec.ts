@@ -362,56 +362,53 @@ test.describe('Page Layout', () => {
     'APP-PAGES-LAYOUT-009: user can complete full layout workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with various layout patterns
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Home',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Home' },
-            layout: {
-              banner: { enabled: true, text: 'Welcome Sale!', backgroundColor: '#10B981' },
-              navigation: {
-                logo: '/logo.svg',
-                links: {
-                  desktop: [
-                    { label: 'Home', href: '/' },
-                    { label: 'About', href: '/about' },
-                  ],
+      await test.step('Setup: Start server with layout system', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Home' },
+              layout: {
+                banner: { enabled: true, text: 'Welcome Sale!', backgroundColor: '#10B981' },
+                navigation: {
+                  logo: '/logo.svg',
+                  links: {
+                    desktop: [
+                      { label: 'Home', href: '/' },
+                      { label: 'About', href: '/about' },
+                    ],
+                  },
                 },
+                footer: { enabled: true, copyright: '© 2025 Company' },
               },
-              footer: { enabled: true, copyright: '© 2025 Company' },
+              sections: [],
             },
-            sections: [],
-          },
-          {
-            name: 'About',
-            path: '/about',
-            meta: { lang: 'en-US', title: 'About' },
-            layout: { navigation: { logo: '/logo.svg' } },
-            sections: [],
-          },
-        ],
+            {
+              name: 'About',
+              path: '/about',
+              meta: { lang: 'en-US', title: 'About' },
+              layout: { navigation: { logo: '/logo.svg' } },
+              sections: [],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
+      await test.step('Navigate to home and verify full layout', async () => {
+        await page.goto('/')
+        await expect(page.locator('[data-testid="banner"]')).toContainText('Welcome Sale!')
+        await expect(page.locator('[data-testid="navigation"]')).toBeVisible()
+        await expect(page.locator('[data-testid="footer"]')).toContainText('© 2025 Company')
+      })
 
-      // Verify full layout on home
-      // THEN: assertion
-      await expect(page.locator('[data-testid="banner"]')).toContainText('Welcome Sale!')
-      await expect(page.locator('[data-testid="navigation"]')).toBeVisible()
-      await expect(page.locator('[data-testid="footer"]')).toContainText('© 2025 Company')
-
-      // Navigate to about (different layout)
-      await page.click('a[href="/about"]')
-      // THEN: assertion
-      await expect(page).toHaveURL('/about')
-      await expect(page.locator('[data-testid="banner"]')).toBeHidden()
-      await expect(page.locator('[data-testid="navigation"]')).toBeVisible()
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Navigate to about and verify layout changes', async () => {
+        await page.click('a[href="/about"]')
+        await expect(page).toHaveURL('/about')
+        await expect(page.locator('[data-testid="banner"]')).toBeHidden()
+        await expect(page.locator('[data-testid="navigation"]')).toBeVisible()
+      })
     }
   )
 })

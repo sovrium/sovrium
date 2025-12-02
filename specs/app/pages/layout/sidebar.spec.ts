@@ -459,61 +459,63 @@ test.describe('Sidebar Configuration', () => {
     'APP-PAGES-SIDEBAR-013: user can complete full sidebar workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Test' },
-            layout: {
-              sidebar: {
-                enabled: true,
-                position: 'left',
-                sticky: true,
-                collapsible: true,
-                width: '256px',
-                items: [
-                  { type: 'link', label: 'Dashboard', href: '/dashboard', icon: 'home' },
-                  {
-                    type: 'group',
-                    label: 'Products',
-                    icon: 'package',
-                    children: [{ type: 'link', label: 'All Products', href: '/products' }],
-                  },
-                  { type: 'divider' },
-                  { type: 'link', label: 'Settings', href: '/settings', icon: 'settings' },
-                ],
+      await test.step('Setup: Start server with sidebar', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              layout: {
+                sidebar: {
+                  enabled: true,
+                  position: 'left',
+                  sticky: true,
+                  collapsible: true,
+                  width: '256px',
+                  items: [
+                    { type: 'link', label: 'Dashboard', href: '/dashboard', icon: 'home' },
+                    {
+                      type: 'group',
+                      label: 'Products',
+                      icon: 'package',
+                      children: [{ type: 'link', label: 'All Products', href: '/products' }],
+                    },
+                    { type: 'divider' },
+                    { type: 'link', label: 'Settings', href: '/settings', icon: 'settings' },
+                  ],
+                },
               },
+              sections: [{ type: 'div', props: { style: 'height: 2000px' }, children: ['Content'] }],
             },
-            sections: [{ type: 'div', props: { style: 'height: 2000px' }, children: ['Content'] }],
-          },
-        ],
+          ],
+        })
       })
 
-      // WHEN: user navigates to the page
-      await page.goto('/')
+      await test.step('Navigate to page and verify sidebar visibility', async () => {
+        await page.goto('/')
+        const sidebar = page.locator('[data-testid="sidebar-left"]')
+        await expect(sidebar).toBeVisible()
+      })
 
-      // Verify sidebar visible (position is 'left')
-      const sidebar = page.locator('[data-testid="sidebar-left"]')
-      // THEN: assertion
-      await expect(sidebar).toBeVisible()
+      await test.step('Verify sidebar link and group interactions', async () => {
+        await page.click('[data-testid="sidebar-link-0"]')
+        await page.click('[data-testid="sidebar-group-0"]')
+        await expect(page.locator('[data-testid="sidebar-group-0-children"]')).toBeVisible()
+      })
 
-      // Verify link click
-      await page.click('[data-testid="sidebar-link-0"]')
+      await test.step('Verify sidebar collapse behavior', async () => {
+        const sidebar = page.locator('[data-testid="sidebar-left"]')
+        await page.click('[data-testid="sidebar-toggle"]')
+        await expect(sidebar).toHaveCSS('width', '64px')
+      })
 
-      // Verify group expand
-      await page.click('[data-testid="sidebar-group-0"]')
-      await expect(page.locator('[data-testid="sidebar-group-0-children"]')).toBeVisible()
-
-      // Verify collapse
-      await page.click('[data-testid="sidebar-toggle"]')
-      await expect(sidebar).toHaveCSS('width', '64px')
-
-      // Verify sticky on scroll
-      await page.evaluate(() => window.scrollTo(0, 500))
-      await expect(sidebar).toBeInViewport()
+      await test.step('Verify sidebar sticky on scroll', async () => {
+        await page.evaluate(() => window.scrollTo(0, 500))
+        const sidebar = page.locator('[data-testid="sidebar-left"]')
+        await expect(sidebar).toBeInViewport()
+      })
     }
   )
 })

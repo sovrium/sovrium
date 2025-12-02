@@ -570,75 +570,72 @@ test.describe('Footer Configuration', () => {
     'APP-PAGES-FOOTER-015: user can complete full footer workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with comprehensive footer
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Test' },
-            layout: {
-              footer: {
-                enabled: true,
-                logo: './logo.svg',
-                description: 'Building the future',
-                columns: [
-                  {
-                    title: 'Product',
+      await test.step('Setup: Start server with footer', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              layout: {
+                footer: {
+                  enabled: true,
+                  logo: './logo.svg',
+                  description: 'Building the future',
+                  columns: [
+                    {
+                      title: 'Product',
+                      links: [
+                        { label: 'Features', href: '/features' },
+                        { label: 'Pricing', href: '/pricing' },
+                      ],
+                    },
+                    { title: 'Company', links: [{ label: 'About', href: '/about' }] },
+                  ],
+                  social: {
+                    title: 'Follow Us',
                     links: [
-                      { label: 'Features', href: '/features' },
-                      { label: 'Pricing', href: '/pricing' },
+                      { platform: 'twitter', url: 'https://twitter.com/acme' },
+                      { platform: 'github', url: 'https://github.com/acme' },
                     ],
                   },
-                  { title: 'Company', links: [{ label: 'About', href: '/about' }] },
-                ],
-                social: {
-                  title: 'Follow Us',
-                  links: [
-                    { platform: 'twitter', url: 'https://twitter.com/acme' },
-                    { platform: 'github', url: 'https://github.com/acme' },
+                  newsletter: {
+                    enabled: true,
+                    title: 'Stay in the loop',
+                    placeholder: 'your@email.com',
+                    buttonText: 'Subscribe',
+                  },
+                  copyright: '© 2024 Acme Corp.',
+                  legal: [
+                    { label: 'Privacy', href: '/privacy' },
+                    { label: 'Terms', href: '/terms' },
                   ],
                 },
-                newsletter: {
-                  enabled: true,
-                  title: 'Stay in the loop',
-                  placeholder: 'your@email.com',
-                  buttonText: 'Subscribe',
-                },
-                copyright: '© 2024 Acme Corp.',
-                legal: [
-                  { label: 'Privacy', href: '/privacy' },
-                  { label: 'Terms', href: '/terms' },
-                ],
               },
+              sections: [],
             },
-            sections: [],
-          },
-        ],
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing
-      await page.goto('/')
+      await test.step('Navigate to page and verify footer sections', async () => {
+        await page.goto('/')
+        await expect(page.locator('[data-testid="footer-logo"]')).toBeVisible()
+        await expect(page.locator('[data-testid="footer-column-0"]')).toContainText('Product')
+        await expect(page.locator('[data-testid="footer-social"]')).toContainText('Follow Us')
+        await expect(page.locator('[data-testid="newsletter-title"]')).toContainText(
+          'Stay in the loop'
+        )
+        await expect(page.locator('[data-testid="footer-copyright"]')).toContainText(
+          '© 2024 Acme Corp.'
+        )
+      })
 
-      // Verify all footer sections
-      // THEN: assertion
-      await expect(page.locator('[data-testid="footer-logo"]')).toBeVisible()
-      await expect(page.locator('[data-testid="footer-column-0"]')).toContainText('Product')
-      await expect(page.locator('[data-testid="footer-social"]')).toContainText('Follow Us')
-      await expect(page.locator('[data-testid="newsletter-title"]')).toContainText(
-        'Stay in the loop'
-      )
-      // THEN: assertion
-      await expect(page.locator('[data-testid="footer-copyright"]')).toContainText(
-        '© 2024 Acme Corp.'
-      )
-
-      // Test newsletter form
-      await page.fill('[data-testid="newsletter-input"]', 'test@example.com')
-      await page.click('[data-testid="newsletter-button"]')
-
-      // Focus on workflow continuity
+      await test.step('Test newsletter form submission', async () => {
+        await page.fill('[data-testid="newsletter-input"]', 'test@example.com')
+        await page.click('[data-testid="newsletter-button"]')
+      })
     }
   )
 })
