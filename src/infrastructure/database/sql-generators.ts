@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isFormulaVolatile } from './formula-trigger-generators'
 import type { Table } from '@/domain/models/app/table'
 import type { Fields } from '@/domain/models/app/table/fields'
 
@@ -199,6 +200,10 @@ const generateDefaultClause = (field: Fields[number]): string => {
  * NOTE: UNIQUE constraints are NOT generated inline. Named UNIQUE constraints
  * are generated at the table level via generateUniqueConstraints() to ensure
  * they appear in information_schema.table_constraints with queryable constraint names.
+ *
+ * NOTE: Formula fields with volatile functions (CURRENT_DATE, NOW(), etc.) cannot use
+ * GENERATED ALWAYS AS because PostgreSQL requires generated columns to be immutable.
+ * For volatile formulas, we create regular columns and handle computation via triggers.
  */
 export const generateColumnDefinition = (field: Fields[number], isPrimaryKey: boolean): string => {
   // SERIAL columns for auto-increment fields
@@ -206,12 +211,21 @@ export const generateColumnDefinition = (field: Fields[number], isPrimaryKey: bo
     return generateSerialColumn(field.name)
   }
 
-  // Formula fields: create GENERATED ALWAYS AS column
+  // Formula fields: check if formula is volatile
   if (field.type === 'formula' && 'formula' in field && field.formula) {
     const resultType =
       'resultType' in field && field.resultType
         ? mapFormulaResultTypeToPostgres(field.resultType)
         : 'TEXT'
+
+    // Volatile formulas (contain CURRENT_DATE, NOW(), etc.) need trigger-based computation
+    // because PostgreSQL GENERATED columns must be immutable
+    if (isFormulaVolatile(field.formula)) {
+      // Create regular column - trigger will populate it
+      return `${field.name} ${resultType}`
+    }
+
+    // Immutable formulas can use GENERATED ALWAYS AS
     return `${field.name} ${resultType} GENERATED ALWAYS AS (${field.formula}) STORED`
   }
 
