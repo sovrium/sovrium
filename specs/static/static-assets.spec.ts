@@ -309,135 +309,136 @@ test.describe('Static Site Generation - Asset Management', () => {
     'STATIC-ASSETS-005: complete asset management workflow',
     { tag: '@regression' },
     async ({ generateStaticSite, page }) => {
-      // GIVEN: complete app with various asset types
-      const tempPublicDir = await mkdtemp(join(tmpdir(), 'sovrium-public-'))
+      let outputDir: string
 
-      // Create comprehensive asset structure
-      await mkdir(join(tempPublicDir, 'images/icons'), { recursive: true })
-      await mkdir(join(tempPublicDir, 'fonts'), { recursive: true })
-      await mkdir(join(tempPublicDir, 'documents'), { recursive: true })
+      await test.step('Setup: Create test assets and generate static site', async () => {
+        const tempPublicDir = await mkdtemp(join(tmpdir(), 'sovrium-public-'))
 
-      // Create test assets
-      await writeFile(join(tempPublicDir, 'favicon.ico'), Buffer.from('ICO'))
-      await writeFile(
-        join(tempPublicDir, 'manifest.json'),
-        JSON.stringify({
-          name: 'Test App',
-          short_name: 'Test',
-          start_url: '/',
-          display: 'standalone',
-        })
-      )
-      await writeFile(
-        join(tempPublicDir, 'images/logo.svg'),
-        `
+        // Create comprehensive asset structure
+        await mkdir(join(tempPublicDir, 'images/icons'), { recursive: true })
+        await mkdir(join(tempPublicDir, 'fonts'), { recursive: true })
+        await mkdir(join(tempPublicDir, 'documents'), { recursive: true })
+
+        // Create test assets
+        await writeFile(join(tempPublicDir, 'favicon.ico'), Buffer.from('ICO'))
+        await writeFile(
+          join(tempPublicDir, 'manifest.json'),
+          JSON.stringify({
+            name: 'Test App',
+            short_name: 'Test',
+            start_url: '/',
+            display: 'standalone',
+          })
+        )
+        await writeFile(
+          join(tempPublicDir, 'images/logo.svg'),
+          `
         <svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
           <rect width="100" height="100" fill="#3B82F6"/>
         </svg>
       `
-      )
-      await writeFile(join(tempPublicDir, 'images/icons/menu.svg'), '<svg>menu</svg>')
-      await writeFile(
-        join(tempPublicDir, 'fonts/inter.css'),
-        `
+        )
+        await writeFile(join(tempPublicDir, 'images/icons/menu.svg'), '<svg>menu</svg>')
+        await writeFile(
+          join(tempPublicDir, 'fonts/inter.css'),
+          `
         @font-face {
           font-family: 'Inter';
           src: url('/fonts/inter.woff2') format('woff2');
         }
       `
-      )
-      await writeFile(join(tempPublicDir, 'fonts/inter.woff2'), Buffer.from('FONT'))
-      await writeFile(join(tempPublicDir, 'documents/guide.pdf'), Buffer.from('PDF'))
+        )
+        await writeFile(join(tempPublicDir, 'fonts/inter.woff2'), Buffer.from('FONT'))
+        await writeFile(join(tempPublicDir, 'documents/guide.pdf'), Buffer.from('PDF'))
 
-      const outputDir = await generateStaticSite(
-        {
-          name: 'test-app',
-          description: 'Asset management test',
-          theme: {
-            colors: {
-              primary: '#3B82F6',
-            },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: {
-                lang: 'en',
-                title: 'Asset Test',
-                description: 'Testing asset management',
-                favicon: './favicon.ico',
+        outputDir = await generateStaticSite(
+          {
+            name: 'test-app',
+            description: 'Asset management test',
+            theme: {
+              colors: {
+                primary: '#3B82F6',
               },
-              sections: [
-                {
-                  type: 'header',
-                  props: { className: 'bg-primary p-4' },
-                  children: [
-                    {
-                      type: 'image',
-                      props: {
-                        src: '/images/logo.svg',
-                        alt: 'Logo',
-                        className: 'w-12 h-12',
-                      },
-                    },
-                  ],
-                },
-                {
-                  type: 'main',
-                  props: { className: 'p-8' },
-                  children: [
-                    {
-                      type: 'a',
-                      props: {
-                        href: '/documents/guide.pdf',
-                        download: true,
-                      },
-                      children: ['Download Guide'],
-                    },
-                  ],
-                },
-              ],
             },
-          ],
-        },
-        {
-          publicDir: tempPublicDir,
-        }
-      )
+            pages: [
+              {
+                name: 'home',
+                path: '/',
+                meta: {
+                  lang: 'en',
+                  title: 'Asset Test',
+                  description: 'Testing asset management',
+                  favicon: './favicon.ico',
+                },
+                sections: [
+                  {
+                    type: 'header',
+                    props: { className: 'bg-primary p-4' },
+                    children: [
+                      {
+                        type: 'image',
+                        props: {
+                          src: '/images/logo.svg',
+                          alt: 'Logo',
+                          className: 'w-12 h-12',
+                        },
+                      },
+                    ],
+                  },
+                  {
+                    type: 'main',
+                    props: { className: 'p-8' },
+                    children: [
+                      {
+                        type: 'a',
+                        props: {
+                          href: '/documents/guide.pdf',
+                          download: true,
+                        },
+                        children: ['Download Guide'],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            publicDir: tempPublicDir,
+          }
+        )
+      })
 
-      // WHEN: loading the page in browser
-      await page.goto(`file://${join(outputDir, 'index.html')}`)
+      await test.step('Verify asset references in generated page', async () => {
+        await page.goto(`file://${join(outputDir, 'index.html')}`)
 
-      // THEN: all assets should be correctly referenced and loaded
-      // Check logo is displayed
-      const logo = page.locator('img[alt="Logo"]')
-      await expect(logo).toBeVisible()
-      await expect(logo).toHaveAttribute('src', '/images/logo.svg')
+        // Check logo is displayed
+        const logo = page.locator('img[alt="Logo"]')
+        await expect(logo).toBeVisible()
+        await expect(logo).toHaveAttribute('src', '/images/logo.svg')
 
-      // Check link to PDF
-      const pdfLink = page.locator('a[download]')
-      // THEN: assertion
-      await expect(pdfLink).toHaveAttribute('href', '/documents/guide.pdf')
-      await expect(pdfLink).toHaveText('Download Guide')
+        // Check link to PDF
+        const pdfLink = page.locator('a[download]')
+        await expect(pdfLink).toHaveAttribute('href', '/documents/guide.pdf')
+        await expect(pdfLink).toHaveText('Download Guide')
+      })
 
-      // Verify all assets were copied
-      const files = await readdir(outputDir, { recursive: true })
-      // THEN: assertion
-      expect(files).toContain('favicon.ico')
-      expect(files).toContain('manifest.json')
-      expect(files).toContain('images/logo.svg')
-      expect(files).toContain('images/icons/menu.svg')
-      expect(files).toContain('fonts/inter.css')
-      expect(files).toContain('fonts/inter.woff2')
-      expect(files).toContain('documents/guide.pdf')
+      await test.step('Verify all assets copied to output directory', async () => {
+        const files = await readdir(outputDir, { recursive: true })
+        expect(files).toContain('favicon.ico')
+        expect(files).toContain('manifest.json')
+        expect(files).toContain('images/logo.svg')
+        expect(files).toContain('images/icons/menu.svg')
+        expect(files).toContain('fonts/inter.css')
+        expect(files).toContain('fonts/inter.woff2')
+        expect(files).toContain('documents/guide.pdf')
 
-      // Verify manifest.json content is valid JSON
-      const manifest = await readFile(join(outputDir, 'manifest.json'), 'utf-8')
-      const manifestData = JSON.parse(manifest)
-      // THEN: assertion
-      expect(manifestData.name).toBe('Test App')
-      expect(manifestData.start_url).toBe('/')
+        // Verify manifest.json content is valid JSON
+        const manifest = await readFile(join(outputDir, 'manifest.json'), 'utf-8')
+        const manifestData = JSON.parse(manifest)
+        expect(manifestData.name).toBe('Test App')
+        expect(manifestData.start_url).toBe('/')
+      })
     }
   )
 })

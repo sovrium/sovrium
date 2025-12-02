@@ -471,146 +471,137 @@ test.describe('Static Site Generation - Deployment Features', () => {
     'STATIC-DEPLOY-007: complete deployment workflow',
     { tag: '@regression' },
     async ({ generateStaticSite, page }) => {
-      // GIVEN: complete app with all deployment features
-      const outputDir = await generateStaticSite(
-        {
-          name: 'test-app',
-          description: 'Deployment test application',
-          theme: {
-            colors: { primary: '#3B82F6' },
-          },
-          languages: {
-            default: 'en',
-            supported: [
-              { code: 'en', locale: 'en-US', label: 'English' },
-              { code: 'fr', locale: 'fr-FR', label: 'Français' },
-            ],
-            translations: {
-              en: { title: 'Home' },
-              fr: { title: 'Accueil' },
+      let outputDir: string
+
+      await test.step('Setup: Generate site with deployment configuration', async () => {
+        outputDir = await generateStaticSite(
+          {
+            name: 'test-app',
+            description: 'Deployment test application',
+            theme: {
+              colors: { primary: '#3B82F6' },
             },
-          },
-          pages: [
-            {
-              name: 'home',
-              path: '/',
-              meta: {
-                title: '$t:title',
-                description: 'Multi-language home page',
-                priority: 1.0,
-                changefreq: 'daily',
-              },
-              sections: [
-                {
-                  type: 'header',
-                  props: { className: 'bg-primary text-white p-4' },
-                  children: [
-                    { type: 'h1', children: ['$t:title'] },
-                    {
-                      type: 'nav',
-                      children: [
-                        { type: 'a', props: { href: '/' }, children: ['Home'] },
-                        { type: 'a', props: { href: '/about' }, children: ['About'] },
-                        { type: 'a', props: { href: '/products' }, children: ['Products'] },
-                      ],
-                    },
-                  ],
-                },
+            languages: {
+              default: 'en',
+              supported: [
+                { code: 'en', locale: 'en-US', label: 'English' },
+                { code: 'fr', locale: 'fr-FR', label: 'Français' },
               ],
-            },
-            {
-              name: 'about',
-              path: '/about',
-              meta: {
-                title: 'About',
-                priority: 0.8,
-                changefreq: 'weekly',
+              translations: {
+                en: { title: 'Home' },
+                fr: { title: 'Accueil' },
               },
-              sections: [],
             },
-            {
-              name: 'products',
-              path: '/products',
-              meta: {
-                title: 'Products',
-                priority: 0.9,
-                changefreq: 'daily',
+            pages: [
+              {
+                name: 'home',
+                path: '/',
+                meta: {
+                  title: '$t:title',
+                  description: 'Multi-language home page',
+                  priority: 1.0,
+                  changefreq: 'daily',
+                },
+                sections: [
+                  {
+                    type: 'header',
+                    props: { className: 'bg-primary text-white p-4' },
+                    children: [
+                      { type: 'h1', children: ['$t:title'] },
+                      {
+                        type: 'nav',
+                        children: [
+                          { type: 'a', props: { href: '/' }, children: ['Home'] },
+                          { type: 'a', props: { href: '/about' }, children: ['About'] },
+                          { type: 'a', props: { href: '/products' }, children: ['Products'] },
+                        ],
+                      },
+                    ],
+                  },
+                ],
               },
-              sections: [],
-            },
-          ],
-        },
-        {
-          baseUrl: 'https://example.github.io/my-project',
-          basePath: '/my-project',
-          deployment: 'github-pages',
-          languages: ['en', 'fr'],
-          generateSitemap: true,
-          generateRobotsTxt: true,
-          hydration: true,
-        }
-      )
+              {
+                name: 'about',
+                path: '/about',
+                meta: {
+                  title: 'About',
+                  priority: 0.8,
+                  changefreq: 'weekly',
+                },
+                sections: [],
+              },
+              {
+                name: 'products',
+                path: '/products',
+                meta: {
+                  title: 'Products',
+                  priority: 0.9,
+                  changefreq: 'daily',
+                },
+                sections: [],
+              },
+            ],
+          },
+          {
+            baseUrl: 'https://example.github.io/my-project',
+            basePath: '/my-project',
+            deployment: 'github-pages',
+            languages: ['en', 'fr'],
+            generateSitemap: true,
+            generateRobotsTxt: true,
+            hydration: true,
+          }
+        )
+      })
 
-      // WHEN: examining all deployment files
-      const files = await readdir(outputDir, { recursive: true })
+      await test.step('Verify deployment files and configuration', async () => {
+        const files = await readdir(outputDir, { recursive: true })
 
-      // THEN: should have complete deployment setup
-      // GitHub Pages specific
-      expect(files).toContain('.nojekyll')
+        // GitHub Pages specific
+        expect(files).toContain('.nojekyll')
+        expect(files).not.toContain('CNAME')
 
-      // CNAME should NOT be generated for github.io URLs
-      // THEN: assertion
-      expect(files).not.toContain('CNAME')
+        // Sitemap
+        expect(files).toContain('sitemap.xml')
+        const sitemap = await readFile(join(outputDir, 'sitemap.xml'), 'utf-8')
+        expect(sitemap).toContain('https://example.github.io/my-project/')
+        expect(sitemap).toContain('https://example.github.io/my-project/en/')
+        expect(sitemap).toContain('https://example.github.io/my-project/fr/')
 
-      // Sitemap
-      // THEN: assertion
-      expect(files).toContain('sitemap.xml')
-      const sitemap = await readFile(join(outputDir, 'sitemap.xml'), 'utf-8')
-      // THEN: assertion
-      expect(sitemap).toContain('https://example.github.io/my-project/')
-      expect(sitemap).toContain('https://example.github.io/my-project/en/')
-      expect(sitemap).toContain('https://example.github.io/my-project/fr/')
+        // Robots.txt
+        expect(files).toContain('robots.txt')
+        const robots = await readFile(join(outputDir, 'robots.txt'), 'utf-8')
+        expect(robots).toContain('Sitemap: https://example.github.io/my-project/sitemap.xml')
 
-      // Robots.txt
-      // THEN: assertion
-      expect(files).toContain('robots.txt')
-      const robots = await readFile(join(outputDir, 'robots.txt'), 'utf-8')
-      // THEN: assertion
-      expect(robots).toContain('Sitemap: https://example.github.io/my-project/sitemap.xml')
+        // Multi-language structure
+        expect(files).toContain('en/index.html')
+        expect(files).toContain('fr/index.html')
 
-      // Multi-language structure
-      // THEN: assertion
-      expect(files).toContain('en/index.html')
-      expect(files).toContain('fr/index.html')
+        // Assets
+        expect(files).toContain('assets/output.css')
+        expect(files).toContain('assets/client.js')
 
-      // Assets
-      // THEN: assertion
-      expect(files).toContain('assets/output.css')
-      expect(files).toContain('assets/client.js') // For hydration
+        // Verify underscore-prefixed pages are NOT generated
+        expect(files).not.toContain('_admin.html')
+        expect(files).not.toContain('en/_admin.html')
+        expect(files).not.toContain('fr/_admin.html')
+      })
 
-      // Check HTML has correct paths
-      const enHome = await readFile(join(outputDir, 'en/index.html'), 'utf-8')
-      // THEN: assertion
-      expect(enHome).toContain('href="/my-project/assets/output.css"')
-      expect(enHome).toContain('src="/my-project/assets/client.js"')
-      expect(enHome).toContain('href="/my-project/en/about"')
+      await test.step('Verify HTML paths and browser rendering', async () => {
+        // Check HTML has correct paths
+        const enHome = await readFile(join(outputDir, 'en/index.html'), 'utf-8')
+        expect(enHome).toContain('href="/my-project/assets/output.css"')
+        expect(enHome).toContain('src="/my-project/assets/client.js"')
+        expect(enHome).toContain('href="/my-project/en/about"')
 
-      // Hreflang tags with base path
-      // THEN: assertion
-      expect(enHome).toContain('hreflang="en" href="https://example.github.io/my-project/en/"')
-      expect(enHome).toContain('hreflang="fr" href="https://example.github.io/my-project/fr/"')
+        // Hreflang tags with base path
+        expect(enHome).toContain('hreflang="en" href="https://example.github.io/my-project/en/"')
+        expect(enHome).toContain('hreflang="fr" href="https://example.github.io/my-project/fr/"')
 
-      // Load in browser to verify
-      // WHEN: user navigates to the page
-      await page.goto(`file://${join(outputDir, 'en/index.html')}`)
-      // THEN: assertion
-      await expect(page.locator('h1')).toBeVisible()
-
-      // Verify underscore-prefixed pages are NOT generated (admin/internal pages)
-      // THEN: assertion
-      expect(files).not.toContain('_admin.html')
-      expect(files).not.toContain('en/_admin.html')
-      expect(files).not.toContain('fr/_admin.html')
+        // Load in browser to verify
+        await page.goto(`file://${join(outputDir, 'en/index.html')}`)
+        await expect(page.locator('h1')).toBeVisible()
+      })
     }
   )
 })
