@@ -414,116 +414,115 @@ test.describe('Static Site Generation', () => {
     'STATIC-GENERATION-007: complete static generation workflow',
     { tag: '@regression' },
     async ({ generateStaticSite, page }) => {
-      // GIVEN: complete app configuration with theme, pages, and sections
-      const outputDir = await generateStaticSite({
-        name: 'test-app',
-        description: 'A complete test application',
-        theme: {
-          colors: {
-            primary: '#3B82F6',
-            secondary: '#10B981',
-          },
-          fonts: {
-            sans: {
-              family: 'Inter',
-              fallback: 'sans-serif',
+      let outputDir: string
+
+      await test.step('Setup: Generate static site with complete configuration', async () => {
+        outputDir = await generateStaticSite({
+          name: 'test-app',
+          description: 'A complete test application',
+          theme: {
+            colors: {
+              primary: '#3B82F6',
+              secondary: '#10B981',
+            },
+            fonts: {
+              sans: {
+                family: 'Inter',
+                fallback: 'sans-serif',
+              },
             },
           },
-        },
-        pages: [
-          {
-            name: 'home',
-            path: '/',
-            meta: {
-              lang: 'en',
-              title: 'Home - Test App',
-              description: 'Welcome to our test application',
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: {
+                lang: 'en',
+                title: 'Home - Test App',
+                description: 'Welcome to our test application',
+              },
+              sections: [
+                {
+                  type: 'header',
+                  props: { className: 'bg-primary text-white py-4' },
+                  children: [
+                    {
+                      type: 'div',
+                      props: { className: 'container mx-auto px-4' },
+                      children: [
+                        {
+                          type: 'h1',
+                          props: { className: 'text-3xl font-bold' },
+                          children: ['Test App'],
+                        },
+                        {
+                          type: 'p',
+                          props: { className: 'text-lg' },
+                          children: ['Static Site Generation'],
+                        },
+                      ],
+                    },
+                  ],
+                },
+                {
+                  type: 'main',
+                  props: { className: 'container mx-auto px-4 py-8' },
+                  children: [
+                    { type: 'h2', props: { className: 'text-2xl mb-4' }, children: ['Welcome'] },
+                    {
+                      type: 'p',
+                      props: { className: 'text-gray-700' },
+                      children: ['This is a statically generated page.'],
+                    },
+                  ],
+                },
+              ],
             },
-            sections: [
-              {
-                type: 'header',
-                props: { className: 'bg-primary text-white py-4' },
-                children: [
-                  {
-                    type: 'div',
-                    props: { className: 'container mx-auto px-4' },
-                    children: [
-                      {
-                        type: 'h1',
-                        props: { className: 'text-3xl font-bold' },
-                        children: ['Test App'],
-                      },
-                      {
-                        type: 'p',
-                        props: { className: 'text-lg' },
-                        children: ['Static Site Generation'],
-                      },
-                    ],
-                  },
-                ],
+            {
+              name: 'about',
+              path: '/about',
+              meta: {
+                lang: 'en',
+                title: 'About - Test App',
+                description: 'Learn more about our application',
               },
-              {
-                type: 'main',
-                props: { className: 'container mx-auto px-4 py-8' },
-                children: [
-                  { type: 'h2', props: { className: 'text-2xl mb-4' }, children: ['Welcome'] },
-                  {
-                    type: 'p',
-                    props: { className: 'text-gray-700' },
-                    children: ['This is a statically generated page.'],
-                  },
-                ],
-              },
-            ],
-          },
-          {
-            name: 'about',
-            path: '/about',
-            meta: {
-              lang: 'en',
-              title: 'About - Test App',
-              description: 'Learn more about our application',
+              sections: [
+                {
+                  type: 'div',
+                  props: { className: 'container mx-auto px-4 py-8' },
+                  children: [
+                    { type: 'h1', props: { className: 'text-3xl mb-4' }, children: ['About Us'] },
+                    { type: 'p', children: ['We build great applications.'] },
+                  ],
+                },
+              ],
             },
-            sections: [
-              {
-                type: 'div',
-                props: { className: 'container mx-auto px-4 py-8' },
-                children: [
-                  { type: 'h1', props: { className: 'text-3xl mb-4' }, children: ['About Us'] },
-                  { type: 'p', children: ['We build great applications.'] },
-                ],
-              },
-            ],
-          },
-        ],
+          ],
+        })
       })
 
-      // WHEN: loading generated HTML in browser
-      await page.goto(`file://${join(outputDir, 'index.html')}`)
+      await test.step('Load home page and verify content', async () => {
+        await page.goto(`file://${join(outputDir, 'index.html')}`)
 
-      // THEN: should render correctly with styles
-      await expect(page.locator('h1').first()).toHaveText('Test App')
-      await expect(page.locator('h2')).toHaveText('Welcome')
-      await expect(page.locator('header p')).toHaveText('Static Site Generation')
-      await expect(
-        page.locator('main').getByText('This is a statically generated page.')
-      ).toBeVisible()
+        await expect(page.locator('h1').first()).toHaveText('Test App')
+        await expect(page.locator('h2')).toHaveText('Welcome')
+        await expect(page.locator('header p')).toHaveText('Static Site Generation')
+        await expect(
+          page.locator('main').getByText('This is a statically generated page.')
+        ).toBeVisible()
 
-      // Verify CSS classes are present (actual styles don't load via file:// due to CORS)
-      const header = page.locator('header')
-      // THEN: assertion
-      await expect(header).toHaveClass(/bg-primary/)
-      await expect(header).toHaveClass(/text-white/)
+        const header = page.locator('header')
+        await expect(header).toHaveClass(/bg-primary/)
+        await expect(header).toHaveClass(/text-white/)
+      })
 
-      // Navigate to about page
-      // WHEN: user navigates to the page
-      await page.goto(`file://${join(outputDir, 'about.html')}`)
-      // THEN: assertion
-      await expect(page.locator('h1')).toHaveText('About Us')
-      await expect(page.locator('p')).toHaveText('We build great applications.')
+      await test.step('Navigate to about page and verify', async () => {
+        await page.goto(`file://${join(outputDir, 'about.html')}`)
+        await expect(page.locator('h1')).toHaveText('About Us')
+        await expect(page.locator('p')).toHaveText('We build great applications.')
 
-      // Take snapshots for visual regression
-      await expect(page).toHaveScreenshot('static-home-page.png')
+        await expect(page).toHaveScreenshot('static-home-page.png')
+      })
     }
   )
 })
