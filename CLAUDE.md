@@ -269,7 +269,7 @@ bun run quality --skip-coverage  # Skip coverage enforcement
 - **Mandatory for @regression tests**: Wrap workflow scenarios in descriptive `test.step()` calls
 - **Optional for @spec tests**: Recommended for complex tests (50+ lines) to enhance reporting
 - **Benefits**: Better CI logs, improved debugging, self-documenting test flows, enhanced HTML reports
-- **See**: `@docs/architecture/testing-strategy/test-step-architecture-pattern.md` for architectural rationale and patterns
+- **See**: `@docs/architecture/testing-strategy/14-using-test-steps-for-readability.md` for comprehensive guide with architectural rationale, patterns, and adoption metrics
 
 ### Commit Messages (Conventional Commits - REQUIRED)
 - `release:` → Publish new version (patch bump 0.0.X) - **ONLY this triggers releases**
