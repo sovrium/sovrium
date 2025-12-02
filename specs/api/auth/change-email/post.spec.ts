@@ -301,61 +301,69 @@ test.describe('Change email address', () => {
     'API-AUTH-CHANGE-EMAIL-008: user can complete full change-email workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn, mailpit }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
+      let workflowEmail: string
+      let existingEmail: string
+      let newWorkflowEmail: string
+
+      await test.step('Setup: Start server with auth enabled', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+          },
+        })
+
+        workflowEmail = mailpit.email('workflow')
+        existingEmail = mailpit.email('existing')
+        newWorkflowEmail = mailpit.email('newworkflow')
       })
 
-      const workflowEmail = mailpit.email('workflow')
-      const existingEmail = mailpit.email('existing')
-      const newWorkflowEmail = mailpit.email('newworkflow')
-
-      // Test 1: Change email fails without auth
-      const noAuthResponse = await page.request.post('/api/auth/change-email', {
-        data: { newEmail: newWorkflowEmail },
-      })
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create users
-      await signUp({
-        email: workflowEmail,
-        password: 'WorkflowPass123!',
-        name: 'Workflow User',
-      })
-      await signUp({
-        email: existingEmail,
-        password: 'ExistingPass123!',
-        name: 'Existing User',
+      await test.step('Verify change email fails without auth', async () => {
+        const noAuthResponse = await page.request.post('/api/auth/change-email', {
+          data: { newEmail: newWorkflowEmail },
+        })
+        expect(noAuthResponse.status()).toBe(401)
       })
 
-      // Sign in
-      await signIn({
-        email: workflowEmail,
-        password: 'WorkflowPass123!',
+      await test.step('Setup: Create users and authenticate', async () => {
+        await signUp({
+          email: workflowEmail,
+          password: 'WorkflowPass123!',
+          name: 'Workflow User',
+        })
+        await signUp({
+          email: existingEmail,
+          password: 'ExistingPass123!',
+          name: 'Existing User',
+        })
+
+        await signIn({
+          email: workflowEmail,
+          password: 'WorkflowPass123!',
+        })
       })
 
-      // Test 2: Change email fails for existing email
-      const conflictResponse = await page.request.post('/api/auth/change-email', {
-        data: { newEmail: existingEmail },
+      await test.step('Verify change fails for existing email', async () => {
+        const conflictResponse = await page.request.post('/api/auth/change-email', {
+          data: { newEmail: existingEmail },
+        })
+        expect([400, 409]).toContain(conflictResponse.status())
       })
-      expect([400, 409]).toContain(conflictResponse.status())
 
-      // Test 3: Change email succeeds for new email and sends verification
-      const successResponse = await page.request.post('/api/auth/change-email', {
-        data: { newEmail: newWorkflowEmail },
+      await test.step('Change email to new address', async () => {
+        const successResponse = await page.request.post('/api/auth/change-email', {
+          data: { newEmail: newWorkflowEmail },
+        })
+        expect(successResponse.status()).toBe(200)
+
+        const email = await mailpit.waitForEmail(
+          (e) =>
+            e.To[0]?.Address === newWorkflowEmail &&
+            (e.Subject.toLowerCase().includes('verify') ||
+              e.Subject.toLowerCase().includes('email'))
+        )
+        expect(email).toBeDefined()
       })
-      expect(successResponse.status()).toBe(200)
-
-      // Verify email was sent to new address (filtered by testId namespace)
-      const email = await mailpit.waitForEmail(
-        (e) =>
-          e.To[0]?.Address === newWorkflowEmail &&
-          (e.Subject.toLowerCase().includes('verify') || e.Subject.toLowerCase().includes('email'))
-      )
-      expect(email).toBeDefined()
     }
   )
 })
