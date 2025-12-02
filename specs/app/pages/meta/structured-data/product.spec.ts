@@ -526,104 +526,106 @@ test.describe('Product Schema', () => {
     'APP-PAGES-PRODUCT-013: user can complete full Product workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: {
-              lang: 'en-US',
-              title: 'Test',
-              description: 'Test',
-              schema: {
-                product: {
-                  '@context': 'https://schema.org',
-                  '@type': 'Product',
-                  name: 'Complete Product Test',
-                  description: 'Premium wireless headphones with active noise cancellation',
-                  image: [
-                    'https://example.com/headphones-1.jpg',
-                    'https://example.com/headphones-2.jpg',
-                  ],
-                  brand: { '@type': 'Brand', name: 'AudioTech' },
-                  sku: 'ATP-WH1000-BLK',
-                  gtin: '0123456789012',
-                  offers: {
-                    '@type': 'Offer',
-                    price: '299.99',
-                    priceCurrency: 'USD',
-                    availability: 'https://schema.org/InStock',
-                    url: 'https://example.com/buy/headphones',
-                  },
-                  aggregateRating: {
-                    '@type': 'AggregateRating',
-                    ratingValue: 4.7,
-                    reviewCount: 543,
+      await test.step('Setup: Start server with Product schema', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  product: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Product',
+                    name: 'Complete Product Test',
+                    description: 'Premium wireless headphones with active noise cancellation',
+                    image: [
+                      'https://example.com/headphones-1.jpg',
+                      'https://example.com/headphones-2.jpg',
+                    ],
+                    brand: { '@type': 'Brand', name: 'AudioTech' },
+                    sku: 'ATP-WH1000-BLK',
+                    gtin: '0123456789012',
+                    offers: {
+                      '@type': 'Offer',
+                      price: '299.99',
+                      priceCurrency: 'USD',
+                      availability: 'https://schema.org/InStock',
+                      url: 'https://example.com/buy/headphones',
+                    },
+                    aggregateRating: {
+                      '@type': 'AggregateRating',
+                      ratingValue: 4.7,
+                      reviewCount: 543,
+                    },
                   },
                 },
               },
+              sections: [],
             },
-            sections: [],
-          },
-        ],
-      })
-      // WHEN: user navigates to the page
-      await page.goto('/')
-
-      // Enhanced JSON-LD validation
-      const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-
-      // Validate JSON-LD is valid JSON
-      const jsonLd = JSON.parse(scriptContent!)
-
-      // Validate JSON-LD structure
-      // THEN: assertion
-      expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
-      expect(jsonLd).toHaveProperty('@type', 'Product')
-      expect(jsonLd).toHaveProperty('name', 'Complete Product Test')
-      expect(jsonLd).toHaveProperty(
-        'description',
-        'Premium wireless headphones with active noise cancellation'
-      )
-      expect(jsonLd).toHaveProperty('sku', 'ATP-WH1000-BLK')
-      expect(jsonLd).toHaveProperty('gtin', '0123456789012')
-
-      // Validate product images
-      expect(Array.isArray(jsonLd.image)).toBe(true)
-      expect(jsonLd.image).toHaveLength(2)
-      expect(jsonLd.image).toContain('https://example.com/headphones-1.jpg')
-      expect(jsonLd.image).toContain('https://example.com/headphones-2.jpg')
-
-      // Validate brand structure
-      expect(jsonLd.brand).toMatchObject({
-        '@type': 'Brand',
-        name: 'AudioTech',
+          ],
+        })
       })
 
-      // Validate offers structure
-      expect(jsonLd.offers).toMatchObject({
-        '@type': 'Offer',
-        price: '299.99',
-        priceCurrency: 'USD',
-        availability: 'https://schema.org/InStock',
-        url: 'https://example.com/buy/headphones',
+      let jsonLd: any
+      let scriptContent: string | null
+
+      await test.step('Navigate to page and parse JSON-LD', async () => {
+        await page.goto('/')
+        scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        jsonLd = JSON.parse(scriptContent!)
       })
 
-      // Validate aggregate rating structure
-      expect(jsonLd.aggregateRating).toMatchObject({
-        '@type': 'AggregateRating',
-        ratingValue: 4.7,
-        reviewCount: 543,
-      })
+      await test.step('Verify Product structure', async () => {
+        expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
+        expect(jsonLd).toHaveProperty('@type', 'Product')
+        expect(jsonLd).toHaveProperty('name', 'Complete Product Test')
+        expect(jsonLd).toHaveProperty(
+          'description',
+          'Premium wireless headphones with active noise cancellation'
+        )
+        expect(jsonLd).toHaveProperty('sku', 'ATP-WH1000-BLK')
+        expect(jsonLd).toHaveProperty('gtin', '0123456789012')
 
-      // Backwards compatibility: string containment checks
-      expect(scriptContent).toContain('"@type":"Product"')
-      expect(scriptContent).toContain('Complete Product Test')
-      expect(scriptContent).toContain('AudioTech')
-      expect(scriptContent).toContain('299.99')
-      expect(scriptContent).toContain('4.7')
+        // Validate product images
+        expect(Array.isArray(jsonLd.image)).toBe(true)
+        expect(jsonLd.image).toHaveLength(2)
+        expect(jsonLd.image).toContain('https://example.com/headphones-1.jpg')
+        expect(jsonLd.image).toContain('https://example.com/headphones-2.jpg')
+
+        // Validate brand structure
+        expect(jsonLd.brand).toMatchObject({
+          '@type': 'Brand',
+          name: 'AudioTech',
+        })
+
+        // Validate offers structure
+        expect(jsonLd.offers).toMatchObject({
+          '@type': 'Offer',
+          price: '299.99',
+          priceCurrency: 'USD',
+          availability: 'https://schema.org/InStock',
+          url: 'https://example.com/buy/headphones',
+        })
+
+        // Validate aggregate rating structure
+        expect(jsonLd.aggregateRating).toMatchObject({
+          '@type': 'AggregateRating',
+          ratingValue: 4.7,
+          reviewCount: 543,
+        })
+
+        // Backwards compatibility: string containment checks
+        expect(scriptContent).toContain('"@type":"Product"')
+        expect(scriptContent).toContain('Complete Product Test')
+        expect(scriptContent).toContain('AudioTech')
+        expect(scriptContent).toContain('299.99')
+        expect(scriptContent).toContain('4.7')
+      })
     }
   )
 })

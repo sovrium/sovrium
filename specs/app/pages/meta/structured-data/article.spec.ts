@@ -577,81 +577,83 @@ test.describe('Article Schema', () => {
     'APP-PAGES-ARTICLE-015: user can complete full Article workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'test',
-            path: '/',
-            meta: {
-              lang: 'en-US',
-              title: 'Test',
-              description: 'Test',
-              schema: {
-                article: {
-                  '@context': 'https://schema.org',
-                  '@type': 'Article',
-                  headline: 'Complete Article Test',
-                  description: 'Testing all article features',
-                  image: 'https://example.com/article-image.jpg',
-                  author: { '@type': 'Person', name: 'Test Author' },
-                  datePublished: '2025-01-15T09:00:00Z',
-                  dateModified: '2025-01-20T14:30:00Z',
-                  publisher: {
-                    '@type': 'Organization',
-                    name: 'Test Publisher',
-                    logo: { '@type': 'ImageObject', url: 'https://example.com/logo.png' },
+      await test.step('Setup: Start server with Article schema', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  article: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Article',
+                    headline: 'Complete Article Test',
+                    description: 'Testing all article features',
+                    image: 'https://example.com/article-image.jpg',
+                    author: { '@type': 'Person', name: 'Test Author' },
+                    datePublished: '2025-01-15T09:00:00Z',
+                    dateModified: '2025-01-20T14:30:00Z',
+                    publisher: {
+                      '@type': 'Organization',
+                      name: 'Test Publisher',
+                      logo: { '@type': 'ImageObject', url: 'https://example.com/logo.png' },
+                    },
                   },
                 },
               },
+              sections: [],
             },
-            sections: [],
+          ],
+        })
+      })
+
+      let jsonLd: any
+      let scriptContent: string | null
+
+      await test.step('Navigate to page and parse JSON-LD', async () => {
+        await page.goto('/')
+        scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        jsonLd = JSON.parse(scriptContent!)
+      })
+
+      await test.step('Verify Article structure', async () => {
+        expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
+        expect(jsonLd).toHaveProperty('@type', 'Article')
+        expect(jsonLd).toHaveProperty('headline', 'Complete Article Test')
+        expect(jsonLd).toHaveProperty('description', 'Testing all article features')
+        expect(jsonLd).toHaveProperty('image', 'https://example.com/article-image.jpg')
+
+        // Validate author structure
+        expect(jsonLd.author).toMatchObject({
+          '@type': 'Person',
+          name: 'Test Author',
+        })
+
+        // Validate dates
+        expect(jsonLd).toHaveProperty('datePublished', '2025-01-15T09:00:00Z')
+        expect(jsonLd).toHaveProperty('dateModified', '2025-01-20T14:30:00Z')
+
+        // Validate publisher structure
+        expect(jsonLd.publisher).toMatchObject({
+          '@type': 'Organization',
+          name: 'Test Publisher',
+          logo: {
+            '@type': 'ImageObject',
+            url: 'https://example.com/logo.png',
           },
-        ],
+        })
+
+        // Backwards compatibility: string containment checks
+        expect(scriptContent).toContain('"@type":"Article"')
+        expect(scriptContent).toContain('Complete Article Test')
+        expect(scriptContent).toContain('Test Author')
+        expect(scriptContent).toContain('Test Publisher')
       })
-      // WHEN: user navigates to the page
-      await page.goto('/')
-
-      // Enhanced JSON-LD validation
-      const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-
-      // Validate JSON-LD is valid JSON
-      const jsonLd = JSON.parse(scriptContent!)
-
-      // Validate JSON-LD structure
-      // THEN: assertion
-      expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
-      expect(jsonLd).toHaveProperty('@type', 'Article')
-      expect(jsonLd).toHaveProperty('headline', 'Complete Article Test')
-      expect(jsonLd).toHaveProperty('description', 'Testing all article features')
-      expect(jsonLd).toHaveProperty('image', 'https://example.com/article-image.jpg')
-
-      // Validate author structure
-      expect(jsonLd.author).toMatchObject({
-        '@type': 'Person',
-        name: 'Test Author',
-      })
-
-      // Validate dates
-      expect(jsonLd).toHaveProperty('datePublished', '2025-01-15T09:00:00Z')
-      expect(jsonLd).toHaveProperty('dateModified', '2025-01-20T14:30:00Z')
-
-      // Validate publisher structure
-      expect(jsonLd.publisher).toMatchObject({
-        '@type': 'Organization',
-        name: 'Test Publisher',
-        logo: {
-          '@type': 'ImageObject',
-          url: 'https://example.com/logo.png',
-        },
-      })
-
-      // Backwards compatibility: string containment checks
-      expect(scriptContent).toContain('"@type":"Article"')
-      expect(scriptContent).toContain('Complete Article Test')
-      expect(scriptContent).toContain('Test Author')
-      expect(scriptContent).toContain('Test Publisher')
     }
   )
 })
