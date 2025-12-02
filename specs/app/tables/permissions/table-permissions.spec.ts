@@ -27,10 +27,13 @@ test.describe('Table-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-TABLE-PERMISSIONS-001: should grant SELECT access to user with member role when table has role-based read permission',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: table with role-based read permission for 'member' role
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          authentication: ['email-and-password'],
+        },
         tables: [
           {
             id: 1,
@@ -51,10 +54,14 @@ test.describe('Table-Level Permissions', () => {
         ],
       })
 
+      // Create test users
+      const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
+      const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
+
       await executeQuery([
         'ALTER TABLE projects ENABLE ROW LEVEL SECURITY',
         "CREATE POLICY member_read ON projects FOR SELECT USING (auth.user_has_role('member'))",
-        "INSERT INTO projects (title, created_by) VALUES ('Project 1', 1), ('Project 2', 2)",
+        `INSERT INTO projects (title, created_by) VALUES ('Project 1', '${user1.user.id}'), ('Project 2', '${user2.user.id}')`,
       ])
 
       // WHEN: user with 'member' role requests records
@@ -351,10 +358,13 @@ test.describe('Table-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-TABLE-PERMISSIONS-006: user can complete full table-permissions workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema, executeQuery }) => {
+    async ({ page: _page, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Application configured with representative table-level permissions
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          authentication: ['email-and-password'],
+        },
         tables: [
           {
             id: 6,
@@ -378,11 +388,14 @@ test.describe('Table-Level Permissions', () => {
         ],
       })
 
+      // Create test user
+      const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
+
       await executeQuery([
         'ALTER TABLE data ENABLE ROW LEVEL SECURITY',
         'CREATE POLICY authenticated_read ON data FOR SELECT USING (auth.is_authenticated())',
         "CREATE POLICY admin_create ON data FOR INSERT WITH CHECK (auth.user_has_role('admin'))",
-        "INSERT INTO data (content, owner_id) VALUES ('Data 1', 1)",
+        `INSERT INTO data (content, owner_id) VALUES ('Data 1', '${user1.user.id}')`,
       ])
 
       // WHEN/THEN: Streamlined workflow testing integration points

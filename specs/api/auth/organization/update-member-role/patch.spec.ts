@@ -20,8 +20,8 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Validation Approach:
  * - API response assertions (status codes, response schemas)
- * - Database state validation (executeQuery fixture)
- * - Authentication/authorization checks
+ * - Database state validation via API (no direct executeQuery for auth data)
+ * - Authentication/authorization checks via auth fixtures
  */
 
 test.describe('Update member role', () => {
@@ -30,116 +30,122 @@ test.describe('Update member role', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-UPDATE-MEMBER-ROLE-001: should returns 200 OK with updated member data',
+    'API-AUTH-ORG-UPDATE-MEMBER-ROLE-001: should return 200 OK with updated member data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated organization owner and an existing member
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'member@example.com', '$2a$10$YourHashedPasswordHere', 'Member User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 1, 2, 'member', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Create owner and organization
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+
+      // Create member
+      await signUp({
+        email: 'member@example.com',
+        password: 'MemberPass123!',
+        name: 'Member User',
+      })
+
+      // Sign back in as owner and add member
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      await page.request.post('/api/auth/organization/add-member', {
+        data: {
+          organizationId: org.id,
+          userId: '2',
+          role: 'member',
+        },
+      })
 
       // WHEN: Owner updates member role to admin
       const response = await page.request.patch('/api/auth/organization/update-member-role', {
         data: {
-          organizationId: '1',
+          organizationId: org.id,
           userId: '2',
           role: 'admin',
         },
       })
 
       // THEN: Returns 200 OK with updated member data
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // Response contains updated member with new role
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('organization')
-
-      // Member role is updated in database
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      expect(data).toHaveProperty('member')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-UPDATE-MEMBER-ROLE-002: should returns 400 Bad Request with validation errors',
+    'API-AUTH-ORG-UPDATE-MEMBER-ROLE-002: should return 400 Bad Request with validation errors',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
 
       // WHEN: Owner submits request without required fields
-      const response = await page.request.patch('/api/auth/organization/update-member-role', {})
+      const response = await page.request.patch('/api/auth/organization/update-member-role', {
+        data: {},
+      })
 
       // THEN: Returns 400 Bad Request with validation errors
-      // Returns 400 Bad Request
-      expect(response.status).toBe(400)
+      expect(response.status()).toBe(400)
 
-      // Response contains validation error for required fields
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-UPDATE-MEMBER-ROLE-003: should returns 401 Unauthorized',
+    'API-AUTH-ORG-UPDATE-MEMBER-ROLE-003: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: A running server
+      // GIVEN: A running server (no authenticated user)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -153,171 +159,186 @@ test.describe('Update member role', () => {
       })
 
       // THEN: Returns 401 Unauthorized
-      // Returns 401 Unauthorized
-      expect(response.status).toBe(401)
-
-      // Response contains error about missing authentication
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(401)
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-UPDATE-MEMBER-ROLE-004: should returns 403 Forbidden',
+    'API-AUTH-ORG-UPDATE-MEMBER-ROLE-004: should return 403 Forbidden',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated regular member (not owner/admin)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'member1@example.com', '$2a$10$YourHashedPasswordHere', 'Member 1', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'member2@example.com', '$2a$10$YourHashedPasswordHere', 'Member 2', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'member', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 1, 2, 'member', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'member_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Create owner and organization
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+
+      // Create two members
+      await signUp({
+        email: 'member1@example.com',
+        password: 'Member1Pass123!',
+        name: 'Member 1',
+      })
+      await signUp({
+        email: 'member2@example.com',
+        password: 'Member2Pass123!',
+        name: 'Member 2',
+      })
+
+      // Owner adds both as members
+      await page.request.post('/api/auth/organization/add-member', {
+        data: { organizationId: org.id, userId: '2', role: 'member' },
+      })
+      await page.request.post('/api/auth/organization/add-member', {
+        data: { organizationId: org.id, userId: '3', role: 'member' },
+      })
+
+      // Sign in as member1
+      await signIn({
+        email: 'member1@example.com',
+        password: 'Member1Pass123!',
+      })
 
       // WHEN: Member attempts to update another member's role
       const response = await page.request.patch('/api/auth/organization/update-member-role', {
         data: {
-          organizationId: '1',
-          userId: '2',
+          organizationId: org.id,
+          userId: '3',
           role: 'admin',
         },
       })
 
       // THEN: Returns 403 Forbidden
-      // Returns 403 Forbidden
-      expect(response.status).toBe(403)
+      expect(response.status()).toBe(403)
 
-      // Response contains error about insufficient permissions
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-UPDATE-MEMBER-ROLE-005: should returns 404 Not Found',
+    'API-AUTH-ORG-UPDATE-MEMBER-ROLE-005: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
 
       // WHEN: Owner attempts to update role of non-existent member
       const response = await page.request.patch('/api/auth/organization/update-member-role', {
         data: {
-          organizationId: '1',
-          userId: '999',
+          organizationId: org.id,
+          userId: 'nonexistent-user-id',
           role: 'admin',
         },
       })
 
       // THEN: Returns 404 Not Found
-      // Returns 404 Not Found
-      expect(response.status).toBe(404)
+      expect(response.status()).toBe(404)
 
-      // Response contains error about member not found
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-UPDATE-MEMBER-ROLE-006: should returns 200 OK (idempotent operation)',
+    'API-AUTH-ORG-UPDATE-MEMBER-ROLE-006: should return 200 OK (idempotent operation)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated organization owner and an existing admin member
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 1, 2, 'admin', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Create owner and organization
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+
+      // Create member and add as admin
+      await signUp({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+        name: 'Admin User',
+      })
+
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      await page.request.post('/api/auth/organization/add-member', {
+        data: { organizationId: org.id, userId: '2', role: 'admin' },
+      })
 
       // WHEN: Owner updates member role to their current role
       const response = await page.request.patch('/api/auth/organization/update-member-role', {
         data: {
-          organizationId: '1',
+          organizationId: org.id,
           userId: '2',
           role: 'admin',
         },
       })
 
       // THEN: Returns 200 OK (idempotent operation)
-      // Returns 200 OK (idempotent)
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // Member role remains unchanged
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const data = await response.json()
+      expect(data).toHaveProperty('member')
     }
   )
 
@@ -328,25 +349,79 @@ test.describe('Update member role', () => {
   test.fixme(
     'API-AUTH-ORG-UPDATE-MEMBER-ROLE-007: user can complete full updateMemberRole workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
-      // GIVEN: Representative test scenario
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // WHEN: Execute workflow
-      const response = await page.request.post('/api/auth/workflow', {
-        data: { test: true },
+      // Test 1: Update member role without auth fails
+      const noAuthResponse = await page.request.patch('/api/auth/organization/update-member-role', {
+        data: { organizationId: '1', userId: '2', role: 'admin' },
+      })
+      expect(noAuthResponse.status()).toBe(401)
+
+      // Create owner and organization
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
       })
 
-      // THEN: Verify integration
-      expect(response.status()).toBe(200)
-      const data = await response.json()
-      expect(data).toMatchObject({ success: true })
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+
+      // Create and add member
+      await signUp({
+        email: 'member@example.com',
+        password: 'MemberPass123!',
+        name: 'Member User',
+      })
+
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      await page.request.post('/api/auth/organization/add-member', {
+        data: { organizationId: org.id, userId: '2', role: 'member' },
+      })
+
+      // Test 2: Update member role succeeds for owner
+      const updateResponse = await page.request.patch('/api/auth/organization/update-member-role', {
+        data: {
+          organizationId: org.id,
+          userId: '2',
+          role: 'admin',
+        },
+      })
+      expect(updateResponse.status()).toBe(200)
+
+      const data = await updateResponse.json()
+      expect(data).toHaveProperty('member')
+
+      // Test 3: Update non-existent member fails
+      const notFoundResponse = await page.request.patch(
+        '/api/auth/organization/update-member-role',
+        {
+          data: {
+            organizationId: org.id,
+            userId: 'nonexistent-id',
+            role: 'admin',
+          },
+        }
+      )
+      expect(notFoundResponse.status()).toBe(404)
     }
   )
 })

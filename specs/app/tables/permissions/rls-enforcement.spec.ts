@@ -32,7 +32,7 @@ test.describe('Row-Level Security Enforcement', () => {
   test.fixme(
     'APP-TABLES-RLS-ENFORCEMENT-001: should filter records based on user ownership policy',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with owner-based permission
       await startServerWithSchema({
         name: 'test-app',
@@ -55,12 +55,16 @@ test.describe('Row-Level Security Enforcement', () => {
         ],
       })
 
+      // Create test users
+      const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
+      const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
+
       // Create notes owned by different users
       await executeQuery([
         `INSERT INTO notes (id, title, owner_id) VALUES
-         (1, 'User 1 Note 1', 1),
-         (2, 'User 1 Note 2', 1),
-         (3, 'User 2 Note 1', 2)`,
+         (1, 'User 1 Note 1', '${user1.user.id}'),
+         (2, 'User 1 Note 2', '${user1.user.id}'),
+         (3, 'User 2 Note 1', '${user2.user.id}')`,
       ])
 
       // WHEN: Checking RLS policy exists in database
@@ -89,7 +93,7 @@ test.describe('Row-Level Security Enforcement', () => {
   test.fixme(
     'APP-TABLES-RLS-ENFORCEMENT-002: should prevent reading records not matching permission policy',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with owner-based permission
       await startServerWithSchema({
         name: 'test-app',
@@ -112,10 +116,14 @@ test.describe('Row-Level Security Enforcement', () => {
         ],
       })
 
+      // Create test users
+      const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
+      const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
+
       await executeQuery([
         `INSERT INTO private_data (id, secret, user_id) VALUES
-         (1, 'User 1 Secret', 1),
-         (2, 'Other User Secret', 2)`,
+         (1, 'User 1 Secret', '${user1.user.id}'),
+         (2, 'Other User Secret', '${user2.user.id}')`,
       ])
 
       // WHEN: Checking RLS policy configuration
@@ -259,7 +267,7 @@ test.describe('Row-Level Security Enforcement', () => {
   test.fixme(
     'APP-TABLES-RLS-ENFORCEMENT-005: should apply owner permission on INSERT operations',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with owner-based create permission
       await startServerWithSchema({
         name: 'test-app',
@@ -281,6 +289,9 @@ test.describe('Row-Level Security Enforcement', () => {
           },
         ],
       })
+
+      // Create test user
+      const _user = await createAuthenticatedUser({ email: 'user@example.com' })
 
       // WHEN: Checking RLS policy for INSERT operations
       // THEN: RLS policy for owner-based create should be created
@@ -310,7 +321,7 @@ test.describe('Row-Level Security Enforcement', () => {
   test.fixme(
     'APP-TABLES-RLS-ENFORCEMENT-006: should apply owner permission on UPDATE operations',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with owner-based update permission
       await startServerWithSchema({
         name: 'test-app',
@@ -333,10 +344,14 @@ test.describe('Row-Level Security Enforcement', () => {
         ],
       })
 
+      // Create test users
+      const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
+      const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
+
       await executeQuery([
         `INSERT INTO documents (id, content, owner_id) VALUES
-         (1, 'User 1 Doc', 1),
-         (2, 'User 2 Doc', 2)`,
+         (1, 'User 1 Doc', '${user1.user.id}'),
+         (2, 'User 2 Doc', '${user2.user.id}')`,
       ])
 
       // WHEN: Checking RLS policy for UPDATE operations
@@ -367,7 +382,7 @@ test.describe('Row-Level Security Enforcement', () => {
   test.fixme(
     'APP-TABLES-RLS-ENFORCEMENT-007: should apply owner permission on DELETE operations',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with owner-based delete permission
       await startServerWithSchema({
         name: 'test-app',
@@ -390,10 +405,14 @@ test.describe('Row-Level Security Enforcement', () => {
         ],
       })
 
+      // Create test users
+      const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
+      const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
+
       await executeQuery([
         `INSERT INTO comments (id, text, author_id) VALUES
-         (1, 'User 1 Comment', 1),
-         (2, 'User 2 Comment', 2)`,
+         (1, 'User 1 Comment', '${user1.user.id}'),
+         (2, 'User 2 Comment', '${user2.user.id}')`,
       ])
 
       // WHEN: Checking RLS policy for DELETE operations
@@ -496,7 +515,7 @@ test.describe('Row-Level Security Enforcement', () => {
   test.fixme(
     'APP-TABLES-RLS-ENFORCEMENT-009: row-level security enforcement workflow',
     { tag: '@regression' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with owner-based permissions for all CRUD operations
       await startServerWithSchema({
         name: 'test-app',
@@ -522,10 +541,14 @@ test.describe('Row-Level Security Enforcement', () => {
         ],
       })
 
+      // Create test users
+      const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
+      const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
+
       await executeQuery([
         `INSERT INTO items (id, name, user_id) VALUES
-         (1, 'User 1 Item', 1),
-         (2, 'User 2 Item', 2)`,
+         (1, 'User 1 Item', '${user1.user.id}'),
+         (2, 'User 2 Item', '${user2.user.id}')`,
       ])
 
       // WHEN: Checking complete RLS configuration

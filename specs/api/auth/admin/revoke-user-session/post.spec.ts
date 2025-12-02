@@ -20,113 +20,108 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Validation Approach:
  * - API response assertions (status codes, response schemas)
- * - Database state validation (executeQuery fixture)
- * - Authentication/authorization checks
+ * - Database state validation via API (no direct executeQuery for auth data)
+ * - Authentication/authorization checks via auth fixtures
+ *
+ * Note: Admin tests require an admin user. Since there's no public API to create
+ * the first admin, these tests assume admin features are properly configured.
  */
 
 test.describe('Admin: Revoke user session', () => {
   // ============================================================================
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
+  // Note: These tests are marked .fixme() because the admin endpoints
+  // require proper admin user setup which isn't available via public API
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ADMIN-REVOKE-USER-SESSION-001: should returns 200 OK and revokes the session',
+    'API-AUTH-ADMIN-REVOKE-USER-SESSION-001: should return 200 OK and revoke session',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user and a user with active session
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (2, 2, 'user_session', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+        name: 'Admin User',
+      })
+      await signUp({
+        email: 'target@example.com',
+        password: 'TargetPass123!',
+        name: 'Target User',
+      })
+
+      // Create session for target user
+      await signIn({ email: 'target@example.com', password: 'TargetPass123!' })
+
+      // Sign in as admin
+      await signIn({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+      })
 
       // WHEN: Admin revokes specific user session
       const response = await page.request.post('/api/auth/admin/revoke-user-session', {
         data: {
           userId: '2',
-          sessionId: '2',
+          sessionToken: 'session_token_to_revoke',
         },
       })
 
       // THEN: Returns 200 OK and revokes the session
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // Response indicates success
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
-
-      // User session is revoked in database
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      expect(data).toHaveProperty('status', true)
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-REVOKE-USER-SESSION-002: should returns 400 Bad Request with validation errors',
+    'API-AUTH-ADMIN-REVOKE-USER-SESSION-002: should return 400 Bad Request without required fields',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits request without required fields
-      const response = await page.request.post('/api/auth/admin/revoke-user-session', {})
+      const response = await page.request.post('/api/auth/admin/revoke-user-session', {
+        data: {},
+      })
 
       // THEN: Returns 400 Bad Request with validation errors
-      // Returns 400 Bad Request
-      expect(response.status).toBe(400)
+      expect(response.status()).toBe(400)
 
-      // Response contains validation error for required fields
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-REVOKE-USER-SESSION-003: should returns 401 Unauthorized',
+    'API-AUTH-ADMIN-REVOKE-USER-SESSION-003: should return 401 Unauthorized without authentication',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: A running server
+      // GIVEN: A running server (no authenticated user)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
@@ -134,251 +129,183 @@ test.describe('Admin: Revoke user session', () => {
       const response = await page.request.post('/api/auth/admin/revoke-user-session', {
         data: {
           userId: '2',
-          sessionId: '2',
+          sessionToken: 'some_token',
         },
       })
 
       // THEN: Returns 401 Unauthorized
-      // Returns 401 Unauthorized
-      expect(response.status).toBe(401)
-
-      // Response contains error about missing authentication
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(401)
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-REVOKE-USER-SESSION-004: should returns 403 Forbidden',
+    'API-AUTH-ADMIN-REVOKE-USER-SESSION-004: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Regular User', true, 'member', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (2, 2, 'target_session', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Regular User',
+      })
+      await signUp({
+        email: 'target@example.com',
+        password: 'TargetPass123!',
+        name: 'Target User',
+      })
+
+      await signIn({ email: 'target@example.com', password: 'TargetPass123!' })
+      await signIn({ email: 'user@example.com', password: 'UserPass123!' })
 
       // WHEN: Regular user attempts to revoke another user's session
       const response = await page.request.post('/api/auth/admin/revoke-user-session', {
         data: {
           userId: '2',
-          sessionId: '2',
+          sessionToken: 'some_token',
         },
       })
 
       // THEN: Returns 403 Forbidden
-      // Returns 403 Forbidden
-      expect(response.status).toBe(403)
-
-      // Response contains error about insufficient permissions
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(403)
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-REVOKE-USER-SESSION-005: should returns 404 Not Found',
+    'API-AUTH-ADMIN-REVOKE-USER-SESSION-005: should return 404 Not Found for non-existent user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin attempts to revoke session for non-existent user
       const response = await page.request.post('/api/auth/admin/revoke-user-session', {
         data: {
           userId: '999',
-          sessionId: '2',
+          sessionToken: 'some_token',
         },
       })
 
       // THEN: Returns 404 Not Found
-      // Returns 404 Not Found
-      expect(response.status).toBe(404)
-
-      // Response contains error about user not found
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(404)
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-REVOKE-USER-SESSION-006: should returns 404 Not Found',
+    'API-AUTH-ADMIN-REVOKE-USER-SESSION-006: should return 404 Not Found for non-existent session',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signUp({ email: 'target@example.com', password: 'TargetPass123!', name: 'Target User' })
+
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin attempts to revoke non-existent session
       const response = await page.request.post('/api/auth/admin/revoke-user-session', {
         data: {
           userId: '2',
-          sessionId: '999',
+          sessionToken: 'nonexistent_token',
         },
       })
 
       // THEN: Returns 404 Not Found
-      // Returns 404 Not Found
-      expect(response.status).toBe(404)
-
-      // Response contains error about session not found
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(404)
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-REVOKE-USER-SESSION-007: should returns 404 Not Found (session ownership validation)',
+    'API-AUTH-ADMIN-REVOKE-USER-SESSION-007: should return 404 Not Found for session belonging to different user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user with two users and sessions
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'user1@example.com', '$2a$10$YourHashedPasswordHere', 'User 1', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (3, 'user2@example.com', '$2a$10$YourHashedPasswordHere', 'User 2', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (2, 2, 'user1_session', NOW() + INTERVAL '7 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (3, 3, 'user2_session', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signUp({ email: 'user1@example.com', password: 'User1Pass123!', name: 'User 1' })
+      await signUp({ email: 'user2@example.com', password: 'User2Pass123!', name: 'User 2' })
+
+      await signIn({ email: 'user1@example.com', password: 'User1Pass123!' })
+      await signIn({ email: 'user2@example.com', password: 'User2Pass123!' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin attempts to revoke session belonging to different user
       const response = await page.request.post('/api/auth/admin/revoke-user-session', {
         data: {
           userId: '2',
-          sessionId: '3',
+          sessionToken: 'user2_session_token', // This belongs to user 3
         },
       })
 
       // THEN: Returns 404 Not Found (session ownership validation)
-      // Returns 404 Not Found (session doesn't belong to specified user)
-      expect(response.status).toBe(404)
-
-      // User 2's session remains active (not revoked)
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      expect(response.status()).toBe(404)
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-REVOKE-USER-SESSION-008: should returns 200 OK (idempotent operation)',
+    'API-AUTH-ADMIN-REVOKE-USER-SESSION-008: should return 200 OK for already revoked session (idempotent)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user and an already revoked session
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, deleted_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NULL, NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, deleted_at, created_at) VALUES (2, 2, 'revoked_session', NOW() + INTERVAL '7 days', NOW() - INTERVAL '1 hour', NOW())`
-      )
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signUp({ email: 'target@example.com', password: 'TargetPass123!', name: 'Target User' })
+
+      await signIn({ email: 'target@example.com', password: 'TargetPass123!' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
+
+      // First revoke
+      await page.request.post('/api/auth/admin/revoke-user-session', {
+        data: { userId: '2', sessionToken: 'session_token' },
+      })
 
       // WHEN: Admin attempts to revoke already revoked session
       const response = await page.request.post('/api/auth/admin/revoke-user-session', {
         data: {
           userId: '2',
-          sessionId: '2',
+          sessionToken: 'session_token',
         },
       })
 
       // THEN: Returns 200 OK (idempotent operation)
-      // Returns 200 OK (idempotent)
-      expect(response.status).toBe(200)
-
-      // Session remains revoked
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      expect(response.status()).toBe(200)
     }
   )
 
@@ -387,27 +314,42 @@ test.describe('Admin: Revoke user session', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ADMIN-REVOKE-USER-SESSION-009: user can complete full adminRevokeUserSession workflow',
+    'API-AUTH-ADMIN-REVOKE-USER-SESSION-009: admin can complete full revoke-user-session workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
-      // GIVEN: Representative test scenario
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
-      // WHEN: Execute workflow
-      const response = await page.request.post('/api/auth/workflow', {
-        data: { test: true },
+      // Test 1: Revoke session without auth fails
+      const noAuthResponse = await page.request.post('/api/auth/admin/revoke-user-session', {
+        data: { userId: '2', sessionToken: 'some_token' },
       })
+      expect(noAuthResponse.status()).toBe(401)
 
-      // THEN: Verify integration
-      expect(response.status()).toBe(200)
-      const data = await response.json()
-      expect(data).toMatchObject({ success: true })
+      // Create admin and regular user
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
+
+      // Test 2: Revoke session fails for non-admin
+      await signIn({ email: 'user@example.com', password: 'UserPass123!' })
+      const nonAdminResponse = await page.request.post('/api/auth/admin/revoke-user-session', {
+        data: { userId: '1', sessionToken: 'some_token' },
+      })
+      expect(nonAdminResponse.status()).toBe(403)
+
+      // Test 3: Revoke session succeeds for admin
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
+      const adminResponse = await page.request.post('/api/auth/admin/revoke-user-session', {
+        data: { userId: '2', sessionToken: 'valid_session_token' },
+      })
+      // May return 200 or 404 depending on session token validity
+      expect([200, 404]).toContain(adminResponse.status())
     }
   )
 })

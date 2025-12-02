@@ -20,8 +20,8 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Validation Approach:
  * - API response assertions (status codes, response schemas)
- * - Database state validation (executeQuery fixture)
- * - Authentication/authorization checks
+ * - Database state validation via API (no direct executeQuery for auth data)
+ * - Authentication/authorization checks via auth fixtures
  */
 
 test.describe('Get organization details', () => {
@@ -30,206 +30,192 @@ test.describe('Get organization details', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-GET-ORGANIZATION-001: should returns 200 OK with organization data',
+    'API-AUTH-ORG-GET-ORGANIZATION-001: should return 200 OK with organization data',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user who is member of an organization
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, metadata, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', '{"industry":"Technology"}', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'member', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+      })
+
+      // Create organization (user becomes owner)
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
 
       // WHEN: User requests organization details
       const response = await page.request.get(
-        '/api/auth/organization/get-organization?organizationId=1',
-        {}
+        `/api/auth/organization/get-full-organization?organizationId=${org.id}`
       )
 
       // THEN: Returns 200 OK with organization data
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // Response contains organization details
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('organization')
-
-      // Response includes correct organization data
+      expect(data).toHaveProperty('id', org.id)
+      expect(data).toHaveProperty('name', 'Test Org')
+      expect(data).toHaveProperty('slug', 'test-org')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-GET-ORGANIZATION-002: should returns 400 Bad Request with validation error',
+    'API-AUTH-ORG-GET-ORGANIZATION-002: should return 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+      })
 
       // WHEN: User requests organization without organizationId parameter
-      const response = await page.request.get('/api/auth/organization/get-organization', {})
+      const response = await page.request.get('/api/auth/organization/get-full-organization')
 
       // THEN: Returns 400 Bad Request with validation error
-      // Returns 400 Bad Request
-      expect(response.status).toBe(400)
+      expect(response.status()).toBe(400)
 
-      // Response contains validation error for organizationId parameter
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-GET-ORGANIZATION-003: should returns 401 Unauthorized',
+    'API-AUTH-ORG-GET-ORGANIZATION-003: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: A running server
+      // GIVEN: A running server (no authenticated user)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
       // WHEN: Unauthenticated user attempts to get organization
       const response = await page.request.get(
-        '/api/auth/organization/get-organization?organizationId=1'
+        '/api/auth/organization/get-full-organization?organizationId=1'
       )
 
       // THEN: Returns 401 Unauthorized
-      // Returns 401 Unauthorized
-      expect(response.status).toBe(401)
-
-      // Response contains error about missing authentication
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(401)
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-GET-ORGANIZATION-004: should returns 404 Not Found',
+    'API-AUTH-ORG-GET-ORGANIZATION-004: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+      })
 
       // WHEN: User requests non-existent organization
       const response = await page.request.get(
-        '/api/auth/organization/get-organization?organizationId=999',
-        {}
+        '/api/auth/organization/get-full-organization?organizationId=nonexistent-id'
       )
 
       // THEN: Returns 404 Not Found
-      // Returns 404 Not Found
-      expect(response.status).toBe(404)
+      expect(response.status()).toBe(404)
 
-      // Response contains error about organization not found
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-GET-ORGANIZATION-005: should returns 404 Not Found (not 403 to prevent organization enumeration)',
+    'API-AUTH-ORG-GET-ORGANIZATION-005: should return 404 Not Found (not 403 to prevent organization enumeration)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user who is not member of an organization
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Private Org', 'private-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 2, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Create owner user and organization
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Private Org', slug: 'private-org' },
+      })
+      const org = await createResponse.json()
+
+      // Create and sign in as different user
+      await signUp({
+        email: 'other@example.com',
+        password: 'OtherPass123!',
+        name: 'Other User',
+      })
+      await signIn({
+        email: 'other@example.com',
+        password: 'OtherPass123!',
+      })
 
       // WHEN: User attempts to get organization details
       const response = await page.request.get(
-        '/api/auth/organization/get-organization?organizationId=1',
-        {}
+        `/api/auth/organization/get-full-organization?organizationId=${org.id}`
       )
 
       // THEN: Returns 404 Not Found (not 403 to prevent organization enumeration)
-      // Returns 404 Not Found (prevent organization enumeration)
-      expect(response.status).toBe(404)
+      expect(response.status()).toBe(404)
 
-      // Response contains error about organization not found
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
@@ -240,25 +226,53 @@ test.describe('Get organization details', () => {
   test.fixme(
     'API-AUTH-ORG-GET-ORGANIZATION-006: user can complete full getOrganization workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
-      // GIVEN: Representative test scenario
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // WHEN: Execute workflow
-      const response = await page.request.post('/api/auth/workflow', {
-        data: { test: true },
+      // Test 1: Get organization without auth fails
+      const noAuthResponse = await page.request.get(
+        '/api/auth/organization/get-full-organization?organizationId=1'
+      )
+      expect(noAuthResponse.status()).toBe(401)
+
+      // Create and authenticate user
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'user@example.com',
+        password: 'UserPass123!',
       })
 
-      // THEN: Verify integration
-      expect(response.status()).toBe(200)
-      const data = await response.json()
-      expect(data).toMatchObject({ success: true })
+      // Create organization
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+
+      // Test 2: Get own organization succeeds
+      const getResponse = await page.request.get(
+        `/api/auth/organization/get-full-organization?organizationId=${org.id}`
+      )
+      expect(getResponse.status()).toBe(200)
+
+      const data = await getResponse.json()
+      expect(data).toHaveProperty('name', 'Test Org')
+
+      // Test 3: Get non-existent organization fails
+      const notFoundResponse = await page.request.get(
+        '/api/auth/organization/get-full-organization?organizationId=nonexistent-id'
+      )
+      expect(notFoundResponse.status()).toBe(404)
     }
   )
 })

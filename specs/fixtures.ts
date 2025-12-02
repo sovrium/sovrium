@@ -12,6 +12,7 @@ import { join } from 'node:path'
 import { test as base } from '@playwright/test'
 import { PostgreSqlContainer } from '@testcontainers/postgresql'
 import { DatabaseTemplateManager, generateTestDatabaseName } from './database-utils'
+import { MailpitHelper, generateTestId } from './email-utils'
 import type { App } from '@/domain/models/app'
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql'
 import type { ChildProcess } from 'node:child_process'
@@ -180,13 +181,18 @@ async function startCliServer(
   url: string
   port: number
 }> {
+  // Configure SMTP to use Mailpit for all email sending
+  const mailpit = new MailpitHelper()
+  const smtpEnv = mailpit.getSmtpEnv('noreply@sovrium.com', { fromName: 'Sovrium' })
+
   // Start the server with CLI command using port 0 (Bun auto-selects available port)
   const serverProcess = spawn('bun', ['run', 'src/cli.ts'], {
     env: {
       ...process.env,
-      SOVRIUM_APP_SCHEMA: JSON.stringify(appSchema),
-      SOVRIUM_PORT: '0', // Let Bun select an available port
+      SOVRIUM_APP_JSON: JSON.stringify(appSchema),
+      PORT: '0', // Let Bun select an available port
       ...(databaseUrl && { DATABASE_URL: databaseUrl }),
+      ...smtpEnv, // Configure SMTP to use Mailpit
     },
     stdio: 'pipe',
   })
@@ -336,6 +342,45 @@ type AuthResult = {
   session?: AuthSession
 }
 
+type Organization = {
+  id: string
+  name: string
+  slug: string
+  logo?: string
+  metadata?: Record<string, unknown>
+  createdAt: string
+}
+
+type OrganizationResult = {
+  organization: Organization
+}
+
+type Invitation = {
+  id: string
+  organizationId: string
+  email: string
+  role: string
+  status: string
+  expiresAt: string
+  inviterId: string
+}
+
+type InvitationResult = {
+  invitation: Invitation
+}
+
+type Membership = {
+  id: string
+  organizationId: string
+  userId: string
+  role: string
+  createdAt: string
+}
+
+type MembershipResult = {
+  member: Membership
+}
+
 /**
  * Custom fixtures for CLI server with AppSchema configuration and database isolation
  */
@@ -438,6 +483,65 @@ type ServerFixtures = {
    * @returns The authenticated admin user and session data
    */
   createAuthenticatedAdmin: (data?: Partial<SignUpData>) => Promise<AuthResult>
+
+  /**
+   * Create a new organization via API
+   * Requires an authenticated user (call createAuthenticatedUser first)
+   * @returns The created organization data
+   */
+  createOrganization: (data: { name: string; slug?: string }) => Promise<OrganizationResult>
+
+  /**
+   * Invite a member to an organization via API
+   * Requires an authenticated user who is owner/admin of the organization
+   * @returns The invitation data
+   */
+  inviteMember: (data: {
+    organizationId: string
+    email: string
+    role?: 'admin' | 'member'
+  }) => Promise<InvitationResult>
+
+  /**
+   * Accept an organization invitation via API
+   * Requires an authenticated user who received the invitation
+   * @returns The membership data
+   */
+  acceptInvitation: (invitationId: string) => Promise<MembershipResult>
+
+  /**
+   * Add a member directly to an organization via API
+   * Requires an authenticated user who is owner/admin of the organization
+   * @returns The membership data
+   */
+  addMember: (data: {
+    organizationId: string
+    userId: string
+    role?: 'admin' | 'member'
+  }) => Promise<MembershipResult>
+
+  /**
+   * Mailpit helper for email testing
+   * Provides methods to interact with the Mailpit SMTP server and verify emails.
+   * Each test gets an isolated mailbox (emails cleared at start).
+   *
+   * @example
+   * ```typescript
+   * test('should send welcome email', async ({ mailpit }) => {
+   *   // ... trigger email sending in your app ...
+   *
+   *   // Wait for email to arrive
+   *   const email = await mailpit.waitForEmail(
+   *     (e) => e.To[0].Address === 'user@example.com'
+   *   )
+   *
+   *   // Verify email content
+   *   expect(email.Subject).toBe('Welcome!')
+   *   expect(email.From.Address).toBe('noreply@myapp.com')
+   * })
+   * ```
+   */
+  mailpit: MailpitHelper
 }
 
 /**
@@ -507,6 +611,8 @@ export const test = base.extend<ServerFixtures>({
         ;(testInfo as any)._testDatabaseName = testDbName
       }
 
+      // SMTP is automatically configured via environment variables from mailpit
+      // (configured in startCliServer - no need to pass email config in schema)
       const server = await startCliServer(appSchema, databaseUrl)
       serverProcess = server.process
       serverUrl = server.url
@@ -704,7 +810,7 @@ export const test = base.extend<ServerFixtures>({
         // Build environment variables from config
         const env: Record<string, string> = {
           ...process.env,
-          SOVRIUM_APP_SCHEMA: JSON.stringify(appSchema),
+          SOVRIUM_APP_JSON: JSON.stringify(appSchema),
           SOVRIUM_OUTPUT_DIR: outputDir,
         }
 
@@ -970,7 +1076,115 @@ export const test = base.extend<ServerFixtures>({
       }
     })
   },
+
+  // Organization fixture: Create a new organization via API
+  createOrganization: async ({ page }, use) => {
+    await use(async (data: { name: string; slug?: string }): Promise<OrganizationResult> => {
+      const response = await page.request.post('/api/auth/organization/create-organization', {
+        data: {
+          name: data.name,
+          ...(data.slug && { slug: data.slug }),
+        },
+      })
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Create organization failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      return response.json()
+    })
+  },
+
+  // Organization fixture: Invite a member to an organization via API
+  inviteMember: async ({ page }, use) => {
+    await use(
+      async (data: {
+        organizationId: string
+        email: string
+        role?: 'admin' | 'member'
+      }): Promise<InvitationResult> => {
+        const response = await page.request.post('/api/auth/organization/invite-member', {
+          data: {
+            organizationId: data.organizationId,
+            email: data.email,
+            role: data.role ?? 'member',
+          },
+        })
+
+        if (!response.ok()) {
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(
+            `Invite member failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+          )
+        }
+
+        return response.json()
+      }
+    )
+  },
+
+  // Organization fixture: Accept an invitation via API
+  acceptInvitation: async ({ page }, use) => {
+    await use(async (invitationId: string): Promise<MembershipResult> => {
+      const response = await page.request.post('/api/auth/organization/accept-invitation', {
+        data: {
+          invitationId,
+        },
+      })
+
+      if (!response.ok()) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          `Accept invitation failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      return response.json()
+    })
+  },
+
+  // Organization fixture: Add a member directly to an organization via API
+  addMember: async ({ page }, use) => {
+    await use(
+      async (data: {
+        organizationId: string
+        userId: string
+        role?: 'admin' | 'member'
+      }): Promise<MembershipResult> => {
+        const response = await page.request.post('/api/auth/organization/add-member', {
+          data: {
+            organizationId: data.organizationId,
+            userId: data.userId,
+            role: data.role ?? 'member',
+          },
+        })
+
+        if (!response.ok()) {
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(
+            `Add member failed with status ${response.status()}: ${JSON.stringify(errorData)}`
+          )
+        }
+
+        return response.json()
+      }
+    )
+  },
+
+  // Mailpit fixture: Email testing helper
+  // Each test gets its own isolated namespace via unique testId
+  // No need to clear emails - filtering by testId provides isolation
+  mailpit: async ({}, use) => {
+    const testId = generateTestId()
+    const mailpit = new MailpitHelper({ testId })
+
+    await use(mailpit)
+  },
 })
 
 export { expect } from '@playwright/test'
 export type { Locator } from '@playwright/test'
+export type { MailpitEmail } from './email-utils'

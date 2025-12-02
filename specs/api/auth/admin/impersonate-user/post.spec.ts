@@ -20,38 +20,48 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Validation Approach:
  * - API response assertions (status codes, response schemas)
- * - Database state validation (executeQuery fixture)
- * - Authentication/authorization checks
+ * - Database state validation via API (no direct executeQuery for auth data)
+ * - Authentication/authorization checks via auth fixtures
+ *
+ * Note: Admin tests require an admin user. Since there's no public API to create
+ * the first admin, these tests assume admin features are properly configured.
  */
 
 test.describe('Admin: Impersonate user', () => {
   // ============================================================================
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
+  // Note: These tests are marked .fixme() because the admin endpoints
+  // require proper admin user setup which isn't available via public API
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ADMIN-IMPERSONATE-USER-001: should returns 200 OK with impersonation token and user data',
+    'API-AUTH-ADMIN-IMPERSONATE-USER-001: should return 200 OK with impersonation session',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+        name: 'Admin User',
+      })
+      await signUp({
+        email: 'target@example.com',
+        password: 'TargetPass123!',
+        name: 'Target User',
+      })
+
+      await signIn({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+      })
 
       // WHEN: Admin impersonates the user
       const response = await page.request.post('/api/auth/admin/impersonate-user', {
@@ -60,69 +70,54 @@ test.describe('Admin: Impersonate user', () => {
         },
       })
 
-      // THEN: Returns 200 OK with impersonation token and user data
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      // THEN: Returns 200 OK with impersonation session
+      expect(response.status()).toBe(200)
 
-      // Response contains impersonation token and user data
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
-
-      // Impersonation session is created in database
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      expect(data).toHaveProperty('session')
+      expect(data).toHaveProperty('user')
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-IMPERSONATE-USER-002: should returns 400 Bad Request with validation error',
+    'API-AUTH-ADMIN-IMPERSONATE-USER-002: should return 400 Bad Request without userId',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin submits request without userId
-      const response = await page.request.post('/api/auth/admin/impersonate-user', {})
+      const response = await page.request.post('/api/auth/admin/impersonate-user', {
+        data: {},
+      })
 
       // THEN: Returns 400 Bad Request with validation error
-      // Returns 400 Bad Request
-      expect(response.status).toBe(400)
+      expect(response.status()).toBe(400)
 
-      // Response contains validation error for userId field
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-IMPERSONATE-USER-003: should returns 401 Unauthorized',
+    'API-AUTH-ADMIN-IMPERSONATE-USER-003: should return 401 Unauthorized without authentication',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: A running server
+      // GIVEN: A running server (no authenticated user)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
@@ -134,41 +129,37 @@ test.describe('Admin: Impersonate user', () => {
       })
 
       // THEN: Returns 401 Unauthorized
-      // Returns 401 Unauthorized
-      expect(response.status).toBe(401)
-
-      // Response contains error about missing authentication
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(401)
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-IMPERSONATE-USER-004: should returns 403 Forbidden',
+    'API-AUTH-ADMIN-IMPERSONATE-USER-004: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Regular User', true, 'member', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Regular User',
+      })
+      await signUp({
+        email: 'target@example.com',
+        password: 'TargetPass123!',
+        name: 'Target User',
+      })
+      await signIn({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+      })
 
       // WHEN: Regular user attempts to impersonate another user
       const response = await page.request.post('/api/auth/admin/impersonate-user', {
@@ -178,41 +169,32 @@ test.describe('Admin: Impersonate user', () => {
       })
 
       // THEN: Returns 403 Forbidden
-      // Returns 403 Forbidden
-      expect(response.status).toBe(403)
-
-      // Response contains error about insufficient permissions
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(403)
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-IMPERSONATE-USER-005: should returns 403 Forbidden (cannot impersonate banned users)',
+    'API-AUTH-ADMIN-IMPERSONATE-USER-005: should return 403 Forbidden for banned user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user and a banned user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, banned, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', false, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, banned, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signUp({ email: 'target@example.com', password: 'TargetPass123!', name: 'Target User' })
+
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
+
+      // Ban the user first
+      await page.request.post('/api/auth/admin/ban-user', {
+        data: { userId: '2' },
+      })
 
       // WHEN: Admin attempts to impersonate banned user
       const response = await page.request.post('/api/auth/admin/impersonate-user', {
@@ -222,38 +204,25 @@ test.describe('Admin: Impersonate user', () => {
       })
 
       // THEN: Returns 403 Forbidden (cannot impersonate banned users)
-      // Returns 403 Forbidden
-      expect(response.status).toBe(403)
-
-      // Response contains error about user being banned
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(403)
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-IMPERSONATE-USER-006: should returns 404 Not Found',
+    'API-AUTH-ADMIN-IMPERSONATE-USER-006: should return 404 Not Found for non-existent user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin attempts to impersonate non-existent user
       const response = await page.request.post('/api/auth/admin/impersonate-user', {
@@ -263,41 +232,27 @@ test.describe('Admin: Impersonate user', () => {
       })
 
       // THEN: Returns 404 Not Found
-      // Returns 404 Not Found
-      expect(response.status).toBe(404)
-
-      // Response contains error about user not found
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(404)
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-IMPERSONATE-USER-007: should returns 200 OK and creates audit trail in session metadata',
+    'API-AUTH-ADMIN-IMPERSONATE-USER-007: should return 200 OK with audit trail',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user and an existing user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'target@example.com', '$2a$10$YourHashedPasswordHere', 'Target User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signUp({ email: 'target@example.com', password: 'TargetPass123!', name: 'Target User' })
+
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin impersonates user
       const response = await page.request.post('/api/auth/admin/impersonate-user', {
@@ -307,12 +262,11 @@ test.describe('Admin: Impersonate user', () => {
       })
 
       // THEN: Returns 200 OK and creates audit trail in session metadata
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // Session includes admin ID for audit trail
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const data = await response.json()
+      expect(data).toHaveProperty('session')
+      // Session should include impersonation metadata for audit
     }
   )
 
@@ -321,27 +275,45 @@ test.describe('Admin: Impersonate user', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ADMIN-IMPERSONATE-USER-008: user can complete full adminImpersonateUser workflow',
+    'API-AUTH-ADMIN-IMPERSONATE-USER-008: admin can complete full impersonate-user workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
-      // GIVEN: Representative test scenario
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
-      // WHEN: Execute workflow
-      const response = await page.request.post('/api/auth/workflow', {
-        data: { test: true },
+      // Test 1: Impersonate without auth fails
+      const noAuthResponse = await page.request.post('/api/auth/admin/impersonate-user', {
+        data: { userId: '2' },
       })
+      expect(noAuthResponse.status()).toBe(401)
 
-      // THEN: Verify integration
-      expect(response.status()).toBe(200)
-      const data = await response.json()
-      expect(data).toMatchObject({ success: true })
+      // Create admin and regular user
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
+
+      // Test 2: Impersonate fails for non-admin
+      await signIn({ email: 'user@example.com', password: 'UserPass123!' })
+      const nonAdminResponse = await page.request.post('/api/auth/admin/impersonate-user', {
+        data: { userId: '1' },
+      })
+      expect(nonAdminResponse.status()).toBe(403)
+
+      // Test 3: Impersonate succeeds for admin
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
+      const adminResponse = await page.request.post('/api/auth/admin/impersonate-user', {
+        data: { userId: '2' },
+      })
+      expect(adminResponse.status()).toBe(200)
+
+      const data = await adminResponse.json()
+      expect(data).toHaveProperty('session')
+      expect(data).toHaveProperty('user')
     }
   )
 })

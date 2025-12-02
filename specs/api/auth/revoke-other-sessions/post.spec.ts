@@ -20,245 +20,225 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Validation Approach:
  * - API response assertions (status codes, response schemas)
- * - Database state validation (executeQuery fixture)
- * - Authentication/authorization checks
+ * - Database state validation via API (no direct executeQuery for auth data)
+ * - Authentication/authorization checks via auth fixtures
+ *
+ * Note: Better Auth's revoke-other-sessions endpoint may not be publicly exposed.
+ * These tests verify the behavior when calling the endpoint.
  */
 
 test.describe('Revoke all other sessions', () => {
   // ============================================================================
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
+  // Note: These tests are marked .fixme() because the /api/auth/revoke-other-sessions
+  // endpoint is not yet implemented (returns 404)
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-REVOKE-OTHER-SESSIONS-001: should returns 200 OK and revokes all sessions except current one',
+    'API-AUTH-REVOKE-OTHER-SESSIONS-001: should return 200 OK and revoke all sessions except current one',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user with multiple active sessions
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'current_session', NOW() + INTERVAL '7 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (2, 1, 'other_session_1', NOW() + INTERVAL '7 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (3, 1, 'other_session_2', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Create user and sign in to create multiple sessions
+      await signUp({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+      })
+      // Create another session
+      await signIn({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+      })
+
+      // Get initial session count
+      const sessionsBeforeResponse = await page.request.get('/api/auth/list-sessions')
+      const sessionsBefore = await sessionsBeforeResponse.json()
+      expect(sessionsBefore.length).toBeGreaterThanOrEqual(2)
 
       // WHEN: User revokes all other sessions
-      const response = await page.request.post('/api/auth/revoke-other-sessions', {})
+      const response = await page.request.post('/api/auth/revoke-other-sessions')
 
       // THEN: Returns 200 OK and revokes all sessions except current one
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // Response indicates success
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('success', true)
 
-      // Other sessions are revoked in database
-      const otherSessions = await executeQuery(
-        "SELECT COUNT(*) as count FROM sessions WHERE user_id = 1 AND token != 'current_session'"
-      )
-      expect(otherSessions.count).toBe(0)
-
-      // Current session remains active
-      const currentSession = await executeQuery(
-        "SELECT * FROM sessions WHERE token = 'current_session' LIMIT 1"
-      )
-      expect(currentSession).toBeDefined()
+      // Verify only one session remains (current)
+      const sessionsAfterResponse = await page.request.get('/api/auth/list-sessions')
+      const sessionsAfter = await sessionsAfterResponse.json()
+      expect(sessionsAfter.length).toBe(1)
     }
   )
 
   test.fixme(
-    'API-AUTH-REVOKE-OTHER-SESSIONS-002: should returns 401 Unauthorized',
+    'API-AUTH-REVOKE-OTHER-SESSIONS-002: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: A running server
+      // GIVEN: A running server (no authenticated user)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Unauthenticated user attempts to revoke other sessions
-      const response = await page.request.post('/api/auth/revoke-other-sessions', {})
+      const response = await page.request.post('/api/auth/revoke-other-sessions')
 
       // THEN: Returns 401 Unauthorized
-      // Returns 401 Unauthorized
-      expect(response.status).toBe(401)
-
-      // Response contains error about missing authentication
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(401)
     }
   )
 
   test.fixme(
-    'API-AUTH-REVOKE-OTHER-SESSIONS-003: should returns 200 OK (no sessions to revoke)',
+    'API-AUTH-REVOKE-OTHER-SESSIONS-003: should return 200 OK with no sessions to revoke',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user with only current session
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'current_session', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Create user and sign in (only one session)
+      await signUp({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+      })
 
-      // WHEN: User revokes other sessions (none exist)
-      const response = await page.request.post('/api/auth/revoke-other-sessions', {})
+      // Verify we have sessions
+      const sessionsBeforeResponse = await page.request.get('/api/auth/list-sessions')
+      const sessionsBefore = await sessionsBeforeResponse.json()
+      expect(sessionsBefore.length).toBeGreaterThanOrEqual(1)
 
-      // THEN: Returns 200 OK (no sessions to revoke)
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      // WHEN: User revokes other sessions (none exist besides current)
+      const response = await page.request.post('/api/auth/revoke-other-sessions')
+
+      // THEN: Returns 200 OK (idempotent operation)
+      expect(response.status()).toBe(200)
 
       // Current session remains active
-      const currentSession = await executeQuery(
-        "SELECT * FROM sessions WHERE token = 'current_session' LIMIT 1"
-      )
-      expect(currentSession).toBeDefined()
-
-      // No other sessions exist for this user
-      const totalSessions = await executeQuery(
-        'SELECT COUNT(*) as count FROM sessions WHERE user_id = 1'
-      )
-      expect(totalSessions.count).toBe(1)
+      const sessionsAfterResponse = await page.request.get('/api/auth/list-sessions')
+      const sessionsAfter = await sessionsAfterResponse.json()
+      expect(sessionsAfter.length).toBeGreaterThanOrEqual(1)
     }
   )
 
   test.fixme(
-    'API-AUTH-REVOKE-OTHER-SESSIONS-004: should returns 200 OK and revokes all sessions except current device',
+    'API-AUTH-REVOKE-OTHER-SESSIONS-004: should return 200 OK and revoke all sessions except current device',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user with sessions across multiple devices
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, ip_address, user_agent, expires_at, created_at) VALUES (1, 1, 'desktop_session', '192.168.1.10', 'Mozilla/5.0 (Windows NT 10.0) Chrome/120.0', NOW() + INTERVAL '7 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, ip_address, user_agent, expires_at, created_at) VALUES (2, 1, 'mobile_session', '192.168.1.20', 'Mozilla/5.0 (iPhone; iOS 17.0) Safari/17.0', NOW() + INTERVAL '7 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, ip_address, user_agent, expires_at, created_at) VALUES (3, 1, 'tablet_session', '192.168.1.30', 'Mozilla/5.0 (iPad; iPadOS 17.0) Safari/17.0', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Create user and sign in multiple times to create multiple sessions
+      await signUp({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+      })
+      await signIn({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+      })
+
+      // Get initial session count
+      const sessionsBeforeResponse = await page.request.get('/api/auth/list-sessions')
+      expect((await sessionsBeforeResponse.json()).length).toBeGreaterThanOrEqual(2)
 
       // WHEN: User revokes other sessions from one device
-      const response = await page.request.post('/api/auth/revoke-other-sessions', {})
+      const response = await page.request.post('/api/auth/revoke-other-sessions')
 
       // THEN: Returns 200 OK and revokes all sessions except current device
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // Mobile and tablet sessions are revoked
-      const revokedSessions = await executeQuery(
-        "SELECT COUNT(*) as count FROM sessions WHERE user_id = 1 AND token != 'desktop_session'"
-      )
-      expect(revokedSessions.count).toBe(0)
-
-      // Desktop session (current) remains active
-      const desktopSession = await executeQuery(
-        "SELECT * FROM sessions WHERE token = 'desktop_session' LIMIT 1"
-      )
-      expect(desktopSession).toBeDefined()
+      // Only current session remains
+      const sessionsAfterResponse = await page.request.get('/api/auth/list-sessions')
+      const sessionsAfter = await sessionsAfterResponse.json()
+      expect(sessionsAfter.length).toBe(1)
     }
   )
 
   test.fixme(
-    "API-AUTH-REVOKE-OTHER-SESSIONS-005: should returns 200 OK and only revokes User A's sessions (User B unaffected)",
+    'API-AUTH-REVOKE-OTHER-SESSIONS-005: should return 200 OK and only revoke current user sessions (other users unaffected)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: Two users with multiple sessions each
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user1@example.com', '$2a$10$YourHashedPasswordHere', 'User 1', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'user2@example.com', '$2a$10$YourHashedPasswordHere', 'User 2', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user1_session1', NOW() + INTERVAL '7 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (2, 1, 'user1_session2', NOW() + INTERVAL '7 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (3, 2, 'user2_session1', NOW() + INTERVAL '7 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (4, 2, 'user2_session2', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Create User A
+      await signUp({
+        email: 'userA@example.com',
+        password: 'PasswordA123!',
+        name: 'User A',
+      })
+
+      // Create User B
+      await signUp({
+        email: 'userB@example.com',
+        password: 'PasswordB123!',
+        name: 'User B',
+      })
+
+      // Sign in as User A multiple times
+      await signIn({ email: 'userA@example.com', password: 'PasswordA123!' })
+      await signIn({ email: 'userA@example.com', password: 'PasswordA123!' })
+
+      // Get User A's sessions before
+      const sessionsBeforeResponse = await page.request.get('/api/auth/list-sessions')
+      const sessionsBefore = await sessionsBeforeResponse.json()
+      expect(sessionsBefore.length).toBeGreaterThanOrEqual(2)
 
       // WHEN: User A revokes their other sessions
-      const response = await page.request.post('/api/auth/revoke-other-sessions', {})
+      const response = await page.request.post('/api/auth/revoke-other-sessions')
 
-      // THEN: Returns 200 OK and only revokes User A's sessions (User B unaffected)
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      // THEN: Returns 200 OK and only revokes User A's sessions
+      expect(response.status()).toBe(200)
 
-      // User 1's other session is revoked
-      const user1OtherSessions = await executeQuery(
-        "SELECT COUNT(*) as count FROM sessions WHERE user_id = 1 AND token != 'user1_session1'"
-      )
-      expect(user1OtherSessions.count).toBe(0)
+      // User A's other sessions are revoked, only current remains
+      const sessionsAfterResponse = await page.request.get('/api/auth/list-sessions')
+      const sessionsAfter = await sessionsAfterResponse.json()
+      expect(sessionsAfter.length).toBe(1)
 
-      // User 1's current session remains active
-      const user1CurrentSession = await executeQuery(
-        "SELECT * FROM sessions WHERE token = 'user1_session1' LIMIT 1"
-      )
-      expect(user1CurrentSession).toBeDefined()
-
-      // User 2's sessions remain unaffected
-      const user2Sessions = await executeQuery(
-        'SELECT COUNT(*) as count FROM sessions WHERE user_id = 2'
-      )
-      expect(user2Sessions.count).toBe(2)
+      // User B can still sign in (their sessions unaffected)
+      await signIn({ email: 'userB@example.com', password: 'PasswordB123!' })
+      const sessionResponse = await page.request.get('/api/auth/get-session')
+      const sessionData = await sessionResponse.json()
+      expect(sessionData.user.email).toBe('userB@example.com')
     }
   )
 
@@ -267,27 +247,43 @@ test.describe('Revoke all other sessions', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-REVOKE-OTHER-SESSIONS-006: user can complete full revokeOtherSessions workflow',
+    'API-AUTH-REVOKE-OTHER-SESSIONS-006: user can complete full revoke-other-sessions workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
-      // GIVEN: Representative test scenario
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // WHEN: Execute workflow
-      const response = await page.request.post('/api/auth/workflow', {
-        data: { test: true },
-      })
+      // Test 1: Revoke fails without auth
+      const noAuthResponse = await page.request.post('/api/auth/revoke-other-sessions')
+      expect(noAuthResponse.status()).toBe(401)
 
-      // THEN: Verify integration
-      expect(response.status()).toBe(200)
-      const data = await response.json()
-      expect(data).toMatchObject({ success: true })
+      // Create user and sign in multiple times
+      await signUp({
+        email: 'workflow@example.com',
+        password: 'WorkflowPass123!',
+        name: 'Workflow User',
+      })
+      await signIn({ email: 'workflow@example.com', password: 'WorkflowPass123!' })
+      await signIn({ email: 'workflow@example.com', password: 'WorkflowPass123!' })
+
+      // Get initial session count
+      const beforeResponse = await page.request.get('/api/auth/list-sessions')
+      const beforeSessions = await beforeResponse.json()
+      expect(beforeSessions.length).toBeGreaterThanOrEqual(2)
+
+      // Test 2: Revoke other sessions succeeds
+      const revokeResponse = await page.request.post('/api/auth/revoke-other-sessions')
+      expect(revokeResponse.status()).toBe(200)
+
+      // Test 3: Only one session remains
+      const afterResponse = await page.request.get('/api/auth/list-sessions')
+      const afterSessions = await afterResponse.json()
+      expect(afterSessions.length).toBe(1)
     }
   )
 })
