@@ -635,43 +635,42 @@ test.describe('URL Path', () => {
     'APP-PAGES-PATH-020: user can complete full path workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with various path patterns
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          { name: 'Home', path: '/', meta: { lang: 'en-US', title: 'Home' }, sections: [] },
-          { name: 'About', path: '/about', meta: { lang: 'en-US', title: 'About' }, sections: [] },
-          {
-            name: 'Pricing',
-            path: '/products/pricing',
-            meta: { lang: 'en-US', title: 'Pricing' },
-            sections: [],
-          },
-          { name: 'Team', path: '/our-team', meta: { lang: 'en-US', title: 'Team' }, sections: [] },
-        ],
+      await test.step('Setup: Start server with various path patterns', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            { name: 'Home', path: '/', meta: { lang: 'en-US', title: 'Home' }, sections: [] },
+            { name: 'About', path: '/about', meta: { lang: 'en-US', title: 'About' }, sections: [] },
+            {
+              name: 'Pricing',
+              path: '/products/pricing',
+              meta: { lang: 'en-US', title: 'Pricing' },
+              sections: [],
+            },
+            { name: 'Team', path: '/our-team', meta: { lang: 'en-US', title: 'Team' }, sections: [] },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
-      // THEN: assertion
-      await expect(page).toHaveURL('/')
+      await test.step('Verify root path navigation', async () => {
+        await page.goto('/')
+        await expect(page).toHaveURL('/')
+      })
 
-      // WHEN: user navigates to the page
-      await page.goto('/about')
-      // THEN: assertion
-      await expect(page).toHaveURL('/about')
+      await test.step('Verify simple path navigation', async () => {
+        await page.goto('/about')
+        await expect(page).toHaveURL('/about')
+      })
 
-      // WHEN: user navigates to the page
-      await page.goto('/products/pricing')
-      // THEN: assertion
-      await expect(page).toHaveURL('/products/pricing')
+      await test.step('Verify nested path navigation', async () => {
+        await page.goto('/products/pricing')
+        await expect(page).toHaveURL('/products/pricing')
+      })
 
-      // WHEN: user navigates to the page
-      await page.goto('/our-team')
-      // THEN: assertion
-      await expect(page).toHaveURL('/our-team')
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify hyphenated path navigation', async () => {
+        await page.goto('/our-team')
+        await expect(page).toHaveURL('/our-team')
+      })
     }
   )
 })

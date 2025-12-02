@@ -671,61 +671,55 @@ test.describe('Pages', () => {
     'APP-PAGES-018: user can complete full pages workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with complete page system
-      await startServerWithSchema({
-        name: 'test-app',
-        theme: { colors: { primary: '#3B82F6' } },
-        blocks: [
-          { name: 'cta', type: 'section', children: [{ type: 'button', children: ['$label'] }] },
-        ],
-        pages: [
-          {
-            name: 'home',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Home', description: 'Home page' },
-            sections: [{ block: 'cta', vars: { label: 'Get Started' } }],
-          },
-          {
-            name: 'about',
-            path: '/about',
-            meta: { lang: 'en-US', title: 'About', description: 'About page' },
-            layout: { navigation: { logo: '/logo.svg' } },
-            sections: [],
-          },
-        ],
+      await test.step('Setup: Start server with complete page system', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          theme: { colors: { primary: '#3B82F6' } },
+          blocks: [
+            { name: 'cta', type: 'section', children: [{ type: 'button', children: ['$label'] }] },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Home', description: 'Home page' },
+              sections: [{ block: 'cta', vars: { label: 'Get Started' } }],
+            },
+            {
+              name: 'about',
+              path: '/about',
+              meta: { lang: 'en-US', title: 'About', description: 'About page' },
+              layout: { navigation: { logo: '/logo.svg' } },
+              sections: [],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
+      await test.step('Verify home page structure (ARIA snapshot)', async () => {
+        await page.goto('/')
 
-      // 1. Home page structure validation
-      await page.goto('/')
+        await expect(page.locator('body')).toMatchAriaSnapshot(`
+          - main:
+            - region:
+              - button "Get Started"
+        `)
 
-      // THEN: assertion
-      await expect(page.locator('body')).toMatchAriaSnapshot(`
-        - main:
-          - region:
-            - button "Get Started"
-      `)
+        await expect(page).toHaveTitle('Home')
+      })
 
-      // THEN: assertion
-      await expect(page).toHaveTitle('Home')
+      await test.step('Verify about page with navigation (ARIA snapshot)', async () => {
+        await page.goto('/about')
 
-      // 2. About page with navigation
-      // WHEN: user navigates to the page
-      await page.goto('/about')
+        await expect(page.locator('body')).toMatchAriaSnapshot(`
+          - navigation:
+            - link:
+              - img "Logo"
+          - main
+        `)
 
-      // THEN: assertion
-      await expect(page.locator('body')).toMatchAriaSnapshot(`
-        - navigation:
-          - link:
-            - img "Logo"
-        - main
-      `)
-
-      // THEN: assertion
-      await expect(page).toHaveTitle('About')
-
-      // Focus on workflow continuity, not exhaustive coverage
+        await expect(page).toHaveTitle('About')
+      })
     }
   )
 })
