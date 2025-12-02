@@ -578,89 +578,90 @@ test.describe('Organization Schema', () => {
     'APP-PAGES-ORGANIZATION-015: user can complete full Organization workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: {
-              lang: 'en-US',
-              title: 'Test',
-              description: 'Test',
-              schema: {
-                organization: {
-                  '@context': 'https://schema.org',
-                  '@type': 'Organization',
-                  name: 'Complete Tech Company',
-                  description: 'Innovative technology solutions',
-                  url: 'https://example.com',
-                  logo: 'https://example.com/logo.png',
-                  email: 'info@example.com',
-                  telephone: '+1-800-123-4567',
-                  address: {
-                    '@type': 'PostalAddress',
-                    streetAddress: '123 Tech Lane',
-                    addressLocality: 'San Francisco',
-                    addressRegion: 'CA',
-                    postalCode: '94105',
-                    addressCountry: 'US',
+      await test.step('Setup: Start server with Organization schema', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  organization: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Organization',
+                    name: 'Complete Tech Company',
+                    description: 'Innovative technology solutions',
+                    url: 'https://example.com',
+                    logo: 'https://example.com/logo.png',
+                    email: 'info@example.com',
+                    telephone: '+1-800-123-4567',
+                    address: {
+                      '@type': 'PostalAddress',
+                      streetAddress: '123 Tech Lane',
+                      addressLocality: 'San Francisco',
+                      addressRegion: 'CA',
+                      postalCode: '94105',
+                      addressCountry: 'US',
+                    },
+                    sameAs: ['https://facebook.com/techcompany', 'https://twitter.com/techcompany'],
+                    founder: 'John Smith',
+                    foundingDate: '2018-01-15',
+                    employees: 150,
                   },
-                  sameAs: ['https://facebook.com/techcompany', 'https://twitter.com/techcompany'],
-                  founder: 'John Smith',
-                  foundingDate: '2018-01-15',
-                  employees: 150,
                 },
               },
+              sections: [],
             },
-            sections: [],
-          },
-        ],
-      })
-      // WHEN: user navigates to the page
-      await page.goto('/')
-
-      // Enhanced JSON-LD validation
-      const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-
-      // Validate JSON-LD is valid JSON
-      const jsonLd = JSON.parse(scriptContent!)
-
-      // Validate JSON-LD structure
-      // THEN: assertion
-      expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
-      expect(jsonLd).toHaveProperty('@type', 'Organization')
-      expect(jsonLd).toHaveProperty('name', 'Complete Tech Company')
-      expect(jsonLd).toHaveProperty('description', 'Innovative technology solutions')
-      expect(jsonLd).toHaveProperty('url', 'https://example.com')
-      expect(jsonLd).toHaveProperty('logo', 'https://example.com/logo.png')
-      expect(jsonLd).toHaveProperty('email', 'info@example.com')
-      expect(jsonLd).toHaveProperty('telephone', '+1-800-123-4567')
-      expect(jsonLd).toHaveProperty('founder', 'John Smith')
-      expect(jsonLd).toHaveProperty('foundingDate', '2018-01-15')
-      expect(jsonLd).toHaveProperty('employees', 150)
-
-      // Validate address structure
-      expect(jsonLd.address).toMatchObject({
-        '@type': 'PostalAddress',
-        streetAddress: '123 Tech Lane',
-        addressLocality: 'San Francisco',
-        addressRegion: 'CA',
-        postalCode: '94105',
-        addressCountry: 'US',
+          ],
+        })
       })
 
-      // Validate social media links
-      expect(Array.isArray(jsonLd.sameAs)).toBe(true)
-      expect(jsonLd.sameAs).toHaveLength(2)
-      expect(jsonLd.sameAs).toContain('https://facebook.com/techcompany')
-      expect(jsonLd.sameAs).toContain('https://twitter.com/techcompany')
+      let jsonLd: any
+      let scriptContent: string | null
 
-      // Backwards compatibility: string containment checks
-      expect(scriptContent).toContain('"@type":"Organization"')
-      expect(scriptContent).toContain('Complete Tech Company')
-      expect(scriptContent).toContain('San Francisco')
+      await test.step('Navigate to page and parse JSON-LD', async () => {
+        await page.goto('/')
+        scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        jsonLd = JSON.parse(scriptContent!)
+      })
+
+      await test.step('Verify Organization structure', async () => {
+        expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
+        expect(jsonLd).toHaveProperty('@type', 'Organization')
+        expect(jsonLd).toHaveProperty('name', 'Complete Tech Company')
+        expect(jsonLd).toHaveProperty('description', 'Innovative technology solutions')
+        expect(jsonLd).toHaveProperty('url', 'https://example.com')
+        expect(jsonLd).toHaveProperty('logo', 'https://example.com/logo.png')
+        expect(jsonLd).toHaveProperty('email', 'info@example.com')
+        expect(jsonLd).toHaveProperty('telephone', '+1-800-123-4567')
+        expect(jsonLd).toHaveProperty('founder', 'John Smith')
+        expect(jsonLd).toHaveProperty('foundingDate', '2018-01-15')
+        expect(jsonLd).toHaveProperty('employees', 150)
+
+        // Validate address structure
+        expect(jsonLd.address).toMatchObject({
+          '@type': 'PostalAddress',
+          streetAddress: '123 Tech Lane',
+          addressLocality: 'San Francisco',
+          addressRegion: 'CA',
+          postalCode: '94105',
+          addressCountry: 'US',
+        })
+
+        // Validate social media links
+        expect(Array.isArray(jsonLd.sameAs)).toBe(true)
+        expect(jsonLd.sameAs).toHaveLength(2)
+        expect(jsonLd.sameAs).toContain('https://facebook.com/techcompany')
+        expect(jsonLd.sameAs).toContain('https://twitter.com/techcompany')
+
+        // Backwards compatibility: string containment checks
+        expect(scriptContent).toContain('"@type":"Organization"')
+        expect(scriptContent).toContain('Complete Tech Company')
+        expect(scriptContent).toContain('San Francisco')
     }
   )
 })

@@ -593,92 +593,94 @@ test.describe('Education Event Schema', () => {
     'APP-PAGES-EDUCATIONEVENT-015: user can complete full Education Event workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'test',
-            path: '/',
-            meta: {
-              lang: 'en-US',
-              title: 'Test',
-              description: 'Test',
-              schema: {
-                educationEvent: {
-                  '@type': 'EducationEvent',
-                  name: 'Advanced React Workshop',
-                  description: 'Learn advanced React patterns and best practices',
-                  startDate: '2025-06-15T09:00:00Z',
-                  endDate: '2025-06-15T17:00:00Z',
-                  eventAttendanceMode: 'https://schema.org/MixedEventAttendanceMode',
-                  eventStatus: 'https://schema.org/EventScheduled',
-                  location: { '@type': 'Place', name: 'Tech Conference Center' },
-                  organizer: { '@type': 'Organization', name: 'Tech Education Inc' },
-                  offers: {
-                    '@type': 'Offer',
-                    price: '199',
-                    priceCurrency: 'USD',
-                    availability: 'https://schema.org/InStock',
-                    url: 'https://example.com/register',
+      await test.step('Setup: Start server with EducationEvent schema', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  educationEvent: {
+                    '@type': 'EducationEvent',
+                    name: 'Advanced React Workshop',
+                    description: 'Learn advanced React patterns and best practices',
+                    startDate: '2025-06-15T09:00:00Z',
+                    endDate: '2025-06-15T17:00:00Z',
+                    eventAttendanceMode: 'https://schema.org/MixedEventAttendanceMode',
+                    eventStatus: 'https://schema.org/EventScheduled',
+                    location: { '@type': 'Place', name: 'Tech Conference Center' },
+                    organizer: { '@type': 'Organization', name: 'Tech Education Inc' },
+                    offers: {
+                      '@type': 'Offer',
+                      price: '199',
+                      priceCurrency: 'USD',
+                      availability: 'https://schema.org/InStock',
+                      url: 'https://example.com/register',
+                    },
                   },
                 },
               },
+              sections: [],
             },
-            sections: [],
-          },
-        ],
+          ],
+        })
       })
 
-      // WHEN: maximumAttendeeCapacity and minimumAttendeeCapacity are integers
-      await page.goto('/')
+      let jsonLd: any
+      let scriptContent: string | null
 
-      // THEN: it should specify event capacity limits
-      // Enhanced JSON-LD validation
-      const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-
-      // Validate JSON-LD is valid JSON
-      const jsonLd = JSON.parse(scriptContent!)
-
-      // Validate JSON-LD structure
-      expect(jsonLd).toHaveProperty('@type', 'EducationEvent')
-      expect(jsonLd).toHaveProperty('name', 'Advanced React Workshop')
-      expect(jsonLd).toHaveProperty(
-        'description',
-        'Learn advanced React patterns and best practices'
-      )
-      expect(jsonLd).toHaveProperty('startDate', '2025-06-15T09:00:00Z')
-      expect(jsonLd).toHaveProperty('endDate', '2025-06-15T17:00:00Z')
-      expect(jsonLd).toHaveProperty(
-        'eventAttendanceMode',
-        'https://schema.org/MixedEventAttendanceMode'
-      )
-      expect(jsonLd).toHaveProperty('eventStatus', 'https://schema.org/EventScheduled')
-
-      // Validate location structure
-      expect(jsonLd.location).toMatchObject({
-        '@type': 'Place',
-        name: 'Tech Conference Center',
+      await test.step('Navigate to page and parse JSON-LD', async () => {
+        await page.goto('/')
+        scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        jsonLd = JSON.parse(scriptContent!)
       })
 
-      // Validate organizer structure
-      expect(jsonLd.organizer).toMatchObject({
-        '@type': 'Organization',
-        name: 'Tech Education Inc',
-      })
+      await test.step('Verify EducationEvent structure', async () => {
+        expect(jsonLd).toHaveProperty('@type', 'EducationEvent')
+        expect(jsonLd).toHaveProperty('name', 'Advanced React Workshop')
+        expect(jsonLd).toHaveProperty(
+          'description',
+          'Learn advanced React patterns and best practices'
+        )
+        expect(jsonLd).toHaveProperty('startDate', '2025-06-15T09:00:00Z')
+        expect(jsonLd).toHaveProperty('endDate', '2025-06-15T17:00:00Z')
+        expect(jsonLd).toHaveProperty(
+          'eventAttendanceMode',
+          'https://schema.org/MixedEventAttendanceMode'
+        )
+        expect(jsonLd).toHaveProperty('eventStatus', 'https://schema.org/EventScheduled')
 
-      // Validate offers structure
-      expect(jsonLd.offers).toMatchObject({
-        '@type': 'Offer',
-        price: '199',
-        priceCurrency: 'USD',
-        availability: 'https://schema.org/InStock',
-        url: 'https://example.com/register',
-      })
+        // Validate location structure
+        expect(jsonLd.location).toMatchObject({
+          '@type': 'Place',
+          name: 'Tech Conference Center',
+        })
 
-      // Backwards compatibility: string containment checks
-      expect(scriptContent).toContain('"@type":"EducationEvent"')
-      expect(scriptContent).toContain('Advanced React Workshop')
-      expect(scriptContent).toContain('Tech Education Inc')
+        // Validate organizer structure
+        expect(jsonLd.organizer).toMatchObject({
+          '@type': 'Organization',
+          name: 'Tech Education Inc',
+        })
+
+        // Validate offers structure
+        expect(jsonLd.offers).toMatchObject({
+          '@type': 'Offer',
+          price: '199',
+          priceCurrency: 'USD',
+          availability: 'https://schema.org/InStock',
+          url: 'https://example.com/register',
+        })
+
+        // Backwards compatibility: string containment checks
+        expect(scriptContent).toContain('"@type":"EducationEvent"')
+        expect(scriptContent).toContain('Advanced React Workshop')
+        expect(scriptContent).toContain('Tech Education Inc')
+      })
     }
   )
 })

@@ -615,97 +615,99 @@ test.describe('Local Business Schema', () => {
     'APP-PAGES-LOCALBUSINESS-015: user can complete full Local Business workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: {
-              lang: 'en-US',
-              title: 'Test',
-              description: 'Test',
-              schema: {
-                localBusiness: {
-                  '@context': 'https://schema.org',
-                  '@type': 'LocalBusiness',
-                  name: 'Complete Coffee Shop',
-                  description: 'Best coffee in town',
-                  url: 'https://example.com',
-                  telephone: '+1-555-123-4567',
-                  priceRange: '$$',
-                  address: {
-                    '@type': 'PostalAddress',
-                    streetAddress: '123 Main St',
-                    addressLocality: 'Strasbourg',
-                    postalCode: '67000',
-                    addressCountry: 'FR',
-                  },
-                  geo: { '@type': 'GeoCoordinates', latitude: '48.5734', longitude: '7.7521' },
-                  openingHoursSpecification: [
-                    {
-                      '@type': 'OpeningHoursSpecification',
-                      dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-                      opens: '07:00',
-                      closes: '19:00',
+      await test.step('Setup: Start server with LocalBusiness schema', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  localBusiness: {
+                    '@context': 'https://schema.org',
+                    '@type': 'LocalBusiness',
+                    name: 'Complete Coffee Shop',
+                    description: 'Best coffee in town',
+                    url: 'https://example.com',
+                    telephone: '+1-555-123-4567',
+                    priceRange: '$$',
+                    address: {
+                      '@type': 'PostalAddress',
+                      streetAddress: '123 Main St',
+                      addressLocality: 'Strasbourg',
+                      postalCode: '67000',
+                      addressCountry: 'FR',
                     },
-                  ],
+                    geo: { '@type': 'GeoCoordinates', latitude: '48.5734', longitude: '7.7521' },
+                    openingHoursSpecification: [
+                      {
+                        '@type': 'OpeningHoursSpecification',
+                        dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+                        opens: '07:00',
+                        closes: '19:00',
+                      },
+                    ],
+                  },
                 },
               },
+              sections: [],
             },
-            sections: [],
-          },
-        ],
+          ],
+        })
       })
 
-      // WHEN: address and geo coordinates are provided
-      await page.goto('/')
+      let jsonLd: any
+      let scriptContent: string | null
 
-      // THEN: it should enable map pin and directions in search results
-      // Enhanced JSON-LD validation
-      const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
-
-      // Validate JSON-LD is valid JSON
-      const jsonLd = JSON.parse(scriptContent!)
-
-      // Validate JSON-LD structure
-      expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
-      expect(jsonLd).toHaveProperty('@type', 'LocalBusiness')
-      expect(jsonLd).toHaveProperty('name', 'Complete Coffee Shop')
-      expect(jsonLd).toHaveProperty('description', 'Best coffee in town')
-      expect(jsonLd).toHaveProperty('url', 'https://example.com')
-      expect(jsonLd).toHaveProperty('telephone', '+1-555-123-4567')
-      expect(jsonLd).toHaveProperty('priceRange', '$$')
-
-      // Validate address structure
-      expect(jsonLd.address).toMatchObject({
-        '@type': 'PostalAddress',
-        streetAddress: '123 Main St',
-        addressLocality: 'Strasbourg',
-        postalCode: '67000',
-        addressCountry: 'FR',
+      await test.step('Navigate to page and parse JSON-LD', async () => {
+        await page.goto('/')
+        scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        jsonLd = JSON.parse(scriptContent!)
       })
 
-      // Validate geo coordinates
-      expect(jsonLd.geo).toMatchObject({
-        '@type': 'GeoCoordinates',
-        latitude: '48.5734',
-        longitude: '7.7521',
-      })
+      await test.step('Verify LocalBusiness structure', async () => {
+        expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
+        expect(jsonLd).toHaveProperty('@type', 'LocalBusiness')
+        expect(jsonLd).toHaveProperty('name', 'Complete Coffee Shop')
+        expect(jsonLd).toHaveProperty('description', 'Best coffee in town')
+        expect(jsonLd).toHaveProperty('url', 'https://example.com')
+        expect(jsonLd).toHaveProperty('telephone', '+1-555-123-4567')
+        expect(jsonLd).toHaveProperty('priceRange', '$$')
 
-      // Validate opening hours
-      expect(Array.isArray(jsonLd.openingHoursSpecification)).toBe(true)
-      expect(jsonLd.openingHoursSpecification[0]).toMatchObject({
-        '@type': 'OpeningHoursSpecification',
-        dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-        opens: '07:00',
-        closes: '19:00',
-      })
+        // Validate address structure
+        expect(jsonLd.address).toMatchObject({
+          '@type': 'PostalAddress',
+          streetAddress: '123 Main St',
+          addressLocality: 'Strasbourg',
+          postalCode: '67000',
+          addressCountry: 'FR',
+        })
 
-      // Backwards compatibility: string containment checks
-      expect(scriptContent).toContain('"@type":"LocalBusiness"')
-      expect(scriptContent).toContain('Complete Coffee Shop')
-      expect(scriptContent).toContain('Strasbourg')
+        // Validate geo coordinates
+        expect(jsonLd.geo).toMatchObject({
+          '@type': 'GeoCoordinates',
+          latitude: '48.5734',
+          longitude: '7.7521',
+        })
+
+        // Validate opening hours
+        expect(Array.isArray(jsonLd.openingHoursSpecification)).toBe(true)
+        expect(jsonLd.openingHoursSpecification[0]).toMatchObject({
+          '@type': 'OpeningHoursSpecification',
+          dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+          opens: '07:00',
+          closes: '19:00',
+        })
+
+        // Backwards compatibility: string containment checks
+        expect(scriptContent).toContain('"@type":"LocalBusiness"')
+        expect(scriptContent).toContain('Complete Coffee Shop')
+        expect(scriptContent).toContain('Strasbourg')
+      })
     }
   )
 })
