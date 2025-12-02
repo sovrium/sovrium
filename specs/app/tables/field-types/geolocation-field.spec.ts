@@ -109,7 +109,7 @@ test.describe('Geolocation Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-GEOLOCATION-003: should create GiST index for spatial queries',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -140,7 +140,7 @@ test.describe('Geolocation Field', () => {
       )
       // THEN: assertion
       expect(indexDef.indexdef).toBe(
-        'CREATE INDEX idx_places_position ON public.places USING gist (position)'
+        'CREATE INDEX idx_places_position ON public.places USING gist ("position")'
       )
     }
   )

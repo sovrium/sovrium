@@ -93,7 +93,11 @@ const generateIndexStatements = (table: Table): readonly string[] => {
       const indexSuffix = field.type === 'status' ? 'status' : field.name
       const indexName = `idx_${table.name}_${indexSuffix}`
       const indexType =
-        field.type === 'array' || field.type === 'json' ? 'USING gin' : 'USING btree'
+        field.type === 'array' || field.type === 'json'
+          ? 'USING gin'
+          : field.type === 'geolocation'
+            ? 'USING gist'
+            : 'USING btree'
       return `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${table.name} ${indexType} (${field.name})`
     })
 
