@@ -131,7 +131,7 @@ test.describe('Revoke all other sessions', () => {
   test(
     'API-AUTH-REVOKE-OTHER-SESSIONS-004: should return 200 OK and revoke all sessions except current device',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user with sessions across multiple devices
       await startServerWithSchema({
         name: 'test-app',
@@ -145,6 +145,11 @@ test.describe('Revoke all other sessions', () => {
         email: 'test@example.com',
         password: 'TestPassword123!',
         name: 'Test User',
+      })
+      // Create another session by signing in again
+      await signIn({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
       })
 
       // Get initial session count
@@ -225,7 +230,7 @@ test.describe('Revoke all other sessions', () => {
   test(
     'API-AUTH-REVOKE-OTHER-SESSIONS-006: user can complete full revoke-other-sessions workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
@@ -243,6 +248,11 @@ test.describe('Revoke all other sessions', () => {
         email: 'workflow@example.com',
         password: 'WorkflowPass123!',
         name: 'Workflow User',
+      })
+      // Create another session by signing in again
+      await signIn({
+        email: 'workflow@example.com',
+        password: 'WorkflowPass123!',
       })
 
       // Get initial session count
