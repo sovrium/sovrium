@@ -786,69 +786,69 @@ test.describe('Single Line Text Field', () => {
     'APP-TABLES-FIELD-SINGLE-LINE-TEXT-020: user can complete full single-line-text-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN/WHEN: Table with comprehensive text field configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 20,
-            name: 'data',
-            fields: [
-              {
-                id: 1,
-                name: 'text_field',
-                type: 'single-line-text',
-                required: true,
-                unique: true,
-                default: 'Default Value',
-                indexed: true,
-              },
-            ],
-          },
-        ],
+      await test.step('Setup: Start server with single-line-text field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 20,
+              name: 'data',
+              fields: [
+                {
+                  id: 1,
+                  name: 'text_field',
+                  type: 'single-line-text',
+                  required: true,
+                  unique: true,
+                  default: 'Default Value',
+                  indexed: true,
+                },
+              ],
+            },
+          ],
+        })
       })
 
-      // THEN: Streamlined workflow testing all major integration points
+      await test.step('Verify column setup and constraints', async () => {
+        const columnInfo = await executeQuery(
+          "SELECT data_type, character_maximum_length, is_nullable, column_default FROM information_schema.columns WHERE table_name='data' AND column_name='text_field'"
+        )
+        expect(columnInfo.data_type).toBe('character varying')
+        expect(columnInfo.character_maximum_length).toBe(255)
+        expect(columnInfo.is_nullable).toBe('NO')
+        expect(columnInfo.column_default).toBe("'Default Value'::character varying")
+      })
 
-      // Verify column setup
-      const columnInfo = await executeQuery(
-        "SELECT data_type, character_maximum_length, is_nullable, column_default FROM information_schema.columns WHERE table_name='data' AND column_name='text_field'"
-      )
-      expect(columnInfo.data_type).toBe('character varying')
-      expect(columnInfo.character_maximum_length).toBe(255)
-      expect(columnInfo.is_nullable).toBe('NO')
-      expect(columnInfo.column_default).toBe("'Default Value'::character varying")
+      await test.step('Test unique constraint enforcement', async () => {
+        await executeQuery("INSERT INTO data (text_field) VALUES ('unique_value')")
+        await expect(
+          executeQuery("INSERT INTO data (text_field) VALUES ('unique_value')")
+        ).rejects.toThrow(/duplicate key value violates unique constraint/)
+      })
 
-      // Test constraints (representative: unique)
-      await executeQuery("INSERT INTO data (text_field) VALUES ('unique_value')")
-      // WHEN/THEN: executing query and asserting error
-      await expect(
-        executeQuery("INSERT INTO data (text_field) VALUES ('unique_value')")
-      ).rejects.toThrow(/duplicate key value violates unique constraint/)
+      await test.step('Test unicode handling', async () => {
+        const unicodeInsert = await executeQuery(
+          "INSERT INTO data (text_field) VALUES ('Hello 👋') RETURNING text_field"
+        )
+        expect(unicodeInsert.text_field).toBe('Hello 👋')
+      })
 
-      // Test edge cases (representative: unicode + empty string)
-      const unicodeInsert = await executeQuery(
-        "INSERT INTO data (text_field) VALUES ('Hello 👋') RETURNING text_field"
-      )
-      expect(unicodeInsert.text_field).toBe('Hello 👋')
+      await test.step('Test bulk insert and search performance', async () => {
+        await executeQuery(
+          "INSERT INTO data (text_field) SELECT 'Bulk-' || i FROM generate_series(1, 500) i"
+        )
+        const searchResult = await executeQuery(
+          "SELECT text_field FROM data WHERE text_field = 'Bulk-250'"
+        )
+        expect(searchResult.text_field).toBe('Bulk-250')
+      })
 
-      // Test performance (representative: bulk + search)
-      await executeQuery(
-        "INSERT INTO data (text_field) SELECT 'Bulk-' || i FROM generate_series(1, 500) i"
-      )
-      // WHEN: executing query
-      const searchResult = await executeQuery(
-        "SELECT text_field FROM data WHERE text_field = 'Bulk-250'"
-      )
-      expect(searchResult.text_field).toBe('Bulk-250')
-
-      // Test boundaries (representative: max length)
-      const maxLengthInsert = await executeQuery(
-        "INSERT INTO data (text_field) VALUES (REPEAT('x', 255)) RETURNING LENGTH(text_field) as len"
-      )
-      expect(maxLengthInsert.len).toBe(255)
-
-      // Workflow completes successfully
+      await test.step('Test max length boundary', async () => {
+        const maxLengthInsert = await executeQuery(
+          "INSERT INTO data (text_field) VALUES (REPEAT('x', 255)) RETURNING LENGTH(text_field) as len"
+        )
+        expect(maxLengthInsert.len).toBe(255)
+      })
     }
   )
 })
