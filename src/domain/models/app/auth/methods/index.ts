@@ -6,88 +6,100 @@
  */
 
 import { Schema } from 'effect'
-import { EmailAndPasswordMethodSchema } from './email-and-password'
-import { MagicLinkMethodSchema } from './magic-link'
-import { PasskeyMethodSchema } from './passkey'
+import { EmailAndPasswordConfigSchema } from './email-and-password'
+import { MagicLinkConfigSchema } from './magic-link'
+import { PasskeyConfigSchema } from './passkey'
 
-// Export all authentication method schemas
+// Export individual method schemas
 export * from './email-and-password'
 export * from './magic-link'
 export * from './passkey'
 
 /**
- * Authentication Method Schema
+ * Authentication Methods Configuration Schema
  *
- * Union of all supported authentication methods.
- * Each method can be:
- * - A simple string literal (e.g., 'email-and-password')
- * - A configuration object with method-specific options
+ * All authentication methods in a single configuration object.
+ * Each method is optional and can be:
+ * - A boolean (true to enable with defaults)
+ * - A configuration object for customization
  *
- * Supported methods:
- * - email-and-password: Traditional credential-based authentication
- * - magic-link: Passwordless email link authentication
+ * At least one method must be enabled for authentication to work.
+ *
+ * Available methods:
+ * - emailAndPassword: Traditional credential-based authentication
+ * - magicLink: Passwordless email link authentication
  * - passkey: WebAuthn biometric/security key authentication
  *
  * @example
  * ```typescript
  * // Simple methods
- * const methods = ['email-and-password', 'magic-link']
+ * {
+ *   methods: {
+ *     emailAndPassword: true,
+ *     magicLink: true
+ *   }
+ * }
  *
- * // Mixed with configuration
- * const methods = [
- *   { method: 'email-and-password', minPasswordLength: 12 },
- *   'magic-link',
- *   { method: 'passkey', userVerification: 'required' }
- * ]
+ * // Configured methods
+ * {
+ *   methods: {
+ *     emailAndPassword: {
+ *       requireEmailVerification: true,
+ *       minPasswordLength: 12
+ *     },
+ *     passkey: {
+ *       userVerification: 'required'
+ *     }
+ *   }
+ * }
  * ```
  */
-export const AuthenticationMethodSchema = Schema.Union(
-  EmailAndPasswordMethodSchema,
-  MagicLinkMethodSchema,
-  PasskeyMethodSchema
-).pipe(
+export const MethodsConfigSchema = Schema.Struct({
+  emailAndPassword: Schema.optional(EmailAndPasswordConfigSchema),
+  magicLink: Schema.optional(MagicLinkConfigSchema),
+  passkey: Schema.optional(PasskeyConfigSchema),
+}).pipe(
   Schema.annotations({
-    title: 'Authentication Method',
-    description: 'Available authentication methods (can be string or config object)',
+    title: 'Methods Configuration',
+    description: 'All authentication methods configuration',
     examples: [
-      'email-and-password',
-      'magic-link',
-      'passkey',
-      { method: 'email-and-password', requireEmailVerification: true },
-      { method: 'passkey', userVerification: 'required' },
+      { emailAndPassword: true },
+      { emailAndPassword: true, magicLink: true },
+      { emailAndPassword: { requireEmailVerification: true }, passkey: true },
     ],
   })
 )
 
-/**
- * TypeScript type for authentication methods
- */
-export type AuthenticationMethod = Schema.Schema.Type<typeof AuthenticationMethodSchema>
+export type MethodsConfig = Schema.Schema.Type<typeof MethodsConfigSchema>
 
 /**
- * Simple authentication method literals (for type checking)
+ * Helper to check if a method is enabled
  */
-export const AuthenticationMethodLiteralSchema = Schema.Literal(
-  'email-and-password',
-  'magic-link',
-  'passkey'
-).pipe(
-  Schema.annotations({
-    title: 'Authentication Method Literal',
-    description: 'Simple authentication method identifiers',
-  })
-)
-
-export type AuthenticationMethodLiteral = Schema.Schema.Type<
-  typeof AuthenticationMethodLiteralSchema
->
+export const isMethodEnabled = (
+  methods: MethodsConfig | undefined,
+  method: keyof MethodsConfig
+): boolean => {
+  if (!methods) return false
+  const value = methods[method]
+  if (typeof value === 'boolean') return value
+  return value !== undefined
+}
 
 /**
- * Helper to extract the method name from a method (string or config)
+ * Get all enabled method names
  */
-export const getMethodName = (method: AuthenticationMethod): AuthenticationMethodLiteral => {
-  if (typeof method === 'string') {
-    return method
-  }
-  return method.method
+export const getEnabledMethods = (
+  methods: MethodsConfig | undefined
+): readonly (keyof MethodsConfig)[] => {
+  if (!methods) return []
+  return (Object.keys(methods) as (keyof MethodsConfig)[]).filter((key) =>
+    isMethodEnabled(methods, key)
+  )
+}
+
+/**
+ * Check if at least one method is enabled
+ */
+export const hasAnyMethodEnabled = (methods: MethodsConfig | undefined): boolean => {
+  return getEnabledMethods(methods).length > 0
 }

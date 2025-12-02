@@ -8,10 +8,14 @@
 import { Schema } from 'effect'
 
 /**
- * Passkey Authentication Method
+ * Passkey Authentication Method Configuration
  *
  * WebAuthn-based passwordless authentication using biometrics or security keys.
  * Provides strong security with a seamless user experience.
+ *
+ * Can be:
+ * - A boolean (true to enable with defaults)
+ * - A configuration object for customization
  *
  * Configuration options:
  * - rpName: Relying Party name (displayed to user)
@@ -24,59 +28,45 @@ import { Schema } from 'effect'
  * @example
  * ```typescript
  * // Simple enable
- * { methods: ['passkey'] }
+ * { methods: { passkey: true } }
  *
  * // With configuration
  * {
- *   methods: [{
- *     method: 'passkey',
- *     rpName: 'My Application',
- *     userVerification: 'required'
- *   }]
+ *   methods: {
+ *     passkey: {
+ *       rpName: 'My Application',
+ *       userVerification: 'required'
+ *     }
+ *   }
  * }
  * ```
  */
-
-/**
- * Passkey configuration options
- */
-export const PasskeyConfigSchema = Schema.Struct({
-  method: Schema.Literal('passkey'),
-  rpName: Schema.optional(
-    Schema.String.pipe(Schema.annotations({ description: 'Relying Party name shown to user' }))
-  ),
-  rpId: Schema.optional(
-    Schema.String.pipe(Schema.annotations({ description: 'Relying Party ID (domain)' }))
-  ),
-  attestation: Schema.optional(
-    Schema.Literal('none', 'indirect', 'direct').pipe(
-      Schema.annotations({ description: 'Attestation conveyance preference' })
-    )
-  ),
-  userVerification: Schema.optional(
-    Schema.Literal('required', 'preferred', 'discouraged').pipe(
-      Schema.annotations({ description: 'User verification requirement' })
-    )
-  ),
-}).pipe(
+export const PasskeyConfigSchema = Schema.Union(
+  Schema.Boolean,
+  Schema.Struct({
+    rpName: Schema.optional(
+      Schema.String.pipe(Schema.annotations({ description: 'Relying Party name shown to user' }))
+    ),
+    rpId: Schema.optional(
+      Schema.String.pipe(Schema.annotations({ description: 'Relying Party ID (domain)' }))
+    ),
+    attestation: Schema.optional(
+      Schema.Literal('none', 'indirect', 'direct').pipe(
+        Schema.annotations({ description: 'Attestation conveyance preference' })
+      )
+    ),
+    userVerification: Schema.optional(
+      Schema.Literal('required', 'preferred', 'discouraged').pipe(
+        Schema.annotations({ description: 'User verification requirement' })
+      )
+    ),
+  })
+).pipe(
   Schema.annotations({
     title: 'Passkey Configuration',
     description: 'Configuration for WebAuthn passkey authentication',
-  })
-)
-
-/**
- * Passkey method - can be literal or config object
- */
-export const PasskeyMethodSchema = Schema.Union(
-  Schema.Literal('passkey'),
-  PasskeyConfigSchema
-).pipe(
-  Schema.annotations({
-    title: 'Passkey Method',
-    description: 'WebAuthn passkey authentication (biometrics/security keys)',
+    examples: [true, { userVerification: 'required' }, { rpName: 'My App', rpId: 'example.com' }],
   })
 )
 
 export type PasskeyConfig = Schema.Schema.Type<typeof PasskeyConfigSchema>
-export type PasskeyMethod = Schema.Schema.Type<typeof PasskeyMethodSchema>

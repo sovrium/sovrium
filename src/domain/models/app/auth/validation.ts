@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { AuthenticationMethod } from './methods'
+import { isMethodEnabled, type MethodsConfig } from './methods'
 import type { OAuthConfig } from './oauth'
 import type { PluginsConfig } from './plugins'
 
@@ -16,7 +16,7 @@ import type { PluginsConfig } from './plugins'
  * used for cross-field validation.
  */
 export interface AuthConfigForValidation {
-  readonly methods: readonly AuthenticationMethod[]
+  readonly methods: MethodsConfig
   readonly oauth?: OAuthConfig
   readonly plugins?: PluginsConfig
 }
@@ -40,7 +40,7 @@ export interface ValidationResult {
  * Rule 1: Two-factor authentication requires a primary auth method
  *
  * 2FA is a second factor and requires a primary authentication method
- * like email-and-password or passkey.
+ * like emailAndPassword or passkey.
  */
 export const validateTwoFactorRequiresPrimary = (
   config: AuthConfigForValidation
@@ -51,15 +51,13 @@ export const validateTwoFactorRequiresPrimary = (
     return { success: true }
   }
 
-  const hasPrimaryAuth = config.methods.some((method) => {
-    const methodName = typeof method === 'string' ? method : method.method
-    return methodName === 'email-and-password' || methodName === 'passkey'
-  })
+  const hasEmailAndPassword = isMethodEnabled(config.methods, 'emailAndPassword')
+  const hasPasskey = isMethodEnabled(config.methods, 'passkey')
 
-  if (!hasPrimaryAuth) {
+  if (!hasEmailAndPassword && !hasPasskey) {
     return {
       success: false,
-      message: 'Two-factor authentication requires email-and-password or passkey authentication',
+      message: 'Two-factor authentication requires emailAndPassword or passkey authentication',
     }
   }
 
@@ -98,13 +96,11 @@ export const validateOAuthHasProviders = (config: AuthConfigForValidation): Vali
  */
 export const validatePasskeyWithHTTPS = (
   config: AuthConfigForValidation,
-  isProduction: boolean
+  _isProduction: boolean
 ): ValidationResult => {
-  const hasPasskey = config.methods.some(
-    (method) => method === 'passkey' || (typeof method === 'object' && method.method === 'passkey')
-  )
+  const hasPasskey = isMethodEnabled(config.methods, 'passkey')
 
-  if (hasPasskey && isProduction) {
+  if (hasPasskey && _isProduction) {
     // This would need to be checked at runtime against the actual URL
     // For now, we just flag it as a consideration
     return { success: true }
@@ -127,18 +123,11 @@ export const validateAuthConfig = (config: AuthConfigForValidation): ValidationR
 }
 
 /**
- * Get method name from authentication method (string or object)
- */
-export const getAuthMethodName = (method: AuthenticationMethod): string => {
-  if (typeof method === 'string') {
-    return method
-  }
-  return method.method
-}
-
-/**
  * Check if a specific authentication method is enabled
  */
-export const hasAuthMethod = (config: AuthConfigForValidation, methodName: string): boolean => {
-  return config.methods.some((method) => getAuthMethodName(method) === methodName)
+export const hasAuthMethod = (
+  config: AuthConfigForValidation,
+  methodName: keyof MethodsConfig
+): boolean => {
+  return isMethodEnabled(config.methods, methodName)
 }

@@ -42,7 +42,7 @@ test.describe('Admin Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { admin: true },
         },
       })
@@ -78,7 +78,7 @@ test.describe('Admin Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { admin: true },
         },
       })
@@ -111,7 +111,7 @@ test.describe('Admin Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { admin: true },
         },
       })
@@ -142,7 +142,7 @@ test.describe('Admin Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { admin: true },
         },
       })
@@ -175,7 +175,7 @@ test.describe('Admin Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { admin: true },
         },
       })
@@ -198,7 +198,7 @@ test.describe('Admin Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { admin: true },
         },
       })
@@ -233,7 +233,7 @@ test.describe('Admin Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { admin: true },
         },
       })
@@ -283,7 +283,7 @@ test.describe('Admin Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { admin: true },
         },
       })
@@ -324,7 +324,7 @@ test.describe('Admin Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { admin: true },
         },
       })

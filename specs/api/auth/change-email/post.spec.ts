@@ -37,7 +37,7 @@ test.describe('Change email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           emailTemplates: {
             verification: {
               subject: 'Verify your new TestApp email address',
@@ -93,7 +93,7 @@ test.describe('Change email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
         },
       })
 
@@ -128,7 +128,7 @@ test.describe('Change email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
         },
       })
 
@@ -165,7 +165,7 @@ test.describe('Change email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
         },
       })
 
@@ -189,7 +189,7 @@ test.describe('Change email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
         },
       })
 
@@ -234,7 +234,7 @@ test.describe('Change email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
         },
       })
 
@@ -268,7 +268,7 @@ test.describe('Change email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
         },
       })
 
@@ -317,7 +317,7 @@ test.describe('Change email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
         },
       })
 

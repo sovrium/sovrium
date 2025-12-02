@@ -42,7 +42,7 @@ test.describe('Session Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
         },
       })
 
@@ -87,7 +87,7 @@ test.describe('Session Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
         },
       })
 
@@ -133,7 +133,7 @@ test.describe('Session Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
         },
       })
 
@@ -169,7 +169,7 @@ test.describe('Session Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
         },
       })
 
@@ -191,7 +191,7 @@ test.describe('Session Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
         },
       })
 
@@ -228,7 +228,7 @@ test.describe('Session Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
         },
       })
 
@@ -270,7 +270,7 @@ test.describe('Session Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
         },
       })
 
@@ -310,7 +310,7 @@ test.describe('Session Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
         },
       })
 

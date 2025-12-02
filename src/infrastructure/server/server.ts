@@ -67,7 +67,10 @@ export function createHonoApp(config: HonoAppConfig): Readonly<Hono> {
   // Setup all routes by chaining the setup functions
   const honoWithRoutes = setupPageRoutes(
     setupStaticAssets(
-      setupAuthRoutes(setupAuthMiddleware(setupOpenApiRoutes(createApiRoutes(app, new Hono())))),
+      setupAuthRoutes(
+        setupAuthMiddleware(setupOpenApiRoutes(createApiRoutes(app, new Hono()))),
+        app
+      ),
       app
     ),
     config

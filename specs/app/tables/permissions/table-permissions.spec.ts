@@ -32,7 +32,7 @@ test.describe('Table-Level Permissions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
         },
         tables: [
           {
@@ -363,7 +363,7 @@ test.describe('Table-Level Permissions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
         },
         tables: [
           {

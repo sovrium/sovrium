@@ -8,10 +8,14 @@
 import { Schema } from 'effect'
 
 /**
- * Magic Link Authentication Method
+ * Magic Link Authentication Method Configuration
  *
  * Passwordless authentication via email link.
  * User receives an email with a one-time link to sign in.
+ *
+ * Can be:
+ * - A boolean (true to enable with defaults)
+ * - A configuration object for customization
  *
  * Configuration options:
  * - expirationMinutes: How long the magic link is valid (default: 15)
@@ -19,48 +23,34 @@ import { Schema } from 'effect'
  * @example
  * ```typescript
  * // Simple enable
- * { methods: ['magic-link'] }
+ * { methods: { magicLink: true } }
  *
  * // With configuration
  * {
- *   methods: [{
- *     method: 'magic-link',
- *     expirationMinutes: 30
- *   }]
+ *   methods: {
+ *     magicLink: {
+ *       expirationMinutes: 30
+ *     }
+ *   }
  * }
  * ```
  */
-
-/**
- * Magic Link configuration options
- */
-export const MagicLinkConfigSchema = Schema.Struct({
-  method: Schema.Literal('magic-link'),
-  expirationMinutes: Schema.optional(
-    Schema.Number.pipe(
-      Schema.positive(),
-      Schema.annotations({ description: 'Link expiration time in minutes' })
-    )
-  ),
-}).pipe(
+export const MagicLinkConfigSchema = Schema.Union(
+  Schema.Boolean,
+  Schema.Struct({
+    expirationMinutes: Schema.optional(
+      Schema.Number.pipe(
+        Schema.positive(),
+        Schema.annotations({ description: 'Link expiration time in minutes' })
+      )
+    ),
+  })
+).pipe(
   Schema.annotations({
     title: 'Magic Link Configuration',
     description: 'Configuration for magic link authentication',
-  })
-)
-
-/**
- * Magic Link method - can be literal or config object
- */
-export const MagicLinkMethodSchema = Schema.Union(
-  Schema.Literal('magic-link'),
-  MagicLinkConfigSchema
-).pipe(
-  Schema.annotations({
-    title: 'Magic Link Method',
-    description: 'Passwordless email link authentication',
+    examples: [true, { expirationMinutes: 30 }],
   })
 )
 
 export type MagicLinkConfig = Schema.Schema.Type<typeof MagicLinkConfigSchema>
-export type MagicLinkMethod = Schema.Schema.Type<typeof MagicLinkMethodSchema>

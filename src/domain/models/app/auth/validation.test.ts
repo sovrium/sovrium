@@ -7,7 +7,6 @@
 
 import { describe, expect, test } from 'bun:test'
 import {
-  getAuthMethodName,
   hasAuthMethod,
   validateAuthConfig,
   validateOAuthHasProviders,
@@ -19,15 +18,15 @@ import type { AuthConfigForValidation } from './validation'
 describe('validateTwoFactorRequiresPrimary', () => {
   test('should pass when no two-factor is configured', () => {
     const config: AuthConfigForValidation = {
-      methods: ['magic-link'],
+      methods: { magicLink: true },
     }
     const result = validateTwoFactorRequiresPrimary(config)
     expect(result.success).toBe(true)
   })
 
-  test('should pass when two-factor is enabled with email-and-password', () => {
+  test('should pass when two-factor is enabled with emailAndPassword', () => {
     const config: AuthConfigForValidation = {
-      methods: ['email-and-password'],
+      methods: { emailAndPassword: true },
       plugins: { twoFactor: true },
     }
     const result = validateTwoFactorRequiresPrimary(config)
@@ -36,16 +35,16 @@ describe('validateTwoFactorRequiresPrimary', () => {
 
   test('should pass when two-factor is enabled with passkey', () => {
     const config: AuthConfigForValidation = {
-      methods: ['passkey'],
+      methods: { passkey: true },
       plugins: { twoFactor: true },
     }
     const result = validateTwoFactorRequiresPrimary(config)
     expect(result.success).toBe(true)
   })
 
-  test('should pass when two-factor is enabled with email-and-password as object', () => {
+  test('should pass when two-factor is enabled with emailAndPassword as config object', () => {
     const config: AuthConfigForValidation = {
-      methods: [{ method: 'email-and-password', minPasswordLength: 12 }],
+      methods: { emailAndPassword: { minPasswordLength: 12 } },
       plugins: { twoFactor: { issuer: 'MyApp' } },
     }
     const result = validateTwoFactorRequiresPrimary(config)
@@ -54,13 +53,13 @@ describe('validateTwoFactorRequiresPrimary', () => {
 
   test('should fail when two-factor is enabled without primary auth', () => {
     const config: AuthConfigForValidation = {
-      methods: ['magic-link'],
+      methods: { magicLink: true },
       plugins: { twoFactor: true },
     }
     const result = validateTwoFactorRequiresPrimary(config)
     expect(result.success).toBe(false)
     expect(result.message).toBe(
-      'Two-factor authentication requires email-and-password or passkey authentication'
+      'Two-factor authentication requires emailAndPassword or passkey authentication'
     )
   })
 })
@@ -68,7 +67,7 @@ describe('validateTwoFactorRequiresPrimary', () => {
 describe('validateOAuthHasProviders', () => {
   test('should pass when no OAuth is configured', () => {
     const config: AuthConfigForValidation = {
-      methods: ['email-and-password'],
+      methods: { emailAndPassword: true },
     }
     const result = validateOAuthHasProviders(config)
     expect(result.success).toBe(true)
@@ -76,7 +75,7 @@ describe('validateOAuthHasProviders', () => {
 
   test('should pass when OAuth has providers', () => {
     const config: AuthConfigForValidation = {
-      methods: ['email-and-password'],
+      methods: { emailAndPassword: true },
       oauth: { providers: ['google', 'github'] },
     }
     const result = validateOAuthHasProviders(config)
@@ -85,7 +84,7 @@ describe('validateOAuthHasProviders', () => {
 
   test('should fail when OAuth has empty providers array', () => {
     const config: AuthConfigForValidation = {
-      methods: ['email-and-password'],
+      methods: { emailAndPassword: true },
       oauth: { providers: [] as unknown as ['google'] },
     }
     const result = validateOAuthHasProviders(config)
@@ -97,7 +96,7 @@ describe('validateOAuthHasProviders', () => {
 describe('validatePasskeyWithHTTPS', () => {
   test('should pass when no passkey is configured', () => {
     const config: AuthConfigForValidation = {
-      methods: ['email-and-password'],
+      methods: { emailAndPassword: true },
     }
     const result = validatePasskeyWithHTTPS(config, true)
     expect(result.success).toBe(true)
@@ -105,7 +104,7 @@ describe('validatePasskeyWithHTTPS', () => {
 
   test('should pass when passkey is configured in production', () => {
     const config: AuthConfigForValidation = {
-      methods: ['passkey'],
+      methods: { passkey: true },
     }
     const result = validatePasskeyWithHTTPS(config, true)
     expect(result.success).toBe(true)
@@ -113,15 +112,15 @@ describe('validatePasskeyWithHTTPS', () => {
 
   test('should pass when passkey is configured in development', () => {
     const config: AuthConfigForValidation = {
-      methods: ['passkey'],
+      methods: { passkey: true },
     }
     const result = validatePasskeyWithHTTPS(config, false)
     expect(result.success).toBe(true)
   })
 
-  test('should pass when passkey is configured as object', () => {
+  test('should pass when passkey is configured as config object', () => {
     const config: AuthConfigForValidation = {
-      methods: [{ method: 'passkey', userVerification: 'required' }],
+      methods: { passkey: { userVerification: 'required' } },
     }
     const result = validatePasskeyWithHTTPS(config, true)
     expect(result.success).toBe(true)
@@ -131,7 +130,7 @@ describe('validatePasskeyWithHTTPS', () => {
 describe('validateAuthConfig', () => {
   test('should pass for valid minimal configuration', () => {
     const config: AuthConfigForValidation = {
-      methods: ['email-and-password'],
+      methods: { emailAndPassword: true },
     }
     const result = validateAuthConfig(config)
     expect(result.success).toBe(true)
@@ -139,7 +138,7 @@ describe('validateAuthConfig', () => {
 
   test('should pass for valid configuration with OAuth and plugins', () => {
     const config: AuthConfigForValidation = {
-      methods: ['email-and-password', 'passkey'],
+      methods: { emailAndPassword: true, passkey: true },
       oauth: { providers: ['google', 'github'] },
       plugins: {
         twoFactor: true,
@@ -152,7 +151,7 @@ describe('validateAuthConfig', () => {
 
   test('should fail on first validation error (2FA without primary auth)', () => {
     const config: AuthConfigForValidation = {
-      methods: ['magic-link'],
+      methods: { magicLink: true },
       plugins: { twoFactor: true },
     }
     const result = validateAuthConfig(config)
@@ -161,51 +160,47 @@ describe('validateAuthConfig', () => {
   })
 })
 
-describe('getAuthMethodName', () => {
-  test('should return string method name directly', () => {
-    expect(getAuthMethodName('email-and-password')).toBe('email-and-password')
-    expect(getAuthMethodName('magic-link')).toBe('magic-link')
-    expect(getAuthMethodName('passkey')).toBe('passkey')
-  })
-
-  test('should extract method name from config object', () => {
-    expect(getAuthMethodName({ method: 'email-and-password', minPasswordLength: 12 })).toBe(
-      'email-and-password'
-    )
-    expect(getAuthMethodName({ method: 'passkey', userVerification: 'required' })).toBe('passkey')
-  })
-})
-
 describe('hasAuthMethod', () => {
-  test('should return true for string method', () => {
+  test('should return true for boolean method', () => {
     const config: AuthConfigForValidation = {
-      methods: ['email-and-password', 'magic-link'],
+      methods: { emailAndPassword: true, magicLink: true },
     }
-    expect(hasAuthMethod(config, 'email-and-password')).toBe(true)
-    expect(hasAuthMethod(config, 'magic-link')).toBe(true)
+    expect(hasAuthMethod(config, 'emailAndPassword')).toBe(true)
+    expect(hasAuthMethod(config, 'magicLink')).toBe(true)
   })
 
   test('should return false for missing method', () => {
     const config: AuthConfigForValidation = {
-      methods: ['email-and-password'],
+      methods: { emailAndPassword: true },
     }
     expect(hasAuthMethod(config, 'passkey')).toBe(false)
-    expect(hasAuthMethod(config, 'magic-link')).toBe(false)
+    expect(hasAuthMethod(config, 'magicLink')).toBe(false)
   })
 
-  test('should return true for method in config object', () => {
+  test('should return true for method with config object', () => {
     const config: AuthConfigForValidation = {
-      methods: [{ method: 'email-and-password', minPasswordLength: 12 }],
+      methods: { emailAndPassword: { minPasswordLength: 12 } },
     }
-    expect(hasAuthMethod(config, 'email-and-password')).toBe(true)
+    expect(hasAuthMethod(config, 'emailAndPassword')).toBe(true)
   })
 
-  test('should handle mixed string and object methods', () => {
+  test('should handle mixed boolean and config object methods', () => {
     const config: AuthConfigForValidation = {
-      methods: ['magic-link', { method: 'email-and-password', minPasswordLength: 12 }],
+      methods: {
+        magicLink: true,
+        emailAndPassword: { minPasswordLength: 12 },
+      },
     }
-    expect(hasAuthMethod(config, 'magic-link')).toBe(true)
-    expect(hasAuthMethod(config, 'email-and-password')).toBe(true)
+    expect(hasAuthMethod(config, 'magicLink')).toBe(true)
+    expect(hasAuthMethod(config, 'emailAndPassword')).toBe(true)
     expect(hasAuthMethod(config, 'passkey')).toBe(false)
+  })
+
+  test('should return false for method set to false', () => {
+    const config: AuthConfigForValidation = {
+      methods: { emailAndPassword: true, magicLink: false },
+    }
+    expect(hasAuthMethod(config, 'emailAndPassword')).toBe(true)
+    expect(hasAuthMethod(config, 'magicLink')).toBe(false)
   })
 })

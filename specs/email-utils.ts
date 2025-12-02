@@ -370,6 +370,63 @@ export class MailpitHelper {
   }
 
   /**
+   * Get the latest email sent to a specific address
+   * Waits for the email to arrive if not immediately available
+   *
+   * @param toAddress - The recipient email address to search for
+   * @param options - Timeout and polling options
+   * @returns The latest email with normalized property names (lowercase)
+   * @throws Error if no email to this address arrives within timeout
+   *
+   * @example
+   * ```typescript
+   * const email = await mailpit.getLatestEmail('user@example.com')
+   * const token = email.html.match(/token=([^"&\s]+)/)?.[1]
+   * ```
+   */
+  async getLatestEmail(
+    toAddress: string,
+    options?: { timeout?: number; interval?: number }
+  ): Promise<{
+    id: string
+    from: { name: string; address: string }
+    to: Array<{ name: string; address: string }>
+    subject: string
+    text: string
+    html: string
+    created: string
+  }> {
+    const timeout = options?.timeout ?? 10_000
+    const interval = options?.interval ?? 100
+    const startTime = Date.now()
+
+    while (Date.now() - startTime < timeout) {
+      const allEmails = await this.getAllEmails()
+      // Find emails sent to the specified address, sorted by creation time (newest first)
+      const matchingEmails = allEmails
+        .filter((email) => email.To.some((to) => to.Address === toAddress))
+        .sort((a, b) => new Date(b.Created).getTime() - new Date(a.Created).getTime())
+
+      const email = matchingEmails[0]
+      if (email) {
+        // Return normalized object with lowercase property names for convenience
+        return {
+          id: email.ID,
+          from: { name: email.From.Name, address: email.From.Address },
+          to: email.To.map((t) => ({ name: t.Name, address: t.Address })),
+          subject: email.Subject,
+          text: email.Text,
+          html: email.HTML,
+          created: email.Created,
+        }
+      }
+      await new Promise((resolve) => setTimeout(resolve, interval))
+    }
+
+    throw new Error(`No email to ${toAddress} found within ${timeout}ms`)
+  }
+
+  /**
    * Get SMTP configuration environment variables for Mailpit
    * These should be set in process.env when starting the server
    */

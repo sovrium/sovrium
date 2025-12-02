@@ -42,7 +42,7 @@ test.describe('Admin: Ban user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { admin: true },
         },
       })
@@ -89,7 +89,7 @@ test.describe('Admin: Ban user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { admin: true },
         },
       })
@@ -124,7 +124,7 @@ test.describe('Admin: Ban user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { admin: true },
         },
       })
@@ -153,7 +153,7 @@ test.describe('Admin: Ban user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { admin: true },
         },
       })
@@ -178,7 +178,7 @@ test.describe('Admin: Ban user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { admin: true },
         },
       })
@@ -218,7 +218,7 @@ test.describe('Admin: Ban user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { admin: true },
         },
       })
@@ -246,7 +246,7 @@ test.describe('Admin: Ban user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { admin: true },
         },
       })
@@ -289,7 +289,7 @@ test.describe('Admin: Ban user', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { admin: true },
         },
       })

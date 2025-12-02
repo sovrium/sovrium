@@ -7,7 +7,7 @@
 
 import { Schema } from 'effect'
 import { AuthEmailTemplatesSchema } from './config'
-import { AuthenticationMethodSchema } from './methods'
+import { hasAnyMethodEnabled, isMethodEnabled, MethodsConfigSchema } from './methods'
 import { OAuthConfigSchema } from './oauth'
 import { PluginsConfigSchema } from './plugins'
 import { validateAuthConfig } from './validation'
@@ -30,13 +30,13 @@ export * from './validation'
  * environment variables, not in this schema. See .env.example for details.
  *
  * Structure:
- * - methods: Array of enabled authentication methods (required)
+ * - methods: Object of enabled authentication methods (required, at least one)
  * - oauth: Social login configuration (optional)
  * - plugins: Feature plugins like 2FA, admin, organization (optional)
  *
  * Authentication Methods (v1):
- * - email-and-password: Traditional credential-based authentication
- * - magic-link: Passwordless email link authentication
+ * - emailAndPassword: Traditional credential-based authentication
+ * - magicLink: Passwordless email link authentication
  * - passkey: WebAuthn biometric/security key authentication
  *
  * OAuth Providers (v1):
@@ -60,25 +60,32 @@ export * from './validation'
  * @example
  * ```typescript
  * // Minimal configuration
- * { methods: ['email-and-password'] }
+ * { methods: { emailAndPassword: true } }
+ *
+ * // With email verification
+ * {
+ *   methods: {
+ *     emailAndPassword: { requireEmailVerification: true }
+ *   }
+ * }
  *
  * // Social login
  * {
- *   methods: ['email-and-password'],
+ *   methods: { emailAndPassword: true },
  *   oauth: { providers: ['google', 'github'] }
  * }
  *
  * // Enterprise setup
  * {
- *   methods: ['email-and-password', 'passkey'],
+ *   methods: {
+ *     emailAndPassword: { requireEmailVerification: true },
+ *     passkey: { userVerification: 'required' }
+ *   },
  *   oauth: { providers: ['microsoft', 'google'] },
  *   plugins: {
  *     admin: { impersonation: true },
  *     organization: { maxMembersPerOrg: 50 },
  *     twoFactor: { issuer: 'MyCompany', backupCodes: true }
- *   },
- *   emailTemplates: {
- *     verification: { subject: 'Verify your email', text: 'Click: $url' }
  *   }
  * }
  * ```
@@ -87,23 +94,23 @@ export const AuthSchema = Schema.Struct({
   /**
    * Authentication methods to enable
    *
-   * At least one authentication method must be specified.
-   * Each method can be a simple string or a configuration object.
+   * Object containing enabled authentication methods.
+   * Each method can be a boolean (true to enable) or a configuration object.
+   * At least one method must be enabled.
    *
    * @example
    * ```typescript
    * // Simple methods
-   * ['email-and-password', 'magic-link']
+   * { emailAndPassword: true, magicLink: true }
    *
    * // With configuration
-   * [
-   *   { method: 'email-and-password', minPasswordLength: 12 },
-   *   'magic-link',
-   *   { method: 'passkey', userVerification: 'required' }
-   * ]
+   * {
+   *   emailAndPassword: { requireEmailVerification: true, minPasswordLength: 12 },
+   *   passkey: { userVerification: 'required' }
+   * }
    * ```
    */
-  methods: Schema.NonEmptyArray(AuthenticationMethodSchema),
+  methods: MethodsConfigSchema,
 
   /**
    * OAuth social login configuration (optional)
@@ -168,6 +175,11 @@ export const AuthSchema = Schema.Struct({
 }).pipe(
   // Cross-field validation - returns undefined for valid, string for error
   Schema.filter((config) => {
+    // Check at least one method is enabled
+    if (!hasAnyMethodEnabled(config.methods)) {
+      return 'At least one authentication method must be enabled'
+    }
+
     const result = validateAuthConfig(config)
     if (!result.success) {
       return result.message ?? 'Validation failed'
@@ -180,10 +192,14 @@ export const AuthSchema = Schema.Struct({
       'Authentication configuration with methods, OAuth, plugins, and email templates. Infrastructure config (secrets, URLs, credentials) is set via environment variables.',
     examples: [
       // Minimal
-      { methods: ['email-and-password'] },
+      { methods: { emailAndPassword: true } },
+      // With email verification
+      {
+        methods: { emailAndPassword: { requireEmailVerification: true } },
+      },
       // Social login with email templates
       {
-        methods: ['email-and-password'],
+        methods: { emailAndPassword: true },
         oauth: { providers: ['google', 'github'] },
         emailTemplates: {
           verification: { subject: 'Verify your email', text: 'Click to verify: $url' },
@@ -192,16 +208,15 @@ export const AuthSchema = Schema.Struct({
       },
       // Enterprise setup
       {
-        methods: ['email-and-password', 'passkey'],
+        methods: {
+          emailAndPassword: { requireEmailVerification: true },
+          passkey: { userVerification: 'required' },
+        },
         oauth: { providers: ['microsoft', 'google'] },
         plugins: {
           admin: { impersonation: true },
           organization: { maxMembersPerOrg: 50 },
           twoFactor: { issuer: 'MyCompany', backupCodes: true },
-        },
-        emailTemplates: {
-          verification: { subject: 'Verify your email', text: 'Hi $name, verify here: $url' },
-          resetPassword: { subject: 'Reset your password', text: 'Click to reset: $url' },
         },
       },
     ],
@@ -223,13 +238,8 @@ export type AuthEncoded = Schema.Schema.Encoded<typeof AuthSchema>
 /**
  * Helper to check if auth is configured with a specific method
  */
-export const hasAuthenticationMethod = (auth: Auth, methodName: string): boolean => {
-  return auth.methods.some((method) => {
-    if (typeof method === 'string') {
-      return method === methodName
-    }
-    return method.method === methodName
-  })
+export const hasAuthenticationMethod = (auth: Auth, methodName: keyof Auth['methods']): boolean => {
+  return isMethodEnabled(auth.methods, methodName)
 }
 
 /**

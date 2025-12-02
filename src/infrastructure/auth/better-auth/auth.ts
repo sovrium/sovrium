@@ -42,8 +42,7 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: true, // Enable email verification to allow send-verification-email endpoint
-    autoSignIn: true, // Allow users to sign in even before verifying email
+    requireEmailVerification: true, // Require email verification before allowing sign-in
     // Password reset configuration
     sendResetPassword: async ({
       user,
@@ -80,7 +79,11 @@ export const auth = betterAuth({
         // Don't throw - let the user know the email was "sent" to prevent user enumeration
       }
     },
-    // Email verification configuration
+  },
+  // Email verification configuration - REQUIRED for send-verification-email endpoint
+  emailVerification: {
+    sendOnSignUp: true, // Send verification email automatically after sign-up
+    autoSignInAfterVerification: true, // Auto sign-in user after they verify their email
     sendVerificationEmail: async ({
       user,
       url,

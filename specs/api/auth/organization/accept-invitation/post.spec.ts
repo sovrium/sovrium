@@ -39,7 +39,7 @@ test.describe('Accept organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { organization: true },
         },
       })
@@ -111,7 +111,7 @@ test.describe('Accept organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { organization: true },
         },
       })
@@ -147,7 +147,7 @@ test.describe('Accept organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { organization: true },
         },
       })
@@ -172,7 +172,7 @@ test.describe('Accept organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { organization: true },
         },
       })
@@ -212,7 +212,7 @@ test.describe('Accept organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { organization: true },
         },
       })
@@ -251,7 +251,7 @@ test.describe('Accept organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { organization: true },
         },
       })
@@ -333,7 +333,7 @@ test.describe('Accept organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { organization: true },
         },
       })
@@ -398,7 +398,7 @@ test.describe('Accept organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { organization: true },
         },
       })
@@ -476,7 +476,7 @@ test.describe('Accept organization invitation', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['email-and-password'],
+          methods: { emailAndPassword: true },
           plugins: { organization: true },
         },
       })

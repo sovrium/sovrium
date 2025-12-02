@@ -27,12 +27,12 @@ test.describe('Verify Magic Link', () => {
   test.fixme(
     'API-AUTH-MAGIC-LINK-VERIFY-001: should authenticate user with valid magic link token',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, mailpitHelper }) => {
+    async ({ page, startServerWithSchema, signUp, mailpit }) => {
       // GIVEN: Application with magic link enabled and user with sent magic link
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['magic-link'],
+          methods: { magicLink: true },
         },
       })
 
@@ -51,7 +51,7 @@ test.describe('Verify Magic Link', () => {
       })
 
       // Extract token from email
-      const email = await mailpitHelper.getLatestEmail('test@example.com')
+      const email = await mailpit.getLatestEmail('test@example.com')
       const tokenMatch = email.html.match(/token=([^"&\s]+)/)
       const token = tokenMatch?.[1]
 
@@ -73,12 +73,12 @@ test.describe('Verify Magic Link', () => {
   test.fixme(
     'API-AUTH-MAGIC-LINK-VERIFY-002: should create account for new user with valid token',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, mailpitHelper }) => {
+    async ({ page, startServerWithSchema, mailpit }) => {
       // GIVEN: Application with magic link enabled and new user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['magic-link'],
+          methods: { magicLink: true },
         },
       })
 
@@ -91,7 +91,7 @@ test.describe('Verify Magic Link', () => {
       })
 
       // Extract token from email
-      const email = await mailpitHelper.getLatestEmail('newuser@example.com')
+      const email = await mailpit.getLatestEmail('newuser@example.com')
       const tokenMatch = email.html.match(/token=([^"&\s]+)/)
       const token = tokenMatch?.[1]
 
@@ -118,7 +118,7 @@ test.describe('Verify Magic Link', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['magic-link'],
+          methods: { magicLink: true },
         },
       })
 
@@ -138,17 +138,14 @@ test.describe('Verify Magic Link', () => {
   test.fixme(
     'API-AUTH-MAGIC-LINK-VERIFY-004: should return 400 with expired token',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, mailpitHelper }) => {
+    async ({ page, startServerWithSchema, signUp, mailpit }) => {
       // GIVEN: Application with short expiration time (1 minute)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: [
-            {
-              method: 'magic-link',
-              expirationMinutes: 1,
-            },
-          ],
+          methods: {
+            magicLink: { expirationMinutes: 1 },
+          },
         },
       })
 
@@ -167,7 +164,7 @@ test.describe('Verify Magic Link', () => {
       })
 
       // Extract token from email
-      const email = await mailpitHelper.getLatestEmail('test@example.com')
+      const email = await mailpit.getLatestEmail('test@example.com')
       const tokenMatch = email.html.match(/token=([^"&\s]+)/)
       const token = tokenMatch?.[1]
 
@@ -201,7 +198,7 @@ test.describe('Verify Magic Link', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['magic-link'],
+          methods: { magicLink: true },
         },
       })
 
@@ -223,12 +220,12 @@ test.describe('Verify Magic Link', () => {
   test.fixme(
     'API-AUTH-MAGIC-LINK-VERIFY-006: user can complete full magic link verification workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, mailpitHelper }) => {
+    async ({ page, startServerWithSchema, signUp, mailpit }) => {
       // GIVEN: Application with magic link authentication
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          methods: ['magic-link'],
+          methods: { magicLink: true },
         },
       })
 
@@ -247,7 +244,7 @@ test.describe('Verify Magic Link', () => {
       })
 
       // Extract token from email
-      const existingEmail = await mailpitHelper.getLatestEmail('existing@example.com')
+      const existingEmail = await mailpit.getLatestEmail('existing@example.com')
       const existingTokenMatch = existingEmail.html.match(/token=([^"&\s]+)/)
       const existingToken = existingTokenMatch?.[1]
 
@@ -272,7 +269,7 @@ test.describe('Verify Magic Link', () => {
         },
       })
 
-      const newEmail = await mailpitHelper.getLatestEmail('newuser@example.com')
+      const newEmail = await mailpit.getLatestEmail('newuser@example.com')
       const newTokenMatch = newEmail.html.match(/token=([^"&\s]+)/)
       const newToken = newTokenMatch?.[1]
 
