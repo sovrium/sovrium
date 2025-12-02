@@ -490,54 +490,54 @@ test.describe('Person Schema', () => {
     'APP-PAGES-PERSON-013: user can complete full Person workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: {
-              lang: 'en-US',
-              title: 'Test',
-              description: 'Test',
-              schema: {
-                person: {
-                  '@context': 'https://schema.org',
-                  '@type': 'Person',
-                  name: 'Complete Person Profile',
-                  givenName: 'John',
-                  familyName: 'Smith',
-                  email: 'john.smith@example.com',
-                  telephone: '+1-555-987-6543',
-                  url: 'https://johnsmith.com',
-                  image: 'https://example.com/john.jpg',
-                  jobTitle: 'Senior Software Engineer',
-                  worksFor: { '@type': 'Organization', name: 'Tech Innovations Inc' },
-                  sameAs: [
-                    'https://twitter.com/johnsmith',
-                    'https://linkedin.com/in/johnsmith',
-                    'https://github.com/johnsmith',
-                  ],
+      await test.step('Setup: Start server with Person schema', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  person: {
+                    '@context': 'https://schema.org',
+                    '@type': 'Person',
+                    name: 'Complete Person Profile',
+                    givenName: 'John',
+                    familyName: 'Smith',
+                    email: 'john.smith@example.com',
+                    telephone: '+1-555-987-6543',
+                    url: 'https://johnsmith.com',
+                    image: 'https://example.com/john.jpg',
+                    jobTitle: 'Senior Software Engineer',
+                    worksFor: { '@type': 'Organization', name: 'Tech Innovations Inc' },
+                    sameAs: [
+                      'https://twitter.com/johnsmith',
+                      'https://linkedin.com/in/johnsmith',
+                      'https://github.com/johnsmith',
+                    ],
+                  },
                 },
               },
+              sections: [],
             },
-            sections: [],
-          },
-        ],
+          ],
+        })
       })
-      // WHEN: user navigates to the page
-      await page.goto('/')
 
-      // Enhanced JSON-LD validation
-      const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+      let jsonLd: any
 
-      // Validate JSON-LD is valid JSON
-      const jsonLd = JSON.parse(scriptContent!)
+      await test.step('Navigate to page and parse JSON-LD', async () => {
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        jsonLd = JSON.parse(scriptContent!)
+      })
 
-      // Validate JSON-LD structure
-      // THEN: assertion
-      expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
+      await test.step('Verify Person schema structure', async () => {
+        expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
       expect(jsonLd).toHaveProperty('@type', 'Person')
       expect(jsonLd).toHaveProperty('name', 'Complete Person Profile')
       expect(jsonLd).toHaveProperty('givenName', 'John')

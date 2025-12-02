@@ -456,59 +456,59 @@ test.describe('Breadcrumb Schema', () => {
     'APP-PAGES-BREADCRUMB-011: user can complete full Breadcrumb workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'test',
-            path: '/',
-            meta: {
-              lang: 'en-US',
-              title: 'Test',
-              description: 'Test',
-              schema: {
-                breadcrumb: {
-                  '@context': 'https://schema.org',
-                  '@type': 'BreadcrumbList',
-                  itemListElement: [
-                    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://example.com' },
-                    {
-                      '@type': 'ListItem',
-                      position: 2,
-                      name: 'Products',
-                      item: 'https://example.com/products',
-                    },
-                    {
-                      '@type': 'ListItem',
-                      position: 3,
-                      name: 'Widget',
-                      item: 'https://example.com/products/widget',
-                    },
-                  ],
+      await test.step('Setup: Start server with BreadcrumbList schema', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                schema: {
+                  breadcrumb: {
+                    '@context': 'https://schema.org',
+                    '@type': 'BreadcrumbList',
+                    itemListElement: [
+                      { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://example.com' },
+                      {
+                        '@type': 'ListItem',
+                        position: 2,
+                        name: 'Products',
+                        item: 'https://example.com/products',
+                      },
+                      {
+                        '@type': 'ListItem',
+                        position: 3,
+                        name: 'Widget',
+                        item: 'https://example.com/products/widget',
+                      },
+                    ],
+                  },
                 },
               },
+              sections: [],
             },
-            sections: [],
-          },
-        ],
+          ],
+        })
       })
-      // WHEN: user navigates to the page
-      await page.goto('/')
 
-      // Enhanced JSON-LD validation
-      const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+      let jsonLd: any
 
-      // Validate JSON-LD is valid JSON
-      const jsonLd = JSON.parse(scriptContent!)
+      await test.step('Navigate to page and parse JSON-LD', async () => {
+        await page.goto('/')
+        const scriptContent = await page.locator('script[type="application/ld+json"]').textContent()
+        jsonLd = JSON.parse(scriptContent!)
+      })
 
-      // Validate JSON-LD structure
-      // THEN: assertion
-      expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
-      expect(jsonLd).toHaveProperty('@type', 'BreadcrumbList')
-      expect(jsonLd).toHaveProperty('itemListElement')
-      expect(Array.isArray(jsonLd.itemListElement)).toBe(true)
-      expect(jsonLd.itemListElement).toHaveLength(3)
+      await test.step('Verify BreadcrumbList structure', async () => {
+        expect(jsonLd).toHaveProperty('@context', 'https://schema.org')
+        expect(jsonLd).toHaveProperty('@type', 'BreadcrumbList')
+        expect(jsonLd).toHaveProperty('itemListElement')
+        expect(Array.isArray(jsonLd.itemListElement)).toBe(true)
+        expect(jsonLd.itemListElement).toHaveLength(3)
 
       // Validate breadcrumb items structure
       expect(jsonLd.itemListElement[0]).toMatchObject({
