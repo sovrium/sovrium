@@ -11,80 +11,140 @@ import { openAPI, admin, organization, apiKey, twoFactor } from 'better-auth/plu
 import { db } from '../../database/drizzle/db'
 import { sendEmail } from '../../email/email-service'
 import { passwordResetEmail, emailVerificationEmail } from '../../email/templates'
-import type { Auth } from '@/domain/models/app/auth'
+import type { Auth, AuthEmailTemplate } from '@/domain/models/app/auth'
 
 /**
- * Password reset email handler for Better Auth
+ * Substitute variables in a template string
  *
- * Side effects (logging, email sending) are required for Better Auth callbacks
+ * Replaces $variable patterns with actual values from the context.
+ * Supported variables: $name, $url, $email
  */
-const sendPasswordResetEmail = async ({
-  user,
-  url,
-  token,
-}: Readonly<{
-  user: Readonly<{ email: string; name?: string }>
-  url: string
-  token: string
-}>) => {
-  const resetUrl = `${url}?token=${token}`
+const substituteVariables = (
+  template: string,
+  context: Readonly<{ name?: string; url: string; email: string }>
+): string => {
+  return template
+    .replace(/\$name/g, context.name ?? 'there')
+    .replace(/\$url/g, context.url)
+    .replace(/\$email/g, context.email)
+}
 
-  // Send email (uses Mailpit in development, real SMTP in production)
-  try {
-    const template = passwordResetEmail({
-      userName: user.name,
-      resetUrl,
-      expiresIn: '1 hour',
-    })
+/**
+ * Create password reset email handler with optional custom templates
+ */
+const createPasswordResetEmailHandler = (customTemplate?: AuthEmailTemplate) => {
+  return async ({
+    user,
+    url,
+    token,
+  }: Readonly<{
+    user: Readonly<{ email: string; name?: string }>
+    url: string
+    token: string
+  }>) => {
+    const resetUrl = `${url}?token=${token}`
+    const context = { name: user.name, url: resetUrl, email: user.email }
 
-    // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
-    await sendEmail({
-      to: user.email,
-      subject: template.subject,
-      html: template.html,
-      text: template.text,
-    })
-  } catch (error) {
-    console.error(`[EMAIL] Failed to send password reset email to ${user.email}:`, error)
-    // Don't throw - let the user know the email was "sent" to prevent user enumeration
+    // Send email (uses Mailpit in development, real SMTP in production)
+    try {
+      // If custom template provided, use it entirely (don't mix with defaults)
+      // This ensures consistent behavior - either all custom or all default
+      if (customTemplate?.subject) {
+        const subject = substituteVariables(customTemplate.subject, context)
+        const text = customTemplate.text
+          ? substituteVariables(customTemplate.text, context)
+          : undefined
+        const html = customTemplate.html
+          ? substituteVariables(customTemplate.html, context)
+          : undefined
+
+        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
+        await sendEmail({
+          to: user.email,
+          subject,
+          html,
+          text,
+        })
+      } else {
+        // Use default template
+        const defaultTemplate = passwordResetEmail({
+          userName: user.name,
+          resetUrl,
+          expiresIn: '1 hour',
+        })
+
+        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
+        await sendEmail({
+          to: user.email,
+          subject: defaultTemplate.subject,
+          html: defaultTemplate.html,
+          text: defaultTemplate.text,
+        })
+      }
+    } catch (error) {
+      console.error(`[EMAIL] Failed to send password reset email to ${user.email}:`, error)
+      // Don't throw - let the user know the email was "sent" to prevent user enumeration
+    }
   }
 }
 
 /**
- * Email verification handler for Better Auth
- *
- * Side effects (logging, email sending) are required for Better Auth callbacks
+ * Create email verification handler with optional custom templates
  */
-const sendVerificationEmail = async ({
-  user,
-  url,
-  token,
-}: Readonly<{
-  user: Readonly<{ email: string; name?: string }>
-  url: string
-  token: string
-}>) => {
-  // URL already contains token parameter in Better Auth
-  const verifyUrl = url.includes('token=') ? url : `${url}?token=${token}`
+const createVerificationEmailHandler = (customTemplate?: AuthEmailTemplate) => {
+  return async ({
+    user,
+    url,
+    token,
+  }: Readonly<{
+    user: Readonly<{ email: string; name?: string }>
+    url: string
+    token: string
+  }>) => {
+    // URL already contains token parameter in Better Auth
+    const verifyUrl = url.includes('token=') ? url : `${url}?token=${token}`
+    const context = { name: user.name, url: verifyUrl, email: user.email }
 
-  // Send email (uses Mailpit in development, real SMTP in production)
-  try {
-    const template = emailVerificationEmail({
-      userName: user.name,
-      verifyUrl,
-      expiresIn: '24 hours',
-    })
+    // Send email (uses Mailpit in development, real SMTP in production)
+    try {
+      // If custom template provided, use it entirely (don't mix with defaults)
+      // This ensures consistent behavior - either all custom or all default
+      if (customTemplate?.subject) {
+        const subject = substituteVariables(customTemplate.subject, context)
+        const text = customTemplate.text
+          ? substituteVariables(customTemplate.text, context)
+          : undefined
+        const html = customTemplate.html
+          ? substituteVariables(customTemplate.html, context)
+          : undefined
 
-    // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
-    await sendEmail({
-      to: user.email,
-      subject: template.subject,
-      html: template.html,
-      text: template.text,
-    })
-  } catch (error) {
-    console.error(`[EMAIL] Failed to send verification email to ${user.email}:`, error)
-    // Don't throw - let the user know the email was "sent" to prevent user enumeration
+        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
+        await sendEmail({
+          to: user.email,
+          subject,
+          html,
+          text,
+        })
+      } else {
+        // Use default template
+        const defaultTemplate = emailVerificationEmail({
+          userName: user.name,
+          verifyUrl,
+          expiresIn: '24 hours',
+        })
+
+        // eslint-disable-next-line functional/no-expression-statements -- Better Auth email callback requires side effect
+        await sendEmail({
+          to: user.email,
+          subject: defaultTemplate.subject,
+          html: defaultTemplate.html,
+          text: defaultTemplate.text,
+        })
+      }
+    } catch (error) {
+      console.error(`[EMAIL] Failed to send verification email to ${user.email}:`, error)
+      // Don't throw - let the user know the email was "sent" to prevent user enumeration
+    }
   }
 }
 
@@ -102,6 +162,14 @@ export function createAuthInstance(authConfig?: Auth) {
       ? authConfig.emailAndPassword
       : {}
   const requireEmailVerification = emailAndPasswordConfig.requireEmailVerification ?? false
+
+  // Create email handlers with custom templates if provided
+  const passwordResetHandler = createPasswordResetEmailHandler(
+    authConfig?.emailTemplates?.resetPassword
+  )
+  const verificationEmailHandler = createVerificationEmailHandler(
+    authConfig?.emailTemplates?.verification
+  )
 
   return betterAuth({
     // Infrastructure config from environment variables
@@ -122,13 +190,13 @@ export function createAuthInstance(authConfig?: Auth) {
     emailAndPassword: {
       enabled: true,
       requireEmailVerification, // Dynamic based on app config
-      sendResetPassword: sendPasswordResetEmail,
+      sendResetPassword: passwordResetHandler,
     },
     // Email verification configuration - REQUIRED for send-verification-email endpoint
     emailVerification: {
       sendOnSignUp: requireEmailVerification, // Only send on sign-up if required
       autoSignInAfterVerification: true, // Auto sign-in user after they verify their email
-      sendVerificationEmail,
+      sendVerificationEmail: verificationEmailHandler,
     },
     plugins: [
       openAPI({
