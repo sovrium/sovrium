@@ -236,43 +236,44 @@ test.describe('JSON Field', () => {
     'APP-TABLES-FIELD-TYPES-JSON-006: user can complete full json-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'properties', type: 'json' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with json field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'properties', type: 'json' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN: querying the database
-      await executeQuery(
-        'INSERT INTO data (properties) VALUES (\'{"key1": "value1", "nested": {"key2": 42}}\')'
-      )
-      // WHEN: querying the database
-      const stored = await executeQuery('SELECT properties FROM data WHERE id = 1')
-      // THEN: assertion
-      expect(stored.properties).toEqual({ key1: 'value1', nested: { key2: 42 } })
+      await test.step('Insert and verify JSON value', async () => {
+        await executeQuery(
+          'INSERT INTO data (properties) VALUES (\'{"key1": "value1", "nested": {"key2": 42}}\')'
+        )
+        const stored = await executeQuery('SELECT properties FROM data WHERE id = 1')
+        expect(stored.properties).toEqual({ key1: 'value1', nested: { key2: 42 } })
+      })
 
-      const extracted = await executeQuery(
-        "SELECT properties -> 'nested' ->> 'key2' as key2 FROM data WHERE id = 1"
-      )
-      // THEN: assertion
-      expect(extracted.key2).toBe('42')
+      await test.step('Test JSON field extraction', async () => {
+        const extracted = await executeQuery(
+          "SELECT properties -> 'nested' ->> 'key2' as key2 FROM data WHERE id = 1"
+        )
+        expect(extracted.key2).toBe('42')
+      })
 
-      // WHEN: filtering with @> containment operator
-      const filtered = await executeQuery(
-        'SELECT COUNT(*) as count FROM data WHERE properties @> \'{"key1": "value1"}\''
-      )
-      // THEN: one record matches (COUNT returns bigint, coerce to number)
-      expect(Number(filtered.count)).toBe(1)
+      await test.step('Test JSON containment operator', async () => {
+        const filtered = await executeQuery(
+          'SELECT COUNT(*) as count FROM data WHERE properties @> \'{"key1": "value1"}\''
+        )
+        expect(Number(filtered.count)).toBe(1)
+      })
     }
   )
 })

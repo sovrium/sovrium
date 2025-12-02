@@ -235,43 +235,43 @@ test.describe('Geolocation Field', () => {
     'APP-TABLES-FIELD-TYPES-GEOLOCATION-006: user can complete full geolocation-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'position', type: 'geolocation', required: true },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with geolocation field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'position', type: 'geolocation', required: true },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN: executing query
-      await executeQuery('INSERT INTO data (position) VALUES (POINT(48.8566, 2.3522))')
-      // WHEN: querying the database
-      const stored = await executeQuery('SELECT position FROM data WHERE id = 1')
-      // THEN: assertion
-      expect(stored.position).toBe('(48.8566,2.3522)')
+      await test.step('Insert and verify geolocation value', async () => {
+        await executeQuery('INSERT INTO data (position) VALUES (POINT(48.8566, 2.3522))')
+        const stored = await executeQuery('SELECT position FROM data WHERE id = 1')
+        expect(stored.position).toBe('(48.8566,2.3522)')
+      })
 
-      // WHEN: querying the database
-      const distance = await executeQuery(
-        'SELECT position <-> POINT(48.8566, 2.3522) as dist FROM data WHERE id = 1'
-      )
-      // THEN: assertion
-      expect(distance.dist).toBe(0)
+      await test.step('Test distance calculation', async () => {
+        const distance = await executeQuery(
+          'SELECT position <-> POINT(48.8566, 2.3522) as dist FROM data WHERE id = 1'
+        )
+        expect(distance.dist).toBe(0)
+      })
 
-      const coordinates = await executeQuery(
-        'SELECT position[0] as lat, position[1] as lng FROM data WHERE id = 1'
-      )
-      // THEN: assertion
-      expect(coordinates.lat).toBe(48.8566)
-      // THEN: assertion
-      expect(coordinates.lng).toBe(2.3522)
+      await test.step('Extract coordinates', async () => {
+        const coordinates = await executeQuery(
+          'SELECT position[0] as lat, position[1] as lng FROM data WHERE id = 1'
+        )
+        expect(coordinates.lat).toBe(48.8566)
+        expect(coordinates.lng).toBe(2.3522)
+      })
     }
   )
 })

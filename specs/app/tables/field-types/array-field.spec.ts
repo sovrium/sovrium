@@ -240,41 +240,40 @@ test.describe('Array Field', () => {
     'APP-TABLES-FIELD-TYPES-ARRAY-006: user can complete full array-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'items', type: 'array', itemType: 'text' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with array field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'items', type: 'array', itemType: 'text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN: executing query
-      await executeQuery("INSERT INTO data (items) VALUES (ARRAY['a', 'b', 'c'])")
-      // WHEN: querying the database
-      const stored = await executeQuery('SELECT items FROM data WHERE id = 1')
-      // THEN: assertion
-      expect(stored.items).toEqual(['a', 'b', 'c'])
+      await test.step('Insert and verify array values', async () => {
+        await executeQuery("INSERT INTO data (items) VALUES (ARRAY['a', 'b', 'c'])")
+        const stored = await executeQuery('SELECT items FROM data WHERE id = 1')
+        expect(stored.items).toEqual(['a', 'b', 'c'])
+      })
 
-      // WHEN: querying the database
-      const containsCheck = await executeQuery(
-        "SELECT COUNT(*) as count FROM data WHERE 'b' = ANY(items)"
-      )
-      // THEN: assertion
-      expect(containsCheck.count).toBe(1)
+      await test.step('Test array containment and length', async () => {
+        const containsCheck = await executeQuery(
+          "SELECT COUNT(*) as count FROM data WHERE 'b' = ANY(items)"
+        )
+        expect(containsCheck.count).toBe(1)
 
-      const lengthCheck = await executeQuery(
-        'SELECT array_length(items, 1) as length FROM data WHERE id = 1'
-      )
-      // THEN: assertion
-      expect(lengthCheck.length).toBe(3)
+        const lengthCheck = await executeQuery(
+          'SELECT array_length(items, 1) as length FROM data WHERE id = 1'
+        )
+        expect(lengthCheck.length).toBe(3)
+      })
     }
   )
 })

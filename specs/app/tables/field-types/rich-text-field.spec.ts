@@ -208,36 +208,37 @@ test.describe('Rich Text Field', () => {
     'APP-TABLES-FIELD-TYPES-RICH-TEXT-006: user can complete full rich-text-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'description', type: 'rich-text', required: true },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with rich-text field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'description', type: 'rich-text', required: true },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN: querying the database
-      await executeQuery(
-        "INSERT INTO data (description) VALUES ('# Title\n\nThis is **important** content')"
-      )
-      // WHEN: querying the database
-      const stored = await executeQuery('SELECT description FROM data WHERE id = 1')
-      // THEN: assertion
-      expect(stored.description).toBe('# Title\n\nThis is **important** content')
+      await test.step('Insert and verify rich-text value', async () => {
+        await executeQuery(
+          "INSERT INTO data (description) VALUES ('# Title\n\nThis is **important** content')"
+        )
+        const stored = await executeQuery('SELECT description FROM data WHERE id = 1')
+        expect(stored.description).toBe('# Title\n\nThis is **important** content')
+      })
 
-      const searchResult = await executeQuery(
-        "SELECT COUNT(*) as count FROM data WHERE to_tsvector('english', description) @@ to_tsquery('english', 'important')"
-      )
-      // THEN: assertion
-      expect(searchResult.count).toBe(1)
+      await test.step('Test full-text search', async () => {
+        const searchResult = await executeQuery(
+          "SELECT COUNT(*) as count FROM data WHERE to_tsvector('english', description) @@ to_tsquery('english', 'important')"
+        )
+        expect(searchResult.count).toBe(1)
+      })
     }
   )
 })
