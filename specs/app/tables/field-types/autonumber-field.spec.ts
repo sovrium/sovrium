@@ -182,34 +182,37 @@ test.describe('Autonumber Field', () => {
     'APP-TABLES-FIELD-TYPES-AUTONUMBER-006: user can complete full autonumber-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: table configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'auto_field', type: 'autonumber' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with autonumber field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'auto_field', type: 'autonumber' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // Insert multiple records
-      await executeQuery([
-        'INSERT INTO data (id) VALUES (DEFAULT), (DEFAULT), (DEFAULT), (DEFAULT), (DEFAULT)',
-      ])
+      await test.step('Insert multiple records', async () => {
+        await executeQuery([
+          'INSERT INTO data (id) VALUES (DEFAULT), (DEFAULT), (DEFAULT), (DEFAULT), (DEFAULT)',
+        ])
+      })
 
-      // Verify sequential numbering
-      const results = await executeQuery('SELECT auto_field FROM data ORDER BY id')
-      expect(results.rows.length).toBe(5)
+      await test.step('Verify sequential numbering', async () => {
+        const results = await executeQuery('SELECT auto_field FROM data ORDER BY id')
+        expect(results.rows.length).toBe(5)
 
-      for (let i = 1; i < results.rows.length; i++) {
-        expect(results.rows[i].auto_field).toBeGreaterThan(results.rows[i - 1].auto_field)
-      }
+        for (let i = 1; i < results.rows.length; i++) {
+          expect(results.rows[i].auto_field).toBeGreaterThan(results.rows[i - 1].auto_field)
+        }
+      })
     }
   )
 })
