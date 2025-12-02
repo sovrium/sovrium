@@ -145,7 +145,9 @@ test.describe('Barcode Field', () => {
 
       await test.step('Insert and verify barcode value', async () => {
         await executeQuery("INSERT INTO data (barcode) VALUES ('9876543210987')")
-        const result = await executeQuery("SELECT barcode FROM data WHERE barcode = '9876543210987'")
+        const result = await executeQuery(
+          "SELECT barcode FROM data WHERE barcode = '9876543210987'"
+        )
         expect(result.barcode).toBe('9876543210987')
       })
     }

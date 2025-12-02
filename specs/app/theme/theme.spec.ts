@@ -856,9 +856,7 @@ test.describe('Theme Configuration', () => {
         const cssLink = page.locator('link[href="/assets/output.css"]')
         await expect(cssLink).toHaveCount(1)
 
-        const themeStyleTags = page.locator(
-          'style:has-text(":root"), style:has-text("--color-")'
-        )
+        const themeStyleTags = page.locator('style:has-text(":root"), style:has-text("--color-")')
         await expect(themeStyleTags).toHaveCount(0)
       })
 

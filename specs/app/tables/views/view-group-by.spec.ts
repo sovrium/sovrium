@@ -218,7 +218,9 @@ test.describe('View Group By', () => {
       })
 
       await test.step('Insert test data', async () => {
-        await executeQuery(["INSERT INTO data (category, value) VALUES ('A', 1), ('B', 2), ('A', 3)"])
+        await executeQuery([
+          "INSERT INTO data (category, value) VALUES ('A', 1), ('B', 2), ('A', 3)",
+        ])
       })
 
       await test.step('Verify view exists in database', async () => {

@@ -369,7 +369,9 @@ test.describe('Banner Configuration', () => {
                   sticky: true,
                 },
               },
-              sections: [{ type: 'div', props: { style: 'height: 2000px' }, children: ['Content'] }],
+              sections: [
+                { type: 'div', props: { style: 'height: 2000px' }, children: ['Content'] },
+              ],
             },
             {
               name: 'Pricing',

@@ -220,53 +220,50 @@ test.describe('Remove Field Migration', () => {
     'MIGRATION-ALTER-REMOVE-005: user can complete full remove-field-migration workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative remove field scenarios
-      await executeQuery([
-        `CREATE TABLE data (id SERIAL PRIMARY KEY, title VARCHAR(255), description TEXT, status VARCHAR(50))`,
-        `CREATE INDEX idx_data_status ON data(status)`,
-        `INSERT INTO data (title, description, status) VALUES ('Record 1', 'Desc 1', 'active')`,
-      ])
-
-      // WHEN/THEN: Streamlined workflow testing integration points
-
-      // Remove indexed field
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'description', type: 'single-line-text' },
-            ],
-          },
-        ],
+      await test.step('Setup: Create table with indexed field and data', async () => {
+        await executeQuery([
+          `CREATE TABLE data (id SERIAL PRIMARY KEY, title VARCHAR(255), description TEXT, status VARCHAR(50))`,
+          `CREATE INDEX idx_data_status ON data(status)`,
+          `INSERT INTO data (title, description, status) VALUES ('Record 1', 'Desc 1', 'active')`,
+        ])
       })
 
-      // Verify column removed
-      const columnCheck = await executeQuery(
-        `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='data' AND column_name='status'`
-      )
-      // THEN: assertion
-      expect(columnCheck.count).toBe(0)
+      await test.step('Remove indexed field from table', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'description', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
+      })
 
-      // Verify index removed
-      const indexCheck = await executeQuery(
-        `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='data' AND indexname='idx_data_status'`
-      )
-      // THEN: assertion
-      expect(indexCheck.count).toBe(0)
+      await test.step('Verify field and index removed, data preserved', async () => {
+        // Verify column removed
+        const columnCheck = await executeQuery(
+          `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='data' AND column_name='status'`
+        )
+        expect(columnCheck.count).toBe(0)
 
-      // Existing data preserved
-      const dataCheck = await executeQuery(
-        `SELECT COUNT(*) as count FROM data WHERE title = 'Record 1'`
-      )
-      // THEN: assertion
-      expect(dataCheck.count).toBe(1)
+        // Verify index removed
+        const indexCheck = await executeQuery(
+          `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename='data' AND indexname='idx_data_status'`
+        )
+        expect(indexCheck.count).toBe(0)
 
-      // Focus on workflow continuity, not exhaustive coverage
+        // Existing data preserved
+        const dataCheck = await executeQuery(
+          `SELECT COUNT(*) as count FROM data WHERE title = 'Record 1'`
+        )
+        expect(dataCheck.count).toBe(1)
+      })
     }
   )
 })

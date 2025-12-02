@@ -330,7 +330,9 @@ test.describe('Updated By Field', () => {
       })
 
       await test.step('Update data with different user', async () => {
-        await executeQuery(`UPDATE data SET value = 'v2', updated_by = '${bob.user.id}' WHERE id = 1`)
+        await executeQuery(
+          `UPDATE data SET value = 'v2', updated_by = '${bob.user.id}' WHERE id = 1`
+        )
       })
 
       await test.step('Verify updated_by field changed', async () => {

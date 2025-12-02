@@ -316,7 +316,9 @@ test.describe('Unique Field Property', () => {
 
       await test.step('Test unique constraint enforcement', async () => {
         await expect(
-          executeQuery("INSERT INTO data (unique_field, non_unique_field) VALUES ('value1', 'other')")
+          executeQuery(
+            "INSERT INTO data (unique_field, non_unique_field) VALUES ('value1', 'other')"
+          )
         ).rejects.toThrow(/duplicate key value violates unique constraint/)
       })
 

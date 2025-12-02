@@ -217,45 +217,43 @@ test.describe('Add Field Migration', () => {
     'MIGRATION-ALTER-ADD-005: user can complete full add-field-migration workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative add field scenarios
-      await executeQuery([
-        `CREATE TABLE data (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL)`,
-        `INSERT INTO data (title) VALUES ('Initial record')`,
-      ])
-
-      // WHEN/THEN: Streamlined workflow testing integration points
-
-      // Add optional field
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 5,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'description', type: 'single-line-text' },
-            ],
-          },
-        ],
+      await test.step('Setup: Create table with existing data', async () => {
+        await executeQuery([
+          `CREATE TABLE data (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL)`,
+          `INSERT INTO data (title) VALUES ('Initial record')`,
+        ])
       })
 
-      // Verify nullable column added
-      const columnCheck = await executeQuery(
-        `SELECT is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='description'`
-      )
-      // THEN: assertion
-      expect(columnCheck.is_nullable).toBe('YES')
+      await test.step('Add optional field to table', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'title', type: 'single-line-text' },
+                { id: 3, name: 'description', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
+      })
 
-      // Existing data preserved
-      const dataCheck = await executeQuery(
-        `SELECT COUNT(*) as count FROM data WHERE title = 'Initial record'`
-      )
-      // THEN: assertion
-      expect(dataCheck.count).toBe(1)
+      await test.step('Verify nullable column added and data preserved', async () => {
+        // Verify nullable column added
+        const columnCheck = await executeQuery(
+          `SELECT is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='description'`
+        )
+        expect(columnCheck.is_nullable).toBe('YES')
 
-      // Focus on workflow continuity, not exhaustive coverage
+        // Existing data preserved
+        const dataCheck = await executeQuery(
+          `SELECT COUNT(*) as count FROM data WHERE title = 'Initial record'`
+        )
+        expect(dataCheck.count).toBe(1)
+      })
     }
   )
 })

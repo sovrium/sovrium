@@ -548,10 +548,9 @@ test.describe('Analytics Configuration', () => {
       })
 
       await test.step('Verify async script loading', async () => {
-        await expect(page.locator('script[src="https://plausible.io/js/script.js"]')).toHaveAttribute(
-          'async',
-          ''
-        )
+        await expect(
+          page.locator('script[src="https://plausible.io/js/script.js"]')
+        ).toHaveAttribute('async', '')
       })
     }
   )

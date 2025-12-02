@@ -487,7 +487,9 @@ test.describe('Sidebar Configuration', () => {
                   ],
                 },
               },
-              sections: [{ type: 'div', props: { style: 'height: 2000px' }, children: ['Content'] }],
+              sections: [
+                { type: 'div', props: { style: 'height: 2000px' }, children: ['Content'] },
+              ],
             },
           ],
         })

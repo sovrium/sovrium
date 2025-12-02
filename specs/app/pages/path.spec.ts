@@ -640,14 +640,24 @@ test.describe('URL Path', () => {
           name: 'test-app',
           pages: [
             { name: 'Home', path: '/', meta: { lang: 'en-US', title: 'Home' }, sections: [] },
-            { name: 'About', path: '/about', meta: { lang: 'en-US', title: 'About' }, sections: [] },
+            {
+              name: 'About',
+              path: '/about',
+              meta: { lang: 'en-US', title: 'About' },
+              sections: [],
+            },
             {
               name: 'Pricing',
               path: '/products/pricing',
               meta: { lang: 'en-US', title: 'Pricing' },
               sections: [],
             },
-            { name: 'Team', path: '/our-team', meta: { lang: 'en-US', title: 'Team' }, sections: [] },
+            {
+              name: 'Team',
+              path: '/our-team',
+              meta: { lang: 'en-US', title: 'Team' },
+              sections: [],
+            },
           ],
         })
       })
