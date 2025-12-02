@@ -181,7 +181,7 @@ test.describe('Decimal Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-DECIMAL-005: should create btree index for fast numerical queries when decimal field has indexed=true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
