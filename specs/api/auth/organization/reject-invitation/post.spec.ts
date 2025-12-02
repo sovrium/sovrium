@@ -38,7 +38,7 @@ test.describe('Reject organization invitation', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -110,7 +110,7 @@ test.describe('Reject organization invitation', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -146,7 +146,7 @@ test.describe('Reject organization invitation', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -171,7 +171,7 @@ test.describe('Reject organization invitation', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -209,7 +209,7 @@ test.describe('Reject organization invitation', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -247,7 +247,7 @@ test.describe('Reject organization invitation', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -312,7 +312,7 @@ test.describe('Reject organization invitation', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -390,7 +390,7 @@ test.describe('Reject organization invitation', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 

@@ -38,7 +38,7 @@ test.describe('Get organization details', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -82,7 +82,7 @@ test.describe('Get organization details', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -116,7 +116,7 @@ test.describe('Get organization details', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -139,7 +139,7 @@ test.describe('Get organization details', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -175,7 +175,7 @@ test.describe('Get organization details', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -232,7 +232,7 @@ test.describe('Get organization details', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 

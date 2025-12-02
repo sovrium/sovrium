@@ -38,7 +38,7 @@ test.describe('Update member role', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -105,7 +105,7 @@ test.describe('Update member role', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -145,7 +145,7 @@ test.describe('Update member role', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -172,7 +172,7 @@ test.describe('Update member role', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -244,7 +244,7 @@ test.describe('Update member role', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -289,7 +289,7 @@ test.describe('Update member role', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -355,7 +355,7 @@ test.describe('Update member role', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 

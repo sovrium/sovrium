@@ -31,6 +31,9 @@ test.describe('Table-Level Permissions', () => {
       // GIVEN: table with role-based read permission for 'member' role
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          authentication: ['email-and-password'],
+        },
         tables: [
           {
             id: 1,
@@ -355,6 +358,9 @@ test.describe('Table-Level Permissions', () => {
       // GIVEN: Application configured with representative table-level permissions
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          authentication: ['email-and-password'],
+        },
         tables: [
           {
             id: 6,

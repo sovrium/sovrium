@@ -43,7 +43,7 @@ test.describe('Admin: Ban user', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -90,7 +90,7 @@ test.describe('Admin: Ban user', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -125,7 +125,7 @@ test.describe('Admin: Ban user', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -154,7 +154,7 @@ test.describe('Admin: Ban user', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -179,7 +179,7 @@ test.describe('Admin: Ban user', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -219,7 +219,7 @@ test.describe('Admin: Ban user', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -247,7 +247,7 @@ test.describe('Admin: Ban user', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -290,7 +290,7 @@ test.describe('Admin: Ban user', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 

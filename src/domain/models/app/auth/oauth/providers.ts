@@ -6,10 +6,6 @@
  */
 
 import { Schema } from 'effect'
-import { EnvRefSchema } from '../config'
-
-// Re-export for backwards compatibility
-export { EnvRefSchema, type EnvRef } from '../config'
 
 /**
  * OAuth Provider Schema
@@ -23,6 +19,10 @@ export { EnvRefSchema, type EnvRef } from '../config'
  * - microsoft: Enterprise/Azure AD
  * - slack: Workspace communication
  * - gitlab: Developer/CI-CD integration
+ *
+ * Credentials are loaded from environment variables:
+ * - {PROVIDER}_CLIENT_ID (e.g., GOOGLE_CLIENT_ID)
+ * - {PROVIDER}_CLIENT_SECRET (e.g., GOOGLE_CLIENT_SECRET)
  *
  * @example
  * ```typescript
@@ -45,120 +45,37 @@ export const OAuthProviderSchema = Schema.Literal(
 export type OAuthProvider = Schema.Schema.Type<typeof OAuthProviderSchema>
 
 /**
- * OAuth Provider Configuration Schema (Detailed)
+ * OAuth Configuration Schema
  *
- * Detailed configuration for an OAuth provider with explicit env var references.
- *
- * @example
- * ```typescript
- * {
- *   provider: 'google',
- *   clientId: '$GOOGLE_CLIENT_ID',
- *   clientSecret: '$GOOGLE_CLIENT_SECRET',
- *   scopes: ['openid', 'profile', 'email']
- * }
- * ```
- */
-export const OAuthProviderConfigSchema = Schema.Struct({
-  provider: OAuthProviderSchema,
-  clientId: EnvRefSchema,
-  clientSecret: EnvRefSchema,
-  scopes: Schema.optional(Schema.Array(Schema.String)),
-  redirectUri: Schema.optional(Schema.String),
-}).pipe(
-  Schema.annotations({
-    title: 'OAuth Provider Configuration',
-    description: 'Detailed OAuth provider configuration with env var references',
-  })
-)
-
-export type OAuthProviderConfig = Schema.Schema.Type<typeof OAuthProviderConfigSchema>
-
-/**
- * Simple OAuth Configuration Schema
- *
- * Simple provider list using default environment variable names.
- * For provider 'google', expects:
- * - GOOGLE_CLIENT_ID
- * - GOOGLE_CLIENT_SECRET
+ * Simple provider list using environment variables for credentials.
+ * For each provider enabled, the system expects:
+ * - {PROVIDER}_CLIENT_ID environment variable
+ * - {PROVIDER}_CLIENT_SECRET environment variable
  *
  * @example
  * ```typescript
+ * // Enable Google and GitHub OAuth
  * { providers: ['google', 'github'] }
+ *
+ * // Required environment variables:
+ * // GOOGLE_CLIENT_ID=your-google-client-id
+ * // GOOGLE_CLIENT_SECRET=your-google-client-secret
+ * // GITHUB_CLIENT_ID=your-github-client-id
+ * // GITHUB_CLIENT_SECRET=your-github-client-secret
  * ```
  */
-export const SimpleOAuthConfigSchema = Schema.Struct({
+export const OAuthConfigSchema = Schema.Struct({
+  /** List of OAuth providers to enable */
   providers: Schema.NonEmptyArray(OAuthProviderSchema),
 }).pipe(
   Schema.annotations({
-    title: 'Simple OAuth Configuration',
-    description: 'OAuth with providers using default env var names',
-  })
-)
-
-/**
- * Detailed OAuth Configuration Schema
- *
- * Explicit configuration for each provider with custom env var references.
- *
- * @example
- * ```typescript
- * {
- *   providers: [
- *     { provider: 'google', clientId: '$MY_GOOGLE_ID', clientSecret: '$MY_GOOGLE_SECRET' },
- *     { provider: 'github', clientId: '$GH_ID', clientSecret: '$GH_SECRET' }
- *   ]
- * }
- * ```
- */
-export const DetailedOAuthConfigSchema = Schema.Struct({
-  providers: Schema.NonEmptyArray(OAuthProviderConfigSchema),
-}).pipe(
-  Schema.annotations({
-    title: 'Detailed OAuth Configuration',
-    description: 'OAuth with explicit env var references per provider',
-  })
-)
-
-/**
- * OAuth Configuration Schema
- *
- * Union of simple and detailed OAuth configurations.
- * Allows either:
- * - Simple: { providers: ['google', 'github'] }
- * - Detailed: { providers: [{ provider: 'google', clientId: '$MY_ID', ... }] }
- *
- * @example
- * ```typescript
- * // Simple (uses default env vars)
- * { providers: ['google', 'github'] }
- *
- * // Detailed (custom env vars)
- * {
- *   providers: [
- *     { provider: 'google', clientId: '$CUSTOM_ID', clientSecret: '$CUSTOM_SECRET' }
- *   ]
- * }
- * ```
- */
-export const OAuthConfigSchema = Schema.Union(
-  SimpleOAuthConfigSchema,
-  DetailedOAuthConfigSchema
-).pipe(
-  Schema.annotations({
     title: 'OAuth Configuration',
-    description: 'OAuth social login configuration',
+    description:
+      'OAuth social login configuration. Credentials loaded from environment variables ({PROVIDER}_CLIENT_ID, {PROVIDER}_CLIENT_SECRET).',
     examples: [
+      { providers: ['google'] },
       { providers: ['google', 'github'] },
-      {
-        providers: [
-          {
-            provider: 'google',
-            clientId: '$GOOGLE_CLIENT_ID',
-            clientSecret: '$GOOGLE_CLIENT_SECRET',
-          },
-        ],
-      },
+      { providers: ['google', 'github', 'microsoft'] },
     ],
   })
 )
@@ -166,12 +83,18 @@ export const OAuthConfigSchema = Schema.Union(
 export type OAuthConfig = Schema.Schema.Type<typeof OAuthConfigSchema>
 
 /**
- * Get default environment variable names for a provider
+ * Get environment variable names for a provider
  *
  * @param provider - OAuth provider name
  * @returns Object with clientId and clientSecret env var names
+ *
+ * @example
+ * ```typescript
+ * getProviderEnvVars('google')
+ * // Returns: { clientId: 'GOOGLE_CLIENT_ID', clientSecret: 'GOOGLE_CLIENT_SECRET' }
+ * ```
  */
-export const getDefaultEnvVars = (
+export const getProviderEnvVars = (
   provider: OAuthProvider
 ): { readonly clientId: string; readonly clientSecret: string } => {
   const upper = provider.toUpperCase()

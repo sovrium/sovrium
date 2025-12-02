@@ -6,7 +6,6 @@
  */
 
 import { Schema } from 'effect'
-import { DefaultAdminSchema } from '../config'
 
 /**
  * Admin Plugin Configuration
@@ -18,7 +17,11 @@ import { DefaultAdminSchema } from '../config'
  * Configuration options:
  * - impersonation: Allow admins to impersonate other users
  * - userManagement: Enable user CRUD operations
- * - defaultAdmin: Create a default admin user on first startup
+ *
+ * Default admin user is configured via environment variables:
+ * - ADMIN_EMAIL: Admin email address
+ * - ADMIN_PASSWORD: Admin password
+ * - ADMIN_NAME: Admin display name (optional)
  *
  * @example
  * ```typescript
@@ -27,19 +30,6 @@ import { DefaultAdminSchema } from '../config'
  *
  * // With configuration
  * { plugins: { admin: { impersonation: true, userManagement: true } } }
- *
- * // With default admin user
- * {
- *   plugins: {
- *     admin: {
- *       defaultAdmin: {
- *         email: 'admin@myapp.com',
- *         password: '$ADMIN_PASSWORD',
- *         name: 'Admin User'
- *       }
- *     }
- *   }
- * }
  * ```
  */
 export const AdminConfigSchema = Schema.Union(
@@ -51,24 +41,13 @@ export const AdminConfigSchema = Schema.Union(
     userManagement: Schema.optional(
       Schema.Boolean.pipe(Schema.annotations({ description: 'Enable user management features' }))
     ),
-    defaultAdmin: Schema.optional(
-      DefaultAdminSchema.pipe(
-        Schema.annotations({ description: 'Default admin user created on first startup' })
-      )
-    ),
   })
 ).pipe(
   Schema.annotations({
     title: 'Admin Plugin Configuration',
-    description: 'Administrative features for user management',
-    examples: [
-      true,
-      { impersonation: true, userManagement: true },
-      {
-        impersonation: true,
-        defaultAdmin: { email: 'admin@myapp.com', password: '$ADMIN_PASSWORD' },
-      },
-    ],
+    description:
+      'Administrative features for user management. Default admin user configured via ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME environment variables.',
+    examples: [true, { impersonation: true }, { impersonation: true, userManagement: true }],
   })
 )
 

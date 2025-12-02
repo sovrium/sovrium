@@ -17,7 +17,7 @@
  * Start a development server
  * ```bash
  * sovrium start app.json                           # Load from JSON file
- * SOVRIUM_APP_SCHEMA='{"name":"My App"}' sovrium   # Or use env variable
+ * SOVRIUM_APP_JSON='{"name":"My App"}' sovrium   # Or use env variable
  * ```
  *
  * ### sovrium static [config.json]
@@ -31,12 +31,12 @@
  * - `config.json` (optional) - Path to JSON file containing app configuration
  *
  * ## Environment Variables (start command)
- * - `SOVRIUM_APP_SCHEMA` (optional if file provided) - JSON string containing app configuration
- * - `SOVRIUM_PORT` (optional) - Server port (default: 3000)
- * - `SOVRIUM_HOSTNAME` (optional) - Server hostname (default: localhost)
+ * - `SOVRIUM_APP_JSON` (optional if file provided) - JSON string containing app configuration
+ * - `PORT` (optional) - Server port (default: 3000)
+ * - `HOSTNAME` (optional) - Server hostname (default: localhost)
  *
  * ## Environment Variables (static command)
- * - `SOVRIUM_APP_SCHEMA` (optional if file provided) - JSON string containing app configuration
+ * - `SOVRIUM_APP_JSON` (optional if file provided) - JSON string containing app configuration
  * - `SOVRIUM_OUTPUT_DIR` (optional) - Output directory (default: ./static)
  * - `SOVRIUM_BASE_URL` (optional) - Base URL for sitemap
  * - `SOVRIUM_BASE_PATH` (optional) - Base path for deployments
@@ -77,7 +77,7 @@ const showHelp = (): void => {
       yield* Console.log('  sovrium start app.json')
       yield* Console.log('')
       yield* Console.log('  # Start with environment variable')
-      yield* Console.log('  SOVRIUM_APP_SCHEMA=\'{"name":"My App"}\' sovrium start')
+      yield* Console.log('  SOVRIUM_APP_JSON=\'{"name":"My App"}\' sovrium start')
       yield* Console.log('')
       yield* Console.log('  # Generate static site')
       yield* Console.log('  sovrium static app.json')
@@ -137,7 +137,7 @@ const parseAppSchema = async (command: string, filePath?: string): Promise<AppSc
   }
 
   // Otherwise, try environment variable
-  const appSchemaString = Bun.env.SOVRIUM_APP_SCHEMA
+  const appSchemaString = Bun.env.SOVRIUM_APP_JSON
 
   if (!appSchemaString) {
     Effect.runSync(
@@ -148,7 +148,7 @@ const parseAppSchema = async (command: string, filePath?: string): Promise<AppSc
         yield* Console.error(`  sovrium ${command} <config.json>`)
         yield* Console.error('')
         yield* Console.error('Or with environment variable:')
-        yield* Console.error(`  SOVRIUM_APP_SCHEMA='{"name":"My App"}' sovrium ${command}`)
+        yield* Console.error(`  SOVRIUM_APP_JSON='{"name":"My App"}' sovrium ${command}`)
       })
     )
     // Terminate process - imperative statement required for CLI
@@ -161,13 +161,13 @@ const parseAppSchema = async (command: string, filePath?: string): Promise<AppSc
   } catch {
     Effect.runSync(
       Effect.gen(function* () {
-        yield* Console.error('Error: SOVRIUM_APP_SCHEMA must be valid JSON')
+        yield* Console.error('Error: SOVRIUM_APP_JSON must be valid JSON')
         yield* Console.error('')
         yield* Console.error('Received:', appSchemaString)
         yield* Console.error('')
         yield* Console.error('Example:')
         yield* Console.error(
-          `  SOVRIUM_APP_SCHEMA='{"name":"My App","description":"My Description"}' sovrium ${command}`
+          `  SOVRIUM_APP_JSON='{"name":"My App","description":"My Description"}' sovrium ${command}`
         )
       })
     )
@@ -181,8 +181,8 @@ const parseAppSchema = async (command: string, filePath?: string): Promise<AppSc
  * Parse server options from environment variables
  */
 const parseStartOptions = (): StartOptions => {
-  const port = Bun.env.SOVRIUM_PORT
-  const hostname = Bun.env.SOVRIUM_HOSTNAME
+  const port = Bun.env.PORT
+  const hostname = Bun.env.HOSTNAME
 
   if (!port && !hostname) {
     return {}

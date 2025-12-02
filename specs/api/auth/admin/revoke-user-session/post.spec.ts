@@ -43,7 +43,7 @@ test.describe('Admin: Revoke user session', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -92,7 +92,7 @@ test.describe('Admin: Revoke user session', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -121,7 +121,7 @@ test.describe('Admin: Revoke user session', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -147,7 +147,7 @@ test.describe('Admin: Revoke user session', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -187,7 +187,7 @@ test.describe('Admin: Revoke user session', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -216,7 +216,7 @@ test.describe('Admin: Revoke user session', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -247,7 +247,7 @@ test.describe('Admin: Revoke user session', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -281,7 +281,7 @@ test.describe('Admin: Revoke user session', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -322,7 +322,7 @@ test.describe('Admin: Revoke user session', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 

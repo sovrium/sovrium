@@ -43,7 +43,7 @@ test.describe('Admin: Create user', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -87,7 +87,7 @@ test.describe('Admin: Create user', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -122,7 +122,7 @@ test.describe('Admin: Create user', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -151,7 +151,7 @@ test.describe('Admin: Create user', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -184,7 +184,7 @@ test.describe('Admin: Create user', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -217,7 +217,7 @@ test.describe('Admin: Create user', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -244,7 +244,7 @@ test.describe('Admin: Create user', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -281,7 +281,7 @@ test.describe('Admin: Create user', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -317,7 +317,7 @@ test.describe('Admin: Create user', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -352,7 +352,7 @@ test.describe('Admin: Create user', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -390,7 +390,7 @@ test.describe('Admin: Create user', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 

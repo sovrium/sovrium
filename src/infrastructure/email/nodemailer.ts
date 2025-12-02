@@ -76,14 +76,14 @@ export function getEmailConfig(): EmailConfig {
     }
   }
 
-  // No SMTP configured - throw error in production, use defaults in dev
-  if (isProduction) {
-    throw new Error('[EMAIL] SMTP_HOST is required in production mode')
-  }
-
   // Development fallback - requires Mailpit or similar local SMTP
   // E2E tests configure Mailpit via fixtures.ts
-  console.warn('[EMAIL] SMTP_HOST not configured, using localhost:1025 (Mailpit)')
+  if (isProduction) {
+    console.error('[EMAIL] WARNING: SMTP_HOST not configured in production mode')
+  } else {
+    console.warn('[EMAIL] SMTP_HOST not configured, using localhost:1025 (Mailpit)')
+  }
+
   return {
     host: 'localhost',
     port: 1025,

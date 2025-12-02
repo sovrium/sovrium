@@ -40,7 +40,7 @@ test.describe('Accept organization invitation', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -112,7 +112,7 @@ test.describe('Accept organization invitation', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -148,7 +148,7 @@ test.describe('Accept organization invitation', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -173,7 +173,7 @@ test.describe('Accept organization invitation', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -213,7 +213,7 @@ test.describe('Accept organization invitation', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -252,7 +252,7 @@ test.describe('Accept organization invitation', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -295,7 +295,7 @@ test.describe('Accept organization invitation', () => {
       })
 
       // Also create invitation for the same member
-      const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
+      await page.request.post('/api/auth/organization/invite-member', {
         data: {
           organizationId: org.id,
           email: 'member@example.com',
@@ -334,7 +334,7 @@ test.describe('Accept organization invitation', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -399,7 +399,7 @@ test.describe('Accept organization invitation', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -477,7 +477,7 @@ test.describe('Accept organization invitation', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 

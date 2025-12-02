@@ -27,10 +27,13 @@ test.describe('Record-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-RECORD-PERMISSIONS-001: should filter records to match user ID when record-level permission is read: {userId} = created_by',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: record-level permission 'read: {userId} = created_by'
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          authentication: ['email-and-password'],
+        },
         tables: [
           {
             id: 1,
@@ -54,10 +57,14 @@ test.describe('Record-Level Permissions', () => {
         ],
       })
 
+      // Create test users
+      const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
+      const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
+
       await executeQuery([
         'ALTER TABLE documents ENABLE ROW LEVEL SECURITY',
         "CREATE POLICY user_read_own ON documents FOR SELECT USING (created_by = current_setting('app.user_id')::INTEGER)",
-        "INSERT INTO documents (title, content, created_by) VALUES ('Doc 1', 'Content 1', 1), ('Doc 2', 'Content 2', 2), ('Doc 3', 'Content 3', 1)",
+        `INSERT INTO documents (title, content, created_by) VALUES ('Doc 1', 'Content 1', '${user1.user.id}'), ('Doc 2', 'Content 2', '${user2.user.id}'), ('Doc 3', 'Content 3', '${user1.user.id}')`,
       ])
 
       // WHEN: user lists records
@@ -72,21 +79,21 @@ test.describe('Record-Level Permissions', () => {
 
       // User 1 can only SELECT their own records
       const user1Count = await executeQuery(
-        'SET LOCAL app.user_id = 1; SELECT COUNT(*) as count FROM documents'
+        `SET LOCAL app.user_id = '${user1.user.id}'; SELECT COUNT(*) as count FROM documents`
       )
       // THEN: assertion
       expect(user1Count.count).toBe(2)
 
       // User 2 can only SELECT their own records
       const user2Count = await executeQuery(
-        'SET LOCAL app.user_id = 2; SELECT COUNT(*) as count FROM documents'
+        `SET LOCAL app.user_id = '${user2.user.id}'; SELECT COUNT(*) as count FROM documents`
       )
       // THEN: assertion
       expect(user2Count.count).toBe(1)
 
       // User 1 sees titles of their documents
       const user1Titles = await executeQuery(
-        'SET LOCAL app.user_id = 1; SELECT title FROM documents ORDER BY id'
+        `SET LOCAL app.user_id = '${user1.user.id}'; SELECT title FROM documents ORDER BY id`
       )
       // THEN: assertion
       expect(user1Titles).toEqual([{ title: 'Doc 1' }, { title: 'Doc 3' }])
@@ -100,6 +107,9 @@ test.describe('Record-Level Permissions', () => {
       // GIVEN: record-level permission 'update: {userId} = assigned_to'
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          authentication: ['email-and-password'],
+        },
         tables: [
           {
             id: 2,
@@ -169,6 +179,9 @@ test.describe('Record-Level Permissions', () => {
       // GIVEN: record-level permission 'delete: {userId} = created_by AND status = draft'
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          authentication: ['email-and-password'],
+        },
         tables: [
           {
             id: 3,
@@ -238,6 +251,9 @@ test.describe('Record-Level Permissions', () => {
       // GIVEN: multiple record-level read conditions with AND logic
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          authentication: ['email-and-password'],
+        },
         tables: [
           {
             id: 4,
@@ -385,6 +401,9 @@ test.describe('Record-Level Permissions', () => {
       // GIVEN: record-level permission with complex condition '{userId} = created_by OR {userId} = assigned_to'
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          authentication: ['email-and-password'],
+        },
         tables: [
           {
             id: 6,
@@ -464,6 +483,9 @@ test.describe('Record-Level Permissions', () => {
       // GIVEN: Application configured with representative record-level permissions
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          authentication: ['email-and-password'],
+        },
         tables: [
           {
             id: 7,

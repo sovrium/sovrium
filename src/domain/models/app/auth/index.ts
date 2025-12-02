@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { AuthEmailTemplatesSchema, EnvRefSchema } from './config'
+import { AuthEmailTemplatesSchema } from './config'
 import { AuthenticationMethodSchema } from './methods'
 import { OAuthConfigSchema } from './oauth'
 import { PluginsConfigSchema } from './plugins'
@@ -26,6 +26,9 @@ export * from './validation'
  * If this config exists, authentication is enabled.
  * If omitted from the app config, no auth endpoints are available.
  *
+ * Infrastructure configuration (secrets, URLs, credentials) is handled via
+ * environment variables, not in this schema. See .env.example for details.
+ *
  * Structure:
  * - authentication: Array of enabled authentication methods (required)
  * - oauth: Social login configuration (optional)
@@ -38,7 +41,7 @@ export * from './validation'
  *
  * OAuth Providers (v1):
  * - google, github, microsoft, slack, gitlab
- * - Supports custom scopes and env var references for credentials
+ * - Credentials loaded from environment variables (e.g., GOOGLE_CLIENT_ID)
  *
  * Plugins (v1):
  * - admin: User management, banning, impersonation
@@ -47,17 +50,17 @@ export * from './validation'
  * - apiKeys: Programmatic API access
  * - bearer/jwt: Token-based authentication
  *
+ * Environment Variables (infrastructure config):
+ * - BETTER_AUTH_SECRET: Secret key for signing tokens
+ * - BETTER_AUTH_BASE_URL: Base URL for callbacks (optional)
+ * - {PROVIDER}_CLIENT_ID: OAuth client ID per provider
+ * - {PROVIDER}_CLIENT_SECRET: OAuth client secret per provider
+ * - ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME: Default admin user (optional)
+ *
  * @example
  * ```typescript
  * // Minimal configuration
  * { authentication: ['email-and-password'] }
- *
- * // With secret and baseURL
- * {
- *   secret: '$BETTER_AUTH_SECRET',
- *   baseURL: 'https://myapp.com',
- *   authentication: ['email-and-password']
- * }
  *
  * // Social login
  * {
@@ -65,63 +68,22 @@ export * from './validation'
  *   oauth: { providers: ['google', 'github'] }
  * }
  *
- * // Enterprise setup with emails
+ * // Enterprise setup
  * {
- *   secret: '$BETTER_AUTH_SECRET',
- *   baseURL: 'https://myapp.com',
  *   authentication: ['email-and-password', 'passkey'],
  *   oauth: { providers: ['microsoft', 'google'] },
- *   emails: {
- *     from: 'noreply@myapp.com',
- *     fromName: 'MyApp',
- *     provider: 'resend',
- *     apiKey: '$RESEND_API_KEY'
- *   },
  *   plugins: {
- *     admin: {
- *       impersonation: true,
- *       defaultAdmin: { email: 'admin@myapp.com', password: '$ADMIN_PASSWORD' }
- *     },
+ *     admin: { impersonation: true },
  *     organization: { maxMembersPerOrg: 50 },
  *     twoFactor: { issuer: 'MyCompany', backupCodes: true }
+ *   },
+ *   emailTemplates: {
+ *     verification: { subject: 'Verify your email', text: 'Click: $url' }
  *   }
  * }
  * ```
  */
 export const AuthSchema = Schema.Struct({
-  /**
-   * Secret key for signing tokens and cookies (optional, env var reference)
-   *
-   * If not provided, uses BETTER_AUTH_SECRET environment variable.
-   * Must be a strong, random string for production.
-   *
-   * @example '$BETTER_AUTH_SECRET' or '$MY_AUTH_SECRET'
-   */
-  secret: Schema.optional(
-    EnvRefSchema.pipe(
-      Schema.annotations({
-        description: 'Secret key for signing (env var reference, defaults to $BETTER_AUTH_SECRET)',
-      })
-    )
-  ),
-
-  /**
-   * Base URL for authentication endpoints (optional)
-   *
-   * Used for constructing callback URLs, magic links, etc.
-   * If not provided, auto-detected from request.
-   *
-   * @example 'https://myapp.com' or 'http://localhost:3000'
-   */
-  baseURL: Schema.optional(
-    Schema.String.pipe(
-      Schema.pattern(/^https?:\/\/.+/),
-      Schema.annotations({
-        description: 'Base URL for auth endpoints (e.g., https://myapp.com)',
-      })
-    )
-  ),
-
   /**
    * Authentication methods to enable
    *
@@ -215,16 +177,10 @@ export const AuthSchema = Schema.Struct({
   Schema.annotations({
     title: 'Authentication Configuration',
     description:
-      'Comprehensive authentication configuration with methods, OAuth, plugins, and email templates. Email transport configuration is handled at the app level.',
+      'Authentication configuration with methods, OAuth, plugins, and email templates. Infrastructure config (secrets, URLs, credentials) is set via environment variables.',
     examples: [
       // Minimal
       { authentication: ['email-and-password'] },
-      // With secret and baseURL
-      {
-        secret: '$BETTER_AUTH_SECRET',
-        baseURL: 'https://myapp.com',
-        authentication: ['email-and-password'],
-      },
       // Social login with email templates
       {
         authentication: ['email-and-password'],
@@ -234,27 +190,18 @@ export const AuthSchema = Schema.Struct({
           resetPassword: { subject: 'Reset your password', text: 'Reset link: $url' },
         },
       },
-      // Enterprise with default admin
+      // Enterprise setup
       {
-        secret: '$BETTER_AUTH_SECRET',
-        baseURL: 'https://myapp.com',
         authentication: ['email-and-password', 'passkey'],
         oauth: { providers: ['microsoft', 'google'] },
         plugins: {
-          admin: {
-            impersonation: true,
-            defaultAdmin: { email: 'admin@myapp.com', password: '$ADMIN_PASSWORD' },
-          },
+          admin: { impersonation: true },
           organization: { maxMembersPerOrg: 50 },
           twoFactor: { issuer: 'MyCompany', backupCodes: true },
         },
         emailTemplates: {
-          verification: {
-            subject: 'Verify your MyCompany email',
-            text: 'Hi $name, verify here: $url',
-          },
+          verification: { subject: 'Verify your email', text: 'Hi $name, verify here: $url' },
           resetPassword: { subject: 'Reset your password', text: 'Click to reset: $url' },
-          magicLink: { subject: 'Sign in to MyCompany', text: 'Click to sign in: $url' },
         },
       },
     ],

@@ -9,7 +9,6 @@ import { Schema } from 'effect'
 import { AuthSchema } from './auth'
 import { BlocksSchema } from './blocks'
 import { DescriptionSchema } from './description'
-import { EmailConfigSchema } from './email'
 import { LanguagesSchema } from './languages'
 import { NameSchema } from './name'
 import { LayoutSchema } from './page/layout'
@@ -109,15 +108,6 @@ export const AppSchema = Schema.Struct({
   auth: Schema.optional(AuthSchema),
 
   /**
-   * Email configuration (optional).
-   *
-   * Configure email delivery for transactional emails, notifications, and communication.
-   * Supports multiple providers (SMTP, Resend, SendGrid, Mailgun, Postmark, SES) with
-   * template engine support. Use for application emails beyond authentication flows.
-   */
-  email: Schema.optional(EmailConfigSchema),
-
-  /**
    * Reusable UI component blocks (optional).
    *
    * Array of reusable component templates with variable substitution. Blocks are
@@ -148,13 +138,6 @@ export const AppSchema = Schema.Struct({
    */
   pages: Schema.optional(PagesSchema),
 }).pipe(
-  // Cross-field validation: email config is required when auth is configured
-  Schema.filter((config) => {
-    if (config.auth && !config.email) {
-      return 'Email configuration is required when authentication is enabled. Add an "email" field to configure email delivery for auth flows.'
-    }
-    return undefined
-  }),
   Schema.annotations({
     title: 'Application Configuration',
     description:
@@ -221,6 +204,5 @@ export * from './tables'
 export * from './theme'
 export * from './languages'
 export * from './auth'
-export * from './email'
 export * from './blocks'
 export * from './pages'

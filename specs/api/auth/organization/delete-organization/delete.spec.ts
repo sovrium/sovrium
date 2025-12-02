@@ -40,7 +40,7 @@ test.describe('Delete organization', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -87,7 +87,7 @@ test.describe('Delete organization', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -123,7 +123,7 @@ test.describe('Delete organization', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -148,7 +148,7 @@ test.describe('Delete organization', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -213,7 +213,7 @@ test.describe('Delete organization', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -251,7 +251,7 @@ test.describe('Delete organization', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -320,7 +320,7 @@ test.describe('Delete organization', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['organization'],
+          plugins: { organization: true },
         },
       })
 

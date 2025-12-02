@@ -129,7 +129,7 @@ test.describe('Revoke all other sessions', () => {
       // Verify we have sessions
       const sessionsBeforeResponse = await page.request.get('/api/auth/list-sessions')
       const sessionsBefore = await sessionsBeforeResponse.json()
-      const sessionCount = sessionsBefore.length
+      expect(sessionsBefore.length).toBeGreaterThanOrEqual(1)
 
       // WHEN: User revokes other sessions (none exist besides current)
       const response = await page.request.post('/api/auth/revoke-other-sessions')
@@ -173,7 +173,7 @@ test.describe('Revoke all other sessions', () => {
 
       // Get initial session count
       const sessionsBeforeResponse = await page.request.get('/api/auth/list-sessions')
-      const sessionsBefore = await sessionsBeforeResponse.json()
+      expect((await sessionsBeforeResponse.json()).length).toBeGreaterThanOrEqual(2)
 
       // WHEN: User revokes other sessions from one device
       const response = await page.request.post('/api/auth/revoke-other-sessions')

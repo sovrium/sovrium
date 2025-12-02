@@ -43,7 +43,7 @@ test.describe('Admin: Set user role', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -89,7 +89,7 @@ test.describe('Admin: Set user role', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -118,7 +118,7 @@ test.describe('Admin: Set user role', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -152,7 +152,7 @@ test.describe('Admin: Set user role', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -178,7 +178,7 @@ test.describe('Admin: Set user role', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -219,7 +219,7 @@ test.describe('Admin: Set user role', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -248,7 +248,7 @@ test.describe('Admin: Set user role', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -287,7 +287,7 @@ test.describe('Admin: Set user role', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -331,7 +331,7 @@ test.describe('Admin: Set user role', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 

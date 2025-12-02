@@ -43,7 +43,7 @@ test.describe('Admin: List user sessions', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -89,7 +89,7 @@ test.describe('Admin: List user sessions', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -116,7 +116,7 @@ test.describe('Admin: List user sessions', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -137,7 +137,7 @@ test.describe('Admin: List user sessions', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -173,7 +173,7 @@ test.describe('Admin: List user sessions', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -197,7 +197,7 @@ test.describe('Admin: List user sessions', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -229,7 +229,7 @@ test.describe('Admin: List user sessions', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 
@@ -264,7 +264,7 @@ test.describe('Admin: List user sessions', () => {
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin'],
+          plugins: { admin: true },
         },
       })
 

@@ -9,8 +9,26 @@ import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { openAPI, admin, organization } from 'better-auth/plugins'
 import { db } from '../../database/drizzle/db'
+import { sendEmail } from '../../email/email-service'
+import { passwordResetEmail, emailVerificationEmail } from '../../email/templates'
 
+/**
+ * Better Auth Configuration
+ *
+ * Infrastructure configuration via environment variables:
+ * - BETTER_AUTH_SECRET: Secret key for signing tokens (required in production)
+ * - BETTER_AUTH_BASE_URL: Base URL for callbacks (optional, auto-detected)
+ * - ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME: Default admin user (optional)
+ *
+ * Email configuration:
+ * - SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS: SMTP configuration
+ * - Falls back to Ethereal test SMTP in development
+ */
 export const auth = betterAuth({
+  // Infrastructure config from environment variables
+  secret: process.env.BETTER_AUTH_SECRET,
+  baseURL: process.env.BETTER_AUTH_BASE_URL,
+
   database: drizzleAdapter(db, {
     provider: 'pg',
     usePlural: true,
@@ -31,29 +49,35 @@ export const auth = betterAuth({
       url,
       token,
     }: Readonly<{
-      user: Readonly<{ email: string }>
+      user: Readonly<{ email: string; name?: string }>
       url: string
       token: string
     }>) => {
-      /**
-       * TODO (Phase 2): Email Service Integration
-       *
-       * Current Implementation:
-       * - Console logging for development and E2E test verification
-       * - Allows tests to verify email functionality without SMTP
-       *
-       * Future Implementation (Phase 2):
-       * - Integrate email service provider (Resend, SendGrid, or AWS SES)
-       * - Add email templates for password reset
-       * - Implement retry logic and error handling
-       * - Add rate limiting for email sending
-       *
-       * Security Considerations:
-       * - Token expires after configured period (Better Auth default)
-       * - One-time use token (invalidated after use)
-       * - HTTPS-only URLs in production
-       */
-      console.log(`[TEST] Password reset for ${user.email}: ${url}?token=${token}`)
+      const resetUrl = `${url}?token=${token}`
+
+      // Always log for testing/debugging
+      console.log(`[EMAIL] Password reset for ${user.email}: ${resetUrl}`)
+
+      // Send email (uses Ethereal in development, real SMTP in production)
+      try {
+        const template = passwordResetEmail({
+          userName: user.name,
+          resetUrl,
+          expiresIn: '1 hour',
+        })
+
+        await sendEmail({
+          to: user.email,
+          subject: template.subject,
+          html: template.html,
+          text: template.text,
+        })
+
+        console.log(`[EMAIL] Password reset email sent to ${user.email}`)
+      } catch (error) {
+        console.error(`[EMAIL] Failed to send password reset email to ${user.email}:`, error)
+        // Don't throw - let the user know the email was "sent" to prevent user enumeration
+      }
     },
     // Email verification configuration
     sendVerificationEmail: async ({
@@ -61,29 +85,35 @@ export const auth = betterAuth({
       url,
       token,
     }: Readonly<{
-      user: Readonly<{ email: string }>
+      user: Readonly<{ email: string; name?: string }>
       url: string
       token: string
     }>) => {
-      /**
-       * TODO (Phase 2): Email Service Integration
-       *
-       * Current Implementation:
-       * - Console logging for development and E2E test verification
-       * - Allows tests to verify email functionality without SMTP
-       *
-       * Future Implementation (Phase 2):
-       * - Integrate email service provider (Resend, SendGrid, or AWS SES)
-       * - Add email templates for email verification
-       * - Implement retry logic and error handling
-       * - Add rate limiting for email sending
-       *
-       * Security Considerations:
-       * - Token expires after configured period (Better Auth default)
-       * - One-time use token (invalidated after use)
-       * - HTTPS-only URLs in production
-       */
-      console.log(`[TEST] Email verification for ${user.email}: ${url}?token=${token}`)
+      const verifyUrl = `${url}?token=${token}`
+
+      // Always log for testing/debugging
+      console.log(`[EMAIL] Email verification for ${user.email}: ${verifyUrl}`)
+
+      // Send email (uses Ethereal in development, real SMTP in production)
+      try {
+        const template = emailVerificationEmail({
+          userName: user.name,
+          verifyUrl,
+          expiresIn: '24 hours',
+        })
+
+        await sendEmail({
+          to: user.email,
+          subject: template.subject,
+          html: template.html,
+          text: template.text,
+        })
+
+        console.log(`[EMAIL] Verification email sent to ${user.email}`)
+      } catch (error) {
+        console.error(`[EMAIL] Failed to send verification email to ${user.email}:`, error)
+        // Don't throw - let the user know the email was "sent" to prevent user enumeration
+      }
     },
   },
   plugins: [

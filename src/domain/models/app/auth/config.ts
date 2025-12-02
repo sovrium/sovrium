@@ -6,10 +6,6 @@
  */
 
 import { Schema } from 'effect'
-import { EnvRefSchema } from '../common/env-ref'
-
-export { EnvRefSchema }
-export type { EnvRef } from '../common/env-ref'
 
 /**
  * Auth Email Template Schema
@@ -120,43 +116,3 @@ export const AuthEmailTemplatesSchema = Schema.Struct({
 )
 
 export type AuthEmailTemplates = Schema.Schema.Type<typeof AuthEmailTemplatesSchema>
-
-/**
- * Default Admin User Schema
- *
- * Configuration for creating a default admin user on first startup.
- * This is useful for bootstrapping the application with an initial admin.
- *
- * @example
- * ```typescript
- * {
- *   email: 'admin@myapp.com',
- *   password: '$ADMIN_PASSWORD',
- *   name: 'Admin User'
- * }
- * ```
- */
-export const DefaultAdminSchema = Schema.Struct({
-  /** Admin user email address */
-  email: Schema.String.pipe(
-    Schema.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/),
-    Schema.annotations({ description: 'Admin email address' })
-  ),
-  /** Admin user password (env var reference for security) */
-  password: EnvRefSchema.pipe(
-    Schema.annotations({ description: 'Admin password (must be env var reference)' })
-  ),
-  /** Admin user display name */
-  name: Schema.optional(Schema.String),
-}).pipe(
-  Schema.annotations({
-    title: 'Default Admin User',
-    description: 'Initial admin user created on first startup',
-    examples: [
-      { email: 'admin@myapp.com', password: '$ADMIN_PASSWORD' },
-      { email: 'admin@myapp.com', password: '$ADMIN_PASSWORD', name: 'System Admin' },
-    ],
-  })
-)
-
-export type DefaultAdmin = Schema.Schema.Type<typeof DefaultAdminSchema>

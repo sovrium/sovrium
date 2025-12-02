@@ -113,66 +113,16 @@ describe('AuthSchema', () => {
       })
     })
 
-    test('should accept secret env var reference', () => {
+    test('should accept enterprise configuration', () => {
       const input = {
-        secret: '$BETTER_AUTH_SECRET',
-        authentication: ['email-and-password'],
-      }
-      const result = Schema.decodeUnknownSync(AuthSchema)(input)
-      expect(result.secret).toBe('$BETTER_AUTH_SECRET')
-    })
-
-    test('should accept baseURL', () => {
-      const input = {
-        baseURL: 'https://myapp.com',
-        authentication: ['email-and-password'],
-      }
-      const result = Schema.decodeUnknownSync(AuthSchema)(input)
-      expect(result.baseURL).toBe('https://myapp.com')
-    })
-
-    test('should accept admin plugin with defaultAdmin', () => {
-      const input = {
-        authentication: ['email-and-password'],
-        plugins: {
-          admin: {
-            impersonation: true,
-            defaultAdmin: {
-              email: 'admin@myapp.com',
-              password: '$ADMIN_PASSWORD',
-              name: 'Admin User',
-            },
-          },
-        },
-      }
-      const result = Schema.decodeUnknownSync(AuthSchema)(input)
-      expect(result.plugins?.admin).toEqual({
-        impersonation: true,
-        defaultAdmin: {
-          email: 'admin@myapp.com',
-          password: '$ADMIN_PASSWORD',
-          name: 'Admin User',
-        },
-      })
-    })
-
-    test('should accept full enterprise configuration', () => {
-      const input = {
-        secret: '$BETTER_AUTH_SECRET',
-        baseURL: 'https://myapp.com',
         authentication: ['email-and-password', 'passkey'],
         oauth: { providers: ['google', 'github'] },
         plugins: {
-          admin: {
-            impersonation: true,
-            defaultAdmin: { email: 'admin@myapp.com', password: '$ADMIN_PASSWORD' },
-          },
+          admin: { impersonation: true },
           organization: { maxMembersPerOrg: 50 },
         },
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
-      expect(result.secret).toBe('$BETTER_AUTH_SECRET')
-      expect(result.baseURL).toBe('https://myapp.com')
       expect(result.oauth?.providers).toEqual(['google', 'github'])
     })
 
@@ -288,9 +238,7 @@ describe('AuthSchema', () => {
       const description = SchemaAST.getDescriptionAnnotation(AuthSchema.ast)
       expect(description._tag).toBe('Some')
       if (description._tag === 'Some') {
-        expect(description.value).toBe(
-          'Comprehensive authentication configuration with methods, OAuth, plugins, and email templates. Email transport configuration is handled at the app level.'
-        )
+        expect(description.value).toContain('Authentication configuration')
       }
     })
 

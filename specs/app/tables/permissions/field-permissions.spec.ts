@@ -31,6 +31,9 @@ test.describe('Field-Level Permissions', () => {
       // GIVEN: field 'salary' with read permission restricted to 'admin' role
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          authentication: ['email-and-password'],
+        },
         tables: [
           {
             id: 1,
@@ -317,10 +320,13 @@ test.describe('Field-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-FIELD-PERMISSIONS-005: should deny UPDATE when non-owner attempts to update field notes with custom condition write permission (owner only)',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: field 'notes' with custom condition write permission (owner only)
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          authentication: ['email-and-password'],
+        },
         tables: [
           {
             id: 5,
@@ -347,8 +353,12 @@ test.describe('Field-Level Permissions', () => {
         ],
       })
 
+      // Create test users
+      const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
+      const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
+
       await executeQuery([
-        "INSERT INTO tasks (title, notes, owner_id) VALUES ('Task 1', 'Initial notes', 1), ('Task 2', 'Other notes', 2)",
+        `INSERT INTO tasks (title, notes, owner_id) VALUES ('Task 1', 'Initial notes', '${user1.user.id}'), ('Task 2', 'Other notes', '${user2.user.id}')`,
       ])
 
       // WHEN: non-owner attempts to update field
@@ -356,7 +366,7 @@ test.describe('Field-Level Permissions', () => {
 
       // Owner (user 1) can UPDATE notes on their task
       const ownerUpdate = await executeQuery(
-        "SET LOCAL app.user_id = 1; UPDATE tasks SET notes = 'Updated by owner' WHERE id = 1 RETURNING notes"
+        `SET LOCAL app.user_id = '${user1.user.id}'; UPDATE tasks SET notes = 'Updated by owner' WHERE id = 1 RETURNING notes`
       )
       // THEN: assertion
       expect(ownerUpdate.notes).toBe('Updated by owner')
@@ -365,13 +375,13 @@ test.describe('Field-Level Permissions', () => {
       // THEN: assertion
       await expect(async () => {
         await executeQuery(
-          "SET LOCAL app.user_id = 2; UPDATE tasks SET notes = 'Hacked notes' WHERE id = 1"
+          `SET LOCAL app.user_id = '${user2.user.id}'; UPDATE tasks SET notes = 'Hacked notes' WHERE id = 1`
         )
       }).rejects.toThrow('permission denied for column notes')
 
       // Owner can UPDATE notes on their own task (task 2)
       const owner2Update = await executeQuery(
-        "SET LOCAL app.user_id = 2; UPDATE tasks SET notes = 'My notes' WHERE id = 2 RETURNING notes"
+        `SET LOCAL app.user_id = '${user2.user.id}'; UPDATE tasks SET notes = 'My notes' WHERE id = 2 RETURNING notes`
       )
       // THEN: assertion
       expect(owner2Update.notes).toBe('My notes')
@@ -441,10 +451,13 @@ test.describe('Field-Level Permissions', () => {
   test.fixme(
     'APP-TABLES-FIELD-PERMISSIONS-007: user can complete full field-permissions workflow',
     { tag: '@regression' },
-    async ({ startServerWithSchema, executeQuery }) => {
+    async ({ startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Application configured with representative field-level permissions
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          authentication: ['email-and-password'],
+        },
         tables: [
           {
             id: 7,
@@ -479,15 +492,19 @@ test.describe('Field-Level Permissions', () => {
         ],
       })
 
+      // Create test users
+      const user1 = await createAuthenticatedUser({ email: 'owner@example.com' })
+      const user2 = await createAuthenticatedUser({ email: 'other@example.com' })
+
       await executeQuery([
-        "INSERT INTO records (title, public_field, private_field, owner_id) VALUES ('Record 1', 'Public', 'Private', 1)",
+        `INSERT INTO records (title, public_field, private_field, owner_id) VALUES ('Record 1', 'Public', 'Private', '${user1.user.id}')`,
       ])
 
       // WHEN/THEN: Streamlined workflow testing integration points
 
       // Owner can read all fields including private_field
       const ownerRead = await executeQuery(
-        'SET LOCAL app.user_id = 1; SELECT title, public_field, private_field FROM records WHERE id = 1'
+        `SET LOCAL app.user_id = '${user1.user.id}'; SELECT title, public_field, private_field FROM records WHERE id = 1`
       )
       // THEN: assertion
       expect(ownerRead.title).toBe('Record 1')
@@ -497,13 +514,13 @@ test.describe('Field-Level Permissions', () => {
       // THEN: assertion
       await expect(async () => {
         await executeQuery(
-          'SET LOCAL app.user_id = 2; SELECT private_field FROM records WHERE id = 1'
+          `SET LOCAL app.user_id = '${user2.user.id}'; SELECT private_field FROM records WHERE id = 1`
         )
       }).rejects.toThrow('permission denied')
 
       // Owner can update private_field
       const ownerUpdate = await executeQuery(
-        "SET LOCAL app.user_id = 1; UPDATE records SET private_field = 'Updated' WHERE id = 1 RETURNING private_field"
+        `SET LOCAL app.user_id = '${user1.user.id}'; UPDATE records SET private_field = 'Updated' WHERE id = 1 RETURNING private_field`
       )
       // THEN: assertion
       expect(ownerUpdate.private_field).toBe('Updated')
@@ -512,7 +529,7 @@ test.describe('Field-Level Permissions', () => {
       // THEN: assertion
       await expect(async () => {
         await executeQuery(
-          "SET LOCAL app.user_id = 2; UPDATE records SET private_field = 'Hacked' WHERE id = 1"
+          `SET LOCAL app.user_id = '${user2.user.id}'; UPDATE records SET private_field = 'Hacked' WHERE id = 1`
         )
       }).rejects.toThrow('permission denied')
 
