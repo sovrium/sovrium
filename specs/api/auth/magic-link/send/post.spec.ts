@@ -201,63 +201,68 @@ test.describe('Send Magic Link', () => {
     'API-AUTH-MAGIC-LINK-SEND-006: user can complete full magic link send workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, mailpit }) => {
-      // GIVEN: Application with magic link authentication
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          magicLink: true,
-          emailAndPassword: true,
-        },
+      let existingUserEmail: string
+      let newUserEmail: string
+
+      await test.step('Setup: Start server with magic link auth', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            magicLink: true,
+            emailAndPassword: true,
+          },
+        })
+
+        existingUserEmail = mailpit.email('existing')
+        newUserEmail = mailpit.email('newuser')
       })
 
-      const existingUserEmail = mailpit.email('existing')
-      const newUserEmail = mailpit.email('newuser')
-
-      // Register existing user
-      await signUp({
-        name: 'Existing User',
-        email: existingUserEmail,
-        password: 'ValidPassword123!',
-      })
-
-      // WHEN: Existing user requests magic link
-      const existingUserResponse = await page.request.post('/api/auth/magic-link/send', {
-        data: {
+      await test.step('Setup: Sign up existing user', async () => {
+        await signUp({
+          name: 'Existing User',
           email: existingUserEmail,
-          callbackUrl: '/dashboard',
-        },
+          password: 'ValidPassword123!',
+        })
       })
 
-      // THEN: Magic link is sent
-      expect(existingUserResponse.status()).toBe(200)
-      const existingEmail = await mailpit.waitForEmail(
-        (e) => e.To[0]?.Address === existingUserEmail
-      )
-      expect(existingEmail).toBeDefined()
+      await test.step('Send magic link to existing user', async () => {
+        const existingUserResponse = await page.request.post('/api/auth/magic-link/send', {
+          data: {
+            email: existingUserEmail,
+            callbackUrl: '/dashboard',
+          },
+        })
 
-      // WHEN: New user requests magic link
-      const newUserResponse = await page.request.post('/api/auth/magic-link/send', {
-        data: {
-          email: newUserEmail,
-          callbackUrl: '/dashboard',
-        },
+        expect(existingUserResponse.status()).toBe(200)
+        const existingEmail = await mailpit.waitForEmail(
+          (e) => e.To[0]?.Address === existingUserEmail
+        )
+        expect(existingEmail).toBeDefined()
       })
 
-      // THEN: Magic link is sent for signup
-      expect(newUserResponse.status()).toBe(200)
-      const newEmail = await mailpit.waitForEmail((e) => e.To[0]?.Address === newUserEmail)
-      expect(newEmail).toBeDefined()
+      await test.step('Send magic link to new user for signup', async () => {
+        const newUserResponse = await page.request.post('/api/auth/magic-link/send', {
+          data: {
+            email: newUserEmail,
+            callbackUrl: '/dashboard',
+          },
+        })
 
-      // WHEN: Invalid email is submitted
-      const invalidResponse = await page.request.post('/api/auth/magic-link/send', {
-        data: {
-          email: 'invalid-email',
-          callbackUrl: '/dashboard',
-        },
+        expect(newUserResponse.status()).toBe(200)
+        const newEmail = await mailpit.waitForEmail((e) => e.To[0]?.Address === newUserEmail)
+        expect(newEmail).toBeDefined()
       })
 
-      // THEN: Request fails with validation error
-      expect(invalidResponse.status()).toBe(400)
+      await test.step('Verify send fails with invalid email', async () => {
+        const invalidResponse = await page.request.post('/api/auth/magic-link/send', {
+          data: {
+            email: 'invalid-email',
+            callbackUrl: '/dashboard',
+          },
+        })
+
+        expect(invalidResponse.status()).toBe(400)
+      })
     }
   )
 })

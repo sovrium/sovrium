@@ -273,78 +273,88 @@ test.describe('Verify Two-Factor Authentication Code', () => {
     'API-AUTH-TWO-FACTOR-VERIFY-006: user can complete full 2FA verification workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: Application with 2FA and backup codes enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: {
-            twoFactor: {
-              issuer: 'Test App',
-              backupCodes: true,
+      await test.step('Setup: Start server with two-factor plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: {
+              twoFactor: {
+                issuer: 'Test App',
+                backupCodes: true,
+              },
             },
           },
-        },
+        })
       })
 
-      await signUp({
-        name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
+      await test.step('Setup: Sign up user', async () => {
+        await signUp({
+          name: 'Test User',
+          email: 'test@example.com',
+          password: 'ValidPassword123!',
+        })
       })
 
-      const session = await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
+      let session: { token: string }
+      let backupCodes: string[]
+
+      await test.step('Sign in user', async () => {
+        session = await signIn({
+          email: 'test@example.com',
+          password: 'ValidPassword123!',
+        })
       })
 
-      // WHEN: User enables 2FA
-      const enableResponse = await page.request.post('/api/auth/two-factor/enable', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
+      await test.step('Enable 2FA and get backup codes', async () => {
+        const enableResponse = await page.request.post('/api/auth/two-factor/enable', {
+          headers: {
+            Authorization: `Bearer ${session.token}`,
+          },
+        })
+
+        expect(enableResponse.status()).toBe(200)
+        const { secret: _secret, backupCodes: codes } = await enableResponse.json()
+        backupCodes = codes
       })
 
-      expect(enableResponse.status()).toBe(200)
-      const { secret: _secret, backupCodes } = await enableResponse.json()
+      await test.step('Verify invalid code fails', async () => {
+        const invalidResponse = await page.request.post('/api/auth/two-factor/verify', {
+          headers: {
+            Authorization: `Bearer ${session.token}`,
+          },
+          data: {
+            code: '000000',
+          },
+        })
 
-      // WHEN: User submits invalid code
-      const invalidResponse = await page.request.post('/api/auth/two-factor/verify', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-        data: {
-          code: '000000',
-        },
+        expect([400, 401]).toContain(invalidResponse.status())
       })
 
-      // THEN: Verification fails
-      expect([400, 401]).toContain(invalidResponse.status())
+      await test.step('Verify backup code succeeds', async () => {
+        const backupResponse = await page.request.post('/api/auth/two-factor/verify', {
+          headers: {
+            Authorization: `Bearer ${session.token}`,
+          },
+          data: {
+            code: backupCodes[0],
+          },
+        })
 
-      // WHEN: User submits backup code
-      const backupResponse = await page.request.post('/api/auth/two-factor/verify', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-        data: {
-          code: backupCodes[0],
-        },
+        expect(backupResponse.status()).toBe(200)
+        const backupData = await backupResponse.json()
+        expect(backupData.verified).toBe(true)
       })
 
-      // THEN: Verification succeeds with backup code
-      expect(backupResponse.status()).toBe(200)
-      const backupData = await backupResponse.json()
-      expect(backupData.verified).toBe(true)
+      await test.step('Verify 2FA verification fails without auth', async () => {
+        const unauthResponse = await page.request.post('/api/auth/two-factor/verify', {
+          data: {
+            code: '123456',
+          },
+        })
 
-      // WHEN: Unauthenticated user attempts verification
-      const unauthResponse = await page.request.post('/api/auth/two-factor/verify', {
-        data: {
-          code: '123456',
-        },
+        expect(unauthResponse.status()).toBe(401)
       })
-
-      // THEN: Request fails
-      expect(unauthResponse.status()).toBe(401)
     }
   )
 })

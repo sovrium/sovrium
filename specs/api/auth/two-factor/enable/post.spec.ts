@@ -241,53 +241,59 @@ test.describe('Enable Two-Factor Authentication', () => {
     'API-AUTH-TWO-FACTOR-ENABLE-006: user can complete full 2FA enable workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: Application with 2FA and backup codes enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: {
-            twoFactor: {
-              issuer: 'Test App',
-              backupCodes: true,
-              digits: 6,
-              period: 30,
+      await test.step('Setup: Start server with two-factor plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: {
+              twoFactor: {
+                issuer: 'Test App',
+                backupCodes: true,
+                digits: 6,
+                period: 30,
+              },
             },
           },
-        },
+        })
       })
 
-      await signUp({
-        name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
+      await test.step('Setup: Sign up user', async () => {
+        await signUp({
+          name: 'Test User',
+          email: 'test@example.com',
+          password: 'ValidPassword123!',
+        })
       })
 
-      const session = await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
+      let session: { token: string }
+
+      await test.step('Sign in user', async () => {
+        session = await signIn({
+          email: 'test@example.com',
+          password: 'ValidPassword123!',
+        })
       })
 
-      // WHEN: User initiates 2FA setup
-      const enableResponse = await page.request.post('/api/auth/two-factor/enable', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
+      await test.step('Enable 2FA and verify response data', async () => {
+        const enableResponse = await page.request.post('/api/auth/two-factor/enable', {
+          headers: {
+            Authorization: `Bearer ${session.token}`,
+          },
+        })
+
+        expect(enableResponse.status()).toBe(200)
+        const enableData = await enableResponse.json()
+        expect(enableData).toHaveProperty('secret')
+        expect(enableData).toHaveProperty('qrCode')
+        expect(enableData).toHaveProperty('backupCodes')
+        expect(enableData.backupCodes.length).toBeGreaterThan(0)
       })
 
-      // THEN: 2FA setup data is returned
-      expect(enableResponse.status()).toBe(200)
-      const enableData = await enableResponse.json()
-      expect(enableData).toHaveProperty('secret')
-      expect(enableData).toHaveProperty('qrCode')
-      expect(enableData).toHaveProperty('backupCodes')
-      expect(enableData.backupCodes.length).toBeGreaterThan(0)
-
-      // WHEN: Unauthenticated user attempts to enable 2FA
-      const unauthResponse = await page.request.post('/api/auth/two-factor/enable')
-
-      // THEN: Request fails
-      expect(unauthResponse.status()).toBe(401)
+      await test.step('Verify enable 2FA fails without auth', async () => {
+        const unauthResponse = await page.request.post('/api/auth/two-factor/enable')
+        expect(unauthResponse.status()).toBe(401)
+      })
     }
   )
 })

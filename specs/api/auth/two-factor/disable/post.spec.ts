@@ -210,76 +210,84 @@ test.describe('Disable Two-Factor Authentication', () => {
     'API-AUTH-TWO-FACTOR-DISABLE-005: user can complete full 2FA disable workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: Application with 2FA enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: {
-            twoFactor: {
-              issuer: 'Test App',
+      await test.step('Setup: Start server with two-factor plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: {
+              twoFactor: {
+                issuer: 'Test App',
+              },
             },
           },
-        },
+        })
       })
 
-      await signUp({
-        name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
-      const session = await signIn({
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
-      })
-
-      // WHEN: User enables 2FA
-      const enableResponse = await page.request.post('/api/auth/two-factor/enable', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-      })
-
-      expect(enableResponse.status()).toBe(200)
-
-      // WHEN: User attempts to disable with wrong password
-      const wrongPasswordResponse = await page.request.post('/api/auth/two-factor/disable', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-        data: {
-          password: 'WrongPassword!',
-        },
-      })
-
-      // THEN: Disable fails
-      expect(wrongPasswordResponse.status()).toBe(401)
-
-      // WHEN: User disables 2FA with correct password
-      const disableResponse = await page.request.post('/api/auth/two-factor/disable', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-        data: {
+      await test.step('Setup: Sign up user', async () => {
+        await signUp({
+          name: 'Test User',
+          email: 'test@example.com',
           password: 'ValidPassword123!',
-        },
+        })
       })
 
-      // THEN: 2FA is disabled successfully
-      expect(disableResponse.status()).toBe(200)
-      const disableData = await disableResponse.json()
-      expect(disableData.disabled).toBe(true)
+      let session: { token: string }
 
-      // WHEN: Unauthenticated user attempts to disable 2FA
-      const unauthResponse = await page.request.post('/api/auth/two-factor/disable', {
-        data: {
-          password: 'AnyPassword123!',
-        },
+      await test.step('Sign in user', async () => {
+        session = await signIn({
+          email: 'test@example.com',
+          password: 'ValidPassword123!',
+        })
       })
 
-      // THEN: Request fails
-      expect(unauthResponse.status()).toBe(401)
+      await test.step('Enable 2FA', async () => {
+        const enableResponse = await page.request.post('/api/auth/two-factor/enable', {
+          headers: {
+            Authorization: `Bearer ${session.token}`,
+          },
+        })
+
+        expect(enableResponse.status()).toBe(200)
+      })
+
+      await test.step('Verify disable with wrong password fails', async () => {
+        const wrongPasswordResponse = await page.request.post('/api/auth/two-factor/disable', {
+          headers: {
+            Authorization: `Bearer ${session.token}`,
+          },
+          data: {
+            password: 'WrongPassword!',
+          },
+        })
+
+        expect(wrongPasswordResponse.status()).toBe(401)
+      })
+
+      await test.step('Disable 2FA with correct password', async () => {
+        const disableResponse = await page.request.post('/api/auth/two-factor/disable', {
+          headers: {
+            Authorization: `Bearer ${session.token}`,
+          },
+          data: {
+            password: 'ValidPassword123!',
+          },
+        })
+
+        expect(disableResponse.status()).toBe(200)
+        const disableData = await disableResponse.json()
+        expect(disableData.disabled).toBe(true)
+      })
+
+      await test.step('Verify disable 2FA fails without auth', async () => {
+        const unauthResponse = await page.request.post('/api/auth/two-factor/disable', {
+          data: {
+            password: 'AnyPassword123!',
+          },
+        })
+
+        expect(unauthResponse.status()).toBe(401)
+      })
     }
   )
 })
