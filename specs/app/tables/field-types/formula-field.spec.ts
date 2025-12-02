@@ -146,7 +146,7 @@ test.describe('Formula Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-FORMULA-003: should support conditional expressions with CASE WHEN',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -182,29 +182,29 @@ test.describe('Formula Field', () => {
         'SELECT price, on_sale, discount_price FROM products WHERE id = 1'
       )
       // THEN: assertion
-      expect(onSale.price).toBe('100.00')
+      expect(onSale.price).toBe(100)
       // THEN: assertion
       expect(onSale.on_sale).toBe(true)
       // THEN: assertion
-      expect(onSale.discount_price).toBe('80.00')
+      expect(onSale.discount_price).toBe(80)
 
       // WHEN: executing query
       const notOnSale = await executeQuery(
         'SELECT price, on_sale, discount_price FROM products WHERE id = 2'
       )
       // THEN: assertion
-      expect(notOnSale.price).toBe('50.00')
+      expect(notOnSale.price).toBe(50)
       // THEN: assertion
       expect(notOnSale.on_sale).toBe(false)
       // THEN: assertion
-      expect(notOnSale.discount_price).toBe('50.00')
+      expect(notOnSale.discount_price).toBe(50)
 
       // WHEN: executing query
       const saleToggled = await executeQuery(
         'UPDATE products SET on_sale = true WHERE id = 2 RETURNING discount_price'
       )
       // THEN: assertion
-      expect(saleToggled.discount_price).toBe('40.00')
+      expect(saleToggled.discount_price).toBe(40)
     }
   )
 
