@@ -81,7 +81,6 @@ export const hasAnyMethodEnabled = (auth: Auth | undefined): boolean => {
  * - organization: Multi-tenancy, team management
  * - twoFactor: TOTP-based two-factor authentication
  * - apiKeys: Programmatic API access
- * - bearer/jwt: Token-based authentication
  *
  * Environment Variables (infrastructure config):
  * - BETTER_AUTH_SECRET: Secret key for signing tokens
