@@ -361,51 +361,50 @@ test.describe('Migration Rollback', () => {
     'MIGRATION-ROLLBACK-009: user can complete full migration rollback workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application with migration history and rollback capabilities
-
-      // Setup migration history table
-      await executeQuery([
-        `CREATE TABLE IF NOT EXISTS _sovrium_migration_history (
+      await test.step('Setup: Create migration history and test data', async () => {
+        await executeQuery([
+          `CREATE TABLE IF NOT EXISTS _sovrium_migration_history (
           id SERIAL PRIMARY KEY,
           version INTEGER NOT NULL,
           checksum TEXT NOT NULL,
           applied_at TIMESTAMP DEFAULT NOW()
         )`,
-        `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(100))`,
-        `INSERT INTO items (name) VALUES ('Item 1'), ('Item 2')`,
-      ])
+          `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(100))`,
+          `INSERT INTO items (name) VALUES ('Item 1'), ('Item 2')`,
+        ])
+      })
 
-      // WHEN: Invalid migration attempted
-      await expect(async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 1,
-              name: 'items',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-                // @ts-expect-error - Invalid type
-                { id: 3, name: 'bad', type: 'INVALID' },
-              ],
-            },
-          ],
-        })
-      }).rejects.toThrow()
+      await test.step('Attempt invalid migration', async () => {
+        await expect(async () => {
+          await startServerWithSchema({
+            name: 'test-app',
+            tables: [
+              {
+                id: 1,
+                name: 'items',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'name', type: 'single-line-text' },
+                  // @ts-expect-error - Invalid type
+                  { id: 3, name: 'bad', type: 'INVALID' },
+                ],
+              },
+            ],
+          })
+        }).rejects.toThrow()
+      })
 
-      // THEN: Rollback occurs automatically
-      // Original data preserved
-      const items = await executeQuery(`SELECT * FROM items`)
-      expect(items).toHaveLength(2)
+      await test.step('Verify automatic rollback preserved data', async () => {
+        // Original data preserved
+        const items = await executeQuery(`SELECT * FROM items`)
+        expect(items).toHaveLength(2)
 
-      // Table structure unchanged
-      const columns = await executeQuery(
-        `SELECT column_name FROM information_schema.columns WHERE table_name='items'`
-      )
-      expect(columns).toHaveLength(2)
-
-      // Focus on workflow continuity, not exhaustive coverage
+        // Table structure unchanged
+        const columns = await executeQuery(
+          `SELECT column_name FROM information_schema.columns WHERE table_name='items'`
+        )
+        expect(columns).toHaveLength(2)
+      })
     }
   )
 })

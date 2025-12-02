@@ -275,68 +275,62 @@ test.describe('Error Handling and Rollback', () => {
     'MIGRATION-ERROR-006: user can complete full error-handling-and-rollback workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative error scenarios
+      await test.step('Test invalid field type triggers rollback', async () => {
+        await expect(async () => {
+          await startServerWithSchema({
+            name: 'test-app',
+            tables: [
+              {
+                id: 8,
+                name: 'test',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  // @ts-expect-error - Testing invalid field type
+                  { id: 2, name: 'bad_field', type: 'INVALID_TYPE' },
+                ],
+              },
+            ],
+          })
+        }).rejects.toThrow()
 
-      // WHEN/THEN: Streamlined workflow testing integration points
+        // Verify table NOT created
+        const tableCheck = await executeQuery(
+          `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema='public' AND table_name='test'`
+        )
+        expect(tableCheck.count).toBe(0)
+      })
 
-      // Test 1: Invalid field type triggers rollback
-      // THEN: assertion
-      await expect(async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 8,
-              name: 'test',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                // @ts-expect-error - Testing invalid field type
-                { id: 2, name: 'bad_field', type: 'INVALID_TYPE' },
-              ],
-            },
-          ],
-        })
-      }).rejects.toThrow()
+      await test.step('Setup: Create table with existing data', async () => {
+        await executeQuery([
+          `CREATE TABLE data (id SERIAL PRIMARY KEY, value VARCHAR(255))`,
+          `INSERT INTO data (value) VALUES ('existing')`,
+        ])
+      })
 
-      // Verify table NOT created
-      const tableCheck = await executeQuery(
-        `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema='public' AND table_name='test'`
-      )
-      // THEN: assertion
-      expect(tableCheck.count).toBe(0)
+      await test.step('Test constraint violation preserves existing data', async () => {
+        await expect(async () => {
+          await startServerWithSchema({
+            name: 'test-app',
+            tables: [
+              {
+                id: 9,
+                name: 'data',
+                fields: [
+                  { id: 1, name: 'id', type: 'integer', required: true },
+                  { id: 2, name: 'value', type: 'single-line-text' },
+                  { id: 3, name: 'required_field', type: 'single-line-text' },
+                ],
+              },
+            ],
+          })
+        }).rejects.toThrow()
 
-      // Test 2: Constraint violation triggers rollback
-      await executeQuery([
-        `CREATE TABLE data (id SERIAL PRIMARY KEY, value VARCHAR(255))`,
-        `INSERT INTO data (value) VALUES ('existing')`,
-      ])
-
-      // THEN: assertion
-      await expect(async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 9,
-              name: 'data',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'value', type: 'single-line-text' },
-                { id: 3, name: 'required_field', type: 'single-line-text' },
-              ],
-            },
-          ],
-        })
-      }).rejects.toThrow()
-
-      // Verify existing data preserved
-      const dataCheck = await executeQuery(
-        `SELECT COUNT(*) as count FROM data WHERE value = 'existing'`
-      )
-      // THEN: assertion
-      expect(dataCheck.count).toBe(1)
-
-      // Focus on workflow continuity, not exhaustive coverage
+        // Verify existing data preserved
+        const dataCheck = await executeQuery(
+          `SELECT COUNT(*) as count FROM data WHERE value = 'existing'`
+        )
+        expect(dataCheck.count).toBe(1)
+      })
     }
   )
 })

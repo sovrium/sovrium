@@ -246,61 +246,58 @@ test.describe('Checksum Optimization', () => {
     'MIGRATION-CHECKSUM-005: user can complete full checksum-optimization workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative checksum system
-      await executeQuery([
-        `CREATE TABLE IF NOT EXISTS _sovrium_schema_checksum (
+      await test.step('Setup: Create checksum table', async () => {
+        await executeQuery([
+          `CREATE TABLE IF NOT EXISTS _sovrium_schema_checksum (
           id VARCHAR(50) PRIMARY KEY,
           checksum VARCHAR(64) NOT NULL,
           updated_at TIMESTAMPTZ DEFAULT NOW()
         )`,
-      ])
-
-      // WHEN/THEN: Streamlined workflow testing integration points
-
-      // First run: Create initial checksum
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 5,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'value', type: 'single-line-text' },
-            ],
-          },
-        ],
+        ])
       })
 
-      // Verify checksum created
-      const initialChecksum = await executeQuery(
-        `SELECT checksum FROM _sovrium_schema_checksum WHERE id = 'singleton'`
-      )
-      // THEN: assertion
-      expect(initialChecksum.checksum).toMatch(/^[0-9a-f]{64}$/)
+      await test.step('First run: Create initial checksum', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'value', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
 
-      // Second run with same schema: Skip migrations (fast startup)
-      const startTime = Date.now()
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'value', type: 'single-line-text' },
-            ],
-          },
-        ],
+        // Verify checksum created
+        const initialChecksum = await executeQuery(
+          `SELECT checksum FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+        )
+        expect(initialChecksum.checksum).toMatch(/^[0-9a-f]{64}$/)
       })
-      const executionTime = Date.now() - startTime
 
-      // Performance: Startup < 100ms when unchanged
-      // THEN: assertion
-      expect(executionTime).toBeLessThan(100)
+      await test.step('Second run: Skip migrations with fast startup', async () => {
+        const startTime = Date.now()
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'value', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
+        const executionTime = Date.now() - startTime
 
-      // Focus on workflow continuity, not exhaustive coverage
+        // Performance: Startup < 100ms when unchanged
+        expect(executionTime).toBeLessThan(100)
+      })
     }
   )
 })

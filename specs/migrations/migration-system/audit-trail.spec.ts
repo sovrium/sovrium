@@ -272,41 +272,40 @@ test.describe('Migration Audit Trail', () => {
     'MIGRATION-AUDIT-007: user can complete full migration audit workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Fresh database
-
-      // WHEN: Apply initial migration
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 1,
-            name: 'customers',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-            ],
-          },
-        ],
+      await test.step('Apply initial migration', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'customers',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
       })
 
-      // THEN: Migration recorded
-      const initialHistory = await executeQuery(
-        `SELECT * FROM _sovrium_migration_history ORDER BY version DESC LIMIT 1`
-      )
-      expect(initialHistory).toHaveLength(1)
+      await test.step('Verify migration history recorded', async () => {
+        const initialHistory = await executeQuery(
+          `SELECT * FROM _sovrium_migration_history ORDER BY version DESC LIMIT 1`
+        )
+        expect(initialHistory).toHaveLength(1)
 
-      // Checksum stored
-      const checksum = await executeQuery(
-        `SELECT * FROM _sovrium_schema_checksum WHERE id = 'singleton'`
-      )
-      expect(checksum).toHaveLength(1)
-      expect(checksum[0].checksum).toBeDefined()
+        // Schema snapshot stored
+        expect(initialHistory[0].schema).toBeDefined()
+        expect(initialHistory[0].schema.tables).toHaveLength(1)
+      })
 
-      // Schema snapshot stored
-      expect(initialHistory[0].schema).toBeDefined()
-      expect(initialHistory[0].schema.tables).toHaveLength(1)
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify checksum stored', async () => {
+        const checksum = await executeQuery(
+          `SELECT * FROM _sovrium_schema_checksum WHERE id = 'singleton'`
+        )
+        expect(checksum).toHaveLength(1)
+        expect(checksum[0].checksum).toBeDefined()
+      })
     }
   )
 })
