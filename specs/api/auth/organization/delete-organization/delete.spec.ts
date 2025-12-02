@@ -5,9 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable drizzle/enforce-delete-with-where */
+
 import { test, expect } from '@/specs/fixtures'
 
-/* eslint-disable drizzle/enforce-delete-with-where */
 /**
  * E2E Tests for Delete organization
  *
@@ -21,8 +22,8 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Validation Approach:
  * - API response assertions (status codes, response schemas)
- * - Database state validation (executeQuery fixture)
- * - Authentication/authorization checks
+ * - Database state validation via API (no direct executeQuery for auth data)
+ * - Authentication/authorization checks via auth fixtures
  */
 
 test.describe('Delete organization', () => {
@@ -31,275 +32,278 @@ test.describe('Delete organization', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-DELETE-ORGANIZATION-001: should returns 200 OK and permanently deletes organization with all members',
+    'API-AUTH-ORG-DELETE-ORGANIZATION-001: should return 200 OK and permanently delete organization',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'member@example.com', '$2a$10$YourHashedPasswordHere', 'Member User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 1, 2, 'member', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      // Create organization
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
 
       // WHEN: Owner deletes the organization
-      const response = await page.request.delete('/api/auth/organization/delete-organization', {
+      const response = await page.request.delete('/api/auth/organization/delete', {
         data: {
-          organizationId: '1',
+          organizationId: org.id,
         },
       })
 
-      // THEN: Returns 200 OK and permanently deletes organization with all members
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      // THEN: Returns 200 OK and permanently deletes organization
+      expect(response.status()).toBe(200)
 
-      // Response indicates success
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toMatchObject({ success: true })
-
-      // Organization is deleted from database
-      const orgRow = await executeQuery('SELECT * FROM organizations WHERE id = 1 LIMIT 1')
-      expect(orgRow).toBeNull()
-
-      // All organization members are removed
-      const memberCount = await executeQuery(
-        'SELECT COUNT(*) as count FROM organization_members WHERE organization_id = 1'
-      )
-      expect(memberCount.count).toBe(0)
+      // Verify organization no longer exists
+      const listResponse = await page.request.get('/api/auth/organization/list')
+      const orgs = await listResponse.json()
+      const deletedOrg = orgs.find((o: { id: string }) => o.id === org.id)
+      expect(deletedOrg).toBeUndefined()
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-DELETE-ORGANIZATION-002: should returns 400 Bad Request with validation error',
+    'API-AUTH-ORG-DELETE-ORGANIZATION-002: should return 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: An authenticated organization owner
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
 
       // WHEN: Owner submits request without organizationId
-      const response = await page.request.delete('/api/auth/organization/delete-organization', {})
+      const response = await page.request.delete('/api/auth/organization/delete', {
+        data: {},
+      })
 
       // THEN: Returns 400 Bad Request with validation error
-      // Returns 400 Bad Request
-      expect(response.status).toBe(400)
+      expect(response.status()).toBe(400)
 
-      // Response contains validation error for organizationId field
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-DELETE-ORGANIZATION-003: should returns 401 Unauthorized',
+    'API-AUTH-ORG-DELETE-ORGANIZATION-003: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: A running server
+      // GIVEN: A running server (no authenticated user)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
       // WHEN: Unauthenticated user attempts to delete organization
-      const response = await page.request.delete('/api/auth/organization/delete-organization', {
+      const response = await page.request.delete('/api/auth/organization/delete', {
         data: {
           organizationId: '1',
         },
       })
 
       // THEN: Returns 401 Unauthorized
-      // Returns 401 Unauthorized
-      expect(response.status).toBe(401)
-
-      // Response contains error about missing authentication
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(401)
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-DELETE-ORGANIZATION-004: should returns 403 Forbidden',
+    'API-AUTH-ORG-DELETE-ORGANIZATION-004: should return 403 Forbidden',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated organization member (non-owner)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'member@example.com', '$2a$10$YourHashedPasswordHere', 'Member User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'member', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'member_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Owner creates organization
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+
+      // Create member and invite them
+      await signUp({
+        email: 'member@example.com',
+        password: 'MemberPass123!',
+        name: 'Member User',
+      })
+
+      await page.request.post('/api/auth/organization/invite-member', {
+        data: {
+          organizationId: org.id,
+          email: 'member@example.com',
+          role: 'member',
+        },
+      })
+
+      // Sign in as member
+      await signIn({
+        email: 'member@example.com',
+        password: 'MemberPass123!',
+      })
 
       // WHEN: Member attempts to delete organization
-      const response = await page.request.delete('/api/auth/organization/delete-organization', {
+      const response = await page.request.delete('/api/auth/organization/delete', {
         data: {
-          organizationId: '1',
+          organizationId: org.id,
         },
       })
 
       // THEN: Returns 403 Forbidden
-      // Returns 403 Forbidden
-      expect(response.status).toBe(403)
+      expect(response.status()).toBe(403)
 
-      // Response contains error about insufficient permissions
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-DELETE-ORGANIZATION-005: should returns 404 Not Found',
+    'API-AUTH-ORG-DELETE-ORGANIZATION-005: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+      })
 
       // WHEN: User attempts to delete non-existent organization
-      const response = await page.request.delete('/api/auth/organization/delete-organization', {
+      const response = await page.request.delete('/api/auth/organization/delete', {
         data: {
-          organizationId: '999',
+          organizationId: 'nonexistent-id',
         },
       })
 
       // THEN: Returns 404 Not Found
-      // Returns 404 Not Found
-      expect(response.status).toBe(404)
+      expect(response.status()).toBe(404)
 
-      // Response contains error about organization not found
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-DELETE-ORGANIZATION-006: should returns 404 Not Found (not 403 to prevent organization enumeration)',
+    'API-AUTH-ORG-DELETE-ORGANIZATION-006: should return 404 Not Found (not 403 to prevent organization enumeration)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: Two organizations with different owners
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'owner1@example.com', '$2a$10$YourHashedPasswordHere', 'Owner 1', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'owner2@example.com', '$2a$10$YourHashedPasswordHere', 'Owner 2', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Org A', 'org-a', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (2, 'Org B', 'org-b', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 2, 2, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'owner1_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Owner 1 creates organization
+      await signUp({
+        email: 'owner1@example.com',
+        password: 'Owner1Pass123!',
+        name: 'Owner 1',
+      })
+      await signIn({
+        email: 'owner1@example.com',
+        password: 'Owner1Pass123!',
+      })
 
-      // WHEN: Owner A attempts to delete Organization B
-      const response = await page.request.delete('/api/auth/organization/delete-organization', {
+      await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Org A', slug: 'org-a' },
+      })
+
+      // Owner 2 creates organization
+      await signUp({
+        email: 'owner2@example.com',
+        password: 'Owner2Pass123!',
+        name: 'Owner 2',
+      })
+      await signIn({
+        email: 'owner2@example.com',
+        password: 'Owner2Pass123!',
+      })
+
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Org B', slug: 'org-b' },
+      })
+      const orgB = await createResponse.json()
+
+      // Sign back in as Owner 1
+      await signIn({
+        email: 'owner1@example.com',
+        password: 'Owner1Pass123!',
+      })
+
+      // WHEN: Owner 1 attempts to delete Organization B
+      const response = await page.request.delete('/api/auth/organization/delete', {
         data: {
-          organizationId: '2',
+          organizationId: orgB.id,
         },
       })
 
       // THEN: Returns 404 Not Found (not 403 to prevent organization enumeration)
-      // Returns 404 Not Found (prevent organization enumeration)
-      expect(response.status).toBe(404)
+      expect(response.status()).toBe(404)
 
-      // Organization B remains active (not deleted)
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      const data = await response.json()
+      expect(data).toHaveProperty('message')
     }
   )
 
@@ -310,25 +314,49 @@ test.describe('Delete organization', () => {
   test.fixme(
     'API-AUTH-ORG-DELETE-ORGANIZATION-007: user can complete full deleteOrganization workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
-      // GIVEN: Representative test scenario
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // WHEN: Execute workflow
-      const response = await page.request.post('/api/auth/workflow', {
-        data: { test: true },
+      // Test 1: Delete organization without auth fails
+      const noAuthResponse = await page.request.delete('/api/auth/organization/delete', {
+        data: { organizationId: '1' },
+      })
+      expect(noAuthResponse.status()).toBe(401)
+
+      // Create and authenticate user
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
       })
 
-      // THEN: Verify integration
-      expect(response.status()).toBe(200)
-      const data = await response.json()
-      expect(data).toMatchObject({ success: true })
+      // Create organization
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+
+      // Test 2: Delete organization succeeds for owner
+      const deleteResponse = await page.request.delete('/api/auth/organization/delete', {
+        data: { organizationId: org.id },
+      })
+      expect(deleteResponse.status()).toBe(200)
+
+      // Test 3: Verify organization is deleted
+      const listResponse = await page.request.get('/api/auth/organization/list')
+      const orgs = await listResponse.json()
+      expect(orgs.length).toBe(0)
     }
   )
 })

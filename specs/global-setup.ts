@@ -8,6 +8,7 @@
 import { execSync } from 'node:child_process'
 import { DatabaseTemplateManager } from './database-utils'
 import { ensureDockerRunning } from './docker-utils'
+import { startGlobalMailpit, stopGlobalMailpit } from './email-utils'
 
 /**
  * Playwright Global Setup
@@ -33,6 +34,9 @@ export default async function globalSetup() {
   // On macOS: auto-installs Colima if no Docker found
   // On Linux/Windows: starts existing Docker installation
   await ensureDockerRunning()
+
+  // Start Mailpit container for email testing
+  await startGlobalMailpit()
 
   // Configure testcontainers for Colima
   // Colima maps the socket to the standard Docker path inside the VM
@@ -75,9 +79,10 @@ export default async function globalSetup() {
 
   // Return teardown function
   return async () => {
-    console.log('🧹 Cleaning up global test database...')
+    console.log('🧹 Cleaning up global test resources...')
     await templateManager.cleanup()
     await container.stop()
-    console.log('✅ Global test database cleaned up')
+    await stopGlobalMailpit()
+    console.log('✅ Global test resources cleaned up')
   }
 }

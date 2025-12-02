@@ -31,6 +31,9 @@ test.describe('Table Permissions', () => {
       // GIVEN: user without table-level read permission
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          authentication: ['email-and-password'],
+        },
         tables: [
           {
             id: 1,
@@ -172,6 +175,9 @@ test.describe('Table Permissions', () => {
       // GIVEN: permissions configured at all three levels (table + field + record)
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          authentication: ['email-and-password'],
+        },
         tables: [
           {
             id: 3,
@@ -312,6 +318,9 @@ test.describe('Table Permissions', () => {
       // GIVEN: complete permission hierarchy with table=public, field=restricted, record=owner-only
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          authentication: ['email-and-password'],
+        },
         tables: [
           {
             id: 5,
@@ -396,6 +405,9 @@ test.describe('Table Permissions', () => {
       // GIVEN: Application configured with representative hierarchical permissions
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          authentication: ['email-and-password'],
+        },
         tables: [
           {
             id: 6,

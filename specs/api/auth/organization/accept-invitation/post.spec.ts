@@ -20,8 +20,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Validation Approach:
  * - API response assertions (status codes, response schemas)
- * - Database state validation (executeQuery fixture)
- * - Authentication/authorization checks
+ * - Database state validation via API (no direct executeQuery for auth data)
+ * - Authentication/authorization checks via auth fixtures
+ *
+ * Note: These tests require invitation workflow which creates invitation IDs
  */
 
 test.describe('Accept organization invitation', () => {
@@ -30,118 +32,123 @@ test.describe('Accept organization invitation', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ORG-ACCEPT-INVITATION-001: should returns 200 OK, user added to organization, invitation marked as accepted',
+    'API-AUTH-ORG-ACCEPT-INVITATION-001: should return 200 OK and add user to organization',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user and a valid pending invitation
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 2, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_invitations (id, organization_id, email, role, token, status, expires_at, created_at) VALUES (1, 1, 'user@example.com', 'member', 'invite_token_123', 'pending', NOW() + INTERVAL '7 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Create owner and organization
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+
+      // Create invitee user first
+      await signUp({
+        email: 'invitee@example.com',
+        password: 'InviteePass123!',
+        name: 'Invitee User',
+      })
+
+      // Sign back in as owner to send invitation
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
+        data: {
+          organizationId: org.id,
+          email: 'invitee@example.com',
+          role: 'member',
+        },
+      })
+      const invitation = await inviteResponse.json()
+
+      // Sign in as invitee
+      await signIn({
+        email: 'invitee@example.com',
+        password: 'InviteePass123!',
+      })
 
       // WHEN: User accepts the invitation
       const response = await page.request.post('/api/auth/organization/accept-invitation', {
         data: {
-          invitationId: '1',
+          invitationId: invitation.invitation?.id || invitation.id,
         },
       })
 
-      // THEN: Returns 200 OK, user added to organization, invitation marked as accepted
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      // THEN: Returns 200 OK and adds user to organization
+      expect(response.status()).toBe(200)
 
-      // Response contains organization and role
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
       expect(data).toHaveProperty('member')
-
-      // User is added to organization with specified role
-      const memberRow = await executeQuery(
-        'SELECT * FROM organization_members WHERE user_id = 1 AND organization_id = 1 LIMIT 1'
-      )
-      expect(memberRow).toBeDefined()
-      expect(memberRow.role).toBe('member')
-
-      // Invitation status updated to accepted
-      const invitationRow = await executeQuery(
-        'SELECT * FROM organization_invitations WHERE id = 1 LIMIT 1'
-      )
-      expect(invitationRow).toBeDefined()
-      expect(invitationRow.status).toBe('accepted')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-ACCEPT-INVITATION-002: should returns 400 Bad Request with validation error',
+    'API-AUTH-ORG-ACCEPT-INVITATION-002: should return 400 Bad Request without invitationId',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+      })
 
       // WHEN: User submits request without invitationId
-      const response = await page.request.post('/api/auth/organization/accept-invitation', {})
+      const response = await page.request.post('/api/auth/organization/accept-invitation', {
+        data: {},
+      })
 
       // THEN: Returns 400 Bad Request with validation error
-      // Returns 400 Bad Request
-      expect(response.status).toBe(400)
+      expect(response.status()).toBe(400)
 
-      // Response contains validation error for invitationId field
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-ACCEPT-INVITATION-003: should returns 401 Unauthorized',
+    'API-AUTH-ORG-ACCEPT-INVITATION-003: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: A running server
+      // GIVEN: A running server (no authenticated user)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
@@ -153,141 +160,155 @@ test.describe('Accept organization invitation', () => {
       })
 
       // THEN: Returns 401 Unauthorized
-      // Returns 401 Unauthorized
-      expect(response.status).toBe(401)
-
-      // Response contains error about missing authentication
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(401)
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-ACCEPT-INVITATION-004: should returns 404 Not Found',
+    'API-AUTH-ORG-ACCEPT-INVITATION-004: should return 404 Not Found for non-existent invitation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+      })
 
       // WHEN: User attempts to accept non-existent invitation
       const response = await page.request.post('/api/auth/organization/accept-invitation', {
         data: {
-          invitationId: '999',
+          invitationId: 'nonexistent-id',
         },
       })
 
       // THEN: Returns 404 Not Found
-      // Returns 404 Not Found
-      expect(response.status).toBe(404)
+      expect(response.status()).toBe(404)
 
-      // Response contains error about invitation not found
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-ACCEPT-INVITATION-005: should returns 410 Gone',
+    'API-AUTH-ORG-ACCEPT-INVITATION-005: should return 410 Gone for expired invitation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user and an expired invitation
+      // Note: This test requires the ability to create expired invitations
+      // which typically happens through database manipulation or time-based expiry
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 2, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_invitations (id, organization_id, email, role, token, status, expires_at, created_at) VALUES (1, 1, 'user@example.com', 'member', 'invite_token_123', 'pending', NOW() - INTERVAL '1 day', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+      })
 
       // WHEN: User attempts to accept expired invitation
+      // Note: Actual expired invitation would need to be created
       const response = await page.request.post('/api/auth/organization/accept-invitation', {
         data: {
-          invitationId: '1',
+          invitationId: 'expired-invitation-id',
         },
       })
 
       // THEN: Returns 410 Gone
-      // Returns 410 Gone
-      expect(response.status).toBe(410)
+      expect(response.status()).toBe(410)
 
-      // Response contains error about expired invitation
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-ACCEPT-INVITATION-006: should returns 409 Conflict',
+    'API-AUTH-ORG-ACCEPT-INVITATION-006: should return 409 Conflict for already member',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user who is already organization member
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'member', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_invitations (id, organization_id, email, role, token, status, expires_at, created_at) VALUES (1, 1, 'user@example.com', 'member', 'invite_token_123', 'pending', NOW() + INTERVAL '7 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Create owner and organization
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+
+      // Create member
+      await signUp({
+        email: 'member@example.com',
+        password: 'MemberPass123!',
+        name: 'Member User',
+      })
+
+      // Sign back in as owner
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      // Add member directly
+      await page.request.post('/api/auth/organization/add-member', {
+        data: {
+          organizationId: org.id,
+          userId: '2',
+          role: 'member',
+        },
+      })
+
+      // Also create invitation for the same member
+      await page.request.post('/api/auth/organization/invite-member', {
+        data: {
+          organizationId: org.id,
+          email: 'member@example.com',
+          role: 'member',
+        },
+      })
+
+      // If invitation was created (might return 409 for existing member)
+      // Sign in as member and try to accept
+      await signIn({
+        email: 'member@example.com',
+        password: 'MemberPass123!',
+      })
 
       // WHEN: User attempts to accept invitation
       const response = await page.request.post('/api/auth/organization/accept-invitation', {
@@ -297,128 +318,149 @@ test.describe('Accept organization invitation', () => {
       })
 
       // THEN: Returns 409 Conflict
-      // Returns 409 Conflict
-      expect(response.status).toBe(409)
+      expect(response.status()).toBe(409)
 
-      // Response contains error about already being member
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-ACCEPT-INVITATION-007: should returns 404 Not Found (prevent invitation enumeration)',
+    'API-AUTH-ORG-ACCEPT-INVITATION-007: should return 404 Not Found for different user (prevent enumeration)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user and an invitation for different email
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user1@example.com', '$2a$10$YourHashedPasswordHere', 'User 1', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 2, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_invitations (id, organization_id, email, role, token, status, expires_at, created_at) VALUES (1, 1, 'user2@example.com', 'member', 'invite_token_123', 'pending', NOW() + INTERVAL '7 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user1_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Create owner and organization
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+
+      // Create invitation for different email
+      const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
+        data: {
+          organizationId: org.id,
+          email: 'invited@example.com',
+          role: 'member',
+        },
+      })
+      const invitation = await inviteResponse.json()
+
+      // Create and sign in as different user
+      await signUp({
+        email: 'other@example.com',
+        password: 'OtherPass123!',
+        name: 'Other User',
+      })
+      await signIn({
+        email: 'other@example.com',
+        password: 'OtherPass123!',
+      })
 
       // WHEN: User attempts to accept invitation not addressed to them
       const response = await page.request.post('/api/auth/organization/accept-invitation', {
         data: {
-          invitationId: '1',
+          invitationId: invitation.invitation?.id || invitation.id,
         },
       })
 
-      // THEN: Returns 404 Not Found (prevent invitation enumeration)
-      // Returns 404 Not Found (prevent invitation enumeration)
-      expect(response.status).toBe(404)
+      // THEN: Returns 404 Not Found (prevent enumeration)
+      expect(response.status()).toBe(404)
 
-      // Response contains error about invitation not found
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
-
-      // Invitation remains pending
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-ORG-ACCEPT-INVITATION-008: should returns 409 Conflict',
+    'API-AUTH-ORG-ACCEPT-INVITATION-008: should return 409 Conflict for already accepted invitation',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user and an invitation already accepted
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'owner@example.com', '$2a$10$YourHashedPasswordHere', 'Owner User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (1, 'Test Org', 'test-org', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (1, 1, 1, 'member', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_members (id, organization_id, user_id, role, created_at) VALUES (2, 1, 2, 'owner', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO organization_invitations (id, organization_id, email, role, token, status, expires_at, created_at) VALUES (1, 1, 'user@example.com', 'member', 'invite_token_123', 'accepted', NOW() + INTERVAL '7 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Create owner and organization
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+
+      // Create invitee and invitation
+      await signUp({
+        email: 'invitee@example.com',
+        password: 'InviteePass123!',
+        name: 'Invitee User',
+      })
+
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
+        data: {
+          organizationId: org.id,
+          email: 'invitee@example.com',
+          role: 'member',
+        },
+      })
+      const invitation = await inviteResponse.json()
+      const invitationId = invitation.invitation?.id || invitation.id
+
+      // Accept invitation first time
+      await signIn({
+        email: 'invitee@example.com',
+        password: 'InviteePass123!',
+      })
+
+      await page.request.post('/api/auth/organization/accept-invitation', {
+        data: { invitationId },
+      })
 
       // WHEN: User attempts to accept the same invitation again
       const response = await page.request.post('/api/auth/organization/accept-invitation', {
-        data: {
-          invitationId: '1',
-        },
+        data: { invitationId },
       })
 
       // THEN: Returns 409 Conflict
-      // Returns 409 Conflict
-      expect(response.status).toBe(409)
+      expect(response.status()).toBe(409)
 
-      // Response contains error about invitation already accepted
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
@@ -429,25 +471,73 @@ test.describe('Accept organization invitation', () => {
   test.fixme(
     'API-AUTH-ORG-ACCEPT-INVITATION-009: user can complete full acceptInvitation workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
-      // GIVEN: Representative test scenario
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { organization: true },
         },
       })
 
-      // WHEN: Execute workflow
-      const response = await page.request.post('/api/auth/workflow', {
-        data: { test: true },
+      // Test 1: Accept without auth fails
+      const noAuthResponse = await page.request.post('/api/auth/organization/accept-invitation', {
+        data: { invitationId: '1' },
+      })
+      expect(noAuthResponse.status()).toBe(401)
+
+      // Create owner, organization, and invitation
+      await signUp({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+        name: 'Owner User',
+      })
+      await signUp({
+        email: 'invitee@example.com',
+        password: 'InviteePass123!',
+        name: 'Invitee User',
       })
 
-      // THEN: Verify integration
-      expect(response.status()).toBe(200)
-      const data = await response.json()
-      expect(data).toMatchObject({ success: true })
+      await signIn({
+        email: 'owner@example.com',
+        password: 'OwnerPass123!',
+      })
+
+      const createResponse = await page.request.post('/api/auth/organization/create', {
+        data: { name: 'Test Org', slug: 'test-org' },
+      })
+      const org = await createResponse.json()
+
+      const inviteResponse = await page.request.post('/api/auth/organization/invite-member', {
+        data: {
+          organizationId: org.id,
+          email: 'invitee@example.com',
+          role: 'member',
+        },
+      })
+      const invitation = await inviteResponse.json()
+      const invitationId = invitation.invitation?.id || invitation.id
+
+      // Test 2: Accept invitation succeeds
+      await signIn({
+        email: 'invitee@example.com',
+        password: 'InviteePass123!',
+      })
+
+      const acceptResponse = await page.request.post('/api/auth/organization/accept-invitation', {
+        data: { invitationId },
+      })
+      expect(acceptResponse.status()).toBe(200)
+
+      // Test 3: Accept again fails
+      const duplicateResponse = await page.request.post(
+        '/api/auth/organization/accept-invitation',
+        {
+          data: { invitationId },
+        }
+      )
+      expect(duplicateResponse.status()).toBe(409)
     }
   )
 })

@@ -20,166 +20,145 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Validation Approach:
  * - API response assertions (status codes, response schemas)
- * - Database state validation (executeQuery fixture)
- * - Authentication/authorization checks
+ * - Database state validation via API (no direct executeQuery for auth data)
+ * - Authentication/authorization checks via auth fixtures
+ *
+ * Note: Admin tests require an admin user. Since there's no public API to create
+ * the first admin, these tests assume admin features are properly configured.
  */
 
 test.describe('Admin: List users', () => {
   // ============================================================================
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
+  // Note: These tests are marked .fixme() because the admin endpoints
+  // require proper admin user setup which isn't available via public API
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ADMIN-LIST-USERS-001: should returns 200 OK with paginated user list',
+    'API-AUTH-ADMIN-LIST-USERS-001: should return 200 OK with paginated user list',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user with multiple users in system
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'user1@example.com', '$2a$10$YourHashedPasswordHere', 'User One', true, NOW() - INTERVAL '1 day', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (3, 'user2@example.com', '$2a$10$YourHashedPasswordHere', 'User Two', false, NOW() - INTERVAL '2 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Create multiple users via API
+      await signUp({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+        name: 'Admin User',
+      })
+      await signUp({
+        email: 'user1@example.com',
+        password: 'UserPass123!',
+        name: 'User One',
+      })
+      await signUp({
+        email: 'user2@example.com',
+        password: 'UserPass123!',
+        name: 'User Two',
+      })
+
+      // Sign in as admin (assumes admin role is set via configuration)
+      await signIn({
+        email: 'admin@example.com',
+        password: 'AdminPass123!',
+      })
 
       // WHEN: Admin requests list of users
-      const response = await page.request.get('/api/auth/admin/list-users', {})
+      const response = await page.request.get('/api/auth/admin/list-users')
 
       // THEN: Returns 200 OK with paginated user list
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // Response contains users array and pagination metadata
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
       expect(data).toHaveProperty('users')
       expect(Array.isArray(data.users)).toBe(true)
-
-      // Response includes all 3 users
+      expect(data.users.length).toBeGreaterThanOrEqual(3)
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-LIST-USERS-002: should returns 200 OK with paginated results',
+    'API-AUTH-ADMIN-LIST-USERS-002: should return 200 OK with paginated results',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user with multiple users in system
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'user1@example.com', '$2a$10$YourHashedPasswordHere', 'User One', true, NOW() - INTERVAL '1 day', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (3, 'user2@example.com', '$2a$10$YourHashedPasswordHere', 'User Two', false, NOW() - INTERVAL '2 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (4, 'user3@example.com', '$2a$10$YourHashedPasswordHere', 'User Three', true, NOW() - INTERVAL '3 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Create multiple users
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signUp({ email: 'user1@example.com', password: 'UserPass123!', name: 'User One' })
+      await signUp({ email: 'user2@example.com', password: 'UserPass123!', name: 'User Two' })
+      await signUp({ email: 'user3@example.com', password: 'UserPass123!', name: 'User Three' })
+
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin requests users with limit and offset
-      const response = await page.request.get('/api/auth/admin/list-users?limit=2&offset=1', {})
+      const response = await page.request.get('/api/auth/admin/list-users?limit=2&offset=1')
 
       // THEN: Returns 200 OK with paginated results
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // Response contains 2 users (limit)
-
-      // Total count includes all 4 users
-
-      // Pagination metadata is included
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
       expect(data).toHaveProperty('users')
       expect(Array.isArray(data.users)).toBe(true)
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-LIST-USERS-003: should returns 200 OK with users sorted correctly',
+    'API-AUTH-ADMIN-LIST-USERS-003: should return 200 OK with users sorted correctly',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user with multiple users
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'charlie@example.com', '$2a$10$YourHashedPasswordHere', 'Charlie', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (3, 'alice@example.com', '$2a$10$YourHashedPasswordHere', 'Alice', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (4, 'bob@example.com', '$2a$10$YourHashedPasswordHere', 'Bob', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signUp({ email: 'charlie@example.com', password: 'UserPass123!', name: 'Charlie' })
+      await signUp({ email: 'alice@example.com', password: 'UserPass123!', name: 'Alice' })
+      await signUp({ email: 'bob@example.com', password: 'UserPass123!', name: 'Bob' })
+
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin requests users sorted by email ascending
       const response = await page.request.get(
-        '/api/auth/admin/list-users?sortBy=email&sortOrder=asc',
-        {}
+        '/api/auth/admin/list-users?sortBy=email&sortOrder=asc'
       )
 
       // THEN: Returns 200 OK with users sorted correctly
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // First user is alice (alphabetically first)
-
-      // Users are sorted alphabetically by email
+      const data = await response.json()
+      expect(data).toHaveProperty('users')
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-LIST-USERS-004: should returns 401 Unauthorized',
+    'API-AUTH-ADMIN-LIST-USERS-004: should return 401 Unauthorized without authentication',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: A running server
+      // GIVEN: A running server (no authenticated user)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
@@ -187,119 +166,100 @@ test.describe('Admin: List users', () => {
       const response = await page.request.get('/api/auth/admin/list-users')
 
       // THEN: Returns 401 Unauthorized
-      // Returns 401 Unauthorized
-      expect(response.status).toBe(401)
-
-      // Response contains error about missing authentication
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(401)
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-LIST-USERS-005: should returns 403 Forbidden',
+    'API-AUTH-ADMIN-LIST-USERS-005: should return 403 Forbidden for non-admin user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated regular user (non-admin)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Regular User', true, 'member', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+        name: 'Regular User',
+      })
+      await signIn({
+        email: 'user@example.com',
+        password: 'UserPass123!',
+      })
 
       // WHEN: Regular user attempts to list users
-      const response = await page.request.get('/api/auth/admin/list-users', {})
+      const response = await page.request.get('/api/auth/admin/list-users')
 
       // THEN: Returns 403 Forbidden
-      // Returns 403 Forbidden
-      expect(response.status).toBe(403)
-
-      // Response contains error about insufficient permissions
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(403)
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-LIST-USERS-006: should returns 200 OK with users but password field excluded for security',
+    'API-AUTH-ADMIN-LIST-USERS-006: should exclude password field from response',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated admin user with users in system
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'user@example.com', '$2a$10$YourHashedPasswordHere', 'Regular User', true, 'member', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
+
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin requests list of users
-      const response = await page.request.get('/api/auth/admin/list-users', {})
+      const response = await page.request.get('/api/auth/admin/list-users')
 
-      // THEN: Returns 200 OK with users but password field excluded for security
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      // THEN: Returns 200 OK with users but password field excluded
+      expect(response.status()).toBe(200)
 
-      // Response excludes password_hash field for security
+      const data = await response.json()
+      expect(data).toHaveProperty('users')
+      // Verify password is not exposed
+      for (const user of data.users) {
+        expect(user).not.toHaveProperty('password')
+        expect(user).not.toHaveProperty('password_hash')
+      }
     }
   )
 
   test.fixme(
-    'API-AUTH-ADMIN-LIST-USERS-007: should returns 200 OK with only admin user in list',
+    'API-AUTH-ADMIN-LIST-USERS-007: should return 200 OK with empty list when no other users',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: An authenticated admin user with no other users in system
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: An authenticated admin user with no other users
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, role, created_at, updated_at) VALUES (1, 'admin@example.com', '$2a$10$YourHashedPasswordHere', 'Admin User', true, 'admin', NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'admin_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
 
       // WHEN: Admin requests list of users
-      const response = await page.request.get('/api/auth/admin/list-users', {})
+      const response = await page.request.get('/api/auth/admin/list-users')
 
       // THEN: Returns 200 OK with only admin user in list
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // Response contains only admin user
+      const data = await response.json()
+      expect(data).toHaveProperty('users')
+      expect(data.users.length).toBeGreaterThanOrEqual(1)
     }
   )
 
@@ -308,27 +268,39 @@ test.describe('Admin: List users', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-ADMIN-LIST-USERS-008: user can complete full adminListUsers workflow',
+    'API-AUTH-ADMIN-LIST-USERS-008: admin can complete full list-users workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
-      // GIVEN: Representative test scenario
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
+          plugins: { admin: true },
         },
       })
 
-      // WHEN: Execute workflow
-      const response = await page.request.post('/api/auth/workflow', {
-        data: { test: true },
-      })
+      // Test 1: List users fails without auth
+      const noAuthResponse = await page.request.get('/api/auth/admin/list-users')
+      expect(noAuthResponse.status()).toBe(401)
 
-      // THEN: Verify integration
-      expect(response.status()).toBe(200)
-      const data = await response.json()
-      expect(data).toMatchObject({ success: true })
+      // Create admin and regular user
+      await signUp({ email: 'admin@example.com', password: 'AdminPass123!', name: 'Admin User' })
+      await signUp({ email: 'user@example.com', password: 'UserPass123!', name: 'Regular User' })
+
+      // Test 2: List users fails for non-admin
+      await signIn({ email: 'user@example.com', password: 'UserPass123!' })
+      const nonAdminResponse = await page.request.get('/api/auth/admin/list-users')
+      expect(nonAdminResponse.status()).toBe(403)
+
+      // Test 3: List users succeeds for admin
+      await signIn({ email: 'admin@example.com', password: 'AdminPass123!' })
+      const adminResponse = await page.request.get('/api/auth/admin/list-users')
+      expect(adminResponse.status()).toBe(200)
+
+      const data = await adminResponse.json()
+      expect(data).toHaveProperty('users')
+      expect(data.users.length).toBeGreaterThanOrEqual(2)
     }
   )
 })

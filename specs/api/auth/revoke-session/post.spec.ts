@@ -20,260 +20,244 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Validation Approach:
  * - API response assertions (status codes, response schemas)
- * - Database state validation (executeQuery fixture)
- * - Authentication/authorization checks
+ * - Database state validation via API (no direct executeQuery for auth data)
+ * - Authentication/authorization checks via auth fixtures
+ *
+ * Note: Better Auth's revoke-session endpoint may not be publicly exposed.
+ * These tests verify the behavior when calling the endpoint.
  */
 
 test.describe('Revoke specific session', () => {
   // ============================================================================
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
+  // Note: These tests are marked .fixme() because the /api/auth/revoke-session
+  // endpoint is not yet implemented (returns 404)
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-REVOKE-SESSION-001: should returns 200 OK and revokes the specified session',
+    'API-AUTH-REVOKE-SESSION-001: should return 200 OK and revoke the specified session',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user with multiple active sessions
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'current_session', NOW() + INTERVAL '7 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (2, 1, 'session_to_revoke', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Create user and sign in to create multiple sessions
+      await signUp({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+      })
+
+      // Get all sessions
+      const sessionsResponse = await page.request.get('/api/auth/list-sessions')
+      const sessions = await sessionsResponse.json()
+      expect(sessions.length).toBeGreaterThanOrEqual(2)
+
+      // Get a session to revoke (not the current one)
+      const sessionToRevoke = sessions[1]
 
       // WHEN: User revokes a specific session
       const response = await page.request.post('/api/auth/revoke-session', {
         data: {
-          sessionId: '2',
+          token: sessionToRevoke.token,
         },
       })
 
       // THEN: Returns 200 OK and revokes the specified session
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // Response indicates success
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
+      expect(data).toHaveProperty('success', true)
 
-      // Specified session is revoked in database
-      const revokedSession = await executeQuery(
-        "SELECT * FROM sessions WHERE token = 'session_to_revoke' LIMIT 1"
-      )
-      expect(revokedSession).toBeNull()
-
-      // Current session remains active
-      const currentSession = await executeQuery(
-        "SELECT * FROM sessions WHERE token = 'current_session' LIMIT 1"
-      )
-      expect(currentSession).toBeDefined()
+      // Verify session was revoked
+      const updatedSessions = await page.request.get('/api/auth/list-sessions')
+      const updatedData = await updatedSessions.json()
+      expect(updatedData.length).toBeLessThan(sessions.length)
     }
   )
 
   test.fixme(
-    'API-AUTH-REVOKE-SESSION-002: should returns 400 Bad Request with validation error',
+    'API-AUTH-REVOKE-SESSION-002: should return 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+      })
 
-      // WHEN: User submits request without sessionId field
+      // WHEN: User submits request without token field
       const response = await page.request.post('/api/auth/revoke-session', {})
 
       // THEN: Returns 400 Bad Request with validation error
-      // Returns 400 Bad Request
-      expect(response.status).toBe(400)
+      expect(response.status()).toBe(400)
 
-      // Response contains validation error for sessionId field
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-REVOKE-SESSION-003: should returns 401 Unauthorized',
+    'API-AUTH-REVOKE-SESSION-003: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: A running server
+      // GIVEN: A running server (no authenticated user)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: Unauthenticated user attempts to revoke a session
       const response = await page.request.post('/api/auth/revoke-session', {
         data: {
-          sessionId: 'session_123',
+          token: 'session_123',
         },
       })
 
       // THEN: Returns 401 Unauthorized
-      // Returns 401 Unauthorized
-      expect(response.status).toBe(401)
-
-      // Response contains error about missing authentication
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(401)
     }
   )
 
   test.fixme(
-    'API-AUTH-REVOKE-SESSION-004: should returns 404 Not Found',
+    'API-AUTH-REVOKE-SESSION-004: should return 404 Not Found for non-existent session',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+      })
 
       // WHEN: User attempts to revoke non-existent session
       const response = await page.request.post('/api/auth/revoke-session', {
         data: {
-          sessionId: '999',
+          token: 'nonexistent_session_token',
         },
       })
 
       // THEN: Returns 404 Not Found
-      // Returns 404 Not Found
-      expect(response.status).toBe(404)
-
-      // Response contains error about session not found
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(response.status()).toBe(404)
     }
   )
 
   test.fixme(
-    'API-AUTH-REVOKE-SESSION-005: should returns 404 Not Found (not 403 to prevent session enumeration)',
+    'API-AUTH-REVOKE-SESSION-005: should return 404 Not Found when revoking another user session',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: Two users with their own sessions
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'user1@example.com', '$2a$10$YourHashedPasswordHere', 'User 1', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (2, 'user2@example.com', '$2a$10$YourHashedPasswordHere', 'User 2', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'user1_token', NOW() + INTERVAL '7 days', NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (2, 2, 'user2_token', NOW() + INTERVAL '7 days', NOW())`
-      )
+      // Create User A
+      await signUp({
+        email: 'userA@example.com',
+        password: 'PasswordA123!',
+        name: 'User A',
+      })
 
-      // WHEN: User A attempts to revoke User B's session
+      // Create User B
+      await signUp({
+        email: 'userB@example.com',
+        password: 'PasswordB123!',
+        name: 'User B',
+      })
+
+      // Sign in as User A
+      await signIn({ email: 'userA@example.com', password: 'PasswordA123!' })
+
+      // WHEN: User A attempts to revoke User B's session (with fake token)
       const response = await page.request.post('/api/auth/revoke-session', {
         data: {
-          sessionId: '2',
+          token: 'user_b_fake_session_token',
         },
       })
 
-      // THEN: Returns 404 Not Found (not 403 to prevent session enumeration)
-      // Returns 404 Not Found (prevent session enumeration)
-      expect(response.status).toBe(404)
-
-      // User 2's session remains active (not revoked)
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      // THEN: Returns 404 Not Found (prevent session enumeration)
+      expect(response.status()).toBe(404)
     }
   )
 
   test.fixme(
-    'API-AUTH-REVOKE-SESSION-006: should returns 200 OK and revokes current session',
+    'API-AUTH-REVOKE-SESSION-006: should return 200 OK and revoke current session',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user with current session
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at) VALUES (1, 1, 'current_session', NOW() + INTERVAL '7 days', NOW())`
-      )
+      await signUp({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+        name: 'Test User',
+      })
+      await signIn({
+        email: 'test@example.com',
+        password: 'TestPassword123!',
+      })
+
+      // Get current session
+      const sessionResponse = await page.request.get('/api/auth/get-session')
+      const sessionData = await sessionResponse.json()
+      const currentSessionToken = sessionData.session.token
 
       // WHEN: User revokes their own current session
       const response = await page.request.post('/api/auth/revoke-session', {
         data: {
-          sessionId: '1',
+          token: currentSessionToken,
         },
       })
 
       // THEN: Returns 200 OK and revokes current session
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      expect(response.status()).toBe(200)
 
-      // Current session is revoked
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      // Verify session is invalidated
+      const afterResponse = await page.request.get('/api/auth/get-session')
+      const afterData = await afterResponse.json()
+      expect(afterData).toBeNull()
     }
   )
 
@@ -282,27 +266,50 @@ test.describe('Revoke specific session', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-REVOKE-SESSION-007: user can complete full revokeSession workflow',
+    'API-AUTH-REVOKE-SESSION-007: user can complete full revoke-session workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
-      // GIVEN: Representative test scenario
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // WHEN: Execute workflow
-      const response = await page.request.post('/api/auth/workflow', {
-        data: { test: true },
+      // Test 1: Revoke fails without auth
+      const noAuthResponse = await page.request.post('/api/auth/revoke-session', {
+        data: { token: 'test_token' },
       })
+      expect(noAuthResponse.status()).toBe(401)
 
-      // THEN: Verify integration
-      expect(response.status()).toBe(200)
-      const data = await response.json()
-      expect(data).toMatchObject({ success: true })
+      // Create user and sign in multiple times
+      await signUp({
+        email: 'workflow@example.com',
+        password: 'WorkflowPass123!',
+        name: 'Workflow User',
+      })
+      await signIn({ email: 'workflow@example.com', password: 'WorkflowPass123!' })
+
+      // Get sessions list
+      const sessionsResponse = await page.request.get('/api/auth/list-sessions')
+      const sessions = await sessionsResponse.json()
+      expect(sessions.length).toBeGreaterThanOrEqual(1)
+
+      // Test 2: Revoke fails for non-existent session
+      const notFoundResponse = await page.request.post('/api/auth/revoke-session', {
+        data: { token: 'nonexistent_token' },
+      })
+      expect(notFoundResponse.status()).toBe(404)
+
+      // Test 3: Revoke succeeds for valid session (if multiple exist)
+      if (sessions.length >= 2) {
+        const sessionToRevoke = sessions[1]
+        const revokeResponse = await page.request.post('/api/auth/revoke-session', {
+          data: { token: sessionToRevoke.token },
+        })
+        expect(revokeResponse.status()).toBe(200)
+      }
     }
   )
 })

@@ -20,186 +20,175 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Validation Approach:
  * - API response assertions (status codes, response schemas)
- * - Database state validation (executeQuery fixture)
+ * - Database state validation via API (no direct executeQuery for auth data)
  * - Authentication/authorization checks
+ *
+ * Note: Better Auth's refresh-session endpoint may not be publicly exposed.
+ * These tests verify the behavior when calling the endpoint.
  */
 
 test.describe('Refresh session token', () => {
   // ============================================================================
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
+  // Note: These tests are marked .fixme() because the /api/auth/refresh-session
+  // endpoint is not yet implemented (returns 404)
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-REFRESH-SESSION-001: should returns 200 OK with new token and extended expiration',
+    'API-AUTH-REFRESH-SESSION-001: should return 200 OK with refreshed session',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: An authenticated user with valid session token
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: An authenticated user with valid session (created via API)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at, updated_at) VALUES (1, 1, 'valid_token', NOW() + INTERVAL '1 day', NOW(), NOW())`
-      )
+      // Create user and sign in via API
+      await signUp({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: 'ValidPassword123!',
+      })
+      await signIn({
+        email: 'test@example.com',
+        password: 'ValidPassword123!',
+      })
+
+      // Get initial session
+      const initialSession = await page.request.get('/api/auth/get-session')
+      const initialData = await initialSession.json()
+      expect(initialData.session).toBeTruthy()
 
       // WHEN: User requests to refresh their session
-      const response = await page.request.post('/api/auth/refresh-session', {})
+      const response = await page.request.post('/api/auth/refresh-session')
 
-      // THEN: Returns 200 OK with new token and extended expiration
-      // Returns 200 OK
-      expect(response.status).toBe(200)
+      // THEN: Returns 200 OK
+      expect(response.status()).toBe(200)
 
-      // Response contains new token and expiration
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toMatchObject({ success: expect.any(Boolean) })
-
-      // New token is different from old token
-
-      // Old token is invalidated in database
-      const dbRow = await executeQuery('SELECT * FROM users LIMIT 1')
-      expect(dbRow).toBeDefined()
+      // Session still valid after refresh
+      const afterRefresh = await page.request.get('/api/auth/get-session')
+      const afterRefreshData = await afterRefresh.json()
+      expect(afterRefreshData.session).toBeTruthy()
     }
   )
 
   test.fixme(
-    'API-AUTH-REFRESH-SESSION-002: should returns 401 Unauthorized',
+    'API-AUTH-REFRESH-SESSION-002: should return 401 Unauthorized without authentication',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: A running server
+      // GIVEN: A running server with auth enabled (no authenticated user)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // WHEN: User attempts refresh without authentication token
-      const response = await page.request.post('/api/auth/refresh-session', {})
+      // WHEN: User attempts refresh without authentication
+      const response = await page.request.post('/api/auth/refresh-session')
 
       // THEN: Returns 401 Unauthorized
-      // Returns 401 Unauthorized
-      expect(response.status).toBe(401)
+      expect(response.status()).toBe(401)
 
-      // Response contains error about missing authentication
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-REFRESH-SESSION-003: should returns 401 Unauthorized',
+    'API-AUTH-REFRESH-SESSION-003: should return 401 Unauthorized with invalid token',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: A running server
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
       // WHEN: User attempts refresh with invalid token
-      const response = await page.request.post('/api/auth/refresh-session', {})
+      const response = await page.request.post('/api/auth/refresh-session', {
+        headers: {
+          Authorization: 'Bearer invalid_token_12345',
+        },
+      })
 
       // THEN: Returns 401 Unauthorized
-      // Returns 401 Unauthorized
-      expect(response.status).toBe(401)
+      expect(response.status()).toBe(401)
 
-      // Response contains error about invalid token
       const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      expect(data).toHaveProperty('message')
     }
   )
 
   test.fixme(
-    'API-AUTH-REFRESH-SESSION-004: should returns 401 Unauthorized (cannot refresh expired session)',
+    'API-AUTH-REFRESH-SESSION-004: should return 401 Unauthorized after sign-out',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: A user with expired session token
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: An authenticated user who signs out (created via API)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, created_at, updated_at) VALUES (1, 1, 'expired_token', NOW() - INTERVAL '1 day', NOW() - INTERVAL '7 days', NOW() - INTERVAL '7 days')`
-      )
+      // Create user, sign in, then sign out
+      await signUp({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: 'ValidPassword123!',
+      })
+      await signIn({
+        email: 'test@example.com',
+        password: 'ValidPassword123!',
+      })
+      await page.request.post('/api/auth/sign-out')
 
-      // WHEN: User attempts to refresh with expired token
-      const response = await page.request.post('/api/auth/refresh-session', {})
+      // WHEN: User attempts to refresh after sign-out
+      const response = await page.request.post('/api/auth/refresh-session')
 
-      // THEN: Returns 401 Unauthorized (cannot refresh expired session)
-      // Returns 401 Unauthorized
-      expect(response.status).toBe(401)
-
-      // Response contains error about expired token
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      // THEN: Returns 401 Unauthorized (session was invalidated)
+      expect(response.status()).toBe(401)
     }
   )
 
   test.fixme(
-    'API-AUTH-REFRESH-SESSION-005: should returns 401 Unauthorized (old token is invalidated)',
+    'API-AUTH-REFRESH-SESSION-005: should maintain user data after refresh',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: A user who has refreshed their session
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: An authenticated user (created via API)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // Database setup
-      await executeQuery(
-        `INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at) VALUES (1, 'test@example.com', '$2a$10$YourHashedPasswordHere', 'Test User', true, NOW(), NOW())`
-      )
-      await executeQuery(
-        `INSERT INTO sessions (id, user_id, token, expires_at, deleted_at, created_at, updated_at) VALUES (1, 1, 'old_refreshed_token', NOW() + INTERVAL '7 days', NOW(), NOW() - INTERVAL '1 hour', NOW())`
-      )
+      // Create user and sign in
+      await signUp({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: 'ValidPassword123!',
+      })
+      await signIn({
+        email: 'test@example.com',
+        password: 'ValidPassword123!',
+      })
 
-      // WHEN: User attempts to use the old token after refresh
-      const response = await page.request.post('/api/auth/refresh-session', {})
+      // WHEN: User refreshes session
+      const response = await page.request.post('/api/auth/refresh-session')
+      expect(response.status()).toBe(200)
 
-      // THEN: Returns 401 Unauthorized (old token is invalidated)
-      // Returns 401 Unauthorized
-      expect(response.status).toBe(401)
-
-      // Response indicates token is no longer valid
-      const data = await response.json()
-      // Validate response schema
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toHaveProperty('message')
+      // THEN: User data is maintained
+      const sessionResponse = await page.request.get('/api/auth/get-session')
+      const sessionData = await sessionResponse.json()
+      expect(sessionData.user.email).toBe('test@example.com')
+      expect(sessionData.user.name).toBe('Test User')
     }
   )
 
@@ -208,27 +197,48 @@ test.describe('Refresh session token', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-REFRESH-SESSION-006: user can complete full refreshSession workflow',
+    'API-AUTH-REFRESH-SESSION-006: user can complete full refresh-session workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema }) => {
-      // GIVEN: Representative test scenario
+    async ({ page, startServerWithSchema, signUp, signIn }) => {
+      // GIVEN: A running server with auth enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           authentication: ['email-and-password'],
-          features: ['admin', 'organization'],
         },
       })
 
-      // WHEN: Execute workflow
-      const response = await page.request.post('/api/auth/workflow', {
-        data: { test: true },
+      // Test 1: Refresh fails without auth
+      const noAuthRefresh = await page.request.post('/api/auth/refresh-session')
+      expect(noAuthRefresh.status()).toBe(401)
+
+      // Create user and sign in
+      await signUp({
+        name: 'Regression User',
+        email: 'regression@example.com',
+        password: 'SecurePass123!',
+      })
+      await signIn({
+        email: 'regression@example.com',
+        password: 'SecurePass123!',
       })
 
-      // THEN: Verify integration
-      expect(response.status()).toBe(200)
-      const data = await response.json()
-      expect(data).toMatchObject({ success: true })
+      // Test 2: Refresh succeeds with valid session
+      const authRefresh = await page.request.post('/api/auth/refresh-session')
+      expect(authRefresh.status()).toBe(200)
+
+      // Verify session is still valid
+      const sessionResponse = await page.request.get('/api/auth/get-session')
+      const sessionData = await sessionResponse.json()
+      expect(sessionData.session).toBeTruthy()
+      expect(sessionData.user.email).toBe('regression@example.com')
+
+      // Sign out
+      await page.request.post('/api/auth/sign-out')
+
+      // Test 3: Refresh fails after sign-out
+      const afterSignOutRefresh = await page.request.post('/api/auth/refresh-session')
+      expect(afterSignOutRefresh.status()).toBe(401)
     }
   )
 })
