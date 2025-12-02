@@ -487,6 +487,13 @@ type ServerFixtures = {
   createAuthenticatedAdmin: (data?: Partial<SignUpData>) => Promise<AuthResult>
 
   /**
+   * Create and authenticate a viewer user
+   * Creates a user, sets role to viewer (read-only), then signs in
+   * @returns The authenticated viewer user and session data
+   */
+  createAuthenticatedViewer: (data?: Partial<SignUpData>) => Promise<AuthResult>
+
+  /**
    * Create a new organization via API
    * Requires an authenticated user (call createAuthenticatedUser first)
    * @returns The created organization data
@@ -1076,6 +1083,86 @@ export const test = base.extend<ServerFixtures>({
       const result = await signInResponse.json()
       return {
         user: { ...result.user, role: 'admin' },
+        session: result.session,
+        token: result.session?.token, // Convenience alias
+      }
+    })
+  },
+
+  // Auth fixture: Create and authenticate a viewer user
+  // Creates user, updates role to viewer via executeQuery, then signs in
+  createAuthenticatedViewer: async ({ page }, use, testInfo) => {
+    let userCounter = 0
+
+    await use(async (data?: Partial<SignUpData>): Promise<AuthResult> => {
+      userCounter++
+      const timestamp = Date.now()
+      const defaultData: SignUpData = {
+        email: data?.email ?? `viewer-${timestamp}-${userCounter}@example.com`,
+        password: data?.password ?? 'ViewerPassword123!',
+        name: data?.name ?? `Viewer User ${userCounter}`,
+      }
+
+      // Sign up
+      const signUpResponse = await page.request.post('/api/auth/sign-up/email', {
+        data: defaultData,
+      })
+
+      if (!signUpResponse.ok()) {
+        const errorData = await signUpResponse.json().catch(() => ({}))
+        throw new Error(
+          `Viewer sign up failed with status ${signUpResponse.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      const signUpResult = await signUpResponse.json()
+      const userId = signUpResult.user?.id
+
+      if (!userId) {
+        throw new Error('Failed to get user ID from sign up response')
+      }
+
+      // Update user role to viewer via database
+      const connectionUrl = process.env.TEST_DATABASE_CONTAINER_URL
+      if (!connectionUrl) {
+        throw new Error('Database not initialized for viewer role update')
+      }
+
+      const testDbName = (testInfo as any)._testDatabaseName
+      if (testDbName) {
+        const { Client } = await import('pg')
+        const url = new URL(connectionUrl)
+        const pathParts = url.pathname.split('/')
+        pathParts[1] = testDbName
+        url.pathname = pathParts.join('/')
+
+        const client = new Client({ connectionString: url.toString() })
+        await client.connect()
+        try {
+          await client.query(`UPDATE "user" SET role = 'viewer' WHERE id = $1`, [userId])
+        } finally {
+          await client.end()
+        }
+      }
+
+      // Sign in (to set cookies with updated role)
+      const signInResponse = await page.request.post('/api/auth/sign-in/email', {
+        data: {
+          email: defaultData.email,
+          password: defaultData.password,
+        },
+      })
+
+      if (!signInResponse.ok()) {
+        const errorData = await signInResponse.json().catch(() => ({}))
+        throw new Error(
+          `Viewer sign in failed with status ${signInResponse.status()}: ${JSON.stringify(errorData)}`
+        )
+      }
+
+      const result = await signInResponse.json()
+      return {
+        user: { ...result.user, role: 'viewer' },
         session: result.session,
         token: result.session?.token, // Convenience alias
       }
