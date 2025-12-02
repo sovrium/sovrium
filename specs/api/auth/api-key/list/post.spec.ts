@@ -197,52 +197,56 @@ test.describe('List API Keys', () => {
     'API-AUTH-API-KEYS-LIST-005: user can complete full API key list workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      // GIVEN: Application with API keys enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: {
-            apiKeys: true,
+      await test.step('Setup: Start server with API keys plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: {
+              apiKeys: true,
+            },
           },
-        },
+        })
       })
 
-      await signUp({
-        name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
+      await test.step('Setup: Sign up user', async () => {
+        await signUp({
+          name: 'Test User',
+          email: 'test@example.com',
+          password: 'ValidPassword123!',
+        })
       })
 
-      // WHEN: User lists keys before creating any
-      const emptyResponse = await page.request.get('/api/auth/api-key/list')
+      await test.step('List API keys returns empty array', async () => {
+        const emptyResponse = await page.request.get('/api/auth/api-key/list')
 
-      // THEN: Returns empty array
-      expect(emptyResponse.status()).toBe(200)
-      const emptyData = await emptyResponse.json()
-      expect(emptyData).toHaveLength(0)
-
-      // WHEN: User creates multiple API keys
-      await page.request.post('/api/auth/api-key/create', {
-        data: { name: 'Key 1' },
+        expect(emptyResponse.status()).toBe(200)
+        const emptyData = await emptyResponse.json()
+        expect(emptyData).toHaveLength(0)
       })
 
-      await page.request.post('/api/auth/api-key/create', {
-        data: { name: 'Key 2' },
+      await test.step('Create multiple API keys', async () => {
+        await page.request.post('/api/auth/api-key/create', {
+          data: { name: 'Key 1' },
+        })
+
+        await page.request.post('/api/auth/api-key/create', {
+          data: { name: 'Key 2' },
+        })
       })
 
-      // THEN: User can see all their keys
-      const listResponse = await page.request.get('/api/auth/api-key/list')
+      await test.step('List all API keys', async () => {
+        const listResponse = await page.request.get('/api/auth/api-key/list')
 
-      expect(listResponse.status()).toBe(200)
-      const listData = await listResponse.json()
-      expect(listData).toHaveLength(2)
+        expect(listResponse.status()).toBe(200)
+        const listData = await listResponse.json()
+        expect(listData).toHaveLength(2)
+      })
 
-      // WHEN: Unauthenticated request is made
-      const unauthResponse = await page.request.get('/api/auth/api-key/list')
-
-      // THEN: Request fails with 401
-      expect(unauthResponse.status()).toBe(401)
+      await test.step('Verify list API keys fails without auth', async () => {
+        const unauthResponse = await page.request.get('/api/auth/api-key/list')
+        expect(unauthResponse.status()).toBe(401)
+      })
     }
   )
 })

@@ -216,60 +216,67 @@ test.describe('Get API Key', () => {
     'API-AUTH-API-KEYS-GET-006: user can complete full API key retrieval workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      // GIVEN: Application with API keys enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: {
-            apiKeys: true,
+      let keyId: string
+
+      await test.step('Setup: Start server with API keys plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: {
+              apiKeys: true,
+            },
           },
-        },
+        })
       })
 
-      await signUp({
-        name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
+      await test.step('Setup: Sign up user', async () => {
+        await signUp({
+          name: 'Test User',
+          email: 'test@example.com',
+          password: 'ValidPassword123!',
+        })
       })
 
-      // WHEN: User creates API key
-      const createResponse = await page.request.post('/api/auth/api-key/create', {
-        data: {
-          name: 'Production Key',
-          expiresIn: 2_592_000, // 30 days
-          metadata: {
-            environment: 'production',
-            service: 'api',
+      await test.step('Create API key', async () => {
+        const createResponse = await page.request.post('/api/auth/api-key/create', {
+          data: {
+            name: 'Production Key',
+            expiresIn: 2_592_000, // 30 days
+            metadata: {
+              environment: 'production',
+              service: 'api',
+            },
           },
-        },
+        })
+
+        const result = await createResponse.json()
+        keyId = result.id
       })
 
-      const { id: keyId } = await createResponse.json()
+      await test.step('Retrieve API key details', async () => {
+        const getResponse = await page.request.get(`/api/auth/api-key?id=${keyId}`)
 
-      // THEN: User can retrieve key details
-      const getResponse = await page.request.get(`/api/auth/api-key?id=${keyId}`)
-
-      expect(getResponse.status()).toBe(200)
-      const getData = await getResponse.json()
-      expect(getData.id).toBe(keyId)
-      expect(getData.name).toBe('Production Key')
-      expect(getData).toHaveProperty('expiresAt')
-      expect(getData.metadata).toEqual({
-        environment: 'production',
-        service: 'api',
+        expect(getResponse.status()).toBe(200)
+        const getData = await getResponse.json()
+        expect(getData.id).toBe(keyId)
+        expect(getData.name).toBe('Production Key')
+        expect(getData).toHaveProperty('expiresAt')
+        expect(getData.metadata).toEqual({
+          environment: 'production',
+          service: 'api',
+        })
       })
 
-      // THEN: Retrieving non-existent key fails
-      const notFoundResponse = await page.request.get('/api/auth/api-key?id=invalid-id')
+      await test.step('Verify get non-existent key fails', async () => {
+        const notFoundResponse = await page.request.get('/api/auth/api-key?id=invalid-id')
+        expect(notFoundResponse.status()).toBe(404)
+      })
 
-      expect(notFoundResponse.status()).toBe(404)
-
-      // WHEN: Unauthenticated user attempts to retrieve key
-      const unauthResponse = await page.request.get(`/api/auth/api-key?id=${keyId}`)
-
-      // THEN: Request fails with 401
-      expect(unauthResponse.status()).toBe(401)
+      await test.step('Verify get API key fails without auth', async () => {
+        const unauthResponse = await page.request.get(`/api/auth/api-key?id=${keyId}`)
+        expect(unauthResponse.status()).toBe(401)
+      })
     }
   )
 })

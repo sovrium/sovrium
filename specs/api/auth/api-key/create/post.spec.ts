@@ -253,52 +253,55 @@ test.describe('Create API Key', () => {
     'API-AUTH-API-KEYS-CREATE-007: user can complete full API key creation workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, signUp }) => {
-      // GIVEN: Application with API keys enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-          plugins: {
-            apiKeys: true,
+      await test.step('Setup: Start server with API keys plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: {
+              apiKeys: true,
+            },
           },
-        },
+        })
       })
 
-      await signUp({
-        name: 'Test User',
-        email: 'test@example.com',
-        password: 'ValidPassword123!',
+      await test.step('Setup: Sign up user', async () => {
+        await signUp({
+          name: 'Test User',
+          email: 'test@example.com',
+          password: 'ValidPassword123!',
+        })
       })
 
-      // WHEN: User creates API key with various options
-      const createResponse = await page.request.post('/api/auth/api-key/create', {
-        data: {
-          name: 'Production API Key',
-          expiresIn: 7_776_000, // 90 days in seconds
-          metadata: {
-            environment: 'production',
+      await test.step('Create API key with expiration and metadata', async () => {
+        const createResponse = await page.request.post('/api/auth/api-key/create', {
+          data: {
+            name: 'Production API Key',
+            expiresIn: 7_776_000, // 90 days in seconds
+            metadata: {
+              environment: 'production',
+            },
           },
-        },
+        })
+
+        expect(createResponse.status()).toBe(200)
+        const createData = await createResponse.json()
+        expect(createData).toHaveProperty('id')
+        expect(createData).toHaveProperty('key')
+        expect(createData.name).toBe('Production API Key')
+        expect(createData).toHaveProperty('expiresAt')
+        expect(createData.metadata).toEqual({ environment: 'production' })
       })
 
-      // THEN: API key is created successfully with all properties
-      expect(createResponse.status()).toBe(200)
-      const createData = await createResponse.json()
-      expect(createData).toHaveProperty('id')
-      expect(createData).toHaveProperty('key')
-      expect(createData.name).toBe('Production API Key')
-      expect(createData).toHaveProperty('expiresAt')
-      expect(createData.metadata).toEqual({ environment: 'production' })
+      await test.step('Verify create API key fails without auth', async () => {
+        const unauthResponse = await page.request.post('/api/auth/api-key/create', {
+          data: {
+            name: 'Unauthorized Key',
+          },
+        })
 
-      // WHEN: Unauthenticated user attempts to create key
-      const unauthResponse = await page.request.post('/api/auth/api-key/create', {
-        data: {
-          name: 'Unauthorized Key',
-        },
+        expect(unauthResponse.status()).toBe(401)
       })
-
-      // THEN: Request fails with 401
-      expect(unauthResponse.status()).toBe(401)
     }
   )
 })
