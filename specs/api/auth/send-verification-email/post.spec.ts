@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '@/specs/fixtures'
-import { assertEmailReceived } from '../email-helpers'
+import { assertEmailReceived } from '../../../email-utils'
 
 /**
  * E2E Tests for Send verification email
