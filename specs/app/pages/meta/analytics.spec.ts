@@ -496,62 +496,63 @@ test.describe('Analytics Configuration', () => {
     'APP-PAGES-ANALYTICS-013: user can complete full analytics workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'test_page',
-            path: '/',
-            meta: {
-              lang: 'en-US',
-              title: 'Test',
-              description: 'Test',
-              analytics: {
-                providers: [
-                  {
-                    name: 'plausible',
-                    enabled: true,
-                    scripts: [{ src: 'https://plausible.io/js/script.js', async: true }],
-                    dnsPrefetch: 'https://plausible.io',
-                  },
-                  {
-                    name: 'google',
-                    enabled: true,
-                    scripts: [
-                      { src: 'https://www.googletagmanager.com/gtag/js?id=G-XXXXX', async: true },
-                    ],
-                    dnsPrefetch: 'https://www.googletagmanager.com',
-                  },
-                ],
+      await test.step('Setup: Start server with analytics providers', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'test_page',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                analytics: {
+                  providers: [
+                    {
+                      name: 'plausible',
+                      enabled: true,
+                      scripts: [{ src: 'https://plausible.io/js/script.js', async: true }],
+                      dnsPrefetch: 'https://plausible.io',
+                    },
+                    {
+                      name: 'google',
+                      enabled: true,
+                      scripts: [
+                        { src: 'https://www.googletagmanager.com/gtag/js?id=G-XXXXX', async: true },
+                      ],
+                      dnsPrefetch: 'https://www.googletagmanager.com',
+                    },
+                  ],
+                },
               },
+              sections: [],
             },
-            sections: [],
-          },
-        ],
+          ],
+        })
       })
 
-      // WHEN: user navigates to the page
-      await page.goto('/')
+      await test.step('Navigate to page and verify DNS prefetch', async () => {
+        await page.goto('/')
+        await expect(
+          page.locator('link[rel="dns-prefetch"][href="https://plausible.io"]')
+        ).toBeAttached()
+        await expect(
+          page.locator('link[rel="dns-prefetch"][href="https://www.googletagmanager.com"]')
+        ).toBeAttached()
+      })
 
-      // Verify DNS prefetch
-      // THEN: assertion
-      await expect(
-        page.locator('link[rel="dns-prefetch"][href="https://plausible.io"]')
-      ).toBeAttached()
-      await expect(
-        page.locator('link[rel="dns-prefetch"][href="https://www.googletagmanager.com"]')
-      ).toBeAttached()
+      await test.step('Verify analytics scripts loaded', async () => {
+        await expect(page.locator('script[src="https://plausible.io/js/script.js"]')).toBeAttached()
+        await expect(page.locator('script[src*="googletagmanager.com"]')).toBeAttached()
+      })
 
-      // Verify scripts loaded
-      await expect(page.locator('script[src="https://plausible.io/js/script.js"]')).toBeAttached()
-      await expect(page.locator('script[src*="googletagmanager.com"]')).toBeAttached()
-
-      // Verify async loading
-      await expect(page.locator('script[src="https://plausible.io/js/script.js"]')).toHaveAttribute(
-        'async',
-        ''
-      )
+      await test.step('Verify async script loading', async () => {
+        await expect(page.locator('script[src="https://plausible.io/js/script.js"]')).toHaveAttribute(
+          'async',
+          ''
+        )
+      })
     }
   )
 })

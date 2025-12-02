@@ -308,51 +308,52 @@ test.describe('Custom Head Elements', () => {
     'APP-PAGES-CUSTOM-009: user can complete full custom elements workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app configuration
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: {
-              lang: 'en-US',
-              title: 'Test',
-              description: 'Test',
-              customElements: [
-                { type: 'meta', attrs: { name: 'theme-color', content: '#FFAF00' } },
-                {
-                  type: 'meta',
-                  attrs: { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-                },
-                { type: 'link', attrs: { rel: 'preconnect', href: 'https://fonts.gstatic.com' } },
-                { type: 'style', content: 'body { margin: 0; }' },
-              ],
+      await test.step('Setup: Start server with custom elements', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: {
+                lang: 'en-US',
+                title: 'Test',
+                description: 'Test',
+                customElements: [
+                  { type: 'meta', attrs: { name: 'theme-color', content: '#FFAF00' } },
+                  {
+                    type: 'meta',
+                    attrs: { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+                  },
+                  { type: 'link', attrs: { rel: 'preconnect', href: 'https://fonts.gstatic.com' } },
+                  { type: 'style', content: 'body { margin: 0; }' },
+                ],
+              },
+              sections: [],
             },
-            sections: [],
-          },
-        ],
+          ],
+        })
       })
 
-      // WHEN: user navigates to the page
-      await page.goto('/')
+      await test.step('Navigate to page and verify meta tags', async () => {
+        await page.goto('/')
+        await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#FFAF00')
+        await expect(page.locator('meta[name="viewport"]')).toHaveAttribute(
+          'content',
+          'width=device-width, initial-scale=1'
+        )
+      })
 
-      // Verify meta tags
-      // THEN: assertion
-      await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#FFAF00')
-      await expect(page.locator('meta[name="viewport"]')).toHaveAttribute(
-        'content',
-        'width=device-width, initial-scale=1'
-      )
+      await test.step('Verify custom link element', async () => {
+        await expect(
+          page.locator('link[rel="preconnect"][href="https://fonts.gstatic.com"]')
+        ).toBeAttached()
+      })
 
-      // Verify link
-      await expect(
-        page.locator('link[rel="preconnect"][href="https://fonts.gstatic.com"]')
-      ).toBeAttached()
-
-      // Verify style
-      const styleContent = await page.locator('style').first().textContent()
-      expect(styleContent).toContain('body { margin: 0; }')
+      await test.step('Verify custom style element', async () => {
+        const styleContent = await page.locator('style').first().textContent()
+        expect(styleContent).toContain('body { margin: 0; }')
+      })
     }
   )
 })
