@@ -507,68 +507,65 @@ test.describe('Block Reference', () => {
     'APP-BLOCKS-REFERENCE-013: user can complete full reference workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with block templates and references
-      await startServerWithSchema({
-        name: 'test-app',
-        blocks: [
-          {
-            name: 'hero-block',
-            type: 'section',
-            props: { id: 'hero', className: 'bg-blue-500' },
-            children: [
-              { type: 'heading', content: 'Welcome' },
-              { type: 'single-line-text', content: 'This is a block template' },
-            ],
-          },
-          {
-            name: 'feature-card',
-            type: 'card',
-            props: { className: 'p-4' },
-            children: [
-              { type: 'h3', content: 'Feature Title' },
-              { type: 'single-line-text', content: 'Feature description goes here' },
-            ],
-          },
-        ],
-        pages: [
-          {
-            name: 'home',
-            path: '/',
-            sections: [
-              { type: 'heading', content: 'Block Reference Test' },
-              {
-                type: 'section',
-                props: { id: 'features' },
-                children: [
-                  { type: 'h2', content: 'Features' },
-                  {
-                    type: 'grid',
-                    props: { className: 'grid-cols-2' },
-                    children: [
-                      { type: 'card', children: [{ type: 'h3', content: 'Fast' }] },
-                      { type: 'card', children: [{ type: 'h3', content: 'Secure' }] },
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
-        ],
+      await test.step('Setup: Start server with block references', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          blocks: [
+            {
+              name: 'hero-block',
+              type: 'section',
+              props: { id: 'hero', className: 'bg-blue-500' },
+              children: [
+                { type: 'heading', content: 'Welcome' },
+                { type: 'single-line-text', content: 'This is a block template' },
+              ],
+            },
+            {
+              name: 'feature-card',
+              type: 'card',
+              props: { className: 'p-4' },
+              children: [
+                { type: 'h3', content: 'Feature Title' },
+                { type: 'single-line-text', content: 'Feature description goes here' },
+              ],
+            },
+          ],
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              sections: [
+                { type: 'heading', content: 'Block Reference Test' },
+                {
+                  type: 'section',
+                  props: { id: 'features' },
+                  children: [
+                    { type: 'h2', content: 'Features' },
+                    {
+                      type: 'grid',
+                      props: { className: 'grid-cols-2' },
+                      children: [
+                        { type: 'card', children: [{ type: 'h3', content: 'Fast' }] },
+                        { type: 'card', children: [{ type: 'h3', content: 'Secure' }] },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
+      await test.step('Navigate to page and verify page structure', async () => {
+        await page.goto('/')
+        await expect(page.locator('h1')).toHaveText('Block Reference Test')
+      })
 
-      // Verify page renders with blocks schema validated
-      // THEN: assertion
-      await expect(page.locator('h1')).toHaveText('Block Reference Test')
-
-      // Verify features section
-      // THEN: assertion
-      await expect(page.locator('section#features h2')).toHaveText('Features')
-      await expect(page.locator('h3').first()).toHaveText('Fast')
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify features section', async () => {
+        await expect(page.locator('section#features h2')).toHaveText('Features')
+        await expect(page.locator('h3').first()).toHaveText('Fast')
+      })
     }
   )
 })
