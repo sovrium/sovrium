@@ -236,44 +236,45 @@ test.describe('Long Text Field', () => {
     'APP-TABLES-FIELD-LONG-TEXT-006: user can complete full long-text-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative long-text field
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'long_text_field',
-                type: 'long-text',
-                required: true,
-                indexed: true,
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with long-text field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'long_text_field',
+                  type: 'long-text',
+                  required: true,
+                  indexed: true,
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      const columnInfo = await executeQuery(
-        "SELECT data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='long_text_field'"
-      )
-      // THEN: assertion
-      expect(columnInfo.data_type).toBe('text')
-      expect(columnInfo.character_maximum_length).toBeNull()
-      expect(columnInfo.is_nullable).toBe('NO')
+      await test.step('Verify column setup and constraints', async () => {
+        const columnInfo = await executeQuery(
+          "SELECT data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='long_text_field'"
+        )
+        expect(columnInfo.data_type).toBe('text')
+        expect(columnInfo.character_maximum_length).toBeNull()
+        expect(columnInfo.is_nullable).toBe('NO')
+      })
 
-      // Test large text insertion
-      const largeText = 'A'.repeat(1000)
-      const insertResult = await executeQuery(
-        `INSERT INTO data (long_text_field) VALUES ('${largeText}') RETURNING LENGTH(long_text_field) as length`
-      )
-      // THEN: assertion
-      expect(insertResult.length).toBe(1000)
+      await test.step('Test large text insertion', async () => {
+        const largeText = 'A'.repeat(1000)
+        const insertResult = await executeQuery(
+          `INSERT INTO data (long_text_field) VALUES ('${largeText}') RETURNING LENGTH(long_text_field) as length`
+        )
+        expect(insertResult.length).toBe(1000)
+      })
     }
   )
 })
