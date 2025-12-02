@@ -224,50 +224,51 @@ test.describe('Checkbox Field', () => {
     'APP-TABLES-FIELD-TYPES-CHECKBOX-006: user can complete full checkbox-field workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative checkbox field
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 2,
-                name: 'checkbox_field',
-                type: 'checkbox',
-                required: true,
-                indexed: true,
-                default: false,
-              },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
+      await test.step('Setup: Start server with checkbox field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'checkbox_field',
+                  type: 'checkbox',
+                  required: true,
+                  indexed: true,
+                  default: false,
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      const columnInfo = await executeQuery(
-        "SELECT data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='checkbox_field'"
-      )
-      // THEN: assertion
-      expect(columnInfo.data_type).toBe('boolean')
-      expect(columnInfo.is_nullable).toBe('NO')
+      await test.step('Verify column setup and constraints', async () => {
+        const columnInfo = await executeQuery(
+          "SELECT data_type, is_nullable FROM information_schema.columns WHERE table_name='data' AND column_name='checkbox_field'"
+        )
+        expect(columnInfo.data_type).toBe('boolean')
+        expect(columnInfo.is_nullable).toBe('NO')
+      })
 
-      // Test boolean values
-      await executeQuery('INSERT INTO data (checkbox_field) VALUES (TRUE)')
-      const stored = await executeQuery('SELECT checkbox_field FROM data WHERE id = 1')
-      // THEN: assertion
-      expect(stored.checkbox_field).toBe(true)
+      await test.step('Test boolean value storage', async () => {
+        await executeQuery('INSERT INTO data (checkbox_field) VALUES (TRUE)')
+        const stored = await executeQuery('SELECT checkbox_field FROM data WHERE id = 1')
+        expect(stored.checkbox_field).toBe(true)
+      })
 
-      // Test filtering by boolean
-      await executeQuery('INSERT INTO data (checkbox_field) VALUES (FALSE)')
-      const filtered = await executeQuery(
-        'SELECT COUNT(*) as count FROM data WHERE checkbox_field = TRUE'
-      )
-      // THEN: assertion
-      expect(filtered.count).toBe(1)
+      await test.step('Test boolean filtering', async () => {
+        await executeQuery('INSERT INTO data (checkbox_field) VALUES (FALSE)')
+        const filtered = await executeQuery(
+          'SELECT COUNT(*) as count FROM data WHERE checkbox_field = TRUE'
+        )
+        expect(filtered.count).toBe(1)
+      })
     }
   )
 })
