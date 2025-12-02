@@ -189,61 +189,65 @@ test.describe('View Group By', () => {
     'APP-TABLES-VIEW-GROUP-BY-004: user can complete full view-group-by workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative grouping
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 4,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'category', type: 'single-line-text' },
-              { id: 3, name: 'value', type: 'integer' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-            views: [
-              {
-                id: 'grouped_view',
-                name: 'Grouped View',
-                groupBy: {
-                  field: 'category',
-                  direction: 'asc',
+      await test.step('Setup: Start server with grouped view', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'category', type: 'single-line-text' },
+                { id: 3, name: 'value', type: 'integer' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              views: [
+                {
+                  id: 'grouped_view',
+                  name: 'Grouped View',
+                  groupBy: {
+                    field: 'category',
+                    direction: 'asc',
+                  },
                 },
-              },
-            ],
-          },
-        ],
+              ],
+            },
+          ],
+        })
       })
 
-      await executeQuery(["INSERT INTO data (category, value) VALUES ('A', 1), ('B', 2), ('A', 3)"])
+      await test.step('Insert test data', async () => {
+        await executeQuery(["INSERT INTO data (category, value) VALUES ('A', 1), ('B', 2), ('A', 3)"])
+      })
 
-      // WHEN/THEN: Querying the PostgreSQL VIEW validates groupBy configuration
+      await test.step('Verify view exists in database', async () => {
+        const viewExists = await executeQuery(
+          "SELECT COUNT(*) as count FROM information_schema.views WHERE table_name = 'grouped_view'"
+        )
+        expect(viewExists.count).toBe(1)
+      })
 
-      // View exists in database
-      const viewExists = await executeQuery(
-        "SELECT COUNT(*) as count FROM information_schema.views WHERE table_name = 'grouped_view'"
-      )
-      expect(viewExists.count).toBe(1)
+      await test.step('Verify view returns records ordered by category', async () => {
+        const viewRecords = await executeQuery('SELECT category, value FROM grouped_view')
+        expect(viewRecords).toEqual([
+          { category: 'A', value: 1 },
+          { category: 'A', value: 3 },
+          { category: 'B', value: 2 },
+        ])
+      })
 
-      // View returns records ordered by category (groupBy field, ascending)
-      const viewRecords = await executeQuery('SELECT category, value FROM grouped_view')
-      expect(viewRecords).toEqual([
-        { category: 'A', value: 1 },
-        { category: 'A', value: 3 },
-        { category: 'B', value: 2 },
-      ])
+      await test.step('Verify category grouping (A has 2 records, B has 1)', async () => {
+        const categoryACounts = await executeQuery(
+          "SELECT COUNT(*) as count FROM grouped_view WHERE category = 'A'"
+        )
+        expect(categoryACounts.count).toBe(2)
 
-      // Category A has 2 records, B has 1
-      const categoryACounts = await executeQuery(
-        "SELECT COUNT(*) as count FROM grouped_view WHERE category = 'A'"
-      )
-      expect(categoryACounts.count).toBe(2)
-
-      const categoryBCounts = await executeQuery(
-        "SELECT COUNT(*) as count FROM grouped_view WHERE category = 'B'"
-      )
-      expect(categoryBCounts.count).toBe(1)
+        const categoryBCounts = await executeQuery(
+          "SELECT COUNT(*) as count FROM grouped_view WHERE category = 'B'"
+        )
+        expect(categoryBCounts.count).toBe(1)
+      })
     }
   )
 })

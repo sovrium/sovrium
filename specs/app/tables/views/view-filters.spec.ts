@@ -175,46 +175,47 @@ test.describe('View Filters', () => {
     'APP-TABLES-VIEW-FILTERS-004: user can complete full view-filters workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative filters
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 4,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'category', type: 'single-line-text' },
-              { id: 3, name: 'status', type: 'single-line-text' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-            views: [
-              {
-                id: 'filtered_view',
-                name: 'Filtered View',
-                filters: {
-                  and: [
-                    { field: 'category', operator: 'equals', value: 'A' },
-                    { field: 'status', operator: 'equals', value: 'active' },
-                  ],
+      await test.step('Setup: Start server with filtered view', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'category', type: 'single-line-text' },
+                { id: 3, name: 'status', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              views: [
+                {
+                  id: 'filtered_view',
+                  name: 'Filtered View',
+                  filters: {
+                    and: [
+                      { field: 'category', operator: 'equals', value: 'A' },
+                      { field: 'status', operator: 'equals', value: 'active' },
+                    ],
+                  },
                 },
-              },
-            ],
-          },
-        ],
+              ],
+            },
+          ],
+        })
       })
 
-      await executeQuery([
-        "INSERT INTO data (category, status) VALUES ('A', 'active'), ('A', 'inactive'), ('B', 'active')",
-      ])
+      await test.step('Insert test data', async () => {
+        await executeQuery([
+          "INSERT INTO data (category, status) VALUES ('A', 'active'), ('A', 'inactive'), ('B', 'active')",
+        ])
+      })
 
-      // WHEN/THEN: Querying the PostgreSQL VIEW validates AND filter logic
-
-      // View returns only records matching ALL conditions
-      const viewRecords = await executeQuery('SELECT * FROM filtered_view')
-      // THEN: assertion
-      expect(viewRecords).toHaveLength(1)
-      expect(viewRecords[0]).toEqual(expect.objectContaining({ category: 'A', status: 'active' }))
+      await test.step('Verify view returns only records matching all conditions', async () => {
+        const viewRecords = await executeQuery('SELECT * FROM filtered_view')
+        expect(viewRecords).toHaveLength(1)
+        expect(viewRecords[0]).toEqual(expect.objectContaining({ category: 'A', status: 'active' }))
+      })
     }
   )
 })

@@ -273,53 +273,54 @@ test.describe('Filter Condition', () => {
     'APP-TABLES-VIEW-CONDITION-006: user can complete full filter-condition workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative filter conditions
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'status', type: 'single-line-text' },
-              { id: 3, name: 'value', type: 'integer' },
-              { id: 4, name: 'category', type: 'single-line-text' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-            views: [
-              {
-                id: 'filtered_view',
-                name: 'Filtered View',
-                filters: {
-                  and: [
-                    { field: 'status', operator: 'equals', value: 'active' },
-                    { field: 'value', operator: 'greaterThan', value: 10 },
-                    { field: 'category', operator: 'in', value: ['A', 'B'] },
-                  ],
+      await test.step('Setup: Start server with filtered view', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'status', type: 'single-line-text' },
+                { id: 3, name: 'value', type: 'integer' },
+                { id: 4, name: 'category', type: 'single-line-text' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              views: [
+                {
+                  id: 'filtered_view',
+                  name: 'Filtered View',
+                  filters: {
+                    and: [
+                      { field: 'status', operator: 'equals', value: 'active' },
+                      { field: 'value', operator: 'greaterThan', value: 10 },
+                      { field: 'category', operator: 'in', value: ['A', 'B'] },
+                    ],
+                  },
                 },
-              },
-            ],
-          },
-        ],
+              ],
+            },
+          ],
+        })
       })
 
-      await executeQuery([
-        "INSERT INTO data (status, value, category) VALUES ('active', 15, 'A'), ('active', 5, 'B'), ('inactive', 20, 'A'), ('active', 12, 'B')",
-      ])
+      await test.step('Insert test data', async () => {
+        await executeQuery([
+          "INSERT INTO data (status, value, category) VALUES ('active', 15, 'A'), ('active', 5, 'B'), ('inactive', 20, 'A'), ('active', 12, 'B')",
+        ])
+      })
 
-      // WHEN/THEN: Querying the PostgreSQL VIEW validates multiple condition operators
-
-      // View returns records matching all conditions (equals, greaterThan, in)
-      const viewRecords = await executeQuery(
-        'SELECT status, value, category FROM filtered_view ORDER BY id'
-      )
-      // THEN: assertion
-      expect(viewRecords).toHaveLength(2)
-      expect(viewRecords).toEqual([
-        { status: 'active', value: 15, category: 'A' },
-        { status: 'active', value: 12, category: 'B' },
-      ])
+      await test.step('Verify view returns records matching all conditions', async () => {
+        const viewRecords = await executeQuery(
+          'SELECT status, value, category FROM filtered_view ORDER BY id'
+        )
+        expect(viewRecords).toHaveLength(2)
+        expect(viewRecords).toEqual([
+          { status: 'active', value: 15, category: 'A' },
+          { status: 'active', value: 12, category: 'B' },
+        ])
+      })
     }
   )
 })

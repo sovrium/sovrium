@@ -177,54 +177,57 @@ test.describe('View Sorts', () => {
     'APP-TABLES-VIEW-SORTS-004: user can complete full view-sorts workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative sorting
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 4,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'category', type: 'single-line-text' },
-              { id: 3, name: 'value', type: 'integer' },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-            views: [
-              {
-                id: 'sorted_view',
-                name: 'Sorted View',
-                sorts: [
-                  {
-                    field: 'category',
-                    direction: 'asc',
-                  },
-                  {
-                    field: 'value',
-                    direction: 'desc',
-                  },
-                ],
-              },
-            ],
-          },
-        ],
+      await test.step('Setup: Start server with sorted view', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'category', type: 'single-line-text' },
+                { id: 3, name: 'value', type: 'integer' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+              views: [
+                {
+                  id: 'sorted_view',
+                  name: 'Sorted View',
+                  sorts: [
+                    {
+                      field: 'category',
+                      direction: 'asc',
+                    },
+                    {
+                      field: 'value',
+                      direction: 'desc',
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        })
       })
 
-      await executeQuery([
-        "INSERT INTO data (category, value) VALUES ('B', 2), ('A', 3), ('A', 1), ('B', 4)",
-      ])
+      await test.step('Insert test data', async () => {
+        await executeQuery([
+          "INSERT INTO data (category, value) VALUES ('B', 2), ('A', 3), ('A', 1), ('B', 4)",
+        ])
+      })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      const result = await executeQuery(
-        'SELECT category, value FROM data ORDER BY category ASC, value DESC'
-      )
-      // THEN: assertion
-      expect(result).toEqual([
-        { category: 'A', value: 3 },
-        { category: 'A', value: 1 },
-        { category: 'B', value: 4 },
-        { category: 'B', value: 2 },
-      ])
+      await test.step('Verify sorting by category ASC then value DESC', async () => {
+        const result = await executeQuery(
+          'SELECT category, value FROM data ORDER BY category ASC, value DESC'
+        )
+        expect(result).toEqual([
+          { category: 'A', value: 3 },
+          { category: 'A', value: 1 },
+          { category: 'B', value: 4 },
+          { category: 'B', value: 2 },
+        ])
+      })
     }
   )
 })
