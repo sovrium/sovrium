@@ -310,49 +310,51 @@ test.describe('Modify Field Type Migration', () => {
     'MIGRATION-MODIFY-TYPE-007: user can complete full modify-field-type workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative modify-field-type scenarios
-      await executeQuery([
-        `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, quantity TEXT, price INTEGER)`,
-        `INSERT INTO items (name, quantity, price) VALUES ('Widget', '100', 50), ('Gadget', '200', 75)`,
-      ])
-
-      // WHEN: Change quantity TEXT→INTEGER and price INTEGER→DECIMAL
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 7,
-            name: 'items',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text', required: true },
-              { id: 3, name: 'quantity', type: 'integer' },
-              { id: 4, name: 'price', type: 'decimal' },
-            ],
-          },
-        ],
+      await test.step('Setup: create items table with TEXT and INTEGER fields', async () => {
+        await executeQuery([
+          `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, quantity TEXT, price INTEGER)`,
+          `INSERT INTO items (name, quantity, price) VALUES ('Widget', '100', 50), ('Gadget', '200', 75)`,
+        ])
       })
 
-      // THEN: Both type changes applied successfully
+      await test.step('Change quantity TEXT→INTEGER and price INTEGER→DECIMAL', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 7,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'quantity', type: 'integer' },
+                { id: 4, name: 'price', type: 'decimal' },
+              ],
+            },
+          ],
+        })
+      })
 
-      // Quantity converted from TEXT to INTEGER
-      const quantityCheck = await executeQuery(
-        `SELECT data_type FROM information_schema.columns WHERE table_name='items' AND column_name='quantity'`
-      )
-      expect(quantityCheck.data_type).toBe('integer')
+      await test.step('Verify both type changes applied and data converted', async () => {
+        // Quantity converted from TEXT to INTEGER
+        const quantityCheck = await executeQuery(
+          `SELECT data_type FROM information_schema.columns WHERE table_name='items' AND column_name='quantity'`
+        )
+        expect(quantityCheck.data_type).toBe('integer')
 
-      // Price converted from INTEGER to NUMERIC
-      const priceCheck = await executeQuery(
-        `SELECT data_type FROM information_schema.columns WHERE table_name='items' AND column_name='price'`
-      )
-      expect(priceCheck.data_type).toBe('numeric')
+        // Price converted from INTEGER to NUMERIC
+        const priceCheck = await executeQuery(
+          `SELECT data_type FROM information_schema.columns WHERE table_name='items' AND column_name='price'`
+        )
+        expect(priceCheck.data_type).toBe('numeric')
 
-      // Existing data preserved and converted
-      const existingData = await executeQuery(
-        `SELECT quantity, price FROM items WHERE name = 'Widget'`
-      )
-      expect(existingData.quantity).toBe(100)
-      expect(parseFloat(existingData.price)).toBe(50.0)
+        // Existing data preserved and converted
+        const existingData = await executeQuery(
+          `SELECT quantity, price FROM items WHERE name = 'Widget'`
+        )
+        expect(existingData.quantity).toBe(100)
+        expect(parseFloat(existingData.price)).toBe(50.0)
+      })
     }
   )
 })

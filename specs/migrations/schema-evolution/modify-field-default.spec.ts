@@ -176,38 +176,40 @@ test.describe('Modify Field Default Migration', () => {
     'MIGRATION-MODIFY-DEFAULT-004: user can complete full modify-field-default workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative modify-field-default scenarios
-      await executeQuery([
-        `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, status TEXT)`,
-        `INSERT INTO items (name, status) VALUES ('Item 1', 'active')`,
-      ])
-
-      // WHEN: Add default value to status field
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 4,
-            name: 'items',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text', required: true },
-              { id: 3, name: 'status', type: 'single-line-text', default: 'draft' },
-            ],
-          },
-        ],
+      await test.step('Setup: create items table without default value', async () => {
+        await executeQuery([
+          `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, status TEXT)`,
+          `INSERT INTO items (name, status) VALUES ('Item 1', 'active')`,
+        ])
       })
 
-      // THEN: Default value applied to new rows
+      await test.step('Add default value to status field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'status', type: 'single-line-text', default: 'draft' },
+              ],
+            },
+          ],
+        })
+      })
 
-      // New row gets default
-      await executeQuery(`INSERT INTO items (name) VALUES ('Item 2')`)
-      const newItem = await executeQuery(`SELECT status FROM items WHERE name = 'Item 2'`)
-      expect(newItem.status).toBe('draft')
+      await test.step('Verify default value applied to new rows', async () => {
+        // New row gets default
+        await executeQuery(`INSERT INTO items (name) VALUES ('Item 2')`)
+        const newItem = await executeQuery(`SELECT status FROM items WHERE name = 'Item 2'`)
+        expect(newItem.status).toBe('draft')
 
-      // Existing row unchanged
-      const existingItem = await executeQuery(`SELECT status FROM items WHERE name = 'Item 1'`)
-      expect(existingItem.status).toBe('active')
+        // Existing row unchanged
+        const existingItem = await executeQuery(`SELECT status FROM items WHERE name = 'Item 1'`)
+        expect(existingItem.status).toBe('active')
+      })
     }
   )
 })

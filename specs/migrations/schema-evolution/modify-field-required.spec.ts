@@ -217,49 +217,51 @@ test.describe('Modify Field Required Migration', () => {
     'MIGRATION-MODIFY-REQUIRED-005: user can complete full modify-field-required workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative modify-field-required scenarios
-      await executeQuery([
-        `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT)`,
-        `INSERT INTO items (name, description) VALUES ('Item 1', 'Has description'), ('Item 2', NULL)`,
-      ])
-
-      // WHEN: Make description required with default backfill
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 5,
-            name: 'items',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text', required: true },
-              {
-                id: 3,
-                name: 'description',
-                type: 'long-text',
-                required: true,
-                default: 'No description',
-              },
-            ],
-          },
-        ],
+      await test.step('Setup: create items table with optional description field', async () => {
+        await executeQuery([
+          `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT)`,
+          `INSERT INTO items (name, description) VALUES ('Item 1', 'Has description'), ('Item 2', NULL)`,
+        ])
       })
 
-      // THEN: NULL values backfilled, column is NOT NULL
+      await test.step('Make description required with default backfill', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                {
+                  id: 3,
+                  name: 'description',
+                  type: 'long-text',
+                  required: true,
+                  default: 'No description',
+                },
+              ],
+            },
+          ],
+        })
+      })
 
-      // Previously NULL backfilled
-      const backfilled = await executeQuery(`SELECT description FROM items WHERE name = 'Item 2'`)
-      expect(backfilled.description).toBe('No description')
+      await test.step('Verify NULL values backfilled and column is NOT NULL', async () => {
+        // Previously NULL backfilled
+        const backfilled = await executeQuery(`SELECT description FROM items WHERE name = 'Item 2'`)
+        expect(backfilled.description).toBe('No description')
 
-      // Existing value preserved
-      const preserved = await executeQuery(`SELECT description FROM items WHERE name = 'Item 1'`)
-      expect(preserved.description).toBe('Has description')
+        // Existing value preserved
+        const preserved = await executeQuery(`SELECT description FROM items WHERE name = 'Item 1'`)
+        expect(preserved.description).toBe('Has description')
 
-      // Column is now NOT NULL
-      const columnCheck = await executeQuery(
-        `SELECT is_nullable FROM information_schema.columns WHERE table_name='items' AND column_name='description'`
-      )
-      expect(columnCheck.is_nullable).toBe('NO')
+        // Column is now NOT NULL
+        const columnCheck = await executeQuery(
+          `SELECT is_nullable FROM information_schema.columns WHERE table_name='items' AND column_name='description'`
+        )
+        expect(columnCheck.is_nullable).toBe('NO')
+      })
     }
   )
 })

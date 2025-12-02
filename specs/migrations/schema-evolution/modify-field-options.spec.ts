@@ -231,44 +231,46 @@ test.describe('Modify Field Options Migration', () => {
     'MIGRATION-MODIFY-OPTIONS-005: user can complete full modify-field-options workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative modify-field-options scenarios
-      await executeQuery([
-        `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, type TEXT CHECK (type IN ('type_a', 'type_b')))`,
-        `INSERT INTO items (name, type) VALUES ('Item 1', 'type_a')`,
-      ])
-
-      // WHEN: Add new option 'type_c' to enum
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 5,
-            name: 'items',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text', required: true },
-              {
-                id: 3,
-                name: 'type',
-                type: 'single-select',
-                options: ['type_a', 'type_b', 'type_c'],
-              },
-            ],
-          },
-        ],
+      await test.step('Setup: create items table with enum options', async () => {
+        await executeQuery([
+          `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, type TEXT CHECK (type IN ('type_a', 'type_b')))`,
+          `INSERT INTO items (name, type) VALUES ('Item 1', 'type_a')`,
+        ])
       })
 
-      // THEN: New option is valid, existing data preserved
+      await test.step('Add new option type_c to enum', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                {
+                  id: 3,
+                  name: 'type',
+                  type: 'single-select',
+                  options: ['type_a', 'type_b', 'type_c'],
+                },
+              ],
+            },
+          ],
+        })
+      })
 
-      // New option works
-      const newOption = await executeQuery(
-        `INSERT INTO items (name, type) VALUES ('Item 2', 'type_c') RETURNING type`
-      )
-      expect(newOption.type).toBe('type_c')
+      await test.step('Verify new option is valid and existing data preserved', async () => {
+        // New option works
+        const newOption = await executeQuery(
+          `INSERT INTO items (name, type) VALUES ('Item 2', 'type_c') RETURNING type`
+        )
+        expect(newOption.type).toBe('type_c')
 
-      // Existing data preserved
-      const existingItem = await executeQuery(`SELECT type FROM items WHERE name = 'Item 1'`)
-      expect(existingItem.type).toBe('type_a')
+        // Existing data preserved
+        const existingItem = await executeQuery(`SELECT type FROM items WHERE name = 'Item 1'`)
+        expect(existingItem.type).toBe('type_a')
+      })
     }
   )
 })

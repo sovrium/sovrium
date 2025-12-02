@@ -353,54 +353,56 @@ test.describe('Database Views Migration', () => {
     'MIGRATION-VIEW-007: user can complete full views workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative views scenarios
-      await executeQuery([
-        `CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, price NUMERIC(10,2), in_stock BOOLEAN DEFAULT true)`,
-        `INSERT INTO products (name, price, in_stock) VALUES ('Widget', 19.99, true), ('Gadget', 29.99, true), ('Obsolete', 9.99, false)`,
-      ])
-
-      // WHEN: Create view for available products
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 1,
-            name: 'products',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text', required: true },
-              { id: 3, name: 'price', type: 'decimal' },
-              { id: 4, name: 'in_stock', type: 'checkbox', default: true },
-            ],
-            views: [
-              {
-                id: 'available_products',
-                name: 'Available Products',
-                query: 'SELECT id, name, price FROM products WHERE in_stock = true',
-              },
-            ],
-          },
-        ],
+      await test.step('Setup: create products table with stock status', async () => {
+        await executeQuery([
+          `CREATE TABLE products (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, price NUMERIC(10,2), in_stock BOOLEAN DEFAULT true)`,
+          `INSERT INTO products (name, price, in_stock) VALUES ('Widget', 19.99, true), ('Gadget', 29.99, true), ('Obsolete', 9.99, false)`,
+        ])
       })
 
-      // THEN: View created, queries work
+      await test.step('Create view for available products', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'price', type: 'decimal' },
+                { id: 4, name: 'in_stock', type: 'checkbox', default: true },
+              ],
+              views: [
+                {
+                  id: 'available_products',
+                  name: 'Available Products',
+                  query: 'SELECT id, name, price FROM products WHERE in_stock = true',
+                },
+              ],
+            },
+          ],
+        })
+      })
 
-      // View returns only in-stock products
-      const available = await executeQuery(`SELECT COUNT(*) as count FROM available_products`)
-      expect(available.count).toBe(2)
+      await test.step('Verify view returns only in-stock products', async () => {
+        // View returns only in-stock products
+        const available = await executeQuery(`SELECT COUNT(*) as count FROM available_products`)
+        expect(available.count).toBe(2)
 
-      // View data is correct
-      const widget = await executeQuery(
-        `SELECT name, price FROM available_products WHERE name = 'Widget'`
-      )
-      expect(widget.name).toBe('Widget')
-      expect(parseFloat(widget.price)).toBe(19.99)
+        // View data is correct
+        const widget = await executeQuery(
+          `SELECT name, price FROM available_products WHERE name = 'Widget'`
+        )
+        expect(widget.name).toBe('Widget')
+        expect(parseFloat(widget.price)).toBe(19.99)
 
-      // Out of stock product not in view
-      const obsolete = await executeQuery(
-        `SELECT COUNT(*) as count FROM available_products WHERE name = 'Obsolete'`
-      )
-      expect(obsolete.count).toBe(0)
+        // Out of stock product not in view
+        const obsolete = await executeQuery(
+          `SELECT COUNT(*) as count FROM available_products WHERE name = 'Obsolete'`
+        )
+        expect(obsolete.count).toBe(0)
+      })
     }
   )
 })

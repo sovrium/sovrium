@@ -169,40 +169,42 @@ test.describe('Modify Field Unique Migration', () => {
     'MIGRATION-MODIFY-FIELD-UNIQUE-004: user can complete full modify-field-unique workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative modify-field-unique scenarios
-      await executeQuery([
-        `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, code VARCHAR(50))`,
-        `INSERT INTO items (name, code) VALUES ('Item A', 'CODE-001'), ('Item B', 'CODE-002')`,
-      ])
-
-      // WHEN: Add unique constraint to code field
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 4,
-            name: 'items',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text', required: true },
-              { id: 3, name: 'code', type: 'single-line-text', unique: true },
-            ],
-          },
-        ],
+      await test.step('Setup: create items table without unique constraint', async () => {
+        await executeQuery([
+          `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, code VARCHAR(50))`,
+          `INSERT INTO items (name, code) VALUES ('Item A', 'CODE-001'), ('Item B', 'CODE-002')`,
+        ])
       })
 
-      // THEN: Unique constraint enforced
+      await test.step('Add unique constraint to code field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 4,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'code', type: 'single-line-text', unique: true },
+              ],
+            },
+          ],
+        })
+      })
 
-      // Unique value accepted
-      const newItem = await executeQuery(
-        `INSERT INTO items (name, code) VALUES ('Item C', 'CODE-003') RETURNING code`
-      )
-      expect(newItem.code).toBe('CODE-003')
+      await test.step('Verify unique constraint enforced', async () => {
+        // Unique value accepted
+        const newItem = await executeQuery(
+          `INSERT INTO items (name, code) VALUES ('Item C', 'CODE-003') RETURNING code`
+        )
+        expect(newItem.code).toBe('CODE-003')
 
-      // Duplicate value rejected
-      await expect(async () => {
-        await executeQuery(`INSERT INTO items (name, code) VALUES ('Item D', 'CODE-001')`)
-      }).rejects.toThrow(/duplicate key|unique constraint/i)
+        // Duplicate value rejected
+        await expect(async () => {
+          await executeQuery(`INSERT INTO items (name, code) VALUES ('Item D', 'CODE-001')`)
+        }).rejects.toThrow(/duplicate key|unique constraint/i)
+      })
     }
   )
 })

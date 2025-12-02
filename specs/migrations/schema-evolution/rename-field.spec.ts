@@ -268,53 +268,50 @@ test.describe('Rename Field Migration', () => {
     'MIGRATION-ALTER-RENAME-005: user can complete full rename-field-migration workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative rename field scenarios
-      await executeQuery([
-        `CREATE TABLE data (id SERIAL PRIMARY KEY, old_name VARCHAR(255) NOT NULL)`,
-        `INSERT INTO data (old_name) VALUES ('test value')`,
-      ])
-
-      // WHEN/THEN: Streamlined workflow testing integration points
-
-      // Rename field
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'data',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              {
-                id: 1,
-                name: 'new_name',
-                type: 'single-line-text',
-              },
-            ],
-          },
-        ],
+      await test.step('Setup: create table with old field name', async () => {
+        await executeQuery([
+          `CREATE TABLE data (id SERIAL PRIMARY KEY, old_name VARCHAR(255) NOT NULL)`,
+          `INSERT INTO data (old_name) VALUES ('test value')`,
+        ])
       })
 
-      // Verify column renamed
-      const newColumn = await executeQuery(
-        `SELECT column_name FROM information_schema.columns WHERE table_name='data' AND column_name='new_name'`
-      )
-      // THEN: assertion
-      expect(newColumn.column_name).toBe('new_name')
+      await test.step('Rename field from old_name to new_name', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'data',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 1,
+                  name: 'new_name',
+                  type: 'single-line-text',
+                },
+              ],
+            },
+          ],
+        })
+      })
 
-      // Verify old column name removed
-      const oldColumn = await executeQuery(
-        `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='data' AND column_name='old_name'`
-      )
-      // THEN: assertion
-      expect(oldColumn.count).toBe(0)
+      await test.step('Verify field renamed and data preserved', async () => {
+        // Verify column renamed
+        const newColumn = await executeQuery(
+          `SELECT column_name FROM information_schema.columns WHERE table_name='data' AND column_name='new_name'`
+        )
+        expect(newColumn.column_name).toBe('new_name')
 
-      // Verify data preserved
-      const data = await executeQuery(`SELECT new_name FROM data WHERE id = 1`)
-      // THEN: assertion
-      expect(data.new_name).toBe('test value')
+        // Verify old column name removed
+        const oldColumn = await executeQuery(
+          `SELECT COUNT(*) as count FROM information_schema.columns WHERE table_name='data' AND column_name='old_name'`
+        )
+        expect(oldColumn.count).toBe(0)
 
-      // Focus on workflow continuity, not exhaustive coverage
+        // Verify data preserved
+        const data = await executeQuery(`SELECT new_name FROM data WHERE id = 1`)
+        expect(data.new_name).toBe('test value')
+      })
     }
   )
 })

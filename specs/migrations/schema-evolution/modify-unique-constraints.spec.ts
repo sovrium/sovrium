@@ -268,44 +268,46 @@ test.describe('Modify Unique Constraints Migration', () => {
     'MIGRATION-MODIFY-UNIQUE-006: user can complete full modify-unique-constraints workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative modify-unique-constraints scenarios
-      await executeQuery([
-        `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, code VARCHAR(50), org_id INTEGER NOT NULL)`,
-        `INSERT INTO items (name, code, org_id) VALUES ('Item A', 'CODE-001', 1), ('Item B', 'CODE-002', 1)`,
-      ])
-
-      // WHEN: Add composite unique constraint on (code, org_id)
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'items',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text', required: true },
-              { id: 3, name: 'code', type: 'single-line-text' },
-              { id: 4, name: 'org_id', type: 'integer', required: true },
-            ],
-            uniqueConstraints: [{ name: 'uq_items_code_org', fields: ['code', 'org_id'] }],
-          },
-        ],
+      await test.step('Setup: create items table without unique constraint', async () => {
+        await executeQuery([
+          `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, code VARCHAR(50), org_id INTEGER NOT NULL)`,
+          `INSERT INTO items (name, code, org_id) VALUES ('Item A', 'CODE-001', 1), ('Item B', 'CODE-002', 1)`,
+        ])
       })
 
-      // THEN: Composite uniqueness enforced
+      await test.step('Add composite unique constraint on (code, org_id)', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 6,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'code', type: 'single-line-text' },
+                { id: 4, name: 'org_id', type: 'integer', required: true },
+              ],
+              uniqueConstraints: [{ name: 'uq_items_code_org', fields: ['code', 'org_id'] }],
+            },
+          ],
+        })
+      })
 
-      // Same code in different org allowed
-      const differentOrg = await executeQuery(
-        `INSERT INTO items (name, code, org_id) VALUES ('Item C', 'CODE-001', 2) RETURNING code`
-      )
-      expect(differentOrg.code).toBe('CODE-001')
-
-      // Same code in same org rejected
-      await expect(async () => {
-        await executeQuery(
-          `INSERT INTO items (name, code, org_id) VALUES ('Item D', 'CODE-001', 1)`
+      await test.step('Verify composite uniqueness enforced', async () => {
+        // Same code in different org allowed
+        const differentOrg = await executeQuery(
+          `INSERT INTO items (name, code, org_id) VALUES ('Item C', 'CODE-001', 2) RETURNING code`
         )
-      }).rejects.toThrow(/duplicate key|unique constraint/i)
+        expect(differentOrg.code).toBe('CODE-001')
+
+        // Same code in same org rejected
+        await expect(async () => {
+          await executeQuery(
+            `INSERT INTO items (name, code, org_id) VALUES ('Item D', 'CODE-001', 1)`
+          )
+        }).rejects.toThrow(/duplicate key|unique constraint/i)
+      })
     }
   )
 })

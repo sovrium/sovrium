@@ -242,46 +242,48 @@ test.describe('Rename Table Migration', () => {
     'MIGRATION-RENAME-TABLE-005: user can complete full rename-table workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative rename-table scenarios
-      await executeQuery([
-        `CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, department VARCHAR(100))`,
-        `CREATE INDEX idx_employees_department ON employees(department)`,
-        `INSERT INTO employees (name, department) VALUES ('Alice', 'Engineering'), ('Bob', 'Marketing')`,
-      ])
-
-      // WHEN: Rename table from 'employees' to 'staff'
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 1,
-            name: 'staff', // Renamed from 'employees'
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text', required: true },
-              { id: 3, name: 'department', type: 'single-line-text' },
-            ],
-          },
-        ],
+      await test.step('Setup: create employees table with data and index', async () => {
+        await executeQuery([
+          `CREATE TABLE employees (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, department VARCHAR(100))`,
+          `CREATE INDEX idx_employees_department ON employees(department)`,
+          `INSERT INTO employees (name, department) VALUES ('Alice', 'Engineering'), ('Bob', 'Marketing')`,
+        ])
       })
 
-      // THEN: Table renamed, data preserved, queries work
+      await test.step('Rename table from employees to staff', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'staff', // Renamed from 'employees'
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'department', type: 'single-line-text' },
+              ],
+            },
+          ],
+        })
+      })
 
-      // New table accessible
-      const staff = await executeQuery(`SELECT COUNT(*) as count FROM staff`)
-      expect(staff.count).toBe(2)
+      await test.step('Verify table renamed and data preserved', async () => {
+        // New table accessible
+        const staff = await executeQuery(`SELECT COUNT(*) as count FROM staff`)
+        expect(staff.count).toBe(2)
 
-      // Query by department works
-      const engineers = await executeQuery(
-        `SELECT name FROM staff WHERE department = 'Engineering'`
-      )
-      expect(engineers.name).toBe('Alice')
+        // Query by department works
+        const engineers = await executeQuery(
+          `SELECT name FROM staff WHERE department = 'Engineering'`
+        )
+        expect(engineers.name).toBe('Alice')
 
-      // Old table name no longer exists
-      const oldTableExists = await executeQuery(
-        `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_name = 'employees'`
-      )
-      expect(oldTableExists.count).toBe(0)
+        // Old table name no longer exists
+        const oldTableExists = await executeQuery(
+          `SELECT COUNT(*) as count FROM information_schema.tables WHERE table_name = 'employees'`
+        )
+        expect(oldTableExists.count).toBe(0)
+      })
     }
   )
 })

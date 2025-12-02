@@ -281,46 +281,48 @@ test.describe('Modify Indexes Migration', () => {
     'MIGRATION-MODIFY-INDEX-007: user can complete full modify-indexes workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative modify-indexes scenarios
-      await executeQuery([
-        `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, category VARCHAR(100), sku VARCHAR(50))`,
-        `INSERT INTO items (name, category, sku) VALUES ('Item A', 'cat1', 'SKU-A'), ('Item B', 'cat2', 'SKU-B')`,
-      ])
-
-      // WHEN: Add indexes to category and sku fields
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 7,
-            name: 'items',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text', required: true },
-              { id: 3, name: 'category', type: 'single-line-text', indexed: true },
-              { id: 4, name: 'sku', type: 'single-line-text', indexed: true },
-            ],
-          },
-        ],
+      await test.step('Setup: create items table without indexes', async () => {
+        await executeQuery([
+          `CREATE TABLE items (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, category VARCHAR(100), sku VARCHAR(50))`,
+          `INSERT INTO items (name, category, sku) VALUES ('Item A', 'cat1', 'SKU-A'), ('Item B', 'cat2', 'SKU-B')`,
+        ])
       })
 
-      // THEN: Indexes created, queries work
+      await test.step('Add indexes to category and sku fields', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 7,
+              name: 'items',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                { id: 3, name: 'category', type: 'single-line-text', indexed: true },
+                { id: 4, name: 'sku', type: 'single-line-text', indexed: true },
+              ],
+            },
+          ],
+        })
+      })
 
-      // Index on category exists
-      const categoryIndex = await executeQuery(
-        `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'items' AND indexdef LIKE '%category%'`
-      )
-      expect(categoryIndex.count).toBeGreaterThan(0)
+      await test.step('Verify indexes created and data preserved', async () => {
+        // Index on category exists
+        const categoryIndex = await executeQuery(
+          `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'items' AND indexdef LIKE '%category%'`
+        )
+        expect(categoryIndex.count).toBeGreaterThan(0)
 
-      // Index on sku exists
-      const skuIndex = await executeQuery(
-        `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'items' AND indexdef LIKE '%sku%'`
-      )
-      expect(skuIndex.count).toBeGreaterThan(0)
+        // Index on sku exists
+        const skuIndex = await executeQuery(
+          `SELECT COUNT(*) as count FROM pg_indexes WHERE tablename = 'items' AND indexdef LIKE '%sku%'`
+        )
+        expect(skuIndex.count).toBeGreaterThan(0)
 
-      // Data preserved
-      const itemCount = await executeQuery(`SELECT COUNT(*) as count FROM items`)
-      expect(itemCount.count).toBe(2)
+        // Data preserved
+        const itemCount = await executeQuery(`SELECT COUNT(*) as count FROM items`)
+        expect(itemCount.count).toBe(2)
+      })
     }
   )
 })

@@ -221,53 +221,55 @@ test.describe('Modify Field Constraints Migration', () => {
     'MIGRATION-MODIFY-CONSTRAINTS-005: user can complete full modify-field-constraints workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
-      // GIVEN: Application configured with representative modify-field-constraints scenarios
-      await executeQuery([
-        `CREATE TABLE pricing (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, amount NUMERIC(10,2) NOT NULL)`,
-        `INSERT INTO pricing (name, amount) VALUES ('Basic Plan', 9.99), ('Pro Plan', 29.99)`,
-      ])
-
-      // WHEN: Add constraint, then modify it
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 5,
-            name: 'pricing',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'name', type: 'single-line-text', required: true },
-              {
-                id: 3,
-                name: 'amount',
-                type: 'decimal',
-                required: true,
-                min: 0,
-                max: 1000,
-              },
-            ],
-          },
-        ],
+      await test.step('Setup: create pricing table without constraints', async () => {
+        await executeQuery([
+          `CREATE TABLE pricing (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, amount NUMERIC(10,2) NOT NULL)`,
+          `INSERT INTO pricing (name, amount) VALUES ('Basic Plan', 9.99), ('Pro Plan', 29.99)`,
+        ])
       })
 
-      // THEN: Constraint is applied and enforced
+      await test.step('Add min/max constraints to amount field', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 5,
+              name: 'pricing',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text', required: true },
+                {
+                  id: 3,
+                  name: 'amount',
+                  type: 'decimal',
+                  required: true,
+                  min: 0,
+                  max: 1000,
+                },
+              ],
+            },
+          ],
+        })
+      })
 
-      // Valid amount within range
-      const validInsert = await executeQuery(
-        `INSERT INTO pricing (name, amount) VALUES ('Enterprise Plan', 99.99) RETURNING amount`
-      )
-      expect(validInsert.amount).toBe('99.99')
+      await test.step('Verify constraint is applied and enforced', async () => {
+        // Valid amount within range
+        const validInsert = await executeQuery(
+          `INSERT INTO pricing (name, amount) VALUES ('Enterprise Plan', 99.99) RETURNING amount`
+        )
+        expect(validInsert.amount).toBe('99.99')
 
-      // Existing data preserved
-      const existingData = await executeQuery(
-        `SELECT amount FROM pricing WHERE name = 'Basic Plan'`
-      )
-      expect(existingData.amount).toBe('9.99')
+        // Existing data preserved
+        const existingData = await executeQuery(
+          `SELECT amount FROM pricing WHERE name = 'Basic Plan'`
+        )
+        expect(existingData.amount).toBe('9.99')
 
-      // Invalid amount rejected
-      await expect(async () => {
-        await executeQuery(`INSERT INTO pricing (name, amount) VALUES ('Invalid Plan', -5.00)`)
-      }).rejects.toThrow(/violates check constraint/i)
+        // Invalid amount rejected
+        await expect(async () => {
+          await executeQuery(`INSERT INTO pricing (name, amount) VALUES ('Invalid Plan', -5.00)`)
+        }).rejects.toThrow(/violates check constraint/i)
+      })
     }
   )
 })
