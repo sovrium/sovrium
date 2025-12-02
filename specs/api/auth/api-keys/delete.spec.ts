@@ -39,22 +39,19 @@ test.describe('Revoke/Delete API Key', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
-      const session = await signIn({
+      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
       // Create API key
-      const createResponse = await page.request.post('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
+      const createResponse = await page.request.post('/api/auth/api-key/create', {
         data: {
           name: 'Test Key',
         },
@@ -62,15 +59,19 @@ test.describe('Revoke/Delete API Key', () => {
 
       const { id: keyId } = await createResponse.json()
 
-      // WHEN: User revokes the API key
-      const response = await page.request.delete(`/api/auth/api-keys/${keyId}`, {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
+      // WHEN: User revokes the API key via Better Auth delete endpoint (POST method)
+      const response = await page.request.post('/api/auth/api-key/delete', {
+        data: {
+          keyId,
         },
       })
 
-      // THEN: Returns 200 OK or 204 No Content
-      expect([200, 204]).toContain(response.status())
+      // THEN: Returns 200 OK with success status
+      expect(response.status()).toBe(200)
+
+      const data = await response.json()
+      expect(data).toHaveProperty('success')
+      expect(data.success).toBe(true)
     }
   )
 
@@ -89,22 +90,19 @@ test.describe('Revoke/Delete API Key', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
-      const session = await signIn({
+      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
       // Create API key
-      const createResponse = await page.request.post('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
+      const createResponse = await page.request.post('/api/auth/api-key/create', {
         data: {
           name: 'Test Key',
         },
@@ -113,28 +111,20 @@ test.describe('Revoke/Delete API Key', () => {
       const { id: keyId } = await createResponse.json()
 
       // Verify key exists in list
-      const beforeResponse = await page.request.get('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-      })
+      const beforeResponse = await page.request.get('/api/auth/api-key/list')
 
       const beforeData = await beforeResponse.json()
       expect(beforeData).toHaveLength(1)
 
       // WHEN: User revokes the API key
-      await page.request.delete(`/api/auth/api-keys/${keyId}`, {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
+      await page.request.post('/api/auth/api-key/delete', {
+        data: {
+          keyId,
         },
       })
 
       // THEN: Key is removed from list
-      const afterResponse = await page.request.get('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-      })
+      const afterResponse = await page.request.get('/api/auth/api-key/list')
 
       const afterData = await afterResponse.json()
       expect(afterData).toHaveLength(0)
@@ -156,22 +146,19 @@ test.describe('Revoke/Delete API Key', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
-      const session = await signIn({
+      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
       // Create API key
-      const createResponse = await page.request.post('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
+      const createResponse = await page.request.post('/api/auth/api-key/create', {
         data: {
           name: 'Test Key',
         },
@@ -180,7 +167,11 @@ test.describe('Revoke/Delete API Key', () => {
       const { id: keyId } = await createResponse.json()
 
       // WHEN: Unauthenticated user attempts to revoke API key
-      const response = await page.request.delete(`/api/auth/api-keys/${keyId}`)
+      const response = await page.request.post('/api/auth/api-key/delete', {
+        data: {
+          keyId,
+        },
+      })
 
       // THEN: Returns 401 Unauthorized
       expect(response.status()).toBe(401)
@@ -191,7 +182,7 @@ test.describe('Revoke/Delete API Key', () => {
   )
 
   test.fixme(
-    'API-AUTH-API-KEYS-DELETE-004: should return 404 for non-existent API key',
+    'API-AUTH-API-KEYS-DELETE-004: should return error for non-existent API key',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: Authenticated user
@@ -205,26 +196,26 @@ test.describe('Revoke/Delete API Key', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
-      const session = await signIn({
+      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
       // WHEN: User attempts to revoke non-existent API key
-      const response = await page.request.delete('/api/auth/api-keys/non-existent-id', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
+      const response = await page.request.post('/api/auth/api-key/delete', {
+        data: {
+          keyId: 'non-existent-id',
         },
       })
 
-      // THEN: Returns 404 Not Found
-      expect(response.status()).toBe(404)
+      // THEN: Returns error (400 or 404)
+      expect([400, 404]).toContain(response.status())
 
       const data = await response.json()
       expect(data).toHaveProperty('message')
@@ -232,7 +223,7 @@ test.describe('Revoke/Delete API Key', () => {
   )
 
   test.fixme(
-    'API-AUTH-API-KEYS-DELETE-005: should return 404 when attempting to revoke another user API key',
+    'API-AUTH-API-KEYS-DELETE-005: should prevent revoking another user API key (user isolation)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: Two users with their own API keys
@@ -253,15 +244,12 @@ test.describe('Revoke/Delete API Key', () => {
         password: 'ValidPassword123!',
       })
 
-      const session1 = await signIn({
+      await signIn({
         email: 'user1@example.com',
         password: 'ValidPassword123!',
       })
 
-      const createResponse = await page.request.post('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session1.token}`,
-        },
+      const createResponse = await page.request.post('/api/auth/api-key/create', {
         data: {
           name: 'User 1 Key',
         },
@@ -269,27 +257,27 @@ test.describe('Revoke/Delete API Key', () => {
 
       const { id: user1KeyId } = await createResponse.json()
 
-      // User 2
+      // User 2 signs in
       await signUp({
         name: 'User Two',
         email: 'user2@example.com',
         password: 'ValidPassword123!',
       })
 
-      const session2 = await signIn({
+      await signIn({
         email: 'user2@example.com',
         password: 'ValidPassword123!',
       })
 
       // WHEN: User 2 attempts to revoke User 1's API key
-      const response = await page.request.delete(`/api/auth/api-keys/${user1KeyId}`, {
-        headers: {
-          Authorization: `Bearer ${session2.token}`,
+      const response = await page.request.post('/api/auth/api-key/delete', {
+        data: {
+          keyId: user1KeyId,
         },
       })
 
-      // THEN: Returns 404 Not Found (user isolation - prevent enumeration)
-      expect(response.status()).toBe(404)
+      // THEN: Returns error (400 or 404) due to user isolation - prevents enumeration
+      expect([400, 404]).toContain(response.status())
     }
   )
 
@@ -312,69 +300,61 @@ test.describe('Revoke/Delete API Key', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
-      const session = await signIn({
+      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
       // WHEN: User creates multiple API keys
-      const create1Response = await page.request.post('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
+      const create1Response = await page.request.post('/api/auth/api-key/create', {
         data: { name: 'Key 1' },
       })
 
       const { id: key1Id } = await create1Response.json()
 
-      await page.request.post('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
+      await page.request.post('/api/auth/api-key/create', {
         data: { name: 'Key 2' },
       })
 
       // Verify two keys exist
-      const listResponse = await page.request.get('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-      })
+      const listResponse = await page.request.get('/api/auth/api-key/list')
 
       const listData = await listResponse.json()
       expect(listData).toHaveLength(2)
 
       // WHEN: User revokes one key
-      const deleteResponse = await page.request.delete(`/api/auth/api-keys/${key1Id}`, {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
+      const deleteResponse = await page.request.post('/api/auth/api-key/delete', {
+        data: {
+          keyId: key1Id,
         },
       })
 
       // THEN: Key is revoked successfully
-      expect([200, 204]).toContain(deleteResponse.status())
+      expect(deleteResponse.status()).toBe(200)
+      const deleteData = await deleteResponse.json()
+      expect(deleteData.success).toBe(true)
 
       // THEN: Only one key remains
-      const afterResponse = await page.request.get('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-      })
+      const afterResponse = await page.request.get('/api/auth/api-key/list')
 
       const afterData = await afterResponse.json()
       expect(afterData).toHaveLength(1)
       expect(afterData[0].name).toBe('Key 2')
 
       // WHEN: Unauthenticated user attempts to revoke key
-      const unauthResponse = await page.request.delete(`/api/auth/api-keys/${key1Id}`)
+      const unauthResponse = await page.request.post('/api/auth/api-key/delete', {
+        data: {
+          keyId: key1Id,
+        },
+      })
 
-      // THEN: Request fails
+      // THEN: Request fails with 401
       expect(unauthResponse.status()).toBe(401)
     }
   )

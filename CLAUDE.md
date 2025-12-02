@@ -78,7 +78,9 @@ bun test:e2e:update-snapshots:spec # Update @spec test snapshots only
 bun test:snapshots:guide           # Show snapshot testing guide & best practices
 
 # Utility Scripts (Additional)
-bun run quality                    # Check code quality comprehensively
+bun run quality                    # Check code quality with smart E2E detection
+bun run quality --skip-e2e         # Skip E2E tests entirely
+bun run quality --skip-coverage    # Skip coverage check (gradual adoption)
 bun run generate:roadmap           # Generate roadmap from specifications
 bun run validate:admin-specs       # Validate admin panel specifications
 bun run validate:api-specs         # Validate API specifications
@@ -118,6 +120,59 @@ git push origin main               # Triggers release ONLY with "release:" type
 # Agent Workflows (TDD Pipeline)
 # See: @docs/development/tdd-automation-pipeline.md for complete TDD automation guide
 ```
+
+## Smart Testing Strategy
+
+The `bun run quality` command includes smart E2E detection to prevent timeouts during development and TDD automation.
+
+### How It Works
+
+| Environment | Detection Mode | What's Compared |
+|-------------|----------------|-----------------|
+| **Local dev** | uncommitted | Staged + unstaged + untracked files |
+| **CI/PR branches** | branch diff | Changes since merge-base with main |
+
+### When E2E Tests Run
+
+- Direct spec file changes (`specs/**/*.spec.ts`)
+- Source files with mapped specs (e.g., `src/domain/models/app/version.ts` → `specs/app/version.spec.ts`)
+- Auth infrastructure changes trigger all auth specs
+- Database changes trigger migration and table specs
+
+### When E2E Tests Skip
+
+- Documentation-only changes (`.md` files)
+- Unit test file changes (`.test.ts`)
+- Script file changes (`scripts/`)
+- No related specs found for changed source files
+
+### Unit Test Coverage Enforcement
+
+The quality command enforces unit test coverage for the domain layer:
+
+```bash
+bun run quality              # Fails if domain files lack .test.ts
+bun run quality --skip-coverage  # Skip coverage check (gradual adoption)
+```
+
+**Coverage by layer** (current status):
+- `domain/`: 93.4% covered (enforced)
+- `application/`: 33.3% covered (not enforced yet)
+- `infrastructure/`: 43.8% covered (not enforced yet)
+- `presentation/`: 26.7% covered (not enforced yet)
+
+### Override Options
+
+```bash
+bun run quality              # Smart detection (default)
+bun run quality --skip-e2e   # Force skip E2E tests
+bun run quality --skip-coverage  # Skip coverage enforcement
+```
+
+### CI vs Local Behavior
+
+- **CI (`test.yml`)**: Always runs full E2E regression suite
+- **`bun run quality`**: Uses smart detection (local dev + TDD automation)
 
 ## Coding Standards (Critical Rules)
 

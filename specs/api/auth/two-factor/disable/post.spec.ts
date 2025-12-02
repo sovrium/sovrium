@@ -39,7 +39,7 @@ test.describe('Disable Two-Factor Authentication', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
@@ -91,7 +91,7 @@ test.describe('Disable Two-Factor Authentication', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
@@ -172,7 +172,7 @@ test.describe('Disable Two-Factor Authentication', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
@@ -223,7 +223,7 @@ test.describe('Disable Two-Factor Authentication', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',

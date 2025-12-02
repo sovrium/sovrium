@@ -7,7 +7,7 @@
 
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { openAPI, admin, organization } from 'better-auth/plugins'
+import { openAPI, admin, organization, apiKey, twoFactor } from 'better-auth/plugins'
 import { db } from '../../database/drizzle/db'
 import { sendEmail } from '../../email/email-service'
 import { passwordResetEmail, emailVerificationEmail } from '../../email/templates'
@@ -136,6 +136,8 @@ export function createAuthInstance(authConfig?: Auth) {
       }),
       admin(),
       organization(),
+      apiKey(),
+      twoFactor(),
     ],
   })
 }
@@ -148,9 +150,10 @@ export function createAuthInstance(authConfig?: Auth) {
  * before dynamic instances, which could interfere with Better Auth's
  * internal state.
  */
-// eslint-disable-next-line functional/no-let, unicorn/no-null -- Lazy initialization pattern
+// eslint-disable-next-line functional/no-let, unicorn/no-null, functional/prefer-immutable-types -- Lazy initialization pattern
 let _defaultAuthInstance: ReturnType<typeof createAuthInstance> | null = null
 
+// eslint-disable-next-line functional/prefer-immutable-types -- Return type from betterAuth is mutable
 export function getDefaultAuthInstance(): ReturnType<typeof createAuthInstance> {
   if (_defaultAuthInstance === null) {
     // eslint-disable-next-line functional/no-expression-statements -- Lazy initialization pattern

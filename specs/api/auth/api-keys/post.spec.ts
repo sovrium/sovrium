@@ -25,7 +25,7 @@ test.describe('Create API Key', () => {
   // ============================================================================
 
   test.fixme(
-    'API-AUTH-API-KEYS-CREATE-001: should create API key with name and description',
+    'API-AUTH-API-KEYS-CREATE-001: should create API key with name',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: Authenticated user with API keys plugin enabled
@@ -39,88 +39,79 @@ test.describe('Create API Key', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
-      const session = await signIn({
+      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
-      // WHEN: User creates an API key
-      const response = await page.request.post('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
+      // WHEN: User creates an API key via Better Auth endpoint
+      const response = await page.request.post('/api/auth/api-key/create', {
         data: {
           name: 'Production API Key',
-          description: 'API key for production integration',
         },
       })
 
-      // THEN: Returns 201 Created with API key details
-      expect(response.status()).toBe(201)
+      // THEN: Returns 200 OK with API key details including the actual key value
+      expect(response.status()).toBe(200)
 
       const data = await response.json()
       expect(data).toHaveProperty('id')
-      expect(data).toHaveProperty('key') // The actual API key value (shown once)
+      expect(data).toHaveProperty('key') // The actual API key value (shown only once)
       expect(data.name).toBe('Production API Key')
-      expect(data.description).toBe('API key for production integration')
       expect(data).toHaveProperty('createdAt')
     }
   )
 
   test.fixme(
-    'API-AUTH-API-KEYS-CREATE-002: should create API key with expiration date',
+    'API-AUTH-API-KEYS-CREATE-002: should create API key with custom expiresIn',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: Authenticated user with API keys configured with expiration
+      // GIVEN: Authenticated user with API keys plugin enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
           plugins: {
-            apiKeys: {
-              expirationDays: 90,
-            },
+            apiKeys: true,
           },
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
-      const session = await signIn({
+      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
-      // WHEN: User creates an API key
-      const response = await page.request.post('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
+      // WHEN: User creates an API key with custom expiration (7 days = 604800 seconds)
+      const response = await page.request.post('/api/auth/api-key/create', {
         data: {
           name: 'Temporary Key',
+          expiresIn: 604_800, // 7 days in seconds
         },
       })
 
-      // THEN: Returns 201 Created with expiration date set
-      expect(response.status()).toBe(201)
+      // THEN: Returns 200 OK with expiration date set approximately 7 days from now
+      expect(response.status()).toBe(200)
 
       const data = await response.json()
       expect(data).toHaveProperty('expiresAt')
       const expiresAt = new Date(data.expiresAt)
       const now = new Date()
       const daysDiff = Math.floor((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-      expect(daysDiff).toBeGreaterThanOrEqual(89) // Account for timing
-      expect(daysDiff).toBeLessThanOrEqual(90)
+      expect(daysDiff).toBeGreaterThanOrEqual(6) // Account for timing
+      expect(daysDiff).toBeLessThanOrEqual(7)
     }
   )
 
@@ -140,7 +131,7 @@ test.describe('Create API Key', () => {
       })
 
       // WHEN: Unauthenticated user attempts to create API key
-      const response = await page.request.post('/api/auth/api-keys', {
+      const response = await page.request.post('/api/auth/api-key/create', {
         data: {
           name: 'Unauthorized Key',
         },
@@ -155,7 +146,7 @@ test.describe('Create API Key', () => {
   )
 
   test.fixme(
-    'API-AUTH-API-KEYS-CREATE-004: should return 400 when name is missing',
+    'API-AUTH-API-KEYS-CREATE-004: should create API key without name (name is optional)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: Authenticated user with API keys enabled
@@ -169,104 +160,82 @@ test.describe('Create API Key', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
-      const session = await signIn({
+      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
-      // WHEN: User attempts to create API key without name
-      const response = await page.request.post('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-        data: {
-          description: 'Missing name',
-        },
+      // WHEN: User creates API key without name (name is optional in Better Auth)
+      const response = await page.request.post('/api/auth/api-key/create', {
+        data: {},
       })
 
-      // THEN: Returns 400 Bad Request with validation error
-      expect(response.status()).toBe(400)
+      // THEN: Returns 200 OK with API key created successfully (name can be optional)
+      expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('id')
+      expect(data).toHaveProperty('key')
     }
   )
 
   test.fixme(
-    'API-AUTH-API-KEYS-CREATE-005: should enforce maximum keys per user limit',
+    'API-AUTH-API-KEYS-CREATE-005: should create API key with metadata',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: Authenticated user with max 2 API keys allowed
+      // GIVEN: Authenticated user with API keys plugin enabled
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
           plugins: {
-            apiKeys: {
-              maxKeysPerUser: 2,
-            },
+            apiKeys: true,
           },
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
-      const session = await signIn({
+      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
-      // Create first API key
-      await page.request.post('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
+      // WHEN: User creates API key with custom metadata
+      const response = await page.request.post('/api/auth/api-key/create', {
         data: {
-          name: 'Key 1',
+          name: 'Production Key',
+          metadata: {
+            environment: 'production',
+            service: 'webhook-handler',
+          },
         },
       })
 
-      // Create second API key
-      await page.request.post('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-        data: {
-          name: 'Key 2',
-        },
-      })
-
-      // WHEN: User attempts to create third API key (exceeding limit)
-      const response = await page.request.post('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-        data: {
-          name: 'Key 3',
-        },
-      })
-
-      // THEN: Returns 400 Bad Request indicating limit exceeded
-      expect(response.status()).toBe(400)
+      // THEN: Returns 200 OK with metadata stored
+      expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data).toHaveProperty('message')
-      expect(data.message).toContain('limit')
+      expect(data).toHaveProperty('metadata')
+      expect(data.metadata).toEqual({
+        environment: 'production',
+        service: 'webhook-handler',
+      })
     }
   )
 
   test.fixme(
-    'API-AUTH-API-KEYS-CREATE-006: should return 400 when API keys plugin not enabled',
+    'API-AUTH-API-KEYS-CREATE-006: should return 404 when API keys plugin not enabled',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: Authenticated user but API keys plugin disabled
@@ -278,29 +247,26 @@ test.describe('Create API Key', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
-      const session = await signIn({
+      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
-      // WHEN: User attempts to create API key
-      const response = await page.request.post('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
+      // WHEN: User attempts to create API key when plugin is disabled
+      const response = await page.request.post('/api/auth/api-key/create', {
         data: {
           name: 'Test Key',
         },
       })
 
-      // THEN: Returns 400 Bad Request or 404 Not Found
-      expect([400, 404]).toContain(response.status())
+      // THEN: Returns 404 Not Found (endpoint doesn't exist)
+      expect(response.status()).toBe(404)
     }
   )
 
@@ -318,52 +284,50 @@ test.describe('Create API Key', () => {
         auth: {
           emailAndPassword: true,
           plugins: {
-            apiKeys: {
-              expirationDays: 90,
-              maxKeysPerUser: 3,
-            },
+            apiKeys: true,
           },
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
-      const session = await signIn({
+      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
-      // WHEN: User creates API key
-      const createResponse = await page.request.post('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
+      // WHEN: User creates API key with various options
+      const createResponse = await page.request.post('/api/auth/api-key/create', {
         data: {
           name: 'Production API Key',
-          description: 'Key for production integration',
+          expiresIn: 7_776_000, // 90 days in seconds
+          metadata: {
+            environment: 'production',
+          },
         },
       })
 
-      // THEN: API key is created successfully
-      expect(createResponse.status()).toBe(201)
+      // THEN: API key is created successfully with all properties
+      expect(createResponse.status()).toBe(200)
       const createData = await createResponse.json()
       expect(createData).toHaveProperty('id')
       expect(createData).toHaveProperty('key')
       expect(createData.name).toBe('Production API Key')
       expect(createData).toHaveProperty('expiresAt')
+      expect(createData.metadata).toEqual({ environment: 'production' })
 
-      // WHEN: User attempts to create key without authentication
-      const unauthResponse = await page.request.post('/api/auth/api-keys', {
+      // WHEN: Unauthenticated user attempts to create key
+      const unauthResponse = await page.request.post('/api/auth/api-key/create', {
         data: {
           name: 'Unauthorized Key',
         },
       })
 
-      // THEN: Request fails
+      // THEN: Request fails with 401
       expect(unauthResponse.status()).toBe(401)
     }
   )

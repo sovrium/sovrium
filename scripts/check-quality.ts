@@ -7,12 +7,25 @@
  */
 
 /**
- * Quality check script - runs linting, type checking, unit tests, and E2E regression tests
+ * Quality check script - runs linting, type checking, unit tests, coverage check, and smart E2E regression tests
  *
  * Usage:
- *   bun run quality                   # Run all checks on entire codebase (ESLint, TypeScript, unit tests, E2E regression)
+ *   bun run quality                   # Run all checks with smart E2E detection
  *   bun run quality <file>            # Run checks on specific file (ESLint, TypeScript, unit tests only)
+ *   bun run quality --skip-e2e        # Skip E2E tests entirely
+ *   bun run quality --skip-coverage   # Skip coverage check (gradual adoption)
  *   bun run quality src/index.ts      # Example: check specific file
+ *
+ * Smart E2E Detection:
+ * - Detects changed files (local: uncommitted changes, CI: diff from main branch)
+ * - Maps source file changes to related E2E specs
+ * - Only runs E2E tests for specs affected by changes
+ * - Skips E2E if no specs or related source files changed
+ *
+ * Coverage Check:
+ * - Enforces unit test coverage for domain layer (93%+ covered)
+ * - Fails if source files are missing corresponding .test.ts files
+ * - Use --skip-coverage for gradual adoption
  *
  * Performance optimizations:
  * - Uses fail-fast strategy: runs checks sequentially, stops immediately on first failure (saves time)
@@ -20,6 +33,7 @@
  * - Uses TypeScript incremental mode for faster type checking
  * - Skips checks for comment-only changes (file mode)
  * - For file mode: runs ESLint, TypeScript, and unit tests in parallel
+ * - Smart E2E detection prevents running all E2E tests on every change
  * - Provides clear success/failure feedback
  */
 
@@ -38,7 +52,16 @@ import {
   logError,
   skip,
   section,
+  // New services for smart testing
+  GitService,
+  GitServiceLive,
+  SpecMappingService,
+  SpecMappingServiceLive,
+  CoverageService,
+  CoverageServiceLive,
+  DEFAULT_LAYERS,
 } from './lib/effect'
+import type { LayerConfig } from './lib/effect'
 
 /**
  * Check result with timing information
@@ -56,6 +79,36 @@ interface CheckResult {
 class QualityCheckFailedError extends Data.TaggedError('QualityCheckFailedError')<{
   readonly checks: readonly CheckResult[]
 }> {}
+
+/**
+ * E2E decision result
+ */
+interface E2EDecision {
+  readonly run: boolean
+  readonly specs: readonly string[]
+  readonly reason: string
+}
+
+/**
+ * CLI options for quality checks
+ */
+interface QualityOptions {
+  readonly file?: string
+  readonly skipE2E: boolean
+  readonly skipCoverage: boolean
+}
+
+/**
+ * Parse command line arguments
+ */
+const parseArgs = (): QualityOptions => {
+  const args = process.argv.slice(2)
+  return {
+    file: args.find((a) => !a.startsWith('--')),
+    skipE2E: args.includes('--skip-e2e'),
+    skipCoverage: args.includes('--skip-coverage'),
+  }
+}
 
 /**
  * Check if file is a TypeScript file
@@ -286,71 +339,214 @@ const runFileChecks = (filePath: string) =>
   })
 
 /**
- * Run quality checks for entire codebase with fail-fast
- * Runs checks sequentially and stops immediately on first failure
+ * Determine which E2E specs should run based on changed files
  */
-const runFullChecks = Effect.gen(function* () {
-  yield* section('Running quality checks on entire codebase (fail-fast)')
+const determineE2ESpecs = Effect.gen(function* () {
+  const git = yield* GitService
+  const mapping = yield* SpecMappingService
 
-  const results: CheckResult[] = []
+  const mode = yield* git.getMode()
+  const changedFiles = yield* git.getChangedFiles(mode)
 
-  // Run checks sequentially - stop immediately on first failure
-  const checks = [
-    {
-      name: 'ESLint',
-      effect: runCheck(
-        'ESLint',
-        [
-          'bunx',
-          'eslint',
-          '.',
-          '--max-warnings',
-          '0',
-          '--cache',
-          '--cache-location',
-          'node_modules/.cache/eslint',
-          '--cache-strategy',
-          'content',
-        ],
-        120_000
-      ),
-    },
-    {
-      name: 'TypeScript',
-      effect: runCheck('TypeScript', ['bunx', 'tsc', '--noEmit', '--incremental'], 60_000),
-    },
-    {
-      name: 'Unit Tests',
-      effect: runCheck(
-        'Unit Tests',
-        ['bun', 'test', '--concurrent', '.test.ts', '.test.tsx'],
-        60_000
-      ),
-    },
-    {
-      name: 'E2E Regression Tests',
-      effect: runCheck(
-        'E2E Regression Tests',
-        ['bunx', 'playwright', 'test', '--grep=@regression'],
-        300_000 // 5 minutes (increased from 3 min for slower CI runners)
-      ),
-    },
-  ]
+  yield* Effect.log(`  Detected ${changedFiles.length} changed files (mode: ${mode})`)
 
-  // Run sequentially, fail immediately on first failure
-  for (const check of checks) {
-    const result = yield* check.effect
-    results.push(result)
+  if (changedFiles.length === 0) {
+    return {
+      run: false,
+      specs: [],
+      reason: 'no changed files detected',
+    } as E2EDecision
+  }
 
-    if (!result.success) {
-      // First failure - stop immediately
-      yield* logError(`\n⚠️  Stopping checks due to ${check.name} failure (fail-fast mode)`)
-      return results
+  // Get specs that should run based on changed files
+  const specs = yield* mapping.getSpecsToRun(changedFiles)
+
+  if (specs.length > 0) {
+    // Filter to only @regression tagged specs
+    const regressionSpecs = specs.filter(
+      (s) => s.includes('/app/') || s.includes('/api/') || s.includes('/static/')
+    )
+
+    if (regressionSpecs.length > 0) {
+      return {
+        run: true,
+        specs: regressionSpecs,
+        reason: `${regressionSpecs.length} spec(s) related to changed files`,
+      } as E2EDecision
     }
   }
 
-  return results
+  return {
+    run: false,
+    specs: [],
+    reason: 'no modified specs or related source files',
+  } as E2EDecision
 })
+
+/**
+ * Run coverage check for enabled layers
+ */
+const runCoverageCheck = (layers: readonly LayerConfig[]) =>
+  Effect.gen(function* () {
+    const coverage = yield* CoverageService
+    const startTime = Date.now()
+
+    yield* progress('Coverage Check...')
+
+    const results = yield* coverage.checkAll(layers)
+    const enabledResults = results.filter((r) => {
+      const layer = layers.find((l) => l.name === r.layer)
+      return layer?.enabled
+    })
+
+    // Check for failures
+    const failures = enabledResults.filter((r) => r.missingTests.length > 0)
+    const duration = Date.now() - startTime
+
+    if (failures.length > 0) {
+      yield* logError(`Coverage Check failed (${duration}ms)`)
+      for (const failure of failures) {
+        yield* Effect.log(`\n  Missing unit tests in ${failure.layer}/:`)
+        for (const file of failure.missingTests.slice(0, 5)) {
+          yield* Effect.log(`    - ${file}`)
+        }
+        if (failure.missingTests.length > 5) {
+          yield* Effect.log(`    ... and ${failure.missingTests.length - 5} more`)
+        }
+      }
+      return {
+        name: 'Coverage Check',
+        success: false,
+        duration,
+        error: `Missing tests in: ${failures.map((f) => f.layer).join(', ')}`,
+      } as CheckResult
+    }
+
+    yield* success(`Coverage Check passed (${duration}ms)`)
+    return {
+      name: 'Coverage Check',
+      success: true,
+      duration,
+    } as CheckResult
+  })
+
+/**
+ * Run quality checks for entire codebase with fail-fast
+ * Runs checks sequentially and stops immediately on first failure
+ * Includes smart E2E detection and optional coverage checking
+ */
+const runFullChecks = (options: QualityOptions) =>
+  Effect.gen(function* () {
+    yield* section('Running quality checks on entire codebase (fail-fast)')
+
+    const results: CheckResult[] = []
+
+    // 1. ESLint check
+    const eslintResult = yield* runCheck(
+      'ESLint',
+      [
+        'bunx',
+        'eslint',
+        '.',
+        '--max-warnings',
+        '0',
+        '--cache',
+        '--cache-location',
+        'node_modules/.cache/eslint',
+        '--cache-strategy',
+        'content',
+      ],
+      120_000
+    )
+    results.push(eslintResult)
+    if (!eslintResult.success) {
+      yield* logError('\n⚠️  Stopping checks due to ESLint failure (fail-fast mode)')
+      return results
+    }
+
+    // 2. TypeScript check
+    const tscResult = yield* runCheck(
+      'TypeScript',
+      ['bunx', 'tsc', '--noEmit', '--incremental'],
+      60_000
+    )
+    results.push(tscResult)
+    if (!tscResult.success) {
+      yield* logError('\n⚠️  Stopping checks due to TypeScript failure (fail-fast mode)')
+      return results
+    }
+
+    // 3. Unit tests
+    const unitResult = yield* runCheck(
+      'Unit Tests',
+      ['bun', 'test', '--concurrent', '.test.ts', '.test.tsx'],
+      60_000
+    )
+    results.push(unitResult)
+    if (!unitResult.success) {
+      yield* logError('\n⚠️  Stopping checks due to Unit Tests failure (fail-fast mode)')
+      return results
+    }
+
+    // 4. Coverage check (optional)
+    if (!options.skipCoverage) {
+      const coverageResult = yield* runCoverageCheck(DEFAULT_LAYERS)
+      results.push(coverageResult)
+      if (!coverageResult.success) {
+        yield* logError('\n⚠️  Stopping checks due to Coverage Check failure (fail-fast mode)')
+        return results
+      }
+    } else {
+      yield* skip('Coverage Check skipped (--skip-coverage flag)')
+      results.push({
+        name: 'Coverage Check',
+        success: true,
+        duration: 0,
+      })
+    }
+
+    // 5. Smart E2E detection
+    if (options.skipE2E) {
+      yield* skip('E2E tests skipped (--skip-e2e flag)')
+      results.push({
+        name: 'E2E Regression Tests',
+        success: true,
+        duration: 0,
+      })
+      return results
+    }
+
+    yield* progress('Analyzing changed files for E2E detection...')
+    const e2eDecision = yield* determineE2ESpecs
+
+    if (!e2eDecision.run) {
+      yield* skip(`Skipping E2E: ${e2eDecision.reason}`)
+      results.push({
+        name: 'E2E Regression Tests',
+        success: true,
+        duration: 0,
+      })
+      return results
+    }
+
+    yield* Effect.log(`  E2E will run: ${e2eDecision.reason}`)
+    for (const spec of e2eDecision.specs.slice(0, 5)) {
+      yield* Effect.log(`    - ${spec}`)
+    }
+    if (e2eDecision.specs.length > 5) {
+      yield* Effect.log(`    ... and ${e2eDecision.specs.length - 5} more`)
+    }
+
+    // Run E2E tests for specific specs with @regression tag
+    const e2eResult = yield* runCheck(
+      'E2E Regression Tests',
+      ['bunx', 'playwright', 'test', '--grep=@regression', ...e2eDecision.specs],
+      300_000 // 5 minutes
+    )
+    results.push(e2eResult)
+
+    return results
+  })
 
 /**
  * Print summary of check results
@@ -384,10 +580,16 @@ const printSummary = (results: readonly CheckResult[], overallDuration: number) 
       yield* logError(`Quality checks failed: ${failedChecks}`)
       yield* Effect.log('')
       yield* Effect.log('Run individual commands to see detailed errors:')
-      if (results[0] && !results[0].success) yield* Effect.log('  bun run lint')
-      if (results[1] && !results[1].success) yield* Effect.log('  bun run typecheck')
-      if (results[2] && !results[2].success) yield* Effect.log('  bun test:unit')
-      if (results[3] && !results[3].success) yield* Effect.log('  bun test:e2e:regression')
+
+      const failedNames = new Set(results.filter((r) => !r.success).map((r) => r.name))
+      if (failedNames.has('ESLint')) yield* Effect.log('  bun run lint')
+      if (failedNames.has('TypeScript')) yield* Effect.log('  bun run typecheck')
+      if (failedNames.has('Unit Tests')) yield* Effect.log('  bun test:unit')
+      if (failedNames.has('Coverage Check')) {
+        yield* Effect.log('  Add missing .test.ts files for source files')
+        yield* Effect.log('  Or use: bun run quality --skip-coverage')
+      }
+      if (failedNames.has('E2E Regression Tests')) yield* Effect.log('  bun test:e2e:regression')
 
       return yield* Effect.fail(new QualityCheckFailedError({ checks: results }))
     }
@@ -398,19 +600,18 @@ const printSummary = (results: readonly CheckResult[], overallDuration: number) 
  */
 const main = Effect.gen(function* () {
   // Parse command line arguments
-  const args = process.argv.slice(2)
-  const filePath = args[0]
+  const options = parseArgs()
 
   const overallStart = Date.now()
 
   let results: readonly CheckResult[]
 
-  if (filePath) {
+  if (options.file && !options.file.startsWith('--')) {
     // Single file mode
-    results = yield* runFileChecks(filePath)
+    results = yield* runFileChecks(options.file)
   } else {
-    // Full codebase mode
-    results = yield* runFullChecks
+    // Full codebase mode with smart E2E detection
+    results = yield* runFullChecks(options)
   }
 
   const overallDuration = Date.now() - overallStart
@@ -423,8 +624,16 @@ const main = Effect.gen(function* () {
   yield* printSummary(results, overallDuration)
 })
 
+// Base services (no dependencies)
+const BaseLayer = Layer.mergeAll(FileSystemServiceLive, CommandServiceLive, LoggerServicePretty())
+
+// Services that depend on base services
+const GitLayer = GitServiceLive.pipe(Layer.provide(CommandServiceLive))
+const SpecMappingLayer = SpecMappingServiceLive.pipe(Layer.provide(FileSystemServiceLive))
+const CoverageLayer = CoverageServiceLive.pipe(Layer.provide(FileSystemServiceLive))
+
 // Main layer combining all services
-const MainLayer = Layer.mergeAll(FileSystemServiceLive, CommandServiceLive, LoggerServicePretty())
+const MainLayer = Layer.mergeAll(BaseLayer, GitLayer, SpecMappingLayer, CoverageLayer)
 
 // Run the script
 const program = main.pipe(

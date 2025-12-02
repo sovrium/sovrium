@@ -39,57 +39,44 @@ test.describe('List API Keys', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
-      const session = await signIn({
+      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
       // Create two API keys
-      await page.request.post('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
+      await page.request.post('/api/auth/api-key/create', {
         data: {
           name: 'Production Key',
-          description: 'For production use',
         },
       })
 
-      await page.request.post('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
+      await page.request.post('/api/auth/api-key/create', {
         data: {
           name: 'Development Key',
-          description: 'For development use',
         },
       })
 
-      // WHEN: User requests list of their API keys
-      const response = await page.request.get('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-      })
+      // WHEN: User requests list of their API keys via Better Auth endpoint
+      const response = await page.request.get('/api/auth/api-key/list')
 
-      // THEN: Returns 200 OK with list of API keys (without key values)
+      // THEN: Returns 200 OK with array of API keys (without key values for security)
       expect(response.status()).toBe(200)
 
       const data = await response.json()
       expect(Array.isArray(data)).toBe(true)
       expect(data).toHaveLength(2)
 
-      // API keys should not include the actual key value (security)
+      // API keys should NOT include the actual key value (security - only shown on creation)
       expect(data[0]).not.toHaveProperty('key')
       expect(data[0]).toHaveProperty('id')
       expect(data[0]).toHaveProperty('name')
-      expect(data[0]).toHaveProperty('description')
       expect(data[0]).toHaveProperty('createdAt')
     }
   )
@@ -109,23 +96,19 @@ test.describe('List API Keys', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
-      const session = await signIn({
+      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
       // WHEN: User requests list of their API keys
-      const response = await page.request.get('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-      })
+      const response = await page.request.get('/api/auth/api-key/list')
 
       // THEN: Returns 200 OK with empty array
       expect(response.status()).toBe(200)
@@ -152,7 +135,7 @@ test.describe('List API Keys', () => {
       })
 
       // WHEN: Unauthenticated user attempts to list API keys
-      const response = await page.request.get('/api/auth/api-keys')
+      const response = await page.request.get('/api/auth/api-key/list')
 
       // THEN: Returns 401 Unauthorized
       expect(response.status()).toBe(401)
@@ -184,15 +167,12 @@ test.describe('List API Keys', () => {
         password: 'ValidPassword123!',
       })
 
-      const session1 = await signIn({
+      await signIn({
         email: 'user1@example.com',
         password: 'ValidPassword123!',
       })
 
-      await page.request.post('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session1.token}`,
-        },
+      await page.request.post('/api/auth/api-key/create', {
         data: {
           name: 'User 1 Key',
         },
@@ -205,28 +185,21 @@ test.describe('List API Keys', () => {
         password: 'ValidPassword123!',
       })
 
-      const session2 = await signIn({
+      await signIn({
         email: 'user2@example.com',
         password: 'ValidPassword123!',
       })
 
-      await page.request.post('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session2.token}`,
-        },
+      await page.request.post('/api/auth/api-key/create', {
         data: {
           name: 'User 2 Key',
         },
       })
 
-      // WHEN: User 2 requests their API keys
-      const response = await page.request.get('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session2.token}`,
-        },
-      })
+      // WHEN: User 2 requests their API keys (session is established via cookie)
+      const response = await page.request.get('/api/auth/api-key/list')
 
-      // THEN: Returns only User 2's API key (isolation)
+      // THEN: Returns only User 2's API key (user isolation enforced by Better Auth)
       expect(response.status()).toBe(200)
 
       const data = await response.json()
@@ -255,23 +228,19 @@ test.describe('List API Keys', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
-      const session = await signIn({
+      await signIn({
         email: 'test@example.com',
         password: 'ValidPassword123!',
       })
 
       // WHEN: User lists keys before creating any
-      const emptyResponse = await page.request.get('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-      })
+      const emptyResponse = await page.request.get('/api/auth/api-key/list')
 
       // THEN: Returns empty array
       expect(emptyResponse.status()).toBe(200)
@@ -279,35 +248,25 @@ test.describe('List API Keys', () => {
       expect(emptyData).toHaveLength(0)
 
       // WHEN: User creates multiple API keys
-      await page.request.post('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
+      await page.request.post('/api/auth/api-key/create', {
         data: { name: 'Key 1' },
       })
 
-      await page.request.post('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
+      await page.request.post('/api/auth/api-key/create', {
         data: { name: 'Key 2' },
       })
 
       // THEN: User can see all their keys
-      const listResponse = await page.request.get('/api/auth/api-keys', {
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-      })
+      const listResponse = await page.request.get('/api/auth/api-key/list')
 
       expect(listResponse.status()).toBe(200)
       const listData = await listResponse.json()
       expect(listData).toHaveLength(2)
 
       // WHEN: Unauthenticated request is made
-      const unauthResponse = await page.request.get('/api/auth/api-keys')
+      const unauthResponse = await page.request.get('/api/auth/api-key/list')
 
-      // THEN: Request fails
+      // THEN: Request fails with 401
       expect(unauthResponse.status()).toBe(401)
     }
   )

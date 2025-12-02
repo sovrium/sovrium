@@ -41,7 +41,7 @@ test.describe('Enable Two-Factor Authentication', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
@@ -87,7 +87,7 @@ test.describe('Enable Two-Factor Authentication', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
@@ -157,7 +157,7 @@ test.describe('Enable Two-Factor Authentication', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
@@ -175,7 +175,7 @@ test.describe('Enable Two-Factor Authentication', () => {
         },
       })
 
-      const { secret } = await firstResponse.json()
+      const { secret: _secret } = await firstResponse.json()
 
       // Verify with TOTP code to complete setup
       // Note: This would require generating a valid TOTP code from the secret
@@ -210,7 +210,7 @@ test.describe('Enable Two-Factor Authentication', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
@@ -257,7 +257,7 @@ test.describe('Enable Two-Factor Authentication', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',

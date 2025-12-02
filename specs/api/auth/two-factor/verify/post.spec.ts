@@ -41,7 +41,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
@@ -59,7 +59,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
         },
       })
 
-      const { secret } = await enableResponse.json()
+      const { secret: _secret } = await enableResponse.json()
 
       // Generate valid TOTP code from secret (using TOTP algorithm)
       // Note: Implementation will need to use a TOTP library to generate code
@@ -99,7 +99,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
@@ -153,7 +153,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
@@ -238,7 +238,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
@@ -287,7 +287,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
         },
       })
 
-      const user = await signUp({
+      await signUp({
         name: 'Test User',
         email: 'test@example.com',
         password: 'ValidPassword123!',
@@ -306,7 +306,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
       })
 
       expect(enableResponse.status()).toBe(200)
-      const { secret, backupCodes } = await enableResponse.json()
+      const { secret: _secret, backupCodes } = await enableResponse.json()
 
       // WHEN: User submits invalid code
       const invalidResponse = await page.request.post('/api/auth/two-factor/verify', {

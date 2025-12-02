@@ -54,6 +54,7 @@ export interface EmailConfig {
  *
  * @see https://mailpit.axllent.org/ for local development email testing
  */
+// eslint-disable-next-line complexity -- Configuration logic with multiple environment-based branches
 export function getEmailConfig(): EmailConfig {
   const host = process.env.SMTP_HOST
   const isProduction = process.env.NODE_ENV === 'production'
@@ -105,6 +106,7 @@ export function getEmailConfig(): EmailConfig {
 /**
  * Create a nodemailer transporter from configuration
  */
+/* eslint-disable functional/prefer-immutable-types -- nodemailer transporter is inherently mutable */
 export function createTransporter(
   config: Readonly<EmailConfig>
 ): nodemailer.Transporter<SMTPTransport.SentMessageInfo> {
@@ -115,6 +117,7 @@ export function createTransporter(
     auth: config.auth,
   })
 }
+/* eslint-enable functional/prefer-immutable-types */
 
 /**
  * Pre-configured transporter using environment variables

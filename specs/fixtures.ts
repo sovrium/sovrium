@@ -340,6 +340,7 @@ type SignInData = {
 type AuthResult = {
   user: AuthUser
   session?: AuthSession
+  token?: string // Convenience alias for session.token
 }
 
 type Organization = {
@@ -931,6 +932,7 @@ export const test = base.extend<ServerFixtures>({
       return {
         user: result.user,
         session: result.session,
+        token: result.session?.token, // Convenience alias
       }
     })
   },
@@ -994,6 +996,7 @@ export const test = base.extend<ServerFixtures>({
       return {
         user: result.user,
         session: result.session,
+        token: result.session?.token, // Convenience alias
       }
     })
   },
@@ -1073,6 +1076,7 @@ export const test = base.extend<ServerFixtures>({
       return {
         user: { ...result.user, role: 'admin' },
         session: result.session,
+        token: result.session?.token, // Convenience alias
       }
     })
   },

@@ -291,7 +291,7 @@ test.describe('Row-Level Security Enforcement', () => {
       })
 
       // Create test user
-      const _user = await createAuthenticatedUser({ email: 'user@example.com' })
+      await createAuthenticatedUser({ email: 'user@example.com' })
 
       // WHEN: Checking RLS policy for INSERT operations
       // THEN: RLS policy for owner-based create should be created
