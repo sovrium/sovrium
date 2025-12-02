@@ -479,161 +479,128 @@ test(
   'APP-DESCRIPTION-016: user can view complete app description in all scenarios',
   { tag: '@regression' },
   async ({ page, startServerWithSchema }) => {
-    // ============================================================================
-    // SCENARIO GROUP 1: Core layout, styling, and basic text display
-    // Covers: APP-DESCRIPTION-001, 003, 004, 005, 008, 009, 010, 011, 015
-    // Tests: Basic display, DOM order, special chars, Unicode, paragraph element,
-    //        centering, viewport, text preservation, spacing
-    // ============================================================================
-    await startServerWithSchema(
-      {
-        name: 'test-app',
-        description: 'MiXeD CaSe!  With   Spaces  & Special@#$% Très bien! 你好 🎉',
-      },
-      { useDatabase: false }
-    )
-    await page.goto('/')
+    await test.step('Setup: Start server with complex description', async () => {
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          description: 'MiXeD CaSe!  With   Spaces  & Special@#$% Très bien! 你好 🎉',
+        },
+        { useDatabase: false }
+      )
+    })
 
-    // Locate elements once for all assertions in this scenario
-    const description = page.locator('[data-testid="app-description"]')
-    const title = page.locator('h1[data-testid="app-name-heading"]')
+    await test.step('Verify core display, layout, and styling', async () => {
+      await page.goto('/')
+      const description = page.locator('[data-testid="app-description"]')
+      const title = page.locator('h1[data-testid="app-name-heading"]')
 
-    // THEN: description is visible and displays text correctly (001, 004, 005, 011)
-    await expect(description).toBeVisible()
-    await expect(description).toHaveText(
-      'MiXeD CaSe!  With   Spaces  & Special@#$% Très bien! 你好 🎉'
-    )
+      await expect(description).toBeVisible()
+      await expect(description).toHaveText(
+        'MiXeD CaSe!  With   Spaces  & Special@#$% Très bien! 你好 🎉'
+      )
 
-    // THEN: description is rendered as paragraph element (008)
-    const paragraph = page.locator('p[data-testid="app-description"]')
-    await expect(paragraph).toBeVisible()
+      const paragraph = page.locator('p[data-testid="app-description"]')
+      await expect(paragraph).toBeVisible()
+      await expect(description).toBeInViewport()
 
-    // THEN: description is in viewport (010)
-    await expect(description).toBeInViewport()
+      const textAlign = await description.evaluate((el) => window.getComputedStyle(el).textAlign)
+      expect(textAlign).toBe('center')
 
-    // THEN: description is centered horizontally (009)
-    const textAlign = await description.evaluate((el) => window.getComputedStyle(el).textAlign)
-    expect(textAlign).toBe('center')
+      await expect(title).toBeVisible()
+      const titleBox = await title.boundingBox()
+      const descriptionBox = await description.boundingBox()
 
-    // THEN: description appears AFTER h1 title with appropriate spacing (003, 015)
-    // Single boundingBox call for both DOM order and spacing validation
-    await expect(title).toBeVisible()
-    const titleBox = await title.boundingBox()
-    const descriptionBox = await description.boundingBox()
+      expect(titleBox).not.toBeNull()
+      expect(descriptionBox).not.toBeNull()
+      expect(titleBox!.y).toBeLessThan(descriptionBox!.y)
 
-    expect(titleBox).not.toBeNull()
-    expect(descriptionBox).not.toBeNull()
+      const spacing = descriptionBox!.y - (titleBox!.y + titleBox!.height)
+      expect(spacing).toBeGreaterThan(0)
+    })
 
-    // DOM order: title comes before description
-    expect(titleBox!.y).toBeLessThan(descriptionBox!.y)
+    await test.step('Verify missing and empty description handling', async () => {
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+        },
+        { useDatabase: false }
+      )
+      await page.goto('/')
 
-    // Spacing: gap between title and description
-    const spacing = descriptionBox!.y - (titleBox!.y + titleBox!.height)
-    expect(spacing).toBeGreaterThan(0)
+      let hiddenDescription = page.locator('[data-testid="app-description"]')
+      await expect(hiddenDescription).toBeHidden()
 
-    // ============================================================================
-    // SCENARIO GROUP 2: Edge cases - missing and empty description
-    // Covers: APP-DESCRIPTION-002, 007
-    // Tests: Missing description (undefined), empty string description
-    // ============================================================================
-    await startServerWithSchema(
-      {
-        name: 'test-app',
-        // description: undefined (omitted) - tests both undefined and empty string
-      },
-      { useDatabase: false }
-    )
-    await page.goto('/')
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          description: '',
+        },
+        { useDatabase: false }
+      )
+      await page.goto('/')
 
-    // THEN: description element is NOT rendered when missing (002)
-    let hiddenDescription = page.locator('[data-testid="app-description"]')
-    await expect(hiddenDescription).toBeHidden()
+      hiddenDescription = page.locator('[data-testid="app-description"]')
+      await expect(hiddenDescription).toBeHidden()
+    })
 
-    // Test empty string in same scenario group
-    await startServerWithSchema(
-      {
-        name: 'test-app',
-        description: '',
-      },
-      { useDatabase: false }
-    )
-    await page.goto('/')
+    await test.step('Verify long text handling and no truncation', async () => {
+      const veryLongDescription =
+        'Lorem ipsum dolor sit amet, consectetur adipiscing elit. '.repeat(20) +
+        'Final sentence to verify complete rendering without any truncation.'
 
-    // THEN: description element is NOT rendered when empty string (007)
-    hiddenDescription = page.locator('[data-testid="app-description"]')
-    await expect(hiddenDescription).toBeHidden()
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          description: veryLongDescription,
+        },
+        { useDatabase: false }
+      )
+      await page.goto('/')
 
-    // ============================================================================
-    // SCENARIO GROUP 3: Long text handling and truncation prevention
-    // Covers: APP-DESCRIPTION-006, 013
-    // Tests: Long description wrapping (500+ chars), very long text (1000+ chars),
-    //        no CSS truncation (ellipsis)
-    // ============================================================================
-    const veryLongDescription =
-      'Lorem ipsum dolor sit amet, consectetur adipiscing elit. '.repeat(20) +
-      'Final sentence to verify complete rendering without any truncation.'
+      const longDescription = page.locator('[data-testid="app-description"]')
+      await expect(longDescription).toBeVisible()
+      await expect(longDescription).toHaveText(veryLongDescription)
 
-    await startServerWithSchema(
-      {
-        name: 'test-app',
-        description: veryLongDescription,
-      },
-      { useDatabase: false }
-    )
-    await page.goto('/')
+      const textOverflow = await longDescription.evaluate(
+        (el) => window.getComputedStyle(el).textOverflow
+      )
+      expect(textOverflow).not.toBe('ellipsis')
+    })
 
-    // THEN: long description is visible, wraps properly, and is not truncated (006, 013)
-    const longDescription = page.locator('[data-testid="app-description"]')
-    await expect(longDescription).toBeVisible()
-    await expect(longDescription).toHaveText(veryLongDescription)
+    await test.step('Verify complete layout integration and security', async () => {
+      await startServerWithSchema(
+        {
+          version: '1.0.0',
+          name: 'test-app',
+          description: '<script>alert(1)</script>',
+        },
+        { useDatabase: false }
+      )
+      await page.goto('/')
 
-    // THEN: no CSS text truncation (ellipsis) applied (013)
-    const textOverflow = await longDescription.evaluate(
-      (el) => window.getComputedStyle(el).textOverflow
-    )
-    expect(textOverflow).not.toBe('ellipsis')
+      const version = page.locator('[data-testid="app-version-badge"]')
+      const finalTitle = page.locator('h1[data-testid="app-name-heading"]')
+      const finalDescription = page.locator('[data-testid="app-description"]')
 
-    // ============================================================================
-    // SCENARIO GROUP 4: Complete layout integration and security
-    // Covers: APP-DESCRIPTION-012, 014
-    // Tests: Version + title + description order, HTML escaping (XSS prevention)
-    // ============================================================================
-    await startServerWithSchema(
-      {
-        version: '1.0.0',
-        name: 'test-app',
-        description: '<script>alert(1)</script>',
-      },
-      { useDatabase: false }
-    )
-    await page.goto('/')
+      await expect(version).toBeVisible()
+      await expect(finalTitle).toBeVisible()
+      await expect(finalDescription).toBeVisible()
 
-    // THEN: all elements appear in correct order: version → title → description (012)
-    const version = page.locator('[data-testid="app-version-badge"]')
-    const finalTitle = page.locator('h1[data-testid="app-name-heading"]')
-    const finalDescription = page.locator('[data-testid="app-description"]')
+      const versionBox = await version.boundingBox()
+      const finalTitleBox = await finalTitle.boundingBox()
+      const finalDescriptionBox = await finalDescription.boundingBox()
 
-    await expect(version).toBeVisible()
-    await expect(finalTitle).toBeVisible()
-    await expect(finalDescription).toBeVisible()
+      expect(versionBox).not.toBeNull()
+      expect(finalTitleBox).not.toBeNull()
+      expect(finalDescriptionBox).not.toBeNull()
 
-    // Single boundingBox call for all three elements
-    const versionBox = await version.boundingBox()
-    const finalTitleBox = await finalTitle.boundingBox()
-    const finalDescriptionBox = await finalDescription.boundingBox()
+      expect(versionBox!.y).toBeLessThan(finalTitleBox!.y)
+      expect(finalTitleBox!.y).toBeLessThan(finalDescriptionBox!.y)
 
-    expect(versionBox).not.toBeNull()
-    expect(finalTitleBox).not.toBeNull()
-    expect(finalDescriptionBox).not.toBeNull()
+      await expect(finalDescription).toHaveText('<script>alert(1)</script>')
 
-    expect(versionBox!.y).toBeLessThan(finalTitleBox!.y)
-    expect(finalTitleBox!.y).toBeLessThan(finalDescriptionBox!.y)
-
-    // THEN: HTML tags are escaped and displayed as text (no XSS) (014)
-    await expect(finalDescription).toHaveText('<script>alert(1)</script>')
-
-    // THEN: no script element was created (security verification)
-    const scriptElement = page.locator('script:has-text("alert(1)")')
-    await expect(scriptElement).toHaveCount(0)
+      const scriptElement = page.locator('script:has-text("alert(1)")')
+      await expect(scriptElement).toHaveCount(0)
+    })
   }
 )

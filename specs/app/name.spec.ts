@@ -301,74 +301,55 @@ test(
   'APP-NAME-013: user can view app name with all display requirements across different configurations',
   { tag: '@regression' },
   async ({ page, startServerWithSchema }) => {
-    // OPTIMIZED REGRESSION TEST
-    // This test focuses on end-to-end integration rather than duplicating @spec tests.
-    // Strategy: Use ONE representative scenario (complex name) to verify all components
-    // work together correctly. The 12 @spec tests already cover edge cases exhaustively.
-    //
-    // Consolidation: 12 server restarts → 1 server restart
-    // Execution time: ~30-60s → ~5-10s
-    // Coverage: Integration confidence (not exhaustive duplication)
-
-    // GIVEN: Application with complex name (covers most edge cases in one scenario)
-    // This name contains: scoped package (@), special chars (. - _ /), typical format
     const complexName = '@myorg-team.test/dashboard_v2.beta-prod'
-    await startServerWithSchema({ name: complexName }, { useDatabase: false })
 
-    // WHEN: User navigates to homepage
-    await page.goto('/')
+    await test.step('Setup: Start server with complex app name', async () => {
+      await startServerWithSchema({ name: complexName }, { useDatabase: false })
+    })
 
-    // THEN: All integration points work together correctly
+    await test.step('Navigate to page and verify content display', async () => {
+      await page.goto('/')
 
-    // 1. Content Display (APP-NAME-001, APP-NAME-009, APP-NAME-012)
-    const heading = page.locator('h1')
-    // THEN: assertion
-    await expect(heading).toHaveText(complexName)
-    await expect(heading).toHaveText(complexName) // Exact match, no modification
+      const heading = page.locator('h1')
+      await expect(heading).toHaveText(complexName)
+      await expect(heading).toHaveText(complexName)
+    })
 
-    // 2. Metadata Integration (APP-NAME-002)
-    // THEN: assertion
-    await expect(page).toHaveTitle(`${complexName} - Powered by Sovrium`)
+    await test.step('Verify metadata integration', async () => {
+      await expect(page).toHaveTitle(`${complexName} - Powered by Sovrium`)
+    })
 
-    // 3. Special Characters Preserved (APP-NAME-012)
-    const textContent = await heading.textContent()
-    // THEN: assertion
-    expect(textContent).toContain('@')
-    expect(textContent).toContain('/')
-    expect(textContent).toContain('_')
-    expect(textContent).toContain('-')
-    expect(textContent).toContain('.')
+    await test.step('Verify special characters preserved', async () => {
+      const heading = page.locator('h1')
+      const textContent = await heading.textContent()
+      expect(textContent).toContain('@')
+      expect(textContent).toContain('/')
+      expect(textContent).toContain('_')
+      expect(textContent).toContain('-')
+      expect(textContent).toContain('.')
+    })
 
-    // 4. Accessibility Standards (APP-NAME-005, APP-NAME-006)
-    const headingCount = await page.locator('h1').count()
-    // THEN: assertion
-    expect(headingCount).toBe(1) // Exactly one h1
-    const firstHeading = page.locator('h1, h2, h3, h4, h5, h6').first()
-    const tagName = await firstHeading.evaluate((el) => el.tagName.toLowerCase())
-    // THEN: assertion
-    expect(tagName).toBe('h1') // h1 is first heading level
+    await test.step('Verify accessibility standards', async () => {
+      const headingCount = await page.locator('h1').count()
+      expect(headingCount).toBe(1)
+      const firstHeading = page.locator('h1, h2, h3, h4, h5, h6').first()
+      const tagName = await firstHeading.evaluate((el) => el.tagName.toLowerCase())
+      expect(tagName).toBe('h1')
+    })
 
-    // 5. Visual Styling (APP-NAME-007, APP-NAME-010)
-    const textAlign = await heading.evaluate((el) => window.getComputedStyle(el).textAlign)
-    // THEN: assertion
-    expect(textAlign).toBe('center') // Centered layout
-    const fontSize = await heading.evaluate((el) => window.getComputedStyle(el).fontSize)
-    const fontSizeValue = parseFloat(fontSize)
-    // THEN: assertion
-    expect(fontSizeValue).toBeGreaterThanOrEqual(32) // TypographyH1 styling (text-4xl)
+    await test.step('Verify visual styling and visibility', async () => {
+      const heading = page.locator('h1')
+      const textAlign = await heading.evaluate((el) => window.getComputedStyle(el).textAlign)
+      expect(textAlign).toBe('center')
+      const fontSize = await heading.evaluate((el) => window.getComputedStyle(el).fontSize)
+      const fontSizeValue = parseFloat(fontSize)
+      expect(fontSizeValue).toBeGreaterThanOrEqual(32)
 
-    // 6. Visibility (APP-NAME-008)
-    // THEN: assertion
-    await expect(heading).toBeVisible()
-    const visibility = await heading.evaluate((el) => window.getComputedStyle(el).visibility)
-    // THEN: assertion
-    expect(visibility).toBe('visible')
-    const display = await heading.evaluate((el) => window.getComputedStyle(el).display)
-    // THEN: assertion
-    expect(display).not.toBe('none')
-
-    // Note: Edge cases (min length, max length, independence) are thoroughly
-    // covered by @spec tests. This regression test verifies that all components
-    // integrate correctly in a real-world scenario.
+      await expect(heading).toBeVisible()
+      const visibility = await heading.evaluate((el) => window.getComputedStyle(el).visibility)
+      expect(visibility).toBe('visible')
+      const display = await heading.evaluate((el) => window.getComputedStyle(el).display)
+      expect(display).not.toBe('none')
+    })
   }
 )

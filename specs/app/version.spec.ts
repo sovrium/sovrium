@@ -213,108 +213,89 @@ test(
   'APP-VERSION-008: user can view version badge with all SemVer variations',
   { tag: '@regression' },
   async ({ page, startServerWithSchema }) => {
-    // This test consolidates all 7 @spec tests into one efficient workflow
-    // Covers: APP-VERSION-001 through APP-VERSION-007
-
-    // Helper function to test version display (reusable for scenarios 1, 3, 4, 5)
     const testVersionDisplay = async (version: string) => {
       const versionBadge = page.locator('[data-testid="app-version-badge"]')
       await expect(versionBadge).toBeVisible()
       await expect(versionBadge).toHaveText(version)
     }
 
-    // ========================================================================
-    // Scenario 1: Simple SemVer + Positioning + Accessibility
-    // (APP-VERSION-001, APP-VERSION-006, APP-VERSION-007 - combined in one load)
-    // ========================================================================
-    // GIVEN: app configuration
-    await startServerWithSchema(
-      {
-        name: 'test-app',
-        version: '1.0.0',
-      },
-      { useDatabase: false }
-    )
-    // WHEN: user navigates to the page
-    await page.goto('/')
+    await test.step('Setup: Start server with simple SemVer version', async () => {
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          version: '1.0.0',
+        },
+        { useDatabase: false }
+      )
+    })
 
-    // Test version display (APP-VERSION-001)
-    await testVersionDisplay('1.0.0')
+    await test.step('Verify version display, positioning, and accessibility', async () => {
+      await page.goto('/')
 
-    // Test badge positioning above name (APP-VERSION-006)
-    const versionBadge = page.locator('[data-testid="app-version-badge"]')
-    const appNameHeading = page.locator('[data-testid="app-name-heading"]')
-    // THEN: assertion
-    await expect(appNameHeading).toBeVisible()
+      await testVersionDisplay('1.0.0')
 
-    const versionBox = await versionBadge.boundingBox()
-    const nameBox = await appNameHeading.boundingBox()
-    // Both elements should have bounding boxes (verified by toBeVisible above)
-    expect(versionBox).not.toBeNull()
-    expect(nameBox).not.toBeNull()
-    // Version badge should be positioned above name heading
-    expect(versionBox!.y).toBeLessThan(nameBox!.y)
+      const versionBadge = page.locator('[data-testid="app-version-badge"]')
+      const appNameHeading = page.locator('[data-testid="app-name-heading"]')
+      await expect(appNameHeading).toBeVisible()
 
-    // Test accessibility attributes (APP-VERSION-007)
-    await expect(versionBadge).toHaveAttribute('data-testid', 'app-version-badge')
+      const versionBox = await versionBadge.boundingBox()
+      const nameBox = await appNameHeading.boundingBox()
+      expect(versionBox).not.toBeNull()
+      expect(nameBox).not.toBeNull()
+      expect(versionBox!.y).toBeLessThan(nameBox!.y)
 
-    // ========================================================================
-    // Scenario 2: Missing version property (APP-VERSION-002)
-    // ========================================================================
-    await startServerWithSchema(
-      {
-        name: 'test-app',
-        // version intentionally omitted
-      },
-      { useDatabase: false }
-    )
-    // WHEN: user navigates to the page
-    await page.goto('/')
+      await expect(versionBadge).toHaveAttribute('data-testid', 'app-version-badge')
+    })
 
-    // THEN: assertion
-    await expect(page.locator('[data-testid="app-version-badge"]')).toBeHidden()
+    await test.step('Verify missing version property handling', async () => {
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+        },
+        { useDatabase: false }
+      )
+      await page.goto('/')
 
-    // ========================================================================
-    // Scenario 3: Pre-release version (APP-VERSION-003)
-    // ========================================================================
-    await startServerWithSchema(
-      {
-        name: 'test-app',
-        version: '2.0.0-beta.1',
-      },
-      { useDatabase: false }
-    )
-    // WHEN: user navigates to the page
-    await page.goto('/')
+      await expect(page.locator('[data-testid="app-version-badge"]')).toBeHidden()
+    })
 
-    await testVersionDisplay('2.0.0-beta.1')
+    await test.step('Verify pre-release version display', async () => {
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          version: '2.0.0-beta.1',
+        },
+        { useDatabase: false }
+      )
+      await page.goto('/')
 
-    // ========================================================================
-    // Scenario 4: Build metadata (APP-VERSION-004)
-    // ========================================================================
-    await startServerWithSchema(
-      {
-        name: 'test-app',
-        version: '1.0.0+build.123',
-      },
-      { useDatabase: false }
-    )
-    await page.goto('/')
+      await testVersionDisplay('2.0.0-beta.1')
+    })
 
-    await testVersionDisplay('1.0.0+build.123')
+    await test.step('Verify build metadata display', async () => {
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          version: '1.0.0+build.123',
+        },
+        { useDatabase: false }
+      )
+      await page.goto('/')
 
-    // ========================================================================
-    // Scenario 5: Pre-release + build metadata (APP-VERSION-005)
-    // ========================================================================
-    await startServerWithSchema(
-      {
-        name: 'test-app',
-        version: '1.0.0-alpha+001',
-      },
-      { useDatabase: false }
-    )
-    await page.goto('/')
+      await testVersionDisplay('1.0.0+build.123')
+    })
 
-    await testVersionDisplay('1.0.0-alpha+001')
+    await test.step('Verify pre-release with build metadata', async () => {
+      await startServerWithSchema(
+        {
+          name: 'test-app',
+          version: '1.0.0-alpha+001',
+        },
+        { useDatabase: false }
+      )
+      await page.goto('/')
+
+      await testVersionDisplay('1.0.0-alpha+001')
+    })
   }
 )
