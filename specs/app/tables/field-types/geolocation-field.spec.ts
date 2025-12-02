@@ -184,7 +184,7 @@ test.describe('Geolocation Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-GEOLOCATION-005: should enforce NOT NULL and UNIQUE constraints on POINT column',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -219,7 +219,7 @@ test.describe('Geolocation Field', () => {
       expect(notNullCheck.is_nullable).toBe('NO')
 
       const uniqueCount = await executeQuery(
-        "SELECT COUNT(*) as count FROM information_schema.table_constraints WHERE table_name='addresses' AND constraint_type='UNIQUE' AND constraint_name LIKE '%location%'"
+        "SELECT COUNT(*) as count FROM pg_constraint WHERE conname LIKE '%location%' AND contype = 'x'"
       )
       // THEN: assertion
       expect(uniqueCount.count).toBe(1)
@@ -227,7 +227,7 @@ test.describe('Geolocation Field', () => {
       // THEN: assertion
       await expect(
         executeQuery('INSERT INTO addresses (location) VALUES (POINT(40.7128, -74.0060))')
-      ).rejects.toThrow(/duplicate key value violates unique constraint/)
+      ).rejects.toThrow(/conflicting key value violates exclusion constraint/)
     }
   )
 

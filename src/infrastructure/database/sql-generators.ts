@@ -425,6 +425,10 @@ const generateColorConstraints = (fields: readonly Fields[number][]): readonly s
 /**
  * Generate UNIQUE constraints for fields with unique property
  * Uses PostgreSQL default naming convention: {table}_{column}_key
+ *
+ * NOTE: Geolocation fields are excluded because POINT type requires GiST index for UNIQUE,
+ * not btree. UNIQUE GiST indexes for geolocation fields are created separately in
+ * generateIndexStatements() in schema-initializer.ts
  */
 export const generateUniqueConstraints = (
   tableName: string,
@@ -432,7 +436,8 @@ export const generateUniqueConstraints = (
 ): readonly string[] =>
   fields
     .filter(
-      (field): field is Fields[number] & { unique: true } => 'unique' in field && !!field.unique
+      (field): field is Fields[number] & { unique: true } =>
+        'unique' in field && !!field.unique && field.type !== 'geolocation'
     )
     .map((field) => `CONSTRAINT ${tableName}_${field.name}_key UNIQUE (${field.name})`)
 
