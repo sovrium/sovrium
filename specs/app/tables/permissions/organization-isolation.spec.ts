@@ -107,7 +107,7 @@ test.describe('Organization Data Isolation', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-ORG-ISOLATION-002: should deny direct access to other organization records',
     { tag: '@spec' },
     async ({
