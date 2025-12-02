@@ -34,12 +34,12 @@ test.describe('Delete organization', () => {
   test.fixme(
     'API-AUTH-ORG-DELETE-ORGANIZATION-001: should return 200 OK and permanently delete organization',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated organization owner
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -48,10 +48,6 @@ test.describe('Delete organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       // Create organization
@@ -81,12 +77,12 @@ test.describe('Delete organization', () => {
   test.fixme(
     'API-AUTH-ORG-DELETE-ORGANIZATION-002: should return 400 Bad Request with validation error',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -95,10 +91,6 @@ test.describe('Delete organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       // WHEN: Owner submits request without organizationId
@@ -122,7 +114,7 @@ test.describe('Delete organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -147,7 +139,7 @@ test.describe('Delete organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -157,10 +149,6 @@ test.describe('Delete organization', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -207,12 +195,12 @@ test.describe('Delete organization', () => {
   test.fixme(
     'API-AUTH-ORG-DELETE-ORGANIZATION-005: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -221,10 +209,6 @@ test.describe('Delete organization', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // WHEN: User attempts to delete non-existent organization
@@ -250,7 +234,7 @@ test.describe('Delete organization', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -260,10 +244,6 @@ test.describe('Delete organization', () => {
         email: 'owner1@example.com',
         password: 'Owner1Pass123!',
         name: 'Owner 1',
-      })
-      await signIn({
-        email: 'owner1@example.com',
-        password: 'Owner1Pass123!',
       })
 
       await page.request.post('/api/auth/organization/create', {
@@ -275,10 +255,6 @@ test.describe('Delete organization', () => {
         email: 'owner2@example.com',
         password: 'Owner2Pass123!',
         name: 'Owner 2',
-      })
-      await signIn({
-        email: 'owner2@example.com',
-        password: 'Owner2Pass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -314,49 +290,54 @@ test.describe('Delete organization', () => {
   test.fixme(
     'API-AUTH-ORG-DELETE-ORGANIZATION-007: user can complete full deleteOrganization workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          authentication: ['email-and-password'],
-          plugins: { organization: true },
-        },
+    async ({ page, startServerWithSchema, signUp }) => {
+      await test.step('Setup: Start server with organization plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true },
+          },
+        })
       })
 
-      // Test 1: Delete organization without auth fails
-      const noAuthResponse = await page.request.delete('/api/auth/organization/delete', {
-        data: { organizationId: '1' },
-      })
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create and authenticate user
-      await signUp({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-        name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
+      await test.step('Verify delete organization fails without auth', async () => {
+        const noAuthResponse = await page.request.delete('/api/auth/organization/delete', {
+          data: { organizationId: '1' },
+        })
+        expect(noAuthResponse.status()).toBe(401)
       })
 
-      // Create organization
-      const createResponse = await page.request.post('/api/auth/organization/create', {
-        data: { name: 'Test Org', slug: 'test-org' },
-      })
-      const org = await createResponse.json()
+      let orgId: string
 
-      // Test 2: Delete organization succeeds for owner
-      const deleteResponse = await page.request.delete('/api/auth/organization/delete', {
-        data: { organizationId: org.id },
+      await test.step('Setup: Create and authenticate user', async () => {
+        await signUp({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+          name: 'Owner User',
+        })
       })
-      expect(deleteResponse.status()).toBe(200)
 
-      // Test 3: Verify organization is deleted
-      const listResponse = await page.request.get('/api/auth/organization/list')
-      const orgs = await listResponse.json()
-      expect(orgs.length).toBe(0)
+      await test.step('Setup: Create organization', async () => {
+        const createResponse = await page.request.post('/api/auth/organization/create', {
+          data: { name: 'Test Org', slug: 'test-org' },
+        })
+        const org = await createResponse.json()
+        orgId = org.id
+      })
+
+      await test.step('Delete organization', async () => {
+        const deleteResponse = await page.request.delete('/api/auth/organization/delete', {
+          data: { organizationId: orgId },
+        })
+        expect(deleteResponse.status()).toBe(200)
+      })
+
+      await test.step('Verify organization is deleted', async () => {
+        const listResponse = await page.request.get('/api/auth/organization/list')
+        const orgs = await listResponse.json()
+        expect(orgs.length).toBe(0)
+      })
     }
   )
 })

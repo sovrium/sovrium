@@ -8,8 +8,6 @@
 import { Schema } from 'effect'
 import { AdminConfigSchema } from './admin'
 import { ApiKeysConfigSchema } from './api-keys'
-import { BearerConfigSchema } from './bearer'
-import { JWTConfigSchema } from './jwt'
 import { OrganizationConfigSchema } from './organization'
 import { TwoFactorConfigSchema } from './two-factor'
 
@@ -18,8 +16,6 @@ export * from './admin'
 export * from './organization'
 export * from './two-factor'
 export * from './api-keys'
-export * from './bearer'
-export * from './jwt'
 
 /**
  * Unified Plugins Configuration Schema
@@ -31,8 +27,7 @@ export * from './jwt'
  *
  * Plugin categories:
  * - Organization: admin, organization
- * - Security: twoFactor
- * - API: bearer, jwt, apiKeys
+ * - Security: twoFactor, apiKeys
  *
  * @example
  * ```typescript
@@ -62,10 +57,6 @@ export const PluginsConfigSchema = Schema.Struct({
 
   // Security plugins
   twoFactor: Schema.optional(TwoFactorConfigSchema),
-
-  // API plugins
-  bearer: Schema.optional(BearerConfigSchema),
-  jwt: Schema.optional(JWTConfigSchema),
   apiKeys: Schema.optional(ApiKeysConfigSchema),
 }).pipe(
   Schema.annotations({

@@ -37,7 +37,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
         tables: [
           {
@@ -46,7 +46,7 @@ test.describe('Row-Level Security Enforcement', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'owner_id', type: 'integer' },
+              { id: 3, name: 'owner_id', type: 'user' },
             ],
             permissions: {
               read: { type: 'owner', field: 'owner_id' },
@@ -98,7 +98,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
         tables: [
           {
@@ -107,7 +107,7 @@ test.describe('Row-Level Security Enforcement', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'secret', type: 'single-line-text' },
-              { id: 3, name: 'user_id', type: 'integer' },
+              { id: 3, name: 'user_id', type: 'user' },
             ],
             permissions: {
               read: { type: 'owner', field: 'user_id' },
@@ -153,7 +153,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
         tables: [
           {
@@ -208,7 +208,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
         tables: [
           {
@@ -272,7 +272,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
         tables: [
           {
@@ -281,7 +281,7 @@ test.describe('Row-Level Security Enforcement', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'created_by', type: 'integer' },
+              { id: 3, name: 'created_by', type: 'user' },
             ],
             permissions: {
               create: { type: 'owner', field: 'created_by' },
@@ -291,7 +291,7 @@ test.describe('Row-Level Security Enforcement', () => {
       })
 
       // Create test user
-      const _user = await createAuthenticatedUser({ email: 'user@example.com' })
+      await createAuthenticatedUser({ email: 'user@example.com' })
 
       // WHEN: Checking RLS policy for INSERT operations
       // THEN: RLS policy for owner-based create should be created
@@ -326,7 +326,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
         tables: [
           {
@@ -335,7 +335,7 @@ test.describe('Row-Level Security Enforcement', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'content', type: 'long-text' },
-              { id: 3, name: 'owner_id', type: 'integer' },
+              { id: 3, name: 'owner_id', type: 'user' },
             ],
             permissions: {
               update: { type: 'owner', field: 'owner_id' },
@@ -387,7 +387,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
         tables: [
           {
@@ -396,7 +396,7 @@ test.describe('Row-Level Security Enforcement', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'text', type: 'long-text' },
-              { id: 3, name: 'author_id', type: 'integer' },
+              { id: 3, name: 'author_id', type: 'user' },
             ],
             permissions: {
               delete: { type: 'owner', field: 'author_id' },
@@ -448,7 +448,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
         tables: [
           {
@@ -520,7 +520,7 @@ test.describe('Row-Level Security Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
         tables: [
           {
@@ -529,7 +529,7 @@ test.describe('Row-Level Security Enforcement', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'user_id', type: 'integer' },
+              { id: 3, name: 'user_id', type: 'user' },
             ],
             permissions: {
               read: { type: 'owner', field: 'user_id' },

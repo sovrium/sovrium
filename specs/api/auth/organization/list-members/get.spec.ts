@@ -37,7 +37,7 @@ test.describe('List organization members', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -46,10 +46,6 @@ test.describe('List organization members', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -98,12 +94,12 @@ test.describe('List organization members', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-MEMBERS-002: should return 400 Bad Request without organizationId',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -112,10 +108,6 @@ test.describe('List organization members', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // WHEN: User requests members without organizationId parameter
@@ -137,7 +129,7 @@ test.describe('List organization members', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -155,12 +147,12 @@ test.describe('List organization members', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-MEMBERS-004: should return 404 Not Found for non-existent organization',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -169,10 +161,6 @@ test.describe('List organization members', () => {
         email: 'user@example.com',
         password: 'UserPass123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'user@example.com',
-        password: 'UserPass123!',
       })
 
       // WHEN: User requests members of non-existent organization
@@ -191,12 +179,12 @@ test.describe('List organization members', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-MEMBERS-005: should return 404 Not Found for non-member (prevent enumeration)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user who is not member of an organization
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -206,10 +194,6 @@ test.describe('List organization members', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -222,10 +206,6 @@ test.describe('List organization members', () => {
         email: 'nonmember@example.com',
         password: 'NonMemberPass123!',
         name: 'Non Member',
-      })
-      await signIn({
-        email: 'nonmember@example.com',
-        password: 'NonMemberPass123!',
       })
 
       // WHEN: Non-member attempts to list organization members
@@ -249,7 +229,7 @@ test.describe('List organization members', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
           plugins: { organization: true },
         },
       })
@@ -258,10 +238,6 @@ test.describe('List organization members', () => {
         email: 'owner@example.com',
         password: 'OwnerPass123!',
         name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
       })
 
       const createResponse = await page.request.post('/api/auth/organization/create', {
@@ -311,62 +287,64 @@ test.describe('List organization members', () => {
   test.fixme(
     'API-AUTH-ORG-LIST-MEMBERS-007: user can complete full listMembers workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          authentication: ['email-and-password'],
-          plugins: { organization: true },
-        },
+    async ({ page, startServerWithSchema, signUp }) => {
+      await test.step('Setup: Start server with organization plugin', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+            plugins: { organization: true },
+          },
+        })
       })
 
-      // Test 1: List without auth fails
-      const noAuthResponse = await page.request.get(
-        '/api/auth/organization/list-members?organizationId=1'
-      )
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create owner and organization
-      await signUp({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
-        name: 'Owner User',
-      })
-      await signIn({
-        email: 'owner@example.com',
-        password: 'OwnerPass123!',
+      await test.step('Verify list members fails without auth', async () => {
+        const noAuthResponse = await page.request.get(
+          '/api/auth/organization/list-members?organizationId=1'
+        )
+        expect(noAuthResponse.status()).toBe(401)
       })
 
-      const createResponse = await page.request.post('/api/auth/organization/create', {
-        data: { name: 'Test Org', slug: 'test-org' },
-      })
-      const org = await createResponse.json()
+      let orgId: string
 
-      // Test 2: List members succeeds (owner is member)
-      const listResponse = await page.request.get(
-        `/api/auth/organization/list-members?organizationId=${org.id}`
-      )
-      expect(listResponse.status()).toBe(200)
+      await test.step('Setup: Create owner and organization', async () => {
+        await signUp({
+          email: 'owner@example.com',
+          password: 'OwnerPass123!',
+          name: 'Owner User',
+        })
 
-      const data = await listResponse.json()
-      expect(data.members.length).toBeGreaterThan(0)
-
-      // Test 3: Non-member gets 404
-      await signUp({
-        email: 'outsider@example.com',
-        password: 'OutsiderPass123!',
-        name: 'Outsider',
-      })
-      await signIn({
-        email: 'outsider@example.com',
-        password: 'OutsiderPass123!',
+        const createResponse = await page.request.post('/api/auth/organization/create', {
+          data: { name: 'Test Org', slug: 'test-org' },
+        })
+        const org = await createResponse.json()
+        orgId = org.id
       })
 
-      const outsiderResponse = await page.request.get(
-        `/api/auth/organization/list-members?organizationId=${org.id}`
-      )
-      expect(outsiderResponse.status()).toBe(404)
+      await test.step('List members for owner (owner is member)', async () => {
+        const listResponse = await page.request.get(
+          `/api/auth/organization/list-members?organizationId=${orgId}`
+        )
+        expect(listResponse.status()).toBe(200)
+
+        const data = await listResponse.json()
+        expect(data.members.length).toBeGreaterThan(0)
+      })
+
+      await test.step('Setup: Create non-member user', async () => {
+        await signUp({
+          email: 'outsider@example.com',
+          password: 'OutsiderPass123!',
+          name: 'Outsider',
+        })
+      })
+
+      await test.step('Verify non-member gets 404', async () => {
+        const outsiderResponse = await page.request.get(
+          `/api/auth/organization/list-members?organizationId=${orgId}`
+        )
+        expect(outsiderResponse.status()).toBe(404)
+      })
     }
   )
 })

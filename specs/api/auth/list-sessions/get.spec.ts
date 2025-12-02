@@ -32,12 +32,12 @@ test.describe('List user sessions', () => {
   test(
     'API-AUTH-LIST-SESSIONS-001: should return 200 OK with active sessions',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user (created via API)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -46,10 +46,6 @@ test.describe('List user sessions', () => {
         email: 'test@example.com',
         password: 'TestPassword123!',
         name: 'Test User',
-      })
-      await signIn({
-        email: 'test@example.com',
-        password: 'TestPassword123!',
       })
 
       // WHEN: User requests list of their sessions
@@ -67,12 +63,12 @@ test.describe('List user sessions', () => {
   test(
     'API-AUTH-LIST-SESSIONS-002: should return sessions for authenticated user',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user (created via API)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -82,10 +78,6 @@ test.describe('List user sessions', () => {
         email: 'single@example.com',
         password: 'SinglePass123!',
         name: 'Single Session User',
-      })
-      await signIn({
-        email: 'single@example.com',
-        password: 'SinglePass123!',
       })
 
       // WHEN: User requests list of their sessions
@@ -108,7 +100,7 @@ test.describe('List user sessions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -123,12 +115,12 @@ test.describe('List user sessions', () => {
   test(
     'API-AUTH-LIST-SESSIONS-004: should show session with metadata',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user (created via API)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -137,10 +129,6 @@ test.describe('List user sessions', () => {
         email: 'metadata@example.com',
         password: 'MetadataPass123!',
         name: 'Metadata User',
-      })
-      await signIn({
-        email: 'metadata@example.com',
-        password: 'MetadataPass123!',
       })
 
       // WHEN: User requests list of their sessions
@@ -167,7 +155,7 @@ test.describe('List user sessions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -203,12 +191,12 @@ test.describe('List user sessions', () => {
   test(
     'API-AUTH-LIST-SESSIONS-006: should return empty after sign-out',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user who signs out (created via API)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -217,10 +205,6 @@ test.describe('List user sessions', () => {
         email: 'signout@example.com',
         password: 'SignoutPass123!',
         name: 'Signout User',
-      })
-      await signIn({
-        email: 'signout@example.com',
-        password: 'SignoutPass123!',
       })
 
       // Verify sessions exist before sign-out
@@ -241,12 +225,12 @@ test.describe('List user sessions', () => {
   test(
     'API-AUTH-LIST-SESSIONS-007: should show session creation time',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
+    async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: An authenticated user (created via API)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          authentication: ['email-and-password'],
+          emailAndPassword: true,
         },
       })
 
@@ -255,10 +239,6 @@ test.describe('List user sessions', () => {
         email: 'time@example.com',
         password: 'TimePass123!',
         name: 'Time User',
-      })
-      await signIn({
-        email: 'time@example.com',
-        password: 'TimePass123!',
       })
 
       // WHEN: User requests list of their sessions
@@ -283,40 +263,43 @@ test.describe('List user sessions', () => {
   test(
     'API-AUTH-LIST-SESSIONS-008: user can complete full list-sessions workflow',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, signUp, signIn }) => {
-      // GIVEN: A running server with auth enabled
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          authentication: ['email-and-password'],
-        },
+    async ({ page, startServerWithSchema, signUp }) => {
+      await test.step('Setup: Start server with auth enabled', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          auth: {
+            emailAndPassword: true,
+          },
+        })
       })
 
-      // Test 1: List sessions fails without auth
-      const noAuthResponse = await page.request.get('/api/auth/list-sessions')
-      expect(noAuthResponse.status()).toBe(401)
-
-      // Create user and sign in
-      await signUp({
-        email: 'workflow@example.com',
-        password: 'WorkflowPass123!',
-        name: 'Workflow User',
+      await test.step('Verify list sessions fails without auth', async () => {
+        const noAuthResponse = await page.request.get('/api/auth/list-sessions')
+        expect(noAuthResponse.status()).toBe(401)
       })
-      await signIn({ email: 'workflow@example.com', password: 'WorkflowPass123!' })
 
-      // Test 2: List sessions succeeds with auth
-      const authResponse = await page.request.get('/api/auth/list-sessions')
-      expect(authResponse.status()).toBe(200)
-      const sessions = await authResponse.json()
-      expect(Array.isArray(sessions)).toBe(true)
-      expect(sessions.length).toBeGreaterThanOrEqual(1)
+      await test.step('Setup: Create and authenticate user', async () => {
+        await signUp({
+          email: 'workflow@example.com',
+          password: 'WorkflowPass123!',
+          name: 'Workflow User',
+        })
+      })
 
-      // Sign out
-      await page.request.post('/api/auth/sign-out')
+      await test.step('List sessions with valid auth', async () => {
+        const authResponse = await page.request.get('/api/auth/list-sessions')
+        expect(authResponse.status()).toBe(200)
+        const sessions = await authResponse.json()
+        expect(Array.isArray(sessions)).toBe(true)
+        expect(sessions.length).toBeGreaterThanOrEqual(1)
+      })
 
-      // Test 3: List sessions fails after sign-out
-      const afterSignOutResponse = await page.request.get('/api/auth/list-sessions')
-      expect(afterSignOutResponse.status()).toBe(401)
+      await test.step('Verify list sessions fails after sign-out', async () => {
+        await page.request.post('/api/auth/sign-out')
+
+        const afterSignOutResponse = await page.request.get('/api/auth/list-sessions')
+        expect(afterSignOutResponse.status()).toBe(401)
+      })
     }
   )
 })

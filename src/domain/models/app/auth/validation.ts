@@ -5,18 +5,20 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { AuthenticationMethod } from './methods'
+import type { EmailAndPasswordConfig } from './methods/email-and-password'
+import type { MagicLinkConfig } from './methods/magic-link'
 import type { OAuthConfig } from './oauth'
 import type { PluginsConfig } from './plugins'
 
 /**
  * Auth Configuration for Validation
  *
- * Interface representing the auth configuration structure
+ * Interface representing the flattened auth configuration structure
  * used for cross-field validation.
  */
 export interface AuthConfigForValidation {
-  readonly authentication: readonly AuthenticationMethod[]
+  readonly emailAndPassword?: EmailAndPasswordConfig
+  readonly magicLink?: MagicLinkConfig
   readonly oauth?: OAuthConfig
   readonly plugins?: PluginsConfig
 }
@@ -30,6 +32,19 @@ export interface ValidationResult {
 }
 
 /**
+ * Check if a specific authentication method is enabled
+ */
+export const isMethodEnabled = (
+  config: AuthConfigForValidation | undefined,
+  method: 'emailAndPassword' | 'magicLink' | 'oauth'
+): boolean => {
+  if (!config) return false
+  const value = config[method]
+  if (typeof value === 'boolean') return value
+  return value !== undefined
+}
+
+/**
  * Validation Rules for Auth Configuration
  *
  * These rules ensure incompatible features aren't combined
@@ -40,7 +55,7 @@ export interface ValidationResult {
  * Rule 1: Two-factor authentication requires a primary auth method
  *
  * 2FA is a second factor and requires a primary authentication method
- * like email-and-password or passkey.
+ * like emailAndPassword.
  */
 export const validateTwoFactorRequiresPrimary = (
   config: AuthConfigForValidation
@@ -51,15 +66,12 @@ export const validateTwoFactorRequiresPrimary = (
     return { success: true }
   }
 
-  const hasPrimaryAuth = config.authentication.some((method) => {
-    const methodName = typeof method === 'string' ? method : method.method
-    return methodName === 'email-and-password' || methodName === 'passkey'
-  })
+  const hasEmailAndPassword = isMethodEnabled(config, 'emailAndPassword')
 
-  if (!hasPrimaryAuth) {
+  if (!hasEmailAndPassword) {
     return {
       success: false,
-      message: 'Two-factor authentication requires email-and-password or passkey authentication',
+      message: 'Two-factor authentication requires emailAndPassword authentication',
     }
   }
 
@@ -90,30 +102,6 @@ export const validateOAuthHasProviders = (config: AuthConfigForValidation): Vali
 }
 
 /**
- * Rule 3: Passkey is recommended with HTTPS
- *
- * This is a warning rather than an error. Passkey/WebAuthn
- * requires HTTPS in production but may work in development
- * with localhost.
- */
-export const validatePasskeyWithHTTPS = (
-  config: AuthConfigForValidation,
-  isProduction: boolean
-): ValidationResult => {
-  const hasPasskey = config.authentication.some(
-    (method) => method === 'passkey' || (typeof method === 'object' && method.method === 'passkey')
-  )
-
-  if (hasPasskey && isProduction) {
-    // This would need to be checked at runtime against the actual URL
-    // For now, we just flag it as a consideration
-    return { success: true }
-  }
-
-  return { success: true }
-}
-
-/**
  * Run all validation rules
  *
  * Returns the first validation failure or success.
@@ -127,18 +115,11 @@ export const validateAuthConfig = (config: AuthConfigForValidation): ValidationR
 }
 
 /**
- * Get method name from authentication method (string or object)
+ * Check if a specific authentication method is enabled (alias)
  */
-export const getAuthMethodName = (method: AuthenticationMethod): string => {
-  if (typeof method === 'string') {
-    return method
-  }
-  return method.method
-}
-
-/**
- * Check if a specific authentication method is enabled
- */
-export const hasAuthMethod = (config: AuthConfigForValidation, methodName: string): boolean => {
-  return config.authentication.some((method) => getAuthMethodName(method) === methodName)
+export const hasAuthMethod = (
+  config: AuthConfigForValidation,
+  methodName: 'emailAndPassword' | 'magicLink' | 'oauth'
+): boolean => {
+  return isMethodEnabled(config, methodName)
 }

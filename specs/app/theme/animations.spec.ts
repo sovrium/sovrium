@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Animation Configuration
  *
  * Source: src/domain/models/app/theme/index.ts
- * Spec Count: 24 (23 @spec + 1 @regression)
+ * Spec Count: 23 (23 @spec + 1 @regression)
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (23 tests: 8 validation + 15 application) - Exhaustive acceptance criteria

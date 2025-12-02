@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Version**: 5.65.0
+**Version**: 5.71.0
 **Purpose**: Comprehensive tool for detecting and removing unused code, dependencies, exports, and configuration issues. Helps maintain a clean, optimized codebase by identifying dead code that accumulates over time.
 
 ## What Knip Detects

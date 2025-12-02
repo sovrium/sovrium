@@ -6,6 +6,7 @@
  */
 
 import nodemailer from 'nodemailer'
+import { getEmailConfigFromEffect } from './email-config'
 import type Mail from 'nodemailer/lib/mailer'
 import type SMTPTransport from 'nodemailer/lib/smtp-transport'
 
@@ -40,6 +41,11 @@ export interface EmailConfig {
 /**
  * Get email configuration from environment variables
  *
+ * Uses Effect.Config under the hood for type-safe configuration with:
+ * - Automatic validation
+ * - Secret handling (passwords redacted in logs)
+ * - Composable defaults
+ *
  * In production, SMTP_HOST is required. In development, falls back to
  * localhost:1025 (Mailpit) for local email testing.
  *
@@ -53,55 +59,16 @@ export interface EmailConfig {
  * - SMTP_FROM_NAME: Default "from" display name (default: 'Sovrium')
  *
  * @see https://mailpit.axllent.org/ for local development email testing
+ * @see ./email-config.ts for Effect-based configuration (preferred for new code)
  */
 export function getEmailConfig(): EmailConfig {
-  const host = process.env.SMTP_HOST
-  const isProduction = process.env.NODE_ENV === 'production'
-
-  // Use real SMTP in production or when explicitly configured
-  if (host) {
-    const port = parseInt(process.env.SMTP_PORT ?? '587', 10)
-    return {
-      host,
-      port,
-      secure: process.env.SMTP_SECURE === 'true' || port === 465,
-      auth: {
-        user: process.env.SMTP_USER ?? '',
-        pass: process.env.SMTP_PASS ?? '',
-      },
-      from: {
-        email: process.env.SMTP_FROM ?? 'noreply@sovrium.com',
-        name: process.env.SMTP_FROM_NAME ?? 'Sovrium',
-      },
-    }
-  }
-
-  // Development fallback - requires Mailpit or similar local SMTP
-  // E2E tests configure Mailpit via fixtures.ts
-  if (isProduction) {
-    console.error('[EMAIL] WARNING: SMTP_HOST not configured in production mode')
-  } else {
-    console.warn('[EMAIL] SMTP_HOST not configured, using localhost:1025 (Mailpit)')
-  }
-
-  return {
-    host: 'localhost',
-    port: 1025,
-    secure: false,
-    auth: {
-      user: '',
-      pass: '',
-    },
-    from: {
-      email: process.env.SMTP_FROM ?? 'noreply@sovrium.local',
-      name: process.env.SMTP_FROM_NAME ?? 'Sovrium (Dev)',
-    },
-  }
+  return getEmailConfigFromEffect()
 }
 
 /**
  * Create a nodemailer transporter from configuration
  */
+/* eslint-disable functional/prefer-immutable-types -- nodemailer transporter is inherently mutable */
 export function createTransporter(
   config: Readonly<EmailConfig>
 ): nodemailer.Transporter<SMTPTransport.SentMessageInfo> {
@@ -112,6 +79,7 @@ export function createTransporter(
     auth: config.auth,
   })
 }
+/* eslint-enable functional/prefer-immutable-types */
 
 /**
  * Pre-configured transporter using environment variables

@@ -497,7 +497,7 @@ Should I proceed with immediate refactoring, or would you like to review the fin
 
 ## Test Validation Framework
 
-**Summary**: Sovrium uses a comprehensive quality check script (`bun run quality`) that runs ESLint, TypeScript, unit tests, and @regression E2E tests in parallel. This agent MUST establish a safety baseline (Phase 0) using the quality script plus @spec tests before refactoring, then validate the baseline is maintained after changes (Phase 5). @spec tests are ignored during refactoring as they may be intentionally failing (TDD red-green-refactor).
+**Summary**: Sovrium uses a comprehensive quality check script (`bun run quality`) that runs ESLint, TypeScript, unit tests, coverage check, and **smart E2E detection** (affected @regression specs only). This agent MUST establish a safety baseline (Phase 0) using the quality script plus @spec tests before refactoring, then validate the baseline is maintained after changes (Phase 5). @spec tests are ignored during refactoring as they may be intentionally failing (TDD red-green-refactor).
 
 ### Quality Check Script
 The `bun run quality` command consolidates multiple quality checks:
@@ -505,11 +505,16 @@ The `bun run quality` command consolidates multiple quality checks:
 - **ESLint**: Linting with max-warnings=0 and caching for performance
 - **TypeScript**: Type checking with incremental mode for speed
 - **Unit Tests**: Bun test on src/ and scripts/ directories with concurrency
-- **@regression E2E Tests**: Playwright tests marked with @regression tag
+- **Coverage Check**: Verifies domain layer source files have unit tests
+- **Smart E2E Detection**: Identifies changed files, maps to related @regression specs, runs only affected tests
+  - **Local mode**: Detects uncommitted changes (staged + unstaged + untracked)
+  - **CI mode**: Compares against main branch (merge-base diff)
+  - **Mapping**: Source files → related spec files (e.g., `src/infrastructure/auth/**` → `specs/api/auth/**/*.spec.ts`)
 
 **Benefits of consolidated script**:
-- ✅ Runs all checks in parallel for speed (typically <30s for full codebase)
+- ✅ Runs checks efficiently (typically <30s when no E2E needed, up to 5min with affected specs)
 - ✅ Single command for comprehensive validation
+- ✅ Smart E2E detection prevents timeout during TDD automation
 - ✅ Consistent quality baseline across all refactoring phases
 - ✅ Automated caching and optimization
 
@@ -559,7 +564,8 @@ Use this template to document test baseline state:
   - ✅ ESLint (2.1s)
   - ✅ TypeScript (8.3s)
   - ✅ Unit Tests (4.2s)
-  - ✅ E2E Regression Tests (@regression) (13.9s)
+  - ✅ Coverage Check (0.5s)
+  - ✅ Smart E2E Detection (13.9s) - X affected @regression specs
 
 ### Critical E2E Tests (@spec)
 - ✅ 5/5 passing
@@ -888,7 +894,8 @@ When reporting layer violations, use this format:
    - **ESLint** (`bun run lint`): Code style, functional programming rules, layer boundaries
    - **TypeScript** (`bun run typecheck`): Type safety, no implicit any, strict mode
    - **Unit Tests** (`bun test:unit`): All `*.test.ts` files must pass
-   - **E2E Regression** (`bun test:e2e --grep @regression`): No regressions allowed
+   - **Coverage Check**: Domain layer source files must have unit tests
+   - **Smart E2E Detection**: Identifies affected @regression specs and runs only those (no regressions allowed)
 
 6. **Preserve Functionality**: Never suggest refactorings that change behavior without explicit user approval
 
