@@ -390,59 +390,56 @@ test.describe('Hover Interaction', () => {
     'APP-PAGES-INTERACTION-HOVER-011: user can complete full hover interaction workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with comprehensive hover interactions
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Test' },
-            sections: [
-              {
-                type: 'button',
-                props: {},
-                interactions: {
-                  hover: {
-                    transform: 'scale(1.05)',
-                    shadow: '0 10px 25px rgba(0,0,0,0.15)',
-                    duration: '200ms',
-                    easing: 'ease-out',
+      await test.step('Setup: Start server with hover interactions', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: {
+                    hover: {
+                      transform: 'scale(1.05)',
+                      shadow: '0 10px 25px rgba(0,0,0,0.15)',
+                      duration: '200ms',
+                      easing: 'ease-out',
+                    },
                   },
+                  children: ['Button 1'],
                 },
-                children: ['Button 1'],
-              },
-              {
-                type: 'button',
-                props: {},
-                interactions: {
-                  hover: { backgroundColor: '#007bff', color: '#ffffff', duration: '300ms' },
+                {
+                  type: 'button',
+                  props: {},
+                  interactions: {
+                    hover: { backgroundColor: '#007bff', color: '#ffffff', duration: '300ms' },
+                  },
+                  children: ['Button 2'],
                 },
-                children: ['Button 2'],
-              },
-            ],
-          },
-        ],
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
+      await test.step('Navigate to page and verify transform hover', async () => {
+        await page.goto('/')
+        const button1 = page.locator('button').filter({ hasText: 'Button 1' })
+        await button1.hover()
+        // Note: Browsers convert scale(1.05) to matrix(1.05, 0, 0, 1.05, 0, 0)
+        await expect(button1).toHaveCSS('transform', /matrix\(1\.05, 0, 0, 1\.05, 0, 0\)/)
+        await expect(button1).toHaveCSS('box-shadow', /rgba/)
+      })
 
-      // Verify transform + shadow hover
-      const button1 = page.locator('button').filter({ hasText: 'Button 1' })
-      await button1.hover()
-      // Note: Browsers convert scale(1.05) to matrix(1.05, 0, 0, 1.05, 0, 0)
-      // THEN: assertion
-      await expect(button1).toHaveCSS('transform', /matrix\(1\.05, 0, 0, 1\.05, 0, 0\)/)
-      await expect(button1).toHaveCSS('box-shadow', /rgba/)
-
-      // Verify color change hover
-      const button2 = page.locator('button').filter({ hasText: 'Button 2' })
-      await button2.hover()
-      // THEN: assertion
-      await expect(button2).toHaveCSS('background-color', 'rgb(0, 123, 255)')
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify color change hover', async () => {
+        const button2 = page.locator('button').filter({ hasText: 'Button 2' })
+        await button2.hover()
+        await expect(button2).toHaveCSS('background-color', 'rgb(0, 123, 255)')
+      })
     }
   )
 })

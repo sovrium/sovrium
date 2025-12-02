@@ -472,59 +472,55 @@ test.describe('Scroll Interaction', () => {
     'APP-PAGES-INTERACTION-SCROLL-013: user can complete full scroll interaction workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application with comprehensive scroll interactions
-      await startServerWithSchema({
-        name: 'test-app',
-        pages: [
-          {
-            name: 'Test',
-            path: '/',
-            meta: { lang: 'en-US', title: 'Test' },
-            sections: [
-              {
-                type: 'div',
-                props: { style: 'margin-top: 1000px' },
-                interactions: { scroll: { animation: 'fadeIn', threshold: 0.1, once: true } },
-                children: ['Section 1'],
-              },
-              {
-                type: 'div',
-                props: { style: 'margin-top: 1000px' },
-                interactions: {
-                  scroll: { animation: 'fadeInUp', delay: '200ms', duration: '600ms' },
+      await test.step('Setup: Start server with scroll interactions', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'Test',
+              path: '/',
+              meta: { lang: 'en-US', title: 'Test' },
+              sections: [
+                {
+                  type: 'div',
+                  props: { style: 'margin-top: 1000px' },
+                  interactions: { scroll: { animation: 'fadeIn', threshold: 0.1, once: true } },
+                  children: ['Section 1'],
                 },
-                children: ['Section 2'],
-              },
-              {
-                type: 'div',
-                props: { style: 'margin-top: 1000px' },
-                interactions: { scroll: { animation: 'zoomIn', threshold: 0.5 } },
-                children: ['Section 3'],
-              },
-            ],
-          },
-        ],
+                {
+                  type: 'div',
+                  props: { style: 'margin-top: 1000px' },
+                  interactions: {
+                    scroll: { animation: 'fadeInUp', delay: '200ms', duration: '600ms' },
+                  },
+                  children: ['Section 2'],
+                },
+                {
+                  type: 'div',
+                  props: { style: 'margin-top: 1000px' },
+                  interactions: { scroll: { animation: 'zoomIn', threshold: 0.5 } },
+                  children: ['Section 3'],
+                },
+              ],
+            },
+          ],
+        })
       })
 
-      // WHEN/THEN: Streamlined workflow testing integration points
-      await page.goto('/')
+      await test.step('Navigate to page and verify first animation', async () => {
+        await page.goto('/')
+        const section1 = page.locator('div').filter({ hasText: 'Section 1' })
+        await section1.scrollIntoViewIfNeeded()
+        await expect(section1).toHaveClass(/animate-fadeIn/)
+      })
 
-      // Verify first scroll animation
-      const section1 = page.locator('div').filter({ hasText: 'Section 1' })
-      await section1.scrollIntoViewIfNeeded()
-      // THEN: assertion
-      await expect(section1).toHaveClass(/animate-fadeIn/)
-
-      // Verify delayed scroll animation
-      const section2 = page.locator('div').filter({ hasText: 'Section 2' })
-      await section2.scrollIntoViewIfNeeded()
-      // THEN: assertion
-      await expect(section2).toHaveClass(/animate-fadeInUp/)
-      // Note: Browsers may normalize 200ms to 0.2s, both are equivalent
-      // THEN: assertion
-      await expect(section2).toHaveCSS('animation-delay', '0.2s')
-
-      // Focus on workflow continuity, not exhaustive coverage
+      await test.step('Verify delayed scroll animation', async () => {
+        const section2 = page.locator('div').filter({ hasText: 'Section 2' })
+        await section2.scrollIntoViewIfNeeded()
+        await expect(section2).toHaveClass(/animate-fadeInUp/)
+        // Note: Browsers may normalize 200ms to 0.2s, both are equivalent
+        await expect(section2).toHaveCSS('animation-delay', '0.2s')
+      })
     }
   )
 })
